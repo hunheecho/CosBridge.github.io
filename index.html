@@ -1,93 +1,175 @@
 <!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>코스브릿지 - 한국 화장품 브랜드의 일본 진출 파트너</title>
-  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: { primary: "#0a2463", secondary: "#e6f1ff" },
-          borderRadius: {
-            none: "0px", sm: "4px", DEFAULT: "8px", md: "12px",
-            lg: "16px", xl: "20px", "2xl": "24px", "3xl": "32px",
-            full: "9999px", button: "8px"
-          }
-        }
-      }
-    };
-  </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css" />
-  <style>
-    body { font-family: 'Noto Sans KR', sans-serif; color: #333; overflow-x:hidden; }
-  </style>
-</head>
-<body>
-  <!-- Navigation -->
-  <nav class="bg-white fixed w-full z-50 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between h-16">
-        <div class="flex items-center">
-          <a href="#" class="text-primary text-2xl font-['Pacifico']">CosBridge</a>
-        </div>
-        <div class="hidden md:flex items-center space-x-8">
-          <a href="#process" class="text-gray-700 hover:text-primary transition-colors">프로세스</a>
-          <a href="#services" class="text-gray-700 hover:text-primary transition-colors">서비스</a>
-          <a href="#case-studies" class="text-gray-700 hover:text-primary transition-colors">사례</a>
-          <a href="#insights" class="text-gray-700 hover:text-primary transition-colors">인사이트</a>
-          <a href="#about" class="text-gray-700 hover:text-primary transition-colors">회사소개</a>
-          <a href="#temp" class="text-gray-700 hover:text-primary transition-colors font-semibold">임시</a>
-          <a href="#contact" class="bg-primary text-white px-4 py-2 rounded-button whitespace-nowrap hover:bg-opacity-90 transition-all">상담 요청</a>
-        </div>
-        <div class="flex md:hidden items-center">
-          <button id="mobile-menu-button" class="w-10 h-10 flex items-center justify-center">
-            <i class="ri-menu-line text-gray-700 ri-lg"></i>
-          </button>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CosBridge - Global Cosmetics, Japan Distribution Partner</title>
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <!-- ... Tailwind, Fonts, Remixicon, Style (생략: 기존과 동일) ... -->
+    <!-- (style 태그 및 스크립트는 기존 코드 그대로 사용하세요) -->
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav class="bg-white fixed w-full z-50 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+          <div class="flex items-center">
+            <a href="#" class="text-primary text-2xl font-['Pacifico']">CosBridge</a>
+          </div>
+          <div class="hidden md:flex items-center space-x-8">
+            <a href="#process" class="text-gray-700 hover:text-primary transition-colors">Process</a>
+            <a href="#services" class="text-gray-700 hover:text-primary transition-colors">Services</a>
+            <a href="#case-studies" class="text-gray-700 hover:text-primary transition-colors">Case Studies</a>
+            <a href="#insights" class="text-gray-700 hover:text-primary transition-colors">Insights</a>
+            <a href="#about" class="text-gray-700 hover:text-primary transition-colors">About Us</a>
+            <a href="#contact" class="bg-primary text-white px-4 py-2 !rounded-button whitespace-nowrap hover:bg-opacity-90 transition-all">Contact</a>
+          </div>
+          <div class="flex md:hidden items-center">
+            <button type="button" id="mobile-menu-button" class="w-10 h-10 flex items-center justify-center">
+              <i class="ri-menu-line text-gray-700 ri-lg"></i>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-    <div id="mobile-menu" class="hidden md:hidden bg-white shadow-lg absolute w-full">
-      <div class="px-2 pt-2 pb-3 space-y-1">
-        <a href="#process" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">프로세스</a>
-        <a href="#services" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">서비스</a>
-        <a href="#case-studies" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">사례</a>
-        <a href="#insights" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">인사이트</a>
-        <a href="#about" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">회사소개</a>
-        <a href="#temp" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors font-semibold">임시</a>
-        <a href="#contact" class="block px-3 py-2 text-primary font-medium">상담 요청</a>
+      <!-- Mobile Menu -->
+      <div id="mobile-menu" class="hidden md:hidden bg-white shadow-lg absolute w-full">
+        <div class="px-2 pt-2 pb-3 space-y-1">
+          <a href="#process" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">Process</a>
+          <a href="#services" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">Services</a>
+          <a href="#case-studies" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">Case Studies</a>
+          <a href="#insights" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">Insights</a>
+          <a href="#about" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">About Us</a>
+          <a href="#contact" class="block px-3 py-2 text-primary font-medium">Contact</a>
+        </div>
       </div>
-    </div>
-  </nav>
+    </nav>
 
-  <!-- Hero Section -->
-  <!-- 기존 Hero 내용 유지... -->
+    <!-- Hero Section -->
+    <section class="hero-section min-h-screen flex items-center pt-16">
+      <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 hero-content">
+        <div class="md:w-1/2 py-20 md:py-32">
+          <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-primary mb-6 fade-in" style="animation-delay: 0.2s">
+            Your gateway to Japan.<br />Global brands, local presence.
+          </h1>
+          <p class="text-lg md:text-xl text-gray-700 mb-8 fade-in" style="animation-delay: 0.4s">
+            One partner for regulatory, distribution, and growth in Japan.
+          </p>
+          <a href="#contact" class="inline-block bg-primary text-white px-8 py-3 !rounded-button whitespace-nowrap text-lg btn-primary fade-in" style="animation-delay: 0.6s">Contact Us</a>
+        </div>
+      </div>
+    </section>
 
-  <!-- ...중략된 기존 섹션들 유지... -->
+    <!-- Pain → Solution Section -->
+    <section class="py-20 bg-gray-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl md:text-4xl font-bold text-center mb-16 text-gray-800">
+          Challenges & Solutions
+        </h2>
+        <div class="grid md:grid-cols-3 gap-8">
+          <div class="bg-white p-8 rounded-lg shadow-md stagger-card" data-delay="0">
+            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6 mx-auto">
+              <i class="ri-error-warning-line text-red-500 ri-2x"></i>
+            </div>
+            <h3 class="text-xl font-bold text-center mb-2">Complex Regulations</h3>
+            <p class="text-gray-600 text-center mb-6">
+              Japan’s cosmetic regulations are complex and strict, making entry barriers high.
+            </p>
+            <div class="w-full h-px bg-gray-200 my-6"></div>
+            <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6 mx-auto">
+              <i class="ri-check-line text-green-500 ri-2x"></i>
+            </div>
+            <h3 class="text-xl font-bold text-center mb-2">Streamlined Registration</h3>
+            <p class="text-gray-600 text-center">
+              Our regulatory experts manage the entire process, saving time and cost.
+            </p>
+          </div>
+          <div class="bg-white p-8 rounded-lg shadow-md stagger-card" data-delay="0.2">
+            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6 mx-auto">
+              <i class="ri-door-lock-line text-red-500 ri-2x"></i>
+            </div>
+            <h3 class="text-xl font-bold text-center mb-2">Market Access</h3>
+            <p class="text-gray-600 text-center mb-6">
+              Entering Japan is inefficient without a local network.
+            </p>
+            <div class="w-full h-px bg-gray-200 my-6"></div>
+            <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6 mx-auto">
+              <i class="ri-store-line text-green-500 ri-2x"></i>
+            </div>
+            <h3 class="text-xl font-bold text-center mb-2">Distribution Network</h3>
+            <p class="text-gray-600 text-center">
+              We connect brands to trusted retail and EC partners for efficient entry.
+            </p>
+          </div>
+          <div class="bg-white p-8 rounded-lg shadow-md stagger-card" data-delay="0.4">
+            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6 mx-auto">
+              <i class="ri-advertisement-line text-red-500 ri-2x"></i>
+            </div>
+            <h3 class="text-xl font-bold text-center mb-2">Marketing</h3>
+            <p class="text-gray-600 text-center mb-6">
+              Understanding Japanese consumers is essential for effective marketing.
+            </p>
+            <div class="w-full h-px bg-gray-200 my-6"></div>
+            <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6 mx-auto">
+              <i class="ri-target-line text-green-500 ri-2x"></i>
+            </div>
+            <h3 class="text-xl font-bold text-center mb-2">Optimized Targeting</h3>
+            <p class="text-gray-600 text-center">
+              We build effective strategies based on deep local insights.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-  <!-- Temporary Section -->
-  <section id="temp" class="py-20 bg-gray-50">
-    <div class="max-w-7xl mx-auto px-4 text-center space-y-6">
-      <h2 class="text-3xl font-bold">임시</h2>
-      <img src="./images/wash.jpg" alt="임시 이미지" class="mx-auto max-w-md rounded-lg shadow-lg object-cover" />
-    </div>
-  </section>
+    <!-- Process Section -->
+    <section id="process" class="py-20 bg-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl md:text-4xl font-bold text-center mb-16 text-gray-800">
+          Our 3-Step Process
+        </h2>
+        <div class="flex flex-col md:flex-row justify-between items-center md:items-start space-y-12 md:space-y-0 md:space-x-8">
+          <div class="flex flex-col items-center max-w-xs">
+            <div class="process-circle w-24 h-24 flex items-center justify-center bg-white border-2 border-primary rounded-full shadow-md mb-6">
+              <span class="text-2xl font-bold text-primary">1</span>
+            </div>
+            <h3 class="text-xl font-bold text-center mb-3">Pre-Assessment</h3>
+            <div class="relative h-1 w-32 bg-gray-200 mb-4">
+              <div class="process-line absolute inset-0 bg-primary"></div>
+            </div>
+            <p class="text-gray-600 text-center">
+              Product analysis & Japan market suitability, to define your entry strategy.
+            </p>
+          </div>
+          <div class="flex flex-col items-center max-w-xs">
+            <div class="process-circle w-24 h-24 flex items-center justify-center bg-white border-2 border-primary rounded-full shadow-md mb-6">
+              <span class="text-2xl font-bold text-primary">2</span>
+            </div>
+            <h3 class="text-xl font-bold text-center mb-3">Registration & Certification</h3>
+            <div class="relative h-1 w-32 bg-gray-200 mb-4">
+              <div class="process-line absolute inset-0 bg-primary"></div>
+            </div>
+            <p class="text-gray-600 text-center">
+              Support for Japanese regulatory, GMP, and product registration.
+            </p>
+          </div>
+          <div class="flex flex-col items-center max-w-xs">
+            <div class="process-circle w-24 h-24 flex items-center justify-center bg-white border-2 border-primary rounded-full shadow-md mb-6">
+              <span class="text-2xl font-bold text-primary">3</span>
+            </div>
+            <h3 class="text-xl font-bold text-center mb-3">Distribution & Marketing</h3>
+            <div class="relative h-1 w-32 bg-gray-200 mb-4">
+              <div class="process-line absolute inset-0 bg-primary"></div>
+            </div>
+            <p class="text-gray-600 text-center">
+              Distribution channel selection and tailored local marketing.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- 이하 모든 Section, Footer 등 동일하게 영어로 변환 (Services, Case Studies, Insights, About Us, Contact 등) -->
+    <!-- ...중략... 원하면 모든 섹션 전체 영어 변환 가능 -->
 
-  <!-- Contact Section -->
-  <!-- 기존 Contact 내용 유지... -->
-
-  <!-- Footer -->
-  <!-- 기존 Footer 내용 유지... -->
-
-  <script>
-    document.getElementById('mobile-menu-button').addEventListener('click', function() {
-      document.getElementById('mobile-menu').classList.toggle('hidden');
-    });
-  </script>
-</body>
+  </body>
 </html>
