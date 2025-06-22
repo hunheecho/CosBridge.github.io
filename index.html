@@ -1,175 +1,1634 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CosBridge - Global Cosmetics, Japan Distribution Partner</title>
+    <title>CosBridge - Your Fast-Track to Japan's Beauty Market</title>
     <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-    <!-- ... Tailwind, Fonts, Remixicon, Style (생략: 기존과 동일) ... -->
-    <!-- (style 태그 및 스크립트는 기존 코드 그대로 사용하세요) -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: { primary: "#0a2463", secondary: "#e6f1ff" },
+            borderRadius: {
+              none: "0px",
+              sm: "4px",
+              DEFAULT: "8px",
+              md: "12px",
+              lg: "16px",
+              xl: "20px",
+              "2xl": "24px",
+              "3xl": "32px",
+              full: "9999px",
+              button: "8px",
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css"
+    />
+    <style>
+      :where([class^="ri-"])::before { content: "\f3c2"; }
+
+      body {
+          font-family: 'Noto Sans KR', sans-serif;
+          color: #333;
+          overflow-x: hidden;
+      }
+
+      .hero-section {
+          background-image: url('https://readdy.ai/api/search-image?query=Elegant%2520cosmetic%2520products%2520with%2520Japanese%2520aesthetic%2520elements%2520on%2520a%2520clean%2520white%2520background.%2520The%2520left%2520side%2520has%2520a%2520pure%2520white%2520gradient%2520that%2520transitions%2520smoothly%2520to%2520the%2520right%2520side%2520with%2520minimal%2520skincare%2520products%2520in%2520premium%2520packaging.%2520The%2520composition%2520is%2520airy%2520and%2520sophisticated%2520with%2520subtle%2520Japanese%2520design%2520elements.&width=1600&height=800&seq=hero1&orientation=landscape');
+          background-size: cover;
+          background-position: center right;
+          position: relative;
+      }
+
+      .hero-section::before {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0.5) 100%);
+          z-index: 1;
+      }
+
+      .hero-content {
+          position: relative;
+          z-index: 2;
+      }
+
+      .fade-in {
+          opacity: 0;
+          transform: translateY(20px);
+          animation: fadeIn 0.6s ease-out forwards;
+      }
+
+      .stagger-card {
+          opacity: 0;
+          transform: translateY(20px);
+      }
+
+      @keyframes fadeIn {
+          to {
+              opacity: 1;
+              transform: translateY(0);
+          }
+      }
+
+      .process-circle {
+          transition: all 0.3s ease;
+      }
+
+      .process-circle:hover {
+          transform: scale(1.05);
+          box-shadow: 0 10px 25px -5px rgba(10, 36, 99, 0.2);
+      }
+
+      .process-circle:hover .process-line {
+          width: 100%;
+      }
+
+      .process-line {
+          width: 0;
+          height: 2px;
+          background-color: #0a2463;
+          transition: width 0.4s ease;
+      }
+
+      .service-card {
+          transition: all 0.3s ease;
+          background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+      }
+
+      .service-card:hover {
+          transform: translateY(-5px) scale(1.02);
+          box-shadow: 0 20px 25px -5px rgba(10, 36, 99, 0.1), 0 10px 10px -5px rgba(10, 36, 99, 0.04);
+          background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+      }
+
+      .team-member {
+          transition: all 0.3s ease;
+      }
+
+      .team-member:hover {
+          transform: scale(1.05);
+      }
+
+      .form-input {
+          transition: all 0.3s ease;
+          border-bottom: 2px solid #e2e8f0;
+      }
+
+      .form-input:focus {
+          border-color: #0a2463;
+          outline: none;
+      }
+
+      .form-input:focus + .input-line {
+          width: 100%;
+      }
+
+      .input-line {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 0;
+          height: 2px;
+          background-color: #0a2463;
+          transition: width 0.4s ease;
+      }
+
+      .btn-primary {
+          transition: all 0.3s ease;
+          will-change: transform;
+      }
+
+      .btn-primary:hover {
+          transform: scale(1.05);
+      }
+
+      .btn-primary:active {
+          transform: scale(0.95);
+      }
+
+      .read-more:hover .arrow-icon {
+          transform: translateX(5px);
+      }
+
+      .arrow-icon {
+          transition: transform 0.3s ease;
+      }
+
+      .modal {
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+      }
+
+      .modal.active {
+          opacity: 1;
+          visibility: visible;
+      }
+
+      .modal-content {
+          transform: translateY(-20px);
+          transition: all 0.3s ease;
+      }
+
+      .modal.active .modal-content {
+          transform: translateY(0);
+      }
+
+      .count-up {
+          display: inline-block;
+      }
+    </style>
   </head>
   <body>
-    <!-- Navigation -->
+    <!-- 네비게이션 -->
     <nav class="bg-white fixed w-full z-50 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
           <div class="flex items-center">
-            <a href="#" class="text-primary text-2xl font-['Pacifico']">CosBridge</a>
+            <a href="#" class="text-primary text-2xl font-['Pacifico']"
+              >CosBridge</a
+            >
           </div>
           <div class="hidden md:flex items-center space-x-8">
-            <a href="#process" class="text-gray-700 hover:text-primary transition-colors">Process</a>
-            <a href="#services" class="text-gray-700 hover:text-primary transition-colors">Services</a>
-            <a href="#case-studies" class="text-gray-700 hover:text-primary transition-colors">Case Studies</a>
-            <a href="#insights" class="text-gray-700 hover:text-primary transition-colors">Insights</a>
-            <a href="#about" class="text-gray-700 hover:text-primary transition-colors">About Us</a>
-            <a href="#contact" class="bg-primary text-white px-4 py-2 !rounded-button whitespace-nowrap hover:bg-opacity-90 transition-all">Contact</a>
+            <a
+              href="#process"
+              class="text-gray-700 hover:text-primary transition-colors"
+              >Process</a
+            >
+            <a
+              href="#services"
+              class="text-gray-700 hover:text-primary transition-colors"
+              >Services</a
+            >
+            <a
+              href="#case-studies"
+              class="text-gray-700 hover:text-primary transition-colors"
+              >Case</a
+            >
+            <a
+              href="#insights"
+              class="text-gray-700 hover:text-primary transition-colors"
+              >Insights</a
+            >
+            <a
+              href="#about"
+              class="text-gray-700 hover:text-primary transition-colors"
+              >About Us</a
+            >
+            <a
+              href="#contact"
+              class="bg-primary text-white px-4 py-2 !rounded-button whitespace-nowrap hover:bg-opacity-90 transition-all"
+              >Request for Consultation</a
+            >
           </div>
           <div class="flex md:hidden items-center">
-            <button type="button" id="mobile-menu-button" class="w-10 h-10 flex items-center justify-center">
+            <button
+              type="button"
+              id="mobile-menu-button"
+              class="w-10 h-10 flex items-center justify-center"
+            >
               <i class="ri-menu-line text-gray-700 ri-lg"></i>
             </button>
           </div>
         </div>
       </div>
-      <!-- Mobile Menu -->
-      <div id="mobile-menu" class="hidden md:hidden bg-white shadow-lg absolute w-full">
+
+      <!-- 모바일 메뉴 -->
+      <div
+        id="mobile-menu"
+        class="hidden md:hidden bg-white shadow-lg absolute w-full"
+      >
         <div class="px-2 pt-2 pb-3 space-y-1">
-          <a href="#process" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">Process</a>
-          <a href="#services" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">Services</a>
-          <a href="#case-studies" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">Case Studies</a>
-          <a href="#insights" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">Insights</a>
-          <a href="#about" class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">About Us</a>
-          <a href="#contact" class="block px-3 py-2 text-primary font-medium">Contact</a>
+          <a
+            href="#process"
+            class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors"
+            >Process</a
+          >
+          <a
+            href="#services"
+            class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors"
+            >Services</a
+          >
+          <a
+            href="#case-studies"
+            class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors"
+            >Case</a
+          >
+          <a
+            href="#insights"
+            class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors"
+            >Insights</a
+          >
+          <a
+            href="#about"
+            class="block px-3 py-2 text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors"
+            >About Us</a
+          >
+          <a href="#contact" class="block px-3 py-2 text-primary font-medium"
+            >Request for Consultation</a
+          >
         </div>
       </div>
     </nav>
 
-    <!-- Hero Section -->
+    <!-- 히어로 섹션 -->
     <section class="hero-section min-h-screen flex items-center pt-16">
       <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 hero-content">
         <div class="md:w-1/2 py-20 md:py-32">
-          <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-primary mb-6 fade-in" style="animation-delay: 0.2s">
-            Your gateway to Japan.<br />Global brands, local presence.
+          <h1
+            class="text-4xl md:text-5xl lg:text-6xl font-bold text-primary mb-6 fade-in"
+            style="animation-delay: 0.2s"
+          >
+            Japan market. <br />Simplified.
           </h1>
-          <p class="text-lg md:text-xl text-gray-700 mb-8 fade-in" style="animation-delay: 0.4s">
-            One partner for regulatory, distribution, and growth in Japan.
+          <p
+            class="text-lg md:text-xl text-gray-700 mb-8 fade-in"
+            style="animation-delay: 0.4s"
+          >
+            From regulatory registration to distribution, as one partner.
           </p>
-          <a href="#contact" class="inline-block bg-primary text-white px-8 py-3 !rounded-button whitespace-nowrap text-lg btn-primary fade-in" style="animation-delay: 0.6s">Contact Us</a>
+          <a
+            href="#contact"
+            class="inline-block bg-primary text-white px-8 py-3 !rounded-button whitespace-nowrap text-lg btn-primary fade-in"
+            style="animation-delay: 0.6s"
+            >Request for consultation</a
+          >
         </div>
       </div>
     </section>
 
-    <!-- Pain → Solution Section -->
+    <!-- Pain → Solution 섹션 -->
     <section class="py-20 bg-gray-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 class="text-3xl md:text-4xl font-bold text-center mb-16 text-gray-800">
-          Challenges & Solutions
+        <h2
+          class="text-3xl md:text-4xl font-bold text-center mb-16 text-gray-800"
+        >
+          Problems and Solutions
         </h2>
+
         <div class="grid md:grid-cols-3 gap-8">
-          <div class="bg-white p-8 rounded-lg shadow-md stagger-card" data-delay="0">
-            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6 mx-auto">
+          <div
+            class="bg-white p-8 rounded-lg shadow-md stagger-card"
+            data-delay="0"
+          >
+            <div
+              class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6 mx-auto"
+            >
               <i class="ri-error-warning-line text-red-500 ri-2x"></i>
             </div>
-            <h3 class="text-xl font-bold text-center mb-2">Complex Regulations</h3>
+            <h3 class="text-xl font-bold text-center mb-2">Regulatory Complexity</h3>
             <p class="text-gray-600 text-center mb-6">
-              Japan’s cosmetic regulations are complex and strict, making entry barriers high.
+              Japan's cosmetics regulations are complicated and demanding, which has a high entry barrier.
             </p>
+
             <div class="w-full h-px bg-gray-200 my-6"></div>
-            <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6 mx-auto">
+
+            <div
+              class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6 mx-auto"
+            >
               <i class="ri-check-line text-green-500 ri-2x"></i>
             </div>
-            <h3 class="text-xl font-bold text-center mb-2">Streamlined Registration</h3>
+            <h3 class="text-xl font-bold text-center mb-2">Simplifying GMP registration</h3>
             <p class="text-gray-600 text-center">
-              Our regulatory experts manage the entire process, saving time and cost.
+              Professional regulatory teams save time and money on behalf of complex registration processes.
             </p>
           </div>
-          <div class="bg-white p-8 rounded-lg shadow-md stagger-card" data-delay="0.2">
-            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6 mx-auto">
+
+          <div
+            class="bg-white p-8 rounded-lg shadow-md stagger-card"
+            data-delay="0.2"
+          >
+            <div
+              class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6 mx-auto"
+            >
               <i class="ri-door-lock-line text-red-500 ri-2x"></i>
             </div>
-            <h3 class="text-xl font-bold text-center mb-2">Market Access</h3>
+            <h3 class="text-xl font-bold text-center mb-2">Market entry</h3>
             <p class="text-gray-600 text-center mb-6">
-              Entering Japan is inefficient without a local network.
+              Entering the Japanese market is difficult and inefficient without local networks.
             </p>
+
             <div class="w-full h-px bg-gray-200 my-6"></div>
-            <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6 mx-auto">
+
+            <div
+              class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6 mx-auto"
+            >
               <i class="ri-store-line text-green-500 ri-2x"></i>
             </div>
-            <h3 class="text-xl font-bold text-center mb-2">Distribution Network</h3>
+            <h3 class="text-xl font-bold text-center mb-2">
+              Connect local distribution channels
+            </h3>
             <p class="text-gray-600 text-center">
-              We connect brands to trusted retail and EC partners for efficient entry.
+              Connect with proven distribution partners to help you enter the market efficiently.
             </p>
           </div>
-          <div class="bg-white p-8 rounded-lg shadow-md stagger-card" data-delay="0.4">
-            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6 mx-auto">
+
+          <div
+            class="bg-white p-8 rounded-lg shadow-md stagger-card"
+            data-delay="0.4"
+          >
+            <div
+              class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6 mx-auto"
+            >
               <i class="ri-advertisement-line text-red-500 ri-2x"></i>
             </div>
             <h3 class="text-xl font-bold text-center mb-2">Marketing</h3>
             <p class="text-gray-600 text-center mb-6">
-              Understanding Japanese consumers is essential for effective marketing.
+              If you don't understand the characteristics and trends of Japanese consumers, the marketing effect is limited.
             </p>
+
             <div class="w-full h-px bg-gray-200 my-6"></div>
-            <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6 mx-auto">
+
+            <div
+              class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6 mx-auto"
+            >
               <i class="ri-target-line text-green-500 ri-2x"></i>
             </div>
-            <h3 class="text-xl font-bold text-center mb-2">Optimized Targeting</h3>
+            <h3 class="text-xl font-bold text-center mb-2">
+              Optimizing Japanese Consumer Targeting
+            </h3>
             <p class="text-gray-600 text-center">
-              We build effective strategies based on deep local insights.
+              Establish effective marketing strategies based on local consumer understanding.
             </p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Process Section -->
+    <!-- 3단계 Process 섹션 -->
     <section id="process" class="py-20 bg-white">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 class="text-3xl md:text-4xl font-bold text-center mb-16 text-gray-800">
-          Our 3-Step Process
+        <h2
+          class="text-3xl md:text-4xl font-bold text-center mb-16 text-gray-800"
+        >
+          3-Step Process
         </h2>
-        <div class="flex flex-col md:flex-row justify-between items-center md:items-start space-y-12 md:space-y-0 md:space-x-8">
+
+        <div
+          class="flex flex-col md:flex-row justify-between items-center md:items-start space-y-12 md:space-y-0 md:space-x-8"
+        >
           <div class="flex flex-col items-center max-w-xs">
-            <div class="process-circle w-24 h-24 flex items-center justify-center bg-white border-2 border-primary rounded-full shadow-md mb-6">
+            <div
+              class="process-circle w-24 h-24 flex items-center justify-center bg-white border-2 border-primary rounded-full shadow-md mb-6"
+            >
               <span class="text-2xl font-bold text-primary">1</span>
             </div>
-            <h3 class="text-xl font-bold text-center mb-3">Pre-Assessment</h3>
+            <h3 class="text-xl font-bold text-center mb-3">Pre-diagnosis</h3>
             <div class="relative h-1 w-32 bg-gray-200 mb-4">
               <div class="process-line absolute inset-0 bg-primary"></div>
             </div>
             <p class="text-gray-600 text-center">
-              Product analysis & Japan market suitability, to define your entry strategy.
+              Establish entry strategies through product analysis and Japanese market suitability assessments.
             </p>
           </div>
+
           <div class="flex flex-col items-center max-w-xs">
-            <div class="process-circle w-24 h-24 flex items-center justify-center bg-white border-2 border-primary rounded-full shadow-md mb-6">
+            <div
+              class="process-circle w-24 h-24 flex items-center justify-center bg-white border-2 border-primary rounded-full shadow-md mb-6"
+            >
               <span class="text-2xl font-bold text-primary">2</span>
             </div>
-            <h3 class="text-xl font-bold text-center mb-3">Registration & Certification</h3>
+            <h3 class="text-xl font-bold text-center mb-3">Registration and Certification</h3>
             <div class="relative h-1 w-32 bg-gray-200 mb-4">
               <div class="process-line absolute inset-0 bg-primary"></div>
             </div>
             <p class="text-gray-600 text-center">
-              Support for Japanese regulatory, GMP, and product registration.
+              It supports GMP certification and product registration in accordance with the Japanese Pharmaceutical Affairs Act regulations.
             </p>
           </div>
+
           <div class="flex flex-col items-center max-w-xs">
-            <div class="process-circle w-24 h-24 flex items-center justify-center bg-white border-2 border-primary rounded-full shadow-md mb-6">
+            <div
+              class="process-circle w-24 h-24 flex items-center justify-center bg-white border-2 border-primary rounded-full shadow-md mb-6"
+            >
               <span class="text-2xl font-bold text-primary">3</span>
             </div>
-            <h3 class="text-xl font-bold text-center mb-3">Distribution & Marketing</h3>
+            <h3 class="text-xl font-bold text-center mb-3">Distribution and marketing</h3>
             <div class="relative h-1 w-32 bg-gray-200 mb-4">
               <div class="process-line absolute inset-0 bg-primary"></div>
             </div>
             <p class="text-gray-600 text-center">
-              Distribution channel selection and tailored local marketing.
+              Select optimal distribution channels and implement local customized marketing strategies.
             </p>
           </div>
         </div>
       </div>
     </section>
-    
-    <!-- 이하 모든 Section, Footer 등 동일하게 영어로 변환 (Services, Case Studies, Insights, About Us, Contact 등) -->
-    <!-- ...중략... 원하면 모든 섹션 전체 영어 변환 가능 -->
 
+    <!-- 성공 지표 섹션 -->
+    <section class="py-20 bg-primary text-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl md:text-4xl font-bold text-center mb-16">
+          An Indicator of Success
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="text-center">
+            <div class="text-4xl md:text-5xl font-bold mb-4">
+              <span class="count-up" data-target="40" data-prefix="↓">0</span>%
+            </div>
+            <p class="text-xl">Reduce Time Required</p>
+          </div>
+
+          <div class="text-center">
+            <div class="text-4xl md:text-5xl font-bold mb-4">
+              <span class="count-up" data-target="99">0</span>%
+            </div>
+            <p class="text-xl">Approval Rate</p>
+          </div>
+
+          <div class="text-center">
+            <div class="text-4xl md:text-5xl font-bold mb-4">
+              <span class="count-up" data-target="120" data-prefix="+">0</span>%
+            </div>
+            <p class="text-xl">Average Export Growth</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Services 섹션 -->
+    <section id="services" class="py-20 bg-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2
+          class="text-3xl md:text-4xl font-bold text-center mb-16 text-gray-800"
+        >
+          Services
+        </h2>
+
+        <div class="grid md:grid-cols-2 gap-8">
+          <div class="service-card p-8 rounded-lg shadow-md">
+            <div class="flex items-center mb-6">
+              <div
+                class="w-12 h-12 flex items-center justify-center bg-blue-100 rounded-full mr-4"
+              >
+                <i class="ri-file-list-3-line text-primary ri-lg"></i>
+              </div>
+              <h3 class="text-xl font-bold">Regulatory Support</h3>
+            </div>
+            <ul class="space-y-3 text-gray-600">
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Pharmaceutical compliance and registration support</span>
+              </li>
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Managing the GMP certification acquisition process</span>
+              </li>
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Review and optimize INCI components</span>
+              </li>
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Verifying labeling and packaging compliance</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="service-card p-8 rounded-lg shadow-md">
+            <div class="flex items-center mb-6">
+              <div
+                class="w-12 h-12 flex items-center justify-center bg-blue-100 rounded-full mr-4"
+              >
+                <i class="ri-line-chart-line text-primary ri-lg"></i>
+              </div>
+              <h3 class="text-xl font-bold">Market Entry Strategy</h3>
+            </div>
+            <ul class="space-y-3 text-gray-600">
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Market research and competitor analysis</span>
+              </li>
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Establish optimal pricing strategies</span>
+              </li>
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Brand positioning consulting</span>
+              </li>
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Selection and negotiation of distribution channels</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="service-card p-8 rounded-lg shadow-md">
+            <div class="flex items-center mb-6">
+              <div
+                class="w-12 h-12 flex items-center justify-center bg-blue-100 rounded-full mr-4"
+              >
+                <i class="ri-truck-line text-primary ri-lg"></i>
+              </div>
+              <h3 class="text-xl font-bold">Distribution & Logistics</h3>
+            </div>
+            <ul class="space-y-3 text-gray-600">
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Provides fulfillment services</span>
+              </li>
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Customs and import procedures acting</span>
+              </li>
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Inventory management and logistics optimization</span>
+              </li>
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Support for local customer services (CS)</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="service-card p-8 rounded-lg shadow-md">
+            <div class="flex items-center mb-6">
+              <div
+                class="w-12 h-12 flex items-center justify-center bg-blue-100 rounded-full mr-4"
+              >
+                <i class="ri-advertisement-line text-primary ri-lg"></i>
+              </div>
+              <h3 class="text-xl font-bold">Growth Marketing</h3>
+            </div>
+            <ul class="space-y-3 text-gray-600">
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Entry and operation of the Japanese EC platform</span>
+              </li>
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Social media marketing and influencer collaboration</span>
+              </li>
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Plan and execute offline promotions</span>
+              </li>
+              <li class="flex items-start">
+                <i class="ri-check-line text-green-500 mr-2 mt-1"></i>
+                <span>Performance analysis and Strategy optimization</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 케이스 스터디 섹션 -->
+    <section id="case-studies" class="py-20 bg-gray-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2
+          class="text-3xl md:text-4xl font-bold text-center mb-16 text-gray-800"
+        >
+          Success Case
+        </h2>
+
+        <div class="space-y-8">
+          <div class="bg-white p-8 rounded-lg shadow-md">
+            <div class="flex flex-col md:flex-row md:items-center mb-6">
+              <h3 class="text-xl font-bold text-primary mb-2 md:mb-0 md:mr-4">
+                Clean Beauty Brand A Company
+              </h3>
+              <span
+                class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
+                >Skincare</span
+              >
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6">
+              <div class="border-l-4 border-red-400 pl-4">
+                <h4 class="font-bold mb-2 text-gray-700">Problems</h4>
+                <p class="text-gray-600">
+                  Risk of denial of registration due to containing ingredients that do not conform to Japanese Pharmaceutical Law Regulations
+                </p>
+              </div>
+
+              <div class="border-l-4 border-blue-400 pl-4">
+                <h4 class="font-bold mb-2 text-gray-700">Solutions</h4>
+                <p class="text-gray-600">
+                  Ingredient analysis and alternative ingredient suggestions, support product reformulation in compliance with Japanese regulations
+                </p>
+              </div>
+
+              <div class="border-l-4 border-green-400 pl-4">
+                <h4 class="font-bold mb-2 text-gray-700">Results</h4>
+                <p class="text-gray-600">
+                  100% approval was obtained in the first screening, and 30 million won in monthly sales within 6 months of launch
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white p-8 rounded-lg shadow-md">
+            <div class="flex flex-col md:flex-row md:items-center mb-6">
+              <h3 class="text-xl font-bold text-primary mb-2 md:mb-0 md:mr-4">
+                Makeup Brand B
+              </h3>
+              <span
+                class="inline-block px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
+                >Color cosmetics</span
+              >
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6">
+              <div class="border-l-4 border-red-400 pl-4">
+                <h4 class="font-bold mb-2 text-gray-700">Problems</h4>
+                <p class="text-gray-600">
+                  Difficulty in securing Japanese distribution channels and lack of local marketing strategies
+                </p>
+              </div>
+
+              <div class="border-l-4 border-blue-400 pl-4">
+                <h4 class="font-bold mb-2 text-gray-700">Solutions</h4>
+                <p class="text-gray-600">
+                  Negotiations to enter major department stores and drug stores, planning influencer marketing campaigns
+                </p>
+              </div>
+
+              <div class="border-l-4 border-green-400 pl-4">
+                <h4 class="font-bold mb-2 text-gray-700">Results</h4>
+                <p class="text-gray-600">
+                  215% YoY revenue growth, major drug store chain reach nationwide
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white p-8 rounded-lg shadow-md">
+            <div class="flex flex-col md:flex-row md:items-center mb-6">
+              <h3 class="text-xl font-bold text-primary mb-2 md:mb-0 md:mr-4">
+                Haircare Brand C
+              </h3>
+              <span
+                class="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                >Hair products</span
+              >
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6">
+              <div class="border-l-4 border-red-400 pl-4">
+                <h4 class="font-bold mb-2 text-gray-700">Problems</h4>
+                <p class="text-gray-600">
+                  Product packaging and fragrance profiles for Japanese consumers
+                </p>
+              </div>
+
+              <div class="border-l-4 border-blue-400 pl-4">
+                <h4 class="font-bold mb-2 text-gray-700">Solutions</h4>
+                <p class="text-gray-600">
+                  Tailored packaging redesign and fragrance profile to the Japanese market
+                </p>
+              </div>
+
+              <div class="border-l-4 border-green-400 pl-4">
+                <h4 class="font-bold mb-2 text-gray-700">Results</h4>
+                <p class="text-gray-600">
+                  Re-purchase rate in Japan reaches 78% and enters top 10 in major online mall categories
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-center mt-12">
+            <button
+              class="inline-flex items-center text-primary font-medium read-more"
+            >
+              View more cases
+              <i class="ri-arrow-right-line ml-2 arrow-icon"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Insights 섹션 -->
+    <section id="insights" class="py-20 bg-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2
+          class="text-3xl md:text-4xl font-bold text-center mb-16 text-gray-800"
+        >
+          Insights
+        </h2>
+
+        <div class="grid md:grid-cols-3 gap-8">
+          <div
+            class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden insight-card"
+          >
+            <img
+              src="https://readdy.ai/api/search-image?query=Japanese%2520beauty%2520products%2520displayed%2520in%2520a%2520modern%2520minimalist%2520setting%2520with%2520sakura%2520flowers.%2520Clean%2520and%2520elegant%2520composition%2520with%2520soft%2520lighting.%2520The%2520products%2520are%2520arranged%2520neatly%2520with%2520Japanese%2520aesthetic%2520elements.%2520Professional%2520product%2520photography%2520style.&width=600&height=400&seq=insight1&orientation=landscape"
+              alt="일본 뷰티 트렌드"
+              class="w-full h-48 object-cover object-top"
+            />
+            <div class="p-6">
+              <h3 class="text-xl font-bold mb-3">Japan Beauty Trends</h3>
+              <p class="text-gray-600 mb-4">
+                We provide the latest trends in the Japanese cosmetics market and data on consumer preference analysis.
+              </p>
+              <button
+                class="text-primary font-medium insight-button flex items-center"
+              >
+                Read more
+                <i class="ri-arrow-right-line ml-2"></i>
+              </button>
+            </div>
+          </div>
+
+          <div
+            class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden insight-card"
+          >
+            <img
+              src="https://readdy.ai/api/search-image?query=Official%2520Japanese%2520regulatory%2520documents%2520and%2520certificates%2520with%2520a%2520stamp%2520on%2520a%2520clean%2520desk.%2520Professional%2520business%2520setting%2520with%2520minimal%2520styling.%2520The%2520documents%2520appear%2520official%2520with%2520Japanese%2520text%2520visible.%2520Clean%2520and%2520professional%2520composition.&width=600&height=400&seq=insight2&orientation=landscape"
+              alt="규제 업데이트"
+              class="w-full h-48 object-cover object-top"
+            />
+            <div class="p-6">
+              <h3 class="text-xl font-bold mb-3">Regulation Updates</h3>
+              <p class="text-gray-600 mb-4">
+                We provide information on changes in Japanese cosmetics regulations and updates to the latest laws and regulations.
+              </p>
+              <button
+                class="text-primary font-medium insight-button flex items-center"
+              >
+                Read more
+                <i class="ri-arrow-right-line ml-2"></i>
+              </button>
+            </div>
+          </div>
+
+          <div
+            class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden insight-card"
+          >
+            <img
+              src="https://readdy.ai/api/search-image?query=Business%2520people%2520in%2520a%2520modern%2520conference%2520room%2520during%2520a%2520presentation%2520about%2520cosmetics%2520market.%2520Professional%2520setting%2520with%2520charts%2520and%2520graphs%2520displayed%2520on%2520screen.%2520Clean%2520corporate%2520environment%2520with%2520natural%2520lighting.%2520Business%2520casual%2520attire.&width=600&height=400&seq=insight3&orientation=landscape"
+              alt="리포트 및 웨비나"
+              class="w-full h-48 object-cover object-top"
+            />
+            <div class="p-6">
+              <h3 class="text-xl font-bold mb-3">Report and Webinar Archive</h3>
+              <p class="text-gray-600 mb-4">
+                We provide reports and webinar materials related to entering the Japanese cosmetics market.
+              </p>
+              <button
+                class="text-primary font-medium insight-button flex items-center"
+              >
+                Read more
+                <i class="ri-arrow-right-line ml-2"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 모달 -->
+    <div
+      id="insight-modal"
+      class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    >
+      <div class="modal-content bg-white rounded-lg max-w-2xl w-full mx-4">
+        <div class="p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h3 id="modal-title" class="text-2xl font-bold text-gray-800"></h3>
+            <button
+              id="close-modal"
+              class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700"
+            >
+              <i class="ri-close-line ri-lg"></i>
+            </button>
+          </div>
+          <div id="modal-content" class="prose max-w-none">
+            <!-- 모달 내용이 여기에 동적으로 삽입됩니다 -->
+          </div>
+          <div class="mt-8 text-center">
+            <button
+              id="download-report"
+              class="bg-primary text-white px-6 py-2 !rounded-button whitespace-nowrap"
+            >
+              Reports download
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 회사 소개 섹션 -->
+    <section id="about" class="py-20 bg-gray-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2
+          class="text-3xl md:text-4xl font-bold text-center mb-16 text-gray-800"
+        >
+          About us
+        </h2>
+
+        <div class="mb-20">
+          <h3 class="text-2xl font-bold text-center mb-8">Vision & Values</h3>
+          <div class="max-w-3xl mx-auto text-center">
+            <p class="text-lg text-gray-600 mb-6">
+              CosBridge is a professional partner that provides a one-stop solution for Korean cosmetics brands to enter the Japanese market.
+            </p>
+            <p class="text-lg text-gray-600 mb-6">
+              We provide professional support for Korean brands to succeed in the Japanese market beyond complex regulations and cultural barriers.
+            </p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-12">
+              <div class="text-center">
+                <div
+                  class="w-16 h-16 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mx-auto mb-4"
+                >
+                  <i class="ri-award-line text-primary ri-lg"></i>
+                </div>
+                <h4 class="font-bold mb-2">Professionalism</h4>
+              </div>
+              <div class="text-center">
+                <div
+                  class="w-16 h-16 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mx-auto mb-4"
+                >
+                  <i class="ri-shield-check-line text-primary ri-lg"></i>
+                </div>
+                <h4 class="font-bold mb-2">Reliability</h4>
+              </div>
+              <div class="text-center">
+                <div
+                  class="w-16 h-16 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mx-auto mb-4"
+                >
+                  <i class="ri-rocket-line text-primary ri-lg"></i>
+                </div>
+                <h4 class="font-bold mb-2">Innovativeness</h4>
+              </div>
+              <div class="text-center">
+                <div
+                  class="w-16 h-16 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mx-auto mb-4"
+                >
+                  <i class="ri-global-line text-primary ri-lg"></i>
+                </div>
+                <h4 class="font-bold mb-2">Global mind</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-20">
+          <h3 class="text-2xl font-bold text-center mb-8">Core Team</h3>
+          <div class="grid md:grid-cols-3 gap-8">
+            <div
+              class="team-member bg-white p-6 rounded-lg shadow-md text-center"
+            >
+              <div
+                class="w-32 h-32 rounded-full bg-gray-200 mx-auto mb-6 overflow-hidden"
+              >
+                <img
+                  src="https://readdy.ai/api/search-image?query=Professional%2520Korean%2520businessman%2520in%2520his%252040s%2520wearing%2520a%2520navy%2520suit%2520with%2520a%2520light%2520blue%2520shirt.%2520He%2520has%2520short%2520black%2520hair%2520and%2520glasses.%2520The%2520photo%2520is%2520a%2520professional%2520headshot%2520with%2520neutral%2520background.%2520He%2520has%2520a%2520confident%2520smile%2520and%2520appears%2520trustworthy.%2520High%2520quality%2520corporate%2520portrait.&width=300&height=300&seq=team1&orientation=squarish"
+                  alt="김정호 대표"
+                  class="w-full h-full object-cover"
+                />
+              </div>
+              <h4 class="text-xl font-bold mb-1">김정호</h4>
+              <p class="text-primary mb-3">CEO</p>
+              <p class="text-gray-600 mb-4">
+                Former head of the Korean branch of a Japanese cosmetics company with more than 15 years of experience in the cosmetics industry
+              </p>
+              <div class="flex justify-center space-x-3">
+                <a
+                  href="#"
+                  class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary"
+                >
+                  <i class="ri-linkedin-fill"></i>
+                </a>
+                <a
+                  href="#"
+                  class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary"
+                >
+                  <i class="ri-mail-line"></i>
+                </a>
+              </div>
+            </div>
+
+            <div
+              class="team-member bg-white p-6 rounded-lg shadow-md text-center"
+            >
+              <div
+                class="w-32 h-32 rounded-full bg-gray-200 mx-auto mb-6 overflow-hidden"
+              >
+                <img
+                  src="https://readdy.ai/api/search-image?query=Professional%2520Japanese%2520businesswoman%2520in%2520her%252030s%2520with%2520shoulder-length%2520black%2520hair.%2520She%2520is%2520wearing%2520a%2520professional%2520outfit%2520with%2520a%2520light-colored%2520blouse.%2520The%2520photo%2520is%2520a%2520professional%2520headshot%2520with%2520neutral%2520background.%2520She%2520has%2520a%2520friendly%2520smile%2520and%2520appears%2520approachable.%2520High%2520quality%2520corporate%2520portrait.&width=300&height=300&seq=team2&orientation=squarish"
+                  alt="사토 유리코 이사"
+                  class="w-full h-full object-cover"
+                />
+              </div>
+              <h4 class="text-xl font-bold mb-1">사토 유리코</h4>
+              <p class="text-primary mb-3">General Manager of Japanese Business</p>
+              <p class="text-gray-600 mb-4">
+                Former regulation officer of the Japan Cosmetics Association, cosmetics regulation expert
+              </p>
+              <div class="flex justify-center space-x-3">
+                <a
+                  href="#"
+                  class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary"
+                >
+                  <i class="ri-linkedin-fill"></i>
+                </a>
+                <a
+                  href="#"
+                  class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary"
+                >
+                  <i class="ri-mail-line"></i>
+                </a>
+              </div>
+            </div>
+
+            <div
+              class="team-member bg-white p-6 rounded-lg shadow-md text-center"
+            >
+              <div
+                class="w-32 h-32 rounded-full bg-gray-200 mx-auto mb-6 overflow-hidden"
+              >
+                <img
+                  src="https://readdy.ai/api/search-image?query=Professional%2520Korean%2520businesswoman%2520in%2520her%252030s%2520with%2520medium-length%2520black%2520hair.%2520She%2520is%2520wearing%2520a%2520professional%2520outfit%2520with%2520a%2520light-colored%2520blouse.%2520The%2520photo%2520is%2520a%2520professional%2520headshot%2520with%2520neutral%2520background.%2520She%2520has%2520a%2520confident%2520expression%2520and%2520appears%2520competent.%2520High%2520quality%2520corporate%2520portrait.&width=300&height=300&seq=team3&orientation=squarish"
+                  alt="이수진 이사"
+                  class="w-full h-full object-cover"
+                />
+              </div>
+              <h4 class="text-xl font-bold mb-1">이수진</h4>
+              <p class="text-primary mb-3">마케팅 총괄</p>
+              <p class="text-gray-600 mb-4">
+                Former global cosmetics brand marketing director, Japanese market expert
+              </p>
+              <div class="flex justify-center space-x-3">
+                <a
+                  href="#"
+                  class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary"
+                >
+                  <i class="ri-linkedin-fill"></i>
+                </a>
+                <a
+                  href="#"
+                  class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary"
+                >
+                  <i class="ri-mail-line"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-2xl font-bold text-center mb-8">Global Network</h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+              <div
+                class="w-16 h-16 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mx-auto mb-4"
+              >
+                <i class="ri-government-line text-primary ri-lg"></i>
+              </div>
+              <h4 class="font-bold mb-2">Regulatory body</h4>
+              <p class="text-gray-600">Japan's PMDA, Ministry of Health, Labor and Welfare</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+              <div
+                class="w-16 h-16 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mx-auto mb-4"
+              >
+                <i class="ri-store-2-line text-primary ri-lg"></i>
+              </div>
+              <h4 class="font-bold mb-2">Distribution partner</h4>
+              <p class="text-gray-600">Major department stores, drug stores, EC</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+              <div
+                class="w-16 h-16 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mx-auto mb-4"
+              >
+                <i class="ri-test-tube-line text-primary ri-lg"></i>
+              </div>
+              <h4 class="font-bold mb-2">Testing institution</h4>
+              <p class="text-gray-600">GMP certification, safety test</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+              <div
+                class="w-16 h-16 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mx-auto mb-4"
+              >
+                <i class="ri-user-voice-line text-primary ri-lg"></i>
+              </div>
+              <h4 class="font-bold mb-2">Marketing Network</h4>
+              <p class="text-gray-600">Influencer, PR Agency</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 문의 섹션 -->
+    <section id="contact" class="py-20 bg-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2
+          class="text-3xl md:text-4xl font-bold text-center mb-16 text-gray-800"
+        >
+          Contact us
+        </h2>
+
+        <div class="grid md:grid-cols-2 gap-12">
+          <div>
+            <h3 class="text-2xl font-bold mb-6">Quote Inquiry</h3>
+            <p class="text-gray-600 mb-8">
+              We propose the best strategy for entering Japan to meet your products and goals.
+            </p>
+
+            <form id="contact-form" class="space-y-6">
+              <div class="relative">
+                <input
+                  type="text"
+                  id="company"
+                  class="w-full px-4 py-3 border-none bg-gray-50 rounded form-input"
+                  placeholder="Corporate name"
+                  required
+                />
+                <div class="input-line"></div>
+              </div>
+
+              <div class="relative">
+                <input
+                  type="email"
+                  id="email"
+                  class="w-full px-4 py-3 border-none bg-gray-50 rounded form-input"
+                  placeholder="E-mail"
+                  required
+                />
+                <div class="input-line"></div>
+              </div>
+
+              <div class="relative">
+                <select
+                  id="product-category"
+                  class="w-full px-4 py-3 border-none bg-gray-50 rounded form-input pr-8 appearance-none"
+                  required
+                >
+                  <option value="" disabled selected>Select a suite of products</option>
+                  <option value="skincare">Skincare</option>
+                  <option value="makeup">Make up</option>
+                  <option value="haircare">Haircare</option>
+                  <option value="bodycare">Bodycare</option>
+                  <option value="other">etc</option>
+                </select>
+                <div
+                  class="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none"
+                >
+                  <i class="ri-arrow-down-s-line text-gray-500"></i>
+                </div>
+                <div class="input-line"></div>
+              </div>
+
+              <div class="relative">
+                <textarea
+                  id="goals"
+                  class="w-full px-4 py-3 border-none bg-gray-50 rounded form-input h-32"
+                  placeholder="Annual objectives and other inquiries"
+                  required
+                ></textarea>
+                <div class="input-line"></div>
+              </div>
+
+              <div class="flex items-center mb-4">
+                <div class="relative inline-block w-10 mr-2 align-middle">
+                  <input
+                    type="checkbox"
+                    id="privacy"
+                    class="opacity-0 absolute h-5 w-5"
+                    required
+                  />
+                  <div
+                    class="bg-gray-200 rounded-sm h-5 w-5 flex items-center justify-center"
+                  >
+                    <svg
+                      class="hidden w-3 h-3 text-white fill-current"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M0 11l2-2 5 5L18 3l2 2L7 18z" />
+                    </svg>
+                  </div>
+                </div>
+                <label for="privacy" class="text-sm text-gray-600"
+                  >I agree to collect and use personal information.</label
+                >
+              </div>
+
+              <button
+                type="submit"
+                class="w-full bg-primary text-white py-3 !rounded-button whitespace-nowrap btn-primary"
+              >
+                Contact us
+              </button>
+            </form>
+          </div>
+
+          <div>
+            <h3 class="text-2xl font-bold mb-6">Schedule a meeting</h3>
+            <p class="text-gray-600 mb-8">
+              Book a free consultation on entering the Japanese market.
+            </p>
+
+            <div class="bg-gray-50 p-8 rounded-lg mb-8">
+              <div class="flex items-center mb-6">
+                <div
+                  class="w-12 h-12 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mr-4"
+                >
+                  <i class="ri-calendar-line text-primary ri-lg"></i>
+                </div>
+                <div>
+                  <h4 class="font-bold">Online meeting</h4>
+                  <p class="text-gray-600">
+                    Conveniently consult via Zoom or Google Meet
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center mb-6">
+                <div
+                  class="w-12 h-12 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mr-4"
+                >
+                  <i class="ri-time-line text-primary ri-lg"></i>
+                </div>
+                <div>
+                  <h4 class="font-bold">Consultation time</h4>
+                  <p class="text-gray-600">
+                    10:00 - 18:00 on weekdays (in Japan time)
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center">
+                <div
+                  class="w-12 h-12 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mr-4"
+                >
+                  <i class="ri-translate-2-line text-primary ri-lg"></i>
+                </div>
+                <div>
+                  <h4 class="font-bold">Language Support</h4>
+                  <p class="text-gray-600">English, Korean, and Japanese counseling are available</p>
+                </div>
+              </div>
+            </div>
+
+            <a
+              href="#"
+              class="block w-full bg-white border border-primary text-primary text-center py-3 !rounded-button whitespace-nowrap hover:bg-primary hover:text-white transition-colors"
+            >
+              Schedule a meeting
+            </a>
+
+            <div class="mt-12">
+              <h4 class="font-bold mb-4">Contact</h4>
+              <div class="space-y-4">
+                <div class="flex items-center">
+                  <div
+                    class="w-8 h-8 flex items-center justify-center text-primary mr-3"
+                  >
+                    <i class="ri-mail-line"></i>
+                  </div>
+                  <span class="text-gray-600">contact@cosbridge.co.kr</span>
+                </div>
+                <div class="flex items-center">
+                  <div
+                    class="w-8 h-8 flex items-center justify-center text-primary mr-3"
+                  >
+                    <i class="ri-phone-line"></i>
+                  </div>
+                  <span class="text-gray-600">+82 2-123-4567</span>
+                </div>
+                <div class="flex items-center">
+                  <div
+                    class="w-8 h-8 flex items-center justify-center text-primary mr-3"
+                  >
+                    <i class="ri-map-pin-line"></i>
+                  </div>
+                  <span class="text-gray-600"
+                    >서울특별시 강남구 테헤란로 123, 7층</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 푸터 -->
+    <footer class="bg-gray-900 text-white py-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid md:grid-cols-4 gap-8">
+          <div>
+            <a
+              href="#"
+              class="text-white text-2xl font-['Pacifico'] mb-4 inline-block"
+              >CosBridge</a
+            >
+            <p class="text-gray-400 mt-2">
+              One-stop solution for Korean cosmetics brands to enter the Japanese market
+            </p>
+            <div class="flex space-x-4 mt-6">
+              <a
+                href="#"
+                class="w-8 h-8 flex items-center justify-center bg-gray-800 rounded-full hover:bg-primary transition-colors"
+              >
+                <i class="ri-linkedin-fill"></i>
+              </a>
+              <a
+                href="#"
+                class="w-8 h-8 flex items-center justify-center bg-gray-800 rounded-full hover:bg-primary transition-colors"
+              >
+                <i class="ri-instagram-line"></i>
+              </a>
+              <a
+                href="#"
+                class="w-8 h-8 flex items-center justify-center bg-gray-800 rounded-full hover:bg-primary transition-colors"
+              >
+                <i class="ri-youtube-line"></i>
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <h4 class="text-lg font-bold mb-4">Services</h4>
+            <ul class="space-y-2">
+              <li>
+                <a
+                  href="#"
+                  class="text-gray-400 hover:text-white transition-colors"
+                  >Regulatory Support</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#"
+                  class="text-gray-400 hover:text-white transition-colors"
+                  >Market Entry Strategy</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#"
+                  class="text-gray-400 hover:text-white transition-colors"
+                  >Distribution and logistics</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#"
+                  class="text-gray-400 hover:text-white transition-colors"
+                  >Marketing Support</a
+                >
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 class="text-lg font-bold mb-4">Company information</h4>
+            <ul class="space-y-2">
+              <li>
+                <a
+                  href="#"
+                  class="text-gray-400 hover:text-white transition-colors"
+                  >About us</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#"
+                  class="text-gray-400 hover:text-white transition-colors"
+                  >Team Introduction</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#"
+                  class="text-gray-400 hover:text-white transition-colors"
+                  >Recruitment information</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#"
+                  class="text-gray-400 hover:text-white transition-colors"
+                  >Partnership</a
+                >
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 class="text-lg font-bold mb-4">Legal information</h4>
+            <ul class="space-y-2">
+              <li>
+                <a
+                  href="#"
+                  class="text-gray-400 hover:text-white transition-colors"
+                  >Terms and Conditions of Use</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#"
+                  class="text-gray-400 hover:text-white transition-colors"
+                  >Personal Information Processing Policy</a
+                >
+              </li>
+              <li>
+                <a
+                  href="#"
+                  class="text-gray-400 hover:text-white transition-colors"
+                  >Cookie Policy</a
+                >
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div
+          class="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center"
+        >
+          <p class="text-gray-400 text-sm">
+            © 2025 CosBridge Inc. All rights reserved.
+          </p>
+          <div class="flex space-x-4 mt-4 md:mt-0">
+            <i class="ri-visa-line text-gray-400 ri-lg"></i>
+            <i class="ri-mastercard-line text-gray-400 ri-lg"></i>
+            <i class="ri-paypal-line text-gray-400 ri-lg"></i>
+          </div>
+        </div>
+      </div>
+    </footer>
+    <script id="mobileMenuScript">
+      document.addEventListener("DOMContentLoaded", function () {
+        const mobileMenuButton = document.getElementById("mobile-menu-button");
+        const mobileMenu = document.getElementById("mobile-menu");
+
+        mobileMenuButton.addEventListener("click", function () {
+          mobileMenu.classList.toggle("hidden");
+        });
+
+        // 모바일 메뉴 항목 클릭 시 메뉴 닫기
+        const mobileMenuItems = mobileMenu.querySelectorAll("a");
+        mobileMenuItems.forEach((item) => {
+          item.addEventListener("click", function () {
+            mobileMenu.classList.add("hidden");
+          });
+        });
+      });
+    </script>
+
+    <script id="animationScript">
+      document.addEventListener("DOMContentLoaded", function () {
+        // 스크롤 애니메이션
+        function handleScrollAnimations() {
+          // Pain → Solution 카드 애니메이션
+          const staggerCards = document.querySelectorAll(".stagger-card");
+          staggerCards.forEach((card) => {
+            const cardTop = card.getBoundingClientRect().top;
+            const windowHeight = window.innerHeight;
+
+            if (cardTop < windowHeight * 0.8) {
+              const delay = parseFloat(card.getAttribute("data-delay") || 0);
+              setTimeout(() => {
+                card.style.animation = "fadeIn 0.6s ease-out forwards";
+              }, delay * 1000);
+            }
+          });
+
+          // 카운트업 애니메이션
+          const countElements = document.querySelectorAll(".count-up");
+          countElements.forEach((element) => {
+            const elementTop = element.getBoundingClientRect().top;
+
+            if (
+              elementTop < window.innerHeight * 0.8 &&
+              !element.classList.contains("counted")
+            ) {
+              element.classList.add("counted");
+
+              const target = parseInt(element.getAttribute("data-target"));
+              const prefix = element.getAttribute("data-prefix") || "";
+              const duration = 1200; // 애니메이션 시간 (ms)
+              const frameRate = 30; // 초당 프레임 수
+              const totalFrames = (duration * frameRate) / 1000;
+              let frame = 0;
+
+              const counter = setInterval(() => {
+                frame++;
+                const progress = frame / totalFrames;
+                const currentCount = Math.round(target * progress);
+
+                if (frame === totalFrames) {
+                  element.textContent = prefix + target;
+                  clearInterval(counter);
+                } else {
+                  element.textContent = prefix + currentCount;
+                }
+              }, 1000 / frameRate);
+            }
+          });
+        }
+
+        // 초기 실행
+        handleScrollAnimations();
+
+        // 스크롤 이벤트
+        window.addEventListener("scroll", handleScrollAnimations);
+      });
+    </script>
+
+    <script id="modalScript">
+      document.addEventListener("DOMContentLoaded", function () {
+        const modal = document.getElementById("insight-modal");
+        const modalTitle = document.getElementById("modal-title");
+        const modalContent = document.getElementById("modal-content");
+        const closeModal = document.getElementById("close-modal");
+        const insightButtons = document.querySelectorAll(".insight-button");
+
+        // 모달 데이터
+        const modalData = {
+          "Japan Beauty Trends": {
+            title: "Japan Beauty Trends",
+            content: `
+                              <h4>2025 일본 뷰티 시장 트렌드</h4>
+                              <p>일본 화장품 시장은 2025년에도 지속적인 성장을 보이며, 특히 다음과 같은 트렌드가 주목받고 있습니다:</p>
+                              <ul>
+                                  <li><strong>클린 뷰티:</strong> 자연 유래 성분과 환경 친화적 패키징에 대한 관심 증가</li>
+                                  <li><strong>기능성 화장품:</strong> 안티에이징, 미백, 자외선 차단 등 다기능 제품 선호</li>
+                                  <li><strong>맞춤형 스킨케어:</strong> 개인 피부 타입과 환경에 맞는 맞춤형 솔루션 수요 증가</li>
+                                  <li><strong>디지털 뷰티:</strong> AI 기반 피부 분석 및 가상 체험 기술 활용 확대</li>
+                              </ul>
+                              <p>특히 한국 브랜드는 혁신적인 성분과 효과적인 제품으로 일본 소비자들에게 높은 인지도를 얻고 있으며, 이러한 트렌드를 활용한 전략적 접근이 중요합니다.</p>
+                          `,
+          },
+          "Regulation Updates": {
+            title: "Regulation Updates",
+            content: `
+                              <h4>2025년 일본 화장품 규제 변경 사항</h4>
+                              <p>일본 후생노동성은 최근 화장품 규제에 관한 몇 가지 중요한 변경 사항을 발표했습니다:</p>
+                              <ul>
+                                  <li><strong>성분 규제 강화:</strong> 특정 방부제 및 자외선 차단제에 대한 사용 제한 강화</li>
+                                  <li><strong>표시 기준 변경:</strong> 주요 기능성 성분의 함량 표시 의무화</li>
+                                  <li><strong>안전성 평가:</strong> 신규 화장품 원료에 대한 안전성 평가 기준 강화</li>
+                                  <li><strong>디지털 라벨링:</strong> QR 코드를 통한 제품 정보 제공 허용</li>
+                              </ul>
+                              <p>이러한 변경 사항은 2025년 9월부터 단계적으로 적용될 예정이며, 한국 기업들은 이에 대한 준비가 필요합니다. 코스브릿지는 최신 규제 정보를 지속적으로 업데이트하여 고객사의 원활한 일본 시장 진출을 지원합니다.</p>
+                          `,
+          },
+          "Report and Webinar Archive": {
+            title: "Report and Webinar Archive",
+            content: `
+                              <h4>최신 리포트 및 웨비나</h4>
+                              <p>코스브릿지는 정기적으로 일본 화장품 시장에 관한 심층 리포트와 웨비나를 제공합니다:</p>
+                              <ul>
+                                  <li><strong>시장 리포트:</strong> "2025 일본 화장품 시장 분석 및 전망" (2025.05.15 발행)</li>
+                                  <li><strong>규제 가이드:</strong> "일본 화장품 등록 절차 완벽 가이드" (2025.04.22 업데이트)</li>
+                                  <li><strong>웨비나 녹화본:</strong> "일본 소비자의 K-뷰티 인식 및 구매 행동 분석" (2025.06.10 진행)</li>
+                                  <li><strong>Case 연구:</strong> "성공적인 일본 시장 진출 Case 분석 - 5개 한국 브랜드를 중심으로" (2025.03.18 발행)</li>
+                              </ul>
+                              <p>모든 자료는 회원사에게 무료로 제공되며, 정기적인 업데이트를 통해 최신 정보를 제공합니다. 특별 리포트 요청이나 맞춤형 시장 분석이 필요하신 경우 별도로 문의해 주시기 바랍니다.</p>
+                          `,
+          },
+        };
+
+        // Insights 버튼 클릭 이벤트
+        insightButtons.forEach((button, index) => {
+          button.addEventListener("click", function () {
+            const parent = this.closest(".insight-card");
+            const title = parent.querySelector("h3").textContent;
+
+            modalTitle.textContent = title;
+            modalContent.innerHTML = modalData[title].content;
+
+            modal.classList.add("active");
+            document.body.style.overflow = "hidden"; // 스크롤 방지
+          });
+        });
+
+        // 모달 닫기
+        closeModal.addEventListener("click", function () {
+          modal.classList.remove("active");
+          document.body.style.overflow = ""; // 스크롤 복원
+        });
+
+        // 모달 외부 클릭 시 닫기
+        modal.addEventListener("click", function (e) {
+          if (e.target === modal) {
+            modal.classList.remove("active");
+            document.body.style.overflow = ""; // 스크롤 복원
+          }
+        });
+
+        // 다운로드 버튼 클릭 이벤트
+        document
+          .getElementById("download-report")
+          .addEventListener("click", function () {
+            alert("리포트 다운로드를 시작합니다. 잠시만 기다려주세요.");
+          });
+      });
+    </script>
+    <script id="formScript">
+      document.addEventListener("DOMContentLoaded", function () {
+        // 체크박스 커스텀 스타일
+        const checkbox = document.getElementById("privacy");
+        const checkmark = checkbox.nextElementSibling.querySelector("svg");
+
+        checkbox.addEventListener("change", function () {
+          if (this.checked) {
+            checkmark.classList.remove("hidden");
+          } else {
+            checkmark.classList.add("hidden");
+          }
+        });
+
+        // 폼 제출
+        const contactForm = document.getElementById("contact-form");
+
+        contactForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          // 폼 데이터 수집
+          const formData = {
+            company: document.getElementById("company").value,
+            email: document.getElementById("email").value,
+            productCategory: document.getElementById("product-category").value,
+            goals: document.getElementById("goals").value,
+            privacyConsent: document.getElementById("privacy").checked,
+          };
+
+          // 실제 구현에서는 여기에 AJAX 요청 등을 통해 서버로 데이터 전송
+          console.log("Form data:", formData);
+
+          // 성공 메시지 표시
+          alert(
+            "문의가 성공적으로 접수되었습니다. 빠른 시일 내에 답변 드리겠습니다.",
+          );
+
+          // 폼 초기화
+          contactForm.reset();
+          checkmark.classList.add("hidden");
+        });
+      });
+    </script>
   </body>
 </html>
