@@ -868,10 +868,10 @@
           <h3 class="text-2xl font-bold text-center mb-8">Vision & Values</h3>
           <div class="max-w-3xl mx-auto text-center">
             <p class="text-lg text-gray-600 mb-6">
-              CosBridge is a professional partner that provides a one-stop solution for Korean cosmetics brands to enter the Japanese market.
+              CosBridge is a professional partner that provides a one-stop solution for cosmetics brands to enter the Japanese market.
             </p>
             <p class="text-lg text-gray-600 mb-6">
-              We provide professional support for Korean brands to succeed in the Japanese market beyond complex regulations and cultural barriers.
+              We provide professional support for brands to succeed in the Japanese market beyond complex regulations and cultural barriers.
             </p>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-12">
               <div class="text-center">
@@ -1385,50 +1385,7 @@
         const insightButtons = document.querySelectorAll(".insight-button");
 
         // 모달 데이터
-        const modalData = {
-          "Japan Beauty Trends": {
-            title: "Japan Beauty Trends",
-            content: `
-                              <h4>2025 일본 뷰티 시장 트렌드</h4>
-                              <p>일본 화장품 시장은 2025년에도 지속적인 성장을 보이며, 특히 다음과 같은 트렌드가 주목받고 있습니다:</p>
-                              <ul>
-                                  <li><strong>클린 뷰티:</strong> 자연 유래 성분과 환경 친화적 패키징에 대한 관심 증가</li>
-                                  <li><strong>기능성 화장품:</strong> 안티에이징, 미백, 자외선 차단 등 다기능 제품 선호</li>
-                                  <li><strong>맞춤형 스킨케어:</strong> 개인 피부 타입과 환경에 맞는 맞춤형 솔루션 수요 증가</li>
-                                  <li><strong>디지털 뷰티:</strong> AI 기반 피부 분석 및 가상 체험 기술 활용 확대</li>
-                              </ul>
-                              <p>특히 한국 브랜드는 혁신적인 성분과 효과적인 제품으로 일본 소비자들에게 높은 인지도를 얻고 있으며, 이러한 트렌드를 활용한 전략적 접근이 중요합니다.</p>
-                          `,
-          },
-          "Regulation Updates": {
-            title: "Regulation Updates",
-            content: `
-                              <h4>2025년 일본 화장품 규제 변경 사항</h4>
-                              <p>일본 후생노동성은 최근 화장품 규제에 관한 몇 가지 중요한 변경 사항을 발표했습니다:</p>
-                              <ul>
-                                  <li><strong>성분 규제 강화:</strong> 특정 방부제 및 자외선 차단제에 대한 사용 제한 강화</li>
-                                  <li><strong>표시 기준 변경:</strong> 주요 기능성 성분의 함량 표시 의무화</li>
-                                  <li><strong>안전성 평가:</strong> 신규 화장품 원료에 대한 안전성 평가 기준 강화</li>
-                                  <li><strong>디지털 라벨링:</strong> QR 코드를 통한 제품 정보 제공 허용</li>
-                              </ul>
-                              <p>이러한 변경 사항은 2025년 9월부터 단계적으로 적용될 예정이며, 한국 기업들은 이에 대한 준비가 필요합니다. 코스브릿지는 최신 규제 정보를 지속적으로 업데이트하여 고객사의 원활한 일본 시장 진출을 지원합니다.</p>
-                          `,
-          },
-          "Report and Webinar Archive": {
-            title: "Report and Webinar Archive",
-            content: `
-                              <h4>최신 리포트 및 웨비나</h4>
-                              <p>코스브릿지는 정기적으로 일본 화장품 시장에 관한 심층 리포트와 웨비나를 제공합니다:</p>
-                              <ul>
-                                  <li><strong>시장 리포트:</strong> "2025 일본 화장품 시장 분석 및 전망" (2025.05.15 발행)</li>
-                                  <li><strong>규제 가이드:</strong> "일본 화장품 등록 절차 완벽 가이드" (2025.04.22 업데이트)</li>
-                                  <li><strong>웨비나 녹화본:</strong> "일본 소비자의 K-뷰티 인식 및 구매 행동 분석" (2025.06.10 진행)</li>
-                                  <li><strong>Case 연구:</strong> "성공적인 일본 시장 진출 Case 분석 - 5개 한국 브랜드를 중심으로" (2025.03.18 발행)</li>
-                              </ul>
-                              <p>모든 자료는 회원사에게 무료로 제공되며, 정기적인 업데이트를 통해 최신 정보를 제공합니다. 특별 리포트 요청이나 맞춤형 시장 분석이 필요하신 경우 별도로 문의해 주시기 바랍니다.</p>
-                          `,
-          },
-        };
+      
 
         // Insights 버튼 클릭 이벤트
         insightButtons.forEach((button, index) => {
@@ -1458,17 +1415,16 @@
           }
         });
 
-        // 다운로드 버튼 클릭 이벤트
         document
           .getElementById("download-report")
           .addEventListener("click", function () {
-            alert("리포트 다운로드를 시작합니다. 잠시만 기다려주세요.");
+            alert("Start downloading the report. Please wait a moment.");
           });
       });
     </script>
     <script id="formScript">
       document.addEventListener("DOMContentLoaded", function () {
-        // 체크박스 커스텀 스타일
+
         const checkbox = document.getElementById("privacy");
         const checkmark = checkbox.nextElementSibling.querySelector("svg");
 
@@ -1480,13 +1436,13 @@
           }
         });
 
-        // 폼 제출
+
         const contactForm = document.getElementById("contact-form");
 
         contactForm.addEventListener("submit", function (e) {
           e.preventDefault();
 
-          // 폼 데이터 수집
+
           const formData = {
             company: document.getElementById("company").value,
             email: document.getElementById("email").value,
@@ -1498,12 +1454,12 @@
           // 실제 구현에서는 여기에 AJAX 요청 등을 통해 서버로 데이터 전송
           console.log("Form data:", formData);
 
-          // 성공 메시지 표시
+
           alert(
-            "문의가 성공적으로 접수되었습니다. 빠른 시일 내에 답변 드리겠습니다.",
+            "Your inquiry has been successfully received. We will respond to you as soon as possible.",
           );
 
-          // 폼 초기화
+
           contactForm.reset();
           checkmark.classList.add("hidden");
         });
