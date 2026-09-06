@@ -40,6 +40,7 @@
 - 화면 캡처: `NODE_PATH=<playwright 경로> node tools/shots.js`
 - 한 바퀴 자동 점검: `NODE_PATH=<playwright 경로> node tools/playthrough.js`
 - v0.3 검수·조합 검증(실제 입력·재실행 포함): `NODE_PATH=<playwright 경로> node tools/verify_v03.js`
+- 일시정지 입력 검증(실제 키 이벤트): `NODE_PATH=<playwright 경로> node tools/verify_pause_input.js`
 - 단일 파일 빌드: `node tools/build_single.js`
 
 ## 문서

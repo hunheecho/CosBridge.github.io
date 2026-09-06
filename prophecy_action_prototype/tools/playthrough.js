@@ -1,5 +1,5 @@
 // 첫 한 바퀴(A~H) 자동 점검. 간단한 정책 봇이 전투를 치르고, 상점·하루 종료·저장/재실행·보스 도래까지 밟는다.
-// 봇은 PA_G.keys/pressed에 직접 입력을 넣는다(키보드 이벤트 경로는 tools/shots.js가 검증).
+// 봇은 PA_G.input.keys/pressed에 직접 입력을 넣는다(키보드 이벤트 경로는 tools/shots.js·verify_pause_input.js가 검증).
 const path = require('path'); const fs = require('fs');
 const { chromium } = require('playwright');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(ROOT, 'shots'); fs.mkdirSync(OUT, { recursive: true });
@@ -37,7 +37,7 @@ const BOT = `(() => {
     }
     if (alive.filter(e => m.dist(e, p) < 220).length >= 3 && p.special.cd <= 0) special = true;
     if (mv.x > 0.3) keys.add('KeyD'); if (mv.x < -0.3) keys.add('KeyA'); if (mv.y > 0.3) keys.add('KeyS'); if (mv.y < -0.3) keys.add('KeyW');
-    G.keys = keys; if (dodge) G.pressed.add('Space'); if (special) G.pressed.add('KeyQ');
+    G.input.keys = keys; if (dodge) G.input.pressed.add('Space'); if (special) G.input.pressed.add('KeyQ');
   }, 40);
 })()`;
 

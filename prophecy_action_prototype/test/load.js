@@ -1,6 +1,6 @@
 // 브라우저용 전역 스크립트를 Node vm 컨텍스트에 로드한다. index.html의 순서와 동일해야 한다.
 const fs = require('fs'), vm = require('vm'), path = require('path');
-const ORDER = ['core', 'data', 'build', 'combat', 'run'];
+const ORDER = ['core', 'input', 'data', 'build', 'combat', 'run'];
 function load() {
   const ctx = { console }; vm.createContext(ctx);
   for (const f of ORDER) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f + '.js'), 'utf8'), ctx, { filename: f + '.js' });

@@ -5,7 +5,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   const G = {
     screen: 'title', run: null, saved: null, sortie: null, combat: null, offers: null, lastReward: null, lastStats: null, lastResult: null,
     paused: false, debug: false, overlay: null, scenario: null,
-    keys: new Set(), pressed: new Set(), acc: 0, last: 0, endTimer: 0, eventCounts: {},
+    input: PA.Input.create(), acc: 0, last: 0, endTimer: 0, eventCounts: {},
   };
   window.PA_G = G; // 검증용 훅(사람용 UI 아님)
 
@@ -35,7 +35,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (mute) mute.addEventListener('change', () => PA.Audio.setMuted(mute.checked));
   }
   function closeOverlay() { G.overlay = null; overlayEl.hidden = true; overlayEl.innerHTML = ''; }
-  function pauseCombat(on) { if (G.screen !== 'combat') return; G.paused = on; if (on) openOverlay('pause'); else closeOverlay(); }
+  function pauseCombat(on) { if (G.screen !== 'combat') return; G.paused = on; PA.Input.setBlocked(G.input, on); if (on) openOverlay('pause'); else closeOverlay(); }
 
   // ---------- 회차 흐름 ----------
   function saveRun() { if (G.run && !G.scenario) PA.Run.save(G.run); }
@@ -53,7 +53,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       build: PA.Run.build(run), hp: run.hp, seed: s.seed + s.encounters * 1000 + (s.deep ? 7 : 0),
       waves: PA.Run.encounterWaves(s.regionId, s.deep), objective: PA.Run.encounterObjective(s.regionId, s.deep),
     });
-    G.endTimer = 0; G.acc = 0; G.paused = false; G.eventCounts = {}; closeOverlay();
+    G.endTimer = 0; G.acc = 0; G.paused = false; G.eventCounts = {}; PA.Input.setBlocked(G.input, false); closeOverlay();
     show('combat');
   }
   function onEncounterEnd() {
@@ -147,13 +147,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   }
 
   // ---------- 루프 ----------
-  function inputState() {
-    const k = G.keys;
-    let mx = 0, my = 0;
-    if (k.has('KeyA') || k.has('ArrowLeft')) mx -= 1; if (k.has('KeyD') || k.has('ArrowRight')) mx += 1;
-    if (k.has('KeyW') || k.has('ArrowUp')) my -= 1; if (k.has('KeyS') || k.has('ArrowDown')) my += 1;
-    return { mx, my, dodge: G.pressed.has('Space'), special: G.pressed.has('KeyQ') };
-  }
+  function inputState() { return PA.Input.state(G.input); }
   function frame(ts) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.1, (ts - (G.last || ts)) / 1000); G.last = ts;
@@ -163,7 +157,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       let inp = inputState(); let first = true; let guard = 0;
       while (G.acc >= STEP && guard++ < 12) {
         PA.Combat.step(G.combat, inp, STEP);
-        if (first) { G.pressed.clear(); inp = inputState(); first = false; }
+        if (first) { PA.Input.consumePressed(G.input); inp = inputState(); first = false; }
         G.acc -= STEP;
       }
       if (guard >= 12) G.acc = 0;
@@ -182,20 +176,21 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (G.screen === 'combat') {
       if (e.code === 'Escape') { if (G.overlay === 'controls') openOverlay('pause'); else pauseCombat(!G.paused); e.preventDefault(); return; }
       if (['Space', 'KeyQ', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
-      G.keys.add(e.code); G.pressed.add(e.code);
+      if (G.paused || G.overlay) return;          // 정지·메뉴 중 전투 입력은 버린다
+      PA.Input.keyDown(G.input, e.code);
       PA.Audio.init();
     } else if (e.code === 'Enter') {
       const btn = uiEl.querySelector('button.primary:not([disabled])'); if (btn) btn.click();
     } else if (e.code === 'Escape' && G.overlay) closeOverlay();
   }
-  function onKeyUp(e) { G.keys.delete(e.code); }
+  function onKeyUp(e) { PA.Input.keyUp(G.input, e.code); }
 
   function init() {
     canvas = $('#game'); ctx = canvas.getContext('2d'); uiEl = $('#ui'); overlayEl = $('#overlay'); stageEl = $('#stage');
     window.addEventListener('resize', fitCanvas);
     window.addEventListener('keydown', onKeyDown); window.addEventListener('keyup', onKeyUp);
-    window.addEventListener('blur', () => { G.keys.clear(); if (G.screen === 'combat' && !G.paused && G.combat && G.combat.status === 'running') pauseCombat(true); });
-    document.addEventListener('visibilitychange', () => { if (document.hidden) { G.keys.clear(); if (G.screen === 'combat' && !G.paused && G.combat && G.combat.status === 'running') pauseCombat(true); } });
+    window.addEventListener('blur', () => { PA.Input.clearAll(G.input); if (G.screen === 'combat' && !G.paused && G.combat && G.combat.status === 'running') pauseCombat(true); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { PA.Input.clearAll(G.input); if (G.screen === 'combat' && !G.paused && G.combat && G.combat.status === 'running') pauseCombat(true); } });
     document.addEventListener('click', (e) => { const b = e.target.closest('[data-action]'); if (b && !b.disabled) dispatch(b.dataset.action, b.dataset.arg); });
     fitCanvas();
     G.saved = PA.Run.load();
