@@ -54,7 +54,7 @@ const results = []; const ok = (name, cond, extra) => { results.push([cond ? 'PA
   // H. 시험실 종료 → 정식 회차: 배율·입력·시나리오 플래그가 남지 않는다. 이전 저장(layout 없음)도 진행
   await click('[data-action=lab-exit]'); s = await st(); ok('H1 제목으로 복귀(회차·시나리오·입력 차단 없음)', s.screen === 'title' && !s.scenario && !s.blocked && s.keys === 0);
   await click('[data-action=newrun]'); await click('[data-action=start-weapon][data-arg=sword]'); await click('[data-action=map]'); await click('[data-action=sortie][data-arg=forest]'); s = await waitFor(x => x.screen === 'combat', 3000);
-  ok('H2 정식 출격: 체력 배율 1·시험실 표시 없음·기존 배치', s.combat.hpMult.normal === 1 && !s.combat.labText && s.run.layout === 'classic' && !s.run.lab && s.save);
+  ok('H2 정식 출격: 시험실 배율·표시가 새지 않음(회차 설정의 배율만, 기존 배치)', (s.combat.hpMult.normal === 1 || s.combat.hpMult.normal === 1.5) && !/시험실/.test(s.combat.labText || '') && s.run.layout === 'classic' && !s.run.lab && s.save, JSON.stringify({ hp: s.combat.hpMult.normal, text: s.combat.labText }));
   await page.keyboard.down('KeyA'); await page.waitForTimeout(300); await page.keyboard.up('KeyA'); const s2 = await st(); ok('H3 정식 전투에서 실제 키 입력 동작', s2.combat.px < s.combat.px - 20);
   await page.evaluate(() => { const r = JSON.parse(localStorage.getItem('prophecy_action_save_v1')); delete r.layout; delete r.difficulty; localStorage.setItem('prophecy_action_save_v1', JSON.stringify(r)); });
   await page.reload(); await page.waitForTimeout(400); await click('[data-action=continue]'); s = await st(); ok('H4 배치 필드 없는 이전 저장도 거점 진행(기존 배치로)', s.screen === 'base' && s.run.layout === 'classic');

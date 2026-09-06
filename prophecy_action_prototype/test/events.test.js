@@ -1,7 +1,7 @@
 // 탐험 사건 6종·위험 조건 3종: 시드 결정·저장·1회 정산·파밍 경로 없음
 const test = require('node:test'); const assert = require('node:assert');
 const { load, fakeStorage } = require('./load');
-const PA = load(); const j = (x) => JSON.parse(JSON.stringify(x));
+const PA = load(); const j = (x) => JSON.parse(JSON.stringify(x)); const steps2 = (st, sec) => { for (let i = 0; i < Math.round(sec / PA.CONFIG.STEP); i++) PA.Combat.step(st, {}, PA.CONFIG.STEP); };
 function wonSortie(seed, regionId, deep) { const run = PA.Run.newRun(seed, 'sword'); run.growth.level = 6; const s = PA.Run.startSortie(run, regionId || 'forest'); if (deep) PA.Run.deepExplore(run, s); const st = PA.Flow.makeEncounter(run, s); st.status = 'won'; return { run, s, st }; }
 function forceEvent(run, s, id, extra) { s.event = Object.assign({ id, seed: 5, resolved: false, choice: null }, extra || {}); return s.event; }
 
@@ -99,5 +99,5 @@ test('Codex 지적: 보스 패배 시 금화도 입장 시점으로 복구, 한 
   const run4 = PA.Run.newRun(16, 'sword'); const s4 = PA.Run.startSortie(run4, 'forest'); Object.assign(s4, { mission: true, objective: 'hunt', cardId: 'x', risk: 'escort' }); const h = PA.Flow.makeEncounter(run4, s4);
   for (let i = 0; i < 200; i++) PA.Combat.step(h, {}, dt); const elites = h.enemies.filter(e => e.elite); assert.equal(elites.length, 2, '호위 정예 포함 2');
   PA.Combat.damageEnemy(h, elites[0], 99999, { src: { extra: true } }); PA.Combat.step(h, {}, dt); assert.equal(h.status, 'running'); assert.equal(h.obj.eliteKilled, 1);
-  PA.Combat.damageEnemy(h, elites[1], 99999, { src: { extra: true } }); PA.Combat.step(h, {}, dt); assert.equal(h.status, 'won');
+  PA.Combat.damageEnemy(h, elites[1], 99999, { src: { extra: true } }); PA.Combat.step(h, {}, dt); assert.equal(h.obj.eliteKilled, 2); assert.equal(h.status, 'running', '호위가 남으면 계속'); steps2(h, 1.2); for (const e of h.enemies) if (!e.dead && !e.structure) PA.Combat.damageEnemy(h, e, 99999, { src: { extra: true } }); h.pending = []; PA.Combat.step(h, {}, dt); assert.equal(h.status, 'won');
 });

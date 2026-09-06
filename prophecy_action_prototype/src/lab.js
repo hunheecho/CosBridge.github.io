@@ -144,7 +144,7 @@ PA.Lab = (function () {
   // 회차 구조 빠른 경로(검증용): 3보스 회차를 지정 단계의 보스 관문 직전 상태로 만든다(단계 빌드 프리셋, 저장 덮어쓰기 없음: 호출자가 결정)
   function quickRun(stage, seed) {
     const buildId = ['stage1', 'stage2', 'stage3'][stage] || 'stage1', preset = PA.LAB.BUILDS[buildId];
-    const run = PA.Run.newRun(seed || 7, preset.growth.weapons[0].id, 'trio'); run.growth = growthFromPreset(preset); run.stage = stage; run.bossesDone = PA.RUN_MODES.trio.bosses.slice(0, stage).map(b => b.id);
+    const run = PA.Run.newRun(seed || 7, preset.growth.weapons[0].id, 'trio', PA.BALANCE_DEFAULT); run.growth = growthFromPreset(preset); run.stage = stage; run.bossesDone = PA.RUN_MODES.trio.bosses.slice(0, stage).map(b => b.id);
     const nb = PA.Run.nextBoss(run); run.day = nb.day; run.hours = PA.CONFIG.HOURS_PER_DAY; run.phase = 'boss_prep'; run.hp = PA.Run.build(run).hpMax; run.gold = 200 + stage * 150; run.quick = true;
     PA.Sortie.cardsFor(run); return run;
   }

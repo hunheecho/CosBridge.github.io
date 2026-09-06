@@ -2,7 +2,7 @@
 var PA = (typeof PA !== 'undefined') ? PA : {};
 if (typeof globalThis !== 'undefined') globalThis.PA = PA;
 
-PA.VERSION = '0.7.1';
+PA.VERSION = '0.7.2';
 
 // mulberry32: 시드 기반 결정적 난수
 PA.rng = {

@@ -254,7 +254,7 @@ PA.Run = (function () {
   function augmentOffers(run, rng, count) { // v3: 조우 승리 3택은 레벨업으로 통합. 호환용(빈 목록)
     return [];
   }
-  function regionBonusXp(regionId, deep) { const v = (PA.GROWTH.REGION_BONUS_XP[regionId] || 0) * (PA.GROWTH.BONUS_XP_MULT || 1); return Math.round(deep ? v * 1.5 : v); }
+  function regionBonusXp(regionId, deep) { const v = (PA.GROWTH.REGION_BONUS_XP[regionId] || 0) * (PA.GROWTH.BONUS_XP_MULT || 1); return Math.round((deep ? v * 1.5 : v) * 100) / 100; }
   function takeAugment(run, id) {
     const def = PA.AUGMENTS.find(a => a.id === id);
     if (!PA.Build.augmentEligible(run, def)) throw new Error('선택 불가');

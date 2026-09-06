@@ -329,7 +329,7 @@ PA.Combat = (function () {
     return dmg;
   }
   function killEnemy(st, e, opt) {
-    e.dead = true; e.deathT = 0; if (!e.structure) st.stats.kills++;
+    e.dead = true; e.deathT = 0; if (!e.structure) st.stats.kills++; if (e.elite && !e.structure) st.stats.eliteKills = (st.stats.eliteKills || 0) + 1;
     if (st.metrics) { const m = metricsFor(st, e); m.killed++; if (!e.acted) m.diedBeforeAttack++; m.ttk.push(Math.round((st.t - e.spawnT) * 100) / 100); if (e.firstHitT != null) m.ttkFromHit.push(Math.round((st.t - e.firstHitT) * 100) / 100); }
     ev(st, 'kill', { type: e.type });
     // 경험치: 처치 원인과 무관하게 즉시, 같은 적은 1회(dead 플래그)
@@ -694,10 +694,16 @@ PA.Combat = (function () {
     if (st.mode !== 'boss') st.spawnedAll = st.waveIndex >= st.waves.length - 1 && st.pending.length === 0;
   }
   // 정예 수: 웨이브 정의(남은 웨이브 포함) + 이미 스폰된 정예. 처치 수는 죽은 정예
+  // 남은 적 수: 살아 있는 적 + 등장 대기 + 남은 웨이브 정의
+  function remaining(st) {
+    let n = st.enemies.filter(e => !e.dead && !e.structure).length + st.pending.length;
+    for (let i = st.waveIndex + 1; i < st.waves.length; i++) for (const g of st.waves[i]) n += g.n;
+    return { total: n, alive: st.enemies.filter(e => !e.dead && !e.structure).length, wavesLeft: Math.max(0, st.waves.length - 1 - Math.max(0, st.waveIndex)), waves: st.waves.length };
+  }
   function eliteCount(st) {
     const isE = (t) => !!(PA.ENEMIES[t] && PA.ENEMIES[t].elite);
-    let total = 0, killed = 0;
-    for (const e of st.enemies) if (e.elite && !e.structure) { total++; if (e.dead) killed++; }
+    let killed = st.stats.eliteKills || 0, total = killed; // 죽은 정예는 잠시 뒤 목록에서 제거되므로 처치 수는 누적 통계로 센다
+    for (const e of st.enemies) if (e.elite && !e.structure && !e.dead) total++;
     for (const s of st.pending) if (isE(s.type)) total++;
     for (let i = st.waveIndex + 1; i < st.waves.length; i++) for (const g of st.waves[i]) if (isE(g.type)) total += g.n;
     return { total, killed };
@@ -708,9 +714,7 @@ PA.Combat = (function () {
     if (PA.Objectives && PA.Objectives.is(st.objective)) { if (PA.Objectives.check(st)) { st.status = 'won'; ev(st, 'win'); } return; } // 목표 4종: 적이 살아 있어도 달성 시 승리
     if (st.objective === 'boss') {
       if (st.boss && st.boss.dead) { st.status = 'won'; ev(st, 'win'); }
-    } else if (st.objective === 'elite') { // 정예 전부 처치: 등장 예정(웨이브·대기)인 정예까지 모두 죽어야 승리. 다른 적이 남아도 종료
-      const ec = eliteCount(st); if (ec.total > 0 && ec.killed >= ec.total) { st.status = 'won'; ev(st, 'win'); }
-    } else if (st.objective === 'clear' && st.spawnedAll && alive.length === 0) { st.status = 'won'; ev(st, 'win'); }
+    } else if ((st.objective === 'clear' || st.objective === 'elite') && st.spawnedAll && st.pending.length === 0 && alive.length === 0) { st.status = 'won'; ev(st, 'win'); } // 전멸 전투(일반·정예): 남은 웨이브·등장 대기 중인 적까지 모두 처치해야 종료. 정예 표시는 HUD 정보일 뿐
   }
   function updateEffects(st, dt) {
     for (const f of st.effects) { f.t += dt; if (f.kind === 'text') f.y -= 30 * dt; }
@@ -749,5 +753,5 @@ PA.Combat = (function () {
     st.build = build; p.hpMax = build.hpMax; if (build.hpMax > oldMax) p.hp = Math.min(p.hpMax, p.hp + (build.hpMax - oldMax));
     PA.Weapons.refresh(st);
   }
-  return { create, step, rebuild, summary, eliteCount, noteAttack, metricsFor, enemyKey, srcKey, mayAttack, isCommitted, knockEnemy, addFireAt, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
+  return { create, step, rebuild, summary, eliteCount, remaining, noteAttack, metricsFor, enemyKey, srcKey, mayAttack, isCommitted, knockEnemy, addFireAt, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
 })();

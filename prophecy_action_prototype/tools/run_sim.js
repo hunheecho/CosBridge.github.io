@@ -30,7 +30,7 @@ const startWeapon = opt('start', 'sword'), runMode = opt('mode', 'trio');
 const killXp = Number(opt('killxp', '1')), bonusXp = Number(opt('bonusxp', '1')), bossHpSet = opt('bosshp', 'base'), stopDay = Number(opt('stopday', '0')), tag = opt('tag', '');
 const balanceId = opt('balance', ''); if (balanceId) PA.Balance.apply(balanceId); else { PA.GROWTH.XP_KILL_MULT = killXp; PA.GROWTH.BONUS_XP_MULT = bonusXp; PA.BOSS_HP_SET = bossHpSet; }
 function simulate(seed, stratId) {
-  const S = STRATS[stratId], run = PA.Run.newRun(seed, startWeapon, runMode); run.layout = layout; run.difficulty = difficulty; const g = run.growth;
+  const S = STRATS[stratId], run = PA.Run.newRun(seed, startWeapon, runMode, balanceId || 'current'); run.layout = layout; if (!balanceId) run.difficulty = difficulty; let g = run.growth; // 보스 패배 복구 뒤 run.growth 객체가 바뀌므로 관문 뒤에 다시 잡는다 // 밸런스 세트가 있으면 회차 필드(보스 체력 세트·난이도)도 세트를 따른다
   const T = { combat: 0, cards: 0, screens: 0, rest: 0, dayEnd: 0, boss: 0 }; // 초 단위 버킷
   const log = { encounters: 0, losses: 0, timeouts: 0, rests: 0, deeps: 0, cards: 0, cardsInCombat: 0, deepPicks: 0, missions: 0, missionPicks: 0, eventCount: 0, eventChoices: [], eventFights: 0, levelUpsByDay: [], weapon2: null, weapon3: null, eSkill: null, events: [], spawned: 0, executed: 0, dba: 0, killedN: 0, taken: 0, bossTaken: 0, bossPatterns: {}, stopDay };
   let clock = 0; // 실제 경과 시점(초): 카드 획득 시점 기록용
@@ -61,9 +61,10 @@ function simulate(seed, stratId) {
       const row = { id: bs.bossId, stage: bs.stage, status: st.status, sec: Math.round(st.t), hp: Math.round(st.player.hp), bossHp: Math.round(st.boss.hp), bossHpMax: st.boss.hpMax, taken: Math.round(sm.damageTaken), patterns: sm.patterns, level: g.level, day: run.day, retries: run.bossRetries };
       log.bosses.push(row);
       if (st.status === 'won') { PA.Flow.settleBossVictory(run, st); const before = log.cards; PA.Flow.resolveAll(run, {}, pick, (off, c) => { onPick('screen')(off, c); if (off.pool === 'boss') log.rarePicks.push(c ? c.key : 'skip'); }); }
-      else { PA.Flow.settleBossDefeat(run, st); log.bossRetries++; if (run.bossRetries >= 3) { log.failedAt = bs.id; return false; } }
+      else { PA.Flow.settleBossDefeat(run, st); log.bossRetries++; if (run.bossRetries >= 3) { log.failedAt = bs.id; g = run.growth; return false; } }
+      g = run.growth;
     }
-    return run.phase !== 'cleared' || true;
+    g = run.growth; return true;
   };
   for (let day = 1; day <= PA.Run.modeDef(run).days; day++) {
     if (run.phase === 'boss_prep') { if (!bossGate()) break; }
@@ -100,6 +101,8 @@ function simulate(seed, stratId) {
     if (day < PA.Run.modeDef(run).days) PA.Run.endDay(run); else if (run.phase === 'prep' && runMode === 'single') { run.day++; run.phase = 'boss_prep'; }
   }
   if (run.phase === 'boss_prep') bossGate();
+  // 성장 선택 간격: 전투력 선택(레벨업·임무·심층·사건·희귀) 사이의 실제 경과 초(가정 메뉴 시간 포함). 첫 선택까지의 시간도 기록
+  { const ts = log.events.filter(e => e.kind !== 'skip').map(e => e.t).sort((a, b) => a - b); const gaps = []; for (let i = 1; i < ts.length; i++) gaps.push(ts[i] - ts[i - 1]); log.pickGapAvg = gaps.length ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : 0; log.pickGapMed = gaps.length ? gaps.slice().sort((a, b) => a - b)[Math.floor(gaps.length / 2)] : 0; log.firstPickSec = ts.length ? ts[0] : 0; log.picksTotal = ts.length; }
   const P = g.picks || {}; log.picks = Object.assign({}, P); log.combatPicks = ['weapon_new', 'weapon_level', 'weapon_mod', 'common', 'skill_new', 'skill_level', 'skill_variant', 'passive'].reduce((a, k) => a + (P[k] || 0), 0); log.servicePicks = (P.service || 0); log.bossRewardPicks = (P.boss_reward || 0); log.skips = P.skip || 0; log.rarePicksN = log.rarePicks.length;
   log.dbaPct = log.spawned ? Math.round(log.dba / Math.max(1, log.killedN) * 100) : 0; log.execPerSpawn = log.spawned ? Math.round(log.executed / log.spawned * 100) / 100 : 0;
   log.level = g.level; log.gold = run.gold; log.mats = Object.assign({}, run.mats); log.hpBeforeBoss = run.hp;
@@ -124,8 +127,8 @@ for (const curve of curves) {
     const L = simulate(seed, sid); all.push(Object.assign({ curve, strategy: sid, seed }, L));
     md += `| ${STRATS[sid].name} | ${seed} | ${L.level} | ${L.levelUpsByDay.join('/')} | ${L.encounters}(${L.losses}/${L.timeouts}) | ${L.rests} | ${L.deeps}(${L.deepPicks}) | ${L.missions}(${L.missionPicks}) | ${L.eventCount}(${L.eventFights}) | ${L.cards}(${L.cardsInCombat}) | ${L.combatMin} | ${L.cardMin} | ${L.menuMin} | ${L.bossMin} | ${L.totalMin} | ${L.weapon2}/${L.weapon3}/${L.eSkill} | ${L.gold} | ${L.boss} |\n`;
   }
-  md += `\n성장·전투 지표(곡선 ${curve}): 전투력 선택 = 무기/공통/기술/패시브 선택 수, 서비스 = 거점 서비스 선택, 사망전 처치% = 첫 공격을 실행하기 전에 죽은 적 비율, 실행/스폰 = 적 1마리당 실행한 공격 수\n\n| 전략 | 레벨업 | 전투력 선택 | 임무 3택 | 더깊이 3택 | 사건 선택 | 희귀 선택 | 서비스 | 건너뜀 | 무기2/무기3/E(초) | 사망전 처치% | 실행/스폰 | 받은 피해(조우) | 받은 피해(보스) | 휴식 | 보스 패턴(시작 횟수) |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n`;
-  for (const sid of Object.keys(STRATS)) { const rows = all.filter(r => r.curve === curve && r.strategy === sid); if (!rows.length) continue; const avg = (f) => Math.round(rows.reduce((a, r) => a + f(r), 0) / rows.length * 10) / 10; const pat = {}; for (const r of rows) for (const k in r.bossPatterns) pat[k] = (pat[k] || 0) + r.bossPatterns[k]; const patText = Object.keys(pat).sort().map(k => `${k} ${Math.round(pat[k] / rows.length * 10) / 10}`).join(', '); md += `| ${STRATS[sid].name} | ${avg(r => r.level - 1)} | ${avg(r => r.combatPicks)} | ${avg(r => r.missionPicks)} | ${avg(r => r.deepPicks)} | ${avg(r => r.eventCount)} | ${avg(r => r.rarePicksN)} | ${avg(r => r.servicePicks)} | ${avg(r => r.skips)} | ${avg(r => r.weapon2 || 0)}/${avg(r => r.weapon3 || 0)}/${avg(r => r.eSkill || 0)} | ${avg(r => r.dbaPct)} | ${avg(r => r.execPerSpawn)} | ${avg(r => r.taken)} | ${avg(r => r.bossTaken)} | ${avg(r => r.rests)} | ${patText} |\n`; }
+  md += `\n성장·전투 지표(곡선 ${curve}): 전투력 선택 = 무기/공통/기술/패시브 선택 수, 서비스 = 거점 서비스 선택, 사망전 처치% = 첫 공격을 실행하기 전에 죽은 적 비율, 실행/스폰 = 적 1마리당 실행한 공격 수\n\n| 전략 | 레벨업 | 전투력 선택 | 임무 3택 | 더깊이 3택 | 사건 선택 | 희귀 선택 | 서비스 | 건너뜀 | 선택 간격 평균/중앙(초) | 첫 선택(초) | 무기2/무기3/E(초) | 사망전 처치% | 실행/스폰 | 받은 피해(조우) | 받은 피해(보스) | 휴식 | 보스 패턴(시작 횟수) |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n`;
+  for (const sid of Object.keys(STRATS)) { const rows = all.filter(r => r.curve === curve && r.strategy === sid); if (!rows.length) continue; const avg = (f) => Math.round(rows.reduce((a, r) => a + f(r), 0) / rows.length * 10) / 10; const pat = {}; for (const r of rows) for (const k in r.bossPatterns) pat[k] = (pat[k] || 0) + r.bossPatterns[k]; const patText = Object.keys(pat).sort().map(k => `${k} ${Math.round(pat[k] / rows.length * 10) / 10}`).join(', '); md += `| ${STRATS[sid].name} | ${avg(r => r.level - 1)} | ${avg(r => r.combatPicks)} | ${avg(r => r.missionPicks)} | ${avg(r => r.deepPicks)} | ${avg(r => r.eventCount)} | ${avg(r => r.rarePicksN)} | ${avg(r => r.servicePicks)} | ${avg(r => r.skips)} | ${avg(r => r.pickGapAvg)}/${avg(r => r.pickGapMed)} | ${avg(r => r.firstPickSec)} | ${avg(r => r.weapon2 || 0)}/${avg(r => r.weapon3 || 0)}/${avg(r => r.eSkill || 0)} | ${avg(r => r.dbaPct)} | ${avg(r => r.execPerSpawn)} | ${avg(r => r.taken)} | ${avg(r => r.bossTaken)} | ${avg(r => r.rests)} | ${patText} |\n`; }
   md += `\n전략별 평균(곡선 ${curve}):\n\n| 전략 | 레벨 | 1일차 레벨업 | 1일차 비중% | 조우 | 패배 | 초과 | 휴식 | 더깊이 3택 | 임무 | 사건 | 전투분 | 보스분 | 메뉴분(가정) | 합계분 | 금화 | 완주 | 보스 총초 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n`;
   for (const sid of Object.keys(STRATS)) { const rows = all.filter(r => r.curve === curve && r.strategy === sid); const avg = (f) => Math.round(rows.reduce((a, r) => a + f(r), 0) / rows.length * 10) / 10; const d1 = avg(r => r.levelUpsByDay[0]); md += `| ${STRATS[sid].name} | ${avg(r => r.level)} | ${d1} | ${Math.round(d1 / Math.max(1, avg(r => r.level - 1)) * 100)} | ${avg(r => r.encounters)} | ${avg(r => r.losses)} | ${avg(r => r.timeouts)} | ${avg(r => r.rests)} | ${avg(r => r.deepPicks)} | ${avg(r => r.missions)} | ${avg(r => r.eventCount)} | ${avg(r => r.combatMin)} | ${avg(r => r.bossMin)} | ${avg(r => r.menuMin)} | ${avg(r => r.totalMin)} | ${avg(r => r.gold)} | ${rows.filter(r => r.cleared).length}/${rows.length} | ${avg(r => r.bossSec)} |\n`; }
 }

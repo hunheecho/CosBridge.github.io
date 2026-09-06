@@ -20,12 +20,12 @@ PA.Growth = (function () {
   function xpNeed(level) { const X = G().XP, k = level - 1; return Math.round(X.base + X.step * k + (X.quad || 0) * k * k); }
   function addXp(g, amount) {
     if (amount <= 0 || g.level >= G().XP.maxLevel) return 0;
-    g.xp += amount; let gained = 0;
+    g.xp = Math.round((g.xp + amount) * 100) / 100; let gained = 0;
     while (g.level < G().XP.maxLevel && g.xp >= xpNeed(g.level)) { g.xp -= xpNeed(g.level); g.level++; gained++; }
     g.pendingLevelUps += gained;
     return gained;
   }
-  function xpValue(e, regionId) { const v = G().XP_VALUE, mult = (regionId && G().REGION_XP_MULT && G().REGION_XP_MULT[regionId]) || 1; const base = e.summoned ? v.summoned : (v[e.type] != null ? v[e.type] : 5); return Math.round(base * mult * (G().XP_KILL_MULT || 1)); }
+  function xpValue(e, regionId) { const v = G().XP_VALUE, mult = (regionId && G().REGION_XP_MULT && G().REGION_XP_MULT[regionId]) || 1; const base = e.summoned ? v.summoned : (v[e.type] != null ? v[e.type] : 5); return Math.round(base * mult * (G().XP_KILL_MULT || 1) * 100) / 100; } // 소수 경험치는 누적한다(배율이 낮아도 0으로 버려지지 않음). 표시는 내림
 
   // ---------- 조회 ----------
   const weaponOf = (g, id) => g.weapons.find(w => w.id === id);

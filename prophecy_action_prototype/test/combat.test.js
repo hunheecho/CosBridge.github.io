@@ -274,7 +274,7 @@ test('궁수는 거리를 유지하고 조준 후 화살을 쏜다. 포자 괴�
   assert.ok(s2.zones.some(z => z.type === 'spore'), '구름 생성');
 });
 
-test('조우 목적: 전멸은 모든 웨이브 처치 시, 정예 처치는 정예 사망 즉시 승리', () => {
+test('전투 종료: 전멸은 모든 웨이브 처치 시, 정예 전투도 정예만 죽어서는 끝나지 않고 전멸해야 승리', () => {
   const run = PA.Run.newRun(1);
   const st = PA.Combat.create({ build: PA.Run.build(run), seed: 2, waves: [[{ type: 'wolf', n: 1 }], [{ type: 'wolf', n: 1 }]], objective: 'clear' });
   steps(PA, st, 60);
@@ -283,7 +283,8 @@ test('조우 목적: 전멸은 모든 웨이브 처치 시, 정예 처치는 정
   steps(PA, s2, 2);
   const alpha = s2.enemies.find(e => e.elite); alpha.hp = 1; s2.player.x = alpha.x; s2.player.y = alpha.y + 40;
   steps(PA, s2, 1);
-  assert.equal(s2.status, 'won');
+  assert.ok(alpha.dead, '정예 사망'); assert.equal(s2.status, 'running', '지원병이 남아 있으면 계속'); assert.equal(PA.Combat.remaining(s2).total, s2.enemies.filter(e => !e.dead).length);
+  for (const e of s2.enemies) if (!e.dead) PA.Combat.damageEnemy(s2, e, 99999, { src: { extra: true } }); PA.Combat.step(s2, {}, PA.CONFIG.STEP); assert.equal(s2.status, 'won');
 });
 
 test('보급 상자에 닿으면 금화를 얻고 한 번만 열린다', () => {

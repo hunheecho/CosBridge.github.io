@@ -156,3 +156,6 @@
 | R-BAL-03 | 비교 시험 문서(경험치·체력 후보 C0~C3, 성장 중단, 시작 무기, 창 사거리·설계·화력 후보)와 추천 기본값 제안 | 근거 있는 추천 | v0.7.1 | ✅ | docs/sim/COMPARE_v071.md, cmp_*.md, report_D/D2/D3.md | 확정은 사용자 플레이 뒤 |
 | R-BAL-04 | 밸런스 후보 세트(현재값/추천안 A/B)를 시작 화면에서 선택, 회차에 기록, 시험실은 현재값 | 같은 구조로 후보 비교 플레이 | v0.7.1 | ✅ | src/balance_data.js PA.Balance, run.balance, screens.pickStart, main 적용 시점 | 기본값은 현재값 |
 | R-SPEAR-01 | 창 위치·방향 규칙 데이터 훅: 근접 약화(sweetFrom/sweetMult), 관통 수(maxTargets). 사거리·폭·관통 제한은 효과 없음이 확인됨 | 긴 사거리 유지 + 거리 선정 필요 | v0.7.1 | ✅ | weapons.hitBeam, lab_sim D2/D3 | 강제 무적·피해 상한 없음 |
+| R-END-01 | 전투 종료 = 전멸(남은 웨이브·등장 대기 포함). 정예 처치는 종료 조건이 아님. HUD 남은 적(지금)·남은 웨이브·정예 n/m·종료 규칙 문구. 임무 종료 규칙 표(GAME_SPEC §18) | 확정 방향 | v0.7.2 | ✅ | combat.remaining/checkObjective, objectives hunt(전멸), render HUD, 테스트 | 처치형 임무 = 전멸, 목표형 = 목표 달성 |
+| R-XP-03 | 시험 빌드 test03(처치·지역 경험치 ×0.3, 현재값 기준·중복 없음) 기본 선택, 소수 경험치 누적, 선택 간격·날짜별 측정 | 다음 성장이 반가운 간격 찾기 | v0.7.2 | ✅ | balance_data test03·BALANCE_DEFAULT, growth.xpValue 소수, run_sim 선택 간격, docs/sim/COMPARE_v072.md | 보상으로 보충하지 않음 |
+| R-SHOW-01 | 제목·전투 승리·보스 결과 화면에 버전·세트·적 체력 후보·보스 체력·경험치 배율 표시 | 적용 여부를 추측하지 않게 | v0.7.2 | ✅ | PA.Balance.text, screens.title/reward/bossVictory/bossDefeat | 저장된 회차 설정도 제목에 표시 |

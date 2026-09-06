@@ -89,7 +89,7 @@ p.summary { margin: 6px 0 8px; } details { margin: 4px 0 10px; } details > summa
 var PA = (typeof PA !== 'undefined') ? PA : {};
 if (typeof globalThis !== 'undefined') globalThis.PA = PA;
 
-PA.VERSION = '0.7.1';
+PA.VERSION = '0.7.2';
 
 // mulberry32: 시드 기반 결정적 난수
 PA.rng = {
@@ -557,12 +557,12 @@ PA.Growth = (function () {
   function xpNeed(level) { const X = G().XP, k = level - 1; return Math.round(X.base + X.step * k + (X.quad || 0) * k * k); }
   function addXp(g, amount) {
     if (amount <= 0 || g.level >= G().XP.maxLevel) return 0;
-    g.xp += amount; let gained = 0;
+    g.xp = Math.round((g.xp + amount) * 100) / 100; let gained = 0;
     while (g.level < G().XP.maxLevel && g.xp >= xpNeed(g.level)) { g.xp -= xpNeed(g.level); g.level++; gained++; }
     g.pendingLevelUps += gained;
     return gained;
   }
-  function xpValue(e, regionId) { const v = G().XP_VALUE, mult = (regionId && G().REGION_XP_MULT && G().REGION_XP_MULT[regionId]) || 1; const base = e.summoned ? v.summoned : (v[e.type] != null ? v[e.type] : 5); return Math.round(base * mult * (G().XP_KILL_MULT || 1)); }
+  function xpValue(e, regionId) { const v = G().XP_VALUE, mult = (regionId && G().REGION_XP_MULT && G().REGION_XP_MULT[regionId]) || 1; const base = e.summoned ? v.summoned : (v[e.type] != null ? v[e.type] : 5); return Math.round(base * mult * (G().XP_KILL_MULT || 1) * 100) / 100; } // 소수 경험치는 누적한다(배율이 낮아도 0으로 버려지지 않음). 표시는 내림
 
   // ---------- 조회 ----------
   const weaponOf = (g, id) => g.weapons.find(w => w.id === id);
@@ -785,10 +785,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 // ---------- 전투 목표 4종(전멸·정예 처치 외) ----------
 // 공통 규칙: 목표 달성이면 적이 살아 있어도 승리. 지원병은 유한 예산(budget)과 동시 상한(cap). 배치는 지형 검사(장애물 안·플레이어 근처 금지).
 PA.OBJECTIVES = {
-  hunt: { name: '정예 추적', short: '정예 처치', desc: '정예가 지원 병력과 함께 처음부터 등장한다. 정예를 처치하면 종료(지원병은 남아도 됨).',
+  hunt: { name: '정예 추적', short: '정예 추적', desc: '정예가 지원 병력과 함께 처음부터 등장한다. 정예 체력 50%에 지원병이 온다. 정예와 지원병을 모두 처치해야 종료.',
     eliteType: 'wolf_alpha', escortN: 2, leashDist: 380, leashSpeed: 1.35, // 정예가 플레이어에서 멀어지면 접근 속도 상승(화면 밖 배회 금지)
     reinforce: { atHp: 0.5, budget: 3, cap: 5, interval: 1.5 }, // 정예 체력 50% 이하에 지원 1회(예산 3)
-    hud: (o) => `정예 ${o.eliteKilled || 0} / ${o.eliteTotal || 1} 처치${o.elite && !o.elite.dead ? ` · 체력 ${Math.max(0, Math.ceil(o.elite.hp))} / ${Math.round(o.elite.hpMax)}` : ''}` },
+    hud: (o) => `정예 ${o.eliteKilled || 0} / ${o.eliteTotal || 1} 처치${o.elite && !o.elite.dead ? ` · 체력 ${Math.max(0, Math.ceil(o.elite.hp))} / ${Math.round(o.elite.hpMax)}` : ''}${o.reinforceFired ? '' : ' · 지원 대기'}` },
   altars: { name: '제단 파괴', short: '제단 3개 파괴', desc: '떨어져 놓인 제단 3개를 부순다. 각 제단은 치료·바닥 위험·증원 중 하나를 맡고, 부수면 그 효과가 사라진다.',
     altarHp: 90, minGap: 200, minPlayerGap: 170, // 어떤 시작 무기로도 부술 수 있는 체력(검 9타 안팎)
     heal: { interval: 4, amount: 20, budget: 120, range: 320 },     // 치료 제단: 총 치료량 유한
@@ -908,8 +908,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 PA.BALANCE_SETS = {
   current:     { name: '현재값', difficulty: null, bossHpSet: 'base', killXp: 1, bonusXp: 1, spear: {}, desc: '적 체력 ×1, 보스 1500/3000/3600, 경험치 ×1, 창 피해 14·주기 0.7' },
   recommended: { name: '추천안 A (처치 경험치 ×0.5)', difficulty: 'candE', bossHpSet: 'hi', killXp: 0.5, bonusXp: 0.5, spear: { sweetFrom: 0.45, sweetMult: 0.5, interval: 0.85 }, desc: '적 체력 숲 1.5·능선 1.5·습지 2·굴 2·심층 3, 보스 2400/5000/7000, 처치 경험치 ×0.5, 지역 경험치 ×0.5, 창 근접 약화(사거리 45% 안쪽 ×0.5)+주기 0.85' },
+  test03:      { name: '시험 빌드 (경험치 ×0.3)', difficulty: 'candE', bossHpSet: 'hi', killXp: 0.3, bonusXp: 0.3, spear: { sweetFrom: 0.45, sweetMult: 0.5, interval: 0.85 }, desc: '현재값 대비 처치·지역 경험치 ×0.3(중복 적용 없음), 적 체력 숲 1.5·능선 1.5·습지 2·굴 2·심층 3, 보스 2400/5000/7000, 창 근접 약화+주기 0.85' },
   recommended_b: { name: '추천안 B (처치 경험치 ×0.7)', difficulty: 'candE', bossHpSet: 'hi', killXp: 0.7, bonusXp: 0.5, spear: { sweetFrom: 0.45, sweetMult: 0.5, interval: 0.85 }, desc: '추천안 A와 같고 처치 경험치만 ×0.7(성장이 너무 느리면)' },
 };
+PA.BALANCE_DEFAULT = 'test03'; // 시작 화면·빠른 관문 경로의 기본 선택(시험 빌드). 현재값은 여전히 선택 가능
 PA.Balance = (function () {
   const SPEAR_BASE = Object.assign({}, PA.WEAPONS.spear.base); // 원본 보존
   let active = 'current';
@@ -921,7 +923,9 @@ PA.Balance = (function () {
   }
   function applyRun(run) { return apply((run && run.balance) || 'current'); }
   function current() { return active; }
-  return { apply, applyRun, current, SPEAR_BASE };
+  // 표시용 설정 요약(제목·결과 화면): 버전·세트·적 체력 후보·보스 체력·경험치 배율
+  function text(run) { const id = (run && run.balance) || PA.BALANCE_DEFAULT, B = PA.BALANCE_SETS[id] || PA.BALANCE_SETS.current; const diff = PA.DIFFICULTY.candidates[(run && run.difficulty) || B.difficulty || 'base'] || PA.DIFFICULTY.candidates.base; const H = PA.BOSS_HP_SETS[B.bossHpSet]; return `v${PA.VERSION} · ${B.name} · 적 체력 ${Object.values(diff.hp).join('/')} · 보스 체력 ${H.boss.stage1}/${H.guardian.stage2}/${H.eater.stage3} · 처치 경험치 ×${B.killXp} · 지역 경험치 ×${B.bonusXp}${B.spear && B.spear.interval ? ' · 창 주기 ' + B.spear.interval + '·근접 약화' : ''}`; }
+  return { apply, applyRun, current, text, SPEAR_BASE };
 })();
 
 </script>
@@ -1330,7 +1334,7 @@ PA.Combat = (function () {
     return dmg;
   }
   function killEnemy(st, e, opt) {
-    e.dead = true; e.deathT = 0; if (!e.structure) st.stats.kills++;
+    e.dead = true; e.deathT = 0; if (!e.structure) st.stats.kills++; if (e.elite && !e.structure) st.stats.eliteKills = (st.stats.eliteKills || 0) + 1;
     if (st.metrics) { const m = metricsFor(st, e); m.killed++; if (!e.acted) m.diedBeforeAttack++; m.ttk.push(Math.round((st.t - e.spawnT) * 100) / 100); if (e.firstHitT != null) m.ttkFromHit.push(Math.round((st.t - e.firstHitT) * 100) / 100); }
     ev(st, 'kill', { type: e.type });
     // 경험치: 처치 원인과 무관하게 즉시, 같은 적은 1회(dead 플래그)
@@ -1695,10 +1699,16 @@ PA.Combat = (function () {
     if (st.mode !== 'boss') st.spawnedAll = st.waveIndex >= st.waves.length - 1 && st.pending.length === 0;
   }
   // 정예 수: 웨이브 정의(남은 웨이브 포함) + 이미 스폰된 정예. 처치 수는 죽은 정예
+  // 남은 적 수: 살아 있는 적 + 등장 대기 + 남은 웨이브 정의
+  function remaining(st) {
+    let n = st.enemies.filter(e => !e.dead && !e.structure).length + st.pending.length;
+    for (let i = st.waveIndex + 1; i < st.waves.length; i++) for (const g of st.waves[i]) n += g.n;
+    return { total: n, alive: st.enemies.filter(e => !e.dead && !e.structure).length, wavesLeft: Math.max(0, st.waves.length - 1 - Math.max(0, st.waveIndex)), waves: st.waves.length };
+  }
   function eliteCount(st) {
     const isE = (t) => !!(PA.ENEMIES[t] && PA.ENEMIES[t].elite);
-    let total = 0, killed = 0;
-    for (const e of st.enemies) if (e.elite && !e.structure) { total++; if (e.dead) killed++; }
+    let killed = st.stats.eliteKills || 0, total = killed; // 죽은 정예는 잠시 뒤 목록에서 제거되므로 처치 수는 누적 통계로 센다
+    for (const e of st.enemies) if (e.elite && !e.structure && !e.dead) total++;
     for (const s of st.pending) if (isE(s.type)) total++;
     for (let i = st.waveIndex + 1; i < st.waves.length; i++) for (const g of st.waves[i]) if (isE(g.type)) total += g.n;
     return { total, killed };
@@ -1709,9 +1719,7 @@ PA.Combat = (function () {
     if (PA.Objectives && PA.Objectives.is(st.objective)) { if (PA.Objectives.check(st)) { st.status = 'won'; ev(st, 'win'); } return; } // 목표 4종: 적이 살아 있어도 달성 시 승리
     if (st.objective === 'boss') {
       if (st.boss && st.boss.dead) { st.status = 'won'; ev(st, 'win'); }
-    } else if (st.objective === 'elite') { // 정예 전부 처치: 등장 예정(웨이브·대기)인 정예까지 모두 죽어야 승리. 다른 적이 남아도 종료
-      const ec = eliteCount(st); if (ec.total > 0 && ec.killed >= ec.total) { st.status = 'won'; ev(st, 'win'); }
-    } else if (st.objective === 'clear' && st.spawnedAll && alive.length === 0) { st.status = 'won'; ev(st, 'win'); }
+    } else if ((st.objective === 'clear' || st.objective === 'elite') && st.spawnedAll && st.pending.length === 0 && alive.length === 0) { st.status = 'won'; ev(st, 'win'); } // 전멸 전투(일반·정예): 남은 웨이브·등장 대기 중인 적까지 모두 처치해야 종료. 정예 표시는 HUD 정보일 뿐
   }
   function updateEffects(st, dt) {
     for (const f of st.effects) { f.t += dt; if (f.kind === 'text') f.y -= 30 * dt; }
@@ -1750,7 +1758,7 @@ PA.Combat = (function () {
     st.build = build; p.hpMax = build.hpMax; if (build.hpMax > oldMax) p.hp = Math.min(p.hpMax, p.hp + (build.hpMax - oldMax));
     PA.Weapons.refresh(st);
   }
-  return { create, step, rebuild, summary, eliteCount, noteAttack, metricsFor, enemyKey, srcKey, mayAttack, isCommitted, knockEnemy, addFireAt, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
+  return { create, step, rebuild, summary, eliteCount, remaining, noteAttack, metricsFor, enemyKey, srcKey, mayAttack, isCommitted, knockEnemy, addFireAt, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
 })();
 
 </script>
@@ -2872,7 +2880,7 @@ PA.Objectives = (function () {
         el.leash = d > S.leashDist ? (el.leash || 0) + dt : 0; el.leashBoost = el.leash > 1.0 ? S.leashSpeed : 1; // 멀어지면 접근 가속(배회 금지)
         if (!o.reinforceFired && el.hp <= el.hpMax * S.reinforce.atHp) { o.reinforceFired = true; o.reinforce.timer = 0; reinforce(st, o.reinforce, dt, o.reinforce.budget); }
       }
-      if (ec.total > 0 && ec.killed >= ec.total) finish(st); // 정예 전부 처치(호위 정예 포함)
+      const rm = K().remaining(st); if (ec.total > 0 && ec.killed >= ec.total && rm.total === 0) finish(st); /* 정예가 50% 전에 죽어 지원이 오지 않았다면 그대로 종료 */ // 처치형 임무: 정예 전부 + 남은 적 전멸(지원병 포함)
     } else if (st.objective === 'altars') {
       for (const a of o.altars) {
         if (a.dead) continue; a.timer -= dt; if (a.timer > 0) continue;
@@ -2919,7 +2927,7 @@ PA.Objectives = (function () {
   // ---------- 표시 ----------
   function hud(st) {
     const S = spec(st), o = st.obj; if (!S || !o) return null;
-    return { title: `목적: ${S.short}`, line: S.hud(o) + (o.reinforce && o.reinforce.budget > 0 && st.objective !== 'hunt' ? ` · 지원 ${o.reinforce.budget}` : ''), risk: o.risk ? PA.MISSIONS.riskText[o.risk] : null };
+    return { title: `목적: ${S.short}`, line: S.hud(o) + (o.reinforce && o.reinforce.budget > 0 && st.objective !== 'hunt' ? ` · 지원 ${o.reinforce.budget}` : ''), risk: o.risk ? PA.MISSIONS.riskText[o.risk] : null, endRule: st.objective === 'hunt' ? '정예·지원병 전멸 시 종료' : '목표 달성 시 종료(남은 적 무시)' };
   }
   // 자동 공격 대상 표시: 첫 무기 기준 가장 가까운 대상(표식 우선) — 제단인지 적인지
   function autoTarget(st) {
@@ -3205,7 +3213,7 @@ PA.Run = (function () {
   function augmentOffers(run, rng, count) { // v3: 조우 승리 3택은 레벨업으로 통합. 호환용(빈 목록)
     return [];
   }
-  function regionBonusXp(regionId, deep) { const v = (PA.GROWTH.REGION_BONUS_XP[regionId] || 0) * (PA.GROWTH.BONUS_XP_MULT || 1); return Math.round(deep ? v * 1.5 : v); }
+  function regionBonusXp(regionId, deep) { const v = (PA.GROWTH.REGION_BONUS_XP[regionId] || 0) * (PA.GROWTH.BONUS_XP_MULT || 1); return Math.round((deep ? v * 1.5 : v) * 100) / 100; }
   function takeAugment(run, id) {
     const def = PA.AUGMENTS.find(a => a.id === id);
     if (!PA.Build.augmentEligible(run, def)) throw new Error('선택 불가');
@@ -3896,7 +3904,7 @@ PA.Lab = (function () {
   // 회차 구조 빠른 경로(검증용): 3보스 회차를 지정 단계의 보스 관문 직전 상태로 만든다(단계 빌드 프리셋, 저장 덮어쓰기 없음: 호출자가 결정)
   function quickRun(stage, seed) {
     const buildId = ['stage1', 'stage2', 'stage3'][stage] || 'stage1', preset = PA.LAB.BUILDS[buildId];
-    const run = PA.Run.newRun(seed || 7, preset.growth.weapons[0].id, 'trio'); run.growth = growthFromPreset(preset); run.stage = stage; run.bossesDone = PA.RUN_MODES.trio.bosses.slice(0, stage).map(b => b.id);
+    const run = PA.Run.newRun(seed || 7, preset.growth.weapons[0].id, 'trio', PA.BALANCE_DEFAULT); run.growth = growthFromPreset(preset); run.stage = stage; run.bossesDone = PA.RUN_MODES.trio.bosses.slice(0, stage).map(b => b.id);
     const nb = PA.Run.nextBoss(run); run.day = nb.day; run.hours = PA.CONFIG.HOURS_PER_DAY; run.phase = 'boss_prep'; run.hp = PA.Run.build(run).hpMax; run.gold = 200 + stage * 150; run.quick = true;
     PA.Sortie.cardsFor(run); return run;
   }
@@ -4837,16 +4845,17 @@ PA.Render = (function () {
       { const summ = st.enemies.filter(x => !x.dead && !x.boss && !x.structure).length + st.pending.length, dev = st.enemies.filter(x => !x.dead && x.structure).length; if (summ > 0 || dev > 0) { ctx.font = `12px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.textAlign = 'left'; ctx.fillText(`${summ > 0 ? '소환 ' + summ : ''}${summ > 0 && dev > 0 ? ' · ' : ''}${dev > 0 ? '봉인 장치 ' + dev : ''}`, bx, by + 50); } }
       if (st.intro > 0) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, H / 2 - 50, W, 100); ctx.fillStyle = '#ffe066'; ctx.font = `bold 36px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(`${cfg.name} — ${cfg.title}`, W / 2, H / 2 + 2); ctx.fillStyle = '#fff'; ctx.font = `14px ${FONT}`; ctx.fillText(cfg.id === 'boss' ? '예언의 날. 숲의 왕이 나타났다.' : `${cfg.title}이 길을 막는다.`, W / 2, H / 2 + 30); }
     } else {
-      const oh = st.obj && PA.Objectives ? PA.Objectives.hud(st) : null; const alive2 = st.enemies.filter(e => !e.dead && !e.structure).length;
-      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W - 234, 12, 220, oh ? 64 : 46);
+      const oh = st.obj && PA.Objectives ? PA.Objectives.hud(st) : null; const alive2 = st.enemies.filter(e => !e.dead && !e.structure).length, rm = PA.Combat.remaining(st);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W - 244, 12, 230, 64);
       ctx.fillStyle = '#fff'; ctx.font = `bold 14px ${FONT}`; ctx.textAlign = 'left'; const ec = st.objective === 'elite' ? PA.Combat.eliteCount(st) : null;
-      ctx.fillText(oh ? oh.title + (oh.risk ? ' · ' + oh.risk : '') : (ec ? `목적: 정예 처치 ${ec.killed} / ${ec.total}` : '목적: 전멸'), W - 224, 31);
-      ctx.font = `13px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.fillText(oh ? oh.line : `웨이브 ${Math.max(1, st.waveIndex + 1)}/${st.waves.length} · 남은 적 ${alive}`, W - 224, 50);
-      if (oh) { const tg = PA.Objectives.autoTarget(st); ctx.fillStyle = tg && tg.structure ? '#ffe066' : '#cfeaff'; ctx.fillText(`남은 적 ${alive2} · 자동 공격: ${tg ? (tg.structure ? tg.def.name : '적 ' + tg.def.name) : '대상 없음'}`, W - 224, 68); }
+      ctx.fillText(oh ? oh.title + (oh.risk ? ' · ' + oh.risk : '') : (ec ? `목적: 전멸 (정예 ${ec.killed} / ${ec.total})` : '목적: 전멸'), W - 234, 31);
+      ctx.font = `13px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.fillText(oh ? oh.line : `남은 적 ${rm.total} (지금 ${rm.alive}) · 남은 웨이브 ${rm.wavesLeft} / ${rm.waves}`, W - 234, 50);
+      if (!oh) { ctx.fillStyle = '#9fb3c8'; ctx.font = `12px ${FONT}`; ctx.fillText('모든 적을 처치하면 종료', W - 234, 68); }
+      if (oh) { const tg = PA.Objectives.autoTarget(st); ctx.fillStyle = tg && tg.structure ? '#ffe066' : '#cfeaff'; ctx.fillText(`${oh.endRule} · 남은 적 ${rm.total} · 공격: ${tg ? (tg.structure ? tg.def.name : tg.def.name) : '없음'}`, W - 234, 68); }
     }
     const cfg = PA.CONFIG.PLAYER, dodgeCd = cfg.dodge.cooldown * b.dodgeCdMult;
     // 레벨·경험치
-    const g = b.growth; if (g) { const need = PA.Growth.xpNeed(g.level), yy = p.shieldMax > 0 ? 58 : 38; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(14, yy, 240, 14); ctx.fillStyle = '#ffd166'; ctx.fillRect(14, yy, 240 * Math.min(1, g.xp / need), 14); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(14.5, yy + 0.5, 239, 13); ctx.fillStyle = '#fff'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(`Lv ${g.level}`, 20, yy + 11); ctx.textAlign = 'right'; ctx.fillText(`${g.xp} / ${need}`, 250, yy + 11); }
+    const g = b.growth; if (g) { const need = PA.Growth.xpNeed(g.level), yy = p.shieldMax > 0 ? 58 : 38; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(14, yy, 240, 14); ctx.fillStyle = '#ffd166'; ctx.fillRect(14, yy, 240 * Math.min(1, g.xp / need), 14); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(14.5, yy + 0.5, 239, 13); ctx.fillStyle = '#fff'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(`Lv ${g.level}`, 20, yy + 11); ctx.textAlign = 'right'; ctx.fillText(`${Math.floor(g.xp)} / ${need}`, 250, yy + 11); }
     slot(ctx, W / 2 - 108, H - 78, 'Space', '회피', !p.dodge.active && p.dodge.cd <= 0, p.dodge.active ? 1 : Math.max(0, p.dodge.cd) / dodgeCd, '#7ef2ff');
     slot(ctx, W / 2 - 32, H - 78, 'Q', '감속장', p.special.cd <= 0, p.special.cd / b.specialCd, '#a9d8ff');
     if (p.special.cd > 0) { ctx.fillStyle = '#fff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(p.special.cd.toFixed(1) + 's', W / 2, H - 84); }
@@ -4989,7 +4998,7 @@ PA.Screens = (function () {
     const passives = Object.keys(g.passives).filter(k => g.passives[k] > 0).map(k => `<li><b>${esc(PA.PASSIVES[k].name)}</b> ${g.passives[k]}/${PA.PASSIVES[k].max} <span class="dim">${esc(PA.PASSIVES[k].desc)}</span></li>`).join('');
     const sk = (slot) => { const x = g.skills[slot]; if (!x) return `<li><b>E</b>: <span class="dim">비어 있음 (레벨업에서 습득)</span></li>`; const d = PA.SKILLS[x.id]; return `<li><b>${d.key}</b>: <b>${esc(d.name)}</b> Lv${x.level}/${S.skillMax} <span class="dim">${esc(d.desc)} · 재사용 ${PA.fmt.num(PA.SKILLS[x.id].cooldown[x.level - 1] * b.skillCdMult - (slot === 'q' ? b.accSpecialBonus : 0))}초${x.variant ? ' · 변형: ' + esc(d.variants[x.variant].name) : ''}</span></li>`; };
     const legacy = Object.keys(g.legacy).length ? `<p class="dim small">레거시 유지: ${Object.keys(g.legacy).map(k => k === 'mark' ? '사냥꾼의 표식(우선 대상)' : k === 'barrier' ? '파열 방벽(조우 시작 보호막 30)' : k).join(', ')} — 신규 제시는 없음</p>` : '';
-    return `<div class="card"><div class="card-title">현재 빌드 <span class="sub">캐릭터 Lv ${g.level} · 경험치 ${g.xp}/${PA.Growth.xpNeed(g.level)}${g.pendingLevelUps ? ` · <b class="warn">미처리 레벨업 ${g.pendingLevelUps}</b>` : ''}</span></div>
+    return `<div class="card"><div class="card-title">현재 빌드 <span class="sub">캐릭터 Lv ${g.level} · 경험치 ${Math.floor(g.xp)}/${PA.Growth.xpNeed(g.level)}${g.pendingLevelUps ? ` · <b class="warn">미처리 레벨업 ${g.pendingLevelUps}</b>` : ''}</span></div>
       <div class="card-title small">무기 ${b.weapons.length}/${S.weapons} <span class="dim">(대장간 강화 +${run.gear.upgrade || 0}은 세 무기 공통 ×${PA.fmt.num(b.forgeMult)})</span></div><ul class="gear">${wrows}${empties}</ul>
       <div class="card-title small">공통 증강 ${PA.Growth.commonCount(g)}/${S.commons}</div>${commons ? `<ul class="augs">${commons}</ul>` : '<p class="dim">없음</p>'}
       <div class="card-title small">수동 기술</div><ul class="gear">${sk('q')}${sk('e')}</ul>
@@ -5007,7 +5016,7 @@ PA.Screens = (function () {
     const list = (G.startAll ? PA.STARTABLE_ALL : PA.STARTABLE).map(id => { const d = PA.WEAPONS[id]; return `<div class="card"><div class="card-title">${esc(d.name)}</div><p>${esc(d.desc)}</p><p class="dim small">기본 피해 ${d.base.damage} · 주기 ${d.base.interval}초 · 전용 방식: ${Object.values(d.mods).map(m => esc(m.name)).join(', ')}</p><button class="primary" data-action="start-weapon" data-arg="${id}">이 무기로 시작</button></div>`; }).join('');
     const laySel = `<select id="start-layout">${Object.keys(PA.LAYOUTS).map(k => `<option value="${k}">${esc(PA.LAYOUTS[k].name)}</option>`).join('')}</select>`;
     const modeSel = `<select id="start-mode">${Object.keys(PA.RUN_MODES).map(k => `<option value="${k}" ${k === 'trio' ? 'selected' : ''}>${esc(PA.RUN_MODES[k].name)}</option>`).join('')}</select>`;
-    const balSel = `<select id="start-balance">${Object.keys(PA.BALANCE_SETS).map(k => `<option value="${k}" title="${esc(PA.BALANCE_SETS[k].desc)}">${esc(PA.BALANCE_SETS[k].name)}</option>`).join('')}</select>`;
+    const balSel = `<select id="start-balance">${Object.keys(PA.BALANCE_SETS).map(k => `<option value="${k}" ${k === PA.BALANCE_DEFAULT ? 'selected' : ''} title="${esc(PA.BALANCE_SETS[k].desc)}">${esc(PA.BALANCE_SETS[k].name)}</option>`).join('')}</select>`;
     const difSel = `<select id="start-difficulty">${Object.keys(PA.DIFFICULTY.candidates).map(k => `<option value="${k}">${esc(PA.DIFFICULTY.candidates[k].name)}</option>`).join('')}</select>`;
     return `<div class="screen"><h2>시작 무기 선택</h2><p class="dim">시작 무기 1개로 출발하고, 전투 중 레벨업으로 무기를 최대 2개 더 얻습니다. 시작 무기와 추가 무기는 같은 규칙으로 성장합니다.</p>
       <div class="card"><div class="card-title small">검증 메뉴: 지역 배치안·난이도 후보 <span class="dim">(기본값은 기존 배치·×1. 시험안은 검증되지 않은 임시값이며 화면에 표시됩니다)</span></div><div class="kv"><span>밸런스</span>${balSel} <span class="dim small">현재값 = 비교 기준. 추천안은 docs/sim/COMPARE_v071.md 비교 결과 기반 제안(적 체력·보스 체력·경험치·창). 확정값 아님</span></div><div class="kv"><span>회차 구조</span>${modeSel} <span class="dim small">3보스: 1~2일 준비 → 3일차 가시갈기 → 3~4일 → 5일차 봉인 수호자 → 5~6일 → 7일차 예언을 먹는 자</span></div><div class="kv"><span>배치</span>${laySel}</div><div class="kv"><span>난이도</span>${difSel}</div></div>
@@ -5043,7 +5052,7 @@ PA.Screens = (function () {
         <button class="big" data-action="lab">전투 시험실 <span class="dim">(정식 회차와 분리 · 체력 배율·빌드·적 조합 비교)</span></button>
         <div class="row"><span class="dim small">검증 메뉴 · 3보스 회차 빠른 경로(현재 저장을 덮어씀):</span>${[0, 1, 2].map(i => `<button class="mini" data-action="quick-run" data-arg="${i}">${i + 1}단계 관문 직전</button>`).join(' ')}</div>
       </div>
-      <p class="dim small">${esc(PA.KEYS_TEXT)}</p><p class="dim small">v${PA.VERSION}</p></div>`;
+      <p class="dim small">${esc(PA.KEYS_TEXT)}</p><p class="dim small">기본 설정: ${esc(PA.Balance.text(null))}</p>${hasSave ? `<p class="dim small">저장된 회차 설정: ${esc(PA.Balance.text(G.saved))}</p>` : ''}</div>`;
   }
   function newrunConfirm() {
     return `<div class="screen center"><h2>새 회차를 시작할까요?</h2><p>기존 저장(진행 중인 회차)이 덮어씌워집니다.</p><div class="row"><button class="primary" data-action="newrun-confirm">새 회차 시작</button><button data-action="title">돌아가기</button></div></div>`;
@@ -5196,7 +5205,7 @@ PA.Screens = (function () {
   function reward(G) {
     const run = G.run, rw = G.lastReward, g = run.growth;
     const matText = Object.keys(rw.mats).map(k => `${matName(k)} ${rw.mats[k]}`).join(', ');
-    return `<div class="screen"><h2>전투 승리</h2>
+    return `<div class="screen"><h2>전투 승리</h2><p class="dim small">설정: ${esc(PA.Balance.text(run))}</p>
       <div class="card"><div class="card-title">보상 (귀환 시 거점에 반영)</div>
         <p>금화 <b class="gold">+${rw.gold}</b>${rw.chestGold ? ` (보급 상자 +${rw.chestGold} 포함)` : ''}${matText ? ` · ${matText}` : ''} · 지역 경험치 <b class="gold">+${rw.xp || 0}</b>${rw.mission ? (rw.missionPick ? ' · <b>임무 완료: 보상 3택은 다음 단계에서</b>' : ' · 임무(오늘 이미 완료: 추가 3택 없음)') : ''}</p>
         <p class="dim small">처치 ${G.lastStats.kills}${G.lastStats.savingKills ? ` (감속장 안 ${G.lastStats.savingKills})` : ''} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · ${Math.round(G.lastStats.elapsed)}초 · 전투 중 경험치 ${G.lastStats.xp} · 레벨업 ${G.lastStats.levelUps}회 (Lv ${g.level})</p></div>
@@ -5231,18 +5240,18 @@ PA.Screens = (function () {
   }
   function bossDefeat(G) {
     const run = G.run, s = G.lastStats, B = R().nextBossCfg(run);
-    return `<div class="screen center"><h2 class="bad">쓰러졌다</h2><p>${esc(B.name)}에게 패배했습니다. 준비 기간의 성과는 그대로입니다. 같은 장비·무기·증강으로 바로 다시 도전할 수 있습니다.</p><p class="dim small">재도전은 입장 시점의 상태로 복구됩니다: 레벨·경험치·전투 중 선택은 입장 전으로, 체력·회피·감속장·E는 초기화, 보스·소환 늑대·구슬은 처음부터.</p>
+    return `<div class="screen center"><h2 class="bad">쓰러졌다</h2><p class="dim small">설정: ${esc(PA.Balance.text(run))}</p><p>${esc(B.name)}에게 패배했습니다. 준비 기간의 성과는 그대로입니다. 같은 장비·무기·증강으로 바로 다시 도전할 수 있습니다.</p><p class="dim small">재도전은 입장 시점의 상태로 복구됩니다: 레벨·경험치·전투 중 선택은 입장 전으로, 체력·회피·감속장·E는 초기화, 보스·소환 늑대·구슬은 처음부터.</p>
       <p class="dim small">전투 ${Math.round(s.elapsed)}초 · 보스에게 준 피해 ${Math.round(s.bossDamage)} / ${R().bossHp(run, B.id)} · 감속장 ${s.specialUses}회 · 재도전 ${run.bossRetries}회</p>
       <div class="menu"><button class="primary big" data-action="boss-start">같은 준비로 재도전</button><button class="big" data-action="base">최종 준비 화면으로</button><button class="big" data-action="title">제목으로</button></div></div>`;
   }
   function bossVictory(G) {
     const run = G.run, s = G.lastStats, b = R().build(run), rec = G.lastRecord || run.lastBossClear || {}; const B = PA.BOSS_DEFS[rec.bossId || 'boss'], stages = R().stageCount(run), ended = run.phase === 'cleared';
     const augs = Object.keys(run.augments).filter(k => run.augments[k] > 0).map(k => { const d = PA.AUGMENTS.find(a => a.id === k); return d.name + (d.max > 1 ? ' ' + run.augments[k] : ''); }).join(', ') || '없음';
-    if (!ended) return `<div class="screen center"><h1>${(run.stage || 0)}단계 돌파</h1><h2>${esc(B.name)} — ${esc(B.title)} 처치</h2>
+    if (!ended) return `<div class="screen center"><h1>${(run.stage || 0)}단계 돌파</h1><h2>${esc(B.name)} — ${esc(B.title)} 처치</h2><p class="dim small">설정: ${esc(PA.Balance.text(run))} · 보스 최대 체력 ${R().bossHp(run, B.id)}</p>
       <div class="card"><div class="card-title">기록</div><ul class="gear" style="text-align:left"><li>전투 시간 <b>${Math.round(s.elapsed * 10) / 10}초</b> · 재도전 <b>${rec.retries || 0}회</b> · Lv ${run.growth.level}</li><li>감속장 사용 <b>${s.specialUses}</b>회 · 보스에게 준 총피해 <b>${Math.round(s.bossDamage)}</b></li></ul></div>
       <div class="card boss"><div class="card-title">다음 단계 해금</div><p>${run.day}일차의 ${PA.CONFIG.HOURS_PER_DAY}시간이 시작됩니다. ${R().nextBoss(run) ? `다음 보스 <b>${esc(R().nextBossCfg(run).name)}</b>은(는) ${R().nextBoss(run).day}일차 시작에 옵니다.` : ''}${run.growth.pendingBossPick || (run.growth.pendingOffer && run.growth.pendingOffer.pool === 'boss') ? ' <b>희귀 보상 3택</b>이 거점에서 제시됩니다(1회, 저장됨).' : ''}</p></div>
       <div class="menu"><button class="primary big" data-action="base">거점으로 (오늘 시간 시작)</button></div></div>`;
-    return `<div class="screen center"><h1>${stages > 1 ? '회차 완주.' : '예언의 날을 넘겼다.'}</h1><h2>${esc(B.name)} — ${esc(B.title)} 처치</h2>
+    return `<div class="screen center"><h1>${stages > 1 ? '회차 완주.' : '예언의 날을 넘겼다.'}</h1><h2>${esc(B.name)} — ${esc(B.title)} 처치</h2><p class="dim small">설정: ${esc(PA.Balance.text(run))} · 보스 최대 체력 ${R().bossHp(run, B.id)}</p>
       <div class="card"><div class="card-title">회차 결과</div>
         <ul class="gear" style="text-align:left">
           <li>전투 시간: <b>${Math.round(s.elapsed * 10) / 10}초</b> · 재도전 <b>${run.bossRetries}회</b></li>
@@ -5456,7 +5465,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   function goBase() { saveRun(); if (G.run.growth && G.run.growth.migrationPending) { show('migration'); return; } show('base'); const g = G.run.growth; if (g && (g.pendingDeepPick || g.pendingBossPick || g.pendingMissionPick || (g.pendingOffer && g.pendingOffer.pool !== 'level'))) { const off = PA.Flow.nextOffer(G.run); if (off) { openChoice(off); saveRun(); } } } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
   function leaveScenario() { if (G.scenario) { G.scenario = null; try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
   function newRun() { leaveScenario(); G.startAll = false; show('pick_start'); }
-  function startRun(weaponId) { const modeEl = $('#start-mode'), balEl = $('#start-balance'); G.run = PA.Run.newRun(undefined, weaponId, modeEl ? modeEl.value : 'trio', balEl ? balEl.value : 'current'); PA.Balance.applyRun(G.run); const lay = $('#start-layout'), dif = $('#start-difficulty'); if (lay && PA.LAYOUTS[lay.value]) G.run.layout = lay.value; if (dif && PA.DIFFICULTY.candidates[dif.value] && G.run.balance === 'current') G.run.difficulty = dif.value; /* 밸런스 후보가 적 체력 후보를 정하면 난이도 선택은 무시 */ G.sortie = null; G.combat = null; saveRun(); show('base'); }
+  function startRun(weaponId) { const modeEl = $('#start-mode'), balEl = $('#start-balance'); G.run = PA.Run.newRun(undefined, weaponId, modeEl ? modeEl.value : 'trio', balEl ? balEl.value : PA.BALANCE_DEFAULT); PA.Balance.applyRun(G.run); const lay = $('#start-layout'), dif = $('#start-difficulty'); if (lay && PA.LAYOUTS[lay.value]) G.run.layout = lay.value; if (dif && PA.DIFFICULTY.candidates[dif.value] && G.run.balance === 'current') G.run.difficulty = dif.value; /* 밸런스 후보가 적 체력 후보를 정하면 난이도 선택은 무시 */ G.sortie = null; G.combat = null; saveRun(); show('base'); }
   function startSortie(regionId) {
     G.sortie = PA.Run.startSortie(G.run, regionId);
     saveRun(); // 출격 비용은 지불된 상태로 저장(전투 중 종료 시 복구 기준)

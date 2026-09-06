@@ -4,10 +4,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 // ---------- 전투 목표 4종(전멸·정예 처치 외) ----------
 // 공통 규칙: 목표 달성이면 적이 살아 있어도 승리. 지원병은 유한 예산(budget)과 동시 상한(cap). 배치는 지형 검사(장애물 안·플레이어 근처 금지).
 PA.OBJECTIVES = {
-  hunt: { name: '정예 추적', short: '정예 처치', desc: '정예가 지원 병력과 함께 처음부터 등장한다. 정예를 처치하면 종료(지원병은 남아도 됨).',
+  hunt: { name: '정예 추적', short: '정예 추적', desc: '정예가 지원 병력과 함께 처음부터 등장한다. 정예 체력 50%에 지원병이 온다. 정예와 지원병을 모두 처치해야 종료.',
     eliteType: 'wolf_alpha', escortN: 2, leashDist: 380, leashSpeed: 1.35, // 정예가 플레이어에서 멀어지면 접근 속도 상승(화면 밖 배회 금지)
     reinforce: { atHp: 0.5, budget: 3, cap: 5, interval: 1.5 }, // 정예 체력 50% 이하에 지원 1회(예산 3)
-    hud: (o) => `정예 ${o.eliteKilled || 0} / ${o.eliteTotal || 1} 처치${o.elite && !o.elite.dead ? ` · 체력 ${Math.max(0, Math.ceil(o.elite.hp))} / ${Math.round(o.elite.hpMax)}` : ''}` },
+    hud: (o) => `정예 ${o.eliteKilled || 0} / ${o.eliteTotal || 1} 처치${o.elite && !o.elite.dead ? ` · 체력 ${Math.max(0, Math.ceil(o.elite.hp))} / ${Math.round(o.elite.hpMax)}` : ''}${o.reinforceFired ? '' : ' · 지원 대기'}` },
   altars: { name: '제단 파괴', short: '제단 3개 파괴', desc: '떨어져 놓인 제단 3개를 부순다. 각 제단은 치료·바닥 위험·증원 중 하나를 맡고, 부수면 그 효과가 사라진다.',
     altarHp: 90, minGap: 200, minPlayerGap: 170, // 어떤 시작 무기로도 부술 수 있는 체력(검 9타 안팎)
     heal: { interval: 4, amount: 20, budget: 120, range: 320 },     // 치료 제단: 총 치료량 유한

@@ -91,7 +91,8 @@ const results = []; const ok = (name, cond, extra) => { results.push([cond ? 'PA
   await ev(() => { const r = PA_G.run; PA.Run.endDay(r); PA.Run.endDay(r); PA.Run.save(r); }); await page.reload(); await page.waitForTimeout(300); await click('[data-action=continue]');
   s = await ev(() => ({ day: PA_G.run.day, phase: PA_G.run.phase, next: PA.Run.nextBoss(PA_G.run).id })); ok('D7 7일차 최종 관문(예언을 먹는 자)', s.day === 7 && s.phase === 'boss_prep' && s.next === 'eater', JSON.stringify(s));
   await click('[data-action=boss-start]'); await page.waitForTimeout(2500); s = await ev(() => ({ bossId: PA_G.combat.bossId, hp: PA_G.combat.boss.hpMax }));
-  ok('D8 최종 보스 입장(체력 후보 3600)', s.bossId === 'eater' && s.hp === 3600, JSON.stringify(s));
+  const expectHp = await ev(() => PA.Run.bossHp(PA_G.run, 'eater'));
+  ok('D8 최종 보스 입장(회차 설정의 체력 후보 적용: ' + expectHp + ')', s.bossId === 'eater' && s.hp === expectHp, JSON.stringify(s));
   await ev(() => { const c = PA_G.combat; PA.Combat.damageEnemy(c, c.boss, 99999, { src: { extra: true } }); }); await page.waitForTimeout(3000);
   s = await ev(() => ({ screen: PA_G.screen, phase: PA_G.run.phase, ended: PA_G.run.ended, pending: !!PA_G.run.growth.pendingBossPick, recs: Object.keys(PA_G.run.bossRecords).length, next: PA.Run.nextBoss(PA_G.run) }));
   ok('D9 최종 보스 승리: 회차 종료, 희귀 보상 없음, 기록 3개', s.screen === 'boss_victory' && s.phase === 'cleared' && s.ended && !s.pending && s.next === null, JSON.stringify(s));

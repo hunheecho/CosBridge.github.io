@@ -856,16 +856,17 @@ PA.Render = (function () {
       { const summ = st.enemies.filter(x => !x.dead && !x.boss && !x.structure).length + st.pending.length, dev = st.enemies.filter(x => !x.dead && x.structure).length; if (summ > 0 || dev > 0) { ctx.font = `12px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.textAlign = 'left'; ctx.fillText(`${summ > 0 ? '소환 ' + summ : ''}${summ > 0 && dev > 0 ? ' · ' : ''}${dev > 0 ? '봉인 장치 ' + dev : ''}`, bx, by + 50); } }
       if (st.intro > 0) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, H / 2 - 50, W, 100); ctx.fillStyle = '#ffe066'; ctx.font = `bold 36px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(`${cfg.name} — ${cfg.title}`, W / 2, H / 2 + 2); ctx.fillStyle = '#fff'; ctx.font = `14px ${FONT}`; ctx.fillText(cfg.id === 'boss' ? '예언의 날. 숲의 왕이 나타났다.' : `${cfg.title}이 길을 막는다.`, W / 2, H / 2 + 30); }
     } else {
-      const oh = st.obj && PA.Objectives ? PA.Objectives.hud(st) : null; const alive2 = st.enemies.filter(e => !e.dead && !e.structure).length;
-      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W - 234, 12, 220, oh ? 64 : 46);
+      const oh = st.obj && PA.Objectives ? PA.Objectives.hud(st) : null; const alive2 = st.enemies.filter(e => !e.dead && !e.structure).length, rm = PA.Combat.remaining(st);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W - 244, 12, 230, 64);
       ctx.fillStyle = '#fff'; ctx.font = `bold 14px ${FONT}`; ctx.textAlign = 'left'; const ec = st.objective === 'elite' ? PA.Combat.eliteCount(st) : null;
-      ctx.fillText(oh ? oh.title + (oh.risk ? ' · ' + oh.risk : '') : (ec ? `목적: 정예 처치 ${ec.killed} / ${ec.total}` : '목적: 전멸'), W - 224, 31);
-      ctx.font = `13px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.fillText(oh ? oh.line : `웨이브 ${Math.max(1, st.waveIndex + 1)}/${st.waves.length} · 남은 적 ${alive}`, W - 224, 50);
-      if (oh) { const tg = PA.Objectives.autoTarget(st); ctx.fillStyle = tg && tg.structure ? '#ffe066' : '#cfeaff'; ctx.fillText(`남은 적 ${alive2} · 자동 공격: ${tg ? (tg.structure ? tg.def.name : '적 ' + tg.def.name) : '대상 없음'}`, W - 224, 68); }
+      ctx.fillText(oh ? oh.title + (oh.risk ? ' · ' + oh.risk : '') : (ec ? `목적: 전멸 (정예 ${ec.killed} / ${ec.total})` : '목적: 전멸'), W - 234, 31);
+      ctx.font = `13px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.fillText(oh ? oh.line : `남은 적 ${rm.total} (지금 ${rm.alive}) · 남은 웨이브 ${rm.wavesLeft} / ${rm.waves}`, W - 234, 50);
+      if (!oh) { ctx.fillStyle = '#9fb3c8'; ctx.font = `12px ${FONT}`; ctx.fillText('모든 적을 처치하면 종료', W - 234, 68); }
+      if (oh) { const tg = PA.Objectives.autoTarget(st); ctx.fillStyle = tg && tg.structure ? '#ffe066' : '#cfeaff'; ctx.fillText(`${oh.endRule} · 남은 적 ${rm.total} · 공격: ${tg ? (tg.structure ? tg.def.name : tg.def.name) : '없음'}`, W - 234, 68); }
     }
     const cfg = PA.CONFIG.PLAYER, dodgeCd = cfg.dodge.cooldown * b.dodgeCdMult;
     // 레벨·경험치
-    const g = b.growth; if (g) { const need = PA.Growth.xpNeed(g.level), yy = p.shieldMax > 0 ? 58 : 38; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(14, yy, 240, 14); ctx.fillStyle = '#ffd166'; ctx.fillRect(14, yy, 240 * Math.min(1, g.xp / need), 14); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(14.5, yy + 0.5, 239, 13); ctx.fillStyle = '#fff'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(`Lv ${g.level}`, 20, yy + 11); ctx.textAlign = 'right'; ctx.fillText(`${g.xp} / ${need}`, 250, yy + 11); }
+    const g = b.growth; if (g) { const need = PA.Growth.xpNeed(g.level), yy = p.shieldMax > 0 ? 58 : 38; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(14, yy, 240, 14); ctx.fillStyle = '#ffd166'; ctx.fillRect(14, yy, 240 * Math.min(1, g.xp / need), 14); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(14.5, yy + 0.5, 239, 13); ctx.fillStyle = '#fff'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(`Lv ${g.level}`, 20, yy + 11); ctx.textAlign = 'right'; ctx.fillText(`${Math.floor(g.xp)} / ${need}`, 250, yy + 11); }
     slot(ctx, W / 2 - 108, H - 78, 'Space', '회피', !p.dodge.active && p.dodge.cd <= 0, p.dodge.active ? 1 : Math.max(0, p.dodge.cd) / dodgeCd, '#7ef2ff');
     slot(ctx, W / 2 - 32, H - 78, 'Q', '감속장', p.special.cd <= 0, p.special.cd / b.specialCd, '#a9d8ff');
     if (p.special.cd > 0) { ctx.fillStyle = '#fff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(p.special.cd.toFixed(1) + 's', W / 2, H - 84); }

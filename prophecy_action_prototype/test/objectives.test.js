@@ -40,13 +40,13 @@ test('임무 보상 3택: 종류 제한·유효 후보만·건너뛰기 가능, 
   PA.Flow.resolveOffer(run3, off3, off3.choices.find(c => c.id === 'free_rest') || off3.choices[0]);
   if (run3.services.free_rest) { run3.hp = 10; run3.hours = 0; assert.ok(PA.Run.canRest(run3)); PA.Run.rest(run3); assert.equal(run3.hours, 0); assert.equal(run3.services.free_rest, 0); }
 });
-test('정예 추적: 정예가 첫 웨이브에 등장, 정예 처치 시 지원병이 남아도 승리, 정예 체력 50%에 지원 1회(예산 유한)', () => {
+test('정예 추적: 정예가 첫 웨이브에 등장, 정예 체력 50%에 지원 1회(예산 유한), 정예와 지원병을 모두 처치해야 승리', () => {
   const { st } = mission(3, 'hunt'); steps(st, 1.5, {});
   const el = st.enemies.find(e => e.elite); assert.ok(el, '정예 등장'); assert.ok(st.enemies.filter(e => !e.elite && !e.structure).length >= 2, '호위');
   const before = st.enemies.length; el.hp = el.hpMax * 0.4; steps(st, 0.2, {}); steps(st, 1.0, {});
   assert.ok(st.obj.reinforceFired && st.obj.reinforce.spawned >= 1, '지원 소환'); assert.ok(st.obj.reinforce.budget < PA.OBJECTIVES.hunt.reinforce.budget, '예산 차감'); assert.ok(st.enemies.filter(e => !e.dead && !e.structure).length + st.pending.length <= PA.OBJECTIVES.hunt.reinforce.cap, '동시 상한');
   PA.Combat.damageEnemy(st, el, 99999, { src: { extra: true } }); PA.Combat.step(st, {}, dt);
-  assert.equal(st.status, 'won'); assert.ok(st.enemies.some(e => !e.dead && !e.elite), '지원병이 살아 있어도 종료');
+  assert.equal(st.status, 'running', '지원병이 남아 있으면 계속'); steps(st, 1.2, {}); for (const e of st.enemies) if (!e.dead && !e.structure) PA.Combat.damageEnemy(st, e, 99999, { src: { extra: true } }); st.pending = []; PA.Combat.step(st, {}, dt); assert.equal(st.status, 'won', '정예·지원병 전멸 시 종료');
 });
 test('제단 파괴: 제단 3개가 서로·플레이어와 떨어져 유효 위치에 놓이고, 경험치 0·처치 수 제외, 모두 부수면 적이 남아도 승리, 부순 제단은 효과 정지', () => {
   const { st } = mission(4, 'altars', 'ridge'); const S = PA.OBJECTIVES.altars; const alts = st.obj.altars;

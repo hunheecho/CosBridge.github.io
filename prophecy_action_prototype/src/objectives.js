@@ -115,7 +115,7 @@ PA.Objectives = (function () {
         el.leash = d > S.leashDist ? (el.leash || 0) + dt : 0; el.leashBoost = el.leash > 1.0 ? S.leashSpeed : 1; // 멀어지면 접근 가속(배회 금지)
         if (!o.reinforceFired && el.hp <= el.hpMax * S.reinforce.atHp) { o.reinforceFired = true; o.reinforce.timer = 0; reinforce(st, o.reinforce, dt, o.reinforce.budget); }
       }
-      if (ec.total > 0 && ec.killed >= ec.total) finish(st); // 정예 전부 처치(호위 정예 포함)
+      const rm = K().remaining(st); if (ec.total > 0 && ec.killed >= ec.total && rm.total === 0) finish(st); /* 정예가 50% 전에 죽어 지원이 오지 않았다면 그대로 종료 */ // 처치형 임무: 정예 전부 + 남은 적 전멸(지원병 포함)
     } else if (st.objective === 'altars') {
       for (const a of o.altars) {
         if (a.dead) continue; a.timer -= dt; if (a.timer > 0) continue;
@@ -162,7 +162,7 @@ PA.Objectives = (function () {
   // ---------- 표시 ----------
   function hud(st) {
     const S = spec(st), o = st.obj; if (!S || !o) return null;
-    return { title: `목적: ${S.short}`, line: S.hud(o) + (o.reinforce && o.reinforce.budget > 0 && st.objective !== 'hunt' ? ` · 지원 ${o.reinforce.budget}` : ''), risk: o.risk ? PA.MISSIONS.riskText[o.risk] : null };
+    return { title: `목적: ${S.short}`, line: S.hud(o) + (o.reinforce && o.reinforce.budget > 0 && st.objective !== 'hunt' ? ` · 지원 ${o.reinforce.budget}` : ''), risk: o.risk ? PA.MISSIONS.riskText[o.risk] : null, endRule: st.objective === 'hunt' ? '정예·지원병 전멸 시 종료' : '목표 달성 시 종료(남은 적 무시)' };
   }
   // 자동 공격 대상 표시: 첫 무기 기준 가장 가까운 대상(표식 우선) — 제단인지 적인지
   function autoTarget(st) {
