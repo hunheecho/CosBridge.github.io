@@ -78,3 +78,9 @@ details.card summary { cursor: pointer; font-weight: 700; } details.card.small s
 .gear .lbl { display: inline-block; min-width: 56px; color: var(--dim); font-size: 13px; }
 .cost .lack { color: var(--bad); }
 table.stats td, table.stats th { padding: 2px 8px; font-size: 13px; text-align: right; } table.stats td:first-child, table.stats th:first-child, table.stats td:nth-child(2) { text-align: left; }
+
+/* v0.8 용어 사전 */
+dfn.term { font-style: normal; text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; color: inherit; } dfn.term:hover, dfn.term:focus { color: var(--accent); outline: none; }
+.tip { position: fixed; z-index: 60; background: var(--panel2); border: 1px solid #4a5a6a; border-radius: 8px; padding: 8px 10px; box-shadow: 0 6px 24px rgba(0,0,0,0.5); font-size: 14px; line-height: 1.45; } .tip.pinned { border-color: var(--accent); }
+.tip-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; } .tip-close { margin-left: auto; min-height: 22px; padding: 0 7px; font-size: 14px; line-height: 1; } .tip-rel { margin-top: 6px; color: var(--dim); }
+.panel.glossary { max-width: 720px; max-height: 88vh; overflow: auto; } .gl-item { padding: 4px 0; border-bottom: 1px solid #2f3a46; } .gl-item summary { cursor: pointer; }

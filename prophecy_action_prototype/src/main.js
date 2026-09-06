@@ -30,9 +30,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (!html) fitCanvas();
     window.scrollTo(0, 0);
   }
-  function openOverlay(kind) {
+  function openOverlay(kind, arg) {
     G.overlay = kind;
-    overlayEl.innerHTML = kind === 'pause' ? PA.Screens.pause(G) : PA.Screens.controls();
+    overlayEl.innerHTML = kind === 'pause' ? PA.Screens.pause(G) : kind === 'glossary' ? PA.Glossary.panelHtml(arg) : PA.Screens.controls();
+    if (kind === 'glossary' && arg) { const el = overlayEl.querySelector('#gl-' + CSS.escape(arg)); if (el) el.scrollIntoView(); }
     overlayEl.hidden = false;
     const vol = $('#vol'), mute = $('#mute');
     if (vol) vol.addEventListener('input', () => PA.Audio.setVolume(vol.value / 100));
@@ -72,6 +73,9 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       else show(G.screen);
     }
   }
+  // 용어 사전: 고정 툴팁·패널을 전투 중에 열면 정지(마우스만 올린 툴팁은 정지시키지 않음). 모두 닫히면 재개(선택 오버레이·일시정지 메뉴가 없을 때만)
+  PA.Glossary.install({ onPin: () => { if (G.screen === 'combat' && !G.paused) { G.glossaryPaused = true; G.paused = true; PA.Input.setBlocked(G.input, true); } }, onUnpinAll: () => { if (G.glossaryPaused) { G.glossaryPaused = false; if (G.screen === 'combat' && !G.overlay) { G.paused = false; PA.Input.setBlocked(G.input, false); G.last = 0; } } } });
+  PA.Glossary.onOpenPanel = (id) => { if (G.screen === 'combat' && !G.paused) { G.glossaryPaused = true; G.paused = true; PA.Input.setBlocked(G.input, true); } G.prevOverlay = G.overlay; openOverlay('glossary', id); };
   function pauseCombat(on) { if (G.screen !== 'combat') return; G.paused = on; PA.Input.setBlocked(G.input, on); if (on) openOverlay('pause'); else closeOverlay(); }
 
   // ---------- 회차 흐름 ----------
@@ -184,7 +188,8 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'title': () => { leaveScenario(); PA.Balance.apply('current'); G.saved = PA.Run.load(); show('title'); },
     'controls': () => openOverlay('controls'),
     'show-controls': () => openOverlay('controls'),
-    'close-overlay': () => { if (G.paused) openOverlay('pause'); else closeOverlay(); },
+    'close-overlay': () => { if (G.overlay === 'glossary' && G.glossaryPaused && G.prevOverlay == null) { G.glossaryPaused = false; closeOverlay(); if (G.screen === 'combat') { G.paused = false; PA.Input.setBlocked(G.input, false); G.last = 0; } return; } if (G.overlay === 'glossary' && G.prevOverlay === 'choice' && G.choice) { G.overlay = 'choice'; overlayEl.innerHTML = PA.Screens.levelCards(G, G.choice, G.run); return; } if (G.paused) openOverlay('pause'); else closeOverlay(); },
+    'glossary': (id) => PA.Glossary.openPanel(id || null),
     'base': () => { if (G.screen === 'defeat') G.sortie = null; goBase(); },
     'map': () => show('base'),
     'shop': () => { G.shopTab = G.shopTab || 'stock'; show('shop'); },
@@ -313,14 +318,14 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (e.repeat) return;
     if (e.code === 'F3') { G.debug = !G.debug; e.preventDefault(); return; }
     if (G.screen === 'combat') {
-      if (e.code === 'Escape') { if (G.overlay === 'choice') { e.preventDefault(); return; } if (G.overlay === 'controls') openOverlay('pause'); else pauseCombat(!G.paused); e.preventDefault(); return; }
+      if (e.code === 'Escape') { if (G.overlay === 'glossary') { actions['close-overlay'](); e.preventDefault(); return; } if (G.overlay === 'choice') { e.preventDefault(); return; } if (G.overlay === 'controls') openOverlay('pause'); else pauseCombat(!G.paused); e.preventDefault(); return; }
       if (['Space', 'KeyQ', 'KeyE', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
       if (G.paused || G.overlay) return;          // 정지·메뉴 중 전투 입력은 버린다
       PA.Input.keyDown(G.input, e.code);
       PA.Audio.init();
     } else if (e.code === 'Enter') {
       const btn = uiEl.querySelector('button.primary:not([disabled])'); if (btn) btn.click();
-    } else if (e.code === 'Escape' && G.overlay) closeOverlay();
+    } else if (e.code === 'Escape' && G.overlay) { if (G.overlay === 'glossary') actions['close-overlay'](); else closeOverlay(); }
   }
   function onKeyUp(e) { PA.Input.keyUp(G.input, e.code); }
 

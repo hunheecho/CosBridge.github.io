@@ -4,6 +4,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 PA.Screens = (function () {
   const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const R = () => PA.Run;
+  const T = (id, text) => (PA.Glossary ? PA.Glossary.T(id, text) : esc(text || id)); // 밑줄 용어(용어 사전)
   const stars = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
   const matName = (k) => PA.MATERIALS[k].name;
   const hoursPips = (h, max) => `<span class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < h ? 'on' : ''}"></i>`).join('')}</span>`;
@@ -15,7 +16,7 @@ PA.Screens = (function () {
     const b = R().build(run), left = R().bossDaysLeft(run), nb = R().nextBoss(run), nbc = R().nextBossCfg(run), stages = R().stageCount(run);
     return `<div class="topbar">
       <div class="stat"><span class="lbl">날짜</span><b>${run.day}일차</b></div>
-      <div class="stat wide"><span class="lbl">시간대 <span class="dim">(남은 ${run.hours}칸)</span></span>${slotStrip(run)}</div>
+      <div class="stat wide"><span class="lbl">${T('timeslot', '시간대')} <span class="dim">(남은 ${run.hours}칸)</span></span>${slotStrip(run)}</div>
       <div class="stat boss"><span class="lbl">${stages > 1 ? `보스 ${(run.stage || 0) + 1}/${stages} · ${esc(nbc.name)}` : '보스'}</span><b class="${left <= 1 ? 'warn' : ''}">${!nb ? '완료' : left > 0 ? left + '일 뒤' : '오늘'}</b></div>
       <div class="stat"><span class="lbl">체력</span><b>${run.hp} / ${b.hpMax}</b></div>
       <div class="stat"><span class="lbl">금화</span><b class="gold">${run.gold}</b></div>
@@ -38,32 +39,32 @@ PA.Screens = (function () {
       <p class="dim small">전장: ${esc(PA.ARENAS.clearing.name)} · 체력 ${hp} · 단계 전환 ${B.phases.map(p => Math.round(p * 100) + '%').join('·')} · 시간제한 없음${nb && nb.rare ? ' · 승리 시 희귀 보상 3택' : ''}</p></div></div></div>`;
   }
   // 장비 한 줄 요약(효과 핵심). 세부는 용어 사전
-  const equipLine = (id) => { const d = PA.EQUIPMENT[id]; return `<b>${esc(d.name)}</b> <span class="dim">${esc(d.short)}</span>`; };
+  const equipLine = (id) => { const d = PA.EQUIPMENT[id]; return `<b>${T('eq:' + id, d.name)}</b> <span class="dim">${esc(d.short)}</span>`; };
   function equipPanel(run) {
     const eq = run.equipment, b = R().build(run);
     const rows = PA.EQUIP_SLOTS.map(sl => `<li><span class="lbl">${esc(PA.EQUIP_SLOT_NAMES[sl])}</span> ${eq[sl] ? equipLine(eq[sl]) : '<span class="dim">비어 있음</span>'}</li>`).join('');
-    return `<div class="card"><div class="card-title">장비 <span class="sub">슬롯당 1개 · 이번 회차 한정 · 가방 ${run.bag.length}개</span></div><ul class="gear">${rows}</ul>
-      <p class="dim small">최대 체력 ${b.hpMax} · 이동 ×${PA.fmt.num(b.speedMult)} · 시작 보호막 ${b.shield || 0}${b.forge ? ` · 공용 공격 강화 ${b.forge}단계(자동기술 피해 ×${PA.fmt.num(b.forgeMult)})` : ''}</p></div>`;
+    return `<div class="card"><div class="card-title">${T('equipment', '장비')} <span class="sub">슬롯당 1개 · 이번 회차 한정 · ${T('bag', '가방')} ${run.bag.length}개</span></div><ul class="gear">${rows}</ul>
+      <p class="dim small">최대 체력 ${b.hpMax} · 이동 ×${PA.fmt.num(b.speedMult)} · 시작 보호막 ${b.shield || 0}${b.forge ? ` · ${T('forge', '공용 공격 강화')} ${b.forge}단계(자동기술 피해 ×${PA.fmt.num(b.forgeMult)})` : ''}</p></div>`;
   }
   function buildPanel(run) {
     const b = R().build(run), g = PA.Growth.ensure(run), S = PA.GROWTH.SLOTS;
-    const wrows = b.weapons.map((w, i) => `<li><b>${esc(w.name)}</b> Lv${w.level}/${S.weaponMax} <span class="dim">피해 ${PA.fmt.num(w.damage)} · 주기 ${PA.fmt.num(w.interval)}초${w.range ? ' · 사거리 ' + Math.round(w.range) : ''}</span> <span class="small">개조 ${w.mods.length}/${S.weaponMods}: ${w.mods.length ? w.mods.map(mid => esc(w.def.mods[mid].name)).join(', ') : '없음'}</span></li>`).join('');
+    const wrows = b.weapons.map((w, i) => `<li><b>${T('w:' + w.id, w.name)}</b> Lv${w.level}/${S.weaponMax} <span class="dim">피해 ${PA.fmt.num(w.damage)} · 주기 ${PA.fmt.num(w.interval)}초${w.range ? ' · 사거리 ' + Math.round(w.range) : ''}</span> <span class="small">${T('mod', '개조')} ${w.mods.length}/${S.weaponMods}: ${w.mods.length ? w.mods.map(mid => esc(w.def.mods[mid].name)).join(', ') : '없음'}</span></li>`).join('');
     const empties = Array.from({ length: S.weapons - b.weapons.length }, () => '<li class="dim">빈 자동기술 슬롯 (레벨업 또는 상점)</li>').join('');
     const commons = Object.keys(g.commons).filter(k => g.commons[k] > 0).map(k => `<b>${esc(PA.COMMONS[k].name)}</b>${PA.COMMONS[k].max > 1 ? ` ${g.commons[k]}/${PA.COMMONS[k].max}` : ''}`).join(', ');
     const passives = Object.keys(g.passives).filter(k => g.passives[k] > 0).map(k => `<b>${esc(PA.PASSIVES[k].name)}</b> ${g.passives[k]}/${PA.PASSIVES[k].max}`).join(', ');
     const sk = (slot) => { const x = g.skills[slot]; if (!x) return `<li><b>E</b>: <span class="dim">비어 있음 (레벨업 또는 상점)</span></li>`; const d = PA.SKILLS[x.id]; return `<li><b>${d.key}</b>: <b>${esc(d.name)}</b> Lv${x.level}/${S.skillMax} <span class="dim">재사용 ${PA.fmt.num(PA.SKILLS[x.id].cooldown[x.level - 1] * b.skillCdMult)}초${x.variant ? ' · 변형: ' + esc(d.variants[x.variant].name) : ''}</span></li>`; };
-    const steer = g.steer ? `<p class="small"><span class="tag">성장 예약</span> 다음 레벨업은 <b>${esc(PA.Sortie.kindName(g.steer.kind))}</b> 후보만 제시 (${g.steer.from === 'deep' ? '심층 보상' : '임무 보상'}, 1회)</p>` : '';
+    const steer = g.steer ? `<p class="small"><span class="tag">${T('steer', '성장 예약')}</span> 다음 레벨업은 <b>${esc(PA.Sortie.kindName(g.steer.kind))}</b> 후보만 제시 (${g.steer.from === 'deep' ? '심층 보상' : '임무 보상'}, 1회)</p>` : '';
     return `<div class="card"><div class="card-title">성장 <span class="sub">Lv ${g.level} · 경험치 ${Math.floor(g.xp)}/${PA.Growth.xpNeed(g.level)}${g.pendingLevelUps ? ` · <b class="warn">미처리 레벨업 ${g.pendingLevelUps}</b>` : ''}</span></div>
       ${steer}
-      <div class="card-title small">자동기술 ${b.weapons.length}/${S.weapons}</div><ul class="gear">${wrows}${empties}</ul>
+      <div class="card-title small">${T('auto_skill', '자동기술')} ${b.weapons.length}/${S.weapons}</div><ul class="gear">${wrows}${empties}</ul>
       <div class="card-title small">수동 기술</div><ul class="gear">${sk('q')}${sk('e')}</ul>
-      <p class="small">공용 증강 ${PA.Growth.commonCount(g)}/${S.commons}: ${commons || '<span class="dim">없음</span>'} · 패시브 ${PA.Growth.passiveCount(g)}/${S.passives}: ${passives || '<span class="dim">없음</span>'}${g.bossRewards.length ? ` · 희귀 보상: ${g.bossRewards.map(id => `<b>${esc(PA.BOSS_REWARDS[id].name)}</b>`).join(', ')}` : ''}</p></div>`;
+      <p class="small">${T('common', '공용 증강')} ${PA.Growth.commonCount(g)}/${S.commons}: ${commons || '<span class="dim">없음</span>'} · ${T('passive', '패시브')} ${PA.Growth.passiveCount(g)}/${S.passives}: ${passives || '<span class="dim">없음</span>'}${g.bossRewards.length ? ` · 희귀 보상: ${g.bossRewards.map(id => `<b>${esc(PA.BOSS_REWARDS[id].name)}</b>`).join(', ')}` : ''}</p></div>`;
   }
   // 런 피해 통계(결과·거점): 기술별 유효 피해·비중·DPS, 분류별, 보스 전용(성공/실패 분리). 방어·회복·감속은 포함하지 않는다
   function statsPanel(run, compact) {
     if (!PA.Stats || !run.dmgStats || !run.dmgStats.combats.length) return '';
     const V = PA.Stats.views(run), tbl = (a, title) => a.n ? `<div class="card-title small">${title} <span class="dim">전투 ${a.n}회 · 실제 전투 ${a.elapsed}초 · 총 유효 피해 ${a.total} · 전체 DPS ${a.dpsAll} · 받은 피해 ${a.taken}</span></div>
-      <table class="keys stats"><tr><th>출처</th><th>분류</th><th>유효 피해</th><th>비중</th><th>보유 시간</th><th>DPS</th></tr>${a.rows.map(r => `<tr><td>${esc(r.name)}</td><td class="dim">${esc(PA.Stats.CATS[r.cat] || r.cat)}</td><td>${r.amount}</td><td>${r.share}%</td><td>${r.active}초</td><td><b>${r.dps}</b></td></tr>`).join('')}</table>
+      <table class="keys stats"><tr><th>출처</th><th>분류</th><th>${T('effective', '유효 피해')}</th><th>비중</th><th>보유 시간</th><th>${T('dps', 'DPS')}</th></tr>${a.rows.map(r => `<tr><td>${esc(r.name)}</td><td class="dim">${esc(PA.Stats.CATS[r.cat] || r.cat)}</td><td>${r.amount}</td><td>${r.share}%</td><td>${r.active}초</td><td><b>${r.dps}</b></td></tr>`).join('')}</table>
       <p class="dim small">분류별: ${Object.keys(a.cats).map(k => `${esc(PA.Stats.CATS[k] || k)} ${a.cats[k]}`).join(' · ')}</p>` : '';
     const body = `${tbl(V.all, '전체')}${tbl(V.boss, '보스전(성공)')}${tbl(V.bossFailed, '보스전(실패한 도전)')}${compact ? '' : tbl(V.sortie, '일반 출격')}<p class="dim small">유효 피해 = 실제 체력 감소(과잉 피해 제외). DPS 분모 = 그 기술을 보유한 실제 전투 시간(메뉴·일시정지 제외). 감속장(Q)의 감속·방어·회복은 피해가 아니므로 표에 없음.</p>`;
     return compact ? `<details class="card small"><summary>피해 통계 <span class="dim">· 전투 ${V.all.n}회 · 총 ${V.all.total}</span></summary>${body}</details>` : `<div class="card"><div class="card-title">피해 통계</div>${body}</div>`;
@@ -72,7 +73,7 @@ PA.Screens = (function () {
 
   // 시작 무기 선택
   function pickStart(G) {
-    const list = (G.startAll ? PA.STARTABLE_ALL : PA.STARTABLE).map(id => { const d = PA.WEAPONS[id]; return `<div class="card"><div class="card-title">${esc(d.name)}</div><p>${esc(d.desc)}</p><p class="dim small">기본 피해 ${d.base.damage} · 주기 ${d.base.interval}초 · 전용 방식: ${Object.values(d.mods).map(m => esc(m.name)).join(', ')}</p><button class="primary" data-action="start-weapon" data-arg="${id}">이 자동기술로 시작</button></div>`; }).join('');
+    const list = (G.startAll ? PA.STARTABLE_ALL : PA.STARTABLE).map(id => { const d = PA.WEAPONS[id]; return `<div class="card"><div class="card-title">${T('w:' + id, d.name)}</div><p>${esc(d.desc)}</p><p class="dim small">기본 피해 ${d.base.damage} · 주기 ${d.base.interval}초 · 전용 방식: ${Object.values(d.mods).map(m => esc(m.name)).join(', ')}</p><button class="primary" data-action="start-weapon" data-arg="${id}">이 자동기술로 시작</button></div>`; }).join('');
     const laySel = `<select id="start-layout">${Object.keys(PA.LAYOUTS).map(k => `<option value="${k}">${esc(PA.LAYOUTS[k].name)}</option>`).join('')}</select>`;
     const modeSel = `<select id="start-mode">${Object.keys(PA.RUN_MODES).map(k => `<option value="${k}" ${k === 'trio' ? 'selected' : ''}>${esc(PA.RUN_MODES[k].name)}</option>`).join('')}</select>`;
     const balSel = `<select id="start-balance">${Object.keys(PA.BALANCE_SETS).map(k => `<option value="${k}" ${k === PA.BALANCE_DEFAULT ? 'selected' : ''} title="${esc(PA.BALANCE_SETS[k].desc)}">${esc(PA.BALANCE_SETS[k].name)}</option>`).join('')}</select>`;
@@ -108,6 +109,7 @@ PA.Screens = (function () {
         ${hasSave ? `<button class="primary big" data-action="continue">계속하기 <span class="dim">(${G.saved.day}일차 · 금화 ${G.saved.gold}${G.saved.migratedFrom ? ' · 이전 버전 저장(변환됨)' : ''})</span></button>` : ''}
         <button class="big ${hasSave ? '' : 'primary'}" data-action="newrun">새 회차</button>
         <button class="big" data-action="controls">조작법</button>
+        <button class="big" data-action="glossary">용어 사전</button>
         <button class="big" data-action="lab">전투 시험실 <span class="dim">(정식 회차와 분리 · 체력 배율·빌드·적 조합 비교)</span></button>
         <div class="row"><span class="dim small">검증 메뉴 · 3보스 회차 빠른 경로(현재 저장을 덮어씀):</span>${[0, 1, 2].map(i => `<button class="mini" data-action="quick-run" data-arg="${i}">${i + 1}단계 관문 직전</button>`).join(' ')}</div>
       </div>
@@ -146,9 +148,9 @@ PA.Screens = (function () {
     const others = Object.keys(PA.SLOT_VARIANTS[c.regionId] || {}).map(Number).filter(i => i !== slot).map(i => `${PA.TIME_SLOTS[i]} ${esc(PA.SLOT_VARIANTS[c.regionId][i].name)}`).join(' · ');
     const why = c.done ? '오늘 완료' : run.phase !== 'prep' ? '출격 불가' : run.hours < c.timeCost ? `시간 부족 (${c.timeCost}칸 필요)` : '';
     return `<div class="card region ${can ? '' : 'off'} ${c.done ? 'done' : ''}">
-      <div class="card-title">${esc(r.name)} <span class="cost-badge">${c.timeCost}칸</span> <span class="sub">${O ? esc(O.name) : '전멸'}${elite ? ' · <b>정예</b>' : ''}${c.risk ? ' · <b class="warn">' + esc(M.riskText[c.risk]) + '</b>' : ''}</span></div>
+      <div class="card-title">${esc(r.name)} <span class="cost-badge">${c.timeCost}칸</span> <span class="sub">${O ? T('mission', O.name) : '전멸'}${elite ? ' · <b>' + T('elite', '정예') + '</b>' : ''}${c.risk ? ' · <b class="warn">' + esc(M.riskText[c.risk]) + '</b>' : ''}</span></div>
       <p class="summary">${c.enemies.filter(id => !PA.ENEMIES[id].elite).slice(0, 3).map(id => esc(PA.ENEMIES[id].name)).join('·')} · ${reward}${hpm.normal !== 1 ? ` · 체력 ×${hpm.normal}` : ''}</p>
-      <p class="small">${v ? `<span class="tag">${esc(PA.TIME_SLOTS[slot])} ${esc(v.name)}</span> ${esc(v.desc)}` : `<span class="dim">${esc(PA.TIME_SLOTS[Math.min(slot, 4)])} 출발: 기본 편성</span>`}${others ? ` <span class="dim small">· 다른 시간대: ${others}</span>` : ''}</p>
+      <p class="small">${v ? `<span class="tag">${T('variant_slot', PA.TIME_SLOTS[slot] + ' ' + v.name)}</span> ${esc(v.desc)}` : `<span class="dim">${esc(PA.TIME_SLOTS[Math.min(slot, 4)])} 출발: 기본 편성</span>`}${others ? ` <span class="dim small">· 다른 시간대: ${others}</span>` : ''}</p>
       ${O ? `<p class="small">보상: <b>${esc(steer.text)}</b>${c.rewardTarget ? ` <span class="dim">(${esc(c.rewardTarget)})</span>` : ''}</p>` : ''}
       <details><summary>상세</summary>
         ${O ? `<p class="dim">${esc(O.desc)}</p>` : `<p class="dim">${esc(r.desc)}</p>`}
@@ -175,7 +177,7 @@ PA.Screens = (function () {
     return `<div class="screen">${header(run)}
       <div class="grid2">
         <div>
-          <h3>오늘의 장소 <span class="dim small">2곳 · 출발 시간대에 편성·사건·보상 확정 · 승리 후 더 깊이 1회</span></h3>
+          <h3>오늘의 장소 <span class="dim small">2곳 · 출발 시간대에 편성·사건·보상 확정 · 승리 후 ${T('deep', '더 깊이')} 1회</span></h3>
           ${cards.map(c => placeCard(run, c)).join('')}
           ${merchantCard(run)}
           <div class="card"><div class="card-title">거점</div>
@@ -185,6 +187,7 @@ PA.Screens = (function () {
               <button class="big" data-action="rest" ${canRest ? '' : 'disabled'}>${R().hasService(run, 'free_rest') ? '휴식 (무료 휴식권 · 시간 소모 없음)' : `휴식 → ${esc(R().nextSlotName(run))}`} <span class="dim">${full ? '체력 가득 · 시간만 넘김' : '체력 완전 회복'}${canRest ? '' : ' · 남은 칸 없음'}</span></button>
               <button class="big" data-action="endday-confirm">하루 종료 → ${run.day + 1}일차 <span class="dim">${run.hours > 0 ? `(남은 ${run.hours}칸 버림) · ` : ''}내일: ${nextText}</span></button>
               <button data-action="save-quit">저장 후 종료</button>
+              <button data-action="glossary">용어 사전</button>
             </div></div>
           ${Object.keys(run.services || {}).some(k => run.services[k] > 0) ? `<div class="card compact"><div class="card-title small">보유 이용권</div><p class="small">${Object.keys(run.services).filter(k => run.services[k] > 0).map(k => `<b>${esc(PA.SERVICES[k].name)}</b> ×${run.services[k]}`).join(' · ')} <span class="dim">(개조 교체권·할인권은 상점·대장간에서 사용)</span></p></div>` : ''}
           ${bossCard(run, false)}
@@ -219,10 +222,10 @@ PA.Screens = (function () {
       const newCard = sk ? `<div class="card item ${canSk ? 'can' : sold ? 'done' : ''}"><div class="card-title">${esc(skName)} <span class="sub">${sk.kind === 'weapon' ? '새 자동기술' : '새 E 기술'} · Lv1 · 개조 없음</span></div><p>${esc(skDesc)}</p><div class="cost">금화 <b class="${run.gold < sk.price ? 'lack' : 'gold'}">${sk.price}</b> ${why ? `<span class="dim small">· ${why}</span>` : ''}</div><button class="primary" data-action="buy-skill" ${canSk ? '' : 'disabled'}>구매 (빈 슬롯에 장착)</button></div>` : `<div class="card dim"><div class="card-title small">새 기술</div><p class="dim">${why}</p></div>`;
       const rows = g.weapons.map((w, i) => { const q = R().swapQuote(run, 'weapon', i); return `<li><b>${esc(PA.WEAPONS[w.id].name)}</b> Lv${w.level} · 개조 ${w.mods.length} <span class="dim">→ 교체 ${q.price}금 (레벨·개조 수 보존, 새 개조는 새 기술에서 선택)</span> <button class="mini" data-action="swap-open" data-arg="weapon:${i}" ${q.options.length && q.affordable ? '' : 'disabled'}>${q.options.length ? (q.affordable ? '교체' : `${q.price - run.gold} 부족`) : '후보 없음'}</button></li>`; }).join('');
       const eq = g.skills.e ? (() => { const q = R().swapQuote(run, 'e'); return `<li><b>E ${esc(PA.SKILLS[g.skills.e.id].name)}</b> Lv${g.skills.e.level}${g.skills.e.variant ? ' · 변형 1' : ''} <span class="dim">→ 교체 ${q.price}금</span> <button class="mini" data-action="swap-open" data-arg="e:0" ${q.options.length && q.affordable ? '' : 'disabled'}>${q.affordable ? '교체' : `${q.price - run.gold} 부족`}</button></li>`; })() : '<li class="dim">E 없음</li>';
-      body = `<div class="grid2">${newCard}<div class="card"><div class="card-title">보유 기술 교체 <span class="sub">120 + (레벨−1)×40 + 개조×80</span></div><ul class="gear">${rows}${eq}</ul><p class="dim small">교체하면 옛 기술은 남지 않습니다. 확정 전까지 금화는 차감되지 않습니다.</p></div></div>`;
+      body = `<div class="grid2">${newCard}<div class="card"><div class="card-title">보유 ${T('swap', '기술 교체')} <span class="sub">120 + (레벨−1)×40 + 개조×80</span></div><ul class="gear">${rows}${eq}</ul><p class="dim small">교체하면 옛 기술은 남지 않습니다. 확정 전까지 금화는 차감되지 않습니다.</p></div></div>`;
     } else if (tab === 'forge') {
       const F = R().forgeNext(run); const lv = run.forge || 0;
-      const forgeCard = `<div class="card item ${F && F.open && F.affordable ? 'can' : ''}"><div class="card-title">공용 공격 강화 <span class="sub">현재 ${lv}단계 · 자동기술 피해 ×${PA.fmt.num(R().build(run).forgeMult)}</span></div>
+      const forgeCard = `<div class="card item ${F && F.open && F.affordable ? 'can' : ''}"><div class="card-title">${T('forge', '공용 공격 강화')} <span class="sub">현재 ${lv}단계 · 자동기술 피해 ×${PA.fmt.num(R().build(run).forgeMult)}</span></div>
         ${F ? `<p>${F.lv}단계: 자동기술 피해 ×${PA.fmt.num(1 + PA.SHOP.forgeMult[F.lv])} · 금화 <b class="${run.gold < F.cost ? 'lack' : 'gold'}">${F.cost}</b>${!F.open ? ` <span class="warn small">· 보스 ${F.afterBoss} 처치 후 개방</span>` : ''}</p><button class="primary" data-action="forge-up" ${F.open && F.affordable ? '' : 'disabled'}>${!F.open ? '잠김' : F.affordable ? '강화' : `${F.cost - run.gold} 부족`}</button>` : '<p class="dim">최대 단계</p>'}
         <p class="dim small">단계별 90 / 160 / 240 · 2단계는 1보스, 3단계는 2보스 처치 후</p></div>`;
       const mc = R().modChangeCost(run), vc = R().variantChangeCost(run);
@@ -275,13 +278,13 @@ PA.Screens = (function () {
     const canDeep = !s.deep && R().canDeepExplore(run, s), must = PA.Flow.mustReturn(s);
     const lootText = `금화 ${s.loot.gold}` + Object.keys(s.loot.mats).map(k => `, ${matName(k)} ${s.loot.mats[k]}`).join('') + (s.loot.items || []).map(id => `, ${PA.EQUIPMENT[id].name}`).join('') + (s.loot.services || []).map(k => `, ${PA.SERVICES[k].name}`).join('') + (s.loot.steer ? ', 성장 예약' : '');
     const pv = canDeep ? R().deepPreview(run, s) : null;
-    const deepCard = must ? '' : pv ? `<div class="card boss"><div class="card-title">더 깊이 (1회) <span class="sub">시간 +${pv.extraTime}칸 → ${esc(pv.nextSlot)}</span></div>
+    const deepCard = must ? '' : pv ? `<div class="card boss"><div class="card-title">${T('deep', '더 깊이')} (1회) <span class="sub">시간 +${pv.extraTime}칸 → ${esc(pv.nextSlot)}</span></div>
         <div class="kv"><span>적 변화</span><b>${esc(pv.enemyChange)}${pv.hpMult.normal !== 1 ? ` · 체력 ×${pv.hpMult.normal}` : ''}</b></div>
         <div class="kv"><span>보상</span><b>${esc(pv.reward.text)}</b> <span class="dim small">(승리 시 전리품에 추가, 귀환 때 정산)</span></div>
         <div class="kv"><span>걸린 전리품</span><b class="warn">${esc(lootText)}</b> <span class="dim small">패배하면 모두 잃고 남은 하루도 잃습니다</span></div>
         <button class="big" data-action="deep">더 깊이 들어간다</button></div>` : `<p class="dim small">더 깊이: ${s.deep ? '이미 탐험함' : s.mission ? '임무 출격에서는 불가' : '남은 칸 없음'}</p>`;
     return `<div class="screen center"><h2>${esc(r.name)} · 전투 승리</h2>
-      <p>체력 <b>${run.hp} / ${b.hpMax}</b> · 이번 출격 전리품(미정산): <b>${esc(lootText)}</b> · 남은 ${run.hours}칸 (${esc(R().slotName(run))})</p>
+      <p>체력 <b>${run.hp} / ${b.hpMax}</b> · 이번 출격 ${T('loot', '전리품(미정산)')}: <b>${esc(lootText)}</b> · 남은 ${run.hours}칸 (${esc(R().slotName(run))})</p>
       ${deepCard}
       <div class="menu"><button class="primary big" data-action="return">전리품을 가지고 귀환 (정산)</button></div>
       <p class="dim small">시작한 전투는 중간에 안전하게 물러날 수 없습니다. 포기는 패배로 처리됩니다.</p></div>`;
@@ -368,7 +371,7 @@ PA.Screens = (function () {
     const lab = G.scenario && G.scenario.lab && G.combat ? `<div class="card"><div class="card-title small">시험실 설정</div><p class="small">${esc(G.combat.labText || '')}</p><p class="small dim">${esc(PA.Lab.encode(G.lab.cfg))}</p><div class="row"><button data-action="lab-abort">중단하고 결과 보기</button><button data-action="lab-back">설정 화면으로(결과 없이)</button></div></div>` : '';
     return `<div class="panel"><h2>일시정지</h2><p class="dim">전투가 멈춰 있습니다.</p>${lab}
       <div class="row"><label>음량 <input type="range" id="vol" min="0" max="100" value="${Math.round(PA.Audio.volume * 100)}"></label><label><input type="checkbox" id="mute" ${PA.Audio.muted ? 'checked' : ''}> 음소거</label></div>
-      <div class="row"><button class="primary" data-action="resume">계속 (Esc)</button><button data-action="show-controls">조작법</button><button class="danger" data-action="give-up">포기하고 거점으로 (패배 처리)</button></div></div>`;
+      <div class="row"><button class="primary" data-action="resume">계속 (Esc)</button><button data-action="show-controls">조작법</button><button data-action="glossary">용어 사전</button><button class="danger" data-action="give-up">포기하고 거점으로 (패배 처리)</button></div></div>`;
   }
   // ---------- 전투 시험실 ----------
   function lab(G) {
