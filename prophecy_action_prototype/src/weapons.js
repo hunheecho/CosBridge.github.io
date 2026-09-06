@@ -47,8 +47,10 @@ PA.Weapons = (function () {
     const list = [];
     for (const e of alive(st)) if (m().inBeam(from, angle, L, W, e, e.r) && reachable(st, from, e)) list.push(e);
     list.sort((a, b) => m().dist(from, a) - m().dist(from, b));
-    for (const e of list) dmgTo(st, e, w, mult, Object.assign({ dir: { x: Math.cos(angle), y: Math.sin(angle) }, knock: w.stats.knock, from }, opt));
-    return list;
+    // 위치·방향 선정용 후보 규칙(데이터, 기본 없음): sweetFrom = 사거리의 이 비율 안쪽은 sweetMult 피해(가까우면 약함), maxTargets = 한 번에 관통하는 최대 수
+    const s = w.stats, hit = []; let n = 0;
+    for (const e of list) { if (s.maxTargets && n >= s.maxTargets) break; let mm = mult; if (s.sweetFrom && m().dist(from, e) < L * s.sweetFrom) mm *= (s.sweetMult != null ? s.sweetMult : 0.5); dmgTo(st, e, w, mm, Object.assign({ dir: { x: Math.cos(angle), y: Math.sin(angle) }, knock: w.stats.knock, from }, opt)); hit.push(e); n++; }
+    return hit;
   }
   function proj(st, w, o) { // 아군 투사체 생성
     const pr = Object.assign({ owner: 'player', weapon: w, r: 4, ttl: 2, hits: new Set(), dmgMult: 1, opt: {} }, o);

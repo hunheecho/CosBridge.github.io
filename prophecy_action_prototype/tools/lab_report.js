@@ -67,9 +67,9 @@ if (suite === 'C') {
   q3.sort((x, y) => y[2] - x[2] || y[4] - x[4]); for (const row of q3) md += `| ${row.join(' | ')} |\n`;
   summary.byComboHp = Object.fromEntries([...byCombo].map(([c, l]) => [c, Object.fromEntries([...group(l, hpOf)].map(([k, x]) => [k, agg(x)]))])); summary.q3 = q3;
 }
-if (suite === 'D') {
-  const VN = { cmp_sword: '검', cmp_blades: '회전 칼날', cmp_spear: '창 ×1.0', 'cmp_spear@0.85': '창 ×0.85', 'cmp_spear@0.75': '창 ×0.75' };
-  const vn = (r) => VN[r.variant] || r.variant, order = ['cmp_sword', 'cmp_blades', 'cmp_spear', 'cmp_spear@0.85', 'cmp_spear@0.75'];
+if (suite === 'D' || suite === 'D2' || suite === 'D3') {
+  const VN = { cmp_sword: '검', cmp_blades: '회전 칼날', cmp_spear: '창 ×1.0', 'cmp_spear@0.85': '창 ×0.85', 'cmp_spear@0.75': '창 ×0.75', 'cmp_spear@sweet': '창 근접 약화(45% 안쪽 ×0.5)', 'cmp_spear@narrow': '창 폭 28', 'cmp_spear@pierce2': '창 관통 2명', 'cmp_spear@sweet+narrow': '창 근접 약화+폭 28', 'cmp_spear@int0.85': '창 주기 0.85', 'cmp_spear@dmg12': '창 피해 12', 'cmp_spear@sweet+int0.85': '창 근접 약화+주기 0.85', 'cmp_spear@sweet+dmg12': '창 근접 약화+피해 12' };
+  const vn = (r) => VN[r.variant] || r.variant, order = ['cmp_sword', 'cmp_blades', 'cmp_spear', 'cmp_spear@0.85', 'cmp_spear@0.75', 'cmp_spear@sweet', 'cmp_spear@narrow', 'cmp_spear@pierce2', 'cmp_spear@sweet+narrow', 'cmp_spear@int0.85', 'cmp_spear@dmg12', 'cmp_spear@sweet+int0.85', 'cmp_spear@sweet+dmg12'];
   const sorted = (g) => new Map([...g.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])));
   md += '\n## 무기별(전체: 지역 5 + 보스 3, 체력 ×1·×2, 봇 3)\n' + table('전체', sorted(group(rows, r => r.variant)), '무기').replace(/\| cmp_[^ |]+/g, (m) => '| ' + (VN[m.slice(2)] || m.slice(2)));
   md += '\n## 적별 × 무기\n';

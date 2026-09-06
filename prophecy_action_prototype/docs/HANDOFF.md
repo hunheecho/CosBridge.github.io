@@ -1,6 +1,13 @@
 # 인수인계 (현재 상태와 다음 작업만)
 
-## 현재 상태 (v0.7.0) — 출격 카드·전투 목표 4종·탐험 사건 6종·3보스 회차
+## 현재 상태 (v0.7.1) — 플레이 피드백 반영·밸런스 비교 시험
+- 반영: 출격 화면 간소화(요약 + 상세 보기), '전투 승리' 용어, 정예 전부 처치(HUD n/m, 정예 호위 시 2마리), Codex 지적 4건(보스 패배 금화 복구·시간의 샘 유지·개조 3택 다중 제시·재접속 뒤 사건).
+- 비교 시험 결과: `docs/sim/COMPARE_v071.md`(경험치 ×0.7/×0.5/×0.4 × 적·보스 체력 후보, 3일차 성장 중단 빌드, 시작 무기 3종, 창 사거리 ×1/×0.85/×0.75, 창 설계·화력 후보). 추천 기본값은 §8이며 확정값이 아니다.
+- 밸런스 후보 세트 `src/balance_data.js`(현재값 / 추천안 A / 추천안 B): 시작 화면 "밸런스" 선택으로 회차에 기록(`run.balance`), 시험실·제목 화면은 현재값. 기본값은 여전히 현재값.
+- 창 규칙 데이터 훅: `sweetFrom/sweetMult`(근접 약화)·`maxTargets`(관통 수) — 기본값 없음, 추천안에서만 사용.
+- 검증: 테스트 136, verify_v07 25/25, verify_lab 35/35.
+
+## 이전 상태 (v0.7.0) — 출격 카드·전투 목표 4종·탐험 사건 6종·3보스 회차
 - 구조: 화면(main.js)과 봇·시뮬레이터가 같은 흐름(`src/flow.js` PA.Flow)을 쓴다: 조우 생성(`makeEncounter`/`makeBossEncounter`), 승리·패배 정산(`settleVictory`/`settleDefeat`/`settleBossVictory`), 다음 선택 순서(`nextOffer`: 보류 제시 → 레벨업 → 임무 3택 → 보스 희귀 3택 → 사건 보상 → 더 깊이 3택), 전투 뒤 화면(`afterCombatStep`), 귀환(`returnHome`). 저장에는 보류 선택(`growth.pending*`, `pendingOffer`)과 전투 뒤 출격 상태(`run.pendingSortie`)가 포함된다.
 - 출격 카드: `src/sortie.js`(하루 3장, `run.cards`, 시드 확정, 하루 1회 완료, 임무 보상 종류 3택·정액 금화 대체). 전투 목표: `src/mission_data.js`·`src/objectives.js`(정예 추적·제단 파괴·봉인 해제·포로 구출, 구조물은 적 목록 `structure`, 우리·봉인·출구·포로는 `st.objects`). 사건: `src/events.js`. 보스: `src/boss_data.js`·`src/boss2.js`(가시갈기는 boss.js 그대로), 회차 구조 `PA.RUN_MODES`(single/trio), `run.mode/stage/bossesDone/bossRecords`.
 - 검증: `node --test test/*.test.js`(133), `tools/verify_lab.js`(35), `tools/verify_v07.js`(브라우저 25항목: 카드→임무→3택→사건→귀환, 선택 중 입력 차단, 새로고침 복구, 관문 패배 복구·승리·희귀 보상·최종 종료, 이전 저장), `tools/run_sim.js --mode trio|single --strats ... --start sword|spear|blades`. 결과 `docs/sim/run_sim_trio*.md`, `run_sim_single.md`, 요약 `docs/sim/SUMMARY.md`.
@@ -49,6 +56,6 @@
 - 그래픽은 모두 도형 기반 임시 표현. 밸런스·재미는 사용자 플레이 뒤 판단.
 
 ## 다음 작업 (우선순위)
-1. 사용자 실제 플레이로 회차 길이·임무 보상 체감·보스 3종 난이도 측정(봇 결과는 정책 비교용).
-2. 결과에 따라 보스 체력 후보(`PA.BOSS_HP`)·임무 시간(`PA.OBJECTIVES.*`)·사건 확률(`PA.EVENTS.chance`) 조정. 수치는 모두 데이터.
-3. 임무 카드의 목표·지역 조합 확장(현재 4목표 × 지역, 위험 조건 3종).
+1. 사용자가 시작 화면에서 "추천안 A/B"를 골라 직접 플레이 → 적의 행동을 보고 대응하게 되는지, 창의 안전성이 줄었는지, 회차 길이를 판단. 승인되면 기본값 전환(`PA.BALANCE_SETS`의 순서·기본 선택만 바꾸면 됨).
+2. 회전 칼날은 검보다 받은 피해가 37% 많고 습지·심층 승률이 낮다(report_D). 별도 검토.
+3. 봇은 회피가 완벽해 "성장 중단 빌드도 이긴다". 사람 기준 보스 피해량(14~24) 재검토가 체력 상향보다 먼저.

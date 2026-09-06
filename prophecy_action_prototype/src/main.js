@@ -79,7 +79,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   function goBase() { saveRun(); if (G.run.growth && G.run.growth.migrationPending) { show('migration'); return; } show('base'); const g = G.run.growth; if (g && (g.pendingDeepPick || g.pendingBossPick || g.pendingMissionPick || (g.pendingOffer && g.pendingOffer.pool !== 'level'))) { const off = PA.Flow.nextOffer(G.run); if (off) { openChoice(off); saveRun(); } } } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
   function leaveScenario() { if (G.scenario) { G.scenario = null; try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
   function newRun() { leaveScenario(); G.startAll = false; show('pick_start'); }
-  function startRun(weaponId) { const modeEl = $('#start-mode'); G.run = PA.Run.newRun(undefined, weaponId, modeEl ? modeEl.value : 'trio'); const lay = $('#start-layout'), dif = $('#start-difficulty'); if (lay && PA.LAYOUTS[lay.value]) G.run.layout = lay.value; if (dif && PA.DIFFICULTY.candidates[dif.value]) G.run.difficulty = dif.value; G.sortie = null; G.combat = null; saveRun(); show('base'); }
+  function startRun(weaponId) { const modeEl = $('#start-mode'), balEl = $('#start-balance'); G.run = PA.Run.newRun(undefined, weaponId, modeEl ? modeEl.value : 'trio', balEl ? balEl.value : 'current'); PA.Balance.applyRun(G.run); const lay = $('#start-layout'), dif = $('#start-difficulty'); if (lay && PA.LAYOUTS[lay.value]) G.run.layout = lay.value; if (dif && PA.DIFFICULTY.candidates[dif.value] && G.run.balance === 'current') G.run.difficulty = dif.value; // 밸런스 후보가 적 체력 후보를 정하면 난이도 선택은 무시 G.sortie = null; G.combat = null; saveRun(); show('base'); }
   function startSortie(regionId) {
     G.sortie = PA.Run.startSortie(G.run, regionId);
     saveRun(); // 출격 비용은 지불된 상태로 저장(전투 중 종료 시 복구 기준)
@@ -128,7 +128,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 전투 시험실(정식 회차와 분리: 저장 키·입력·배율이 회차로 새지 않는다) ----------
   function enterLab(cfg) {
-    leaveScenario(); G.run = null; G.sortie = null; G.combat = null; G.saved = PA.Run.load();
+    leaveScenario(); PA.Balance.apply('current'); // 시험실은 항상 현재값(밸런스 후보는 회차 전용) G.run = null; G.sortie = null; G.combat = null; G.saved = PA.Run.load();
     G.lab.cfg = cfg || PA.Lab.loadConfig(); G.labResults = PA.Lab.loadResults(); G.labCsv = null;
     show('lab');
   }
@@ -167,7 +167,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 동작 처리 ----------
   const actions = {
-    'continue': () => { leaveScenario(); G.run = G.saved; G.sortie = null; G.combat = null; if (G.run.pendingSortie) { G.sortie = G.run.pendingSortie; const step = PA.Flow.afterCombatStep(G.run, G.sortie); if (step === 'offer') { show('after'); openChoice(PA.Flow.nextOffer(G.run, { regionId: G.sortie.regionId })); } else show(step); return; } goBase(); }, // 전투 뒤 안전 화면에서 종료했다면 그 자리(보상 선택·사건·다음 행동)로 복귀
+    'continue': () => { leaveScenario(); G.run = G.saved; PA.Balance.applyRun(G.run); G.sortie = null; G.combat = null; if (G.run.pendingSortie) { G.sortie = G.run.pendingSortie; const step = PA.Flow.afterCombatStep(G.run, G.sortie); if (step === 'offer') { show('after'); openChoice(PA.Flow.nextOffer(G.run, { regionId: G.sortie.regionId })); } else show(step); return; } goBase(); }, // 전투 뒤 안전 화면에서 종료했다면 그 자리(보상 선택·사건·다음 행동)로 복귀
     'newrun': () => { if (G.saved) show('newrun_confirm'); else newRun(); },
     'newrun-confirm': () => newRun(),
     'start-weapon': (id) => startRun(id),
@@ -181,7 +181,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'event-choice': (id) => { const r = PA.Events.resolve(G.run, G.sortie, id); saveRun(); if (r.next === 'fight' || r.next === 'deep') { startEncounter(); return; } if (r.next === 'offer') { const off = PA.Flow.nextOffer(G.run, { regionId: G.sortie.regionId }); if (off) { G.screen = 'after'; uiEl.innerHTML = PA.Screens.after(G); openChoice(off); saveRun(); return; } } show('after'); },
     'mig-toggle': (id) => { G.migSel = G.migSel || []; if (G.migSel.includes(id)) G.migSel = G.migSel.filter(x => x !== id); else if (G.migSel.length < 3) G.migSel.push(id); show('migration'); },
     'mig-confirm': () => { PA.Growth.resolveMigration(G.run, G.migSel || []); G.migSel = null; saveRun(); goBase(); },
-    'title': () => { leaveScenario(); G.saved = PA.Run.load(); show('title'); },
+    'title': () => { leaveScenario(); PA.Balance.apply('current'); G.saved = PA.Run.load(); show('title'); },
     'controls': () => openOverlay('controls'),
     'show-controls': () => openOverlay('controls'),
     'close-overlay': () => { if (G.paused) openOverlay('pause'); else closeOverlay(); },
@@ -207,7 +207,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'give-up': () => { closeOverlay(); G.paused = false; PA.Input.setBlocked(G.input, false); if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
     'scenario-again': () => startScenario(G.scenario),
     'lab': () => { if (G.screen === 'lab_result') { G.combat = null; show('lab'); return; } enterLab(); },
-    'quick-run': (stage) => { leaveScenario(); G.run = PA.Lab.quickRun(Number(stage) || 0); G.sortie = null; G.combat = null; saveRun(); goBase(); }, // 검증 메뉴: 3보스 회차 관문 직전(현재 저장을 덮어씀)
+    'quick-run': (stage) => { leaveScenario(); G.run = PA.Lab.quickRun(Number(stage) || 0); PA.Balance.applyRun(G.run); G.sortie = null; G.combat = null; saveRun(); goBase(); }, // 검증 메뉴: 3보스 회차 관문 직전(현재 저장을 덮어씀)
     'lab-start': () => { readLabForm(); startLab(); },
     'lab-restart': () => startLab(G.lab.cfg),
     'lab-restart-hp': () => { const el = $('#lab-result-hp'); const c = Object.assign({}, G.lab.cfg, { hp: Object.assign({}, G.lab.cfg.hp) }); if (el) c.hp.normal = parseFloat(el.value); startLab(c); },

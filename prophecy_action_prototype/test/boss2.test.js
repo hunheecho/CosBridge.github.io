@@ -79,3 +79,22 @@ test('희귀 보상 후보: 적용 가능한 것만(투사체 없으면 복제 �
   // 시험실 빠른 경로: 단계별 관문 직전 회차
   for (let i = 0; i < 3; i++) { const q = PA.Lab.quickRun(i); assert.equal(q.phase, 'boss_prep'); assert.equal(PA.Run.nextBoss(q).id, PA.RUN_MODES.trio.bosses[i].id); assert.equal(q.day, PA.RUN_MODES.trio.bosses[i].day); assert.ok(PA.Run.canStartBoss(q)); }
 });
+test('밸런스 후보 세트: 추천안 적용 시 경험치 배율·보스 체력·창 기본값이 바뀌고 현재값으로 되돌릴 수 있다. 회차에 기록되고 시험실은 현재값', () => {
+  const w0 = PA.Growth.xpValue({ type: 'wolf' }, 'forest'), spear0 = Object.assign({}, PA.WEAPONS.spear.base);
+  const run = PA.Run.newRun(3, 'spear', 'trio', 'recommended'); PA.Balance.applyRun(run);
+  assert.equal(run.balance, 'recommended'); assert.equal(run.difficulty, 'candE'); assert.equal(PA.Run.bossHp(run, 'guardian'), 5000); assert.equal(PA.Run.bossHp(run, 'boss'), 2400);
+  assert.equal(PA.Growth.xpValue({ type: 'wolf' }, 'forest'), Math.round(w0 * 0.5)); assert.equal(PA.WEAPONS.spear.base.interval, 0.85); assert.equal(PA.WEAPONS.spear.base.sweetFrom, 0.45); assert.equal(PA.WEAPONS.spear.base.range, spear0.range);
+  assert.equal(PA.Run.regionBonusXp('forest', false), 5); assert.ok(/추천안/.test(PA.Run.layoutText(run)));
+  const b = PA.Run.build(run); assert.equal(b.weapons[0].interval > spear0.interval, true, '창 주기 반영');
+  PA.Balance.apply('current'); assert.equal(PA.Growth.xpValue({ type: 'wolf' }, 'forest'), w0); assert.deepEqual(PA.WEAPONS.spear.base, spear0); assert.equal(PA.BOSS_HP_SET, 'base');
+  const old = PA.Run.newRun(3, 'sword'); assert.equal(old.balance, 'current'); assert.equal(PA.Run.bossHp(old, 'guardian'), 3000);
+});
+test('창 근접 약화·관통 제한 규칙(데이터): 사거리 45% 안쪽은 피해 ×0.5, maxTargets는 관통 수 제한. 기본값에는 없음', () => {
+  const { load, combat, steps } = require('./load'); const P2 = load(); const base = Object.assign({}, P2.WEAPONS.spear.base);
+  P2.WEAPONS.spear.base = Object.assign({}, base, { sweetFrom: 0.45, sweetMult: 0.5, maxTargets: 2 });
+  const { st } = combat(P2, { start: 'spear', seed: 1 }); const p = st.player; const mk = (x) => { const e = P2.Combat.spawnEnemy(st, 'wolf', p.x + x, p.y); e.hpMax = 1e6; e.hp = 1e6; e.state = 'recover'; e.stateT = -99; return e; };
+  const near = mk(40), mid = mk(160), far = mk(200), far2 = mk(220);
+  steps(P2, st, 1.0, {}, undefined, [[near, p.x + 40, p.y], [mid, p.x + 160, p.y], [far, p.x + 200, p.y], [far2, p.x + 220, p.y]]);
+  const dmg = (e) => 1e6 - e.hp; assert.ok(dmg(near) > 0 && dmg(mid) > 0, '가까운 둘 적중'); assert.ok(Math.abs(dmg(near) * 2 - dmg(mid)) < 1e-6 || dmg(near) < dmg(mid), '근접 약화 ' + dmg(near) + ' vs ' + dmg(mid)); assert.equal(dmg(far), 0, '관통 2명 제한'); assert.equal(dmg(far2), 0);
+  P2.WEAPONS.spear.base = base;
+});

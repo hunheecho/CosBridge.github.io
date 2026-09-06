@@ -153,3 +153,6 @@
 | R-CODEX-04 | 재접속 뒤 보류 3택을 마치면 미처리 사건 화면으로 이어감 | 이벤트 누락 없음 | v0.7.1 | ✅ | main.afterChoice | Codex 지적 |
 | R-BAL-01 | 비교 후보 파라미터: 처치 경험치 배율·지역 경험치 배율·보스 체력 세트(base/hi)·난이도 candE·성장 중단일 | 현재값 보존 + 후보 비교 | v0.7.1 | ✅ | growth_data XP_KILL_MULT/BONUS_XP_MULT, boss_data BOSS_HP_SETS, lab_data candE, run_sim --killxp/--bonusxp/--bosshp/--stopday | 기본값은 현재값 |
 | R-BAL-02 | 무기 비교 시뮬레이션 D: 검·회전 칼날·창(사거리 ×1/×0.85/×0.75), 같은 7선택·장비 없음, 지역 5 + 보스 3, 보스 패턴 실행 집계 | 창 안전성·화력 검토 | v0.7.1 | ✅ | lab_data cmp_*, lab_sim D(rangeMult), lab_report D, boss metrics.patterns | 사거리 감소율은 확정값 아님 |
+| R-BAL-03 | 비교 시험 문서(경험치·체력 후보 C0~C3, 성장 중단, 시작 무기, 창 사거리·설계·화력 후보)와 추천 기본값 제안 | 근거 있는 추천 | v0.7.1 | ✅ | docs/sim/COMPARE_v071.md, cmp_*.md, report_D/D2/D3.md | 확정은 사용자 플레이 뒤 |
+| R-BAL-04 | 밸런스 후보 세트(현재값/추천안 A/B)를 시작 화면에서 선택, 회차에 기록, 시험실은 현재값 | 같은 구조로 후보 비교 플레이 | v0.7.1 | ✅ | src/balance_data.js PA.Balance, run.balance, screens.pickStart, main 적용 시점 | 기본값은 현재값 |
+| R-SPEAR-01 | 창 위치·방향 규칙 데이터 훅: 근접 약화(sweetFrom/sweetMult), 관통 수(maxTargets). 사거리·폭·관통 제한은 효과 없음이 확인됨 | 긴 사거리 유지 + 거리 선정 필요 | v0.7.1 | ✅ | weapons.hitBeam, lab_sim D2/D3 | 강제 무적·피해 상한 없음 |

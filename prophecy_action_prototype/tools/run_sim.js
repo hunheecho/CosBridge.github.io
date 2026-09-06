@@ -28,7 +28,7 @@ function matchedPick(run, off) {
 const startWeapon = opt('start', 'sword'), runMode = opt('mode', 'trio');
 // 비교 후보 파라미터(기본 = 현재값): 처치 경험치 배율, 지역 경험치 배율, 보스 체력 세트, 성장 중단일(그 날 이후 출격 없음 = '3일차까지만 성장한 빌드' 시험)
 const killXp = Number(opt('killxp', '1')), bonusXp = Number(opt('bonusxp', '1')), bossHpSet = opt('bosshp', 'base'), stopDay = Number(opt('stopday', '0')), tag = opt('tag', '');
-PA.GROWTH.XP_KILL_MULT = killXp; PA.GROWTH.BONUS_XP_MULT = bonusXp; PA.BOSS_HP_SET = bossHpSet;
+const balanceId = opt('balance', ''); if (balanceId) PA.Balance.apply(balanceId); else { PA.GROWTH.XP_KILL_MULT = killXp; PA.GROWTH.BONUS_XP_MULT = bonusXp; PA.BOSS_HP_SET = bossHpSet; }
 function simulate(seed, stratId) {
   const S = STRATS[stratId], run = PA.Run.newRun(seed, startWeapon, runMode); run.layout = layout; run.difficulty = difficulty; const g = run.growth;
   const T = { combat: 0, cards: 0, screens: 0, rest: 0, dayEnd: 0, boss: 0 }; // 초 단위 버킷

@@ -7,12 +7,13 @@ PA.Run = (function () {
   const RECORDS_KEY = 'prophecy_action_records_v1';
   const VERSION = 3;
 
-  function newRun(seed, startWeapon, mode) {
-    const cfg = C();
+  function newRun(seed, startWeapon, mode, balance) {
+    const cfg = C(); const B = (balance && PA.BALANCE_SETS && PA.BALANCE_SETS[balance]) ? PA.BALANCE_SETS[balance] : null;
     const run = {
+      balance: B ? balance : 'current', bossHpSet: B ? B.bossHpSet : 'base', // v0.7.1 밸런스 후보 세트(기본 현재값)
       mode: mode && PA.RUN_MODES[mode] ? mode : 'trio', stage: 0, bossesDone: [], bossRecords: {}, // v0.7 회차 구조: 새 회차 기본은 3보스 시험안, 이전 저장은 single
       growth: PA.Growth.newGrowth(startWeapon || 'sword'),
-      layout: 'classic', difficulty: 'base',   // v0.6: 지역 배치안·난이도 후보(기본은 기존 배치·×1)
+      layout: 'classic', difficulty: B && B.difficulty ? B.difficulty : 'base',   // v0.6: 지역 배치안·난이도 후보(기본은 기존 배치·×1)
       version: VERSION, seed: seed || (Date.now() % 100000), sortieCount: 0,
       phase: 'prep',            // prep(준비 기간) | boss_prep(7일차 최종 준비) | cleared(보스 처치)
       bossRetries: 0, bossClear: null,
@@ -46,6 +47,7 @@ PA.Run = (function () {
     if (!r.layout || !PA.LAYOUTS[r.layout]) r.layout = 'classic';                       // 이전 저장: 기존 배치 유지
     if (!r.difficulty || !PA.DIFFICULTY.candidates[r.difficulty]) r.difficulty = 'base';
     if (!r.services) r.services = {}; if (!r.missionsDone) r.missionsDone = {}; if (r.cards === undefined) r.cards = null; if (r.pendingSortie === undefined) r.pendingSortie = null; if (!r.buffs) r.buffs = {};
+    if (!r.balance || !PA.BALANCE_SETS[r.balance]) r.balance = 'current'; if (!r.bossHpSet) r.bossHpSet = 'base';
     if (!r.mode || !PA.RUN_MODES[r.mode]) r.mode = 'single'; if (r.stage == null) r.stage = 0; if (!r.bossesDone) r.bossesDone = r.bossClear ? ['boss'] : []; if (!r.bossRecords) r.bossRecords = r.bossClear ? { boss: r.bossClear } : {}; // 이전 저장: 단일 보스 규칙 유지 // v0.7 필드: 이전 저장은 기존 규칙 유지, 카드는 오늘부터 생성
     return r;
   }
@@ -86,7 +88,7 @@ PA.Run = (function () {
   function encounterObjective(regionId, deep, run) { const r = region(regionId), lr = layoutRegion(regionId, run); return deep ? 'elite' : ((lr && lr.objective) || r.objective); }
   // 지역별 체력 배율(난이도 후보). 보스는 1. 더 깊이 탐험은 후보의 deepMult
   function hpMultFor(run, regionId, deep) { const c = PA.DIFFICULTY.candidates[(run && run.difficulty) || 'base'] || PA.DIFFICULTY.candidates.base; const v = (c.hp[regionId] || 1) * (deep ? (c.deepMult || 1) : 1); return { normal: v, elite: v, boss: 1 }; }
-  function layoutText(run) { const parts = []; if (run.layout && run.layout !== 'classic') parts.push('배치: ' + PA.LAYOUTS[run.layout].name); if (run.difficulty && run.difficulty !== 'base') parts.push('난이도: ' + PA.DIFFICULTY.candidates[run.difficulty].name); return parts.join(' · '); }
+  function layoutText(run) { const parts = []; if (run.balance && run.balance !== 'current' && PA.BALANCE_SETS[run.balance]) parts.push('밸런스: ' + PA.BALANCE_SETS[run.balance].name); if (run.layout && run.layout !== 'classic') parts.push('배치: ' + PA.LAYOUTS[run.layout].name); if (run.difficulty && run.difficulty !== 'base') parts.push('난이도: ' + PA.DIFFICULTY.candidates[run.difficulty].name); return parts.join(' · '); }
   function canDeepExplore(run, sortie) { return run.hours >= C().DEEP_EXPLORE_HOURS && !(sortie && sortie.mission); } // 임무 출격은 더 깊이 탐험 없음(특수 보상 반복 금지)
   function deepExplore(run, sortie) { if (!canDeepExplore(run)) throw new Error('시간 부족'); run.hours -= C().DEEP_EXPLORE_HOURS; sortie.deep = true; }
 

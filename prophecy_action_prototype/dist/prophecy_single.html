@@ -902,6 +902,30 @@ Object.assign(PA.BOSS_REWARDS, {
 
 </script>
 <script>
+// 밸런스 후보 세트(v0.7.1). 기본은 현재값. 추천안은 docs/sim/COMPARE_v071.md의 비교 결과에 근거한 제안이며 확정값이 아니다.
+// 세트는 전역 파라미터(처치·지역 경험치 배율, 보스 체력 세트, 창 기본값)를 바꾸고 회차에는 run.balance로 기록된다. 시험실·제목 화면에서는 현재값으로 되돌린다.
+var PA = (typeof PA !== 'undefined') ? PA : {};
+PA.BALANCE_SETS = {
+  current:     { name: '현재값', difficulty: null, bossHpSet: 'base', killXp: 1, bonusXp: 1, spear: {}, desc: '적 체력 ×1, 보스 1500/3000/3600, 경험치 ×1, 창 피해 14·주기 0.7' },
+  recommended: { name: '추천안 A (처치 경험치 ×0.5)', difficulty: 'candE', bossHpSet: 'hi', killXp: 0.5, bonusXp: 0.5, spear: { sweetFrom: 0.45, sweetMult: 0.5, interval: 0.85 }, desc: '적 체력 숲 1.5·능선 1.5·습지 2·굴 2·심층 3, 보스 2400/5000/7000, 처치 경험치 ×0.5, 지역 경험치 ×0.5, 창 근접 약화(사거리 45% 안쪽 ×0.5)+주기 0.85' },
+  recommended_b: { name: '추천안 B (처치 경험치 ×0.7)', difficulty: 'candE', bossHpSet: 'hi', killXp: 0.7, bonusXp: 0.5, spear: { sweetFrom: 0.45, sweetMult: 0.5, interval: 0.85 }, desc: '추천안 A와 같고 처치 경험치만 ×0.7(성장이 너무 느리면)' },
+};
+PA.Balance = (function () {
+  const SPEAR_BASE = Object.assign({}, PA.WEAPONS.spear.base); // 원본 보존
+  let active = 'current';
+  function apply(id) {
+    const B = PA.BALANCE_SETS[id] || PA.BALANCE_SETS.current; active = PA.BALANCE_SETS[id] ? id : 'current';
+    PA.GROWTH.XP_KILL_MULT = B.killXp; PA.GROWTH.BONUS_XP_MULT = B.bonusXp; PA.BOSS_HP_SET = B.bossHpSet;
+    PA.WEAPONS.spear.base = Object.assign({}, SPEAR_BASE, B.spear);
+    return B;
+  }
+  function applyRun(run) { return apply((run && run.balance) || 'current'); }
+  function current() { return active; }
+  return { apply, applyRun, current, SPEAR_BASE };
+})();
+
+</script>
+<script>
 // 회차 상태(장비·증강) → 전투에서 쓰는 실제 수치. 중복 적용을 막기 위해 항상 여기서만 계산한다.
 var PA = (typeof PA !== 'undefined') ? PA : {};
 
@@ -1780,8 +1804,10 @@ PA.Weapons = (function () {
     const list = [];
     for (const e of alive(st)) if (m().inBeam(from, angle, L, W, e, e.r) && reachable(st, from, e)) list.push(e);
     list.sort((a, b) => m().dist(from, a) - m().dist(from, b));
-    for (const e of list) dmgTo(st, e, w, mult, Object.assign({ dir: { x: Math.cos(angle), y: Math.sin(angle) }, knock: w.stats.knock, from }, opt));
-    return list;
+    // 위치·방향 선정용 후보 규칙(데이터, 기본 없음): sweetFrom = 사거리의 이 비율 안쪽은 sweetMult 피해(가까우면 약함), maxTargets = 한 번에 관통하는 최대 수
+    const s = w.stats, hit = []; let n = 0;
+    for (const e of list) { if (s.maxTargets && n >= s.maxTargets) break; let mm = mult; if (s.sweetFrom && m().dist(from, e) < L * s.sweetFrom) mm *= (s.sweetMult != null ? s.sweetMult : 0.5); dmgTo(st, e, w, mm, Object.assign({ dir: { x: Math.cos(angle), y: Math.sin(angle) }, knock: w.stats.knock, from }, opt)); hit.push(e); n++; }
+    return hit;
   }
   function proj(st, w, o) { // 아군 투사체 생성
     const pr = Object.assign({ owner: 'player', weapon: w, r: 4, ttl: 2, hits: new Set(), dmgMult: 1, opt: {} }, o);
@@ -2932,12 +2958,13 @@ PA.Run = (function () {
   const RECORDS_KEY = 'prophecy_action_records_v1';
   const VERSION = 3;
 
-  function newRun(seed, startWeapon, mode) {
-    const cfg = C();
+  function newRun(seed, startWeapon, mode, balance) {
+    const cfg = C(); const B = (balance && PA.BALANCE_SETS && PA.BALANCE_SETS[balance]) ? PA.BALANCE_SETS[balance] : null;
     const run = {
+      balance: B ? balance : 'current', bossHpSet: B ? B.bossHpSet : 'base', // v0.7.1 밸런스 후보 세트(기본 현재값)
       mode: mode && PA.RUN_MODES[mode] ? mode : 'trio', stage: 0, bossesDone: [], bossRecords: {}, // v0.7 회차 구조: 새 회차 기본은 3보스 시험안, 이전 저장은 single
       growth: PA.Growth.newGrowth(startWeapon || 'sword'),
-      layout: 'classic', difficulty: 'base',   // v0.6: 지역 배치안·난이도 후보(기본은 기존 배치·×1)
+      layout: 'classic', difficulty: B && B.difficulty ? B.difficulty : 'base',   // v0.6: 지역 배치안·난이도 후보(기본은 기존 배치·×1)
       version: VERSION, seed: seed || (Date.now() % 100000), sortieCount: 0,
       phase: 'prep',            // prep(준비 기간) | boss_prep(7일차 최종 준비) | cleared(보스 처치)
       bossRetries: 0, bossClear: null,
@@ -2971,6 +2998,7 @@ PA.Run = (function () {
     if (!r.layout || !PA.LAYOUTS[r.layout]) r.layout = 'classic';                       // 이전 저장: 기존 배치 유지
     if (!r.difficulty || !PA.DIFFICULTY.candidates[r.difficulty]) r.difficulty = 'base';
     if (!r.services) r.services = {}; if (!r.missionsDone) r.missionsDone = {}; if (r.cards === undefined) r.cards = null; if (r.pendingSortie === undefined) r.pendingSortie = null; if (!r.buffs) r.buffs = {};
+    if (!r.balance || !PA.BALANCE_SETS[r.balance]) r.balance = 'current'; if (!r.bossHpSet) r.bossHpSet = 'base';
     if (!r.mode || !PA.RUN_MODES[r.mode]) r.mode = 'single'; if (r.stage == null) r.stage = 0; if (!r.bossesDone) r.bossesDone = r.bossClear ? ['boss'] : []; if (!r.bossRecords) r.bossRecords = r.bossClear ? { boss: r.bossClear } : {}; // 이전 저장: 단일 보스 규칙 유지 // v0.7 필드: 이전 저장은 기존 규칙 유지, 카드는 오늘부터 생성
     return r;
   }
@@ -3011,7 +3039,7 @@ PA.Run = (function () {
   function encounterObjective(regionId, deep, run) { const r = region(regionId), lr = layoutRegion(regionId, run); return deep ? 'elite' : ((lr && lr.objective) || r.objective); }
   // 지역별 체력 배율(난이도 후보). 보스는 1. 더 깊이 탐험은 후보의 deepMult
   function hpMultFor(run, regionId, deep) { const c = PA.DIFFICULTY.candidates[(run && run.difficulty) || 'base'] || PA.DIFFICULTY.candidates.base; const v = (c.hp[regionId] || 1) * (deep ? (c.deepMult || 1) : 1); return { normal: v, elite: v, boss: 1 }; }
-  function layoutText(run) { const parts = []; if (run.layout && run.layout !== 'classic') parts.push('배치: ' + PA.LAYOUTS[run.layout].name); if (run.difficulty && run.difficulty !== 'base') parts.push('난이도: ' + PA.DIFFICULTY.candidates[run.difficulty].name); return parts.join(' · '); }
+  function layoutText(run) { const parts = []; if (run.balance && run.balance !== 'current' && PA.BALANCE_SETS[run.balance]) parts.push('밸런스: ' + PA.BALANCE_SETS[run.balance].name); if (run.layout && run.layout !== 'classic') parts.push('배치: ' + PA.LAYOUTS[run.layout].name); if (run.difficulty && run.difficulty !== 'base') parts.push('난이도: ' + PA.DIFFICULTY.candidates[run.difficulty].name); return parts.join(' · '); }
   function canDeepExplore(run, sortie) { return run.hours >= C().DEEP_EXPLORE_HOURS && !(sortie && sortie.mission); } // 임무 출격은 더 깊이 탐험 없음(특수 보상 반복 금지)
   function deepExplore(run, sortie) { if (!canDeepExplore(run)) throw new Error('시간 부족'); run.hours -= C().DEEP_EXPLORE_HOURS; sortie.deep = true; }
 
@@ -4979,9 +5007,10 @@ PA.Screens = (function () {
     const list = (G.startAll ? PA.STARTABLE_ALL : PA.STARTABLE).map(id => { const d = PA.WEAPONS[id]; return `<div class="card"><div class="card-title">${esc(d.name)}</div><p>${esc(d.desc)}</p><p class="dim small">기본 피해 ${d.base.damage} · 주기 ${d.base.interval}초 · 전용 방식: ${Object.values(d.mods).map(m => esc(m.name)).join(', ')}</p><button class="primary" data-action="start-weapon" data-arg="${id}">이 무기로 시작</button></div>`; }).join('');
     const laySel = `<select id="start-layout">${Object.keys(PA.LAYOUTS).map(k => `<option value="${k}">${esc(PA.LAYOUTS[k].name)}</option>`).join('')}</select>`;
     const modeSel = `<select id="start-mode">${Object.keys(PA.RUN_MODES).map(k => `<option value="${k}" ${k === 'trio' ? 'selected' : ''}>${esc(PA.RUN_MODES[k].name)}</option>`).join('')}</select>`;
+    const balSel = `<select id="start-balance">${Object.keys(PA.BALANCE_SETS).map(k => `<option value="${k}" title="${esc(PA.BALANCE_SETS[k].desc)}">${esc(PA.BALANCE_SETS[k].name)}</option>`).join('')}</select>`;
     const difSel = `<select id="start-difficulty">${Object.keys(PA.DIFFICULTY.candidates).map(k => `<option value="${k}">${esc(PA.DIFFICULTY.candidates[k].name)}</option>`).join('')}</select>`;
     return `<div class="screen"><h2>시작 무기 선택</h2><p class="dim">시작 무기 1개로 출발하고, 전투 중 레벨업으로 무기를 최대 2개 더 얻습니다. 시작 무기와 추가 무기는 같은 규칙으로 성장합니다.</p>
-      <div class="card"><div class="card-title small">검증 메뉴: 지역 배치안·난이도 후보 <span class="dim">(기본값은 기존 배치·×1. 시험안은 검증되지 않은 임시값이며 화면에 표시됩니다)</span></div><div class="kv"><span>회차 구조</span>${modeSel} <span class="dim small">3보스: 1~2일 준비 → 3일차 가시갈기 → 3~4일 → 5일차 봉인 수호자 → 5~6일 → 7일차 예언을 먹는 자</span></div><div class="kv"><span>배치</span>${laySel}</div><div class="kv"><span>난이도</span>${difSel}</div></div>
+      <div class="card"><div class="card-title small">검증 메뉴: 지역 배치안·난이도 후보 <span class="dim">(기본값은 기존 배치·×1. 시험안은 검증되지 않은 임시값이며 화면에 표시됩니다)</span></div><div class="kv"><span>밸런스</span>${balSel} <span class="dim small">현재값 = 비교 기준. 추천안은 docs/sim/COMPARE_v071.md 비교 결과 기반 제안(적 체력·보스 체력·경험치·창). 확정값 아님</span></div><div class="kv"><span>회차 구조</span>${modeSel} <span class="dim small">3보스: 1~2일 준비 → 3일차 가시갈기 → 3~4일 → 5일차 봉인 수호자 → 5~6일 → 7일차 예언을 먹는 자</span></div><div class="kv"><span>배치</span>${laySel}</div><div class="kv"><span>난이도</span>${difSel}</div></div>
       <div class="grid3">${list}</div>
       <div class="row">${G.startAll ? '' : '<button data-action="start-all">검증 메뉴: 다른 시작 후보 보기 (쌍검·추적궁·전투망치·번개 구체)</button>'}<button data-action="title">돌아가기</button></div></div>`;
   }
@@ -5427,7 +5456,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   function goBase() { saveRun(); if (G.run.growth && G.run.growth.migrationPending) { show('migration'); return; } show('base'); const g = G.run.growth; if (g && (g.pendingDeepPick || g.pendingBossPick || g.pendingMissionPick || (g.pendingOffer && g.pendingOffer.pool !== 'level'))) { const off = PA.Flow.nextOffer(G.run); if (off) { openChoice(off); saveRun(); } } } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
   function leaveScenario() { if (G.scenario) { G.scenario = null; try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
   function newRun() { leaveScenario(); G.startAll = false; show('pick_start'); }
-  function startRun(weaponId) { const modeEl = $('#start-mode'); G.run = PA.Run.newRun(undefined, weaponId, modeEl ? modeEl.value : 'trio'); const lay = $('#start-layout'), dif = $('#start-difficulty'); if (lay && PA.LAYOUTS[lay.value]) G.run.layout = lay.value; if (dif && PA.DIFFICULTY.candidates[dif.value]) G.run.difficulty = dif.value; G.sortie = null; G.combat = null; saveRun(); show('base'); }
+  function startRun(weaponId) { const modeEl = $('#start-mode'), balEl = $('#start-balance'); G.run = PA.Run.newRun(undefined, weaponId, modeEl ? modeEl.value : 'trio', balEl ? balEl.value : 'current'); PA.Balance.applyRun(G.run); const lay = $('#start-layout'), dif = $('#start-difficulty'); if (lay && PA.LAYOUTS[lay.value]) G.run.layout = lay.value; if (dif && PA.DIFFICULTY.candidates[dif.value] && G.run.balance === 'current') G.run.difficulty = dif.value; // 밸런스 후보가 적 체력 후보를 정하면 난이도 선택은 무시 G.sortie = null; G.combat = null; saveRun(); show('base'); }
   function startSortie(regionId) {
     G.sortie = PA.Run.startSortie(G.run, regionId);
     saveRun(); // 출격 비용은 지불된 상태로 저장(전투 중 종료 시 복구 기준)
@@ -5476,7 +5505,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 전투 시험실(정식 회차와 분리: 저장 키·입력·배율이 회차로 새지 않는다) ----------
   function enterLab(cfg) {
-    leaveScenario(); G.run = null; G.sortie = null; G.combat = null; G.saved = PA.Run.load();
+    leaveScenario(); PA.Balance.apply('current'); // 시험실은 항상 현재값(밸런스 후보는 회차 전용) G.run = null; G.sortie = null; G.combat = null; G.saved = PA.Run.load();
     G.lab.cfg = cfg || PA.Lab.loadConfig(); G.labResults = PA.Lab.loadResults(); G.labCsv = null;
     show('lab');
   }
@@ -5515,7 +5544,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 동작 처리 ----------
   const actions = {
-    'continue': () => { leaveScenario(); G.run = G.saved; G.sortie = null; G.combat = null; if (G.run.pendingSortie) { G.sortie = G.run.pendingSortie; const step = PA.Flow.afterCombatStep(G.run, G.sortie); if (step === 'offer') { show('after'); openChoice(PA.Flow.nextOffer(G.run, { regionId: G.sortie.regionId })); } else show(step); return; } goBase(); }, // 전투 뒤 안전 화면에서 종료했다면 그 자리(보상 선택·사건·다음 행동)로 복귀
+    'continue': () => { leaveScenario(); G.run = G.saved; PA.Balance.applyRun(G.run); G.sortie = null; G.combat = null; if (G.run.pendingSortie) { G.sortie = G.run.pendingSortie; const step = PA.Flow.afterCombatStep(G.run, G.sortie); if (step === 'offer') { show('after'); openChoice(PA.Flow.nextOffer(G.run, { regionId: G.sortie.regionId })); } else show(step); return; } goBase(); }, // 전투 뒤 안전 화면에서 종료했다면 그 자리(보상 선택·사건·다음 행동)로 복귀
     'newrun': () => { if (G.saved) show('newrun_confirm'); else newRun(); },
     'newrun-confirm': () => newRun(),
     'start-weapon': (id) => startRun(id),
@@ -5529,7 +5558,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'event-choice': (id) => { const r = PA.Events.resolve(G.run, G.sortie, id); saveRun(); if (r.next === 'fight' || r.next === 'deep') { startEncounter(); return; } if (r.next === 'offer') { const off = PA.Flow.nextOffer(G.run, { regionId: G.sortie.regionId }); if (off) { G.screen = 'after'; uiEl.innerHTML = PA.Screens.after(G); openChoice(off); saveRun(); return; } } show('after'); },
     'mig-toggle': (id) => { G.migSel = G.migSel || []; if (G.migSel.includes(id)) G.migSel = G.migSel.filter(x => x !== id); else if (G.migSel.length < 3) G.migSel.push(id); show('migration'); },
     'mig-confirm': () => { PA.Growth.resolveMigration(G.run, G.migSel || []); G.migSel = null; saveRun(); goBase(); },
-    'title': () => { leaveScenario(); G.saved = PA.Run.load(); show('title'); },
+    'title': () => { leaveScenario(); PA.Balance.apply('current'); G.saved = PA.Run.load(); show('title'); },
     'controls': () => openOverlay('controls'),
     'show-controls': () => openOverlay('controls'),
     'close-overlay': () => { if (G.paused) openOverlay('pause'); else closeOverlay(); },
@@ -5555,7 +5584,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'give-up': () => { closeOverlay(); G.paused = false; PA.Input.setBlocked(G.input, false); if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
     'scenario-again': () => startScenario(G.scenario),
     'lab': () => { if (G.screen === 'lab_result') { G.combat = null; show('lab'); return; } enterLab(); },
-    'quick-run': (stage) => { leaveScenario(); G.run = PA.Lab.quickRun(Number(stage) || 0); G.sortie = null; G.combat = null; saveRun(); goBase(); }, // 검증 메뉴: 3보스 회차 관문 직전(현재 저장을 덮어씀)
+    'quick-run': (stage) => { leaveScenario(); G.run = PA.Lab.quickRun(Number(stage) || 0); PA.Balance.applyRun(G.run); G.sortie = null; G.combat = null; saveRun(); goBase(); }, // 검증 메뉴: 3보스 회차 관문 직전(현재 저장을 덮어씀)
     'lab-start': () => { readLabForm(); startLab(); },
     'lab-restart': () => startLab(G.lab.cfg),
     'lab-restart-hp': () => { const el = $('#lab-result-hp'); const c = Object.assign({}, G.lab.cfg, { hp: Object.assign({}, G.lab.cfg.hp) }); if (el) c.hp.normal = parseFloat(el.value); startLab(c); },
