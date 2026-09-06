@@ -87,8 +87,13 @@ PA.Objectives = (function () {
   }
 
   // ---------- 바닥 위험(예고 → 지역). 항상 안전 통로를 남긴다 ----------
+  function coversObjective(st, x, y, r) { // 목표 지점(봉인·우리·출구·제단)을 덮는 위험은 만들지 않는다(모든 목표 지점을 막지 않음)
+    for (const o of st.objects || []) if (!o.gone && !o.freed && m().dist(o, { x, y }) <= r + (o.r || 20)) return true;
+    for (const e of st.enemies) if (e.structure && !e.dead && m().dist(e, { x, y }) <= r + e.r) return true;
+    return false;
+  }
   function hazardAt(st, x, y, r, warn, ttl, dmg, tag) {
-    const p = K().nearestValidPos(st, x, y, 0, 60); if (!p) return null;
+    const p = K().nearestValidPos(st, x, y, 0, 60); if (!p) return null; if (coversObjective(st, p.x, p.y, r)) return null;
     const z = K().addZone(st, 'hazard', p.x, p.y, r, warn + ttl, dmg); z.warn = warn; z.armed = false; z.tag = tag || 'hazard'; return z;
   }
   function ringHazards(st, cx, cy, n, dist, r, cfg, tag, baseAng) { // 플레이어 주위 n개, 간격 균등: n개 사이의 빈 각도가 안전 통로

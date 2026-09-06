@@ -37,7 +37,8 @@ for (const k in PA.STRUCTURES) { PA.ENEMIES[k] = PA.STRUCTURES[k]; PA.GROWTH.XP_
 PA.SERVICES = {
   free_rest:     { name: '무료 휴식권', desc: '다음 휴식 1회는 시간을 쓰지 않는다.', kind: 'service' },
   shop_discount: { name: '상인 할인권', desc: '다음 구매·제작 1회 금화 30% 할인.', kind: 'service', rate: 0.3 },
-  mod_swap:      { name: '개조 교체권', desc: '거점에서 무기 전용 증강 1개를 다른 것으로 교체(1회).', kind: 'service' },
+  mod_swap:      { name: '개조 교체권', desc: '거점에서 무기 전용 증강 1개를 떼고 그 무기의 다른 개조 3택(1회). 후보가 없으면 되돌리고 권은 유지.', kind: 'service' },
+  reroll:        { name: '제시 재선택권', desc: '레벨업 3택 화면에서 1회 다시 제시(다른 순번의 제시, 같은 결과 반복 없음).', kind: 'service' },
 };
 
 // ---------- 출격 카드 ----------

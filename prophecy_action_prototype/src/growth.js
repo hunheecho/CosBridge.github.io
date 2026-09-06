@@ -79,7 +79,7 @@ PA.Growth = (function () {
     if (ctx && ctx.pool === 'deep') return out.filter(c => c.regionMatch); // 지역 보상: 지역 태그 후보만
     if (ctx && ctx.pool === 'mission') { // 임무 보상: 종류 제한. 서비스 종류는 거점 서비스 목록
       if (ctx.kinds.includes('service')) { for (const id in PA.SERVICES) push({ kind: 'service', id, tags: [] }); return out.filter(c => c.kind === 'service'); }
-      return out.filter(c => ctx.kinds.includes(c.kind));
+      return out.filter(c => ctx.kinds.includes(c.kind) && (!ctx.weaponOnly || c.id === ctx.weaponOnly) && (!ctx.excludeMod || c.mod !== ctx.excludeMod));
     }
     return out;
   }
@@ -160,6 +160,7 @@ PA.Growth = (function () {
     b.exposedMult = b.exposedMult + PV.exploit * (p.exploit || 0);       // 기본/목걸이 → 빈틈 포착 가산
     b.durationMult = 1 + PV.persistence * (p.persistence || 0);
     b.skillCdMult = (1 - PV.focus * (p.focus || 0)) * b.skillCdMult;
+    if (run.buffs && run.buffs.skillCd) b.skillCdMult *= run.buffs.skillCd; // 시간의 샘: 다음 전투 1회 임시 강화(전투 시작 시 소비)
     b.weapons = g.weapons.map(w => weaponStats(b, w));
     b.commons = Object.assign({}, g.commons);
     b.passives = Object.assign({}, p);

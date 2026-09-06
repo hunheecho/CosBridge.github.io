@@ -133,3 +133,7 @@
 | R-OBJ-04 | 포로 구출: 우리 2개 근접 진행(재개 가능), 포로 자율 탈출, 둘 다 구한 뒤 출구 | 호위 없음 | v0.7 | ✅ | objectives.js rescue, render drawObjects | 출구는 우리·플레이어에서 먼 가장자리 |
 | R-OBJ-05 | 공통: HUD 목표·진행, 지형 검사 배치, 지원 예산·동시 상한, 승패 우선순위(승리 우선), 시험실 시작 | 공통 흐름 | v0.7 | ✅ | objectives.js place/reinforce/check, combat.js checkObjective, lab.js mission: 프리셋 | 목표 달성 시 적이 남아도 승리 |
 | R-REWARD-01 | 임무 보상: 종류 지정 3택(무기 레벨/개조/기술/공통/서비스), 무효 후보 제외, 없으면 정액 금화 | 빌드에 맞는 보상 | v0.7 | ✅ | sortie.js missionOffer, growth.js candidates pool mission, SERVICES, run.services | 지역 재료를 3택으로 대체, 금화·처치 경험치 유지 |
+| R-EVENT-01 | 탐험 사건 6종(무기 제단·보급소·갇힌 상인·시간의 샘·봉인된 전리품·정찰자), 출격당 최대 1회, 시드 생성·저장·재현 | 욕심과 안전 사이 판단 | v0.7 | ✅ | src/events.js roll/options/resolve, run.pendingSortie, screens.event, test/events.test.js | 비용·보상 1회 정산, 선택 되돌림 없음 |
+| R-EVENT-02 | 사건 규칙: 제단은 체력 ≤1 불가·후보 없으면 제외, 보급소 이틀 1회·둘 다 금지, 상인 전투는 전리품 없음, 샘은 무료 시간 없음(임시 강화 또는 1시간), 봉인 전리품은 더 깊이 경로, 정찰자는 교체 서비스 | 파밍 경로 없음 | v0.7 | ✅ | events.js EVENTS.valid, Flow.settleVictory(eventFight·deepGoldMult) | 보장된 파밍 경로 점검: 시간·체력·2일 제한 |
+| R-EVENT-03 | 거점 서비스 4종(무료 휴식·상인 할인·개조 교체·제시 재선택) | 임무·사건 보상 | v0.7 | ✅ | mission_data SERVICES, run.hasService/useService, Flow.rerollOffer/modSwapOffer, base 화면 | 개조 교체 후보 없으면 되돌리고 권 유지 |
+| R-RISK-01 | 위험 조건 3종: 지원병 증가(총량 ×1.5·동시 상한 동일·금화 ×1.25), 정예 호위(첫 웨이브 정예), 위험 지형(주기 예고·안전 통로·목표 지점 회피) | 조건이 보이는 위험 | v0.7 | ✅ | objectives.js setup(risk)·coversObjective, MISSIONS.risks, 카드 표시, test/events.test.js | 무작위 묶음 없음 |

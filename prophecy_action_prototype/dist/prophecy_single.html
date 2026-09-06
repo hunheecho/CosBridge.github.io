@@ -74,6 +74,8 @@ ul.tips li { margin: 3px 0; font-size: 14px; }
 .card.aug.region { border-color: var(--gold); }
 #overlay .grid3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 
+.card.mission { border-color: #5a7fbf; } .card.mission.done { opacity: 0.55; } h3 { margin: 18px 0 8px; }
+
 </style>
 </head>
 <body>
@@ -609,6 +611,10 @@ PA.Growth = (function () {
       push({ kind: 'passive', id, tags: [] });
     }
     if (ctx && ctx.pool === 'deep') return out.filter(c => c.regionMatch); // 지역 보상: 지역 태그 후보만
+    if (ctx && ctx.pool === 'mission') { // 임무 보상: 종류 제한. 서비스 종류는 거점 서비스 목록
+      if (ctx.kinds.includes('service')) { for (const id in PA.SERVICES) push({ kind: 'service', id, tags: [] }); return out.filter(c => c.kind === 'service'); }
+      return out.filter(c => ctx.kinds.includes(c.kind) && (!ctx.weaponOnly || c.id === ctx.weaponOnly) && (!ctx.excludeMod || c.mod !== ctx.excludeMod));
+    }
     return out;
   }
   function weightOf(g, c) {
@@ -651,6 +657,7 @@ PA.Growth = (function () {
       case 'skill_variant': { const sk = g.skills[choice.slot]; if (!sk || sk.id !== choice.id || sk.variant) throw new Error('기술 변형'); sk.variant = choice.variant; break; }
       case 'passive': { const d = PA.PASSIVES[choice.id], lv = g.passives[choice.id] || 0; if (lv >= d.max || (lv === 0 && passiveCount(g) >= S.passives)) throw new Error('패시브'); g.passives[choice.id] = lv + 1; if (choice.id === 'vitality') run.hp = (run.hp || 0) + G().PASSIVE_VALUES.vitality; break; }
       case 'boss_reward': if (g.bossRewards.includes(choice.id)) throw new Error('중복'); g.bossRewards.push(choice.id); break;
+      case 'service': if (!PA.SERVICES[choice.id]) throw new Error('알 수 없는 서비스'); run.services = run.services || {}; run.services[choice.id] = (run.services[choice.id] || 0) + 1; break;
       default: throw new Error('알 수 없는 선택');
     }
     g.picks[choice.kind] = (g.picks[choice.kind] || 0) + 1;
@@ -687,6 +694,7 @@ PA.Growth = (function () {
     b.exposedMult = b.exposedMult + PV.exploit * (p.exploit || 0);       // 기본/목걸이 → 빈틈 포착 가산
     b.durationMult = 1 + PV.persistence * (p.persistence || 0);
     b.skillCdMult = (1 - PV.focus * (p.focus || 0)) * b.skillCdMult;
+    if (run.buffs && run.buffs.skillCd) b.skillCdMult *= run.buffs.skillCd; // 시간의 샘: 다음 전투 1회 임시 강화(전투 시작 시 소비)
     b.weapons = g.weapons.map(w => weaponStats(b, w));
     b.commons = Object.assign({}, g.commons);
     b.passives = Object.assign({}, p);
@@ -751,6 +759,7 @@ PA.Growth = (function () {
       case 'skill_level': { const sk = g.skills[c.slot], d = PA.SKILLS[c.id]; out.title = `${d.name} ${sk.level}→${sk.level + 1}`; out.type = '기술 레벨'; out.stage = `${sk.level} → ${sk.level + 1} / ${S.skillMax}`; const cd1 = d.cooldown[sk.level - 1] * before.skillCdMult, cd2 = d.cooldown[sk.level] * before.skillCdMult; out.change = `재사용 ${fmt(cd1)}초 → ${fmt(cd2)}초` + (d.damage ? ` · 피해 ${d.damage[sk.level - 1]} → ${d.damage[sk.level]}` : d.shield ? ` · 흡수 ${d.shield[sk.level - 1]} → ${d.shield[sk.level]}` : ''); out.scope = `${d.key} 기술`; out.slot = '슬롯 소비 없음'; break; }
       case 'skill_variant': { const d = PA.SKILLS[c.id], v = d.variants[c.variant]; out.title = `${d.name} 변형: ${v.name}`; out.type = '기술 변형'; out.stage = '변형 없음 → 선택(기술당 1개)'; out.change = v.desc; out.scope = `${d.key} 기술`; out.slot = '변형 슬롯 1/1'; break; }
       case 'passive': { const d = PA.PASSIVES[c.id], lv = g.passives[c.id] || 0; out.title = `${d.name} ${lv}→${lv + 1}`; out.type = '패시브'; out.stage = `${lv} → ${lv + 1} / ${d.max}`; let ch = d.desc; if (c.id === 'vitality') ch += ` · 최대 체력 ${before.hpMax} → ${b2.hpMax}`; if (c.id === 'mastery') ch += ` · ${wname(g.weapons[0].id)} 피해 ${fmt(before.weapons[0].damage)} → ${fmt(b2.weapons[0].damage)}`; if (c.id === 'haste') ch += ` · ${wname(g.weapons[0].id)} 주기 ${fmt(before.weapons[0].interval)} → ${fmt(b2.weapons[0].interval)}초`; if (c.id === 'focus') ch += ` · 감속장 ${fmt(before.specialCd)} → ${fmt(b2.specialCd)}초`; if (c.id === 'exploit') ch += ` · 빈틈 ×${before.exposedMult} → ×${b2.exposedMult}`; out.change = ch; out.scope = '캐릭터 전체'; out.slot = lv ? '슬롯 소비 없음' : `패시브 슬롯 ${passiveCount(g) + 1}/${S.passives}`; break; }
+      case 'service': { const d = PA.SERVICES[c.id], n = (run.services || {})[c.id] || 0; out.title = `거점 서비스: ${d.name}`; out.type = '거점 서비스'; out.stage = n ? `보유 ${n} → ${n + 1}회` : '획득(1회)'; out.change = d.desc; out.scope = '이번 회차 거점에서 사용'; out.slot = '슬롯 소비 없음'; break; }
       case 'boss_reward': { const d = PA.BOSS_REWARDS[c.id]; out.title = `보스 보상: ${d.name}`; out.type = '희귀 보상'; out.stage = '획득'; out.change = d.desc; out.scope = '모든 무기·기술'; out.slot = '별도 보관'; break; }
     }
     return out;
@@ -758,6 +767,68 @@ PA.Growth = (function () {
 
   return { newGrowth, ensure, xpNeed, addXp, xpValue, candidates, weightOf, generateOffer, applyChoice, skipChoice, weaponStats, derive, migrateFromLegacy, resolveMigration, describe, keyOf, weaponOf, hasCommon, commonCount, passiveCount, hasProjectileWeapon, hasFireSource };
 })();
+
+</script>
+<script>
+// 출격 카드·전투 목표·거점 서비스 데이터 (v0.7). 모든 수치는 임시값(docs/ASSUMPTIONS.md).
+var PA = (typeof PA !== 'undefined') ? PA : {};
+
+// ---------- 전투 목표 4종(전멸·정예 처치 외) ----------
+// 공통 규칙: 목표 달성이면 적이 살아 있어도 승리. 지원병은 유한 예산(budget)과 동시 상한(cap). 배치는 지형 검사(장애물 안·플레이어 근처 금지).
+PA.OBJECTIVES = {
+  hunt: { name: '정예 추적', short: '정예 처치', desc: '정예가 지원 병력과 함께 처음부터 등장한다. 정예를 처치하면 종료(지원병은 남아도 됨).',
+    eliteType: 'wolf_alpha', escortN: 2, leashDist: 380, leashSpeed: 1.35, // 정예가 플레이어에서 멀어지면 접근 속도 상승(화면 밖 배회 금지)
+    reinforce: { atHp: 0.5, budget: 3, cap: 5, interval: 1.5 }, // 정예 체력 50% 이하에 지원 1회(예산 3)
+    hud: (o) => `정예 체력 ${Math.max(0, Math.ceil(o.elite ? o.elite.hp : 0))}${o.elite ? ' / ' + Math.round(o.elite.hpMax) : ''}` },
+  altars: { name: '제단 파괴', short: '제단 3개 파괴', desc: '떨어져 놓인 제단 3개를 부순다. 각 제단은 치료·바닥 위험·증원 중 하나를 맡고, 부수면 그 효과가 사라진다.',
+    altarHp: 90, minGap: 200, minPlayerGap: 170, // 어떤 시작 무기로도 부술 수 있는 체력(검 9타 안팎)
+    heal: { interval: 4, amount: 20, budget: 120, range: 320 },     // 치료 제단: 총 치료량 유한
+    hazard: { interval: 5, warn: 1.0, ttl: 1.4, r: 52, dmg: 10, dist: 110, n: 2 }, // 위험 제단: 플레이어 좌우 ±90°에 2개(정면·후면 통로는 남김)
+    reinforce: { interval: 6, budget: 5, cap: 4 },                   // 증원 제단: 유한 예산·동시 상한
+    hud: (o) => `남은 제단 ${o.altars.filter(a => !a.dead).length} / 3` },
+  seal: { name: '봉인 해제', short: '봉인 지점에서 버티기', desc: '봉인 지점 안에 있으면 진행, 벗어나면 멈춘다(진행은 유지). 피해를 받으면 잠시 멈춘다. 절반에서 지점이 옮겨진다.',
+    time: 14, stages: 2, r: 66, hitPause: 0.6, moveWarn: 1.0, minGap: 260, // 단계별 목표 시간 7초, 총 14초(임시)
+    reinforce: { interval: 4.5, budget: 6, cap: 4, first: 1.5 },
+    hud: (o) => `봉인 ${Math.floor(o.progress / o.total * 100)}% · ${o.stage}/${o.stages}단계${o.paused ? ' · 정지' : ''}` },
+  rescue: { name: '포로 구출', short: '포로 2명 구출 후 탈출', desc: '우리 2개 근처에 머물면 풀려난다(벗어나면 멈추고 다시 이어짐). 풀려난 포로는 알아서 빠져나간다. 둘 다 구한 뒤 출구에 닿으면 종료.',
+    cages: 2, near: 72, time: 3.0, exitR: 44, prisonerSpeed: 130, minGap: 240,
+    reinforce: { interval: 5, budget: 6, cap: 4, first: 2 },
+    hud: (o) => o.freed >= o.cages ? '출구로 이동' : `구출 ${o.freed} / ${o.cages}${o.active ? ` · ${Math.floor(o.active.progress / o.active.total * 100)}%` : ''}` },
+};
+PA.OBJECTIVE_IDS = ['hunt', 'altars', 'seal', 'rescue'];
+
+// 구조물: 적 목록에 들어가 자동 공격 대상이 되지만(모든 무기로 타격 가능) 경험치 0·처치 수 제외·이동 없음
+PA.STRUCTURES = {
+  altar_heal:      { name: '치료 제단', role: '구조물 · 적 치료', r: 22, hp: 90, speed: 0, color: '#8ee6a0', structure: true, altar: 'heal',      readme: '주기적으로 가장 다친 적을 치료한다(총량 유한). 부수면 멈춘다.' },
+  altar_hazard:    { name: '위험 제단', role: '구조물 · 바닥 위험', r: 22, hp: 90, speed: 0, color: '#ff8a5c', structure: true, altar: 'hazard',  readme: '주기적으로 플레이어 좌우에 위험 지역을 예고 후 만든다. 부수면 멈춘다.' },
+  altar_reinforce: { name: '증원 제단', role: '구조물 · 증원', r: 22, hp: 90, speed: 0, color: '#c9a2ff', structure: true, altar: 'reinforce', readme: '주기적으로 적을 부른다(예산·동시 상한 유한). 부수면 멈춘다.' },
+};
+for (const k in PA.STRUCTURES) { PA.ENEMIES[k] = PA.STRUCTURES[k]; PA.GROWTH.XP_VALUE[k] = 0; }
+
+// ---------- 거점 서비스(임무·사건 보상): 회차 안에서만, 횟수제 ----------
+PA.SERVICES = {
+  free_rest:     { name: '무료 휴식권', desc: '다음 휴식 1회는 시간을 쓰지 않는다.', kind: 'service' },
+  shop_discount: { name: '상인 할인권', desc: '다음 구매·제작 1회 금화 30% 할인.', kind: 'service', rate: 0.3 },
+  mod_swap:      { name: '개조 교체권', desc: '거점에서 무기 전용 증강 1개를 떼고 그 무기의 다른 개조 3택(1회). 후보가 없으면 되돌리고 권은 유지.', kind: 'service' },
+  reroll:        { name: '제시 재선택권', desc: '레벨업 3택 화면에서 1회 다시 제시(다른 순번의 제시, 같은 결과 반복 없음).', kind: 'service' },
+};
+
+// ---------- 출격 카드 ----------
+// 하루 3장, 하루 시작에 시드로 확정·저장(다시 굴리기 없음). 임무는 하루 1회 완료. 일반 탐험(지역 선택)은 별도 유지.
+PA.MISSIONS = {
+  perDay: 3,
+  // 지역별 등장 가능 날짜(첫 등장 이후 계속)
+  regionFromDay: { forest: 1, ridge: 1, marsh: 2, den: 3, deep: 4 },
+  // 목표별 기본 보상 종류(현재 빌드에 유효할 때) → 대안 순서. 마지막은 항상 금화(정해진 값)
+  rewardByObjective: { hunt: ['weapon_level', 'common', 'gold'], altars: ['weapon_mod', 'common', 'gold'], seal: ['skill', 'common', 'gold'], rescue: ['service', 'gold'] },
+  goldFallback: { forest: 40, ridge: 50, marsh: 70, den: 100, deep: 140 },
+  kindText: { weapon_level: '무기 강화 3택', weapon_mod: '무기 개조 3택', skill: 'Q·E 기술 3택', common: '공통 증강 3택', service: '거점 서비스 3택', gold: '금화(정액)' },
+  kindPools: { weapon_level: ['weapon_level'], weapon_mod: ['weapon_mod'], skill: ['skill_new', 'skill_level', 'skill_variant'], common: ['common'], service: ['service'] },
+  // 위험 조건(v0.7-3에서 효과 적용): 지원병 증가·정예 호위·위험 지형. 2일차부터 확률 1/2
+  risks: ['reinforce', 'escort', 'hazard'], riskFromDay: 2, riskChance: 0.5,
+  riskText: { reinforce: '지원병 증가', escort: '정예 호위', hazard: '위험 지형' },
+  riskRewardMult: 1.25, // 위험 조건 카드는 지역 금화 보상 ×1.25(눈에 보이는 증가)
+};
 
 </script>
 <script>
@@ -878,10 +949,12 @@ PA.Combat = (function () {
       // 시험실·측정(v0.6): 체력 배율은 체력에만 적용, 시간 제한, 빌드 고정, 동시 공격 제한, 지역
       hpMult: Object.assign({ normal: 1, elite: 1, boss: 1 }, opts.hpMult || {}), timeLimit: opts.timeLimit || 0, fixedBuild: !!opts.fixedBuild, overlapLimit: opts.overlapLimit || 0, regionId: opts.regionId || null,
       metrics: newMetrics(), labText: opts.labText || null,
+      objects: [], obj: null, mission: opts.mission || null, // v0.7 목표 구조물 외 객체(우리·봉인·출구·포로)와 목표 진행 상태
     };
     st.stats.xp = 0; st.stats.levelUps = 0; st.stats.eUses = 0; st.stats.absorbed = 0;
     st.weapons = PA.Weapons.init(st);
     PA.Skills.init(st);
+    if (!opts.boss && PA.Objectives && PA.Objectives.is(st.objective)) PA.Objectives.setup(st, { risk: opts.risk || null, regionId: opts.regionId, run: opts.run || null });
     if (opts.boss) {
       st.objective = 'boss'; st.waveIndex = 99; st.spawnedAll = true;
       const bs = arenaDef.bossStart || { x: cfg.ARENA.w / 2, y: 120 };
@@ -1043,7 +1116,7 @@ PA.Combat = (function () {
       dashLeft: d.dashes || 1, vx: 0, vy: 0, animT: 0, elite: !!d.elite, hitBy: null, biteT: 9, moveT: 0, lastX: x, lastY: y, faceX: 1,
     };
     const cls = d.boss ? 'boss' : d.elite ? 'elite' : 'normal', mult = st.hpMult ? (st.hpMult[cls] || 1) : 1; // 체력 배율: 체력만(피해·속도·예고·경험치 불변)
-    e.hp = e.hp * mult; e.hpMax = e.hpMax * mult; e.hpClass = cls;
+    e.hp = e.hp * mult; e.hpMax = e.hpMax * mult; e.hpClass = cls; if (d.structure) e.structure = true;
     st.enemies.push(e);
     if (st.metrics) metricsFor(st, e).spawned++;
     if (st.build.has('mark')) assignMark(st);
@@ -1083,6 +1156,7 @@ PA.Combat = (function () {
     return true;
   }
   function applyPlayerDamage(st, amount, src) {
+    if (st.obj && PA.Objectives) PA.Objectives.onPlayerHit(st);
     const p = st.player;
     if (src !== 'zone' && st.build.toughness) amount = Math.round(amount * (1 - st.build.toughness) * 10) / 10; // 강인함: 직접 공격만
     let rest = amount;
@@ -1161,14 +1235,14 @@ PA.Combat = (function () {
     return dmg;
   }
   function killEnemy(st, e, opt) {
-    e.dead = true; e.deathT = 0; st.stats.kills++;
+    e.dead = true; e.deathT = 0; if (!e.structure) st.stats.kills++;
     if (st.metrics) { const m = metricsFor(st, e); m.killed++; if (!e.acted) m.diedBeforeAttack++; m.ttk.push(Math.round((st.t - e.spawnT) * 100) / 100); if (e.firstHitT != null) m.ttkFromHit.push(Math.round((st.t - e.firstHitT) * 100) / 100); }
     ev(st, 'kill', { type: e.type });
     // 경험치: 처치 원인과 무관하게 즉시, 같은 적은 1회(dead 플래그)
     const xp = PA.Growth.xpValue(e, st.regionId);
     if (xp > 0 && st.build.growth && !st.fixedBuild) { st.stats.xp += xp; st.xpGained += xp; const gained = PA.Growth.addXp(st.build.growth, xp); if (gained) { st.levelUps += gained; st.stats.levelUps += gained; ev(st, 'levelup', { n: gained }); text(st, st.player.x, st.player.y - 62, '레벨 업!', '#ffe066'); } }
     if (e.boss) { e.state = 'dead'; e.airborne = false; st.bossDownT = 0; ev(st, 'boss_down'); }
-    if (st.build.has('saving') && inField(st, e) && st.player.special.cd > 0) {
+    if (!e.structure && st.build.has('saving') && inField(st, e) && st.player.special.cd > 0) {
       st.player.special.cd = Math.max(0, st.player.special.cd - C().SAVING.cdPerKill);
       st.stats.savingKills = (st.stats.savingKills || 0) + 1;
       text(st, e.x, e.y - e.r - 22, '감속장 -' + C().SAVING.cdPerKill + '초', '#a9d8ff');
@@ -1413,7 +1487,7 @@ PA.Combat = (function () {
       const A = alive[i], B = alive[j];
       if (A.state === 'dash' || B.state === 'dash' || A.airborne || B.airborne || A.hidden || B.hidden) continue;
       const dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy), min = A.r + B.r;
-      if (d < min && d > 1e-6) { const push = (min - d) / 2 * C().SEPARATION; A.x -= dx / d * push; A.y -= dy / d * push; B.x += dx / d * push; B.y += dy / d * push; pushOut(st, A); pushOut(st, B); }
+      if (d < min && d > 1e-6) { const push = (min - d) / 2 * C().SEPARATION; if (A.structure && B.structure) continue; if (A.structure) { B.x += dx / d * push * 2; B.y += dy / d * push * 2; pushOut(st, B); continue; } if (B.structure) { A.x -= dx / d * push * 2; A.y -= dy / d * push * 2; pushOut(st, A); continue; } A.x -= dx / d * push; A.y -= dy / d * push; B.x += dx / d * push; B.y += dy / d * push; pushOut(st, A); pushOut(st, B); }
     }
     st.enemies = st.enemies.filter(e => !e.dead || e.deathT < 0.9 || e.boss);
   }
@@ -1456,6 +1530,7 @@ PA.Combat = (function () {
     for (const z of st.zones) {
       z.ttl -= dt; z.t += dt;
       if (z.type === 'spore' && m().dist(z, p) <= z.r + p.r * 0.5) maxDmg = Math.max(maxDmg, z.dmg);
+      if (z.type === 'hazard' && PA.Objectives) maxDmg = Math.max(maxDmg, PA.Objectives.zoneDamage(st, z, p));
       if (z.type === 'fire') {
         z.tick -= dt;
         if (z.tick <= 0) { z.tick = C().EMBER.tick; for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) damageEnemy(st, e, z.weapon ? z.dmg : z.dmg * st.build.masteryMult, { src: z.weapon ? { weapon: z.weapon.stats, weaponId: z.weapon.id, direct: false, extra: true } : { extra: true, direct: false, tag: 'common:ember' } }); }
@@ -1511,7 +1586,7 @@ PA.Combat = (function () {
     // 대기 중 스폰
     for (const s of st.pending) { s.t -= dt; if (s.t <= 0) { const e = spawnEnemy(st, s.type, s.x, s.y); if (s.summoned) { e.summoned = true; e.grace = PA.BOSS.overlap.summonGrace; } } }
     st.pending = st.pending.filter(s => s.t > 0);
-    const alive = st.enemies.filter(e => !e.dead).length;
+    const alive = st.enemies.filter(e => !e.dead && !e.structure).length;
     if (st.mode !== 'boss' && st.waveIndex < st.waves.length - 1 && alive === 0 && st.pending.length === 0) {
       st.waveTimer -= dt;
       if (st.waveTimer <= 0) {
@@ -1526,7 +1601,8 @@ PA.Combat = (function () {
   }
   function checkObjective(st) {
     if (st.status !== 'running') return;
-    const alive = st.enemies.filter(e => !e.dead);
+    const alive = st.enemies.filter(e => !e.dead && !e.structure);
+    if (PA.Objectives && PA.Objectives.is(st.objective)) { if (PA.Objectives.check(st)) { st.status = 'won'; ev(st, 'win'); } return; } // 목표 4종: 적이 살아 있어도 달성 시 승리
     if (st.objective === 'boss') {
       if (st.boss && st.boss.dead) { st.status = 'won'; ev(st, 'win'); }
     } else if (st.objective === 'elite') {
@@ -1551,6 +1627,7 @@ PA.Combat = (function () {
     updatePlayer(st, input || {}, dt);
     PA.Skills.update(st, dt);
     updateEnemies(st, dt);
+    if (st.obj && PA.Objectives) PA.Objectives.update(st, dt);
     updateProjectiles(st, dt);
     updateZones(st, dt);
     updatePickups(st, dt);
@@ -2431,6 +2508,199 @@ PA.Enemies = (function () {
 
 </script>
 <script>
+// 전투 목표 4종(정예 추적·제단 파괴·봉인 해제·포로 구출) 진행 규칙. Combat.create/step에서 호출된다.
+// 구조물(제단)은 적 목록(structure)에, 우리·봉인 지점·출구·포로는 st.objects에 둔다. 사람·봇 공용(입력과 무관).
+var PA = (typeof PA !== 'undefined') ? PA : {};
+
+PA.Objectives = (function () {
+  const m = () => PA.m, K = () => PA.Combat, C = () => PA.CONFIG;
+  function is(id) { return !!PA.OBJECTIVES[id]; }
+  function spec(st) { return PA.OBJECTIVES[st.objective]; }
+
+  // ---------- 배치(지형 검사): 장애물 밖·플레이어에서 떨어진 곳·서로 떨어진 곳 ----------
+  function place(st, r, minGap, minPlayerGap, others, tries) {
+    const a = st.arena, rng = st.rng, pad = 70; let best = null, bestScore = -1;
+    for (let i = 0; i < (tries || 40); i++) {
+      const x = rng.range(pad, a.w - pad), y = rng.range(pad, a.h - pad);
+      const p = K().nearestValidPos(st, x, y, r + 6, 80); if (!p) continue;
+      const dp = m().dist(p, st.player); if (dp < minPlayerGap) continue;
+      let ok = true, minD = Infinity; for (const o of others) { const d = m().dist(p, o); if (d < minGap) { ok = false; break; } if (d < minD) minD = d; }
+      if (!ok) continue;
+      const score = Math.min(minD, dp); if (score > bestScore) { bestScore = score; best = p; }
+      if (others.length === 0) break;
+    }
+    if (!best) { // 조건을 만족하는 위치가 없으면 조건을 완화(무한 대기 방지): 유효 위치만 보장
+      for (let i = 0; i < 60 && !best; i++) { const p = K().nearestValidPos(st, rng.range(pad, a.w - pad), rng.range(pad, a.h - pad), r + 6, 120); if (p && m().dist(p, st.player) >= r + 60) best = p; }
+    }
+    return best || { x: a.w / 2, y: 80 };
+  }
+  function edgeExit(st, away) { // 출구: 플레이어·우리에서 가장 먼 가장자리 지점(유효 위치)
+    const a = st.arena, cands = [{ x: 60, y: a.h / 2 }, { x: a.w - 60, y: a.h / 2 }, { x: a.w / 2, y: 60 }, { x: a.w / 2, y: a.h - 60 }];
+    let best = null, bs = -1; for (const c of cands) { const p = K().nearestValidPos(st, c.x, c.y, 40, 80); if (!p) continue; const s = Math.min(...away.map(o => m().dist(p, o))); if (s > bs) { bs = s; best = p; } }
+    return best || { x: a.w / 2, y: 60 };
+  }
+
+  // ---------- 지원병(유한 예산·동시 상한) ----------
+  function makeReinforce(cfg, pool) { return cfg ? { budget: cfg.budget, cap: cfg.cap, interval: cfg.interval, timer: cfg.first != null ? cfg.first : cfg.interval, pool: pool.slice(), spawned: 0 } : null; }
+  function activeEnemies(st) { return st.enemies.filter(e => !e.dead && !e.structure).length + st.pending.length; }
+  function reinforce(st, R, dt, n) {
+    if (!R || R.budget <= 0) return 0;
+    R.timer -= dt; if (R.timer > 0) return 0; R.timer = R.interval;
+    let k = 0; const want = n || 1;
+    while (k < want && R.budget > 0 && activeEnemies(st) < R.cap) { const type = R.pool[(R.spawned) % R.pool.length]; K().queueWave(st, [{ type, n: 1 }]); R.budget--; R.spawned++; k++; }
+    if (k) K().ev(st, 'reinforce', { n: k });
+    return k;
+  }
+  function poolFor(st, opts) { const rid = opts.regionId; const list = rid && PA.Run ? PA.Run.regionEnemies(rid, opts.run || null).filter(t => !PA.ENEMIES[t].elite) : ['wolf']; return list.length ? list : ['wolf']; }
+
+  // ---------- 설정 ----------
+  function setup(st, opts) {
+    const S = spec(st); if (!S) return;
+    const risk = opts.risk || null, pool = poolFor(st, opts);
+    const o = st.obj = { type: st.objective, risk, done: false, doneT: null, targetText: '' };
+    st.objects = st.objects || [];
+    if (st.objective === 'hunt') {
+      // 웨이브 1: 호위 + 정예. 정예는 처음부터 등장(숨지 않음)
+      const escortType = pool[0];
+      st.waves = [[{ type: escortType, n: S.escortN }, { type: S.eliteType, n: 1 }]];
+      o.reinforce = makeReinforce(S.reinforce, pool); o.reinforce.timer = 0; o.reinforceFired = false; o.elite = null;
+    } else if (st.objective === 'altars') {
+      st.waves = [[{ type: pool[0], n: 2 }]];
+      const others = []; o.altars = [];
+      for (const kind of ['heal', 'hazard', 'reinforce']) {
+        const p = place(st, 22, S.minGap, S.minPlayerGap, others); others.push(p);
+        const e = K().spawnEnemy(st, 'altar_' + kind, p.x, p.y); e.altar = kind; e.timer = kind === 'heal' ? S.heal.interval : kind === 'hazard' ? 2.5 : S.reinforce.interval; e.budget = kind === 'heal' ? S.heal.budget : kind === 'reinforce' ? S.reinforce.budget : Infinity;
+        o.altars.push(e);
+      }
+      o.reinforce = makeReinforce(S.reinforce, pool);
+    } else if (st.objective === 'seal') {
+      st.waves = [[{ type: pool[0], n: 2 }]];
+      const p1 = place(st, S.r, S.minGap, 120, []); const p2 = place(st, S.r, S.minGap, 120, [p1]);
+      o.points = [p1, p2]; o.stage = 1; o.stages = S.stages; o.progress = 0; o.total = S.time; o.paused = false; o.hitPause = 0; o.moveWarnT = 0;
+      st.objects.push({ kind: 'seal', x: p1.x, y: p1.y, r: S.r, active: true });
+      o.reinforce = makeReinforce(S.reinforce, pool);
+    } else if (st.objective === 'rescue') {
+      st.waves = [[{ type: pool[0], n: 2 }]];
+      const c1 = place(st, 26, S.minGap, 150, []); const c2 = place(st, 26, S.minGap, 150, [c1]);
+      const ex = edgeExit(st, [c1, c2, st.player]);
+      o.cages = S.cages; o.freed = 0; o.active = null;
+      st.objects.push({ kind: 'cage', x: c1.x, y: c1.y, r: 26, progress: 0, total: S.time, freed: false, id: 1 });
+      st.objects.push({ kind: 'cage', x: c2.x, y: c2.y, r: 26, progress: 0, total: S.time, freed: false, id: 2 });
+      st.objects.push({ kind: 'exit', x: ex.x, y: ex.y, r: S.exitR, open: false });
+      o.reinforce = makeReinforce(S.reinforce, pool);
+    }
+    // 위험 조건(카드): 지원병 증가 = 예산 ×1.5(동시 상한 동일) / 정예 호위 = 첫 웨이브에 정예 1 추가 / 위험 지형 = 주기적 바닥 위험(안전 통로 보장)
+    if (risk === 'reinforce' && o.reinforce) o.reinforce.budget = Math.round(o.reinforce.budget * 1.5);
+    if (risk === 'escort') { const w0 = st.waves[0]; if (!w0.some(g => g.type === 'wolf_alpha')) w0.push({ type: 'wolf_alpha', n: 1 }); }
+    if (risk === 'hazard') o.terrain = { timer: 6, interval: 7, warn: 1.2, ttl: 1.6, r: 60, dmg: 10, lanes: 3 };
+    st.spawnedAll = false;
+  }
+
+  // ---------- 바닥 위험(예고 → 지역). 항상 안전 통로를 남긴다 ----------
+  function coversObjective(st, x, y, r) { // 목표 지점(봉인·우리·출구·제단)을 덮는 위험은 만들지 않는다(모든 목표 지점을 막지 않음)
+    for (const o of st.objects || []) if (!o.gone && !o.freed && m().dist(o, { x, y }) <= r + (o.r || 20)) return true;
+    for (const e of st.enemies) if (e.structure && !e.dead && m().dist(e, { x, y }) <= r + e.r) return true;
+    return false;
+  }
+  function hazardAt(st, x, y, r, warn, ttl, dmg, tag) {
+    const p = K().nearestValidPos(st, x, y, 0, 60); if (!p) return null; if (coversObjective(st, p.x, p.y, r)) return null;
+    const z = K().addZone(st, 'hazard', p.x, p.y, r, warn + ttl, dmg); z.warn = warn; z.armed = false; z.tag = tag || 'hazard'; return z;
+  }
+  function ringHazards(st, cx, cy, n, dist, r, cfg, tag, baseAng) { // 플레이어 주위 n개, 간격 균등: n개 사이의 빈 각도가 안전 통로
+    const out = []; for (let i = 0; i < n; i++) { const a = baseAng + i * (Math.PI * 2 / n); const z = hazardAt(st, cx + Math.cos(a) * dist, cy + Math.sin(a) * dist, r, cfg.warn, cfg.ttl, cfg.dmg, tag); if (z) out.push(z); }
+    return out;
+  }
+
+  // ---------- 진행 ----------
+  function update(st, dt) {
+    const S = spec(st), o = st.obj; if (!S || !o || st.status !== 'running') return;
+    const p = st.player;
+    if (o.terrain) { const T = o.terrain; T.timer -= dt; if (T.timer <= 0) { T.timer = T.interval; ringHazards(st, p.x, p.y, T.lanes, 120, T.r, T, 'terrain', p.face + Math.PI / T.lanes); K().ev(st, 'hazard_warn'); } }
+    if (st.objective === 'hunt') {
+      if (!o.elite) o.elite = st.enemies.find(e => e.elite && !e.structure) || null;
+      const el = o.elite;
+      if (el && !el.dead) {
+        const d = m().dist(el, p);
+        el.leash = d > S.leashDist ? (el.leash || 0) + dt : 0; el.leashBoost = el.leash > 1.0 ? S.leashSpeed : 1; // 멀어지면 접근 가속(배회 금지)
+        if (!o.reinforceFired && el.hp <= el.hpMax * S.reinforce.atHp) { o.reinforceFired = true; o.reinforce.timer = 0; reinforce(st, o.reinforce, dt, o.reinforce.budget); }
+      }
+      if (el && el.dead) finish(st);
+    } else if (st.objective === 'altars') {
+      for (const a of o.altars) {
+        if (a.dead) continue; a.timer -= dt; if (a.timer > 0) continue;
+        if (a.altar === 'heal') { a.timer = S.heal.interval; if (a.budget > 0) { const tgt = healTarget(st, a, S.heal.range); if (tgt) { const amt = Math.min(S.heal.amount, a.budget, tgt.hpMax - tgt.hp); tgt.hp += amt; a.budget -= amt; K().fx(st, { kind: 'healbeam', x: a.x, y: a.y, tx: tgt.x, ty: tgt.y, ttl: 0.5, t: 0 }); K().text(st, tgt.x, tgt.y - tgt.r - 10, '+' + Math.round(amt), '#8ee6a0'); K().ev(st, 'altar_heal'); } } }
+        else if (a.altar === 'hazard') { a.timer = S.hazard.interval; ringHazards(st, p.x, p.y, S.hazard.n, S.hazard.dist, S.hazard.r, S.hazard, 'altar', p.face + Math.PI / 2); K().ev(st, 'hazard_warn'); }
+        else if (a.altar === 'reinforce') { a.timer = S.reinforce.interval; if (a.budget > 0 && activeEnemies(st) < S.reinforce.cap) { const type = o.reinforce.pool[o.reinforce.spawned % o.reinforce.pool.length]; K().queueWave(st, [{ type, n: 1 }]); a.budget--; o.reinforce.spawned++; K().ev(st, 'reinforce', { n: 1 }); } }
+      }
+      if (o.altars.every(a => a.dead)) finish(st);
+    } else if (st.objective === 'seal') {
+      reinforce(st, o.reinforce, dt);
+      const z = st.objects.find(x => x.kind === 'seal');
+      if (o.hitPause > 0) o.hitPause -= dt;
+      if (o.moveWarnT > 0) { o.moveWarnT -= dt; if (o.moveWarnT <= 0) { z.x = o.points[1].x; z.y = o.points[1].y; z.moving = false; K().ev(st, 'seal_moved'); } o.paused = true; }
+      else {
+        const inside = m().dist(z, p) <= z.r; o.paused = !inside || o.hitPause > 0;
+        if (!o.paused) { o.progress = Math.min(o.total, o.progress + dt); if (o.stage === 1 && o.progress >= o.total / 2) { o.stage = 2; o.moveWarnT = S.moveWarn; z.moving = true; z.next = o.points[1]; K().ev(st, 'seal_move_warn'); } }
+        if (o.progress >= o.total) finish(st);
+      }
+    } else if (st.objective === 'rescue') {
+      reinforce(st, o.reinforce, dt);
+      const cages = st.objects.filter(x => x.kind === 'cage'), exit = st.objects.find(x => x.kind === 'exit');
+      o.active = null;
+      for (const c of cages) {
+        if (c.freed) continue;
+        if (m().dist(c, p) <= S.near + p.r) { c.progress = Math.min(c.total, c.progress + dt); o.active = c; if (c.progress >= c.total) { c.freed = true; o.freed++; st.objects.push({ kind: 'prisoner', x: c.x, y: c.y, r: 10, id: c.id }); K().text(st, c.x, c.y - 40, '풀려났다!', '#9cffb0'); K().ev(st, 'rescued', { n: o.freed }); } }
+      }
+      for (const pr of st.objects) if (pr.kind === 'prisoner' && !pr.gone) { // 포로는 출구로 스스로 이동(적은 무시, 호위 불필요)
+        const d = m().norm(exit.x - pr.x, exit.y - pr.y); const mv = K().steerDir ? K().steerDir(st, pr, exit.x, exit.y) : d; pr.x += mv.x * S.prisonerSpeed * dt; pr.y += mv.y * S.prisonerSpeed * dt;
+        if (m().dist(pr, exit) <= 18) pr.gone = true;
+      }
+      if (o.freed >= o.cages) { exit.open = true; if (m().dist(exit, p) <= exit.r) finish(st); }
+    }
+  }
+  function healTarget(st, a, range) { let best = null, bs = 0; for (const e of st.enemies) { if (e.dead || e.structure || e.hidden || e.hp >= e.hpMax || m().dist(e, a) > range) continue; const miss = 1 - e.hp / e.hpMax; if (miss > bs) { bs = miss; best = e; } } return best; }
+  function finish(st) { const o = st.obj; if (o.done) return; o.done = true; o.doneT = st.t; }
+  // 승패 판정: Combat.checkObjective에서 호출. 같은 단계에서 목표 달성과 사망이 겹치면 승리 우선(보스전 규칙과 동일)
+  function check(st) { const o = st.obj; return !!(o && o.done); }
+  // 피해를 받으면 봉인 진행 잠시 정지(제자리에서 맞으며 버티기 금지)
+  function onPlayerHit(st) { const o = st.obj; if (o && st.objective === 'seal') o.hitPause = spec(st).hitPause; }
+
+  // ---------- 바닥 위험 지역 갱신(Combat.updateZones에서 호출): 예고 후 무장, 무장 중 플레이어 피해 ----------
+  function zoneDamage(st, z, p) { if (!z.armed) { if (z.t >= z.warn) { z.armed = true; K().ev(st, 'hazard_arm'); } return 0; } return m().dist(z, p) <= z.r + p.r * 0.5 ? z.dmg : 0; }
+
+  // ---------- 표시 ----------
+  function hud(st) {
+    const S = spec(st), o = st.obj; if (!S || !o) return null;
+    return { title: `목적: ${S.short}`, line: S.hud(o) + (o.reinforce && o.reinforce.budget > 0 && st.objective !== 'hunt' ? ` · 지원 ${o.reinforce.budget}` : ''), risk: o.risk ? PA.MISSIONS.riskText[o.risk] : null };
+  }
+  // 자동 공격 대상 표시: 첫 무기 기준 가장 가까운 대상(표식 우선) — 제단인지 적인지
+  function autoTarget(st) {
+    const p = st.player, mk = st.markTarget; let range = 0; for (const w of st.weapons || []) range = Math.max(range, w.stats.range || w.stats.radius || 60);
+    if (mk && !mk.dead && m().dist(p, mk) <= range + mk.r) return mk;
+    let best = null, bd = Infinity; for (const e of st.enemies) { if (e.dead || e.hidden) continue; const d = m().dist(p, e); if (d <= range + e.r && d < bd) { bd = d; best = e; } }
+    return best;
+  }
+  // 봇: 목표를 위한 이동 지점(적 위협이 없을 때 향한다) / 우선 대상
+  function botGoal(st) {
+    const o = st.obj; if (!o || o.done) return null; const p = st.player;
+    if (st.objective === 'seal') { const z = st.objects.find(x => x.kind === 'seal'); if (!z) return null; const tgt = z.moving && z.next ? z.next : z; return m().dist(tgt, p) > z.r * 0.6 ? { x: tgt.x, y: tgt.y, r: z.r * 0.6 } : null; }
+    if (st.objective === 'rescue') { if (o.freed >= o.cages) { const ex = st.objects.find(x => x.kind === 'exit'); return { x: ex.x, y: ex.y, r: ex.r * 0.5 }; } const c = st.objects.filter(x => x.kind === 'cage' && !x.freed).sort((a, b) => m().dist(a, p) - m().dist(b, p))[0]; return c && m().dist(c, p) > PA.OBJECTIVES.rescue.near * 0.7 ? { x: c.x, y: c.y, r: PA.OBJECTIVES.rescue.near * 0.7 } : null; }
+    return null;
+  }
+  function botTarget(st) {
+    const o = st.obj; if (!o || o.done) return null; const p = st.player;
+    if (st.objective === 'altars') { const near = st.enemies.filter(e => !e.dead && !e.structure && !e.hidden && m().dist(e, p) < 90); if (near.length) return null; return o.altars.filter(a => !a.dead).sort((a, b) => m().dist(a, p) - m().dist(b, p))[0] || null; }
+    if (st.objective === 'hunt' && o.elite && !o.elite.dead) { const near = st.enemies.filter(e => !e.dead && !e.structure && !e.hidden && e !== o.elite && m().dist(e, p) < 70); return near.length ? null : o.elite; }
+    return null;
+  }
+  // 봇 위협: 바닥 위험(예고 중 포함)
+  function threats(st, out) { for (const z of st.zones) if (z.type === 'hazard') out.push({ kind: 'zone', x: z.x, y: z.y, r: z.r }); }
+  function text(st) { const S = spec(st); return S ? S.short : (st.objective === 'elite' ? '정예 처치' : '전멸'); }
+  return { is, setup, update, check, onPlayerHit, zoneDamage, hud, autoTarget, botGoal, botTarget, threats, text, place };
+})();
+
+</script>
+<script>
 // 회차 상태: 날짜·시간·금화·재료·장비·증강·체력. 저장/불러오기. 전투 밖의 모든 규칙.
 var PA = (typeof PA !== 'undefined') ? PA : {};
 
@@ -2455,6 +2725,7 @@ PA.Run = (function () {
       target: 'pierce_sword',
       log: [], // 최근 사건 기록(거점 표시)
       stats: { encounters: 0, wins: 0, losses: 0, kills: 0 },
+      services: {}, cards: null, missionsDone: {}, pendingSortie: null, buffs: {}, lastEvent: null, lastSupplyDay: null, eventsResolved: 0, // v0.7 거점 서비스·출격 카드·완료 수·전투 뒤 보류 출격·임시 강화·사건 기록
       ended: false,            // v1 호환 필드. v2에서는 phase를 사용
     };
   }
@@ -2474,6 +2745,7 @@ PA.Run = (function () {
     if (r.gear && 'weapon' in r.gear) delete r.gear.weapon;
     if (!r.layout || !PA.LAYOUTS[r.layout]) r.layout = 'classic';                       // 이전 저장: 기존 배치 유지
     if (!r.difficulty || !PA.DIFFICULTY.candidates[r.difficulty]) r.difficulty = 'base';
+    if (!r.services) r.services = {}; if (!r.missionsDone) r.missionsDone = {}; if (r.cards === undefined) r.cards = null; if (r.pendingSortie === undefined) r.pendingSortie = null; if (!r.buffs) r.buffs = {}; // v0.7 필드: 이전 저장은 기존 규칙 유지, 카드는 오늘부터 생성
     return r;
   }
 
@@ -2508,7 +2780,7 @@ PA.Run = (function () {
   // 지역별 체력 배율(난이도 후보). 보스는 1. 더 깊이 탐험은 후보의 deepMult
   function hpMultFor(run, regionId, deep) { const c = PA.DIFFICULTY.candidates[(run && run.difficulty) || 'base'] || PA.DIFFICULTY.candidates.base; const v = (c.hp[regionId] || 1) * (deep ? (c.deepMult || 1) : 1); return { normal: v, elite: v, boss: 1 }; }
   function layoutText(run) { const parts = []; if (run.layout && run.layout !== 'classic') parts.push('배치: ' + PA.LAYOUTS[run.layout].name); if (run.difficulty && run.difficulty !== 'base') parts.push('난이도: ' + PA.DIFFICULTY.candidates[run.difficulty].name); return parts.join(' · '); }
-  function canDeepExplore(run) { return run.hours >= C().DEEP_EXPLORE_HOURS; }
+  function canDeepExplore(run, sortie) { return run.hours >= C().DEEP_EXPLORE_HOURS && !(sortie && sortie.mission); } // 임무 출격은 더 깊이 탐험 없음(특수 보상 반복 금지)
   function deepExplore(run, sortie) { if (!canDeepExplore(run)) throw new Error('시간 부족'); run.hours -= C().DEEP_EXPLORE_HOURS; sortie.deep = true; }
 
   // 조우 승리 보상 계산(실제 난수는 전투의 rng 사용 → 재현 가능)
@@ -2552,13 +2824,16 @@ PA.Run = (function () {
   }
 
   // ---------- 거점 행동 ----------
-  function canRest(run) { return run.hours >= C().REST_HOURS && run.hp < build(run).hpMax; }
-  function rest(run) { if (!canRest(run)) throw new Error('휴식 불가'); run.hours -= C().REST_HOURS; run.hp = build(run).hpMax; addLog(run, '휴식: 체력 회복'); }
+  function hasService(run, id) { return !!(run.services && run.services[id] > 0); }
+  function useService(run, id) { if (!hasService(run, id)) throw new Error('서비스 없음'); run.services[id]--; addLog(run, `${PA.SERVICES[id].name} 사용`); }
+  function canRest(run) { return (run.hours >= C().REST_HOURS || hasService(run, 'free_rest')) && run.hp < build(run).hpMax; }
+  function rest(run) { if (!canRest(run)) throw new Error('휴식 불가'); if (hasService(run, 'free_rest')) useService(run, 'free_rest'); else run.hours -= C().REST_HOURS; run.hp = build(run).hpMax; addLog(run, '휴식: 체력 회복'); }
   function endDay(run) {
     if (run.phase !== 'prep') throw new Error('보스 준비 중에는 하루를 넘길 수 없음');
     run.day++; run.hours = C().HOURS_PER_DAY; run.hp = build(run).hpMax;
     addLog(run, '새로운 아침');
     if (isBossDay(run)) { run.phase = 'boss_prep'; addLog(run, '예언의 날: 최종 준비'); }
+    if (PA.Sortie) PA.Sortie.cardsFor(run); // 오늘의 출격 카드 확정(시드·저장)
   }
   // ---------- 보스전 ----------
   function bossSeed(run) { return run.seed * 997 + 7; } // 같은 회차·같은 빌드 재도전 = 같은 시드·지형
@@ -2597,7 +2872,7 @@ PA.Run = (function () {
 
   // ---------- 상점/대장간 ----------
   function item(id) { return PA.ITEMS.find(i => i.id === id); }
-  function itemCost(run, it) { return it.slot === 'upgrade' ? it.costs[Math.min(run.gear.upgrade, it.costs.length - 1)] : it.cost; }
+  function itemCost(run, it) { const c = it.slot === 'upgrade' ? it.costs[Math.min(run.gear.upgrade, it.costs.length - 1)] : it.cost; return hasService(run, 'shop_discount') ? Object.assign({}, c, { gold: Math.round(c.gold * (1 - PA.SERVICES.shop_discount.rate)) }) : c; }
   function itemAvailable(run, it) {
     if (it.slot === 'upgrade') return run.gear.upgrade < it.costs.length;
     if (it.slot === 'weapon') { const g = PA.Growth.ensure(run); return !run.owned.includes(it.id) && !PA.Growth.weaponOf(g, 'spear') && g.weapons.length < PA.GROWTH.SLOTS.weapons; }
@@ -2614,7 +2889,7 @@ PA.Run = (function () {
     const it = item(itemId);
     if (!canBuy(run, it)) throw new Error('구매 불가');
     const cost = itemCost(run, it);
-    run.gold -= cost.gold;
+    run.gold -= cost.gold; if (hasService(run, 'shop_discount')) useService(run, 'shop_discount');
     for (const k in cost.mats) run.mats[k] -= cost.mats[k];
     if (it.slot === 'upgrade') { run.gear.upgrade++; addLog(run, `무기 강화 +${run.gear.upgrade} (세 장착 무기 공통)`); }
     else if (it.slot === 'weapon') {
@@ -2676,7 +2951,172 @@ PA.Run = (function () {
   function load(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(SAVE_KEY); return s ? deserialize(s) : null; } catch (e) { return null; } }
   function clearSave(storage) { storage = storage || globalThis.localStorage; try { storage.removeItem(SAVE_KEY); } catch (e) {} }
 
-  return { SAVE_KEY, RECORDS_KEY, VERSION, regionBonusXp, layoutRegion, regionEnemies, regionArena, hpMultFor, layoutText, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
+  return { SAVE_KEY, RECORDS_KEY, VERSION, hasService, useService, regionBonusXp, layoutRegion, regionEnemies, regionArena, hpMultFor, layoutText, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
+})();
+
+</script>
+<script>
+// 출격 카드(하루 3장, 시드 확정·저장)와 임무 보상 규칙. 화면·봇 공용.
+var PA = (typeof PA !== 'undefined') ? PA : {};
+
+PA.Sortie = (function () {
+  const M = () => PA.MISSIONS;
+  function cardSeed(run, day) { return (run.seed * 7 + day * 1009 + 13) >>> 0; }
+  // 보상 종류의 유효성: 현재 성장 상태에서 그 종류의 후보가 1개 이상
+  function kindValid(run, kind) {
+    if (kind === 'gold') return true;
+    if (kind === 'service') return Object.keys(PA.SERVICES).length > 0;
+    const pools = M().kindPools[kind]; return PA.Growth.candidates(run, { pool: 'level' }).some(c => pools.includes(c.kind));
+  }
+  function rewardKindFor(run, objective) { for (const k of M().rewardByObjective[objective]) if (kindValid(run, k)) return k; return 'gold'; }
+  // 보상 대상 요약(카드 표시용): 어떤 무기·기술이 후보인지
+  function rewardTarget(run, kind) {
+    const g = run.growth, W = PA.WEAPONS;
+    if (kind === 'weapon_level') return g.weapons.filter(w => w.level < PA.GROWTH.SLOTS.weaponMax).map(w => W[w.id].name + ' Lv' + w.level + '→' + (w.level + 1)).join(' / ');
+    if (kind === 'weapon_mod') return g.weapons.filter(w => w.mods.length < PA.GROWTH.SLOTS.weaponMods && Object.keys(W[w.id].mods).some(mid => W[w.id].mods[mid].impl && !w.mods.includes(mid))).map(w => W[w.id].name + ' 개조 ' + w.mods.length + '/' + PA.GROWTH.SLOTS.weaponMods).join(' / ');
+    if (kind === 'skill') return g.skills.e ? `${PA.SKILLS[g.skills.e.id].name}·감속장 강화/변형` : 'E 기술 습득·감속장 강화';
+    if (kind === 'common') return '공통 증강';
+    if (kind === 'service') return Object.values(PA.SERVICES).map(s => s.name).join(' / ');
+    return '';
+  }
+  function regionsFor(day) { return PA.REGIONS.filter(r => (M().regionFromDay[r.id] || 1) <= day); }
+  // 현재 빌드와의 연결: 보상 종류가 소유 무기·기술에 직접 적용되는가
+  function buildLinked(run, kind) { return kind === 'weapon_level' || kind === 'weapon_mod' || (kind === 'skill' && !!run.growth.skills.e); }
+  // 하루 카드 생성(결정적). 같은 (지역, 목표)는 하루에 한 번. 목표는 가능한 한 서로 다르게. 최소 1장은 빌드와 연결(가능할 때)
+  function generate(run, day) {
+    const rng = PA.rng.create(cardSeed(run, day)), regions = regionsFor(day), objs = PA.OBJECTIVE_IDS.slice(), out = [], used = new Set();
+    let guard = 0;
+    while (out.length < M().perDay && guard++ < 60) {
+      const r = regions[rng.int(0, regions.length - 1)], obj = objs.length ? objs.splice(rng.int(0, objs.length - 1), 1)[0] : PA.OBJECTIVE_IDS[rng.int(0, 3)];
+      const key = r.id + ':' + obj; if (used.has(key)) continue; used.add(key);
+      const kind = rewardKindFor(run, obj);
+      const riskRoll = rng.next(); const risk = day >= M().riskFromDay && riskRoll < M().riskChance ? M().risks[rng.int(0, M().risks.length - 1)] : null;
+      out.push({ id: `d${day}c${out.length + 1}`, day, regionId: r.id, objective: obj, risk, rewardKind: kind, rewardTarget: rewardTarget(run, kind), fallbackGold: M().goldFallback[r.id], timeCost: r.cost, enemies: mainEnemies(run, r.id, obj, risk), first: !((run.missionsDone || {})[obj]), done: false, attempts: 0, linked: buildLinked(run, kind) });
+    }
+    // 빌드와 연결된 카드가 하나도 없고 가능하다면 마지막 카드의 보상을 무기 강화/개조로 바꾼다(모두 무관한 카드 금지)
+    if (!out.some(c => c.linked)) { const alt = ['weapon_mod', 'weapon_level'].find(k => kindValid(run, k)); if (alt) { const c = out[out.length - 1]; c.rewardKind = alt; c.rewardTarget = rewardTarget(run, alt); c.linked = true; } }
+    return out;
+  }
+  function mainEnemies(run, regionId, objective, risk) {
+    const base = PA.Run.regionEnemies(regionId, run).filter(t => !PA.ENEMIES[t].elite).slice(0, 3);
+    if (objective === 'hunt' || risk === 'escort') base.push(PA.OBJECTIVES.hunt.eliteType);
+    return Array.from(new Set(base)).slice(0, 4);
+  }
+  // 오늘의 카드(없거나 날짜가 다르면 생성해 저장 필드에 둔다). 다시 굴리기 없음
+  function cardsFor(run) { if (!run.cards || run.cards.day !== run.day) run.cards = { day: run.day, list: generate(run, run.day) }; return run.cards.list; }
+  function card(run, id) { return cardsFor(run).find(c => c.id === id) || null; }
+  function canStart(run, c) { return !!c && !c.done && PA.Run.canSortie(run, c.regionId); }
+  // 임무 출격: 지역 출격과 같은 비용·시드 규칙 + 카드 정보
+  function start(run, id) {
+    const c = card(run, id); if (!canStart(run, c)) throw new Error('임무 시작 불가');
+    const s = PA.Run.startSortie(run, c.regionId); s.cardId = c.id; s.objective = c.objective; s.risk = c.risk; s.mission = true; c.attempts++;
+    return s;
+  }
+  // 임무 승리 정산(Flow.settleVictory에서 호출): 카드 완료 표시, 보상 종류 3택을 보류 등록(정산 1회)
+  function onMissionWin(run, sortie) {
+    const c = card(run, sortie.cardId); if (!c || c.done) return false;
+    c.done = true; run.missionsDone = run.missionsDone || {}; run.missionsDone[c.objective] = (run.missionsDone[c.objective] || 0) + 1;
+    run.growth.pendingMissionPick = { cardId: c.id, kind: c.rewardKind, regionId: c.regionId, fallbackGold: c.fallbackGold, key: `${sortie.seed}:${sortie.encounters}` };
+    return true;
+  }
+  // 임무 보상 제시(Flow.nextOffer에서 호출): 유효 후보가 없으면 정해진 금화로 대체(중복·무효 카드로 채우지 않음)
+  function missionOffer(run) {
+    const g = run.growth, mp = g.pendingMissionPick; if (!mp) return null; g.pendingMissionPick = null;
+    const kind = kindValid(run, mp.kind) ? mp.kind : (M().rewardByObjective[(card(run, mp.cardId) || {}).objective || 'hunt'].find(k => k !== 'gold' && kindValid(run, k)) || 'gold');
+    if (kind === 'gold') { run.gold += mp.fallbackGold; PA.Run.addLog(run, `임무 보상: 유효한 후보가 없어 금화 +${mp.fallbackGold}`); g.missionGoldFallbacks = (g.missionGoldFallbacks || 0) + 1; return null; }
+    const off = PA.Growth.generateOffer(run, { pool: 'mission', kinds: M().kindPools[kind], regionId: mp.regionId, missionKind: kind });
+    if (!off.choices.length) { g.pendingOffer = null; run.gold += mp.fallbackGold; PA.Run.addLog(run, `임무 보상: 후보 없음 → 금화 +${mp.fallbackGold}`); g.missionGoldFallbacks = (g.missionGoldFallbacks || 0) + 1; return null; }
+    return off;
+  }
+  function objectiveName(id) { return PA.OBJECTIVES[id] ? PA.OBJECTIVES[id].name : id === 'elite' ? '정예 처치' : '전멸'; }
+  return { cardSeed, kindValid, rewardKindFor, rewardTarget, generate, cardsFor, card, canStart, start, onMissionWin, missionOffer, objectiveName, mainEnemies, buildLinked };
+})();
+
+</script>
+<script>
+// 탐험 사건 6종(전투 뒤 안전 화면, 출격당 최대 1회). 시드로 생성·저장(run.pendingSortie)·재현. 비용·보상은 정확히 1회 정산. 화면·봇 공용.
+var PA = (typeof PA !== 'undefined') ? PA : {};
+
+PA.EVENTS = {
+  chance: 0.5, // 조우 승리 뒤 사건이 나올 확률(임시)
+  weapon_altar: { name: '불안정한 무기 제단', hpCost: 0.25, desc: '체력을 바쳐 보유 무기의 개조 1개를 고른다(3택). 개조 슬롯이 남은 무기가 있어야 한다. 강제 제거 없음.',
+    valid: (run, s) => PA.Sortie.kindValid(run, 'weapon_mod') && PA.Events.altarCost(run) < run.hp - 1 },
+  supply: { name: '버려진 보급소', heal: 0.5, gold: 40, desc: '회복 또는 물자 중 하나만. 휴식 대신 쓰지 않도록 이틀에 한 번만 나온다.',
+    valid: (run) => run.day - (run.lastSupplyDay == null ? -9 : run.lastSupplyDay) >= 2 },
+  merchant: { name: '갇힌 상인', desc: '추가 전투(지역 웨이브 + 정예, 체력 회복 없음, 새 전리품 없음)에 이기면 이번 회차 거점 서비스 1종 해금.',
+    services: ['mod_swap', 'reroll'], valid: (run, s) => !s.mission && !s.deep && run.hp >= PA.Run.build(run).hpMax * 0.35 },
+  time_spring: { name: '시간의 샘', hours: 1, cdBuff: 0.7, desc: '다음 전투 1회 감속장·E 재사용 -30%(무료) 또는 1시간을 내고 완전 회복. 재사용은 조우마다 이미 초기화되므로 임시 강화로 설계(가정 기록).',
+    valid: (run) => true },
+  sealed_loot: { name: '봉인된 전리품', goldMult: 2, desc: '지금 귀환하거나, 정예 추가 전투(더 깊이 탐험 경로, 1시간)로 밝혀진 특수 보상을 노린다: 이번 더 깊이 전투의 금화 ×2 + 지역 보상 3택.',
+    valid: (run, s) => !s.deep && !s.mission && PA.Run.canDeepExplore(run, s) },
+  scout: { name: '정찰자의 정보', desc: '오늘 남은 출격 카드 1장의 위험 조건을 교체한다(정보는 이미 공개되어 있으므로 교체 서비스). 새로고침 재선택 없음.',
+    valid: (run, s) => PA.Sortie.cardsFor(run).some(c => !c.done && c.id !== s.cardId) },
+};
+PA.EVENT_IDS = ['weapon_altar', 'supply', 'merchant', 'time_spring', 'sealed_loot', 'scout'];
+
+PA.Events = (function () {
+  const E = () => PA.EVENTS;
+  function altarCost(run) { return Math.round(PA.Run.build(run).hpMax * E().weapon_altar.hpCost); }
+  function nextRisk(cur, seed) { const list = [null].concat(PA.MISSIONS.risks).filter(r => r !== cur); return list[seed % list.length]; }
+  // 사건 생성(결정적): 출격 시드 기준. 같은 출격에서 다시 굴려도 같은 결과. 직전 사건과 같은 종류는 피한다
+  function roll(run, sortie) {
+    if (sortie.event || sortie.deep || sortie.eventFight) return null;
+    const rng = PA.rng.create((sortie.seed * 13 + 101 + (sortie.encounters || 0) * 7) >>> 0);
+    if (rng.next() >= E().chance) return null;
+    const valid = PA.EVENT_IDS.filter(id => E()[id].valid(run, sortie) && id !== run.lastEvent);
+    if (!valid.length) return null;
+    const id = valid[rng.int(0, valid.length - 1)];
+    const ev = { id, seed: rng.int(0, 1e9), resolved: false, choice: null };
+    if (id === 'scout') { const cards = PA.Sortie.cardsFor(run).filter(c => !c.done && c.id !== sortie.cardId); const c = cards[ev.seed % cards.length]; ev.cardId = c.id; ev.fromRisk = c.risk; ev.toRisk = nextRisk(c.risk, ev.seed >> 3); }
+    if (id === 'merchant') ev.service = E().merchant.services[ev.seed % 2];
+    return ev;
+  }
+  // 선택지(화면·봇 공용): {id, name, cost, effect, enabled}
+  function options(run, sortie) {
+    const ev = sortie.event, b = PA.Run.build(run), out = [];
+    if (!ev) return out;
+    if (ev.id === 'weapon_altar') { const cost = altarCost(run); out.push({ id: 'pay', name: `체력 ${cost}을 바치고 개조 3택`, cost: `체력 -${cost} (${run.hp} → ${run.hp - cost})`, effect: '보유 무기 개조 3택(유효 후보만)', enabled: run.hp - cost > 1 && PA.Sortie.kindValid(run, 'weapon_mod') }); out.push({ id: 'leave', name: '지나친다', cost: '없음', effect: '없음', enabled: true }); }
+    else if (ev.id === 'supply') { const heal = Math.round(b.hpMax * E().supply.heal); const r = PA.Run.region(sortie.regionId), mat = Object.keys(r.reward.mats).filter(k => k !== 'fang')[0]; out.push({ id: 'heal', name: `치료 (+${heal})`, cost: '없음', effect: `체력 ${run.hp} → ${Math.min(b.hpMax, run.hp + heal)}`, enabled: run.hp < b.hpMax }); out.push({ id: 'loot', name: `물자 (금화 +${E().supply.gold}${mat ? ', ' + PA.MATERIALS[mat].name + ' +1' : ''})`, cost: '없음', effect: '이번 출격 전리품에 추가(귀환 시 확정)', enabled: true }); out.push({ id: 'leave', name: '지나친다', cost: '없음', effect: '없음', enabled: true }); }
+    else if (ev.id === 'merchant') { const S = PA.SERVICES[ev.service]; out.push({ id: 'fight', name: '상인을 구한다 (추가 전투)', cost: `지역 웨이브 + 정예 1, 체력 회복 없음(${run.hp}/${b.hpMax}), 패배 시 이번 출격 전리품 상실`, effect: `승리 시 해금: ${S ? S.name : ev.service} — ${S ? S.desc : ''}. 새 전리품·재료 없음`, enabled: true }); out.push({ id: 'leave', name: '지나친다', cost: '없음', effect: '없음', enabled: true }); }
+    else if (ev.id === 'time_spring') { out.push({ id: 'buff', name: '샘물을 마신다 (다음 전투 강화)', cost: '없음', effect: '다음 전투 1회: 감속장·E 재사용 ×0.7', enabled: !(run.buffs && run.buffs.skillCd) }); out.push({ id: 'heal', name: `치료를 받는다 (1시간)`, cost: `시간 -1 (${run.hours} → ${run.hours - 1})`, effect: `체력 ${run.hp} → ${b.hpMax}`, enabled: run.hours >= E().time_spring.hours && run.hp < b.hpMax }); out.push({ id: 'leave', name: '지나친다', cost: '없음', effect: '없음', enabled: true }); }
+    else if (ev.id === 'sealed_loot') { out.push({ id: 'fight', name: '봉인을 깨러 간다 (더 깊이 탐험, 1시간)', cost: `시간 -1 (${run.hours} → ${run.hours - 1}), 적 수 +1·마지막에 정예`, effect: `밝혀진 보상: 금화 ×${E().sealed_loot.goldMult}(더 깊이 ×${PA.CONFIG.DEEP_REWARD_MULT} 위에) + 지역 보상 3택 1회 (${PA.REGION_TAG_TEXT[sortie.regionId] || ''})`, enabled: PA.Run.canDeepExplore(run, sortie) }); out.push({ id: 'leave', name: '전리품을 가지고 귀환', cost: '없음', effect: '현재 전리품 유지', enabled: true }); }
+    else if (ev.id === 'scout') { const c = PA.Sortie.card(run, ev.cardId); const R = PA.MISSIONS.riskText; out.push({ id: 'swap', name: `카드 교체: ${c ? PA.Run.region(c.regionId).name + ' · ' + PA.Sortie.objectiveName(c.objective) : ev.cardId}`, cost: '없음', effect: `위험 조건 ${ev.fromRisk ? R[ev.fromRisk] : '없음'} → ${ev.toRisk ? R[ev.toRisk] : '없음'}${ev.toRisk ? ' (금화 ×' + PA.MISSIONS.riskRewardMult + ')' : ''}`, enabled: !!c && !c.done }); out.push({ id: 'leave', name: '듣지 않는다', cost: '없음', effect: '없음', enabled: true }); }
+    return out;
+  }
+  // 선택 적용(정확히 1회). 반환: { next: 'after' | 'fight' | 'deep' | 'offer', offer? }
+  function resolve(run, sortie, optId) {
+    const ev = sortie.event; if (!ev || ev.resolved) throw new Error('사건 없음/이미 처리');
+    const opt = options(run, sortie).find(o => o.id === optId); if (!opt || !opt.enabled) throw new Error('선택 불가');
+    ev.resolved = true; ev.choice = optId; run.lastEvent = ev.id; run.eventsResolved = (run.eventsResolved || 0) + 1; const g = run.growth; g.picks.event = (g.picks.event || 0) + 1;
+    const b = PA.Run.build(run);
+    if (optId === 'leave') { PA.Run.addLog(run, `${E()[ev.id].name}: 지나침`); return { next: 'after' }; }
+    switch (ev.id) {
+      case 'weapon_altar': { const cost = altarCost(run); run.hp = Math.max(1, run.hp - cost); g.pendingEventPick = { kind: 'weapon_mod', regionId: sortie.regionId, key: ev.id + ':' + sortie.seed }; PA.Run.addLog(run, `무기 제단: 체력 -${cost}, 개조 3택`); return { next: 'offer' }; }
+      case 'supply': { if (optId === 'heal') { run.hp = Math.min(b.hpMax, run.hp + Math.round(b.hpMax * E().supply.heal)); PA.Run.addLog(run, '보급소: 치료'); } else { const r = PA.Run.region(sortie.regionId), mat = Object.keys(r.reward.mats).filter(k => k !== 'fang')[0]; sortie.loot.gold += E().supply.gold; if (mat) sortie.loot.mats[mat] = (sortie.loot.mats[mat] || 0) + 1; PA.Run.addLog(run, `보급소: 금화 +${E().supply.gold}`); } run.lastSupplyDay = run.day; return { next: 'after' }; }
+      case 'merchant': { sortie.eventFight = 'merchant'; sortie.eventService = ev.service; return { next: 'fight' }; }
+      case 'time_spring': { if (optId === 'buff') { run.buffs = run.buffs || {}; run.buffs.skillCd = E().time_spring.cdBuff; PA.Run.addLog(run, '시간의 샘: 다음 전투 재사용 ×0.7'); } else { run.hours -= E().time_spring.hours; run.hp = b.hpMax; PA.Run.addLog(run, '시간의 샘: 치료(1시간)'); } return { next: 'after' }; }
+      case 'sealed_loot': { PA.Run.deepExplore(run, sortie); sortie.deepGoldMult = E().sealed_loot.goldMult; PA.Run.addLog(run, '봉인된 전리품: 더 깊이 탐험'); return { next: 'deep' }; }
+      case 'scout': { const c = PA.Sortie.card(run, ev.cardId); c.risk = ev.toRisk; c.enemies = PA.Sortie.mainEnemies(run, c.regionId, c.objective, c.risk); PA.Run.addLog(run, `정찰자: ${PA.Run.region(c.regionId).name} 카드 위험 조건 교체`); return { next: 'after' }; }
+    }
+    return { next: 'after' };
+  }
+  // 상인 추가 전투: 지역 웨이브 + 정예(더 깊이와 같은 구성), 전멸 목표, 전리품 없음
+  function fightOpts(run, sortie) { const waves = PA.Run.encounterWaves(sortie.regionId, true, run); return { waves, objective: 'clear', seed: sortie.seed + 9000 + (sortie.encounters || 0) * 1000, eventFight: sortie.eventFight }; }
+  // 추가 전투 승리 정산(Flow.settleVictory에서): 서비스 해금만
+  function onFightWin(run, sortie) { if (sortie.eventFight === 'merchant' && !sortie.eventFightDone) { sortie.eventFightDone = true; run.services = run.services || {}; run.services[sortie.eventService] = (run.services[sortie.eventService] || 0) + 1; PA.Run.addLog(run, `상인 구출: ${PA.SERVICES[sortie.eventService].name} 해금`); } sortie.eventFight = null; }
+  // 봇 선택 정책(회차 시뮬레이션): risky는 전투·제단, cautious는 치료, 기본은 무료 이득만
+  function botChoose(run, sortie, strat) {
+    const opts = options(run, sortie).filter(o => o.enabled), ev = sortie.event, has = (id) => opts.find(o => o.id === id);
+    const risky = strat === 'risky' || strat === 'deep', cautious = strat === 'cautious';
+    if (ev.id === 'weapon_altar') return risky && run.hp > PA.Run.build(run).hpMax * 0.6 && has('pay') ? 'pay' : 'leave';
+    if (ev.id === 'supply') return cautious && has('heal') ? 'heal' : run.hp < PA.Run.build(run).hpMax * 0.5 && has('heal') ? 'heal' : 'loot';
+    if (ev.id === 'merchant') return risky && has('fight') ? 'fight' : 'leave';
+    if (ev.id === 'time_spring') return cautious && has('heal') && run.hp < PA.Run.build(run).hpMax * 0.6 ? 'heal' : has('buff') ? 'buff' : 'leave';
+    if (ev.id === 'sealed_loot') return risky && has('fight') && run.hp >= PA.Run.build(run).hpMax * 0.5 ? 'fight' : 'leave';
+    if (ev.id === 'scout') return has('swap') && !ev.toRisk ? 'swap' : 'leave';
+    return 'leave';
+  }
+  return { altarCost, roll, options, resolve, fightOpts, onFightWin, botChoose };
 })();
 
 </script>
@@ -2693,26 +3133,36 @@ PA.Flow = (function () {
       build: R.build(run), hp: run.hp, seed: encounterSeed(sortie),
       waves: R.encounterWaves(sortie.regionId, sortie.deep, run), objective: R.encounterObjective(sortie.regionId, sortie.deep, run),
       arena: sortie.arena || R.regionArena(sortie.regionId, run), hpMult: R.hpMultFor(run, sortie.regionId, sortie.deep), regionId: sortie.regionId,
-      labText: R.layoutText(run) || null,
-    }, extra || {});
+      labText: R.layoutText(run) || null, run,
+    }, sortie.mission ? { objective: sortie.objective, risk: sortie.risk || null, mission: { cardId: sortie.cardId, objective: sortie.objective, risk: sortie.risk || null } } : {}, sortie.eventFight && PA.Events ? PA.Events.fightOpts(run, sortie) : {}, extra || {});
   }
-  function makeEncounter(run, sortie, extra) { return PA.Combat.create(encounterOpts(run, sortie, extra)); }
+  function makeEncounter(run, sortie, extra) { const st = PA.Combat.create(encounterOpts(run, sortie, extra)); if (run.buffs && run.buffs.skillCd) { st.tempBuff = 'skillCd'; delete run.buffs.skillCd; } run.pendingSortie = null; return st; } // 임시 강화는 이 전투에 적용되고 소비. 전투 시작 시 보류 출격 상태 해제(전투 중 종료 = 기존 규칙: 거점 복귀)
   // 조우 승리 정산(정확히 1회): 전리품 굴림 → 출격 전리품 반영 → 지역 경험치 → 더 깊이면 지역 3택을 보류 선택으로 등록(저장됨)
   function settleVictory(run, sortie, st) {
     const eliteKilled = st.enemies.some(e => e.elite && e.dead) || (st.status === 'won' && st.objective === 'elite');
     const reward = PA.Run.rollReward(run, sortie, st.rng, { chestGold: st.stats.chestGold, eliteKilled });
+    if (sortie.eventFight) { reward.gold = 0; reward.mats = {}; reward.chestGold = 0; reward.eventFight = sortie.eventFight; PA.Events.onFightWin(run, sortie); } // 사건 추가 전투: 전리품 없음, 서비스만
+    if (sortie.deep && sortie.deepGoldMult) { reward.gold = Math.round(reward.gold * sortie.deepGoldMult); reward.sealedLoot = true; sortie.deepGoldMult = null; } // 봉인된 전리품: 밝혀진 보상(1회)
+    if (sortie.mission) { // 임무: 지역 보상의 재료를 종류 지정 3택으로 대체(금화는 유지, 위험 조건이면 ×1.25). 처치 경험치는 전투 중 즉시
+      reward.mats = {}; if (sortie.risk) reward.gold = Math.round(reward.gold * PA.MISSIONS.riskRewardMult); reward.mission = true;
+      reward.missionPick = PA.Sortie.onMissionWin(run, sortie); // 하루 1회: 이미 완료된 카드면 3택 없음
+    }
     PA.Run.applyEncounterResult(run, sortie, 'won', reward, st.player.hp);
-    reward.xp = PA.Run.regionBonusXp(sortie.regionId, sortie.deep); PA.Growth.addXp(run.growth, reward.xp);
+    reward.xp = sortie.eventFight || reward.eventFight ? 0 : PA.Run.regionBonusXp(sortie.regionId, sortie.deep); PA.Growth.addXp(run.growth, reward.xp);
+    if (!reward.eventFight && PA.Events && !sortie.event) sortie.event = PA.Events.roll(run, sortie); // 탐험 사건: 출격당 최대 1회, 시드 결정적
+    run.pendingSortie = sortie; // 전투 뒤 안전 화면 상태를 저장(보상·사건·더 깊이 선택을 새로고침해도 이어감)
     if (sortie.deep && PA.GROWTH.DEEP_PICK && !sortie.deepPicked) { sortie.deepPicked = true; run.growth.pendingDeepPick = { regionId: sortie.regionId, key: `${sortie.seed}:${sortie.encounters}` }; }
     return reward;
   }
-  function settleDefeat(run, sortie, st) { PA.Run.applyEncounterResult(run, sortie, 'lost', null, 0); PA.Run.defeat(run, sortie); }
-  // 다음에 제시할 선택(순서 고정): 저장된 보류 제시 → 미처리 레벨업 → 더 깊이 지역 3택 → 없음(null)
+  function settleDefeat(run, sortie, st) { PA.Run.applyEncounterResult(run, sortie, 'lost', null, 0); PA.Run.defeat(run, sortie); run.pendingSortie = null; }
+  // 다음에 제시할 선택(순서 고정): 저장된 보류 제시 → 미처리 레벨업 → 임무 보상 3택 → 더 깊이 지역 3택 → 없음(null)
   // 더 깊이 3택은 여기서 보류 등록을 소비하고 pendingOffer로 옮긴다(새로고침해도 같은 제시, 두 번 제시되지 않음). 후보가 없으면 제시 없이 소비
   function nextOffer(run, ctx) {
     const g = run.growth; ctx = ctx || {};
     if (g.pendingOffer) return g.pendingOffer;
     if (g.pendingLevelUps > 0) return PA.Growth.generateOffer(run, { pool: 'level', regionId: ctx.regionId || null });
+    if (g.pendingMissionPick) { const off = PA.Sortie.missionOffer(run); return off || nextOffer(run, ctx); } // 임무 보상 3택(후보 없으면 금화로 대체·1회)
+    if (g.pendingEventPick) { const ep = g.pendingEventPick; g.pendingEventPick = null; const off = PA.Growth.generateOffer(run, { pool: 'mission', kinds: [ep.kind], regionId: ep.regionId, missionKind: ep.kind, event: true }); if (!off.choices.length) { g.pendingOffer = null; return nextOffer(run, ctx); } return off; } // 사건 보상(무기 제단)
     if (g.pendingDeepPick) {
       const rid = g.pendingDeepPick.regionId; g.pendingDeepPick = null;
       const off = PA.Growth.generateOffer(run, { pool: 'deep', regionId: rid });
@@ -2736,7 +3186,27 @@ PA.Flow = (function () {
     }
     return n;
   }
-  return { encounterSeed, encounterOpts, makeEncounter, settleVictory, settleDefeat, nextOffer, resolveOffer, resolveAll };
+  // 거점 서비스: 제시 재선택(레벨업 3택 1회) — 순번을 넘겨 다른 제시. 권 소비 1회
+  function rerollOffer(run) {
+    const g = run.growth, off = g.pendingOffer; if (!off || off.pool !== 'level' || !PA.Run.hasService(run, 'reroll')) throw new Error('재선택 불가');
+    PA.Run.useService(run, 'reroll'); g.pendingOffer = null; g.choiceSeq++; g.picks.reroll = (g.picks.reroll || 0) + 1;
+    return PA.Growth.generateOffer(run, { pool: 'level', regionId: off.regionId });
+  }
+  // 거점 서비스: 개조 교체 — 개조 1개를 떼고 그 무기의 다른 개조 3택. 후보가 없으면 되돌리고 권 유지
+  function modSwapOffer(run, weaponId, modId) {
+    const g = run.growth, w = g.weapons.find(x => x.id === weaponId); if (!w || !w.mods.includes(modId) || !PA.Run.hasService(run, 'mod_swap') || g.pendingOffer) throw new Error('교체 불가');
+    w.mods = w.mods.filter(m => m !== modId);
+    const cands = PA.Growth.candidates(run, { pool: 'level' }).filter(c => c.kind === 'weapon_mod' && c.id === weaponId && c.mod !== modId);
+    if (!cands.length) { w.mods.push(modId); return null; }
+    PA.Run.useService(run, 'mod_swap'); g.swappedOut = (g.swappedOut || []).concat([weaponId + ':' + modId]);
+    const off = PA.Growth.generateOffer(run, { pool: 'mission', kinds: ['weapon_mod'], missionKind: 'weapon_mod', regionId: null, weaponOnly: weaponId, excludeMod: modId });
+    if (!off.choices.length) { g.pendingOffer = null; w.mods.push(modId); run.services.mod_swap++; return null; }
+    return off;
+  }
+  // 전투 뒤 안전 화면의 다음 단계(화면·봇 공용): 남은 선택 → 미처리 사건 → 다음 행동(after)
+  function afterCombatStep(run, sortie) { if (nextOffer(run, { regionId: sortie.regionId })) return 'offer'; if (sortie.event && !sortie.event.resolved) return 'event'; return 'after'; }
+  function returnHome(run, sortie) { PA.Run.returnToBase(run, sortie); run.pendingSortie = null; }
+  return { encounterSeed, encounterOpts, makeEncounter, settleVictory, settleDefeat, nextOffer, resolveOffer, resolveAll, afterCombatStep, returnHome, rerollOffer, modSwapOffer };
 })();
 
 </script>
@@ -2779,6 +3249,7 @@ PA.Bot = (function () {
     for (const pr of st.projectiles) if (pr.owner === 'enemy') out.push({ kind: 'beam', x: pr.x, y: pr.y, ang: Math.atan2(pr.vy, pr.vx), len: 220, w: 40 + pr.r * 2, prog: 1, locked: true, proj: true });
     for (const z of st.zones) if (z.type === 'spore') out.push({ kind: 'zone', x: z.x, y: z.y, r: z.r });
     if (PA.Enemies && PA.Enemies.zoneThreats) PA.Enemies.zoneThreats(st, out);
+    if (PA.Objectives && st.obj) PA.Objectives.threats(st, out);
     return out;
   }
   function bossThreats(st, bz, out) {
@@ -2808,6 +3279,7 @@ PA.Bot = (function () {
     if (!alive.length) return null;
     if (st.markTarget && !st.markTarget.dead) return st.markTarget;
     const bz = st.boss; if (bz && !bz.dead) return bz;
+    if (PA.Objectives && st.obj) { const ot = PA.Objectives.botTarget(st); if (ot) return ot; } // 목표 우선 대상(제단·정예)
     if (pol === POLICIES.balanced) { const back = alive.filter(e => BACKLINE.includes(e.type)).sort((a, b) => m().dist(a, p) - m().dist(b, p)); if (back.length) return back[0]; }
     return alive.slice().sort((a, b) => m().dist(a, p) - m().dist(b, p))[0];
   }
@@ -2834,9 +3306,11 @@ PA.Bot = (function () {
       if (th.locked && th.e && M.dist(th.e, p) < 200) lockedNear = true;
     }
     if (n) { const d = M.norm(ex, ey); mv = (d.x || d.y) ? d : { x: 1, y: 0 }; }
-    // 2) 접근·이탈
+    // 2) 접근·이탈. 목표 지점(봉인·우리·출구)이 있으면 위협이 없을 때 그쪽으로(적은 자동 공격이 처리)
+    const goal = (PA.Objectives && st.obj) ? PA.Objectives.botGoal(st) : null;
     const target = pickTarget(st, pol);
-    if (!threatened && n === 0 && target) {
+    if (!threatened && n === 0 && goal && !(pol === POLICIES.survival && hpRatio < pol.retreatHp)) { const s = mem.steer; s.x = p.x; s.y = p.y; if (s.steerT > 0) s.steerT -= 0.04; mv = st.obstacles.length ? PA.Combat.steerDir(st, s, goal.x, goal.y) : M.norm(goal.x - p.x, goal.y - p.y); }
+    else if (!threatened && n === 0 && target) {
       const d = M.dist(target, p), toT = M.norm(target.x - p.x, target.y - p.y);
       const bz = target.boss ? target : null;
       const range = weaponRange(st);
@@ -3035,6 +3509,8 @@ PA.Lab = (function () {
     for (const r of PA.REGIONS) list.push({ id: 'region:' + r.id, group: '지역(기존 배치)', name: r.name, regionId: r.id, waves: r.waves, objective: r.objective, arena: 'forest', desc: r.desc });
     if (PA.LAYOUTS && PA.LAYOUTS.trial) for (const r of PA.REGIONS) { const L = PA.LAYOUTS.trial.regions[r.id]; if (L) list.push({ id: 'trial:' + r.id, group: '지역(시험안 배치)', name: r.name + ' · 시험안', regionId: r.id, waves: L.waves, objective: L.objective || r.objective, arena: L.arena || 'forest', desc: L.desc || r.desc }); }
     for (const t of PA.LAB.ENEMY_ORDER) { const d = PA.ENEMIES[t]; if (!d || t === 'boss') continue; const n = t === 'wolf' ? 2 : 1; const ally = t === 'shaman' ? [{ type: 'wolf', n: 2 }] : []; list.push({ id: 'solo:' + t, group: '단독 시험', name: d.name + (n > 1 ? ` ×${n}` : '') + (ally.length ? ' (+늑대 2: 치료 대상)' : '') + (d.impl === false ? ' (미구현)' : ''), regionId: null, waves: [[{ type: t, n }].concat(ally), [{ type: t, n: n + 1 }].concat(ally)], objective: 'clear', arena: d.arena || 'forest', desc: d.readme, impl: d.impl !== false }); }
+    for (const oid of PA.OBJECTIVE_IDS) for (const rid of ['forest', 'ridge', 'marsh']) { const O = PA.OBJECTIVES[oid], r = PA.REGIONS.find(x => x.id === rid); list.push({ id: `mission:${oid}:${rid}`, group: '전투 목표(임무)', name: `${O.name} · ${r.name}`, regionId: rid, waves: r.waves, objective: oid, arena: 'clearing', desc: O.desc, mission: true }); }
+    for (const rk of PA.MISSIONS.risks) { const r = PA.REGIONS.find(x => x.id === 'ridge'); list.push({ id: `risk:${rk}`, group: '위험 조건(임무·능선 봉인 해제)', name: `${PA.MISSIONS.riskText[rk]} · 봉인 해제`, regionId: 'ridge', waves: r.waves, objective: 'seal', risk: rk, arena: 'clearing', desc: `위험 조건 ${PA.MISSIONS.riskText[rk]} 확인용`, mission: true }); }
     for (const c of PA.LAB_COMBOS) list.push(Object.assign({}, c, { id: 'combo:' + c.id, comboId: c.id, group: '조합 프리셋', regionId: c.regionId || null, objective: c.objective || 'clear', arena: c.arena || 'forest' }));
     list.push({ id: 'boss', group: '보스', name: PA.BOSS.name + ' — ' + PA.BOSS.title, regionId: 'boss', waves: [], objective: 'boss', arena: 'clearing', boss: true, desc: PA.ENEMIES.boss.readme });
     return list;
@@ -3108,7 +3584,7 @@ PA.Lab = (function () {
     if (ep.boss) return PA.Combat.create(Object.assign(common, { boss: true, waves: [] }));
     let waves = ep.waves.map(w => w.map(g => Object.assign({}, g)));
     if (cfg.deep && ep.regionId && ep.regionId !== 'lab') { const r2 = Object.assign({}, run, { layout: cfg.enemy.startsWith('trial:') ? 'trial' : 'classic' }); waves = PA.Run.encounterWaves(ep.regionId, true, r2); }
-    return PA.Combat.create(Object.assign(common, { waves, objective: cfg.deep && ep.regionId ? 'elite' : (ep.objective || 'clear') }));
+    return PA.Combat.create(Object.assign(common, { waves, objective: cfg.deep && ep.regionId ? 'elite' : (ep.objective || 'clear'), risk: ep.risk || null, run, mission: ep.mission ? { objective: ep.objective, risk: ep.risk || null } : null }));
   }
   function labText(cfg) { const ep = enemyPreset(cfg.enemy), b = PA.LAB.BUILDS[cfg.build]; return `시험실 · ${ep ? ep.name : cfg.enemy} · 체력 ×${cfg.hp.normal}/${cfg.hp.elite}/${cfg.hp.boss} · ${b ? b.name : cfg.build} · 시드 ${cfg.seed} · ${cfg.control === 'bot' ? '봇 ' + PA.Bot.POLICIES[cfg.bot].name : '직접 조작'} · ${cfg.growth === 'grow' ? '성장' : '빌드 고정'} · 제한 ${cfg.time}초`; }
 
@@ -3337,6 +3813,9 @@ PA.Render = (function () {
         ctx.fillStyle = `rgba(110,180,255,${0.08 * life + 0.04})`; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.fill();
       } else if (z.type === 'storm') {
         ctx.strokeStyle = `rgba(255,240,150,${0.5 * life})`; ctx.lineWidth = 2; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+      } else if (z.type === 'hazard') { // 바닥 위험(제단·위험 지형): 예고 중 점선 원과 채워지는 내부, 무장 후 붉은 채움
+        if (!z.armed) { const k = Math.min(1, z.t / z.warn); ctx.strokeStyle = k > 0.7 ? `rgba(255,90,60,${0.5 + 0.5 * Math.abs(Math.sin(st.t * 20))})` : 'rgba(255,140,90,0.7)'; ctx.lineWidth = k > 0.7 ? 3 : 2; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = `rgba(255,120,60,${0.1 + 0.2 * k})`; ctx.beginPath(); ctx.arc(z.x, z.y, z.r * k, 0, TAU); ctx.fill(); ctx.fillStyle = '#ffd9b0'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(z.tag === 'terrain' ? '지형 붕괴 예고' : '제단 위험 예고', z.x, z.y - z.r - 6); }
+        else { ctx.fillStyle = `rgba(255,70,40,${0.3 + 0.25 * life})`; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.fill(); ctx.strokeStyle = 'rgba(255,150,100,0.8)'; ctx.lineWidth = 2; ctx.stroke(); for (let i = 0; i < 5; i++) { const a = i * 1.26 + z.t * 2; ctx.strokeStyle = 'rgba(255,220,160,0.6)'; ctx.beginPath(); ctx.moveTo(z.x + Math.cos(a) * z.r * 0.3, z.y + Math.sin(a) * z.r * 0.3); ctx.lineTo(z.x + Math.cos(a) * z.r * 0.9, z.y + Math.sin(a) * z.r * 0.9); ctx.stroke(); } }
       } else if (z.type === 'fire') {
         const fl = 1 + 0.12 * Math.sin(z.t * 22);
         ctx.fillStyle = `rgba(255,110,30,${0.25 + 0.25 * life})`; ctx.beginPath(); ctx.arc(z.x, z.y, z.r * fl, 0, TAU); ctx.fill();
@@ -3708,8 +4187,50 @@ PA.Render = (function () {
     ctx.restore();
   }
   const NEW_DRAW = { boar: drawBoar, shieldbearer: drawShieldbearer, shaman: drawShaman, bomber: drawBomber, burrower: drawBurrower, spider: drawSpider, frostcaller: drawFrostcaller, rogue: drawRogue };
+  // 구조물(제단): 돌기둥 + 색 문양. 실루엣은 몬스터와 구분(사각 기단·수직 기둥). 파괴되면 무너진 돌
+  function drawStructure(ctx, st, e) {
+    const c = e.def.color, k = e.dead ? Math.min(1, e.deathT * 2) : 0;
+    ctx.fillStyle = '#3a3a44'; ctx.fillRect(e.x - e.r, e.y + e.r * 0.4 - 6, e.r * 2, 12); // 기단
+    if (e.dead) { ctx.fillStyle = '#55555f'; for (let i = 0; i < 4; i++) { const a = i * 1.6; ctx.beginPath(); ctx.arc(e.x + Math.cos(a) * e.r * 0.8 * k, e.y + e.r * 0.3 + Math.sin(a) * 6, 6 - k * 2, 0, TAU); ctx.fill(); } return; }
+    ctx.fillStyle = e.flash > 0 ? '#ffffff' : '#6a6a78'; ctx.fillRect(e.x - e.r * 0.45, e.y - e.r * 1.5, e.r * 0.9, e.r * 1.9); // 기둥
+    ctx.strokeStyle = c; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(e.x, e.y - e.r * 0.7, e.r * 0.28, 0, TAU); ctx.stroke(); // 문양
+    const pulse = 0.5 + 0.5 * Math.sin(st.t * 3 + e.id); ctx.fillStyle = c; ctx.globalAlpha = 0.35 + 0.4 * pulse; ctx.beginPath(); ctx.arc(e.x, e.y - e.r * 0.7, e.r * 0.14, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+    if (e.altar === 'heal') { ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(e.x, e.y - e.r * 1.75); ctx.lineTo(e.x, e.y - e.r * 1.55); ctx.moveTo(e.x - 6, e.y - e.r * 1.65); ctx.lineTo(e.x + 6, e.y - e.r * 1.65); ctx.stroke(); }
+    else if (e.altar === 'hazard') { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(e.x, e.y - e.r * 1.85); ctx.lineTo(e.x - 6, e.y - e.r * 1.55); ctx.lineTo(e.x + 6, e.y - e.r * 1.55); ctx.fill(); }
+    else if (e.altar === 'reinforce') { ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y - e.r * 1.7, 6, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(e.x, e.y - e.r * 1.7, 2, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#eee'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(e.def.name + (e.budget !== Infinity && e.budget != null ? ` (${e.altar === 'heal' ? '치료 ' : '증원 '}${Math.round(e.budget)})` : ''), e.x, e.y + e.r + 22);
+    if (st.obj && PA.Objectives && PA.Objectives.autoTarget(st) === e) { ctx.strokeStyle = '#ffe066'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(e.x, e.y - e.r * 0.4, e.r + 8, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+  }
+  // 목표 객체: 우리(창살 상자)·봉인 지점(룬 원)·출구(아치)·포로(작은 사람)
+  function drawObjects(ctx, st) {
+    for (const o of st.objects || []) {
+      if (o.kind === 'cage') {
+        ctx.fillStyle = o.freed ? 'rgba(60,60,70,0.5)' : '#2b2b33'; ctx.fillRect(o.x - o.r, o.y - o.r * 0.9, o.r * 2, o.r * 1.8);
+        ctx.strokeStyle = o.freed ? '#666' : '#c8c8d0'; ctx.lineWidth = 2; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(o.x + i * o.r * 0.45, o.y - o.r * 0.9); ctx.lineTo(o.x + i * o.r * 0.45, o.y + o.r * 0.9); ctx.stroke(); }
+        ctx.strokeRect(o.x - o.r, o.y - o.r * 0.9, o.r * 2, o.r * 1.8);
+        if (!o.freed) { ctx.fillStyle = '#e9c9a8'; ctx.beginPath(); ctx.arc(o.x, o.y - 4, 6, 0, TAU); ctx.fill(); ctx.fillRect(o.x - 5, o.y + 2, 10, 12); const near = PA.OBJECTIVES.rescue.near; ctx.strokeStyle = 'rgba(156,255,176,0.5)'; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(o.x, o.y, near, 0, TAU); ctx.stroke(); ctx.setLineDash([]); if (o.progress > 0) { ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(o.x - 24, o.y - o.r - 16, 48, 6); ctx.fillStyle = '#9cffb0'; ctx.fillRect(o.x - 24, o.y - o.r - 16, 48 * (o.progress / o.total), 6); } }
+        ctx.fillStyle = '#eee'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(o.freed ? '빈 우리' : `포로 ${o.id}`, o.x, o.y + o.r + 16);
+      } else if (o.kind === 'seal') {
+        const O = st.obj, k = O ? O.progress / O.total : 0, pulse = 0.5 + 0.5 * Math.sin(st.t * 4);
+        ctx.fillStyle = O && !O.paused ? `rgba(120,200,255,${0.15 + 0.1 * pulse})` : 'rgba(120,200,255,0.08)'; ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, TAU); ctx.fill();
+        ctx.strokeStyle = o.moving ? 'rgba(255,200,80,0.9)' : 'rgba(160,220,255,0.9)'; ctx.lineWidth = 3; ctx.setLineDash(o.moving ? [4, 4] : []); ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+        for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + st.t * 0.4; ctx.strokeStyle = 'rgba(160,220,255,0.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(o.x + Math.cos(a) * o.r * 0.5, o.y + Math.sin(a) * o.r * 0.5); ctx.lineTo(o.x + Math.cos(a) * o.r * 0.85, o.y + Math.sin(a) * o.r * 0.85); ctx.stroke(); }
+        ctx.strokeStyle = '#bfefff'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(o.x, o.y, o.r + 6, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke();
+        if (o.moving && o.next) { ctx.strokeStyle = 'rgba(255,200,80,0.9)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(o.next.x, o.next.y); ctx.stroke(); ctx.beginPath(); ctx.arc(o.next.x, o.next.y, o.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#ffd166'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('봉인 지점 이동!', o.next.x, o.next.y - o.r - 8); }
+        ctx.fillStyle = '#eef'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(O && O.paused ? (O.hitPause > 0 ? '피격: 잠시 정지' : '지점 밖: 정지') : '봉인 해제 중', o.x, o.y - o.r - 10);
+      } else if (o.kind === 'exit') {
+        ctx.strokeStyle = o.open ? '#9cffb0' : '#777'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(o.x, o.y + 10, o.r * 0.7, Math.PI, 0); ctx.stroke(); ctx.beginPath(); ctx.moveTo(o.x - o.r * 0.7, o.y + 10); ctx.lineTo(o.x - o.r * 0.7, o.y + 30); ctx.moveTo(o.x + o.r * 0.7, o.y + 10); ctx.lineTo(o.x + o.r * 0.7, o.y + 30); ctx.stroke();
+        if (o.open) { ctx.strokeStyle = 'rgba(156,255,176,0.6)'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+        ctx.fillStyle = o.open ? '#9cffb0' : '#aaa'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(o.open ? '출구 열림 — 여기로' : '출구 (포로를 모두 구하면 열림)', o.x, o.y - 12);
+      } else if (o.kind === 'prisoner' && !o.gone) {
+        ctx.fillStyle = '#e9c9a8'; ctx.beginPath(); ctx.arc(o.x, o.y - 8, 5, 0, TAU); ctx.fill(); ctx.fillStyle = '#b8a080'; ctx.fillRect(o.x - 4, o.y - 3, 8, 12);
+        ctx.fillStyle = '#9cffb0'; ctx.font = `10px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('탈출 중', o.x, o.y - 16);
+      }
+    }
+  }
   function drawEnemy(ctx, st, e) {
-    if (e.boss) drawBoss(ctx, st, e);
+    if (e.structure) { drawStructure(ctx, st, e); if (e.dead) return; }
+    else if (e.boss) drawBoss(ctx, st, e);
     else if (e.type === 'wolf' || e.type === 'wolf_alpha') drawWolf(ctx, st, e);
     else if (e.type === 'archer') drawArcher(ctx, st, e);
     else if (e.type === 'spore') drawSpore(ctx, st, e);
@@ -3940,6 +4461,7 @@ PA.Render = (function () {
       if (f.kind === 'spark') { ctx.globalAlpha = k; ctx.strokeStyle = f.crit ? '#ffd166' : '#ffffff'; ctx.lineWidth = 2; for (let i = 0; i < 5; i++) { const a = f.angle + (i - 2) * 0.5; const r0 = 6 + 14 * (1 - k), r1 = r0 + 6; ctx.beginPath(); ctx.moveTo(f.x + Math.cos(a) * r0, f.y + Math.sin(a) * r0); ctx.lineTo(f.x + Math.cos(a) * r1, f.y + Math.sin(a) * r1); ctx.stroke(); } ctx.globalAlpha = 1; }
       if (f.kind === 'flare') { ctx.globalAlpha = k * 0.6; ctx.fillStyle = '#ff9f43'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.5 + 0.5 * (1 - k)), 0, TAU); ctx.fill(); ctx.globalAlpha = k; ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 - k * 0.3), 0, TAU); ctx.stroke(); for (let i = 0; i < 8; i++) { const a = i * TAU / 8; ctx.fillStyle = '#ffcc55'; ctx.beginPath(); ctx.arc(f.x + Math.cos(a) * f.r * (1 - k) * 1.1, f.y + Math.sin(a) * f.r * (1 - k) * 1.1, 3, 0, TAU); ctx.fill(); } ctx.globalAlpha = 1; }
       if (f.kind === 'stasisburst') { ctx.globalAlpha = k; ctx.fillStyle = 'rgba(160,210,255,0.35)'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 - k * 0.4), 0, TAU); ctx.fill(); ctx.strokeStyle = '#e0f4ff'; ctx.lineWidth = 3; for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + 0.4; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x + Math.cos(a) * f.r * (1.2 - k * 0.5), f.y + Math.sin(a) * f.r * (1.2 - k * 0.5)); ctx.stroke(); } ctx.globalAlpha = 1; }
+      if (f.kind === 'healbeam') { ctx.globalAlpha = k; ctx.strokeStyle = '#8ee6a0'; ctx.lineWidth = 3; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(f.x, f.y - 30); ctx.lineTo(f.tx, f.ty); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
       if (f.kind === 'frostburst') { ctx.globalAlpha = k; ctx.fillStyle = 'rgba(200,240,255,0.5)'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.7 + 0.3 * (1 - k)), 0, TAU); ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; for (let i = 0; i < 6; i++) { const a = i * TAU / 6; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x + Math.cos(a) * f.r * (1.1 - k * 0.4), f.y + Math.sin(a) * f.r * (1.1 - k * 0.4)); ctx.stroke(); } ctx.globalAlpha = 1; }
       if (f.kind === 'fieldend') { ctx.globalAlpha = k * 0.7; ctx.strokeStyle = '#bfe6ff'; ctx.lineWidth = 6 * k; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 + 0.15 * (1 - k)), 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
       if (f.kind === 'hitflash') { ctx.globalAlpha = k * 0.5; ctx.strokeStyle = '#ff5050'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(f.x, f.y, 18 + 16 * (1 - k), 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
@@ -3982,9 +4504,11 @@ PA.Render = (function () {
       if (alive - 1 > 0) { ctx.font = `12px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.textAlign = 'left'; ctx.fillText(`소환 늑대 ${alive - 1}`, bx, by + 50); }
       if (st.intro > 0) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, H / 2 - 50, W, 100); ctx.fillStyle = '#ffe066'; ctx.font = `bold 36px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(`${cfg.name} — ${cfg.title}`, W / 2, H / 2 + 2); ctx.fillStyle = '#fff'; ctx.font = `14px ${FONT}`; ctx.fillText('예언의 날. 숲의 왕이 나타났다.', W / 2, H / 2 + 30); }
     } else {
-      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W - 214, 12, 200, 46);
-      ctx.fillStyle = '#fff'; ctx.font = `bold 14px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(st.objective === 'elite' ? '목적: 정예 처치' : '목적: 전멸', W - 204, 31);
-      ctx.font = `13px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.fillText(`웨이브 ${Math.max(1, st.waveIndex + 1)}/${st.waves.length} · 남은 적 ${alive}`, W - 204, 50);
+      const oh = st.obj && PA.Objectives ? PA.Objectives.hud(st) : null; const alive2 = st.enemies.filter(e => !e.dead && !e.structure).length;
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W - 234, 12, 220, oh ? 64 : 46);
+      ctx.fillStyle = '#fff'; ctx.font = `bold 14px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(oh ? oh.title + (oh.risk ? ' · ' + oh.risk : '') : (st.objective === 'elite' ? '목적: 정예 처치' : '목적: 전멸'), W - 224, 31);
+      ctx.font = `13px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.fillText(oh ? oh.line : `웨이브 ${Math.max(1, st.waveIndex + 1)}/${st.waves.length} · 남은 적 ${alive}`, W - 224, 50);
+      if (oh) { const tg = PA.Objectives.autoTarget(st); ctx.fillStyle = tg && tg.structure ? '#ffe066' : '#cfeaff'; ctx.fillText(`남은 적 ${alive2} · 자동 공격: ${tg ? (tg.structure ? tg.def.name : '적 ' + tg.def.name) : '대상 없음'}`, W - 224, 68); }
     }
     const cfg = PA.CONFIG.PLAYER, dodgeCd = cfg.dodge.cooldown * b.dodgeCdMult;
     // 레벨·경험치
@@ -4046,6 +4570,7 @@ PA.Render = (function () {
     drawObstacles(ctx, st);
     drawZones(ctx, st);
     drawChest(ctx, st);
+    drawObjects(ctx, st);
     drawPickups(ctx, st);
     drawRange(ctx, st);
     drawWeaponBodies(ctx, st);
@@ -4158,10 +4683,10 @@ PA.Screens = (function () {
       <p class="big-desc">${esc(d.change)}</p>
       <div class="kv"><span>단계</span><b>${esc(d.stage)}</b></div><div class="kv"><span>적용</span><b>${esc(d.scope)}</b></div><div class="kv"><span>슬롯</span><b>${esc(d.slot)}</b></div>
       <button class="primary" data-action="pick" data-arg="${esc(c.key)}">선택</button></div>`; }).join('');
-    const title = pool === 'boss' ? '보스 희귀 보상' : pool === 'deep' ? '지역 보상 선택' : `레벨 업! Lv ${run.growth.level}${run.growth.pendingLevelUps > 1 ? ` (남은 선택 ${run.growth.pendingLevelUps})` : ''}`;
+    const title = pool === 'boss' ? '보스 희귀 보상' : pool === 'deep' ? '지역 보상 선택' : pool === 'mission' ? `임무 보상 · ${PA.MISSIONS.kindText[offer.missionKind] || '3택'}` : `레벨 업! Lv ${run.growth.level}${run.growth.pendingLevelUps > 1 ? ` (남은 선택 ${run.growth.pendingLevelUps})` : ''}`;
     return `<div class="panel wide"><h2>${title}</h2>${offer.regionId && pool !== 'boss' ? `<p class="dim small">지역 계열: ${esc(PA.REGION_TAG_TEXT[offer.regionId] || '—')}</p>` : ''}
       <div class="grid3">${cards.length ? cards : '<p class="dim">제시할 수 있는 후보가 없습니다.</p>'}</div>
-      <div class="row">${pool === 'level' ? `<button data-action="skip">건너뛰기 (금화 +${PA.CONFIG.SKIP_AUGMENT_GOLD})</button>` : pool === 'deep' ? '<button data-action="skip">받지 않음</button>' : ''}</div></div>`;
+      <div class="row">${pool === 'level' ? `<button data-action="skip">건너뛰기 (금화 +${PA.CONFIG.SKIP_AUGMENT_GOLD})</button>${R().hasService(run, 'reroll') ? `<button data-action="reroll">제시 재선택권 사용 (남은 ${run.services.reroll})</button>` : ''}` : pool === 'deep' || pool === 'mission' ? '<button data-action="skip">받지 않음</button>' : ''}</div></div>`;
   }
   function migration(G) {
     const run = G.run, mp = run.growth.migrationPending, sel = G.migSel || [];
@@ -4221,6 +4746,7 @@ PA.Screens = (function () {
               <button class="big" data-action="endday-confirm">하루 종료 → ${run.day + 1}일차${run.day + 1 >= PA.CONFIG.BOSS_DAY ? ' <span class="warn">(보스 도래)</span>' : ''}${run.hours > 0 ? ` <span class="dim">(남은 ${run.hours}시간 버림)</span>` : ''}</button>
               <button data-action="save-quit">저장 후 종료</button>
             </div></div>
+          ${Object.keys(run.services || {}).some(k => run.services[k] > 0) ? `<div class="card"><div class="card-title">거점 서비스</div><p>${Object.keys(run.services).filter(k => run.services[k] > 0).map(k => `<b>${esc(PA.SERVICES[k].name)}</b> ×${run.services[k]} <span class="dim small">${esc(PA.SERVICES[k].desc)}</span>`).join('<br>')}</p>${R().hasService(run, 'mod_swap') ? `<div class="row">${run.growth.weapons.flatMap(w => w.mods.map(m => `<button class="mini" data-action="mod-swap" data-arg="${w.id}:${m}">${esc(PA.WEAPONS[w.id].name)}: ${esc(PA.WEAPONS[w.id].mods[m].name)} 교체</button>`)).join('') || '<span class="dim small">교체할 개조가 없음</span>'}</div>` : ''}</div>` : ''}
           <div class="card"><div class="card-title">재료</div>${matsRow(run)}<p class="dim small">재료는 상점에서 팔 수 있습니다. 제작에 쓸지 현금으로 바꿀지 선택하세요.</p></div>
         </div>
         <div>
@@ -4249,9 +4775,31 @@ PA.Screens = (function () {
       </div>`;
     }).join('');
     return `<div class="screen">${header(run)}
-      <div class="row between"><h2>지역 선택</h2><button data-action="base">거점으로</button></div>
+      <div class="row between"><h2>출격</h2><button data-action="base">거점으로</button></div>
+      <h3>오늘의 출격 카드 <span class="dim small">하루 3장 · 아침에 확정(다시 굴리기 없음) · 임무는 하루 1회 완료</span></h3>
+      <div class="grid3">${missionCards(run)}</div>
+      <h3>일반 탐험 <span class="dim small">지역 선택 · 승리 후 더 깊이 탐험 가능</span></h3>
       <p class="dim">출격 비용은 출발 시 차감됩니다. 전투가 오래 걸려도 추가로 시간을 빼지 않습니다. 조우 승리 후 "더 깊이 탐험"은 별도로 1시간을 씁니다.</p>
       <div class="grid3">${cards}</div></div>`;
+  }
+  // 출격 카드: 지역+목표, 시간, 주요 적 2~3, 위험 조건, 보상 종류·대상, 빌드 연결, 첫 도입
+  function missionCards(run) {
+    return PA.Sortie.cardsFor(run).map(c => {
+      const r = R().region(c.regionId), O = PA.OBJECTIVES[c.objective], can = PA.Sortie.canStart(run, c), M = PA.MISSIONS;
+      const enemies = c.enemies.map(id => `<li><b>${esc(PA.ENEMIES[id].name)}</b> <span class="dim">${esc(PA.ENEMIES[id].role)}</span></li>`).join('');
+      const rewardGold = `금화 ${Math.round(r.reward.gold[0] * (c.risk ? M.riskRewardMult : 1))}~${Math.round(r.reward.gold[1] * (c.risk ? M.riskRewardMult : 1))}`;
+      const riskDesc = c.risk === 'reinforce' ? '지원병 총량 ×1.5, 동시 수 동일' : c.risk === 'escort' ? '첫 웨이브에 정예 1 추가' : '주기적 바닥 붕괴 예고, 안전 통로 있음';
+      return `<div class="card region mission ${can ? '' : 'off'} ${c.done ? 'done' : ''}">
+        <div class="card-title">${esc(r.name)} · ${esc(O.name)} <span class="cost-badge">${c.timeCost}시간</span>${c.first ? ' <span class="tag">첫 도입</span>' : ''}${c.linked ? ' <span class="tag">내 빌드</span>' : ''}</div>
+        <p>${esc(O.desc)}</p>
+        <div class="kv"><span>주요 적</span><b>${c.enemies.map(id => esc(PA.ENEMIES[id].name)).join(', ')}</b></div>
+        <div class="kv"><span>위험 조건</span><b>${c.risk ? esc(M.riskText[c.risk]) + ' <span class="dim small">(' + riskDesc + ')</span>' : '없음'}</b></div>
+        <div class="kv"><span>보상</span><b>${esc(M.kindText[c.rewardKind])}${c.rewardTarget ? ' <span class="dim small">' + esc(c.rewardTarget) + '</span>' : ''}</b></div>
+        <div class="kv"><span>기타</span><b>${rewardGold}${c.risk ? ' (위험 ×' + M.riskRewardMult + ')' : ''} · 처치 경험치 즉시 · 지역 경험치 +${PA.GROWTH.REGION_BONUS_XP[c.regionId]}</b> <span class="dim small">재료 대신 위 3택. 후보가 없으면 금화 +${c.fallbackGold}</span></div>
+        <ul class="enemies">${enemies}</ul>
+        <button class="primary" data-action="mission" data-arg="${c.id}" ${can ? '' : 'disabled'}>${c.done ? '오늘 완료' : can ? `임무 출격 (${c.timeCost}시간 → ${run.hours - c.timeCost}시간 남음)` : run.phase !== 'prep' ? '출격 종료' : '시간 부족'}${c.attempts && !c.done ? ` · 시도 ${c.attempts}` : ''}</button>
+      </div>`;
+    }).join('');
   }
   function previewRows(run, patch) {
     const a = R().build(run), b = PA.Build.preview(run, patch);
@@ -4302,21 +4850,29 @@ PA.Screens = (function () {
     const matText = Object.keys(rw.mats).map(k => `${matName(k)} ${rw.mats[k]}`).join(', ');
     return `<div class="screen"><h2>조우 승리</h2>
       <div class="card"><div class="card-title">보상 (귀환 시 거점에 반영)</div>
-        <p>금화 <b class="gold">+${rw.gold}</b>${rw.chestGold ? ` (보급 상자 +${rw.chestGold} 포함)` : ''}${matText ? ` · ${matText}` : ''} · 지역 경험치 <b class="gold">+${rw.xp || 0}</b></p>
+        <p>금화 <b class="gold">+${rw.gold}</b>${rw.chestGold ? ` (보급 상자 +${rw.chestGold} 포함)` : ''}${matText ? ` · ${matText}` : ''} · 지역 경험치 <b class="gold">+${rw.xp || 0}</b>${rw.mission ? (rw.missionPick ? ' · <b>임무 완료: 보상 3택은 다음 단계에서</b>' : ' · 임무(오늘 이미 완료: 추가 3택 없음)') : ''}</p>
         <p class="dim small">처치 ${G.lastStats.kills}${G.lastStats.savingKills ? ` (감속장 안 ${G.lastStats.savingKills})` : ''} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · ${Math.round(G.lastStats.elapsed)}초 · 전투 중 경험치 ${G.lastStats.xp} · 레벨업 ${G.lastStats.levelUps}회 (Lv ${g.level})</p></div>
       ${g.pendingLevelUps ? `<div class="card boss"><div class="card-title">미처리 레벨업 ${g.pendingLevelUps}</div><p>조우 종료와 동시에 오른 레벨입니다. 지금 선택합니다.</p><button class="primary" data-action="resolve-levelup">선택하기</button></div>` : ''}
       <div class="row"><button class="primary big" data-action="after-reward">다음</button></div></div>`;
   }
   function after(G) {
     const run = G.run, s = G.sortie, r = R().region(s.regionId), b = R().build(run);
-    const canDeep = !s.deep && R().canDeepExplore(run);
+    const canDeep = !s.deep && R().canDeepExplore(run, s);
     const lootText = `금화 ${s.loot.gold}` + Object.keys(s.loot.mats).map(k => `, ${matName(k)} ${s.loot.mats[k]}`).join('');
     return `<div class="screen center"><h2>${esc(r.name)} · 다음 행동</h2>
       <p>체력 <b>${run.hp} / ${b.hpMax}</b> · 이번 출격 전리품: <b>${lootText}</b> · 오늘 남은 시간 <b>${run.hours}</b></p>
       <div class="menu">
-        <button class="big ${canDeep ? '' : 'off'}" data-action="deep" ${canDeep ? '' : 'disabled'}>더 깊이 탐험 (+1시간) <span class="dim">적 수 +1, 마지막에 정예. 보상 ×${PA.CONFIG.DEEP_REWARD_MULT}${s.deep ? ' · 이미 탐험함' : (canDeep ? '' : ' · 시간 부족')}</span></button>
+        <button class="big ${canDeep ? '' : 'off'}" data-action="deep" ${canDeep ? '' : 'disabled'}>더 깊이 탐험 (+1시간) <span class="dim">적 수 +1, 마지막에 정예. 보상 ×${PA.CONFIG.DEEP_REWARD_MULT}${s.deep ? ' · 이미 탐험함' : s.mission ? ' · 임무 출격에서는 불가' : (canDeep ? '' : ' · 시간 부족')}</span></button>
         <button class="primary big" data-action="return">귀환 (전리품 확정)</button>
       </div><p class="dim small">패배하면 이번 출격의 전리품을 잃습니다.</p></div>`;
+  }
+  // 탐험 사건: 비용·위험을 먼저 보여 주고 선택. 선택은 1회
+  function event(G) {
+    const run = G.run, s = G.sortie, ev = s.event, E = PA.EVENTS[ev.id], opts = PA.Events.options(run, s), b = R().build(run);
+    return `<div class="screen center"><h2>${esc(R().region(s.regionId).name)} · ${esc(E.name)}</h2>
+      <p>${esc(E.desc)}</p><p class="dim small">체력 ${run.hp} / ${b.hpMax} · 오늘 남은 시간 ${run.hours} · 이번 출격 전리품 금화 ${s.loot.gold}</p>
+      <div class="grid3">${opts.map(o => `<div class="card ${o.enabled ? 'can' : 'off'}"><div class="card-title">${esc(o.name)}</div><div class="kv"><span>비용·위험</span><b>${esc(o.cost)}</b></div><div class="kv"><span>효과</span><b>${esc(o.effect)}</b></div><button class="primary" data-action="event-choice" data-arg="${o.id}" ${o.enabled ? '' : 'disabled'}>${o.enabled ? '선택' : '불가'}</button></div>`).join('')}</div>
+      <p class="dim small">사건은 출격당 최대 1회, 선택은 되돌릴 수 없습니다. 비용과 보상은 선택 즉시 1회 정산됩니다.</p></div>`;
   }
   function defeat(G) {
     const run = G.run, r = R().region(G.sortie.regionId);
@@ -4462,7 +5018,7 @@ PA.Screens = (function () {
       ctx.save(); ctx.scale(0.8, 0.8); PA.Render.drawBoss(ctx, fake, e); ctx.restore();
     }
   }
-  return { title, newrunConfirm, base, finalPrep, map, shop, reward, after, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard, pickStart, levelCards, migration, lab, labResult, statusText };
+  return { title, newrunConfirm, base, finalPrep, map, shop, reward, after, event, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard, pickStart, levelCards, migration, lab, labResult, statusText };
 })();
 
 </script>
@@ -4489,7 +5045,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     const html = {
       title: () => S.title(G), newrun_confirm: () => S.newrunConfirm(G), base: () => S.base(G), map: () => S.map(G), shop: () => S.shop(G),
       reward: () => S.reward(G), after: () => S.after(G), defeat: () => S.defeat(G), endday_confirm: () => S.enddayConfirm(G), scenario_end: () => S.scenarioEnd(G),
-      boss_defeat: () => S.bossDefeat(G), boss_victory: () => S.bossVictory(G), pick_start: () => S.pickStart(G), migration: () => S.migration(G),
+      boss_defeat: () => S.bossDefeat(G), event: () => S.event(G), boss_victory: () => S.bossVictory(G), pick_start: () => S.pickStart(G), migration: () => S.migration(G),
       lab: () => S.lab(G), lab_result: () => S.labResult(G),
     }[name];
     uiEl.innerHTML = html ? html() : '';
@@ -4636,7 +5192,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 동작 처리 ----------
   const actions = {
-    'continue': () => { leaveScenario(); G.run = G.saved; G.sortie = null; G.combat = null; goBase(); },
+    'continue': () => { leaveScenario(); G.run = G.saved; G.sortie = null; G.combat = null; if (G.run.pendingSortie) { G.sortie = G.run.pendingSortie; const step = PA.Flow.afterCombatStep(G.run, G.sortie); if (step === 'offer') { show('after'); openChoice(PA.Flow.nextOffer(G.run, { regionId: G.sortie.regionId })); } else show(step); return; } goBase(); }, // 전투 뒤 안전 화면에서 종료했다면 그 자리(보상 선택·사건·다음 행동)로 복귀
     'newrun': () => { if (G.saved) show('newrun_confirm'); else newRun(); },
     'newrun-confirm': () => newRun(),
     'start-weapon': (id) => startRun(id),
@@ -4644,7 +5200,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'pick': (key) => { const off = G.choice; if (!off) return; const c = off.choices.find(x => x.key === key); if (!c) return; PA.Flow.resolveOffer(G.run, off, c); PA.Audio.play('buy'); afterChoice(); },
     'skip': () => { const off = G.choice; if (!off) return; PA.Flow.resolveOffer(G.run, off, null); afterChoice(); },
     'resolve-levelup': () => { offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId }); },
-    'after-reward': () => { const off = PA.Flow.nextOffer(G.run, { regionId: G.sortie && G.sortie.regionId }); if (off) { openChoice(off); saveRun(); return; } show('after'); }, // 보류 제시 → 레벨업 → 더 깊이 3택 순서(공유 흐름), 모두 끝나면 다음 행동
+    'reroll': () => { const off = PA.Flow.rerollOffer(G.run); openChoice(off); saveRun(); },
+    'mod-swap': (arg) => { const [wid, mid] = arg.split(':'); const off = PA.Flow.modSwapOffer(G.run, wid, mid); saveRun(); if (off) openChoice(off); else show('base'); },
+    'after-reward': () => { const step = PA.Flow.afterCombatStep(G.run, G.sortie); if (step === 'offer') { openChoice(PA.Flow.nextOffer(G.run, { regionId: G.sortie.regionId })); saveRun(); return; } show(step); }, // 보류 제시 → 레벨업 → 임무/사건/더 깊이 3택 → 사건 → 다음 행동(공유 흐름)
+    'event-choice': (id) => { const r = PA.Events.resolve(G.run, G.sortie, id); saveRun(); if (r.next === 'fight' || r.next === 'deep') { startEncounter(); return; } if (r.next === 'offer') { const off = PA.Flow.nextOffer(G.run, { regionId: G.sortie.regionId }); if (off) { G.screen = 'after'; uiEl.innerHTML = PA.Screens.after(G); openChoice(off); saveRun(); return; } } show('after'); },
     'mig-toggle': (id) => { G.migSel = G.migSel || []; if (G.migSel.includes(id)) G.migSel = G.migSel.filter(x => x !== id); else if (G.migSel.length < 3) G.migSel.push(id); show('migration'); },
     'mig-confirm': () => { PA.Growth.resolveMigration(G.run, G.migSel || []); G.migSel = null; saveRun(); goBase(); },
     'title': () => { leaveScenario(); G.saved = PA.Run.load(); show('title'); },
@@ -4662,12 +5221,13 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'unequip': (slot) => { PA.Run.unequip(G.run, slot); saveRun(); show(G.screen); },
     'save-quit': () => { saveRun(); G.saved = PA.Run.load(); show('title'); },
     'sortie': (id) => startSortie(id),
+    'mission': (id) => { G.sortie = PA.Sortie.start(G.run, id); saveRun(); startEncounter(); },
     'buy': (id) => { PA.Run.buy(G.run, id); PA.Audio.play('buy'); saveRun(); show('shop'); },
     'target': (id) => { PA.Run.setTarget(G.run, id); saveRun(); show('shop'); },
     'sell': (id) => { PA.Run.sell(G.run, id, 1); saveRun(); show('shop'); },
     'toggle-weapon': () => { if (G.run.gear.weapon === 'pierce') PA.Run.unequipWeapon(G.run); else PA.Run.equip(G.run, 'pierce_sword'); saveRun(); show(G.screen); },
     'deep': () => { PA.Run.deepExplore(G.run, G.sortie); saveRun(); startEncounter(); },
-    'return': () => { PA.Run.returnToBase(G.run, G.sortie); G.sortie = null; goBase(); },
+    'return': () => { PA.Flow.returnHome(G.run, G.sortie); G.sortie = null; goBase(); },
     'resume': () => pauseCombat(false),
     'give-up': () => { closeOverlay(); G.paused = false; PA.Input.setBlocked(G.input, false); if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
     'scenario-again': () => startScenario(G.scenario),

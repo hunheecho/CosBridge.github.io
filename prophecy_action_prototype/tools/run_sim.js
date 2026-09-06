@@ -6,7 +6,7 @@ const fs = require('fs'), path = require('path');
 const { load } = require('../test/load'); const PA = load();
 const args = process.argv.slice(2); const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const seeds = opt('seeds', '1,2,3,4,5').split(',').map(Number), curveOpt = opt('curve', 'both'), stratsOpt = opt('strats', ''), xpOpt = opt('xp', ''), regionXpOpt = opt('regionxp', ''), layout = opt('layout', 'classic'), difficulty = opt('difficulty', 'base'), botId = opt('bot', 'balanced'), mdPath = opt('md', path.join(__dirname, '..', 'docs', 'sim', 'run_sim.md'));
-const MENU = { encounter: 25, card: 6, dayEnd: 10, rest: 5 };
+const MENU = { encounter: 25, card: 6, dayEnd: 10, rest: 5, event: 8 };
 const STRATS = {
   easy:     { name: '쉬운 지역 반복', pick: () => 'forest', restBelow: 0.3, deep: false },
   gradual:  { name: '점차 위험 지역으로', pick: (day) => day <= 2 ? ['forest', 'ridge'] : day <= 4 ? ['marsh', 'den'] : ['den', 'deep'], restBelow: 0.3, deep: false },
@@ -20,7 +20,7 @@ const startWeapon = opt('start', 'sword');
 function simulate(seed, stratId) {
   const S = STRATS[stratId], run = PA.Run.newRun(seed, startWeapon); run.layout = layout; run.difficulty = difficulty; const g = run.growth;
   const T = { combat: 0, cards: 0, screens: 0, rest: 0, dayEnd: 0, boss: 0 }; // 초 단위 버킷
-  const log = { encounters: 0, losses: 0, timeouts: 0, rests: 0, deeps: 0, cards: 0, cardsInCombat: 0, deepPicks: 0, levelUpsByDay: [], weapon2: null, weapon3: null, eSkill: null, events: [] };
+  const log = { encounters: 0, losses: 0, timeouts: 0, rests: 0, deeps: 0, cards: 0, cardsInCombat: 0, deepPicks: 0, missions: 0, missionPicks: 0, eventCount: 0, eventChoices: [], eventFights: 0, levelUpsByDay: [], weapon2: null, weapon3: null, eSkill: null, events: [] };
   let clock = 0; // 실제 경과 시점(초): 카드 획득 시점 기록용
   const mark = () => { const t = Math.round(clock); if (log.weapon2 == null && g.weapons.length >= 2) log.weapon2 = t; if (log.weapon3 == null && g.weapons.length >= 3) log.weapon3 = t; if (log.eSkill == null && g.skills.e) log.eSkill = t; };
   const pick = (off) => PA.Bot.pickChoice(off, run.seed);
@@ -34,6 +34,8 @@ function simulate(seed, stratId) {
     return st;
   };
   const settleWin = (s, st) => { PA.Flow.settleVictory(run, s, st); PA.Flow.resolveAll(run, { regionId: s.regionId }, pick, onPick('screen')); mark(); };
+  // 탐험 사건(출격당 최대 1회): 봇 정책으로 선택. 추가 전투/더 깊이는 같은 조우 경로. 반환: 'fight' | 'deep' | null
+  const handleEvent = (s) => { if (!s.event || s.event.resolved) return null; const choice = PA.Events.botChoose(run, s, stratId); const r = PA.Events.resolve(run, s, choice); log.eventCount++; log.eventChoices.push(s.event.id + ':' + choice); T.screens += MENU.event; clock += MENU.event; if (r.next === 'offer') PA.Flow.resolveAll(run, { regionId: s.regionId }, pick, onPick('screen')); return r.next === 'fight' || r.next === 'deep' ? r.next : null; };
   const settleLoss = (s, st) => { PA.Flow.settleDefeat(run, s, st); if (st.status === 'lost') log.losses++; mark(); };
   for (let day = 1; day <= 6; day++) {
     const lvStart = g.level; let guard = 0;
@@ -46,11 +48,16 @@ function simulate(seed, stratId) {
       let st = fight(s);
       if (st.status === 'won') {
         settleWin(s, st);
-        if (S.deep && PA.Run.canDeepExplore(run) && run.hp >= PA.Run.build(run).hpMax * 0.5) {
+        let lost = false;
+        const evNext = handleEvent(s);
+        if (evNext === 'fight') { log.eventFights++; st = fight(s); if (st.status === 'won') settleWin(s, st); else { settleLoss(s, st); lost = true; } }
+        else if (evNext === 'deep') { log.deeps++; st = fight(s); if (st.status === 'won') settleWin(s, st); else { settleLoss(s, st); lost = true; } }
+        if (lost) continue;
+        if (!s.deep && S.deep && PA.Run.canDeepExplore(run, s) && run.hp >= PA.Run.build(run).hpMax * 0.5) {
           PA.Run.deepExplore(run, s); log.deeps++; st = fight(s);
           if (st.status === 'won') settleWin(s, st); else { settleLoss(s, st); continue; }
         }
-        PA.Run.returnToBase(run, s);
+        PA.Flow.returnHome(run, s);
       } else settleLoss(s, st);
     }
     log.levelUpsByDay.push(g.level - lvStart); T.dayEnd += MENU.dayEnd; clock += MENU.dayEnd;

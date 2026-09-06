@@ -92,7 +92,7 @@ PA.Screens = (function () {
     const title = pool === 'boss' ? '보스 희귀 보상' : pool === 'deep' ? '지역 보상 선택' : pool === 'mission' ? `임무 보상 · ${PA.MISSIONS.kindText[offer.missionKind] || '3택'}` : `레벨 업! Lv ${run.growth.level}${run.growth.pendingLevelUps > 1 ? ` (남은 선택 ${run.growth.pendingLevelUps})` : ''}`;
     return `<div class="panel wide"><h2>${title}</h2>${offer.regionId && pool !== 'boss' ? `<p class="dim small">지역 계열: ${esc(PA.REGION_TAG_TEXT[offer.regionId] || '—')}</p>` : ''}
       <div class="grid3">${cards.length ? cards : '<p class="dim">제시할 수 있는 후보가 없습니다.</p>'}</div>
-      <div class="row">${pool === 'level' ? `<button data-action="skip">건너뛰기 (금화 +${PA.CONFIG.SKIP_AUGMENT_GOLD})</button>` : pool === 'deep' || pool === 'mission' ? '<button data-action="skip">받지 않음</button>' : ''}</div></div>`;
+      <div class="row">${pool === 'level' ? `<button data-action="skip">건너뛰기 (금화 +${PA.CONFIG.SKIP_AUGMENT_GOLD})</button>${R().hasService(run, 'reroll') ? `<button data-action="reroll">제시 재선택권 사용 (남은 ${run.services.reroll})</button>` : ''}` : pool === 'deep' || pool === 'mission' ? '<button data-action="skip">받지 않음</button>' : ''}</div></div>`;
   }
   function migration(G) {
     const run = G.run, mp = run.growth.migrationPending, sel = G.migSel || [];
@@ -152,7 +152,7 @@ PA.Screens = (function () {
               <button class="big" data-action="endday-confirm">하루 종료 → ${run.day + 1}일차${run.day + 1 >= PA.CONFIG.BOSS_DAY ? ' <span class="warn">(보스 도래)</span>' : ''}${run.hours > 0 ? ` <span class="dim">(남은 ${run.hours}시간 버림)</span>` : ''}</button>
               <button data-action="save-quit">저장 후 종료</button>
             </div></div>
-          ${Object.keys(run.services || {}).some(k => run.services[k] > 0) ? `<div class="card"><div class="card-title">거점 서비스</div><p>${Object.keys(run.services).filter(k => run.services[k] > 0).map(k => `<b>${esc(PA.SERVICES[k].name)}</b> ×${run.services[k]} <span class="dim small">${esc(PA.SERVICES[k].desc)}</span>`).join('<br>')}</p></div>` : ''}
+          ${Object.keys(run.services || {}).some(k => run.services[k] > 0) ? `<div class="card"><div class="card-title">거점 서비스</div><p>${Object.keys(run.services).filter(k => run.services[k] > 0).map(k => `<b>${esc(PA.SERVICES[k].name)}</b> ×${run.services[k]} <span class="dim small">${esc(PA.SERVICES[k].desc)}</span>`).join('<br>')}</p>${R().hasService(run, 'mod_swap') ? `<div class="row">${run.growth.weapons.flatMap(w => w.mods.map(m => `<button class="mini" data-action="mod-swap" data-arg="${w.id}:${m}">${esc(PA.WEAPONS[w.id].name)}: ${esc(PA.WEAPONS[w.id].mods[m].name)} 교체</button>`)).join('') || '<span class="dim small">교체할 개조가 없음</span>'}</div>` : ''}</div>` : ''}
           <div class="card"><div class="card-title">재료</div>${matsRow(run)}<p class="dim small">재료는 상점에서 팔 수 있습니다. 제작에 쓸지 현금으로 바꿀지 선택하세요.</p></div>
         </div>
         <div>
@@ -271,6 +271,14 @@ PA.Screens = (function () {
         <button class="big ${canDeep ? '' : 'off'}" data-action="deep" ${canDeep ? '' : 'disabled'}>더 깊이 탐험 (+1시간) <span class="dim">적 수 +1, 마지막에 정예. 보상 ×${PA.CONFIG.DEEP_REWARD_MULT}${s.deep ? ' · 이미 탐험함' : s.mission ? ' · 임무 출격에서는 불가' : (canDeep ? '' : ' · 시간 부족')}</span></button>
         <button class="primary big" data-action="return">귀환 (전리품 확정)</button>
       </div><p class="dim small">패배하면 이번 출격의 전리품을 잃습니다.</p></div>`;
+  }
+  // 탐험 사건: 비용·위험을 먼저 보여 주고 선택. 선택은 1회
+  function event(G) {
+    const run = G.run, s = G.sortie, ev = s.event, E = PA.EVENTS[ev.id], opts = PA.Events.options(run, s), b = R().build(run);
+    return `<div class="screen center"><h2>${esc(R().region(s.regionId).name)} · ${esc(E.name)}</h2>
+      <p>${esc(E.desc)}</p><p class="dim small">체력 ${run.hp} / ${b.hpMax} · 오늘 남은 시간 ${run.hours} · 이번 출격 전리품 금화 ${s.loot.gold}</p>
+      <div class="grid3">${opts.map(o => `<div class="card ${o.enabled ? 'can' : 'off'}"><div class="card-title">${esc(o.name)}</div><div class="kv"><span>비용·위험</span><b>${esc(o.cost)}</b></div><div class="kv"><span>효과</span><b>${esc(o.effect)}</b></div><button class="primary" data-action="event-choice" data-arg="${o.id}" ${o.enabled ? '' : 'disabled'}>${o.enabled ? '선택' : '불가'}</button></div>`).join('')}</div>
+      <p class="dim small">사건은 출격당 최대 1회, 선택은 되돌릴 수 없습니다. 비용과 보상은 선택 즉시 1회 정산됩니다.</p></div>`;
   }
   function defeat(G) {
     const run = G.run, r = R().region(G.sortie.regionId);
@@ -416,5 +424,5 @@ PA.Screens = (function () {
       ctx.save(); ctx.scale(0.8, 0.8); PA.Render.drawBoss(ctx, fake, e); ctx.restore();
     }
   }
-  return { title, newrunConfirm, base, finalPrep, map, shop, reward, after, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard, pickStart, levelCards, migration, lab, labResult, statusText };
+  return { title, newrunConfirm, base, finalPrep, map, shop, reward, after, event, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard, pickStart, levelCards, migration, lab, labResult, statusText };
 })();

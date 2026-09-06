@@ -22,7 +22,7 @@ PA.Run = (function () {
       target: 'pierce_sword',
       log: [], // 최근 사건 기록(거점 표시)
       stats: { encounters: 0, wins: 0, losses: 0, kills: 0 },
-      services: {}, cards: null, missionsDone: {}, // v0.7 거점 서비스 횟수·오늘의 출격 카드·목표별 완료 수
+      services: {}, cards: null, missionsDone: {}, pendingSortie: null, buffs: {}, lastEvent: null, lastSupplyDay: null, eventsResolved: 0, // v0.7 거점 서비스·출격 카드·완료 수·전투 뒤 보류 출격·임시 강화·사건 기록
       ended: false,            // v1 호환 필드. v2에서는 phase를 사용
     };
   }
@@ -42,7 +42,7 @@ PA.Run = (function () {
     if (r.gear && 'weapon' in r.gear) delete r.gear.weapon;
     if (!r.layout || !PA.LAYOUTS[r.layout]) r.layout = 'classic';                       // 이전 저장: 기존 배치 유지
     if (!r.difficulty || !PA.DIFFICULTY.candidates[r.difficulty]) r.difficulty = 'base';
-    if (!r.services) r.services = {}; if (!r.missionsDone) r.missionsDone = {}; if (r.cards === undefined) r.cards = null; // v0.7 필드: 이전 저장은 기존 규칙 유지, 카드는 오늘부터 생성
+    if (!r.services) r.services = {}; if (!r.missionsDone) r.missionsDone = {}; if (r.cards === undefined) r.cards = null; if (r.pendingSortie === undefined) r.pendingSortie = null; if (!r.buffs) r.buffs = {}; // v0.7 필드: 이전 저장은 기존 규칙 유지, 카드는 오늘부터 생성
     return r;
   }
 

@@ -20,7 +20,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     const html = {
       title: () => S.title(G), newrun_confirm: () => S.newrunConfirm(G), base: () => S.base(G), map: () => S.map(G), shop: () => S.shop(G),
       reward: () => S.reward(G), after: () => S.after(G), defeat: () => S.defeat(G), endday_confirm: () => S.enddayConfirm(G), scenario_end: () => S.scenarioEnd(G),
-      boss_defeat: () => S.bossDefeat(G), boss_victory: () => S.bossVictory(G), pick_start: () => S.pickStart(G), migration: () => S.migration(G),
+      boss_defeat: () => S.bossDefeat(G), event: () => S.event(G), boss_victory: () => S.bossVictory(G), pick_start: () => S.pickStart(G), migration: () => S.migration(G),
       lab: () => S.lab(G), lab_result: () => S.labResult(G),
     }[name];
     uiEl.innerHTML = html ? html() : '';
@@ -167,7 +167,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 동작 처리 ----------
   const actions = {
-    'continue': () => { leaveScenario(); G.run = G.saved; G.sortie = null; G.combat = null; goBase(); },
+    'continue': () => { leaveScenario(); G.run = G.saved; G.sortie = null; G.combat = null; if (G.run.pendingSortie) { G.sortie = G.run.pendingSortie; const step = PA.Flow.afterCombatStep(G.run, G.sortie); if (step === 'offer') { show('after'); openChoice(PA.Flow.nextOffer(G.run, { regionId: G.sortie.regionId })); } else show(step); return; } goBase(); }, // 전투 뒤 안전 화면에서 종료했다면 그 자리(보상 선택·사건·다음 행동)로 복귀
     'newrun': () => { if (G.saved) show('newrun_confirm'); else newRun(); },
     'newrun-confirm': () => newRun(),
     'start-weapon': (id) => startRun(id),
@@ -175,7 +175,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'pick': (key) => { const off = G.choice; if (!off) return; const c = off.choices.find(x => x.key === key); if (!c) return; PA.Flow.resolveOffer(G.run, off, c); PA.Audio.play('buy'); afterChoice(); },
     'skip': () => { const off = G.choice; if (!off) return; PA.Flow.resolveOffer(G.run, off, null); afterChoice(); },
     'resolve-levelup': () => { offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId }); },
-    'after-reward': () => { const off = PA.Flow.nextOffer(G.run, { regionId: G.sortie && G.sortie.regionId }); if (off) { openChoice(off); saveRun(); return; } show('after'); }, // 보류 제시 → 레벨업 → 더 깊이 3택 순서(공유 흐름), 모두 끝나면 다음 행동
+    'reroll': () => { const off = PA.Flow.rerollOffer(G.run); openChoice(off); saveRun(); },
+    'mod-swap': (arg) => { const [wid, mid] = arg.split(':'); const off = PA.Flow.modSwapOffer(G.run, wid, mid); saveRun(); if (off) openChoice(off); else show('base'); },
+    'after-reward': () => { const step = PA.Flow.afterCombatStep(G.run, G.sortie); if (step === 'offer') { openChoice(PA.Flow.nextOffer(G.run, { regionId: G.sortie.regionId })); saveRun(); return; } show(step); }, // 보류 제시 → 레벨업 → 임무/사건/더 깊이 3택 → 사건 → 다음 행동(공유 흐름)
+    'event-choice': (id) => { const r = PA.Events.resolve(G.run, G.sortie, id); saveRun(); if (r.next === 'fight' || r.next === 'deep') { startEncounter(); return; } if (r.next === 'offer') { const off = PA.Flow.nextOffer(G.run, { regionId: G.sortie.regionId }); if (off) { G.screen = 'after'; uiEl.innerHTML = PA.Screens.after(G); openChoice(off); saveRun(); return; } } show('after'); },
     'mig-toggle': (id) => { G.migSel = G.migSel || []; if (G.migSel.includes(id)) G.migSel = G.migSel.filter(x => x !== id); else if (G.migSel.length < 3) G.migSel.push(id); show('migration'); },
     'mig-confirm': () => { PA.Growth.resolveMigration(G.run, G.migSel || []); G.migSel = null; saveRun(); goBase(); },
     'title': () => { leaveScenario(); G.saved = PA.Run.load(); show('title'); },
@@ -199,7 +202,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'sell': (id) => { PA.Run.sell(G.run, id, 1); saveRun(); show('shop'); },
     'toggle-weapon': () => { if (G.run.gear.weapon === 'pierce') PA.Run.unequipWeapon(G.run); else PA.Run.equip(G.run, 'pierce_sword'); saveRun(); show(G.screen); },
     'deep': () => { PA.Run.deepExplore(G.run, G.sortie); saveRun(); startEncounter(); },
-    'return': () => { PA.Run.returnToBase(G.run, G.sortie); G.sortie = null; goBase(); },
+    'return': () => { PA.Flow.returnHome(G.run, G.sortie); G.sortie = null; goBase(); },
     'resume': () => pauseCombat(false),
     'give-up': () => { closeOverlay(); G.paused = false; PA.Input.setBlocked(G.input, false); if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
     'scenario-again': () => startScenario(G.scenario),
