@@ -1,0 +1,17 @@
+PASS A1 제목 → 전투 시험실 화면
+PASS A2 화면에서 적·체력·시드·빌드 변경이 설정에 반영 — enemy=solo:boar;arena=auto;hp=3,1,1;seed=7;build=mid_melee;control=human;bot=balanced;growth=fixed;time=180;deep=0;layout=classic;overlap=-1
+PASS A3 빌드 설명에 실제 장착(검 Lv3 교차 검격·쌍검 출혈·넓어진 공격·숙련)과 선택 횟수 표시
+PASS B1 시작 → 전투(체력 배율 3, 기둥 숲, 시험실 표시)
+PASS B2 실제 키(D)로 이동 — 480 → 566
+PASS B3 멧돼지 돌파 예고 관측 — boar:charge_aim
+PASS B4 Esc 일시정지에 시험실 설정 표시
+PASS B5 중단 → 결과 화면(사용자 중단)
+PASS B6 결과 화면에 몬스터 종류별 표·받은 피해·기여도·JSON·CSV
+PASS C1 같은 조건으로 재시작(시드 7·체력 3 유지)
+PASS C2 체력 배율만 ×1로 바꿔 재시작(빌드·시드 유지)
+PASS C3 결과 없이 설정 화면으로
+PASS D1 봇 조작 완주 → 결과 — won 17.12s
+PASS D2 최근 결과 표에 누적(4건)
+PASS D3 설정 텍스트 적용(체력 6·시드 99)
+PASS D4 새로고침 뒤 시험실 설정·결과 보존(별도 키), 정식 저장 없음
+PASS E1 같은 설정·시드·봇 → 같은 결과(브라우저)

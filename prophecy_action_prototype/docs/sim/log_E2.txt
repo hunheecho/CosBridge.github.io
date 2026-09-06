@@ -1,0 +1,17 @@
+suite E2: 2600 fights, 3 workers, version 0.8.0
+  200/2600 (6s)
+  400/2600 (15s)
+  600/2600 (28s)
+  800/2600 (34s)
+  1000/2600 (48s)
+  1200/2600 (53s)
+  1400/2600 (58s)
+  1600/2600 (73s)
+  1800/2600 (79s)
+  2000/2600 (91s)
+  2200/2600 (100s)
+  2400/2600 (105s)
+  2600/2600 (118s)
+done 2600 fights, errors 0, 118s → /home/user/CosBridge.github.io/prophecy_action_prototype/docs/sim/raw_E2.jsonl.gz
+wrote /home/user/CosBridge.github.io/prophecy_action_prototype/docs/sim/report_E2.md 2600 rows
+E2_DONE

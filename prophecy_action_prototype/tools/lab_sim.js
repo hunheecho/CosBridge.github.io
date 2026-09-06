@@ -20,7 +20,9 @@ function jobsFor(suite, PA, seeds) {
   // D3: 창 화력 후보(사거리 유지): 주기 0.7→0.85, 피해 14→12, 각각 근접 약화와 조합
   if (suite === 'D3') { const variants = [['cmp_spear', 'int0.85', { interval: 0.85 }], ['cmp_spear', 'dmg12', { damage: 12 }], ['cmp_spear', 'sweet+int0.85', { sweetFrom: 0.45, sweetMult: 0.5, interval: 0.85 }], ['cmp_spear', 'sweet+dmg12', { sweetFrom: 0.45, sweetMult: 0.5, damage: 12 }]]; const enemies = PA.REGIONS.map(r => 'region:' + r.id).concat(['boss', 'boss:guardian', 'boss:eater']); for (const [build, vname, spearPatch] of variants) for (const enemy of enemies) for (const hp of [1, 2]) for (const seed of seeds) for (const bot of bots) push({ build, vname, spearPatch, enemy, hp, seed, bot, time: enemy.startsWith('boss') ? 240 : 120 }); }
   // E(v0.8): 같은 투자 자동기술 비교(검·회전 칼날(살 판정)·창) × 상황(밀집/산개 지역 5, 후열·돌진·정예 조합 4, 이동 보스 3, 정지 보스 1) × 체력 ×1·×2 × 봇 4(제자리 포함)
-  if (suite === 'E') { const variants = [['cmp_sword', 1], ['cmp_blades', 1], ['cmp_spear', 1]]; const enemies = PA.REGIONS.map(r => 'region:' + r.id).concat(['combo:wolf_archer', 'combo:shield_archer', 'combo:boar_shaman', 'combo:rogue_archer', 'boss', 'boss:guardian', 'boss:eater', 'dummy:boss']); for (const [build, rangeMult] of variants) for (const enemy of enemies) for (const hp of [1, 2]) for (const seed of seeds) for (const bot of bots) push({ build, rangeMult, enemy, hp, seed, bot, time: enemy.startsWith('boss') ? 240 : enemy.startsWith('dummy') ? 60 : 120 }); }
+  if (suite === 'E') { const variants = [['cmp_sword', 1], ['cmp_blades', 1], ['cmp_spear', 1]]; const enemies = PA.REGIONS.map(r => 'region:' + r.id).concat(['combo:wolf_archer', 'combo:shield_archer', 'combo:boar_shaman', 'combo:rogue_archer', 'boss', 'boss:guardian', 'boss:eater', 'dummy:boss']); for (const [build, rangeMult] of variants) for (const enemy of enemies) for (const hp of [1, 2]) for (const seed of seeds) for (const bot of bots) push({ build, rangeMult, enemy, hp, seed, bot, time: enemy.startsWith('boss') ? 240 : enemy.startsWith('dummy') ? 120 : 120 }); }
+  // E2(v0.8): 회전 칼날 수치 후보(살 판정 뒤): 기준 / 피해 8→10 / 접촉 주기 0.45→0.35 / 반지름 78→90 / 피해10+주기0.35. 검·창 기준과 같은 상황
+  if (suite === 'E2') { const variants = [['cmp_blades', 'base', {}], ['cmp_blades', 'dmg10', { damage: 10 }], ['cmp_blades', 'gap0.35', { hitGap: 0.35 }], ['cmp_blades', 'r90', { radius: 90 }], ['cmp_blades', 'dmg10+gap0.35', { damage: 10, hitGap: 0.35 }]]; const enemies = PA.REGIONS.map(r => 'region:' + r.id).concat(['combo:wolf_archer', 'combo:shield_archer', 'combo:boar_shaman', 'combo:rogue_archer', 'boss', 'boss:guardian', 'boss:eater', 'dummy:boss']); for (const [build, vname, bladesPatch] of variants) for (const enemy of enemies) for (const hp of [1, 2]) for (const seed of seeds) for (const bot of bots) push({ build, vname, bladesPatch, enemy, hp, seed, bot, time: enemy.startsWith('boss') ? 240 : enemy.startsWith('dummy') ? 120 : 120 }); }
   if (suite === 'C') { const builds = ['early_sword', 'mid_melee', 'mid_ranged', 'slowfield', 'late_multi']; for (const c of PA.LAB_COMBOS) for (const build of builds) for (const hp of [1, 2, 3]) for (const seed of seeds) for (const bot of bots) push({ build, enemy: 'combo:' + c.id, hp, seed, bot }); }
   return jobs;
 }
@@ -28,13 +30,14 @@ function runJob(PA, job) {
   const cfg = PA.Lab.decode(`enemy=${job.enemy};hp=${job.hp},${job.hp},1;seed=${job.seed};build=${job.build};control=bot;bot=${job.bot};growth=fixed;time=${job.time};arena=${job.arena || 'auto'}`);
   const baseSpear = Object.assign({}, PA.WEAPONS.spear.base); if (job.rangeMult && job.rangeMult !== 1) PA.WEAPONS.spear.base.range = Math.round(baseSpear.range * job.rangeMult); // 창 사거리 후보(다른 조건 유지)
   if (job.spearPatch) Object.assign(PA.WEAPONS.spear.base, job.spearPatch); // 창 설계 후보
-  const run = PA.Lab.makeRun(cfg), st = PA.Lab.makeCombat(cfg, run); PA.WEAPONS.spear.base = baseSpear;
+  const baseBlades = Object.assign({}, PA.WEAPONS.blades.base); if (job.bladesPatch) Object.assign(PA.WEAPONS.blades.base, job.bladesPatch); // 회전 칼날 수치 후보
+  const run = PA.Lab.makeRun(cfg), st = PA.Lab.makeCombat(cfg, run); PA.WEAPONS.spear.base = baseSpear; PA.WEAPONS.blades.base = baseBlades;
   PA.Bot.runCombat(st, job.bot, { maxSec: job.time + 1 });
   const s = PA.Combat.summary(st);
   const en = Object.values(s.enemies); const sum = (k) => en.reduce((a, e) => a + (e[k] || 0), 0);
   return { suite: job.suite, build: job.build, variant: job.build + (job.vname ? '@' + job.vname : job.rangeMult && job.rangeMult !== 1 ? '@' + job.rangeMult : ''), rangeMult: job.rangeMult || 1, patterns: s.patterns || {}, enemy: job.enemy, hp: job.hp, seed: job.seed, bot: job.bot, arena: st.arenaId, version: s.version,
     status: s.status, elapsed: s.elapsed, hpLeft: s.hp, hpMax: s.hpMax, taken: s.damageTaken, absorbed: s.absorbed, kills: s.kills, q: s.specialUses, e: s.eUses, dodges: s.dodges, farFrac: s.farFrac,
-    spawned: sum('spawned'), killed: sum('killed'), exploded: sum('exploded'), prepared: sum('prepared'), executed: sum('executed'), dba: sum('diedBeforeAttack'), enemies: s.enemies, dmg: s.dmg, takenBy: s.taken, heals: s.heals, interrupts: s.interrupts };
+    dmgTotal: s.dmgTotal, dpsDealt: s.elapsed > 0 ? Math.round(s.dmgTotal / s.elapsed * 10) / 10 : 0, spawned: sum('spawned'), killed: sum('killed'), exploded: sum('exploded'), prepared: sum('prepared'), executed: sum('executed'), dba: sum('diedBeforeAttack'), enemies: s.enemies, dmg: s.dmg, takenBy: s.taken, heals: s.heals, interrupts: s.interrupts };
 }
 
 if (!isMainThread) {
