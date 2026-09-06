@@ -20,12 +20,12 @@ PA.Weapons = (function () {
 
   // ---------- 공통 헬퍼 ----------
   function src(w, opt) { return Object.assign({ weapon: w.stats, weaponId: w.id, level: w.stats.level, direct: true }, opt || {}); }
-  function alive(st) { return st.enemies.filter(e => !e.dead); }
+  function alive(st) { return st.enemies.filter(e => !e.dead && !e.hidden); } // 지하(hidden) 적은 직접·투사체 대상이 아니다
   function reachable(st, from, e) { return !K().losBlocked(st, from, e); }
   // 대상: 표식 우선(사거리 안·가림 없음) → 가장 가까운 가림 없는 적
   function pickTarget(st, w, range, needLos) {
     const p = st.player, mk = st.markTarget;
-    const ok = (e) => !e.dead && m().dist(p, e) <= range + e.r && (!needLos || reachable(st, p, e));
+    const ok = (e) => !e.dead && !e.hidden && m().dist(p, e) <= range + e.r && (!needLos || reachable(st, p, e));
     if (mk && ok(mk)) return mk;
     let best = null, bd = Infinity;
     for (const e of st.enemies) { if (!ok(e)) continue; const d = m().dist(p, e); if (d < bd) { bd = d; best = e; } }
@@ -35,19 +35,19 @@ PA.Weapons = (function () {
   // 원형 범위 직접 공격(가림 적용)
   function hitCircle(st, w, cx, cy, r, mult, opt) {
     let n = 0;
-    for (const e of alive(st)) if (m().dist({ x: cx, y: cy }, e) <= r + e.r && (opt && opt.ground || reachable(st, { x: cx, y: cy }, e))) { dmgTo(st, e, w, mult, Object.assign({ dir: m().norm(e.x - cx, e.y - cy) }, opt)); n++; }
+    for (const e of alive(st)) if (m().dist({ x: cx, y: cy }, e) <= r + e.r && (opt && opt.ground || reachable(st, { x: cx, y: cy }, e))) { dmgTo(st, e, w, mult, Object.assign({ dir: m().norm(e.x - cx, e.y - cy), from: { x: cx, y: cy } }, opt)); n++; }
     return n;
   }
   function hitArc(st, w, from, angle, R, half, mult, opt) {
     let n = 0;
-    for (const e of alive(st)) if (m().inArc(from, R, angle, half, e, e.r) && reachable(st, from, e)) { dmgTo(st, e, w, mult, Object.assign({ dir: m().norm(e.x - from.x, e.y - from.y), knock: w.stats.knock }, opt)); n++; }
+    for (const e of alive(st)) if (m().inArc(from, R, angle, half, e, e.r) && reachable(st, from, e)) { dmgTo(st, e, w, mult, Object.assign({ dir: m().norm(e.x - from.x, e.y - from.y), knock: w.stats.knock, from }, opt)); n++; }
     return n;
   }
   function hitBeam(st, w, from, angle, L, W, mult, opt) {
     const list = [];
     for (const e of alive(st)) if (m().inBeam(from, angle, L, W, e, e.r) && reachable(st, from, e)) list.push(e);
     list.sort((a, b) => m().dist(from, a) - m().dist(from, b));
-    for (const e of list) dmgTo(st, e, w, mult, Object.assign({ dir: { x: Math.cos(angle), y: Math.sin(angle) }, knock: w.stats.knock }, opt));
+    for (const e of list) dmgTo(st, e, w, mult, Object.assign({ dir: { x: Math.cos(angle), y: Math.sin(angle) }, knock: w.stats.knock, from }, opt));
     return list;
   }
   function proj(st, w, o) { // 아군 투사체 생성
@@ -106,7 +106,7 @@ PA.Weapons = (function () {
     },
     chain(st, w, target, echoed) {
       const s = w.stats, p = st.player, visited = new Set(), pts = [{ x: p.x, y: p.y }];
-      const zap = (e, mult) => { visited.add(e.id); pts.push({ x: e.x, y: e.y }); dmgTo(st, e, w, mult, { knock: 0 }); if (s.mods.includes('conduct')) e.conduct = 2.0; };
+      const zap = (e, mult) => { const from = pts[pts.length - 1]; visited.add(e.id); pts.push({ x: e.x, y: e.y }); dmgTo(st, e, w, mult, { knock: 0, from }); if (s.mods.includes('conduct')) e.conduct = 2.0; };
       const next = (from) => { let best = null, bd = Infinity; for (const e of alive(st)) { if (visited.has(e.id)) continue; const d = m().dist(from, e); if (d <= s.hop + e.r && d < bd && reachable(st, from, e)) { bd = d; best = e; } } return best; };
       zap(target, 1);
       const first = target;
@@ -174,7 +174,7 @@ PA.Weapons = (function () {
       const last = w.lastHit.get(e.id) || -9; if (st.t - last < s.hitGap) continue;
       if (!reachable(st, p, e)) continue;
       w.lastHit.set(e.id, st.t); w.count++;
-      dmgTo(st, e, w, 1, Object.assign({ dir: m().norm(e.x - p.x, e.y - p.y), knock: s.knock }, s.mods.includes('serrated') ? { bleed: 1.5 } : {}));
+      dmgTo(st, e, w, 1, Object.assign({ dir: m().norm(e.x - p.x, e.y - p.y), knock: s.knock, from: bp }, s.mods.includes('serrated') ? { bleed: 1.5 } : {}));
       if (st.build.has('echo') && w.count % PA.GROWTH.COMMON_VALUES.echoEvery === 0) later(st, PA.GROWTH.COMMON_VALUES.echoDelay, () => { if (!e.dead) dmgTo(st, e, w, 1, { direct: true, noEcho: true }); });
     }
     if (s.mods.includes('launch')) { w.launchT += dt; if (w.launchT >= 3) { const t = pickTarget(st, w, 240, true); if (t) { w.launchT = 0; proj(st, w, { kind: 'blade', x: p.x, y: p.y, vx: 0, vy: 0, r: 12, ttl: 3, boomerang: { tx: t.x, ty: t.y, phase: 0, speed: 520 }, pierce: true, dmgMult: 1.2 }); } } }
@@ -205,7 +205,7 @@ PA.Weapons = (function () {
     const w = pr.weapon;
     if (pr.hits.has(e.id)) return false;
     pr.hits.add(e.id);
-    const opt = Object.assign({ dir: m().norm(pr.vx, pr.vy), knock: 10 }, pr.opt || {});
+    const opt = Object.assign({ dir: m().norm(pr.vx, pr.vy), knock: 10, from: { x: pr.x, y: pr.y } }, pr.opt || {});
     if (pr.chill) opt.chill = pr.chill;
     if (pr.kind === 'shard_common') { K().damageEnemy(st, e, pr.dmg, { dir: opt.dir, knock: 10, src: { extra: true, direct: false } }); return true; }
     dmgTo(st, e, w, pr.dmgMult, opt);

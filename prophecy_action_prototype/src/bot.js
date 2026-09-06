@@ -34,7 +34,8 @@ PA.Bot = (function () {
       } else if (PA.Enemies && PA.Enemies.threats) PA.Enemies.threats(st, e, out);
     }
     for (const pr of st.projectiles) if (pr.owner === 'enemy') out.push({ kind: 'beam', x: pr.x, y: pr.y, ang: Math.atan2(pr.vy, pr.vx), len: 220, w: 40 + pr.r * 2, prog: 1, locked: true, proj: true });
-    for (const z of st.zones) if (z.type === 'spore' || z.type === 'frostzone' || z.type === 'blast') out.push({ kind: 'zone', x: z.x, y: z.y, r: z.r });
+    for (const z of st.zones) if (z.type === 'spore') out.push({ kind: 'zone', x: z.x, y: z.y, r: z.r });
+    if (PA.Enemies && PA.Enemies.zoneThreats) PA.Enemies.zoneThreats(st, out);
     return out;
   }
   function bossThreats(st, bz, out) {

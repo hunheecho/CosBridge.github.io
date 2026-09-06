@@ -30,7 +30,7 @@ PA.CONFIG = {
   ECHO: { every: 4, delay: 0.2 },
   EMBER: { count: 3, radius: 30, ttl: 2.5, tick: 0.4, damage: 5 },
   FROST: { chill: 2.0, slow: 0.6, shards: 6, shardDamage: 8, shardSpeed: 300, shardTtl: 0.5 },
-  MARK: { damageMult: 1.3, priority: ['boss', 'wolf_alpha', 'archer', 'spore', 'wolf'] },
+  MARK: { damageMult: 1.3, priority: ['boss', 'wolf_alpha', 'shaman', 'archer', 'frostcaller', 'bomber', 'spider', 'spore', 'rogue', 'shieldbearer', 'burrower', 'boar', 'wolf'] },
   BARRIER: { shield: 30, knockRadius: 120, knock: 140 },
   STASIS: { maxStacks: 5, damagePerStack: 10 },
   FLARE: { radius: 80, damage: 20 },
@@ -105,6 +105,47 @@ PA.ENEMIES = {
     name: '포자 괴물', role: '지역 통제', r: 18, hp: 55, speed: 60, color: '#b070d8',
     engageDist: 130, swell: 0.9, recover: 1.6, cloudR: 80, cloudTtl: 5, cloudDamage: 6, deathCloudR: 50, deathCloudTtl: 3,
     readme: '부풀면서 바닥에 원을 그린다. 원 = 구름 범위. 죽어도 작은 구름을 남긴다.',
+  },
+  // ---- v0.6 신규 기본 몬스터 8종(모든 수치 임시값). 행동은 src/enemies.js, 그림·예고는 src/render.js ----
+  boar: {
+    name: '멧돼지', role: '긴 직선 돌파', r: 18, hp: 70, speed: 115, color: '#8a6a4a', arena: 'pillars',
+    engageDist: 320, minDist: 110, aim: 0.9, lock: 0.35, chargeDist: 520, chargeSpeed: 700, damage: 16, recover: 1.4, stun: 2.4,
+    readme: '늑대보다 길게 준비하고 무겁게 직진한다. 확정 뒤에는 추적하지 않는다. 바위·나무에 부딪히면 오래 비틀거린다(빈틈). 장애물 뒤로 유도하라.',
+  },
+  shieldbearer: {
+    name: '방패병', role: '정면 방어', r: 16, hp: 60, speed: 95, color: '#7a8aa0',
+    turnRate: 2.2, frontDeg: 120, frontMult: 0.3, knockMult: 0.5, engageDist: 66, aim: 0.7, bashRange: 64, bashDeg: 100, damage: 14, lunge: 18, recover: 1.3,
+    readme: '방패를 향한 정면 공격은 30%만 들어간다. 몸을 돌리는 속도가 느리니 옆·뒤로 돌아가라. 방패치기를 준비하면 방패가 열려 정면도 정상 피해.',
+  },
+  shaman: {
+    name: '주술사', role: '우선 처치(치료)', r: 14, hp: 40, speed: 90, color: '#c58ae0',
+    keepMin: 170, keepMax: 300, healInterval: 6, healCast: 1.5, healRange: 280, healRatio: 0.3, interruptDamage: 12, hexAim: 0.9, hexSpeed: 260, hexDamage: 8, hexR: 7, hexInterval: 3, recover: 1.2,
+    readme: '주변 아군 하나를 골라 연결선을 긋고 1.5초 시전 뒤 최대 체력의 30%를 치료한다. 자기 자신·다른 주술사·보스는 치료하지 않는다. 시전 중 12 이상 한 방이나 넉백으로 끊긴다. 치료할 대상이 없으면 느린 저주 구슬을 쏜다.',
+  },
+  bomber: {
+    name: '폭탄 운반체', role: '접근 후 폭발', r: 15, hp: 35, speed: 135, color: '#e07040',
+    engageDist: 90, fuse: 1.3, blastR: 95, damage: 22,
+    readme: '가까이 오면 멈춰 서서 1.3초 뒤 표시된 원만큼 터진다. 준비 중에 처치하면 터지지 않는다. 죽어도 몰래 터지지 않는다.',
+  },
+  burrower: {
+    name: '잠복충', role: '자리 옮기기', r: 15, hp: 45, speed: 100, color: '#a0784c',
+    engageDist: 240, dive: 0.4, under: 0.7, underSpeed: 260, warn: 0.6, emergeR: 60, damage: 14, exposed: 2.0, cooldown: 6, biteRange: 44, biteAim: 0.5, biteDeg: 90, biteDamage: 8, biteRecover: 1.0,
+    readme: '땅속으로 0.7초만 파고들어 다가온 뒤, 출현 지점을 0.6초 예고하고 솟구친다. 예고가 뜨면 위치는 바뀌지 않는다. 출현 뒤 2초 동안 빈틈. 다음 잠복까지 6초.',
+  },
+  spider: {
+    name: '거미', role: '이동 경로 제한', r: 14, hp: 40, speed: 115, color: '#5c5c6e',
+    keepMin: 120, keepMax: 240, webInterval: 5, webAim: 0.7, webR: 55, webTtl: 6, webSlow: 0.5, maxWebs: 4, biteRange: 46, biteAim: 0.5, biteDeg: 90, biteDamage: 9, recover: 1.1,
+    readme: '플레이어가 가는 방향 앞에 거미줄을 친다(예고 0.7초, 6초 유지, 전장 최대 4개). 거미줄 위에서는 걷는 속도 50%, 회피(Space)는 정상 거리로 통과한다. 가까우면 문다.',
+  },
+  frostcaller: {
+    name: '서리술사', role: '순차 바닥 공격', r: 14, hp: 38, speed: 85, color: '#8fc8e8',
+    keepMin: 200, keepMax: 330, castInterval: 5.5, castAim: 0.6, zoneR: 55, spacing: 120, delays: [0.9, 1.5, 2.1], damage: 12, recover: 1.4,
+    readme: '플레이어가 움직이는 방향으로 바닥 영역 3개를 1→2→3 순서로 예고하고 차례로 터뜨린다. 영역은 시전 시작 때 확정되어 옮겨지지 않는다. 영역 사이나 이미 터진 자리로 피할 수 있다.',
+  },
+  rogue: {
+    name: '쌍날 도적', role: '근접 측면 접근', r: 13, hp: 45, speed: 175, color: '#b04a5a',
+    flankDist: 190, flankOffset: 70, engageDist: 54, aim1: 0.45, aim2: 0.35, slashRange: 50, slashDeg: 100, damage: 10, adjustDeg: 35, recover: 1.6,
+    readme: '정면으로 오지 않고 옆으로 돌아 붙는다. 멈춘 뒤 짧은 베기 2번을 각각 예고한다. 두 번째 베기는 첫 방향에서 35°까지만 보정된다. 끝나면 확실한 빈틈.',
   },
 };
 

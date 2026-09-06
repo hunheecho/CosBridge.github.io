@@ -5,7 +5,7 @@ PA.Skills = (function () {
   const m = () => PA.m;
   const K = () => PA.Combat;
   const TAU = Math.PI * 2;
-  const alive = (st) => st.enemies.filter(e => !e.dead);
+  const alive = (st) => st.enemies.filter(e => !e.dead && !e.hidden);
   const cdOf = (st, slot) => { const sk = st.build.skills[slot]; if (!sk) return 0; return PA.SKILLS[sk.id].cooldown[Math.min(3, sk.level) - 1] * st.build.skillCdMult - (slot === 'q' ? (st.build.accSpecialBonus || 0) : 0); };
   const sdmg = (st, slot) => { const sk = st.build.skills[slot]; const d = PA.SKILLS[sk.id]; return d.damage ? d.damage[Math.min(3, sk.level) - 1] : 0; };
   const hit = (st, e, dmg, opt) => K().damageEnemy(st, e, dmg, Object.assign({ src: { skill: true, direct: false, skillId: st.build.skills.e ? st.build.skills.e.id : 'e' } }, opt || {}));

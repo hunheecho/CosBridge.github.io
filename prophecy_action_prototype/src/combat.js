@@ -218,7 +218,7 @@ PA.Combat = (function () {
     const alive = st.enemies.filter(e => !e.dead), prio = C().MARK.priority;
     let best = null;
     for (const t of prio) {
-      const cands = alive.filter(e => e.type === t);
+      const cands = alive.filter(e => e.type === t && !e.hidden);
       if (cands.length) { cands.sort((a, b) => m().dist(a, st.player) - m().dist(b, st.player)); best = cands[0]; break; }
     }
     if (st.markTarget && !st.markTarget.dead && best && prio.indexOf(st.markTarget.type) <= prio.indexOf(best.type)) return;
@@ -286,6 +286,8 @@ PA.Combat = (function () {
   function knockEnemy(e, n, amount) {
     if (e.state === 'dash' || e.state === 'leap') return;
     if (e.boss) amount *= PA.BOSS.knockMult; // 보스는 일반 넉백의 20%
+    if (e.def && e.def.knockMult) amount *= e.def.knockMult; // 방패병 50%
+    if (e.state === 'charge' || e.state === 'under' || e.state === 'warn') return; // 돌파·지하 이동 중 넉백 무시
     e.vx += n.x * amount * 4; e.vy += n.y * amount * 4;
   }
 
@@ -298,12 +300,14 @@ PA.Combat = (function () {
     let dmg = amount;
     if (e.state === 'recover' || e.state === 'stagger') dmg *= st.build.exposedMult;
     if (st.markTarget === e) dmg *= C().MARK.damageMult;
+    if (PA.Enemies && PA.Enemies.shieldMult) { const sm = PA.Enemies.shieldMult(st, e, opt); if (sm !== 1) { dmg *= sm; e.blockedT = 0.2; } } // 방패병 정면 감소
     dmg = Math.round(dmg * 10) / 10;
     if (e.boss) st.stats.bossDamage += Math.min(dmg, Math.max(0, e.hp)); // 실제 체력 감소 기준(과잉 피해 제외)
     if (st.metrics) { const k = srcKey(st, opt); st.metrics.dmg[k] = (st.metrics.dmg[k] || 0) + Math.min(dmg, Math.max(0, e.hp)); if (e.firstHitT == null) e.firstHitT = st.t; }
     e.hp -= dmg; e.flash = 0.12;
     if (e.boss && e.hp > 0) PA.Boss.checkPhase(st, e);
     if (opt.knock && opt.dir) knockEnemy(e, opt.dir, opt.knock);
+    if (PA.Enemies && PA.Enemies.onDamaged) PA.Enemies.onDamaged(st, e, dmg, opt);
     const b = st.build, dm = b.durationMult || 1;
     if (direct) { // 기본 공격 적중 효과(공통 규칙): 냉기·화상은 중첩 없이 유지 시간만 갱신, 흔적은 감속장 안에서만
       if (b.has('frost')) e.chill = Math.max(e.chill, C().FROST.chill * dm);
@@ -410,7 +414,8 @@ PA.Combat = (function () {
     } else {
       if (p.dodge.cd > 0) p.dodge.cd -= dt;
       const wind = st.zones.some(z => z.type === 'windpath' && m().dist(z, p) <= z.r) ? 1.4 : 1;
-      moveSwept(st, p, mv.x * cfg.speed * b.speedMult * wind * dt, mv.y * cfg.speed * b.speedMult * wind * dt, true); // 표면을 따라 미끄러진다
+      const web = st.zones.some(z => z.type === 'web' && m().dist(z, p) <= z.r + p.r * 0.5) ? 0.5 : 1; // 거미줄: 걷기만 50%(회피는 정상)
+      moveSwept(st, p, mv.x * cfg.speed * b.speedMult * wind * web * dt, mv.y * cfg.speed * b.speedMult * wind * web * dt, true); // 표면을 따라 미끄러진다
     }
     if (input.special && p.special.cd <= 0) PA.Skills.castQ(st);
     if (input.skillE && p.eCd <= 0 && b.skills.e) PA.Skills.castE(st);
@@ -570,7 +575,7 @@ PA.Combat = (function () {
     const alive = st.enemies.filter(e => !e.dead);
     for (let i = 0; i < alive.length; i++) for (let j = i + 1; j < alive.length; j++) {
       const A = alive[i], B = alive[j];
-      if (A.state === 'dash' || B.state === 'dash' || A.airborne || B.airborne) continue;
+      if (A.state === 'dash' || B.state === 'dash' || A.airborne || B.airborne || A.hidden || B.hidden) continue;
       const dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy), min = A.r + B.r;
       if (d < min && d > 1e-6) { const push = (min - d) / 2 * C().SEPARATION; A.x -= dx / d * push; A.y -= dy / d * push; B.x += dx / d * push; B.y += dy / d * push; pushOut(st, A); pushOut(st, B); }
     }
@@ -593,7 +598,7 @@ PA.Combat = (function () {
         if (tp != null && tp <= tObs) { pr.dead = true; damagePlayer(st, pr.dmg, pr.kind); }
       } else {
         const cands = [];
-        for (const e of st.enemies) { if (e.dead || (pr.hits && pr.hits.has(e.id))) continue; const t = m().segCircleT(pr.x, pr.y, nx, ny, e, e.r + pr.r); if (t != null) cands.push([t, e]); }
+        for (const e of st.enemies) { if (e.dead || e.hidden || (pr.hits && pr.hits.has(e.id))) continue; const t = m().segCircleT(pr.x, pr.y, nx, ny, e, e.r + pr.r); if (t != null) cands.push([t, e]); }
         cands.sort((a, b) => a[0] - b[0]);
         for (const [t, e] of cands) {
           if (t > tObs) break;
@@ -624,6 +629,7 @@ PA.Combat = (function () {
     }
     if (maxDmg > 0 && p.zoneTick <= 0) { p.zoneTick = C().PLAYER.zoneTick; zoneDamage(st, maxDmg); }
     if (maxDmg === 0 && p.zoneTick < 0) p.zoneTick = 0;
+    if (PA.Enemies && PA.Enemies.detonate) for (const z of st.zones) if (z.type === 'frostzone' && z.ttl <= 0) PA.Enemies.detonate(st, z);
     st.zones = st.zones.filter(z => z.ttl > 0);
     if (st.field) {
       st.field.ttl -= dt;
