@@ -51,7 +51,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     const run = G.run, s = G.sortie;
     G.combat = PA.Combat.create({
       build: PA.Run.build(run), hp: run.hp, seed: s.seed + s.encounters * 1000 + (s.deep ? 7 : 0),
-      waves: PA.Run.encounterWaves(s.regionId, s.deep), objective: PA.Run.encounterObjective(s.regionId, s.deep),
+      waves: PA.Run.encounterWaves(s.regionId, s.deep), objective: PA.Run.encounterObjective(s.regionId, s.deep), arena: s.arena || 'forest',
     });
     G.endTimer = 0; G.acc = 0; G.paused = false; G.eventCounts = {}; PA.Input.setBlocked(G.input, false); closeOverlay();
     show('combat');
@@ -115,7 +115,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   function parseScenario() {
     const q = new URLSearchParams(location.search);
     if (!q.get('scenario')) return null;
-    return { region: q.get('scenario'), seed: parseInt(q.get('seed') || '1', 10), aug: (q.get('aug') || '').split(',').filter(Boolean), weapon: q.get('weapon') || 'sword', deep: q.get('deep') === '1', upgrade: parseInt(q.get('upgrade') || '0', 10) };
+    return { region: q.get('scenario'), arena: q.get('arena') || null, seed: parseInt(q.get('seed') || '1', 10), aug: (q.get('aug') || '').split(',').filter(Boolean), weapon: q.get('weapon') || 'sword', deep: q.get('deep') === '1', upgrade: parseInt(q.get('upgrade') || '0', 10) };
   }
   function startScenario(sc) {
     G.scenario = sc;
@@ -126,7 +126,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (run.augments.barrier) {} // 파생은 Build.derive에서
     run.hp = PA.Run.build(run).hpMax;
     G.run = run;
-    G.sortie = { regionId: sc.region, deep: sc.deep, loot: { gold: 0, mats: {} }, encounters: 0, seed: sc.seed };
+    G.sortie = { regionId: sc.region, deep: sc.deep, loot: { gold: 0, mats: {} }, encounters: 0, seed: sc.seed, arena: sc.arena };
     startEncounter();
   }
 

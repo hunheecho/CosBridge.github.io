@@ -51,6 +51,23 @@ PA.m = {
     return along >= -pr && along <= L + pr && Math.abs(side) <= W / 2 + pr;
   },
   circleHit(a, b) { const d = Math.hypot(a.x - b.x, a.y - b.y); return d <= a.r + b.r; },
+  // 선분 (x0,y0)->(x1,y1)이 원(c, r)에 처음 닿는 매개변수 t(0..1). 시작점이 이미 안이면 0. 안 닿으면 null
+  segCircleT(x0, y0, x1, y1, c, r) {
+    const fx = x0 - c.x, fy = y0 - c.y;
+    if (fx * fx + fy * fy <= r * r) return 0;
+    const dx = x1 - x0, dy = y1 - y0;
+    const a = dx * dx + dy * dy; if (a < 1e-12) return null;
+    const b = 2 * (fx * dx + fy * dy), cc = fx * fx + fy * fy - r * r;
+    const disc = b * b - 4 * a * cc; if (disc < 0) return null;
+    const t = (-b - Math.sqrt(disc)) / (2 * a);
+    return (t >= 0 && t <= 1) ? t : null;
+  },
+  // 반지름 r인 원이 (x0,y0)->(x1,y1)로 쓸고 갈 때 장애물 원 목록과 처음 닿는 t와 장애물
+  sweepCircle(x0, y0, x1, y1, r, circles) {
+    let best = null;
+    for (const ob of circles) { const t = PA.m.segCircleT(x0, y0, x1, y1, ob, ob.r + r); if (t != null && (best == null || t < best.t)) best = { t, ob }; }
+    return best;
+  },
   // 선분 (x0,y0)-(x1,y1) 과 원 (c, r) 교차 (스윕 충돌용)
   segCircle(x0, y0, x1, y1, c, r) {
     const dx = x1 - x0, dy = y1 - y0;

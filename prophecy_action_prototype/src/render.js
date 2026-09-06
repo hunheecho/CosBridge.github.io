@@ -68,6 +68,38 @@ PA.Render = (function () {
     ctx.fillStyle = sh; ctx.fillRect(0, 0, a.w, 30);
   }
 
+  // 장애물: 바위·나무 밑동(충돌 범위 = 그림). 수관은 개체 위에 반투명으로 따로 그린다.
+  function drawObstacles(ctx, st) {
+    for (const ob of st.obstacles) {
+      if (ob.type === 'rock') {
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(ob.x + 4, ob.y + ob.r * 0.55, ob.r * 1.05, ob.r * 0.5, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#5b6160'; ctx.beginPath(); ctx.moveTo(ob.x - ob.r, ob.y + ob.r * 0.35); ctx.lineTo(ob.x - ob.r * 0.75, ob.y - ob.r * 0.55); ctx.lineTo(ob.x - ob.r * 0.15, ob.y - ob.r); ctx.lineTo(ob.x + ob.r * 0.55, ob.y - ob.r * 0.8); ctx.lineTo(ob.x + ob.r, ob.y - ob.r * 0.1); ctx.lineTo(ob.x + ob.r * 0.85, ob.y + ob.r * 0.6); ctx.lineTo(ob.x + ob.r * 0.1, ob.y + ob.r); ctx.lineTo(ob.x - ob.r * 0.7, ob.y + ob.r * 0.8); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#7d8482'; ctx.beginPath(); ctx.moveTo(ob.x - ob.r * 0.6, ob.y - ob.r * 0.3); ctx.lineTo(ob.x - ob.r * 0.1, ob.y - ob.r * 0.85); ctx.lineTo(ob.x + ob.r * 0.45, ob.y - ob.r * 0.65); ctx.lineTo(ob.x + ob.r * 0.3, ob.y - ob.r * 0.1); ctx.lineTo(ob.x - ob.r * 0.3, ob.y + ob.r * 0.05); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(90,140,70,0.55)'; ctx.beginPath(); ctx.ellipse(ob.x - ob.r * 0.45, ob.y + ob.r * 0.35, ob.r * 0.3, ob.r * 0.16, 0.3, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(20,24,22,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r, 0, TAU); ctx.stroke();
+      } else if (ob.type === 'tree') {
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(ob.x + 3, ob.y + 6, ob.r * 1.2, ob.r * 0.55, 0, 0, TAU); ctx.fill();
+        // 밑동(충돌 범위 = 이 링)
+        ctx.fillStyle = '#4a3420'; ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#5e4429'; ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r * 0.72, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#3a2816'; ctx.lineWidth = 1.5; for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r * 0.72 * i / 4, 0, TAU); ctx.stroke(); }
+        for (let i = 0; i < 4; i++) { const a = i * TAU / 4 + 0.6; ctx.strokeStyle = '#4a3420'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(ob.x + Math.cos(a) * ob.r * 0.8, ob.y + Math.sin(a) * ob.r * 0.8); ctx.lineTo(ob.x + Math.cos(a) * (ob.r + 12), ob.y + Math.sin(a) * (ob.r + 12)); ctx.stroke(); }
+        ctx.strokeStyle = 'rgba(20,24,22,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r, 0, TAU); ctx.stroke();
+      }
+    }
+  }
+  function drawCanopies(ctx, st) {
+    for (const ob of st.obstacles) {
+      if (ob.type !== 'tree') continue;
+      const R = ob.canopy || 70;
+      const near = st.enemies.some(e => !e.dead && Math.hypot(e.x - ob.x, e.y - ob.y) < R + e.r + 10) || Math.hypot(st.player.x - ob.x, st.player.y - ob.y) < R + 30;
+      ctx.globalAlpha = near ? 0.32 : 0.82;
+      ctx.fillStyle = '#233a22'; ctx.beginPath(); ctx.arc(ob.x, ob.y - 14, R, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#2c4a2a'; ctx.beginPath(); ctx.arc(ob.x - R * 0.35, ob.y - 24, R * 0.55, 0, TAU); ctx.arc(ob.x + R * 0.4, ob.y - 20, R * 0.5, 0, TAU); ctx.arc(ob.x, ob.y - R * 0.55, R * 0.5, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(140,190,100,0.25)'; ctx.beginPath(); ctx.arc(ob.x - R * 0.2, ob.y - R * 0.45, R * 0.35, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
   function drawZones(ctx, st) {
     for (const z of st.zones) {
       const life = z.ttl / z.maxTtl;
@@ -413,6 +445,7 @@ PA.Render = (function () {
     ctx.strokeStyle = '#0f0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(st.player.x, st.player.y, st.player.r, 0, TAU); ctx.stroke();
     for (const e of st.enemies) { if (e.dead) continue; ctx.strokeStyle = '#f0f'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.stroke(); ctx.fillStyle = '#0f0'; ctx.font = '10px monospace'; ctx.textAlign = 'left'; ctx.fillText(`${e.type} ${e.state} ${e.stateT.toFixed(2)} hp${Math.round(e.hp)}`, e.x + e.r + 2, e.y); }
     for (const p of st.projectiles) { ctx.strokeStyle = '#ff0'; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.stroke(); }
+    for (const ob of st.obstacles) { ctx.strokeStyle = '#0ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r, 0, TAU); ctx.stroke(); ctx.fillStyle = '#0ff'; ctx.font = '10px monospace'; ctx.fillText(`${ob.id || ob.type} r${ob.r}`, ob.x - 20, ob.y - ob.r - 4); }
     ctx.fillStyle = '#0f0'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
     ctx.fillText(`t=${st.t.toFixed(2)} seed=${st.seed} enemies=${st.enemies.length} proj=${st.projectiles.length} zones=${st.zones.length} fx=${st.effects.length} dodge=${st.player.dodge.active} cd=${st.player.dodge.cd.toFixed(2)} prot=${st.player.hitProt.toFixed(2)} atk=${st.player.attackTimer.toFixed(2)}`, 14, 76);
   }
@@ -422,6 +455,7 @@ PA.Render = (function () {
     const pad = PA.CONFIG.VIEW.pad, W = st.arena.w + pad * 2, H = st.arena.h + pad * 2;
     ctx.save(); ctx.translate(pad, pad);
     drawForest(ctx, st);
+    drawObstacles(ctx, st);
     drawZones(ctx, st);
     drawChest(ctx, st);
     drawRange(ctx, st);
@@ -430,6 +464,7 @@ PA.Render = (function () {
     const ents = st.enemies.map(e => ({ y: e.y, f: () => drawEnemy(ctx, st, e) }));
     ents.push({ y: st.player.y, f: () => drawSwordsman(ctx, st) });
     ents.sort((a, b) => a.y - b.y); for (const o of ents) o.f();
+    drawCanopies(ctx, st);       // 수관은 개체 위, 예고선 아래(가까우면 투명)
     drawTelegraphs(ctx, st);   // 예고는 내 이펙트와 캐릭터 위
     drawProjectiles(ctx, st);
     drawMisc(ctx, st);

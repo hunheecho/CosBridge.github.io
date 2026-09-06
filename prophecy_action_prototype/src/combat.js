@@ -10,14 +10,16 @@ PA.Combat = (function () {
     const cfg = C();
     const build = opts.build;
     const rng = PA.rng.create(opts.seed || 1);
+    const arenaDef = PA.ARENAS[opts.arena || 'forest'] || PA.ARENAS.forest;
     const st = {
-      t: 0, seed: opts.seed || 1, rng, arena: Object.assign({}, cfg.ARENA),
+      t: 0, seed: opts.seed || 1, rng, arena: Object.assign({}, cfg.ARENA), arenaId: opts.arena || 'forest',
+      obstacles: (opts.obstacles || arenaDef.obstacles || []).map(o => Object.assign({}, o)),
       build,
       objective: opts.objective || 'clear',
       waves: opts.waves || [[{ type: 'wolf', n: 2 }]],
       waveIndex: -1, waveTimer: 0.4, pending: [], // pending spawns {type,x,y,t}
       player: {
-        x: cfg.ARENA.w / 2, y: cfg.ARENA.h / 2, r: cfg.PLAYER.r,
+        x: (arenaDef.playerStart || { x: cfg.ARENA.w / 2 }).x, y: (arenaDef.playerStart || { y: cfg.ARENA.h / 2 }).y, r: cfg.PLAYER.r,
         hp: opts.hp != null ? Math.min(opts.hp, build.hpMax) : build.hpMax, hpMax: build.hpMax,
         shield: build.shield, shieldMax: build.shield,
         face: 0, moving: false, animT: 0,
@@ -44,6 +46,94 @@ PA.Combat = (function () {
   function fx(st, e) { st.effects.push(e); }
   function text(st, x, y, txt, color) { fx(st, { kind: 'text', x, y, text: txt, color: color || '#fff', ttl: 0.8, t: 0 }); }
 
+  // ---------- 지형 ----------
+  // 원형 개체를 장애물·벽 밖으로 밀어낸다(표면을 따라 미끄러짐). 반환: 밀려났는지
+  function pushOut(st, o) {
+    let moved = false;
+    for (const ob of st.obstacles) {
+      const dx = o.x - ob.x, dy = o.y - ob.y, d = Math.hypot(dx, dy), min = ob.r + o.r;
+      if (d < min) { const n = d > 1e-6 ? { x: dx / d, y: dy / d } : { x: 1, y: 0 }; o.x = ob.x + n.x * min; o.y = ob.y + n.y * min; moved = true; }
+    }
+    const a = st.arena;
+    const cx = m().clamp(o.x, o.r, a.w - o.r), cy = m().clamp(o.y, o.r, a.h - o.r);
+    if (cx !== o.x || cy !== o.y) { o.x = cx; o.y = cy; moved = true; }
+    return moved;
+  }
+  // 스윕 이동: 이동 구간 전체에서 장애물·벽 충돌을 검사해 처음 닿는 지점에서 멈춘다. 반환 {hit: 장애물|'wall'|null, t}
+  function moveSwept(st, o, dx, dy, slide) {
+    const a = st.arena, x0 = o.x, y0 = o.y;
+    let x1 = x0 + dx, y1 = y0 + dy, t = 1, hit = null;
+    // 벽
+    const wx = m().clamp(x1, o.r, a.w - o.r), wy = m().clamp(y1, o.r, a.h - o.r);
+    if (wx !== x1 || wy !== y1) { const tx = dx !== 0 ? (wx - x0) / dx : 1, ty = dy !== 0 ? (wy - y0) / dy : 1; t = Math.max(0, Math.min(t, tx, ty)); hit = 'wall'; }
+    const sw = m().sweepCircle(x0, y0, x0 + dx, y0 + dy, o.r, st.obstacles);
+    if (sw && sw.t < t) { t = sw.t; hit = sw.ob; }
+    if (hit) { const tt = Math.max(0, t - 1e-3); o.x = x0 + dx * tt; o.y = y0 + dy * tt; } else { o.x = x1; o.y = y1; }
+    pushOut(st, o);
+    if (hit && slide) {
+      // 남은 이동량을 접촉면의 접선 방향으로(미끄러짐). 한 번만 다시 스윕한다
+      let rx = dx * (1 - t), ry = dy * (1 - t);
+      if (hit === 'wall') { if (wx !== x1) rx = 0; if (wy !== y1) ry = 0; }
+      else { const nx = o.x - hit.x, ny = o.y - hit.y, nl = Math.hypot(nx, ny) || 1; const n = { x: nx / nl, y: ny / nl }; const dot = rx * n.x + ry * n.y; rx -= dot * n.x; ry -= dot * n.y; }
+      if (Math.abs(rx) + Math.abs(ry) > 1e-6) {
+        const sw2 = m().sweepCircle(o.x, o.y, o.x + rx, o.y + ry, o.r, st.obstacles);
+        const t2 = sw2 ? Math.max(0, sw2.t - 1e-3) : 1;
+        o.x += rx * t2; o.y += ry * t2; pushOut(st, o);
+      }
+    }
+    return { hit, t };
+  }
+  // 두 점 사이에 장애물이 있는가(직접 공격의 가림 판정). 장애물 반지름 = 그림 크기
+  function losBlocked(st, a, b) {
+    for (const ob of st.obstacles) if (m().segCircle(a.x, a.y, b.x, b.y, ob, ob.r)) return true;
+    return false;
+  }
+  // 반지름 r 개체가 놓일 수 있는 위치인가
+  function validPos(st, x, y, r) {
+    const a = st.arena;
+    if (x < r || x > a.w - r || y < r || y > a.h - r) return false;
+    for (const ob of st.obstacles) if (Math.hypot(x - ob.x, y - ob.y) < ob.r + r + 2) return false;
+    return true;
+  }
+  // 가장 가까운 유효 위치(나선 탐색). 없으면 null
+  function nearestValidPos(st, x, y, r, maxR) {
+    if (validPos(st, x, y, r)) return { x, y };
+    for (let rad = 12; rad <= (maxR || 260); rad += 12) for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; const px = x + Math.cos(a) * rad, py = y + Math.sin(a) * rad; if (validPos(st, px, py, r)) return { x: px, y: py }; }
+    return null;
+  }
+  // 직선 빔이 장애물에 막히는 길이
+  function beamLength(st, from, angle, L) {
+    const ex = from.x + Math.cos(angle) * L, ey = from.y + Math.sin(angle) * L;
+    let best = L;
+    for (const ob of st.obstacles) { const t = m().segCircleT(from.x, from.y, ex, ey, ob, ob.r); if (t != null) best = Math.min(best, t * L); }
+    return best;
+  }
+  // 장애물을 돌아가는 조향: 직진 경로가 막히면 접선 방향으로 이동. 반환 이동 방향(단위 벡터)
+  function steerDir(st, e, tx, ty) {
+    const dx = tx - e.x, dy = ty - e.y, dist = Math.hypot(dx, dy);
+    if (dist < 1e-6) return { x: 0, y: 0 };
+    const d = { x: dx / dist, y: dy / dist };
+    let blocker = null, bestAlong = Infinity;
+    for (const ob of st.obstacles) {
+      const R = ob.r + e.r + 6;
+      const ox = ob.x - e.x, oy = ob.y - e.y, along = ox * d.x + oy * d.y;
+      if (along <= 0 || along > Math.min(dist, 200) + R) continue;
+      const side = Math.abs(-ox * d.y + oy * d.x);
+      if (side < R && along < bestAlong) { bestAlong = along; blocker = ob; }
+    }
+    if (!blocker) { e.steerSide = 0; return d; }
+    const ox = blocker.x - e.x, oy = blocker.y - e.y, od = Math.hypot(ox, oy), R = blocker.r + e.r + 6;
+    const cross = d.x * oy - d.y * ox; // >0: 장애물이 진행 방향 왼쪽
+    if (!e.steerSide || e.steerT <= 0) { e.steerSide = cross > 0 ? -1 : 1; e.steerT = 0.8; }
+    const sideSign = e.steerSide;
+    if (od <= R + 0.5) { // 이미 접해 있음: 접선 방향(둘레를 따라)
+      const nx = ox / od, ny = oy / od; return { x: -ny * sideSign, y: nx * sideSign };
+    }
+    const base = Math.atan2(oy, ox), off = Math.asin(Math.min(1, R / od));
+    const ang = base + off * sideSign;
+    return { x: Math.cos(ang), y: Math.sin(ang) };
+  }
+
   // ---------- 스폰 ----------
   function edgePos(st) {
     const a = st.arena, rng = st.rng, side = rng.int(0, 3), pad = 30;
@@ -57,7 +147,8 @@ PA.Combat = (function () {
       let p = edgePos(st);
       // 플레이어 바로 옆에 등장하지 않게
       let tries = 0;
-      while (m().dist(p, st.player) < 160 && tries++ < 8) p = edgePos(st);
+      while ((m().dist(p, st.player) < 160 || !validPos(st, p.x, p.y, PA.ENEMIES[g.type].r)) && tries++ < 12) p = edgePos(st);
+      const vp = nearestValidPos(st, p.x, p.y, PA.ENEMIES[g.type].r) || p; p = vp;
       st.pending.push({ type: g.type, x: p.x, y: p.y, t: C().SPAWN_WARN });
       fx(st, { kind: 'spawnwarn', x: p.x, y: p.y, ttl: C().SPAWN_WARN, t: 0, type: g.type });
     }
@@ -188,11 +279,21 @@ PA.Combat = (function () {
     if (st.markTarget === e) { st.markTarget = null; assignMark(st); }
   }
   function addZone(st, type, x, y, r, ttl, dmg) { st.zones.push({ type, x, y, r, ttl, maxTtl: ttl, dmg, tick: 0, t: 0 }); }
+  // 잔불: 장애물 안쪽(바닥이 아닌 곳)이면 그 조각은 생략한다(플레이어 위치는 항상 유효하므로 보통 발생하지 않음)
+  function addFireAt(st, x, y) {
+    const E = C().EMBER;
+    if (!validPos(st, x, y, 0)) return false;
+    addZone(st, 'fire', x, y, E.radius, E.ttl, E.damage); return true;
+  }
 
   // ---------- 플레이어 공격 ----------
   function chooseTarget(st) {
     const p = st.player, b = st.build;
-    const reach = (e) => b.weapon.form === 'beam' ? m().inBeam(p, Math.atan2(e.y - p.y, e.x - p.x), b.range, b.weapon.width, e, e.r) : m().dist(p, e) <= b.range + e.r;
+    const reach = (e) => {
+      if (losBlocked(st, p, e)) return false; // 장애물에 가려진 대상은 공격 대상이 아니다
+      if (b.weapon.form === 'beam') { const ang = Math.atan2(e.y - p.y, e.x - p.x); return m().inBeam(p, ang, beamLength(st, p, ang, b.range), b.weapon.width, e, e.r); }
+      return m().dist(p, e) <= b.range + e.r;
+    };
     if (st.markTarget && !st.markTarget.dead && reach(st.markTarget)) return st.markTarget;
     let best = null, bd = Infinity;
     for (const e of st.enemies) { if (e.dead) continue; const d = m().dist(p, e); if (d < bd && reach(e)) { bd = d; best = e; } }
@@ -205,15 +306,15 @@ PA.Combat = (function () {
     if (form === 'spin') {
       const S = C().SPIN, r = S.radius * b.rangeMult;
       fx(st, { kind: 'spin', x: p.x, y: p.y, r, ttl: 0.22, t: 0 });
-      for (const e of st.enemies) if (!e.dead && m().dist(p, e) <= r + e.r) { hit.add(e); damageEnemy(st, e, b.damage * S.damageMult, { sword: true, knock: S.knock, dir: m().norm(e.x - p.x, e.y - p.y) }); }
+      for (const e of st.enemies) if (!e.dead && m().dist(p, e) <= r + e.r && !losBlocked(st, p, e)) { hit.add(e); damageEnemy(st, e, b.damage * S.damageMult, { sword: true, knock: S.knock, dir: m().norm(e.x - p.x, e.y - p.y) }); }
     } else if (form === 'beam') {
-      const L = b.range, W = b.weapon.width;
+      const L = beamLength(st, p, angle, b.range), W = b.weapon.width; // 검광은 장애물에서 멈춘다
       fx(st, { kind: 'beam', x: p.x, y: p.y, angle, len: L, w: W, ttl: 0.18, t: 0 });
-      for (const e of st.enemies) if (!e.dead && m().inBeam(p, angle, L, W, e, e.r)) { hit.add(e); damageEnemy(st, e, b.damage, { sword: true, knock: b.weapon.knock, dir: { x: Math.cos(angle), y: Math.sin(angle) } }); }
+      for (const e of st.enemies) if (!e.dead && m().inBeam(p, angle, L, W, e, e.r) && !losBlocked(st, p, e)) { hit.add(e); damageEnemy(st, e, b.damage, { sword: true, knock: b.weapon.knock, dir: { x: Math.cos(angle), y: Math.sin(angle) } }); }
     } else {
       const R = b.range, half = (b.weapon.arcDeg * Math.PI / 180) / 2;
       fx(st, { kind: 'arc', x: p.x, y: p.y, angle, r: R, half, ttl: 0.16, t: 0 });
-      for (const e of st.enemies) if (!e.dead && m().inArc(p, R, angle, half, e, e.r)) { hit.add(e); damageEnemy(st, e, b.damage, { sword: true, knock: b.weapon.knock, dir: m().norm(e.x - p.x, e.y - p.y) }); }
+      for (const e of st.enemies) if (!e.dead && m().inArc(p, R, angle, half, e, e.r) && !losBlocked(st, p, e)) { hit.add(e); damageEnemy(st, e, b.damage, { sword: true, knock: b.weapon.knock, dir: m().norm(e.x - p.x, e.y - p.y) }); }
     }
     ev(st, 'swing', { form, hits: hit.size });
     return hit.size;
@@ -251,23 +352,24 @@ PA.Combat = (function () {
     if (!p.dodge.active && input.dodge && p.dodge.cd <= 0) {
       const d = p.moving ? mv : { x: Math.cos(p.face), y: Math.sin(p.face) };
       p.dodge.active = true; p.dodge.t = 0; p.dodge.dx = d.x; p.dodge.dy = d.y; p.dodge.emberIdx = -1;
-      if (b.has('ember')) { p.dodge.emberIdx = 0; addZone(st, 'fire', p.x, p.y, C().EMBER.radius, C().EMBER.ttl, C().EMBER.damage); }
+      if (b.has('ember')) { p.dodge.emberIdx = 0; addFireAt(st, p.x, p.y); }
       ev(st, 'dodge');
     }
     if (p.dodge.active) {
       const useDt = Math.min(dt, Math.max(0, cfg.dodge.duration - p.dodge.t));
       p.dodge.t += dt;
       const spd = cfg.dodge.distance / cfg.dodge.duration;
-      p.x += p.dodge.dx * spd * useDt; p.y += p.dodge.dy * spd * useDt;
+      const mv1 = moveSwept(st, p, p.dodge.dx * spd * useDt, p.dodge.dy * spd * useDt); // 회피도 장애물을 통과하지 않는다
+      if (mv1.hit && mv1.hit !== 'wall') { /* 장애물에 닿으면 남은 거리를 버리고 표면에서 멈춘다 */ }
       if (b.has('ember')) {
         const E = C().EMBER, frac = p.dodge.t / cfg.dodge.duration;
         const idx = Math.floor(frac * E.count);
-        if (idx > p.dodge.emberIdx && idx < E.count) { p.dodge.emberIdx = idx; addZone(st, 'fire', p.x, p.y, E.radius, E.ttl, E.damage); }
+        if (idx > p.dodge.emberIdx && idx < E.count) { p.dodge.emberIdx = idx; addFireAt(st, p.x, p.y); }
       }
       if (p.dodge.t >= cfg.dodge.duration) { p.dodge.active = false; p.dodge.cd = cfg.dodge.cooldown * b.dodgeCdMult - (p.dodge.t - cfg.dodge.duration); }
     } else {
       if (p.dodge.cd > 0) p.dodge.cd -= dt;
-      p.x += mv.x * cfg.speed * dt; p.y += mv.y * cfg.speed * dt;
+      moveSwept(st, p, mv.x * cfg.speed * dt, mv.y * cfg.speed * dt, true); // 표면을 따라 미끄러진다
     }
     if (input.special && p.special.cd <= 0) {
       if (st.field) endField(st); // 활성 감속장이 있으면 먼저 정상 종료(정지된 칼날 폭발 포함)
@@ -276,7 +378,7 @@ PA.Combat = (function () {
       ev(st, 'special');
       text(st, p.x, p.y - 50, '감속장', '#a9d8ff');
     }
-    p.x = m().clamp(p.x, p.r, a.w - p.r); p.y = m().clamp(p.y, p.r, a.h - p.r);
+    pushOut(st, p);
     updateAttack(st, dt);
   }
 
@@ -285,6 +387,12 @@ PA.Combat = (function () {
     const n = m().norm(tx - e.x, ty - e.y);
     e.x += n.x * speed * dt; e.y += n.y * speed * dt;
   }
+  // 장애물을 돌아 접근한다
+  function approach(st, e, tx, ty, speed, dt) {
+    if (e.steerT > 0) e.steerT -= dt;
+    const n = st.obstacles.length ? steerDir(st, e, tx, ty) : m().norm(tx - e.x, ty - e.y);
+    moveSwept(st, e, n.x * speed * dt, n.y * speed * dt, true);
+  }
   function enemySpeedMult(st, e) { return timeFactor(st, e) * (e.chill > 0 ? C().FROST.slow : 1); }
 
   function updateWolf(st, e, dt) {
@@ -292,8 +400,8 @@ PA.Combat = (function () {
     const dist = m().dist(e, p);
     switch (e.state) {
       case 'approach':
-        moveToward(e, p.x, p.y, d.speed * sm, dt);
-        if (dist <= d.engageDist) { e.state = 'crouch'; e.stateT = 0; e.dashLeft = d.dashes || 1; }
+        approach(st, e, p.x, p.y, d.speed * sm, dt);
+        if (dist <= d.engageDist && !losBlocked(st, e, p)) { e.state = 'crouch'; e.stateT = 0; e.dashLeft = d.dashes || 1; }
         break;
       case 'crouch': // 방향 추적 중
         e.aimAngle = Math.atan2(p.y - e.y, p.x - e.x);
@@ -309,12 +417,11 @@ PA.Combat = (function () {
         const useDt = Math.min(dt * tf, remain);
         e.stateT += dt * tf;
         const step = d.dashSpeed * useDt;
-        const nx = e.x + Math.cos(e.dir) * step, ny = e.y + Math.sin(e.dir) * step;
-        // 스윕 판정: 이동 선분이 플레이어 원과 만나면 피해
-        if (!e.hitBy && m().segCircle(e.x, e.y, nx, ny, p, p.r + e.r)) { e.hitBy = 'player'; e.biteT = 0; ev(st, 'bite'); damagePlayer(st, d.damage, 'wolf'); }
-        e.x = nx; e.y = ny;
-        const a = st.arena;
-        const hitWall = e.x < e.r || e.x > a.w - e.r || e.y < e.r || e.y > a.h - e.r;
+        const x0 = e.x, y0 = e.y;
+        // 스윕 이동: 장애물·벽에 닿으면 그 지점에서 정지. 물기 판정은 실제로 이동한 구간에만 적용(장애물 뒤로 관통하지 않음)
+        const mv = moveSwept(st, e, Math.cos(e.dir) * step, Math.sin(e.dir) * step);
+        if (!e.hitBy && m().segCircle(x0, y0, e.x, e.y, p, p.r + e.r)) { e.hitBy = 'player'; e.biteT = 0; ev(st, 'bite'); damagePlayer(st, d.damage, 'wolf'); }
+        const hitWall = !!mv.hit;
         if (e.stateT >= d.dashTime || hitWall) {
           if (!e.hitBy) e.biteT = 0; // 빗나간 물기도 같은 시점에 턱을 닫는다
           e.dashLeft--;
@@ -334,8 +441,8 @@ PA.Combat = (function () {
     const dist = m().dist(e, p);
     switch (e.state) {
       case 'approach':
-        if (dist < d.keepMin) moveToward(e, e.x * 2 - p.x, e.y * 2 - p.y, d.speed * sm, dt);
-        else if (dist > d.keepMax) moveToward(e, p.x, p.y, d.speed * sm, dt);
+        if (dist < d.keepMin) approach(st, e, e.x * 2 - p.x, e.y * 2 - p.y, d.speed * sm, dt);
+        else if (dist > d.keepMax) approach(st, e, p.x, p.y, d.speed * sm, dt);
         e.stateT += dt * tf;
         if (dist <= d.keepMax + 40 && e.stateT >= 0.3) { e.state = 'aim'; e.stateT = 0; }
         break;
@@ -363,7 +470,7 @@ PA.Combat = (function () {
     const dist = m().dist(e, p);
     switch (e.state) {
       case 'approach':
-        moveToward(e, p.x, p.y, d.speed * sm, dt);
+        approach(st, e, p.x, p.y, d.speed * sm, dt);
         if (dist <= d.engageDist) { e.state = 'swell'; e.stateT = 0; }
         break;
       case 'swell':
@@ -390,8 +497,8 @@ PA.Combat = (function () {
       else if (e.type === 'archer') updateArcher(st, e, dt);
       else if (e.type === 'spore') updateSpore(st, e, dt);
       // 넉백 속도 감쇠
-      if (e.vx || e.vy) { e.x += e.vx * dt; e.y += e.vy * dt; const k = Math.exp(-10 * dt); e.vx *= k; e.vy *= k; if (Math.abs(e.vx) < 1) e.vx = 0; if (Math.abs(e.vy) < 1) e.vy = 0; }
-      e.x = m().clamp(e.x, e.r, a.w - e.r); e.y = m().clamp(e.y, e.r, a.h - e.r);
+      if (e.vx || e.vy) { moveSwept(st, e, e.vx * dt, e.vy * dt); const k = Math.exp(-10 * dt); e.vx *= k; e.vy *= k; if (Math.abs(e.vx) < 1) e.vx = 0; if (Math.abs(e.vy) < 1) e.vy = 0; }
+      pushOut(st, e);
     }
     // 분리: 완전히 겹치지 않게
     const alive = st.enemies.filter(e => !e.dead);
@@ -399,7 +506,7 @@ PA.Combat = (function () {
       const A = alive[i], B = alive[j];
       if (A.state === 'dash' || B.state === 'dash') continue;
       const dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy), min = A.r + B.r;
-      if (d < min && d > 1e-6) { const push = (min - d) / 2 * C().SEPARATION; A.x -= dx / d * push; A.y -= dy / d * push; B.x += dx / d * push; B.y += dy / d * push; }
+      if (d < min && d > 1e-6) { const push = (min - d) / 2 * C().SEPARATION; A.x -= dx / d * push; A.y -= dy / d * push; B.x += dx / d * push; B.y += dy / d * push; pushOut(st, A); pushOut(st, B); }
     }
     st.enemies = st.enemies.filter(e => !e.dead || e.deathT < 0.9);
   }
@@ -410,11 +517,16 @@ PA.Combat = (function () {
     for (const pr of st.projectiles) {
       const tf = pr.owner === 'enemy' ? timeFactor(st, pr) : 1;
       const nx = pr.x + pr.vx * tf * dt, ny = pr.y + pr.vy * tf * dt;
+      const obs = m().sweepCircle(pr.x, pr.y, nx, ny, pr.r, st.obstacles); const tObs = obs ? obs.t : Infinity;
       if (pr.owner === 'enemy') {
-        if (m().segCircle(pr.x, pr.y, nx, ny, p, p.r + pr.r)) { pr.dead = true; damagePlayer(st, pr.dmg, pr.kind); }
+        const tp = m().segCircleT(pr.x, pr.y, nx, ny, p, p.r + pr.r);
+        if (tp != null && tp <= tObs) { pr.dead = true; damagePlayer(st, pr.dmg, pr.kind); }
       } else {
-        for (const e of st.enemies) if (!e.dead && m().segCircle(pr.x, pr.y, nx, ny, e, e.r + pr.r)) { pr.dead = true; damageEnemy(st, e, pr.dmg, { dir: m().norm(pr.vx, pr.vy), knock: 10 }); break; }
+        let best = null, bt = Infinity;
+        for (const e of st.enemies) { if (e.dead) continue; const t = m().segCircleT(pr.x, pr.y, nx, ny, e, e.r + pr.r); if (t != null && t < bt) { bt = t; best = e; } }
+        if (best && bt <= tObs) { pr.dead = true; damageEnemy(st, best, pr.dmg, { dir: m().norm(pr.vx, pr.vy), knock: 10 }); }
       }
+      if (!pr.dead && obs) { pr.dead = true; fx(st, { kind: 'spark', x: pr.x + pr.vx * tf * dt * obs.t, y: pr.y + pr.vy * tf * dt * obs.t, ttl: 0.15, t: 0, angle: Math.atan2(-pr.vy, -pr.vx), crit: false }); }
       pr.x = nx; pr.y = ny; pr.ttl -= dt;
       if (pr.x < -10 || pr.x > a.w + 10 || pr.y < -10 || pr.y > a.h + 10 || pr.ttl <= 0) pr.dead = true;
     }
@@ -505,5 +617,5 @@ PA.Combat = (function () {
     checkObjective(st);
   }
 
-  return { create, step, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField };
+  return { create, step, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir };
 })();

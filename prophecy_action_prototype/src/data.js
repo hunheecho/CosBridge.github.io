@@ -41,6 +41,22 @@ PA.CONFIG = {
   SEPARATION: 1.0,
 };
 
+// 전장 정의. 장애물은 원형 충돌체(그림 = 충돌 범위). 첫 시험 배치, 데이터로 관리하는 임시값.
+PA.ARENAS = {
+  forest: { name: '숲 전장', obstacles: [] },
+  clearing: {
+    name: '돌과 나무가 있는 숲의 공터',
+    obstacles: [
+      { id: 'rockA', type: 'rock', x: 285, y: 220, r: 42 },
+      { id: 'rockB', type: 'rock', x: 675, y: 380, r: 42 },
+      { id: 'treeA', type: 'tree', x: 300, y: 420, r: 26, canopy: 70 },
+      { id: 'treeB', type: 'tree', x: 660, y: 180, r: 26, canopy: 70 },
+    ],
+    playerStart: { x: 480, y: 500 },
+    bossStart: { x: 480, y: 120 },
+  },
+};
+
 PA.ENEMIES = {
   wolf: {
     name: '늑대', role: '돌진 습격', r: 14, hp: 30, speed: 150, color: '#9aa0a8',
