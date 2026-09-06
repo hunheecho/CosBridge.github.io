@@ -18,6 +18,7 @@ PA.Screens = (function () {
       <div class="stat boss"><span class="lbl">보스 도래까지</span><b class="${left <= 2 ? 'warn' : ''}">${left > 0 ? left + '일' : '오늘'}</b><span class="bossbar"><i style="width:${bossPct}%"></i></span></div>
       <div class="stat"><span class="lbl">체력</span><b>${run.hp} / ${b.hpMax}</b></div>
       <div class="stat"><span class="lbl">금화</span><b class="gold">${run.gold}</b></div>
+      ${R().layoutText(run) ? `<div class="stat"><span class="lbl">시험안</span><b class="warn small">${esc(R().layoutText(run))}</b></div>` : ''}
     </div>`;
   }
   function matsRow(run) {
@@ -74,7 +75,10 @@ PA.Screens = (function () {
   // 시작 무기 선택
   function pickStart(G) {
     const list = (G.startAll ? PA.STARTABLE_ALL : PA.STARTABLE).map(id => { const d = PA.WEAPONS[id]; return `<div class="card"><div class="card-title">${esc(d.name)}</div><p>${esc(d.desc)}</p><p class="dim small">기본 피해 ${d.base.damage} · 주기 ${d.base.interval}초 · 전용 방식: ${Object.values(d.mods).map(m => esc(m.name)).join(', ')}</p><button class="primary" data-action="start-weapon" data-arg="${id}">이 무기로 시작</button></div>`; }).join('');
+    const laySel = `<select id="start-layout">${Object.keys(PA.LAYOUTS).map(k => `<option value="${k}">${esc(PA.LAYOUTS[k].name)}</option>`).join('')}</select>`;
+    const difSel = `<select id="start-difficulty">${Object.keys(PA.DIFFICULTY.candidates).map(k => `<option value="${k}">${esc(PA.DIFFICULTY.candidates[k].name)}</option>`).join('')}</select>`;
     return `<div class="screen"><h2>시작 무기 선택</h2><p class="dim">시작 무기 1개로 출발하고, 전투 중 레벨업으로 무기를 최대 2개 더 얻습니다. 시작 무기와 추가 무기는 같은 규칙으로 성장합니다.</p>
+      <div class="card"><div class="card-title small">검증 메뉴: 지역 배치안·난이도 후보 <span class="dim">(기본값은 기존 배치·×1. 시험안은 검증되지 않은 임시값이며 화면에 표시됩니다)</span></div><div class="kv"><span>배치</span>${laySel}</div><div class="kv"><span>난이도</span>${difSel}</div></div>
       <div class="grid3">${list}</div>
       <div class="row">${G.startAll ? '' : '<button data-action="start-all">검증 메뉴: 다른 시작 후보 보기 (쌍검·추적궁·전투망치·번개 구체)</button>'}<button data-action="title">돌아가기</button></div></div>`;
   }
@@ -163,11 +167,12 @@ PA.Screens = (function () {
       const can = R().canSortie(run, r.id);
       const rewardText = `금화 ${r.reward.gold[0]}~${r.reward.gold[1]}` + Object.keys(r.reward.mats).map(k => `, ${matName(k)} ${k === 'fang' ? '(정예 처치 시 1)' : r.reward.mats[k][0] + '~' + r.reward.mats[k][1]}`).join('');
       const forTarget = Object.keys(r.reward.mats).some(k => needKinds.includes(k)) || (needKinds.includes('gold'));
-      const enemies = r.enemies.map(id => `<li><b>${esc(PA.ENEMIES[id].name)}</b> <span class="dim">${esc(PA.ENEMIES[id].role)} — ${esc(PA.ENEMIES[id].readme)}</span></li>`).join('');
+      const lr = R().layoutRegion(r.id, run), hpm = R().hpMultFor(run, r.id, false).normal;
+      const enemies = R().regionEnemies(r.id, run).map(id => `<li><b>${esc(PA.ENEMIES[id].name)}</b> <span class="dim">${esc(PA.ENEMIES[id].role)} — ${esc(PA.ENEMIES[id].readme)}</span></li>`).join('');
       return `<div class="card region ${can ? '' : 'off'}">
         <div class="card-title">${esc(r.name)} <span class="risk">위험 ${stars(r.risk)}</span> <span class="cost-badge">${r.cost}시간</span></div>
-        <p>${esc(r.desc)}</p>
-        <div class="kv"><span>목적</span><b>${r.objective === 'elite' ? '정예 처치' : '전멸'} · ${r.waves.length}웨이브</b></div>
+        <p>${esc(lr ? lr.desc : r.desc)}${lr ? ' <span class="tag">시험안 배치</span>' : ''}${hpm !== 1 ? ` <span class="tag">체력 ×${hpm}</span>` : ''}</p>
+        <div class="kv"><span>목적</span><b>${R().encounterObjective(r.id, false, run) === 'elite' ? '정예 처치' : '전멸'} · ${R().encounterWaves(r.id, false, run).length}웨이브</b></div>
         <div class="kv"><span>보상</span><b>${rewardText}</b>${forTarget ? ' <span class="tag">목표 장비 재료</span>' : ''}</div>
         <div class="kv"><span>성장</span><b>${esc(PA.REGION_TAG_TEXT[r.id] || '—')}</b> <span class="dim small">경험치 +${PA.GROWTH.REGION_BONUS_XP[r.id]} · 더 깊이 승리 시 지역 보상 선택</span></div>
         <ul class="enemies">${enemies}</ul>

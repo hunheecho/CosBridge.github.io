@@ -77,7 +77,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   function goBase() { saveRun(); if (G.run.growth && G.run.growth.migrationPending) { show('migration'); return; } show('base'); } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
   function leaveScenario() { if (G.scenario) { G.scenario = null; try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
   function newRun() { leaveScenario(); G.startAll = false; show('pick_start'); }
-  function startRun(weaponId) { G.run = PA.Run.newRun(undefined, weaponId); G.sortie = null; G.combat = null; saveRun(); show('base'); }
+  function startRun(weaponId) { G.run = PA.Run.newRun(undefined, weaponId); const lay = $('#start-layout'), dif = $('#start-difficulty'); if (lay && PA.LAYOUTS[lay.value]) G.run.layout = lay.value; if (dif && PA.DIFFICULTY.candidates[dif.value]) G.run.difficulty = dif.value; G.sortie = null; G.combat = null; saveRun(); show('base'); }
   function startSortie(regionId) {
     G.sortie = PA.Run.startSortie(G.run, regionId);
     saveRun(); // 출격 비용은 지불된 상태로 저장(전투 중 종료 시 복구 기준)
@@ -90,7 +90,8 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       G.combat = PA.Combat.create({ build: PA.Run.build(run), hp: PA.Run.build(run).hpMax, seed: s.seed, boss: true, arena: 'clearing', waves: [] });
     } else G.combat = PA.Combat.create({
       build: PA.Run.build(run), hp: run.hp, seed: s.seed + s.encounters * 1000 + (s.deep ? 7 : 0),
-      waves: PA.Run.encounterWaves(s.regionId, s.deep), objective: PA.Run.encounterObjective(s.regionId, s.deep), arena: s.arena || 'forest',
+      waves: PA.Run.encounterWaves(s.regionId, s.deep, run), objective: PA.Run.encounterObjective(s.regionId, s.deep, run), arena: s.arena || PA.Run.regionArena(s.regionId, run),
+      hpMult: PA.Run.hpMultFor(run, s.regionId, s.deep), regionId: s.regionId, labText: PA.Run.layoutText(run) || null,
     });
     G.endTimer = 0; G.acc = 0; G.paused = false; G.eventCounts = {}; PA.Input.setBlocked(G.input, false); closeOverlay();
     show('combat');

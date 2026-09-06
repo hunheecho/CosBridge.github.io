@@ -113,3 +113,28 @@ test('재현성: 같은 설정·시드·봇이면 결과 요약이 완전히 같
   const run1 = () => { const { st } = labCombat('enemy=region:ridge;hp=2,2,2;seed=9;build=mid_ranged;control=bot;bot=balanced;time=120'); PA.Bot.runCombat(st, 'balanced', { maxSec: 120 }); const s = CB.summary(st); delete s.version; return j(s); };
   assert.deepEqual(run1(), run1());
 });
+
+test('조합 프리셋 12개 이상: 적 종류가 모두 존재하고, 의도·대응·빌드·겹침·제한 메모가 있으며, 시험실에서 열린다', () => {
+  assert.ok(PA.LAB_COMBOS.length >= 12);
+  for (const c of PA.LAB_COMBOS) { for (const w of c.waves) for (const g of w) assert.ok(PA.ENEMIES[g.type], c.id + ':' + g.type); for (const k of ['intent', 'safe', 'builds', 'overlap', 'limit']) assert.ok(c.notes[k], c.id + ' ' + k); assert.ok(PA.ARENAS[c.arena], c.id + ' arena'); const ep = L.enemyPreset('combo:' + c.id); assert.ok(ep); const cfg = L.decode('enemy=combo:' + c.id); const st = L.makeCombat(cfg, L.makeRun(cfg)); assert.equal(st.overlapLimit, c.overlapLimit || 0); }
+  const used = new Set(PA.LAB_COMBOS.flatMap(c => c.waves.flatMap(w => w.map(g => g.type))));
+  for (const t of ['boar', 'shieldbearer', 'shaman', 'bomber', 'burrower', 'spider', 'frostcaller', 'rogue']) assert.ok(used.has(t), t + ' 조합에 등장');
+});
+
+test('지역 배치안: 기본은 기존 배치, 시험안은 신규 적을 지역별로 소개하며, 이전 저장(layout 없음)도 정상 진행된다. 난이도 후보는 지역별 체력 배율만 바꾼다', () => {
+  const R = PA.Run;
+  const run = R.newRun(1, 'sword'); assert.equal(run.layout, 'classic'); assert.equal(run.difficulty, 'base');
+  assert.deepEqual(j(R.encounterWaves('forest', false, run)), j(PA.REGIONS[0].waves));
+  const old = JSON.parse(R.serialize(run)); delete old.layout; delete old.difficulty; const mig = R.deserialize(JSON.stringify(old)); assert.equal(mig.layout, 'classic'); assert.equal(mig.difficulty, 'base');
+  assert.deepEqual(j(R.hpMultFor(mig, 'deep', true)), { normal: 1, elite: 1, boss: 1 });
+  run.layout = 'trial';
+  for (const r of PA.REGIONS) { const waves = R.encounterWaves(r.id, false, run); assert.ok(waves.length >= 2); for (const w of waves) for (const g of w) assert.ok(PA.ENEMIES[g.type], g.type); const deep = R.encounterWaves(r.id, true, run); assert.ok(deep[deep.length - 1].some(g => g.type === 'wolf_alpha')); assert.ok(R.regionEnemies(r.id, run).length >= 2); }
+  assert.equal(R.encounterWaves('forest', false, run)[0].every(g => g.type === 'wolf'), true, '첫 웨이브는 이미 아는 적');
+  assert.equal(R.encounterObjective('den', false, run), 'elite');
+  run.difficulty = 'candA'; assert.deepEqual(j(R.hpMultFor(run, 'deep', false)), { normal: 3, elite: 3, boss: 1 }); assert.deepEqual(j(R.hpMultFor(run, 'forest', false)), { normal: 1, elite: 1, boss: 1 });
+  run.difficulty = 'candC'; assert.equal(R.hpMultFor(run, 'marsh', true).normal, 3);
+  assert.ok(R.layoutText(run).includes('시험안') && R.layoutText(run).includes('후보 C'));
+  const st = PA.Combat.create({ build: R.build(run), seed: 1, waves: R.encounterWaves('marsh', false, run), objective: 'clear', hpMult: R.hpMultFor(run, 'marsh', false), regionId: 'marsh' });
+  const sp = PA.Combat.spawnEnemy(st, 'spore', 100, 100); assert.equal(sp.hp, 110);
+  const t = L.enemyPreset('trial:marsh'); assert.ok(t && t.waves.some(w => w.some(g => g.type === 'bomber')));
+});

@@ -43,7 +43,7 @@ PA.Lab = (function () {
     for (const r of PA.REGIONS) list.push({ id: 'region:' + r.id, group: '지역(기존 배치)', name: r.name, regionId: r.id, waves: r.waves, objective: r.objective, arena: 'forest', desc: r.desc });
     if (PA.LAYOUTS && PA.LAYOUTS.trial) for (const r of PA.REGIONS) { const L = PA.LAYOUTS.trial.regions[r.id]; if (L) list.push({ id: 'trial:' + r.id, group: '지역(시험안 배치)', name: r.name + ' · 시험안', regionId: r.id, waves: L.waves, objective: L.objective || r.objective, arena: L.arena || 'forest', desc: L.desc || r.desc }); }
     for (const t of PA.LAB.ENEMY_ORDER) { const d = PA.ENEMIES[t]; if (!d || t === 'boss') continue; const n = t === 'wolf' ? 2 : 1; list.push({ id: 'solo:' + t, group: '단독 시험', name: d.name + (n > 1 ? ` ×${n}` : '') + (d.impl === false ? ' (미구현)' : ''), regionId: null, waves: [[{ type: t, n }], [{ type: t, n: n + 1 }]], objective: 'clear', arena: d.arena || 'forest', desc: d.readme, impl: d.impl !== false }); }
-    for (const c of PA.LAB_COMBOS) list.push(Object.assign({ id: 'combo:' + c.id, group: '조합 프리셋', regionId: c.regionId || null, objective: c.objective || 'clear', arena: c.arena || 'forest' }, c));
+    for (const c of PA.LAB_COMBOS) list.push(Object.assign({}, c, { id: 'combo:' + c.id, comboId: c.id, group: '조합 프리셋', regionId: c.regionId || null, objective: c.objective || 'clear', arena: c.arena || 'forest' }));
     list.push({ id: 'boss', group: '보스', name: PA.BOSS.name + ' — ' + PA.BOSS.title, regionId: 'boss', waves: [], objective: 'boss', arena: 'clearing', boss: true, desc: PA.ENEMIES.boss.readme });
     return list;
   }
@@ -115,7 +115,7 @@ PA.Lab = (function () {
     const common = { build, hp: build.hpMax, seed: cfg.seed, arena, hpMult: cfg.hp, timeLimit: cfg.time, fixedBuild: cfg.growth !== 'grow', regionId: ep.regionId, labText: labText(cfg), overlapLimit: cfg.overlap >= 0 ? cfg.overlap : (ep.overlapLimit || 0) };
     if (ep.boss) return PA.Combat.create(Object.assign(common, { boss: true, waves: [] }));
     let waves = ep.waves.map(w => w.map(g => Object.assign({}, g)));
-    if (cfg.deep && ep.regionId) waves = PA.Run.encounterWaves(ep.regionId, true, run);
+    if (cfg.deep && ep.regionId && ep.regionId !== 'lab') { const r2 = Object.assign({}, run, { layout: cfg.enemy.startsWith('trial:') ? 'trial' : 'classic' }); waves = PA.Run.encounterWaves(ep.regionId, true, r2); }
     return PA.Combat.create(Object.assign(common, { waves, objective: cfg.deep && ep.regionId ? 'elite' : (ep.objective || 'clear') }));
   }
   function labText(cfg) { const ep = enemyPreset(cfg.enemy), b = PA.LAB.BUILDS[cfg.build]; return `시험실 · ${ep ? ep.name : cfg.enemy} · 체력 ×${cfg.hp.normal}/${cfg.hp.elite}/${cfg.hp.boss} · ${b ? b.name : cfg.build} · 시드 ${cfg.seed} · ${cfg.control === 'bot' ? '봇 ' + PA.Bot.POLICIES[cfg.bot].name : '직접 조작'} · ${cfg.growth === 'grow' ? '성장' : '빌드 고정'} · 제한 ${cfg.time}초`; }

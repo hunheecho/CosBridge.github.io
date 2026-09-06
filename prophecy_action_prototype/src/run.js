@@ -11,6 +11,7 @@ PA.Run = (function () {
     const cfg = C();
     return {
       growth: PA.Growth.newGrowth(startWeapon || 'sword'),
+      layout: 'classic', difficulty: 'base',   // v0.6: 지역 배치안·난이도 후보(기본은 기존 배치·×1)
       version: VERSION, seed: seed || (Date.now() % 100000), sortieCount: 0,
       phase: 'prep',            // prep(준비 기간) | boss_prep(7일차 최종 준비) | cleared(보스 처치)
       bossRetries: 0, bossClear: null,
@@ -38,6 +39,8 @@ PA.Run = (function () {
       r.version = 3;
     }
     if (r.gear && 'weapon' in r.gear) delete r.gear.weapon;
+    if (!r.layout || !PA.LAYOUTS[r.layout]) r.layout = 'classic';                       // 이전 저장: 기존 배치 유지
+    if (!r.difficulty || !PA.DIFFICULTY.candidates[r.difficulty]) r.difficulty = 'base';
     return r;
   }
 
@@ -55,16 +58,23 @@ PA.Run = (function () {
     run.hours -= r.cost; run.sortieCount++;
     return { regionId, deep: false, loot: { gold: 0, mats: {}, chestGold: 0 }, encounters: 0, seed: run.seed * 131 + run.sortieCount * 17 + run.day };
   }
-  function encounterWaves(regionId, deep) {
-    const r = region(regionId);
-    if (!deep) return r.waves.map(w => w.map(g => Object.assign({}, g)));
+  // 배치안: run.layout이 trial이면 시험안 웨이브, 아니면 기존 웨이브
+  function layoutRegion(regionId, run) { const L = run && run.layout && PA.LAYOUTS[run.layout]; const lr = L && L.regions[regionId]; return lr || null; }
+  function regionEnemies(regionId, run) { const lr = layoutRegion(regionId, run); return lr ? lr.enemies : region(regionId).enemies; }
+  function regionArena(regionId, run) { const lr = layoutRegion(regionId, run); return lr && lr.arena ? lr.arena : 'forest'; }
+  function encounterWaves(regionId, deep, run) {
+    const r = region(regionId), lr = layoutRegion(regionId, run), base = lr ? lr.waves : r.waves;
+    if (!deep) return base.map(w => w.map(g => Object.assign({}, g)));
     // 더 깊이: 웨이브마다 +1, 마지막에 정예 추가(없다면)
-    const waves = r.waves.map(w => w.map(g => ({ type: g.type, n: g.n + 1 })));
+    const waves = base.map(w => w.map(g => ({ type: g.type, n: g.n + 1 })));
     const last = waves[waves.length - 1];
     if (!last.some(g => g.type === 'wolf_alpha')) last.push({ type: 'wolf_alpha', n: 1 });
     return waves;
   }
-  function encounterObjective(regionId, deep) { const r = region(regionId); return deep ? 'elite' : r.objective; }
+  function encounterObjective(regionId, deep, run) { const r = region(regionId), lr = layoutRegion(regionId, run); return deep ? 'elite' : ((lr && lr.objective) || r.objective); }
+  // 지역별 체력 배율(난이도 후보). 보스는 1. 더 깊이 탐험은 후보의 deepMult
+  function hpMultFor(run, regionId, deep) { const c = PA.DIFFICULTY.candidates[(run && run.difficulty) || 'base'] || PA.DIFFICULTY.candidates.base; const v = (c.hp[regionId] || 1) * (deep ? (c.deepMult || 1) : 1); return { normal: v, elite: v, boss: 1 }; }
+  function layoutText(run) { const parts = []; if (run.layout && run.layout !== 'classic') parts.push('배치: ' + PA.LAYOUTS[run.layout].name); if (run.difficulty && run.difficulty !== 'base') parts.push('난이도: ' + PA.DIFFICULTY.candidates[run.difficulty].name); return parts.join(' · '); }
   function canDeepExplore(run) { return run.hours >= C().DEEP_EXPLORE_HOURS; }
   function deepExplore(run, sortie) { if (!canDeepExplore(run)) throw new Error('시간 부족'); run.hours -= C().DEEP_EXPLORE_HOURS; sortie.deep = true; }
 
@@ -233,5 +243,5 @@ PA.Run = (function () {
   function load(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(SAVE_KEY); return s ? deserialize(s) : null; } catch (e) { return null; } }
   function clearSave(storage) { storage = storage || globalThis.localStorage; try { storage.removeItem(SAVE_KEY); } catch (e) {} }
 
-  return { SAVE_KEY, RECORDS_KEY, VERSION, regionBonusXp, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
+  return { SAVE_KEY, RECORDS_KEY, VERSION, regionBonusXp, layoutRegion, regionEnemies, regionArena, hpMultFor, layoutText, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
 })();
