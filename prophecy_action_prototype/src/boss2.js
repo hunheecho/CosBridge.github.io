@@ -52,7 +52,7 @@ PA.Boss2 = (function () {
     else if (pat === 'summon') { e.state = 'summon'; e.lastSummon = st.t; K().ev(st, 'boss_howl'); }
   }
   // 직선 충격파: 방향 고정, 파동(적 투사체)이 날아간다. 감속장 안에서는 파동도 느려짐(투사체 규칙)
-  function fireShock(st, e, ang, S) { st.projectiles.push({ owner: 'enemy', kind: 'shock', x: e.x + Math.cos(ang) * e.r, y: e.y + Math.sin(ang) * e.r, vx: Math.cos(ang) * S.speed, vy: Math.sin(ang) * S.speed, r: S.width / 2, dmg: S.damage, ttl: S.len / S.speed, angle: ang, width: S.width }); K().ev(st, 'boss_sweep'); }
+  function fireShock(st, e, ang, S) { st.projectiles.push({ owner: 'enemy', kind: 'shock', shooter: e, x: e.x + Math.cos(ang) * e.r, y: e.y + Math.sin(ang) * e.r, vx: Math.cos(ang) * S.speed, vy: Math.sin(ang) * S.speed, r: S.width / 2, dmg: S.damage, ttl: S.len / S.speed, angle: ang, width: S.width }); K().ev(st, 'boss_sweep'); }
 
   // ---------- 갱신 ----------
   function update(st, e, dt) {
@@ -74,7 +74,7 @@ PA.Boss2 = (function () {
       case 'roar': e.stateT += adv; if (e.stateT >= cfg.roar) toApproach(st, e); break;
       // 봉인 수호자
       case 'sweep_aim': e.aimAngle = Math.atan2(p.y - e.y, p.x - e.x); e.stateT += adv; if (e.stateT >= cfg.sweep.aim) { e.state = 'sweep_lock'; e.stateT = 0; e.dir = e.aimAngle; K().ev(st, 'boss_lock'); } break;
-      case 'sweep_lock': e.stateT += adv; if (e.stateT >= cfg.sweep.lock) { if (m().inArc(e, cfg.sweep.radius, e.dir, cfg.sweep.arcDeg * Math.PI / 360, p, p.r) && !K().losBlocked(st, e, p)) K().damagePlayer(st, cfg.sweep.damage, 'boss_sweep'); K().fx(st, { kind: 'bosssweep', x: e.x, y: e.y, angle: e.dir, r: cfg.sweep.radius, half: cfg.sweep.arcDeg * Math.PI / 360, ttl: 0.3, t: 0 }); K().ev(st, 'boss_sweep'); K().noteAttack(st, e, 'execute'); toRecover(st, e, cfg.sweep.recover); } break;
+      case 'sweep_lock': e.stateT += adv; if (e.stateT >= cfg.sweep.lock) { if (m().inArc(e, cfg.sweep.radius, e.dir, cfg.sweep.arcDeg * Math.PI / 360, p, p.r) && !K().losBlocked(st, e, p)) K().damagePlayer(st, cfg.sweep.damage, 'boss_sweep', e); K().fx(st, { kind: 'bosssweep', x: e.x, y: e.y, angle: e.dir, r: cfg.sweep.radius, half: cfg.sweep.arcDeg * Math.PI / 360, ttl: 0.3, t: 0 }); K().ev(st, 'boss_sweep'); K().noteAttack(st, e, 'execute'); toRecover(st, e, cfg.sweep.recover); } break;
       case 'shock_aim': e.aimAngle = Math.atan2(p.y - e.y, p.x - e.x); e.stateT += adv; if (e.stateT >= cfg.shock.aim) { e.state = 'shock_lock'; e.stateT = 0; e.dir = e.aimAngle; K().ev(st, 'boss_lock'); } break;
       case 'shock_lock': e.stateT += adv; if (e.stateT >= cfg.shock.lock) { const S = cfg.shock; if (e.shockLeft >= 2) { fireShock(st, e, e.dir - S.spread, S); fireShock(st, e, e.dir + S.spread, S); } else fireShock(st, e, e.dir, S); K().noteAttack(st, e, 'execute'); toRecover(st, e, S.recover); } break;
       // 예언을 먹는 자
@@ -84,7 +84,7 @@ PA.Boss2 = (function () {
       case 'lanes_lock': { e.stateT += adv; if (e.stateT >= cfg.lanes.lock) { const L = cfg.lanes, ln = e.lanes[e.laneIdx]; fireShock(st, e, ln.ang, L); ln.fired = true; K().noteAttack(st, e, 'execute'); e.laneIdx++; if (e.laneIdx < e.lanes.length) { e.state = 'lanes_fire'; e.stateT = 0; } else toRecover(st, e, L.recover); } break; }
       case 'lanes_fire': e.stateT += adv; if (e.stateT >= cfg.lanes.gap) { e.state = 'lanes_lock'; e.stateT = 0; } break;
       case 'wide_aim': e.stateT += adv; if (e.stateT >= cfg.wide.aim) { e.state = 'wide_lock'; e.stateT = 0; K().ev(st, 'boss_lock'); } break;
-      case 'wide_lock': e.stateT += adv; if (e.stateT >= cfg.wide.lock) { const R = cfg.wide.radius[Math.min(2, e.phase - 1)]; if (m().dist(e, p) <= R + p.r) K().damagePlayer(st, cfg.wide.damage, 'boss_wide'); K().fx(st, { kind: 'bossland', x: e.x, y: e.y, r: R, ttl: 0.5, t: 0 }); K().ev(st, 'boss_land'); K().noteAttack(st, e, 'execute'); toRecover(st, e, cfg.wide.recover); } break;
+      case 'wide_lock': e.stateT += adv; if (e.stateT >= cfg.wide.lock) { const R = cfg.wide.radius[Math.min(2, e.phase - 1)]; if (m().dist(e, p) <= R + p.r) K().damagePlayer(st, cfg.wide.damage, 'boss_wide', e); K().fx(st, { kind: 'bossland', x: e.x, y: e.y, r: R, ttl: 0.5, t: 0 }); K().ev(st, 'boss_land'); K().noteAttack(st, e, 'execute'); toRecover(st, e, cfg.wide.recover); } break;
       case 'summon': e.stateT += adv; if (e.stateT >= cfg.summon.duration) { summon(st, e); K().noteAttack(st, e, 'execute'); toApproach(st, e); } break;
       case 'recover': e.stateT += adv; if (e.stateT >= e.recoverDur) toApproach(st, e); break;
       case 'stagger': e.stateT += adv; if (e.stateT >= cfg.stagger) toApproach(st, e); break;

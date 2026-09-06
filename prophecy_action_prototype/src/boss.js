@@ -151,7 +151,7 @@ PA.Boss = (function () {
         e.stateT += adv;
         if (e.stateT >= cfg.sweep.lock) {
           // 판정: 표시된 부채꼴과 동일. 직접 공격이므로 장애물 가림 적용
-          if (m().inArc(e, cfg.sweep.radius, e.dir, cfg.sweep.arcDeg * Math.PI / 360, p, p.r) && !K().losBlocked(st, e, p)) K().damagePlayer(st, cfg.sweep.damage, 'boss_sweep');
+          if (m().inArc(e, cfg.sweep.radius, e.dir, cfg.sweep.arcDeg * Math.PI / 360, p, p.r) && !K().losBlocked(st, e, p)) K().damagePlayer(st, cfg.sweep.damage, 'boss_sweep', e);
           K().fx(st, { kind: 'bosssweep', x: e.x, y: e.y, angle: e.dir, r: cfg.sweep.radius, half: cfg.sweep.arcDeg * Math.PI / 360, ttl: 0.3, t: 0 });
           K().ev(st, 'boss_sweep'); K().noteAttack(st, e, 'execute');
           toRecover(st, e, cfg.sweep.recover);
@@ -177,7 +177,7 @@ PA.Boss = (function () {
         const x0 = e.x, y0 = e.y;
         const mv = K().moveSwept(st, e, Math.cos(e.dir) * step, Math.sin(e.dir) * step);
         e.dashDist += Math.hypot(e.x - x0, e.y - y0);
-        if (!e.hitDone && m().segCircle(x0, y0, e.x, e.y, p, p.r + e.r)) { e.hitDone = true; e.biteT = 0; K().ev(st, 'bite'); K().damagePlayer(st, cfg.dash.damage, 'boss_dash'); }
+        if (!e.hitDone && m().segCircle(x0, y0, e.x, e.y, p, p.r + e.r)) { e.hitDone = true; e.biteT = 0; K().ev(st, 'bite'); K().damagePlayer(st, cfg.dash.damage, 'boss_dash', e); }
         if (e.dashDist >= e.dashLen - 1e-6 || mv.hit || step <= 1e-9) {
           if (e.dashSeq < e.dashTotal) { e.dashSeq++; e.state = 'dash_aim'; e.stateT = 0; K().text(st, e.x, e.y - e.r - 30, '연속 돌진 2/2', '#ff9f43'); }
           else toRecover(st, e, e.dashTotal > 1 ? cfg.dash.doubleRecover : cfg.dash.recover);
@@ -203,7 +203,7 @@ PA.Boss = (function () {
         if (e.leapK >= 1) {
           e.airborne = false; e.x = e.land.x; e.y = e.land.y;
           // 지면 충격: 표시된 원 범위. 장애물 가림 없음
-          if (m().dist(e, p) <= cfg.pounce.radius + p.r) K().damagePlayer(st, cfg.pounce.damage, 'boss_pounce');
+          if (m().dist(e, p) <= cfg.pounce.radius + p.r) K().damagePlayer(st, cfg.pounce.damage, 'boss_pounce', e);
           K().fx(st, { kind: 'bossland', x: e.x, y: e.y, r: cfg.pounce.radius, ttl: 0.45, t: 0 });
           K().ev(st, 'boss_land');
           if (e.staggerAfterLand) { e.staggerAfterLand = false; e.state = 'stagger'; e.stateT = 0; }

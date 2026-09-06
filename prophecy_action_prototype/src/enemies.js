@@ -16,7 +16,7 @@ PA.Enemies = (function () {
     else if (dist > d.keepMax) K().approach(st, e, p.x, p.y, d.speed * sm, dt);
   };
   // 부채꼴 근접 판정(직접 공격: 장애물 가림 적용)
-  function arcHit(st, e, ang, R, half, dmg, src) { const p = st.player; if (m().inArc(e, R, ang, half, p, p.r) && !K().losBlocked(st, e, p)) K().damagePlayer(st, dmg, src); }
+  function arcHit(st, e, ang, R, half, dmg, src) { const p = st.player; if (m().inArc(e, R, ang, half, p, p.r) && !K().losBlocked(st, e, p)) K().damagePlayer(st, dmg, src, e); }
 
   const H = {};
   // ---------- A. 멧돼지: 긴 직선 돌파 ----------
@@ -45,7 +45,7 @@ PA.Enemies = (function () {
         const remain = Math.max(0, e.chargeLen - e.chargeDist), step = Math.min(d.chargeSpeed * tf * dt, remain), x0 = e.x, y0 = e.y;
         const mv = K().moveSwept(st, e, Math.cos(e.dir) * step, Math.sin(e.dir) * step);
         e.chargeDist += Math.hypot(e.x - x0, e.y - y0);
-        if (!e.hitDone && m().segCircle(x0, y0, e.x, e.y, p, p.r + e.r)) { e.hitDone = true; e.biteT = 0; K().ev(st, 'bite'); K().damagePlayer(st, d.damage, 'boar'); }
+        if (!e.hitDone && m().segCircle(x0, y0, e.x, e.y, p, p.r + e.r)) { e.hitDone = true; e.biteT = 0; K().ev(st, 'bite'); K().damagePlayer(st, d.damage, 'boar', e); }
         const done = e.chargeDist >= e.chargeLen - 1e-6 || step <= 1e-9;
         if (mv.hit || (done && e.chargeBlocked)) { e.state = 'stagger'; e.stateT = 0; K().text(st, e.x, e.y - e.r - 26, '충돌! 긴 빈틈', '#ffd166'); K().fx(st, { kind: 'impact', x: e.x + Math.cos(e.dir) * e.r, y: e.y + Math.sin(e.dir) * e.r, r: 40, ttl: 0.3, t: 0 }); K().ev(st, 'boss_land'); }
         else if (done) toRecover(st, e, d.recover);
@@ -104,7 +104,7 @@ PA.Enemies = (function () {
         if (e.stateT >= d.healCast) { const before = t.hp; t.hp = Math.min(t.hpMax, t.hp + t.hpMax * d.healRatio); const amt = t.hp - before; st.metrics.heals++; st.metrics.healAmount += amt; K().text(st, t.x, t.y - t.r - 22, '+' + Math.round(amt), '#9cffb0'); K().fx(st, { kind: 'burst', x: t.x, y: t.y, r: t.r + 14, ttl: 0.3, t: 0, color: '#e9b6ff' }); K().ev(st, 'orb'); K().noteAttack(st, e, 'execute'); e.healT = d.healInterval; e.castTarget = null; toRecover(st, e, d.recover); }
         break;
       }
-      case 'hex_aim': e.aimAngle = Math.atan2(p.y - e.y, p.x - e.x); e.stateT += adv; if (e.stateT >= d.hexAim) { e.dir = e.aimAngle; st.projectiles.push({ owner: 'enemy', kind: 'hex', x: e.x + Math.cos(e.dir) * (e.r + 4), y: e.y + Math.sin(e.dir) * (e.r + 4), vx: Math.cos(e.dir) * d.hexSpeed, vy: Math.sin(e.dir) * d.hexSpeed, r: d.hexR, dmg: d.hexDamage, ttl: 4, angle: e.dir }); K().ev(st, 'shoot'); K().noteAttack(st, e, 'execute'); e.hexT = d.hexInterval; toRecover(st, e, d.recover, false); } break;
+      case 'hex_aim': e.aimAngle = Math.atan2(p.y - e.y, p.x - e.x); e.stateT += adv; if (e.stateT >= d.hexAim) { e.dir = e.aimAngle; st.projectiles.push({ shooter: e, owner: 'enemy', kind: 'hex', x: e.x + Math.cos(e.dir) * (e.r + 4), y: e.y + Math.sin(e.dir) * (e.r + 4), vx: Math.cos(e.dir) * d.hexSpeed, vy: Math.sin(e.dir) * d.hexSpeed, r: d.hexR, dmg: d.hexDamage, ttl: 4, angle: e.dir }); K().ev(st, 'shoot'); K().noteAttack(st, e, 'execute'); e.hexT = d.hexInterval; toRecover(st, e, d.recover, false); } break;
       case 'recover': e.stateT += adv; if (e.stateT >= e.recoverDur) { e.state = 'approach'; e.stateT = 0; } break;
     }
   };
@@ -119,7 +119,7 @@ PA.Enemies = (function () {
       case 'approach': K().approach(st, e, p.x, p.y, d.speed * sm, dt); if (dist <= d.engageDist + e.r && K().mayAttack(st, e, dt)) { e.state = 'fuse'; e.stateT = 0; e.readyT = null; K().noteAttack(st, e, 'prepare'); K().ev(st, 'lock'); } break;
       case 'fuse': // 멈춰 서서 준비. 넉백으로 밀리면 표시 원도 같이 움직인다(실제 범위 = 표시 범위)
         e.stateT += adv;
-        if (e.stateT >= d.fuse) { K().noteAttack(st, e, 'execute'); if (dist <= d.blastR + p.r) K().damagePlayer(st, d.damage, 'blast'); K().fx(st, { kind: 'mineburst', x: e.x, y: e.y, r: d.blastR, ttl: 0.4, t: 0 }); K().ev(st, 'explode'); e.exploded = true; e.hp = 0; e.dead = true; e.deathT = 0; e.acted = true; if (st.metrics) K().metricsFor(st, e).exploded = (K().metricsFor(st, e).exploded || 0) + 1; }
+        if (e.stateT >= d.fuse) { K().noteAttack(st, e, 'execute'); if (dist <= d.blastR + p.r) K().damagePlayer(st, d.damage, 'blast', e); K().fx(st, { kind: 'mineburst', x: e.x, y: e.y, r: d.blastR, ttl: 0.4, t: 0 }); K().ev(st, 'explode'); e.exploded = true; e.hp = 0; e.dead = true; e.deathT = 0; e.acted = true; if (st.metrics) K().metricsFor(st, e).exploded = (K().metricsFor(st, e).exploded || 0) + 1; }
         break;
     }
   };
@@ -140,7 +140,7 @@ PA.Enemies = (function () {
         if (e.stateT >= d.under || dist < 30) { const pos = K().nearestValidPos(st, e.x, e.y, e.r, 200) || { x: e.x, y: e.y }; e.emergeAt = pos; e.state = 'warn'; e.stateT = 0; K().ev(st, 'lock'); }
         break;
       }
-      case 'warn': e.stateT += adv; if (e.stateT >= d.warn) { e.x = e.emergeAt.x; e.y = e.emergeAt.y; e.hidden = false; e.state = 'emerge'; e.stateT = 0; K().noteAttack(st, e, 'execute'); if (m().dist(e, p) <= d.emergeR + p.r) K().damagePlayer(st, d.damage, 'emerge'); K().fx(st, { kind: 'bossland', x: e.x, y: e.y, r: d.emergeR, ttl: 0.4, t: 0 }); K().ev(st, 'boss_land'); e.burrowCd = d.cooldown; } break;
+      case 'warn': e.stateT += adv; if (e.stateT >= d.warn) { e.x = e.emergeAt.x; e.y = e.emergeAt.y; e.hidden = false; e.state = 'emerge'; e.stateT = 0; K().noteAttack(st, e, 'execute'); if (m().dist(e, p) <= d.emergeR + p.r) K().damagePlayer(st, d.damage, 'emerge', e); K().fx(st, { kind: 'bossland', x: e.x, y: e.y, r: d.emergeR, ttl: 0.4, t: 0 }); K().ev(st, 'boss_land'); e.burrowCd = d.cooldown; } break;
       case 'emerge': e.stateT += adv; if (e.stateT >= 0.15) { e.state = 'stagger'; e.stateT = 0; K().text(st, e.x, e.y - e.r - 26, '빈틈!', '#ffd166'); } break;
       case 'stagger': e.stateT += adv; if (e.stateT >= d.exposed) { e.state = 'approach'; e.stateT = 0; } break;
       case 'bite_aim': e.aimAngle = Math.atan2(p.y - e.y, p.x - e.x); e.stateT += adv; if (e.stateT >= d.biteAim) { e.dir = e.aimAngle; arcHit(st, e, e.dir, d.biteRange + e.r, deg(d.biteDeg) / 2, d.biteDamage, 'bite'); e.biteT = 0; K().noteAttack(st, e, 'execute'); toRecover(st, e, d.biteRecover); } break;

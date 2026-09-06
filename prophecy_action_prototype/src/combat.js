@@ -234,7 +234,9 @@ PA.Combat = (function () {
   function timeFactor(st, o) { return inField(st, o) ? C().PLAYER.special.slow : (inSlowEcho(st, o) ? 0.7 : 1); }
 
   // ---------- 플레이어 피해 ----------
-  function damagePlayer(st, amount, src) {
+  // attacker: 피해를 준 적 객체(있을 때). 시간의 방패(감속장 안 공격자 −20%) 판정에만 쓰며 잔류 지대·표식은 공격자 없음
+  function checkLowShieldStart(st) { const p = st.player, EQ = st.build.equip || {}; if (EQ.lowShield && !st.lowShieldUsed && st.intro <= 0 && p.hp > 0 && p.hp <= p.hpMax * EQ.lowShield.frac) { st.lowShieldUsed = true; p.shield += EQ.lowShield.shield; p.shieldMax = Math.max(p.shieldMax || 0, p.shield); st.stats.equipProcs = st.stats.equipProcs || {}; st.stats.equipProcs.emergency_shield = 1; } } // 비상 방패: 30% 이하로 전투를 시작하면 시작 직후 1회
+  function damagePlayer(st, amount, src, attacker) {
     const p = st.player;
     if (p.dead || st.status !== 'running' || st.intro > 0) return false;
     if (st.boss && st.boss.dead) return false; // 보스가 쓰러진 뒤에는 추가 피해 없음
@@ -245,24 +247,27 @@ PA.Combat = (function () {
       return false;
     }
     if (p.hitProt > 0) return false;
-    applyPlayerDamage(st, amount, src);
+    applyPlayerDamage(st, amount, src, attacker);
     p.hitProt = C().PLAYER.hitProtect;
     return true;
   }
-  function applyPlayerDamage(st, amount, src) {
+  function applyPlayerDamage(st, amount, src, attacker) {
     if (st.obj && PA.Objectives) PA.Objectives.onPlayerHit(st);
-    const p = st.player;
-    if (src !== 'zone' && st.build.toughness) amount = Math.round(amount * (1 - st.build.toughness) * 10) / 10; // 강인함: 직접 공격만
+    const p = st.player, EQ = st.build.equip || {}; const directHit = src !== 'zone';
+    if (directHit && st.build.toughness) amount = Math.round(amount * (1 - st.build.toughness) * 10) / 10; // 강인함: 직접 공격만
+    if (directHit && EQ.bigHit && amount >= p.hpMax * EQ.bigHit.frac) { amount = Math.round(amount * (1 - EQ.bigHit.reduce) * 10) / 10; st.stats.equipProcs = st.stats.equipProcs || {}; st.stats.equipProcs.iron_shield = (st.stats.equipProcs.iron_shield || 0) + 1; } // 철벽 방패: 최대 체력 20% 이상의 직접 피해 −25%(원래 피해 기준으로 판정)
+    if (directHit && EQ.fieldTaken && attacker && inField(st, attacker)) { amount = Math.round(amount * (1 - EQ.fieldTaken) * 10) / 10; st.stats.equipProcs = st.stats.equipProcs || {}; st.stats.equipProcs.time_shield = (st.stats.equipProcs.time_shield || 0) + 1; } // 시간의 방패: 감속장 안에 있는 공격자의 직접 피해 −20%
     let rest = amount;
     if (p.shield > 0) {
       const used = Math.min(p.shield, rest);
-      p.shield -= used; rest -= used;
+      p.shield -= used; rest -= used; if (st.casterShield) st.casterShield.amt = Math.max(0, st.casterShield.amt - used);
       PA.Skills.onShieldDamaged(st, used);
       if (p.shield <= 0 && st.build.has('barrier')) barrierBurst(st);
     }
     if (rest > 0) { p.hp -= rest; st.stats.damageTaken += rest; }
     if (st.metrics) { const M = st.metrics, k = src || 'unknown'; M.taken[k] = (M.taken[k] || 0) + rest; M.takenHits[k] = (M.takenHits[k] || 0) + 1; M.absorbed += amount - rest; st.stats.absorbed += amount - rest; }
     p.flash = 0.2; p.hurtT = 0;
+    if (EQ.lowShield && !st.lowShieldUsed && p.hp > 0 && p.hp <= p.hpMax * EQ.lowShield.frac) { st.lowShieldUsed = true; p.shield += EQ.lowShield.shield; p.shieldMax = Math.max(p.shieldMax || 0, p.shield); st.stats.equipProcs = st.stats.equipProcs || {}; st.stats.equipProcs.emergency_shield = 1; text(st, p.x, p.y - 44, '비상 방패!', '#9fd8ff'); } // 비상 방패: 이 피해로 체력이 30% 이하가 된 직후 1회(전투당). 이미 받은 피해에는 소급 없음, 0 이하면 발동 없음
     fx(st, { kind: 'hitflash', x: p.x, y: p.y, ttl: 0.25, t: 0 });
     text(st, p.x, p.y - 28, '-' + Math.round(amount), '#ff6b6b');
     ev(st, 'hurt', { src });
@@ -303,6 +308,7 @@ PA.Combat = (function () {
     const direct = sr.direct !== false && !sr.extra && !sr.skill;
     let dmg = amount;
     if (e.state === 'recover' || e.state === 'stagger') dmg *= st.build.exposedMult;
+    { const EQ = st.build.equip || {}; if (direct && EQ.eliteDirect && (e.elite || e.boss)) dmg *= 1 + EQ.eliteDirect; if (direct && EQ.fieldDirect && inField(st, e)) dmg *= 1 + EQ.fieldDirect; } // 사냥꾼의 검(정예·보스 직접 피해)·시간술사의 지팡이(감속장 안 대상 직접 피해). 각 1회 곱
     if (st.markTarget === e) dmg *= C().MARK.damageMult;
     if (PA.Enemies && PA.Enemies.shieldMult) { const sm = PA.Enemies.shieldMult(st, e, opt); if (sm !== 1) { dmg *= sm; e.blockedT = 0.2; } } // 방패병 정면 감소
     dmg = Math.round(dmg * 10) / 10;
@@ -315,11 +321,11 @@ PA.Combat = (function () {
     const b = st.build, dm = b.durationMult || 1;
     if (direct) { // 기본 공격 적중 효과(공통 규칙): 냉기·화상은 중첩 없이 유지 시간만 갱신, 흔적은 감속장 안에서만
       if (b.has('frost')) e.chill = Math.max(e.chill, C().FROST.chill * dm);
-      if (b.has('burn')) { const BV = PA.GROWTH.COMMON_VALUES.burn; if (!e.burn || e.burn.dps <= BV.dps) e.burn = { t: Math.max(e.burn ? e.burn.t : 0, BV.dur * dm), dps: BV.dps }; }
+      if (b.has('burn')) { const BV = PA.GROWTH.COMMON_VALUES.burn, dd = 1 + ((b.equip && b.equip.dotDur) || 0); if (!e.burn || e.burn.dps <= BV.dps) e.burn = { t: Math.max(e.burn ? e.burn.t : 0, BV.dur * dm * dd), dps: BV.dps }; } // 잔불검: 자기 화상 지속 +25%
       if (b.has('stasis') && inField(st, e)) e.stasis = Math.min(C().STASIS.maxStacks, e.stasis + 1);
     }
     if (opt.chill) e.chill = Math.max(e.chill, opt.chill * dm);                 // 무기 고유 냉기(서리 수정·서리 함정): 같은 규칙
-    if (opt.bleed && sr.weapon) { const dps = sr.weapon.damage * 0.3; if (!e.bleed || e.bleed.dps <= dps) e.bleed = { t: Math.max(e.bleed ? e.bleed.t : 0, opt.bleed), dps }; }
+    if (opt.bleed && sr.weapon) { const dps = sr.weapon.damage * 0.3, dd = 1 + ((b.equip && b.equip.dotDur) || 0); if (!e.bleed || e.bleed.dps <= dps) e.bleed = { t: Math.max(e.bleed ? e.bleed.t : 0, opt.bleed * dd), dps }; } // 잔불검: 자기 출혈 지속 +25%
     PA.Weapons.onHit(st, e, opt, dmg);
     const crit = e.state === 'recover' || e.state === 'stagger';
     fx(st, { kind: 'spark', x: e.x, y: e.y, ttl: 0.22, t: 0, angle: opt.dir ? Math.atan2(opt.dir.y, opt.dir.x) : st.rng.range(0, Math.PI * 2), crit });
@@ -489,7 +495,7 @@ PA.Combat = (function () {
         const x0 = e.x, y0 = e.y;
         // 스윕 이동: 장애물·벽에 닿으면 그 지점에서 정지. 물기 판정은 실제로 이동한 구간에만 적용(장애물 뒤로 관통하지 않음)
         const mv = moveSwept(st, e, Math.cos(e.dir) * step, Math.sin(e.dir) * step);
-        if (!e.hitBy && m().segCircle(x0, y0, e.x, e.y, p, p.r + e.r)) { e.hitBy = 'player'; e.biteT = 0; ev(st, 'bite'); damagePlayer(st, d.damage, 'wolf'); }
+        if (!e.hitBy && m().segCircle(x0, y0, e.x, e.y, p, p.r + e.r)) { e.hitBy = 'player'; e.biteT = 0; ev(st, 'bite'); damagePlayer(st, d.damage, 'wolf', e); }
         const hitWall = !!mv.hit;
         if (e.stateT >= d.dashTime || hitWall) {
           if (!e.hitBy) e.biteT = 0; // 빗나간 물기도 같은 시점에 턱을 닫는다
@@ -523,7 +529,7 @@ PA.Combat = (function () {
       case 'lock':
         e.stateT += dt * tf;
         if (e.stateT >= d.lock) {
-          st.projectiles.push({ owner: 'enemy', kind: 'arrow', x: e.x + Math.cos(e.dir) * (e.r + 4), y: e.y + Math.sin(e.dir) * (e.r + 4), vx: Math.cos(e.dir) * d.arrowSpeed, vy: Math.sin(e.dir) * d.arrowSpeed, r: d.arrowR, dmg: d.arrowDamage, ttl: 4, angle: e.dir });
+          st.projectiles.push({ owner: 'enemy', kind: 'arrow', shooter: e, x: e.x + Math.cos(e.dir) * (e.r + 4), y: e.y + Math.sin(e.dir) * (e.r + 4), vx: Math.cos(e.dir) * d.arrowSpeed, vy: Math.sin(e.dir) * d.arrowSpeed, r: d.arrowR, dmg: d.arrowDamage, ttl: 4, angle: e.dir });
           ev(st, 'shoot'); noteAttack(st, e, 'execute');
           e.state = 'recover'; e.stateT = 0;
         }
@@ -599,7 +605,7 @@ PA.Combat = (function () {
       const obs = m().sweepCircle(pr.x, pr.y, nx, ny, pr.r, st.obstacles); const tObs = obs ? obs.t : Infinity;
       if (pr.owner === 'enemy') {
         const tp = m().segCircleT(pr.x, pr.y, nx, ny, p, p.r + pr.r);
-        if (tp != null && tp <= tObs) { pr.dead = true; damagePlayer(st, pr.dmg, pr.kind); }
+        if (tp != null && tp <= tObs) { pr.dead = true; damagePlayer(st, pr.dmg, pr.kind, pr.shooter || null); }
       } else {
         const cands = [];
         for (const e of st.enemies) { if (e.dead || e.hidden || (pr.hits && pr.hits.has(e.id))) continue; const t = m().segCircleT(pr.x, pr.y, nx, ny, e, e.r + pr.r); if (t != null) cands.push([t, e]); }
@@ -636,6 +642,8 @@ PA.Combat = (function () {
     if (maxDmg === 0 && p.zoneTick < 0) p.zoneTick = 0;
     if (PA.Enemies && PA.Enemies.detonate) for (const z of st.zones) if (z.type === 'frostzone' && z.ttl <= 0) PA.Enemies.detonate(st, z);
     st.zones = st.zones.filter(z => z.ttl > 0);
+    checkLowShieldStart(st);
+    if (st.casterCd > 0) st.casterCd -= dt; if (st.casterShield) { st.casterShield.t -= dt; if (st.casterShield.t <= 0) { st.player.shield = Math.max(0, st.player.shield - st.casterShield.amt); st.casterShield = null; } } // 시전자의 방패 만료: 남은 양만큼만 제거
     if (st.field) {
       st.field.ttl -= dt;
       if (st.field.ttl <= 0) endField(st);

@@ -71,6 +71,7 @@ PA.Skills = (function () {
       }
     }
     p.eCd = cdOf(st, 'e'); st.stats.eUses = (st.stats.eUses || 0) + 1;
+    { const EQ = b.equip || {}; if (EQ.eShield && (st.casterCd || 0) <= 0) { st.casterCd = EQ.eShield.cd; const prev = st.casterShield ? st.casterShield.amt : 0; p.shield = p.shield - prev + EQ.eShield.shield; st.casterShield = { amt: EQ.eShield.shield, t: EQ.eShield.dur }; p.shieldMax = Math.max(p.shieldMax || 0, p.shield); st.stats.equipProcs = st.stats.equipProcs || {}; st.stats.equipProcs.caster_shield = (st.stats.equipProcs.caster_shield || 0) + 1; } } // 시전자의 방패: E 사용 시 보호막 8(3초), 장비 재사용 10초, 중첩 없음(남은 양은 새 값으로 대체)
     K().ev(st, 'skill_e', { id: sk.id }); K().text(st, p.x, p.y - 62, d.name, '#ffe9a8');
     if (b.bossRewards.includes('volley')) PA.Weapons.volley(st); // 추가 공격은 E 효과를 다시 일으키지 않는다(무기 공격만)
     return true;
