@@ -13,9 +13,11 @@ PA.Flow = (function () {
       labText: R.layoutText(run) || null, run,
     }, sortie.mission ? { objective: sortie.objective, risk: sortie.risk || null, mission: { cardId: sortie.cardId, objective: sortie.objective, risk: sortie.risk || null } } : {}, sortie.eventFight && PA.Events ? PA.Events.fightOpts(run, sortie) : {}, extra || {});
   }
-  function makeEncounter(run, sortie, extra) { const st = PA.Combat.create(encounterOpts(run, sortie, extra)); if (run.buffs && run.buffs.skillCd) { st.tempBuff = 'skillCd'; delete run.buffs.skillCd; } run.pendingSortie = null; return st; } // 임시 강화는 이 전투에 적용되고 소비. 전투 시작 시 보류 출격 상태 해제(전투 중 종료 = 기존 규칙: 거점 복귀)
+  function makeEncounter(run, sortie, extra) { const st = PA.Combat.create(encounterOpts(run, sortie, extra)); if (run.buffs && run.buffs.skillCd) st.tempBuff = 'skillCd'; run.pendingSortie = null; return st; } // 임시 강화는 이 전투 내내 적용(레벨업 재계산 포함)되고 정산 때 소비. 전투 시작 시 보류 출격 상태 해제
+  function consumeBuff(run, st) { if (st && st.tempBuff === 'skillCd' && run.buffs) delete run.buffs.skillCd; }
   // 조우 승리 정산(정확히 1회): 전리품 굴림 → 출격 전리품 반영 → 지역 경험치 → 더 깊이면 지역 3택을 보류 선택으로 등록(저장됨)
   function settleVictory(run, sortie, st) {
+    consumeBuff(run, st);
     const eliteKilled = st.enemies.some(e => e.elite && e.dead) || (st.status === 'won' && st.objective === 'elite');
     const reward = PA.Run.rollReward(run, sortie, st.rng, { chestGold: st.stats.chestGold, eliteKilled });
     if (sortie.eventFight) { reward.gold = 0; reward.mats = {}; reward.chestGold = 0; reward.eventFight = sortie.eventFight; PA.Events.onFightWin(run, sortie); } // 사건 추가 전투: 전리품 없음, 서비스만
@@ -32,11 +34,11 @@ PA.Flow = (function () {
     return reward;
   }
   // 보스전(회차 관문): 단계별 보스·체력 후보. 입장 스냅샷은 Run.startBoss가 만든다
-  function makeBossEncounter(run, sortie) { const b = PA.Run.build(run); const st = PA.Combat.create({ build: b, hp: b.hpMax, seed: sortie.seed, boss: true, bossId: sortie.bossId || 'boss', bossHp: PA.Run.bossHp(run, sortie.bossId || 'boss'), arena: 'clearing', waves: [], run }); if (run.buffs && run.buffs.skillCd) { st.tempBuff = 'skillCd'; delete run.buffs.skillCd; } run.pendingSortie = null; return st; }
+  function makeBossEncounter(run, sortie) { const b = PA.Run.build(run); const st = PA.Combat.create({ build: b, hp: b.hpMax, seed: sortie.seed, boss: true, bossId: sortie.bossId || 'boss', bossHp: PA.Run.bossHp(run, sortie.bossId || 'boss'), arena: 'clearing', waves: [], run }); if (run.buffs && run.buffs.skillCd) st.tempBuff = 'skillCd'; run.pendingSortie = null; return st; }
   // 보스 승리 정산(정확히 1회): 처치 기록·다음 단계·희귀 보상 보류(마지막 보스는 없음)
-  function settleBossVictory(run, st) { const rec = PA.Run.bossVictory(run, st.stats); run.pendingSortie = null; return rec; }
-  function settleBossDefeat(run, st) { PA.Run.bossDefeat(run); run.pendingSortie = null; }
-  function settleDefeat(run, sortie, st) { PA.Run.applyEncounterResult(run, sortie, 'lost', null, 0); PA.Run.defeat(run, sortie); run.pendingSortie = null; }
+  function settleBossVictory(run, st) { consumeBuff(run, st); const rec = PA.Run.bossVictory(run, st.stats); run.pendingSortie = null; return rec; }
+  function settleBossDefeat(run, st) { consumeBuff(run, st); PA.Run.bossDefeat(run); run.pendingSortie = null; }
+  function settleDefeat(run, sortie, st) { consumeBuff(run, st); PA.Run.applyEncounterResult(run, sortie, 'lost', null, 0); PA.Run.defeat(run, sortie); run.pendingSortie = null; }
   // 다음에 제시할 선택(순서 고정): 저장된 보류 제시 → 미처리 레벨업 → 임무 보상 3택 → 더 깊이 지역 3택 → 없음(null)
   // 더 깊이 3택은 여기서 보류 등록을 소비하고 pendingOffer로 옮긴다(새로고침해도 같은 제시, 두 번 제시되지 않음). 후보가 없으면 제시 없이 소비
   function nextOffer(run, ctx) {

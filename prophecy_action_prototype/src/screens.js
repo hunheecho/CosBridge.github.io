@@ -169,46 +169,54 @@ PA.Screens = (function () {
   function map(G) {
     const run = G.run, t = R().targetInfo(run);
     const needKinds = t ? t.needs.map(n => n.kind) : [];
+    const sizeText = (rid) => ({ forest: '작은 보상', ridge: '작은 보상', marsh: '큰 보상', den: '큰 보상', deep: '더 큰 보상' })[rid] || '보상';
     const cards = PA.REGIONS.map(r => {
       const can = R().canSortie(run, r.id);
       const rewardText = `금화 ${r.reward.gold[0]}~${r.reward.gold[1]}` + Object.keys(r.reward.mats).map(k => `, ${matName(k)} ${k === 'fang' ? '(정예 처치 시 1)' : r.reward.mats[k][0] + '~' + r.reward.mats[k][1]}`).join('');
       const forTarget = Object.keys(r.reward.mats).some(k => needKinds.includes(k)) || (needKinds.includes('gold'));
-      const lr = R().layoutRegion(r.id, run), hpm = R().hpMultFor(run, r.id, false).normal;
+      const lr = R().layoutRegion(r.id, run), hpm = R().hpMultFor(run, r.id, false).normal, elite = R().encounterObjective(r.id, false, run) === 'elite' || R().regionEnemies(r.id, run).some(id => PA.ENEMIES[id].elite);
       const enemies = R().regionEnemies(r.id, run).map(id => `<li><b>${esc(PA.ENEMIES[id].name)}</b> <span class="dim">${esc(PA.ENEMIES[id].role)} — ${esc(PA.ENEMIES[id].readme)}</span></li>`).join('');
+      const mainEnemies = R().regionEnemies(r.id, run).slice(0, 3).map(id => esc(PA.ENEMIES[id].name)).join('·');
       return `<div class="card region ${can ? '' : 'off'}">
-        <div class="card-title">${esc(r.name)} <span class="risk">위험 ${stars(r.risk)}</span> <span class="cost-badge">${r.cost}시간</span></div>
-        <p>${esc(lr ? lr.desc : r.desc)}${lr ? ' <span class="tag">시험안 배치</span>' : ''}${hpm !== 1 ? ` <span class="tag">체력 ×${hpm}</span>` : ''}</p>
-        <div class="kv"><span>목적</span><b>${R().encounterObjective(r.id, false, run) === 'elite' ? '정예 처치' : '전멸'} · ${R().encounterWaves(r.id, false, run).length}웨이브</b></div>
-        <div class="kv"><span>보상</span><b>${rewardText}</b>${forTarget ? ' <span class="tag">목표 장비 재료</span>' : ''}</div>
-        <div class="kv"><span>성장</span><b>${esc(PA.REGION_TAG_TEXT[r.id] || '—')}</b> <span class="dim small">경험치 +${PA.GROWTH.REGION_BONUS_XP[r.id]} · 더 깊이 승리 시 지역 보상 선택</span></div>
-        <ul class="enemies">${enemies}</ul>
-        <button class="primary" data-action="sortie" data-arg="${r.id}" ${can ? '' : 'disabled'}>${can ? `출격 (${r.cost}시간 사용 → ${run.hours - r.cost}시간 남음)` : run.phase !== 'prep' ? '7일차: 출격 종료' : '시간 부족'}</button>
+        <div class="card-title">${esc(r.name)} <span class="risk">${stars(r.risk)}</span> <span class="cost-badge">${r.cost}시간</span></div>
+        <p class="summary">${mainEnemies} · ${sizeText(r.id)}${elite ? ' · <b>정예 나옴</b>' : ''}${forTarget ? ' · <span class="tag">목표 재료</span>' : ''}${hpm !== 1 ? ` · 체력 ×${hpm}` : ''}</p>
+        <details><summary>상세 보기</summary>
+          <p class="dim">${esc(lr ? lr.desc : r.desc)}${lr ? ' <span class="tag">시험안 배치</span>' : ''}</p>
+          <div class="kv"><span>목적</span><b>${R().encounterObjective(r.id, false, run) === 'elite' ? '정예 전부 처치' : '전멸'} · ${R().encounterWaves(r.id, false, run).length}웨이브</b></div>
+          <div class="kv"><span>보상</span><b>${rewardText}</b></div>
+          <div class="kv"><span>성장</span><b>${esc(PA.REGION_TAG_TEXT[r.id] || '—')}</b> <span class="dim small">경험치 +${R().regionBonusXp(r.id, false)} · 더 깊이 승리 시 지역 보상 선택</span></div>
+          <ul class="enemies">${enemies}</ul>
+        </details>
+        <button class="primary" data-action="sortie" data-arg="${r.id}" ${can ? '' : 'disabled'}>${can ? `출격 (${r.cost}시간)` : run.phase !== 'prep' ? '출격 종료' : '시간 부족'}</button>
       </div>`;
     }).join('');
     return `<div class="screen">${header(run)}
       <div class="row between"><h2>출격</h2><button data-action="base">거점으로</button></div>
-      <h3>오늘의 출격 카드 <span class="dim small">하루 3장 · 아침에 확정(다시 굴리기 없음) · 임무는 하루 1회 완료</span></h3>
+      <h3>오늘의 출격 카드 <span class="dim small">하루 3장 · 임무는 하루 1회</span></h3>
       <div class="grid3">${missionCards(run)}</div>
-      <h3>일반 탐험 <span class="dim small">지역 선택 · 승리 후 더 깊이 탐험 가능</span></h3>
-      <p class="dim">출격 비용은 출발 시 차감됩니다. 전투가 오래 걸려도 추가로 시간을 빼지 않습니다. 조우 승리 후 "더 깊이 탐험"은 별도로 1시간을 씁니다.</p>
+      <h3>일반 탐험 <span class="dim small">승리 후 더 깊이 탐험 가능</span></h3>
       <div class="grid3">${cards}</div></div>`;
   }
-  // 출격 카드: 지역+목표, 시간, 주요 적 2~3, 위험 조건, 보상 종류·대상, 빌드 연결, 첫 도입
+  // 출격 카드: 제목 + 한 줄 요약(적·보상 크기·정예), 상세는 접힘
   function missionCards(run) {
+    const sizeText = (rid) => ({ forest: '작은 보상', ridge: '작은 보상', marsh: '큰 보상', den: '큰 보상', deep: '더 큰 보상' })[rid] || '보상';
     return PA.Sortie.cardsFor(run).map(c => {
       const r = R().region(c.regionId), O = PA.OBJECTIVES[c.objective], can = PA.Sortie.canStart(run, c), M = PA.MISSIONS;
-      const enemies = c.enemies.map(id => `<li><b>${esc(PA.ENEMIES[id].name)}</b> <span class="dim">${esc(PA.ENEMIES[id].role)}</span></li>`).join('');
+      const enemies = c.enemies.map(id => `<li><b>${esc(PA.ENEMIES[id].name)}</b> <span class="dim">${esc(PA.ENEMIES[id].role)} — ${esc(PA.ENEMIES[id].readme)}</span></li>`).join('');
       const rewardGold = `금화 ${Math.round(r.reward.gold[0] * (c.risk ? M.riskRewardMult : 1))}~${Math.round(r.reward.gold[1] * (c.risk ? M.riskRewardMult : 1))}`;
       const riskDesc = c.risk === 'reinforce' ? '지원병 총량 ×1.5, 동시 수 동일' : c.risk === 'escort' ? '첫 웨이브에 정예 1 추가' : '주기적 바닥 붕괴 예고, 안전 통로 있음';
+      const elite = c.enemies.some(id => PA.ENEMIES[id].elite);
       return `<div class="card region mission ${can ? '' : 'off'} ${c.done ? 'done' : ''}">
-        <div class="card-title">${esc(r.name)} · ${esc(O.name)} <span class="cost-badge">${c.timeCost}시간</span>${c.first ? ' <span class="tag">첫 도입</span>' : ''}${c.linked ? ' <span class="tag">내 빌드</span>' : ''}</div>
-        <p>${esc(O.desc)}</p>
-        <div class="kv"><span>주요 적</span><b>${c.enemies.map(id => esc(PA.ENEMIES[id].name)).join(', ')}</b></div>
-        <div class="kv"><span>위험 조건</span><b>${c.risk ? esc(M.riskText[c.risk]) + ' <span class="dim small">(' + riskDesc + ')</span>' : '없음'}</b></div>
-        <div class="kv"><span>보상</span><b>${esc(M.kindText[c.rewardKind])}${c.rewardTarget ? ' <span class="dim small">' + esc(c.rewardTarget) + '</span>' : ''}</b></div>
-        <div class="kv"><span>기타</span><b>${rewardGold}${c.risk ? ' (위험 ×' + M.riskRewardMult + ')' : ''} · 처치 경험치 즉시 · 지역 경험치 +${PA.GROWTH.REGION_BONUS_XP[c.regionId]}</b> <span class="dim small">재료 대신 위 3택. 후보가 없으면 금화 +${c.fallbackGold}</span></div>
-        <ul class="enemies">${enemies}</ul>
-        <button class="primary" data-action="mission" data-arg="${c.id}" ${can ? '' : 'disabled'}>${c.done ? '오늘 완료' : can ? `임무 출격 (${c.timeCost}시간 → ${run.hours - c.timeCost}시간 남음)` : run.phase !== 'prep' ? '출격 종료' : '시간 부족'}${c.attempts && !c.done ? ` · 시도 ${c.attempts}` : ''}</button>
+        <div class="card-title">${esc(r.name)} · ${esc(O.name)} <span class="cost-badge">${c.timeCost}시간</span></div>
+        <p class="summary">${c.enemies.filter(id => !PA.ENEMIES[id].elite).slice(0, 2).map(id => esc(PA.ENEMIES[id].name)).join('·')} · ${esc(M.kindText[c.rewardKind].replace(' 3택', ''))}${c.risk ? ' · <b>' + esc(M.riskText[c.risk]) + '</b>' : ''}${elite ? ' · <b>정예 나옴</b>' : ''}${c.first ? ' · <span class="tag">첫 도입</span>' : ''}${c.linked ? ' · <span class="tag">내 빌드</span>' : ''}</p>
+        <details><summary>상세 보기</summary>
+          <p class="dim">${esc(O.desc)}</p>
+          <div class="kv"><span>위험 조건</span><b>${c.risk ? esc(M.riskText[c.risk]) + ' <span class="dim small">(' + riskDesc + ')</span>' : '없음'}</b></div>
+          <div class="kv"><span>보상</span><b>${esc(M.kindText[c.rewardKind])}${c.rewardTarget ? ' <span class="dim small">' + esc(c.rewardTarget) + '</span>' : ''}</b></div>
+          <div class="kv"><span>기타</span><b>${rewardGold}${c.risk ? ' (위험 ×' + M.riskRewardMult + ')' : ''} · 처치 경험치 즉시 · 지역 경험치 +${R().regionBonusXp(c.regionId, false)}</b> <span class="dim small">재료 대신 위 3택. 후보가 없으면 금화 +${c.fallbackGold}</span></div>
+          <ul class="enemies">${enemies}</ul>
+        </details>
+        <button class="primary" data-action="mission" data-arg="${c.id}" ${can ? '' : 'disabled'}>${c.done ? '오늘 완료' : can ? `임무 출격 (${c.timeCost}시간)` : run.phase !== 'prep' ? '출격 종료' : '시간 부족'}${c.attempts && !c.done ? ` · 시도 ${c.attempts}` : ''}</button>
       </div>`;
     }).join('');
   }
@@ -259,7 +267,7 @@ PA.Screens = (function () {
   function reward(G) {
     const run = G.run, rw = G.lastReward, g = run.growth;
     const matText = Object.keys(rw.mats).map(k => `${matName(k)} ${rw.mats[k]}`).join(', ');
-    return `<div class="screen"><h2>조우 승리</h2>
+    return `<div class="screen"><h2>전투 승리</h2>
       <div class="card"><div class="card-title">보상 (귀환 시 거점에 반영)</div>
         <p>금화 <b class="gold">+${rw.gold}</b>${rw.chestGold ? ` (보급 상자 +${rw.chestGold} 포함)` : ''}${matText ? ` · ${matText}` : ''} · 지역 경험치 <b class="gold">+${rw.xp || 0}</b>${rw.mission ? (rw.missionPick ? ' · <b>임무 완료: 보상 3택은 다음 단계에서</b>' : ' · 임무(오늘 이미 완료: 추가 3택 없음)') : ''}</p>
         <p class="dim small">처치 ${G.lastStats.kills}${G.lastStats.savingKills ? ` (감속장 안 ${G.lastStats.savingKills})` : ''} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · ${Math.round(G.lastStats.elapsed)}초 · 전투 중 경험치 ${G.lastStats.xp} · 레벨업 ${G.lastStats.levelUps}회 (Lv ${g.level})</p></div>
@@ -327,7 +335,7 @@ PA.Screens = (function () {
     return `<div class="screen center"><h2>보스 도래 — ${run.day}일차</h2>
       <p>예언의 날이 왔습니다. 준비 기간이 끝났습니다.</p>
       <div class="card"><div class="card-title">이 빌드의 한계</div><p><b>보스전은 아직 구현되어 있지 않습니다.</b> 이 화면은 결말을 완료된 것처럼 꾸미지 않기 위한 정직한 종료 화면입니다.</p>
-      <p class="dim">회차 기록: 조우 ${run.stats.encounters} · 승리 ${run.stats.wins} · 패배 ${run.stats.losses} · 최종 금화 ${run.gold}</p></div>
+      <p class="dim">회차 기록: 전투 ${run.stats.encounters} · 승리 ${run.stats.wins} · 패배 ${run.stats.losses} · 최종 금화 ${run.gold}</p></div>
       ${buildPanel(run)}
       <div class="row"><button class="primary big" data-action="newrun-confirm">새 회차 시작</button><button data-action="title">제목으로</button></div></div>`;
   }

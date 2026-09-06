@@ -37,8 +37,9 @@ test('C 갇힌 상인: 추가 전투는 전리품·지역 경험치 없이 서�
 test('D 시간의 샘: 무료 임시 강화(다음 전투 1회 소비) 또는 1시간 치료. 무료 시간 없음', () => {
   const { run, s } = wonSortie(7, 'forest'); forceEvent(run, s, 'time_spring'); const h0 = run.hours;
   PA.Events.resolve(run, s, 'buff'); assert.equal(run.buffs.skillCd, 0.7); assert.equal(run.hours, h0);
-  const b1 = PA.Run.build(run); const s2 = PA.Run.startSortie(run, 'forest'); const st = PA.Flow.makeEncounter(run, s2); assert.equal(st.tempBuff, 'skillCd'); assert.equal(run.buffs.skillCd, undefined, '전투 시작 시 소비');
-  assert.ok(st.build.specialCd < PA.Run.build(run).specialCd, '강화된 재사용이 그 전투에만 적용');
+  const cd0 = PA.Run.build(Object.assign({}, run, { buffs: {} })).specialCd; const s2 = PA.Run.startSortie(run, 'forest'); const st = PA.Flow.makeEncounter(run, s2); assert.equal(st.tempBuff, 'skillCd'); assert.equal(run.buffs.skillCd, 0.7, '전투 중에는 유지(레벨업 재계산에도 적용)');
+  assert.ok(st.build.specialCd < cd0, '강화된 재사용 적용'); PA.Combat.rebuild(st, PA.Run.build(run)); assert.ok(st.build.specialCd < cd0, '재계산 뒤에도 유지');
+  st.status = 'won'; PA.Flow.settleVictory(run, s2, st); assert.equal(run.buffs.skillCd, undefined, '정산 때 소비'); assert.equal(PA.Run.build(run).specialCd, cd0);
   const { run: r2, s: s3 } = wonSortie(7, 'forest'); r2.hp = 30; forceEvent(r2, s3, 'time_spring'); const h1 = r2.hours; PA.Events.resolve(r2, s3, 'heal'); assert.equal(r2.hours, h1 - 1); assert.equal(r2.hp, PA.Run.build(r2).hpMax);
   const { run: r3, s: s4 } = wonSortie(7, 'forest'); r3.hours = 0; r3.hp = 30; forceEvent(r3, s4, 'time_spring'); assert.equal(PA.Events.options(r3, s4).find(o => o.id === 'heal').enabled, false);
 });
@@ -84,4 +85,19 @@ test('거점 서비스: 제시 재선택권은 다른 순번의 레벨업 제시
   const run2 = PA.Run.newRun(12, 'sword'); run2.services = { mod_swap: 1 }; const all = Object.keys(PA.WEAPONS.sword.mods).filter(k => PA.WEAPONS.sword.mods[k].impl); run2.growth.weapons[0].mods = all.slice(0, 2);
   // 남은 후보가 있으면 제시, 없으면 되돌리고 권 유지
   const res = PA.Flow.modSwapOffer(run2, 'sword', all[0]); if (!res) { assert.deepEqual(run2.growth.weapons[0].mods.sort(), all.slice(0, 2).sort()); assert.equal(run2.services.mod_swap, 1); }
+});
+test('Codex 지적: 보스 패배 시 금화도 입장 시점으로 복구, 한 무기 개조 3택은 여러 개조를 제시, 정예 목표는 정예 전부 처치', () => {
+  const run = PA.Run.newRun(13, 'sword', 'trio'); run.growth.level = 6; PA.Run.endDay(run); PA.Run.endDay(run); const s = PA.Run.startBoss(run); const gold0 = run.gold;
+  const st = PA.Flow.makeBossEncounter(run, s); run.growth.pendingLevelUps = 1; PA.Growth.generateOffer(run, { pool: 'level' }); PA.Growth.skipChoice(run); assert.ok(run.gold > gold0, '건너뛰기 금화');
+  st.status = 'lost'; PA.Flow.settleBossDefeat(run, st); assert.equal(run.gold, gold0, '금화 복구');
+  const run2 = PA.Run.newRun(14, 'sword'); run2.growth.pendingEventPick = { kind: 'weapon_mod', regionId: 'forest', key: 'k' };
+  const off = PA.Flow.nextOffer(run2, {}); assert.ok(off.choices.length >= 2, '같은 무기 개조 여러 개 ' + off.choices.length); assert.ok(off.choices.every(c => c.kind === 'weapon_mod' && c.id === 'sword'));
+  const run3 = PA.Run.newRun(15, 'sword'); const s3 = PA.Run.startSortie(run3, 'den'); const c = PA.Flow.makeEncounter(run3, s3); c.waveIndex = 99; c.pending = []; c.spawnedAll = true;
+  const a1 = PA.Combat.spawnEnemy(c, 'wolf_alpha', 200, 200), a2 = PA.Combat.spawnEnemy(c, 'wolf_alpha', 700, 400); const dt = PA.CONFIG.STEP;
+  assert.deepEqual(PA.Combat.eliteCount(c), { total: 2, killed: 0 }); PA.Combat.damageEnemy(c, a1, 99999, { src: { extra: true } }); PA.Combat.step(c, {}, dt); assert.equal(c.status, 'running', '정예 하나 남으면 계속');
+  PA.Combat.damageEnemy(c, a2, 99999, { src: { extra: true } }); PA.Combat.step(c, {}, dt); assert.equal(c.status, 'won');
+  const run4 = PA.Run.newRun(16, 'sword'); const s4 = PA.Run.startSortie(run4, 'forest'); Object.assign(s4, { mission: true, objective: 'hunt', cardId: 'x', risk: 'escort' }); const h = PA.Flow.makeEncounter(run4, s4);
+  for (let i = 0; i < 200; i++) PA.Combat.step(h, {}, dt); const elites = h.enemies.filter(e => e.elite); assert.equal(elites.length, 2, '호위 정예 포함 2');
+  PA.Combat.damageEnemy(h, elites[0], 99999, { src: { extra: true } }); PA.Combat.step(h, {}, dt); assert.equal(h.status, 'running'); assert.equal(h.obj.eliteKilled, 1);
+  PA.Combat.damageEnemy(h, elites[1], 99999, { src: { extra: true } }); PA.Combat.step(h, {}, dt); assert.equal(h.status, 'won');
 });

@@ -89,7 +89,7 @@ PA.Combat = (function () {
       status: st.status, elapsed: Math.round(st.t * 100) / 100, hp: Math.round(st.player.hp), hpMax: st.player.hpMax,
       damageTaken: Math.round(st.stats.damageTaken), absorbed: Math.round(M.absorbed), kills: st.stats.kills, specialUses: st.stats.specialUses, eUses: st.stats.eUses || 0, dodges: st.stats.dodges || 0,
       taken: M.taken, takenHits: M.takenHits, enemies: en, dmg, dmgTotal: Math.round(dmgTotal), interrupts: M.interrupts, heals: M.heals, healAmount: Math.round(M.healAmount), webs: M.webs,
-      farFrac: M.farFrac != null ? M.farFrac : null, xp: st.stats.xp, levelUps: st.stats.levelUps, build: st.build.growth ? { level: st.build.growth.level, weapons: st.build.growth.weapons.map(w => w.id + ':' + w.level + (w.mods.length ? ':' + w.mods.join('+') : '')), commons: st.build.growth.commons, passives: st.build.growth.passives, e: st.build.growth.skills.e, q: st.build.growth.skills.q } : null,
+      farFrac: M.farFrac != null ? M.farFrac : null, patterns: M.patterns || {}, xp: st.stats.xp, levelUps: st.stats.levelUps, build: st.build.growth ? { level: st.build.growth.level, weapons: st.build.growth.weapons.map(w => w.id + ':' + w.level + (w.mods.length ? ':' + w.mods.join('+') : '')), commons: st.build.growth.commons, passives: st.build.growth.passives, e: st.build.growth.skills.e, q: st.build.growth.skills.q } : null,
     };
   }
 
@@ -693,14 +693,23 @@ PA.Combat = (function () {
     }
     if (st.mode !== 'boss') st.spawnedAll = st.waveIndex >= st.waves.length - 1 && st.pending.length === 0;
   }
+  // 정예 수: 웨이브 정의(남은 웨이브 포함) + 이미 스폰된 정예. 처치 수는 죽은 정예
+  function eliteCount(st) {
+    const isE = (t) => !!(PA.ENEMIES[t] && PA.ENEMIES[t].elite);
+    let total = 0, killed = 0;
+    for (const e of st.enemies) if (e.elite && !e.structure) { total++; if (e.dead) killed++; }
+    for (const s of st.pending) if (isE(s.type)) total++;
+    for (let i = st.waveIndex + 1; i < st.waves.length; i++) for (const g of st.waves[i]) if (isE(g.type)) total += g.n;
+    return { total, killed };
+  }
   function checkObjective(st) {
     if (st.status !== 'running') return;
     const alive = st.enemies.filter(e => !e.dead && !e.structure);
     if (PA.Objectives && PA.Objectives.is(st.objective)) { if (PA.Objectives.check(st)) { st.status = 'won'; ev(st, 'win'); } return; } // 목표 4종: 적이 살아 있어도 달성 시 승리
     if (st.objective === 'boss') {
       if (st.boss && st.boss.dead) { st.status = 'won'; ev(st, 'win'); }
-    } else if (st.objective === 'elite') {
-      if (st.enemies.some(e => e.elite && e.dead)) { st.status = 'won'; ev(st, 'win'); }
+    } else if (st.objective === 'elite') { // 정예 전부 처치: 등장 예정(웨이브·대기)인 정예까지 모두 죽어야 승리. 다른 적이 남아도 종료
+      const ec = eliteCount(st); if (ec.total > 0 && ec.killed >= ec.total) { st.status = 'won'; ev(st, 'win'); }
     } else if (st.objective === 'clear' && st.spawnedAll && alive.length === 0) { st.status = 'won'; ev(st, 'win'); }
   }
   function updateEffects(st, dt) {
@@ -740,5 +749,5 @@ PA.Combat = (function () {
     st.build = build; p.hpMax = build.hpMax; if (build.hpMax > oldMax) p.hp = Math.min(p.hpMax, p.hp + (build.hpMax - oldMax));
     PA.Weapons.refresh(st);
   }
-  return { create, step, rebuild, summary, noteAttack, metricsFor, enemyKey, srcKey, mayAttack, isCommitted, knockEnemy, addFireAt, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
+  return { create, step, rebuild, summary, eliteCount, noteAttack, metricsFor, enemyKey, srcKey, mayAttack, isCommitted, knockEnemy, addFireAt, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
 })();

@@ -43,6 +43,7 @@ PA.Boss2 = (function () {
   function canSummon(st, e) { const S = cfgOf(e).summon; return S && e.summonBudget > 0 && (st.t - e.lastSummon) >= S.interval && PA.Boss.summonedAlive(st) < S.cap; }
   function begin(st, e, pat) {
     const cfg = cfgOf(e); e.actions++; e.history.push(pat); if (e.history.length > 6) e.history.shift(); e.stateT = 0; e.waitT = 0; K().noteAttack(st, e, 'prepare');
+    if (st.metrics) { st.metrics.patterns = st.metrics.patterns || {}; st.metrics.patterns[pat] = (st.metrics.patterns[pat] || 0) + 1; }
     if (pat === 'sweep') e.state = 'sweep_aim';
     else if (pat === 'shock') { e.state = 'shock_aim'; e.shockLeft = cfg.shock.count[Math.min(2, e.phase - 1)]; }
     else if (pat === 'mark') e.state = 'mark_cast';

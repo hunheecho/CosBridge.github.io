@@ -9,7 +9,7 @@ function labCombat(cfgText, extra) { const cfg = L.decode(cfgText); Object.assig
 test('빌드 프리셋 8종 이상이 모두 게임 규칙(슬롯·레벨·방식·전제)을 지키고 선택 횟수가 계산된다', () => {
   const ids = Object.keys(PA.LAB.BUILDS);
   assert.ok(ids.length >= 8);
-  for (const id of ids) { const d = L.describeBuild(id); assert.equal(d.errors.length, 0, id + ': ' + d.errors.join(',')); assert.ok(d.picks >= 0); assert.ok(['초반', '중간', '후반', '관문 1', '관문 2', '관문 3'].includes(d.stage)); }
+  for (const id of ids) { const d = L.describeBuild(id); assert.equal(d.errors.length, 0, id + ': ' + d.errors.join(',')); assert.ok(d.picks >= 0); assert.ok(['초반', '중간', '후반', '관문 1', '관문 2', '관문 3', '비교'].includes(d.stage)); }
   assert.equal(L.describeBuild('early_sword').picks, 0);
   assert.equal(L.describeBuild('mid_melee').picks, 8);
   // 규칙 위반 프리셋은 잡아낸다

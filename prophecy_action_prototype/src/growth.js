@@ -25,7 +25,7 @@ PA.Growth = (function () {
     g.pendingLevelUps += gained;
     return gained;
   }
-  function xpValue(e, regionId) { const v = G().XP_VALUE, mult = (regionId && G().REGION_XP_MULT && G().REGION_XP_MULT[regionId]) || 1; const base = e.summoned ? v.summoned : (v[e.type] != null ? v[e.type] : 5); return Math.round(base * mult); }
+  function xpValue(e, regionId) { const v = G().XP_VALUE, mult = (regionId && G().REGION_XP_MULT && G().REGION_XP_MULT[regionId]) || 1; const base = e.summoned ? v.summoned : (v[e.type] != null ? v[e.type] : 5); return Math.round(base * mult * (G().XP_KILL_MULT || 1)); }
 
   // ---------- 조회 ----------
   const weaponOf = (g, id) => g.weapons.find(w => w.id === id);
@@ -109,7 +109,7 @@ PA.Growth = (function () {
       for (let i = 0; i < remaining.length; i++) { r -= ws[i]; if (r <= 0) { idx = i; break; } }
       const c = remaining.splice(idx, 1)[0];
       // 같은 무기의 레벨업과 전용 증강이 한 화면에 둘 이상 나오지 않게(다양성)
-      if (picked.some(p => p.kind === c.kind && p.id === c.id)) continue;
+      if (!(ctx && ctx.pool === 'mission') && picked.some(p => p.kind === c.kind && p.id === c.id)) continue; // 임무·사건·교체 3택(한 무기의 개조만 후보)은 같은 무기의 개조 여러 개를 허용
       picked.push(c);
     }
     g.pendingOffer = { seq: g.choiceSeq, pool: (ctx && ctx.pool) || 'level', regionId: ctx && ctx.regionId || null, choices: picked.map(c => Object.assign({ key: keyOf(c) }, c)) };

@@ -39,7 +39,11 @@ PA.GROWTH.XP_VALUE.seal_device = 0; PA.GROWTH.XP_VALUE.guardian = 0; PA.GROWTH.X
 Object.assign(PA.BOSS_ACTION_TEXT, { shock_aim: '충격파 준비', shock_lock: '충격파!', mark_cast: '표식', mark_wait: '표식 폭발 대기', lanes_warn: '두 줄 직선 준비', lanes_lock: '직선!', lanes_fire: '직선 발사', wide_aim: '광역 준비', wide_lock: '광역!', summon: '소환' });
 
 // 보스 체력 후보: 단일 보스 회차는 기존 수치, 3보스 회차는 단계 빌드 기준 후보(임시)
-PA.BOSS_HP = { boss: { single: 2400, stage1: 1500 }, guardian: { stage2: 3000 }, eater: { stage3: 3600 } };
+PA.BOSS_HP_SETS = {
+  base: { boss: { single: 2400, stage1: 1500 }, guardian: { stage2: 3000 }, eater: { stage3: 3600 } }, // 현재값(비교 기준)
+  hi:   { boss: { single: 2400, stage1: 2400 }, guardian: { stage2: 5000 }, eater: { stage3: 7000 } }, // 제안 후보
+};
+PA.BOSS_HP_SET = 'base'; PA.BOSS_HP = PA.BOSS_HP_SETS.base;
 
 // ---------- 회차 구조 ----------
 // single: 7일 단일 보스(기존 규칙, 이전 저장). trio: 1~2일 준비 → 3일차 시작에 보스1 → 3~4일 → 5일차 보스2 → 5~6일 → 7일차 최종

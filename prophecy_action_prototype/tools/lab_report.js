@@ -67,5 +67,18 @@ if (suite === 'C') {
   q3.sort((x, y) => y[2] - x[2] || y[4] - x[4]); for (const row of q3) md += `| ${row.join(' | ')} |\n`;
   summary.byComboHp = Object.fromEntries([...byCombo].map(([c, l]) => [c, Object.fromEntries([...group(l, hpOf)].map(([k, x]) => [k, agg(x)]))])); summary.q3 = q3;
 }
+if (suite === 'D') {
+  const VN = { cmp_sword: '검', cmp_blades: '회전 칼날', cmp_spear: '창 ×1.0', 'cmp_spear@0.85': '창 ×0.85', 'cmp_spear@0.75': '창 ×0.75' };
+  const vn = (r) => VN[r.variant] || r.variant, order = ['cmp_sword', 'cmp_blades', 'cmp_spear', 'cmp_spear@0.85', 'cmp_spear@0.75'];
+  const sorted = (g) => new Map([...g.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])));
+  md += '\n## 무기별(전체: 지역 5 + 보스 3, 체력 ×1·×2, 봇 3)\n' + table('전체', sorted(group(rows, r => r.variant)), '무기').replace(/\| cmp_[^ |]+/g, (m) => '| ' + (VN[m.slice(2)] || m.slice(2)));
+  md += '\n## 적별 × 무기\n';
+  for (const [e, l] of group(rows, r => nm(r.enemy))) md += table(`${e}`, sorted(group(l, r => r.variant)), '무기').replace(/\| cmp_[^ |]+/g, (m) => '| ' + (VN[m.slice(2)] || m.slice(2)));
+  // 보스 패턴: 무기별 × 보스 → 전투당 시작된 패턴 종류·횟수, 실행된 공격 수, 받은 피해
+  md += '\n## 보스전: 무기별 실행된 패턴(전투당 평균)\n\n| 보스 | 무기 | 전투 | 승리% | 승리 평균초 | 받은 피해 | 보스 공격 실행/전투 | 패턴 시작(평균) |\n|---|---|---|---|---|---|---|---|\n';
+  for (const [e, l] of group(rows.filter(r => /boss/.test(r.enemy)), r => nm(r.enemy))) for (const [v, vl] of sorted(group(l, r => r.variant))) { const a = agg(vl); const pat = {}; for (const r of vl) for (const k in r.patterns) pat[k] = (pat[k] || 0) + r.patterns[k]; const exec = vl.reduce((s, r) => s + (r.executed || 0), 0) / vl.length; md += `| ${e} | ${VN[v] || v} | ${a.n} | ${a.win} | ${a.tWon} | ${a.taken} | ${r1(exec)} | ${Object.keys(pat).sort().map(k => k + ' ' + r1(pat[k] / vl.length)).join(', ')} |\n`; }
+  summary.byVariant = Object.fromEntries([...group(rows, r => r.variant)].map(([v, l]) => [v, agg(l)]));
+  summary.byEnemyVariant = Object.fromEntries([...group(rows, r => nm(r.enemy))].map(([e, l]) => [e, Object.fromEntries([...group(l, r => r.variant)].map(([v, x]) => [v, agg(x)]))]));
+}
 fs.writeFileSync(path.join(dir, `report_${suite}.md`), md); fs.writeFileSync(path.join(dir, `summary_${suite}.json`), JSON.stringify(summary, null, 1));
 console.log('wrote', path.join(dir, `report_${suite}.md`), rows.length, 'rows');

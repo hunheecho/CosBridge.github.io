@@ -66,3 +66,5 @@ ul.tips li { margin: 3px 0; font-size: 14px; }
 #overlay .grid3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 
 .card.mission { border-color: #5a7fbf; } .card.mission.done { opacity: 0.55; } h3 { margin: 18px 0 8px; }
+
+p.summary { margin: 6px 0 8px; } details { margin: 4px 0 10px; } details > summary { cursor: pointer; color: var(--gold); font-size: 13px; } details[open] > summary { margin-bottom: 6px; }

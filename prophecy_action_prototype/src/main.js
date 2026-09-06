@@ -67,7 +67,9 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     } else {
       closeChoice();
       const off = G.screen !== 'reward' ? PA.Flow.nextOffer(G.run, { regionId: G.sortie && G.sortie.regionId }) : null; // 보상 화면은 버튼으로 다음 선택을 이어감
-      if (off) { openChoice(off); saveRun(); } else show(G.screen);
+      if (off) { openChoice(off); saveRun(); }
+      else if (G.screen === 'after' && G.sortie && G.sortie.event && !G.sortie.event.resolved) show('event'); // 재접속 뒤 보류 3택을 마치면 미처리 사건으로 이어감
+      else show(G.screen);
     }
   }
   function pauseCombat(on) { if (G.screen !== 'combat') return; G.paused = on; PA.Input.setBlocked(G.input, on); if (on) openOverlay('pause'); else closeOverlay(); }

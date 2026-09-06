@@ -81,7 +81,7 @@ PA.Objectives = (function () {
     }
     // 위험 조건(카드): 지원병 증가 = 예산 ×1.5(동시 상한 동일) / 정예 호위 = 첫 웨이브에 정예 1 추가 / 위험 지형 = 주기적 바닥 위험(안전 통로 보장)
     if (risk === 'reinforce' && o.reinforce) o.reinforce.budget = Math.round(o.reinforce.budget * 1.5);
-    if (risk === 'escort') { const w0 = st.waves[0]; if (!w0.some(g => g.type === 'wolf_alpha')) w0.push({ type: 'wolf_alpha', n: 1 }); }
+    if (risk === 'escort') { const w0 = st.waves[0], g0 = w0.find(g => g.type === 'wolf_alpha'); if (g0) g0.n += 1; else w0.push({ type: 'wolf_alpha', n: 1 }); } // 정예 호위: 첫 웨이브에 정예 1 추가(정예 추적이면 정예 2마리 → 전부 처치해야 종료)
     if (risk === 'hazard') o.terrain = { timer: 6, interval: 7, warn: 1.2, ttl: 1.6, r: 60, dmg: 10, lanes: 3 };
     st.spawnedAll = false;
   }
@@ -107,14 +107,15 @@ PA.Objectives = (function () {
     const p = st.player;
     if (o.terrain) { const T = o.terrain; T.timer -= dt; if (T.timer <= 0) { T.timer = T.interval; ringHazards(st, p.x, p.y, T.lanes, 120, T.r, T, 'terrain', p.face + Math.PI / T.lanes); K().ev(st, 'hazard_warn'); } }
     if (st.objective === 'hunt') {
-      if (!o.elite) o.elite = st.enemies.find(e => e.elite && !e.structure) || null;
+      const ec = K().eliteCount(st); o.eliteTotal = ec.total; o.eliteKilled = ec.killed;
+      if (!o.elite || o.elite.dead) o.elite = st.enemies.find(e => e.elite && !e.structure && !e.dead) || o.elite || null; // 살아 있는 정예를 차례로 추적
       const el = o.elite;
       if (el && !el.dead) {
         const d = m().dist(el, p);
         el.leash = d > S.leashDist ? (el.leash || 0) + dt : 0; el.leashBoost = el.leash > 1.0 ? S.leashSpeed : 1; // 멀어지면 접근 가속(배회 금지)
         if (!o.reinforceFired && el.hp <= el.hpMax * S.reinforce.atHp) { o.reinforceFired = true; o.reinforce.timer = 0; reinforce(st, o.reinforce, dt, o.reinforce.budget); }
       }
-      if (el && el.dead) finish(st);
+      if (ec.total > 0 && ec.killed >= ec.total) finish(st); // 정예 전부 처치(호위 정예 포함)
     } else if (st.objective === 'altars') {
       for (const a of o.altars) {
         if (a.dead) continue; a.timer -= dt; if (a.timer > 0) continue;

@@ -55,7 +55,7 @@ PA.Run = (function () {
   function modeDef(run) { return PA.RUN_MODES[(run && run.mode) || 'single'] || PA.RUN_MODES.single; }
   function nextBoss(run) { return modeDef(run).bosses[run.stage || 0] || null; }
   function nextBossCfg(run) { const nb = nextBoss(run); if (nb) return PA.BOSS_DEFS[nb.id]; const done = run.bossesDone && run.bossesDone[run.bossesDone.length - 1]; return PA.BOSS_DEFS[done] || PA.BOSS; } // 완주 후에는 마지막 보스
-  function bossHp(run, bossId) { const nb = modeDef(run).bosses.find(b => b.id === bossId); const H = PA.BOSS_HP[bossId]; return nb && H && H[nb.hpKey] ? H[nb.hpKey] : PA.BOSS_DEFS[bossId].hp; }
+  function bossHp(run, bossId) { const nb = modeDef(run).bosses.find(b => b.id === bossId); const H = (PA.BOSS_HP_SETS[(run && run.bossHpSet) || PA.BOSS_HP_SET] || PA.BOSS_HP)[bossId]; return nb && H && H[nb.hpKey] ? H[nb.hpKey] : PA.BOSS_DEFS[bossId].hp; }
   function stageCount(run) { return modeDef(run).bosses.length; }
   function bossDaysLeft(run) { const nb = nextBoss(run); return nb ? nb.day - run.day : 0; }
   function isBossDay(run) { const nb = nextBoss(run); return !!nb && run.day >= nb.day; }
@@ -154,7 +154,7 @@ PA.Run = (function () {
   }
   function bossDefeat(run) {
     run.bossRetries = (run.bossRetries || 0) + 1;
-    if (run.bossEntry) { run.growth = JSON.parse(JSON.stringify(run.bossEntry.growth)); } // 입장 시 준비 상태로 복구(레벨·경험치·선택)
+    if (run.bossEntry) { run.growth = JSON.parse(JSON.stringify(run.bossEntry.growth)); if (run.bossEntry.gold != null) run.gold = run.bossEntry.gold; } // 입장 시 준비 상태로 복구(레벨·경험치·선택·금화: 전투 중 건너뛰기 금화 반복 악용 방지)
     run.hp = build(run).hpMax; addLog(run, `보스전 패배 (재도전 ${run.bossRetries}회, 성장은 입장 시점으로 복구)`);
   }
   function bossVictory(run, stats) {
@@ -252,7 +252,7 @@ PA.Run = (function () {
   function augmentOffers(run, rng, count) { // v3: 조우 승리 3택은 레벨업으로 통합. 호환용(빈 목록)
     return [];
   }
-  function regionBonusXp(regionId, deep) { const v = PA.GROWTH.REGION_BONUS_XP[regionId] || 0; return deep ? Math.round(v * 1.5) : v; }
+  function regionBonusXp(regionId, deep) { const v = (PA.GROWTH.REGION_BONUS_XP[regionId] || 0) * (PA.GROWTH.BONUS_XP_MULT || 1); return Math.round(deep ? v * 1.5 : v); }
   function takeAugment(run, id) {
     const def = PA.AUGMENTS.find(a => a.id === id);
     if (!PA.Build.augmentEligible(run, def)) throw new Error('선택 불가');

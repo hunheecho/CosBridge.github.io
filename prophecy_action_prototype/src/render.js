@@ -858,7 +858,8 @@ PA.Render = (function () {
     } else {
       const oh = st.obj && PA.Objectives ? PA.Objectives.hud(st) : null; const alive2 = st.enemies.filter(e => !e.dead && !e.structure).length;
       ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W - 234, 12, 220, oh ? 64 : 46);
-      ctx.fillStyle = '#fff'; ctx.font = `bold 14px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(oh ? oh.title + (oh.risk ? ' · ' + oh.risk : '') : (st.objective === 'elite' ? '목적: 정예 처치' : '목적: 전멸'), W - 224, 31);
+      ctx.fillStyle = '#fff'; ctx.font = `bold 14px ${FONT}`; ctx.textAlign = 'left'; const ec = st.objective === 'elite' ? PA.Combat.eliteCount(st) : null;
+      ctx.fillText(oh ? oh.title + (oh.risk ? ' · ' + oh.risk : '') : (ec ? `목적: 정예 처치 ${ec.killed} / ${ec.total}` : '목적: 전멸'), W - 224, 31);
       ctx.font = `13px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.fillText(oh ? oh.line : `웨이브 ${Math.max(1, st.waveIndex + 1)}/${st.waves.length} · 남은 적 ${alive}`, W - 224, 50);
       if (oh) { const tg = PA.Objectives.autoTarget(st); ctx.fillStyle = tg && tg.structure ? '#ffe066' : '#cfeaff'; ctx.fillText(`남은 적 ${alive2} · 자동 공격: ${tg ? (tg.structure ? tg.def.name : '적 ' + tg.def.name) : '대상 없음'}`, W - 224, 68); }
     }
@@ -886,7 +887,7 @@ PA.Render = (function () {
     if (st.status !== 'running') {
       ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = st.status === 'won' ? '#ffe066' : st.status === 'lost' ? '#ff6b6b' : '#cfd8e3'; ctx.font = `bold 40px ${FONT}`; ctx.textAlign = 'center';
-      ctx.fillText(st.status === 'won' ? (st.mode === 'boss' ? '숲의 왕을 쓰러뜨렸다' : '조우 승리') : st.status === 'lost' ? '패배' : st.status === 'timeout' ? '시간 초과' : '중단', W / 2, H / 2 - 10);
+      ctx.fillText(st.status === 'won' ? (st.mode === 'boss' ? `${PA.Boss.cfgOf(st.boss).name}을(를) 쓰러뜨렸다` : '전투 승리') : st.status === 'lost' ? '패배' : st.status === 'timeout' ? '시간 초과' : '중단', W / 2, H / 2 - 10);
     }
   }
   function weaponIcon(ctx, x, y, kind) {

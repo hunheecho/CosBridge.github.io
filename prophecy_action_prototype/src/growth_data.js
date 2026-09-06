@@ -11,6 +11,7 @@ PA.GROWTH = {
   XP_VALUE: { wolf: 6, archer: 7, spore: 8, wolf_alpha: 30, boss: 0, summoned: 6, boar: 12, shieldbearer: 11, shaman: 10, bomber: 7, burrower: 9, spider: 8, frostcaller: 9, rogue: 9 }, // 보스 처치 자체는 경험치 0(보스 보상은 별도)
   REGION_XP_MULT: { forest: 1, ridge: 1.5, marsh: 2, den: 2.5, deep: 3, boss: 1 },   // 처치 경험치 × 지역 배율(체력 배율과 무관, 임시값)
   REGION_BONUS_XP: { forest: 10, ridge: 16, marsh: 34, den: 50, deep: 90 },        // 조우 승리 시 추가 경험치(조우 3택 증강을 대체). 시간당 경험치가 쉬운 지역 반복보다 낮지 않도록 비용에 비례(임시값)
+  XP_KILL_MULT: 1, BONUS_XP_MULT: 1, // 비교 후보용 배율(기본 1 = 현재값). 처치 경험치·지역 경험치
   DEEP_PICK: true,                                      // 더 깊이 탐험 승리 시 지역 태그 3택 1회(지역 보상)
   WEIGHTS: {
     base: { weapon_new: 1.0, weapon_level: 1.0, weapon_mod: 1.0, common: 1.0, skill_new: 1.0, skill_level: 0.8, skill_variant: 0.9, passive: 0.9 },

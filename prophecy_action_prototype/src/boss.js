@@ -68,6 +68,7 @@ PA.Boss = (function () {
 
   function begin(st, e, pattern) {
     e.actions++; e.history.push(pattern); if (e.history.length > 6) e.history.shift();
+    if (st.metrics) { st.metrics.patterns = st.metrics.patterns || {}; st.metrics.patterns[pattern] = (st.metrics.patterns[pattern] || 0) + 1; }
     e.stateT = 0; e.hitDone = false; e.waitT = 0;
     K().noteAttack(st, e, 'prepare');
     if (pattern === 'sweep') e.state = 'sweep_aim';

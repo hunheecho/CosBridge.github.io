@@ -144,3 +144,12 @@
 | R-BOSS-22 | 희귀 보상 연결: 적용 가능한 것만·중복 없음·1보스 보상은 2단계에서 사용·저장된 제시·재굴림 없음·3개 미만 시 범용 채움 | 보스 보상이 회차에 의미 | v0.7 | ✅ | growth.js bossRewardApplies·generic, Flow.nextOffer(pendingBossPick), describe 예시 | 마지막 보스 뒤 없음 |
 | R-SIM-07 | 회차 시뮬레이션 7전략(쉬움 반복·점진·위험 임무 우선·일찍 휴식·더 깊이·빌드 맞춤·시작 무기 3종), 3보스/단일 구조 | 같은 예산으로 전략 비교 | v0.7 | ✅ | tools/run_sim.js --mode --strats --start, docs/sim/run_sim_trio*.md·run_sim_single.md, SUMMARY | 보스 전 성장·보상 수·휴식·실패·전리품·시간 계정 기록 |
 | R-VERIFY-07 | 브라우저 검증 25항목(카드→임무→3택→사건→귀환, 입력 차단, 새로고침 복구, 관문 패배 복구·승리·희귀·종료, 이전 저장) + 시험실 35항목 유지 | 실제 조작 검증 | v0.7 | ✅ | tools/verify_v07.js, docs/verify_v07_log.txt, tools/verify_lab.js | fps 비교·목표 우선순위·지형·사건 1회·더 깊이 1회는 node 테스트 |
+| R-PLAY-01 | 출격 화면 간소화: 카드는 제목 + 한 줄 요약(적·보상 크기·정예·위험 조건) + 상세 보기 접기 | 글자 과다 해소 | v0.7.1 | ✅ | screens.map/missionCards `<details>` | 플레이 피드백 4 |
+| R-PLAY-02 | '조우 승리' → '전투 승리' 용어 통일 | 용어 이해 | v0.7.1 | ✅ | screens.reward, render 종료 문구, 회차 기록 | 플레이 피드백 6 |
+| R-PLAY-03 | 정예 처치 목표는 정예 전부(웨이브·대기 포함) 처치, HUD에 처치 수 n/m 표시, 정예 추적도 정예 전부(호위 정예 포함) | 정예 둘인 전투가 하나로 끝나지 않음 | v0.7.1 | ✅ | combat.eliteCount/checkObjective, objectives hunt, render HUD, test/events.test.js | 플레이 피드백 5 |
+| R-CODEX-01 | 보스 패배 시 금화도 입장 시점으로 복구(건너뛰기 금화 반복 악용 차단) | 재도전 악용 없음 | v0.7.1 | ✅ | run.bossDefeat(bossEntry.gold) | Codex 지적 |
+| R-CODEX-02 | 시간의 샘 강화는 전투 내내 유지(레벨업 재계산 포함)되고 정산 때 소비 | 효과 소실 없음 | v0.7.1 | ✅ | flow.makeEncounter/consumeBuff | Codex 지적 |
+| R-CODEX-03 | 한 무기의 개조만 후보인 3택(임무·사건·교체)은 같은 무기의 개조 여러 개를 제시 | 선택지 축소 없음 | v0.7.1 | ✅ | growth.generateOffer(pool mission) | Codex 지적 |
+| R-CODEX-04 | 재접속 뒤 보류 3택을 마치면 미처리 사건 화면으로 이어감 | 이벤트 누락 없음 | v0.7.1 | ✅ | main.afterChoice | Codex 지적 |
+| R-BAL-01 | 비교 후보 파라미터: 처치 경험치 배율·지역 경험치 배율·보스 체력 세트(base/hi)·난이도 candE·성장 중단일 | 현재값 보존 + 후보 비교 | v0.7.1 | ✅ | growth_data XP_KILL_MULT/BONUS_XP_MULT, boss_data BOSS_HP_SETS, lab_data candE, run_sim --killxp/--bonusxp/--bosshp/--stopday | 기본값은 현재값 |
+| R-BAL-02 | 무기 비교 시뮬레이션 D: 검·회전 칼날·창(사거리 ×1/×0.85/×0.75), 같은 7선택·장비 없음, 지역 5 + 보스 3, 보스 패턴 실행 집계 | 창 안전성·화력 검토 | v0.7.1 | ✅ | lab_data cmp_*, lab_sim D(rangeMult), lab_report D, boss metrics.patterns | 사거리 감소율은 확정값 아님 |
