@@ -84,7 +84,7 @@ PA.Lab = (function () {
     for (const k of pc) { const d = PA.PASSIVES[k]; if (!d) errs.push('패시브 없음 ' + k); else if (g.passives[k] > d.max) errs.push(`패시브 ${k} ${g.passives[k]}`); }
     if (g.skills.e) { const d = PA.SKILLS[g.skills.e.id]; if (!d || !PA.E_SKILLS.includes(g.skills.e.id)) errs.push('E 없음'); else { if (g.skills.e.level > s.skillMax) errs.push('E 레벨'); if (g.skills.e.variant && !d.variants[g.skills.e.variant]) errs.push('E 변형 없음'); } }
     if (g.skills.q.level > s.skillMax) errs.push('Q 레벨'); if (g.skills.q.variant && !PA.SKILLS.slowfield.variants[g.skills.q.variant]) errs.push('Q 변형 없음');
-    const gear = preset.gear || {}; if ((gear.upgrade || 0) > PA.ITEMS.find(i => i.id === 'whetstone').costs.length) errs.push('강화 단계'); if (gear.acc && !PA.ITEMS.some(i => i.id === gear.acc && i.slot === 'acc')) errs.push('장신구 없음'); if (gear.armor && !PA.ITEMS.some(i => i.id === gear.armor && i.slot === 'armor')) errs.push('방어구 없음');
+    const gear = preset.gear || {}; if ((gear.upgrade || 0) > 3) errs.push('강화 단계'); for (const id of (preset.equipment || [])) if (!PA.EQUIPMENT[id]) errs.push('장비 없음 ' + id);
     return errs;
   }
   function describeBuild(id) {
@@ -97,7 +97,7 @@ PA.Lab = (function () {
       passives: Object.keys(g.passives).filter(k => g.passives[k] > 0).map(k => PA.PASSIVES[k].name + ' ' + g.passives[k]),
       q: `감속장 Lv${g.skills.q.level}${g.skills.q.variant ? ' · ' + PA.SKILLS.slowfield.variants[g.skills.q.variant].name : ''}`,
       e: g.skills.e ? `${PA.SKILLS[g.skills.e.id].name} Lv${g.skills.e.level}${g.skills.e.variant ? ' · ' + PA.SKILLS[g.skills.e.id].variants[g.skills.e.variant].name : ''}` : '없음',
-      gear: [gear.upgrade ? `대장간 강화 +${gear.upgrade}` : null, gear.acc ? PA.ITEMS.find(i => i.id === gear.acc).name : null, gear.armor ? PA.ITEMS.find(i => i.id === gear.armor).name : null].filter(Boolean),
+      gear: [gear.upgrade ? `공용 공격 강화 ${gear.upgrade}단계` : null].concat((p.equipment || []).map(id => PA.EQUIPMENT[id] ? PA.EQUIPMENT[id].name : id)).filter(Boolean),
       errors: validateBuild(p),
     };
   }
@@ -107,7 +107,7 @@ PA.Lab = (function () {
     const preset = PA.LAB.BUILDS[cfg.build], run = PA.Run.newRun(cfg.seed, preset.growth.weapons[0].id);
     run.growth = growthFromPreset(preset);
     const gear = preset.gear || {};
-    run.gear.upgrade = gear.upgrade || 0; if (gear.acc) { run.owned.push(gear.acc); run.gear.acc = gear.acc; } if (gear.armor) { run.owned.push(gear.armor); run.gear.armor = gear.armor; }
+    run.forge = Math.min(3, gear.upgrade || 0); for (const id of (preset.equipment || [])) if (PA.EQUIPMENT[id]) { run.bag.push(id); PA.Run.equipItem(run, id); } /* v0.8: 프리셋 장비는 equipment 목록으로 */
     run.layout = cfg.layout || 'classic';
     run.hp = PA.Run.build(run).hpMax; run.lab = true;
     return run;

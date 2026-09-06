@@ -8,7 +8,7 @@ PA.Flow = (function () {
     const R = PA.Run;
     return Object.assign({
       build: R.build(run), hp: run.hp, seed: encounterSeed(sortie),
-      waves: R.encounterWaves(sortie.regionId, sortie.deep, run), objective: R.encounterObjective(sortie.regionId, sortie.deep, run),
+      waves: R.encounterWaves(sortie.regionId, sortie.deep, run, sortie), objective: R.encounterObjective(sortie.regionId, sortie.deep, run),
       arena: sortie.arena || R.regionArena(sortie.regionId, run), hpMult: R.hpMultFor(run, sortie.regionId, sortie.deep), regionId: sortie.regionId,
       labText: R.layoutText(run) || null, run,
     }, sortie.mission ? { objective: sortie.objective, risk: sortie.risk || null, mission: { cardId: sortie.cardId, objective: sortie.objective, risk: sortie.risk || null } } : {}, sortie.eventFight && PA.Events ? PA.Events.fightOpts(run, sortie) : {}, extra || {});
@@ -62,6 +62,7 @@ PA.Flow = (function () {
   function resolveOffer(run, offer, choice) {
     if (choice) PA.Growth.applyChoice(run, choice);
     else if (offer.pool === 'level') PA.Growth.skipChoice(run);
+    else if (offer.paidChange) cancelPaidChange(run, offer);
     else run.growth.pendingOffer = null;
   }
   // 헤드리스: 남은 선택을 봇 정책으로 전부 처리. onPick(offer, choice) 콜백으로 기록
@@ -90,9 +91,40 @@ PA.Flow = (function () {
     if (!off.choices.length) { g.pendingOffer = null; w.mods.push(modId); run.services.mod_swap++; return null; }
     return off;
   }
+  // 대장간: 개조 변경(140금 또는 교체권). 후보가 없으면 아무것도 차감하지 않는다. 3택 '받지 않음'은 resolveChangeSkip으로 원복·환불
+  function modChange(run, weaponId, modId) {
+    const g = run.growth, w = g.weapons.find(x => x.id === weaponId); if (!w || !w.mods.includes(modId) || g.pendingOffer) throw new Error('변경 불가');
+    const cost = PA.Run.modChangeCost(run); if (!cost.voucher && run.gold < cost.gold) throw new Error('금화 부족');
+    w.mods = w.mods.filter(m => m !== modId);
+    const cands = PA.Growth.candidates(run, { pool: 'level' }).filter(c => c.kind === 'weapon_mod' && c.id === weaponId && c.mod !== modId);
+    if (!cands.length) { w.mods.push(modId); return null; }
+    if (cost.voucher) PA.Run.useService(run, 'mod_swap'); else run.gold -= cost.gold;
+    const off = PA.Growth.generateOffer(run, { pool: 'mission', kinds: ['weapon_mod'], missionKind: 'weapon_mod', regionId: null, weaponOnly: weaponId, excludeMod: modId });
+    off.paidChange = { kind: 'mod', weaponId, modId, cost }; g.picks.modChange = (g.picks.modChange || 0) + 1;
+    return off;
+  }
+  function variantChange(run) {
+    const g = run.growth, e = g.skills.e; if (!e || !e.variant || g.pendingOffer) throw new Error('변경 불가');
+    const cost = PA.Run.variantChangeCost(run); if (!cost.voucher && run.gold < cost.gold) throw new Error('금화 부족');
+    const old = e.variant; e.variant = null;
+    const cands = PA.Growth.candidates(run, { pool: 'level' }).filter(c => c.kind === 'skill_variant' && c.slot === 'e' && c.variant !== old);
+    if (!cands.length) { e.variant = old; return null; }
+    if (cost.voucher) PA.Run.useService(run, 'mod_swap'); else run.gold -= cost.gold;
+    const off = PA.Growth.generateOffer(run, { pool: 'mission', kinds: ['skill_variant'], missionKind: 'skill', regionId: null });
+    off.choices = off.choices.filter(c => c.slot === 'e' && c.variant !== old); off.paidChange = { kind: 'variant', old, cost }; g.picks.variantChange = (g.picks.variantChange || 0) + 1;
+    return off;
+  }
+  // 유료 변경 3택을 받지 않음: 원래 개조/변형 복구 + 비용 환불(교체권 포함)
+  function cancelPaidChange(run, offer) {
+    const pc = offer && offer.paidChange; if (!pc) return false; const g = run.growth;
+    if (pc.kind === 'mod') { const w = g.weapons.find(x => x.id === pc.weaponId); if (w && !w.mods.includes(pc.modId)) w.mods.push(pc.modId); }
+    else if (pc.kind === 'variant' && g.skills.e && !g.skills.e.variant) g.skills.e.variant = pc.old;
+    if (pc.cost.voucher) run.services.mod_swap = (run.services.mod_swap || 0) + 1; else run.gold += pc.cost.gold;
+    g.pendingOffer = null; return true;
+  }
   // 전투 뒤 안전 화면의 다음 단계(화면·봇 공용): 남은 선택 → 미처리 사건 → 다음 행동(after)
   function afterCombatStep(run, sortie) { if (nextOffer(run, { regionId: sortie.regionId })) return 'offer'; if (sortie.event && !sortie.event.resolved) return 'event'; return 'after'; }
   function mustReturn(sortie) { return !!(sortie && sortie.deep && sortie.deepRewarded); } // 심층 승리 뒤에는 귀환만
   function returnHome(run, sortie) { PA.Run.returnToBase(run, sortie); run.pendingSortie = null; }
-  return { encounterSeed, encounterOpts, makeEncounter, settleVictory, settleDefeat, nextOffer, resolveOffer, resolveAll, afterCombatStep, mustReturn, returnHome, rerollOffer, modSwapOffer, makeBossEncounter, settleBossVictory, settleBossDefeat };
+  return { encounterSeed, encounterOpts, makeEncounter, settleVictory, settleDefeat, nextOffer, resolveOffer, resolveAll, afterCombatStep, mustReturn, returnHome, rerollOffer, modSwapOffer, makeBossEncounter, settleBossVictory, settleBossDefeat, modChange, variantChange, cancelPaidChange };
 })();

@@ -68,3 +68,12 @@ ul.tips li { margin: 3px 0; font-size: 14px; }
 .card.mission { border-color: #5a7fbf; } .card.mission.done { opacity: 0.55; } h3 { margin: 18px 0 8px; }
 
 p.summary { margin: 6px 0 8px; } details { margin: 4px 0 10px; } details > summary { cursor: pointer; color: var(--gold); font-size: 13px; } details[open] > summary { margin-bottom: 6px; }
+
+/* v0.8: 시간대 띠·탭·간결 카드 */
+.slots { display: inline-flex; gap: 4px; margin-top: 2px; } .slots i { font-style: normal; font-size: 12px; padding: 2px 7px; border-radius: 4px; background: #0d1014; border: 1px solid #3a4652; color: var(--dim); } .slots i.now { background: var(--gold); color: #111; border-color: var(--gold); font-weight: 700; } .slots i.past { opacity: 0.35; text-decoration: line-through; }
+.stat.wide { min-width: 240px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 12px; } .tabs button { min-height: 34px; padding: 4px 12px; }
+.card.compact { padding: 8px 12px; } .card.compact .card-title { margin-bottom: 0; }
+details.card summary { cursor: pointer; font-weight: 700; } details.card.small summary { font-size: 14px; }
+.gear .lbl { display: inline-block; min-width: 56px; color: var(--dim); font-size: 13px; }
+.cost .lack { color: var(--bad); }

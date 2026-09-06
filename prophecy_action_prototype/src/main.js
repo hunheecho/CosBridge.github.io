@@ -19,7 +19,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     const S = PA.Screens;
     const html = {
       title: () => S.title(G), newrun_confirm: () => S.newrunConfirm(G), base: () => S.base(G), map: () => S.map(G), shop: () => S.shop(G),
-      reward: () => S.reward(G), after: () => S.after(G), defeat: () => S.defeat(G), endday_confirm: () => S.enddayConfirm(G), scenario_end: () => S.scenarioEnd(G),
+      reward: () => S.reward(G), after: () => S.after(G), swap: () => S.swap(G), defeat: () => S.defeat(G), endday_confirm: () => S.enddayConfirm(G), scenario_end: () => S.scenarioEnd(G),
       boss_defeat: () => S.bossDefeat(G), event: () => S.event(G), boss_victory: () => S.bossVictory(G), pick_start: () => S.pickStart(G), migration: () => S.migration(G),
       lab: () => S.lab(G), lab_result: () => S.labResult(G),
     }[name];
@@ -122,7 +122,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     } else {
       PA.Flow.settleDefeat(run, s, c);
       saveRun();
-      show('defeat');
+      show('defeat'); // 화면은 잃은 전리품을 보여 주고, 거점으로 가면 G.sortie를 버린다
     }
   }
 
@@ -185,22 +185,32 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'controls': () => openOverlay('controls'),
     'show-controls': () => openOverlay('controls'),
     'close-overlay': () => { if (G.paused) openOverlay('pause'); else closeOverlay(); },
-    'base': () => goBase(),
-    'map': () => show('map'),
-    'shop': () => show('shop'),
+    'base': () => { if (G.screen === 'defeat') G.sortie = null; goBase(); },
+    'map': () => show('base'),
+    'shop': () => { G.shopTab = G.shopTab || 'stock'; show('shop'); },
+    'shop-tab': (tab) => { G.shopTab = tab; show('shop'); },
     'rest': () => { PA.Run.rest(G.run); saveRun(); show('base'); },
     'endday-confirm': () => show('endday_confirm'),
     'endday': () => { PA.Run.endDay(G.run); saveRun(); goBase(); },
     'boss-start': () => startBoss(),
-    'equip': (id) => { PA.Run.equip(G.run, id); saveRun(); show(G.screen); },
-    'unequip': (slot) => { PA.Run.unequip(G.run, slot); saveRun(); show(G.screen); },
+    'equip': (id) => { PA.Run.equipItem(G.run, id); saveRun(); show(G.screen); },
+    'unequip': (slot) => { PA.Run.unequipItem(G.run, slot); saveRun(); show(G.screen); },
+    'sell-equip': (id) => { PA.Run.sellEquipment(G.run, id); PA.Audio.play('buy'); saveRun(); show(G.screen); },
+    'buy-equip': (arg) => { const [id, from, eq] = arg.split(':'); PA.Run.buyEquipment(G.run, id, eq === '1', from); PA.Audio.play('buy'); saveRun(); show('shop'); },
+    'buy-merchant-service': () => { const m = G.run.merchant; if (!m || m.sold.includes('service') || G.run.gold < m.servicePrice) return; G.run.gold -= m.servicePrice; m.sold.push('service'); G.run.services[m.service] = (G.run.services[m.service] || 0) + 1; PA.Run.addLog(G.run, `방문 상인: ${PA.SERVICES[m.service].name} 구매 (-${m.servicePrice})`); PA.Audio.play('buy'); saveRun(); show('shop'); },
+    'buy-skill': () => { PA.Run.buySkill(G.run); PA.Audio.play('buy'); saveRun(); G.shopTab = 'skills'; show('shop'); },
+    'swap-open': (arg) => { const [slot, idx] = arg.split(':'); G.swap = { slot, index: parseInt(idx || '0', 10), newId: null, mods: [] }; show('swap'); },
+    'swap-pick': (id) => { G.swap.newId = id; G.swap.mods = []; show('swap'); },
+    'swap-mod': (m) => { if (!G.swap.mods.includes(m)) G.swap.mods.push(m); show('swap'); },
+    'swap-confirm': () => { const sw = G.swap; PA.Run.applySwap(G.run, sw.slot, sw.index, sw.newId, sw.mods); PA.Audio.play('buy'); G.swap = null; saveRun(); G.shopTab = 'skills'; show('shop'); },
+    'swap-cancel': () => { G.swap = null; G.shopTab = 'skills'; show('shop'); },
+    'forge-up': () => { PA.Run.forgeUpgrade(G.run); PA.Audio.play('buy'); saveRun(); G.shopTab = 'forge'; show('shop'); },
+    'mod-change': (arg) => { const [wid, mid] = arg.split(':'); const off = PA.Flow.modChange(G.run, wid, mid); saveRun(); G.shopTab = 'forge'; if (off) openChoice(off); else { alert('이 기술에는 바꿀 수 있는 다른 개조가 없습니다. 아무것도 차감되지 않았습니다.'); show('shop'); } },
+    'variant-change': () => { const off = PA.Flow.variantChange(G.run); saveRun(); G.shopTab = 'forge'; if (off) openChoice(off); else { alert('바꿀 수 있는 다른 변형이 없습니다. 아무것도 차감되지 않았습니다.'); show('shop'); } },
     'save-quit': () => { saveRun(); G.saved = PA.Run.load(); show('title'); },
     'sortie': (id) => startSortie(id),
     'mission': (id) => { G.sortie = PA.Sortie.start(G.run, id); saveRun(); startEncounter(); },
-    'buy': (id) => { PA.Run.buy(G.run, id); PA.Audio.play('buy'); saveRun(); show('shop'); },
-    'target': (id) => { PA.Run.setTarget(G.run, id); saveRun(); show('shop'); },
     'sell': (id) => { PA.Run.sell(G.run, id, 1); saveRun(); show('shop'); },
-    'toggle-weapon': () => { if (G.run.gear.weapon === 'pierce') PA.Run.unequipWeapon(G.run); else PA.Run.equip(G.run, 'pierce_sword'); saveRun(); show(G.screen); },
     'deep': () => { PA.Run.deepExplore(G.run, G.sortie); saveRun(); startEncounter(); },
     'return': () => { PA.Flow.returnHome(G.run, G.sortie); G.sortie = null; goBase(); },
     'resume': () => pauseCombat(false),
@@ -231,13 +241,13 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     const q = new URLSearchParams(location.search);
     if (q.get('lab') != null) return { lab: true, cfg: PA.Lab.decode(q.get('lab')) };
     if (!q.get('scenario')) return null;
-    return { region: q.get('scenario'), arena: q.get('arena') || null, acc: q.get('acc') || null, armor: q.get('armor') || null, seed: parseInt(q.get('seed') || '1', 10), aug: (q.get('aug') || '').split(',').filter(Boolean), weapon: q.get('weapon') || 'sword', deep: q.get('deep') === '1', upgrade: parseInt(q.get('upgrade') || '0', 10),
+    return { region: q.get('scenario'), arena: q.get('arena') || null, acc: q.get('acc') || null, armor: q.get('armor') || null, seed: parseInt(q.get('seed') || '1', 10), aug: (q.get('aug') || '').split(',').filter(Boolean), weapon: q.get('weapon') || 'sword', deep: q.get('deep') === '1', upgrade: parseInt(q.get('upgrade') || '0', 10), equip: (q.get('equip') || '').split(',').filter(Boolean),
       start: q.get('start') || null, weapons: (q.get('weapons') || '').split(',').filter(Boolean), commons: (q.get('commons') || '').split(',').filter(Boolean), passives: (q.get('passives') || '').split(',').filter(Boolean), e: q.get('e') || null, q: q.get('q') || null, level: parseInt(q.get('level') || '0', 10), rewards: (q.get('rewards') || '').split(',').filter(Boolean) };
   }
   function startScenario(sc) {
     G.scenario = sc;
     const run = PA.Run.newRun(sc.seed, sc.start || (sc.weapon === 'pierce' ? 'spear' : 'sword'));
-    run.gear.upgrade = sc.upgrade || 0;
+    run.forge = Math.min(3, sc.upgrade || 0);
     // v3 파라미터: weapons=spear:3:returning+brand,frost:2 commons=frost,wide:2 passives=mastery:2 e=gust:2:whirl q=slowfield:3:follow level=8 rewards=resonance
     const g = run.growth;
     for (const spec of sc.weapons) { const [id, lv, mods] = spec.split(':'); if (!PA.WEAPONS[id]) continue; const w = PA.Growth.weaponOf(g, id) || (g.weapons.length < PA.GROWTH.SLOTS.weapons ? (g.weapons.push({ id, level: 1, mods: [] }), g.weapons[g.weapons.length - 1]) : null); if (!w) continue; w.level = Math.min(5, parseInt(lv || '1', 10)); w.mods = (mods || '').split('+').filter(x => PA.WEAPONS[id].mods[x]).slice(0, 2); }
@@ -247,8 +257,8 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (sc.q) { const [id, lv, v] = sc.q.split(':'); g.skills.q = { id: 'slowfield', level: Math.min(3, parseInt(lv || '1', 10)), variant: v && PA.SKILLS.slowfield.variants[v] ? v : null }; }
     for (const id of sc.rewards) if (PA.BOSS_REWARDS[id]) g.bossRewards.push(id);
     if (sc.level > 1) g.level = sc.level;
-    if (sc.acc) { run.owned.push(sc.acc); run.gear.acc = sc.acc; }
-    if (sc.armor) { run.owned.push(sc.armor); run.gear.armor = sc.armor; }
+    if (sc.armor === 'leather_armor') { run.bag.push('vitality_coat'); PA.Run.equipItem(run, 'vitality_coat'); } /* 레거시 시나리오 파라미터: 가죽 갑옷 → 생명력의 외투 */
+    for (const spec of (sc.equip || [])) if (PA.EQUIPMENT[spec]) { run.bag.push(spec); PA.Run.equipItem(run, spec); }
     if (sc.aug.length) { for (const a of sc.aug) { const [id, lv] = a.split(':'); run.augments[id] = parseInt(lv || '1', 10); } if (sc.weapon === 'pierce') { run.owned.push('pierce_sword'); run.gear.weapon = 'pierce'; } run.growth = PA.Growth.migrateFromLegacy(run); delete run.gear.weapon; if (run.growth.migrationPending) PA.Growth.resolveMigration(run, run.growth.migrationPending.commons.slice(0, 3).map(c => c.id)); } // 레거시 aug= 파라미터 호환
     run.hp = PA.Run.build(run).hpMax;
     G.run = run;
