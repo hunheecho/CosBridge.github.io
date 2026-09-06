@@ -12,7 +12,7 @@ PA.GROWTH = {
   REGION_XP_MULT: { forest: 1, ridge: 1.5, marsh: 2, den: 2.5, deep: 3, boss: 1 },   // 처치 경험치 × 지역 배율(체력 배율과 무관, 임시값)
   REGION_BONUS_XP: { forest: 10, ridge: 16, marsh: 34, den: 50, deep: 90 },        // 조우 승리 시 추가 경험치(조우 3택 증강을 대체). 시간당 경험치가 쉬운 지역 반복보다 낮지 않도록 비용에 비례(임시값)
   XP_KILL_MULT: 1, BONUS_XP_MULT: 1, // 비교 후보용 배율(기본 1 = 현재값). 처치 경험치·지역 경험치
-  DEEP_PICK: true,                                      // 더 깊이 탐험 승리 시 지역 태그 3택 1회(지역 보상)
+  DEEP_PICK: false,                                     // v0.8: 더 깊이 승리는 3택 대신 표시형 보상(Run.deepPreview). true로 두면 옛 지역 3택 경로
   WEIGHTS: {
     base: { weapon_new: 1.0, weapon_level: 1.0, weapon_mod: 1.0, common: 1.0, skill_new: 1.0, skill_level: 0.8, skill_variant: 0.9, passive: 0.9 },
     early: { untilLevel: 5, weapon_new: 2.0, skill_new: 2.0, weapon_mod: 1.5, passive: 0.6 },   // 초반 보정

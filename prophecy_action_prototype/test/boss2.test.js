@@ -44,7 +44,7 @@ test('3보스 회차: 일정(1~2일 준비, 3일차 관문, 승리 시 그날 5�
   const s = R.startBoss(run); assert.equal(s.bossId, 'boss'); assert.equal(R.bossHp(run, 'boss'), PA.BOSS_HP.boss.stage1); assert.ok(run.bossEntry);
   const st = PA.Flow.makeBossEncounter(run, s); assert.equal(st.boss.hpMax, PA.BOSS_HP.boss.stage1); assert.equal(st.bossId, 'boss');
   st.status = 'won'; st.stats.elapsed = 30; const rec = PA.Flow.settleBossVictory(run, st);
-  assert.equal(rec.bossId, 'boss'); assert.equal(run.stage, 1); assert.equal(run.phase, 'prep'); assert.equal(run.day, 3); assert.equal(run.hours, PA.CONFIG.HOURS_PER_DAY); assert.equal(R.canSortie(run, 'forest'), true);
+  assert.equal(rec.bossId, 'boss'); assert.equal(run.stage, 1); assert.equal(run.phase, 'prep'); assert.equal(run.day, 3); assert.equal(run.hours, PA.CONFIG.HOURS_PER_DAY); assert.equal(R.canSortie(run, 'ridge'), true, '3일차 장소: 능선/굴');
   assert.ok(run.growth.pendingBossPick && run.growth.pendingBossPick.bossId === 'boss'); assert.equal(R.nextBoss(run).id, 'guardian'); assert.equal(R.bossDaysLeft(run), 2);
   R.endDay(run); R.endDay(run); assert.equal(run.day, 5); assert.equal(run.phase, 'boss_prep'); const s2 = R.startBoss(run); assert.equal(s2.bossId, 'guardian'); assert.notEqual(s2.seed, s.seed);
   const st2 = PA.Flow.makeBossEncounter(run, s2); assert.equal(st2.boss.bossId, 'guardian'); assert.equal(st2.boss.hpMax, PA.BOSS_HP.guardian.stage2); st2.status = 'won'; PA.Flow.settleBossVictory(run, st2);

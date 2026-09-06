@@ -31,14 +31,16 @@ PA.Flow = (function () {
     if (!reward.eventFight && PA.Events && !sortie.event) sortie.event = PA.Events.roll(run, sortie); // 탐험 사건: 출격당 최대 1회, 시드 결정적
     run.pendingSortie = sortie; // 전투 뒤 안전 화면 상태를 저장(보상·사건·더 깊이 선택을 새로고침해도 이어감)
     if (sortie.deep && PA.GROWTH.DEEP_PICK && !sortie.deepPicked) { sortie.deepPicked = true; run.growth.pendingDeepPick = { regionId: sortie.regionId, key: `${sortie.seed}:${sortie.encounters}` }; }
+    if (sortie.deep && !PA.GROWTH.DEEP_PICK) reward.deep = PA.Run.applyDeepReward(run, sortie); // v0.8: 표시된 심층 보상을 미정산 전리품에 얹음(귀환 시 정산)
+    if (PA.Stats) PA.Stats.record(run, st, { kind: sortie.deep ? 'deep' : sortie.mission ? 'mission' : 'sortie', regionId: sortie.regionId, day: run.day });
     return reward;
   }
   // 보스전(회차 관문): 단계별 보스·체력 후보. 입장 스냅샷은 Run.startBoss가 만든다
   function makeBossEncounter(run, sortie) { const b = PA.Run.build(run); const st = PA.Combat.create({ build: b, hp: b.hpMax, seed: sortie.seed, boss: true, bossId: sortie.bossId || 'boss', bossHp: PA.Run.bossHp(run, sortie.bossId || 'boss'), arena: 'clearing', waves: [], run }); if (run.buffs && run.buffs.skillCd) st.tempBuff = 'skillCd'; run.pendingSortie = null; return st; }
   // 보스 승리 정산(정확히 1회): 처치 기록·다음 단계·희귀 보상 보류(마지막 보스는 없음)
-  function settleBossVictory(run, st) { consumeBuff(run, st); const rec = PA.Run.bossVictory(run, st.stats); run.pendingSortie = null; return rec; }
-  function settleBossDefeat(run, st) { consumeBuff(run, st); PA.Run.bossDefeat(run); run.pendingSortie = null; }
-  function settleDefeat(run, sortie, st) { consumeBuff(run, st); PA.Run.applyEncounterResult(run, sortie, 'lost', null, 0); PA.Run.defeat(run, sortie); run.pendingSortie = null; }
+  function settleBossVictory(run, st) { consumeBuff(run, st); if (PA.Stats) PA.Stats.record(run, st, { kind: 'boss', bossId: st.bossId, day: run.day, won: true }); const rec = PA.Run.bossVictory(run, st.stats); run.pendingSortie = null; return rec; }
+  function settleBossDefeat(run, st) { consumeBuff(run, st); if (PA.Stats) PA.Stats.record(run, st, { kind: 'boss', bossId: st.bossId, day: run.day, won: false }); PA.Run.bossDefeat(run); run.pendingSortie = null; }
+  function settleDefeat(run, sortie, st) { consumeBuff(run, st); if (PA.Stats) PA.Stats.record(run, st, { kind: sortie.deep ? 'deep' : sortie.mission ? 'mission' : 'sortie', regionId: sortie.regionId, day: run.day, won: false }); PA.Run.applyEncounterResult(run, sortie, 'lost', null, 0); PA.Run.defeat(run, sortie); run.pendingSortie = null; }
   // 다음에 제시할 선택(순서 고정): 저장된 보류 제시 → 미처리 레벨업 → 임무 보상 3택 → 더 깊이 지역 3택 → 없음(null)
   // 더 깊이 3택은 여기서 보류 등록을 소비하고 pendingOffer로 옮긴다(새로고침해도 같은 제시, 두 번 제시되지 않음). 후보가 없으면 제시 없이 소비
   function nextOffer(run, ctx) {
@@ -90,6 +92,7 @@ PA.Flow = (function () {
   }
   // 전투 뒤 안전 화면의 다음 단계(화면·봇 공용): 남은 선택 → 미처리 사건 → 다음 행동(after)
   function afterCombatStep(run, sortie) { if (nextOffer(run, { regionId: sortie.regionId })) return 'offer'; if (sortie.event && !sortie.event.resolved) return 'event'; return 'after'; }
+  function mustReturn(sortie) { return !!(sortie && sortie.deep && sortie.deepRewarded); } // 심층 승리 뒤에는 귀환만
   function returnHome(run, sortie) { PA.Run.returnToBase(run, sortie); run.pendingSortie = null; }
-  return { encounterSeed, encounterOpts, makeEncounter, settleVictory, settleDefeat, nextOffer, resolveOffer, resolveAll, afterCombatStep, returnHome, rerollOffer, modSwapOffer, makeBossEncounter, settleBossVictory, settleBossDefeat };
+  return { encounterSeed, encounterOpts, makeEncounter, settleVictory, settleDefeat, nextOffer, resolveOffer, resolveAll, afterCombatStep, mustReturn, returnHome, rerollOffer, modSwapOffer, makeBossEncounter, settleBossVictory, settleBossDefeat };
 })();

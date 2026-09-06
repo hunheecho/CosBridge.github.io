@@ -47,7 +47,7 @@ test('E 봉인된 전리품: 더 깊이 경로 재사용(1시간), 금화 ×2는
   const { run, s } = wonSortie(8, 'ridge'); forceEvent(run, s, 'sealed_loot'); const h0 = run.hours;
   const r = PA.Events.resolve(run, s, 'fight'); assert.equal(r.next, 'deep'); assert.equal(s.deep, true); assert.equal(run.hours, h0 - 1);
   const st = PA.Flow.makeEncounter(run, s); assert.equal(st.objective, 'elite'); st.status = 'won';
-  const rw = PA.Flow.settleVictory(run, s, st); assert.ok(rw.sealedLoot); assert.ok(run.growth.pendingDeepPick); assert.equal(s.deepGoldMult, null);
+  const rw = PA.Flow.settleVictory(run, s, st); assert.ok(rw.sealedLoot); assert.ok(rw.deep && s.deepRewarded, '표시형 심층 보상 1회'); assert.equal(s.deepGoldMult, null);
   assert.equal(PA.Run.canDeepExplore(run, s) && !s.deep, false, '다시 더 깊이 없음'); assert.equal(s.event.resolved, true);
 });
 test('F 정찰자의 정보: 남은 카드 1장의 위험 조건을 교체(1회), 완료 카드는 제외', () => {
@@ -92,7 +92,7 @@ test('Codex 지적: 보스 패배 시 금화도 입장 시점으로 복구, 한 
   st.status = 'lost'; PA.Flow.settleBossDefeat(run, st); assert.equal(run.gold, gold0, '금화 복구');
   const run2 = PA.Run.newRun(14, 'sword'); run2.growth.pendingEventPick = { kind: 'weapon_mod', regionId: 'forest', key: 'k' };
   const off = PA.Flow.nextOffer(run2, {}); assert.ok(off.choices.length >= 2, '같은 무기 개조 여러 개 ' + off.choices.length); assert.ok(off.choices.every(c => c.kind === 'weapon_mod' && c.id === 'sword'));
-  const run3 = PA.Run.newRun(15, 'sword'); const s3 = PA.Run.startSortie(run3, 'den'); const c = PA.Flow.makeEncounter(run3, s3); c.waveIndex = 99; c.pending = []; c.spawnedAll = true;
+  const run3 = PA.Run.newRun(15, 'sword', 'single'); run3.day = 4; const s3 = PA.Run.startSortie(run3, 'den'); const c = PA.Flow.makeEncounter(run3, s3); c.waveIndex = 99; c.pending = []; c.spawnedAll = true;
   const a1 = PA.Combat.spawnEnemy(c, 'wolf_alpha', 200, 200), a2 = PA.Combat.spawnEnemy(c, 'wolf_alpha', 700, 400); const dt = PA.CONFIG.STEP;
   assert.deepEqual(PA.Combat.eliteCount(c), { total: 2, killed: 0 }); PA.Combat.damageEnemy(c, a1, 99999, { src: { extra: true } }); PA.Combat.step(c, {}, dt); assert.equal(c.status, 'running', '정예 하나 남으면 계속');
   PA.Combat.damageEnemy(c, a2, 99999, { src: { extra: true } }); PA.Combat.step(c, {}, dt); assert.equal(c.status, 'won');

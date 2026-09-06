@@ -5,25 +5,42 @@ const PA = load(); const j = (x) => JSON.parse(JSON.stringify(x));
 function mission(seed, objective, regionId, extra) { const run = PA.Run.newRun(seed, 'sword'); run.growth.level = 6; const s = PA.Run.startSortie(run, regionId || 'forest'); Object.assign(s, { mission: true, objective, cardId: 'x' }, extra || {}); return { run, s, st: PA.Flow.makeEncounter(run, s) }; }
 const dt = PA.CONFIG.STEP; const steps = (st, sec, inp) => { for (let i = 0; i < Math.round(sec / dt); i++) PA.Combat.step(st, inp || {}, dt); };
 
-test('출격 카드: 하루 3장, 시드 결정적, (지역,목표) 중복 없음, 최소 1장은 빌드 연결, 저장·복구 후 동일', () => {
+test('출격 카드(v0.8): 하루 2장 = 오늘의 장소 2곳, 시드 결정적, 1일차는 전멸만, 2일차부터 임무, 저장·복구 후 동일', () => {
   const run = PA.Run.newRun(21, 'spear'); const a = PA.Sortie.cardsFor(run), b = PA.Sortie.generate(run, 1);
-  assert.equal(a.length, 3); assert.deepEqual(j(a), j(b));
-  assert.equal(new Set(a.map(c => c.regionId + ':' + c.objective)).size, 3);
-  assert.ok(a.some(c => c.linked)); assert.ok(a.every(c => PA.OBJECTIVE_IDS.includes(c.objective) && c.timeCost >= 1 && c.enemies.length >= 1 && c.enemies.length <= 4));
-  assert.ok(a.every(c => c.first), '1일차는 모두 첫 도입');
+  assert.equal(a.length, 2); assert.deepEqual(j(a), j(b)); assert.deepEqual(a.map(c => c.regionId), ['forest', 'ridge']);
+  assert.ok(a.every(c => c.objective === 'clear' && c.timeCost === 1 && c.enemies.length >= 1 && c.enemies.length <= 4), '1일차는 단순 전멸');
   const store = fakeStorage(); PA.Run.save(run, store); const run2 = PA.Run.load(store); assert.deepEqual(j(PA.Sortie.cardsFor(run2)), j(a), '저장된 카드 유지(재굴림 없음)');
-  PA.Run.endDay(run); assert.equal(run.cards.day, 2); assert.equal(run.cards.list.length, 3); assert.ok(run.cards.list.every(c => (PA.MISSIONS.regionFromDay[c.regionId] || 1) <= 2));
+  PA.Run.endDay(run); assert.equal(run.cards.day, 2); assert.deepEqual(run.cards.list.map(c => c.regionId), ['forest', 'marsh']); assert.ok(run.cards.list[0].objective !== 'clear' && PA.OBJECTIVE_IDS.includes(run.cards.list[0].objective), '2일차 첫 장소는 임무');
+  assert.ok(run.cards.list.every(c => !c.risk), '위험 조건은 3일차부터'); assert.equal(run.cards.list[1].timeCost, 2, '습지는 2칸');
+  for (let d = 3; d <= 6; d++) { PA.Run.endDay(run); if (run.phase !== 'prep') { run.phase = 'prep'; } const pl = PA.Run.placesFor(run); assert.equal(pl.length, 2); assert.ok(pl.every(id => PA.REGIONS.some(r => r.id === id))); }
+  assert.ok(Object.keys(run.visited).length === 0 && PA.Run.placesFor(run, 6)[0] === 'forest', '방문 기록 없으면 6일차 첫 칸은 숲');
 });
-test('임무 출격: 카드 시간 차감, 하루 1회 완료, 재도전은 3택 없음, 더 깊이 탐험 불가', () => {
-  const run = PA.Run.newRun(5, 'sword'); const cards = PA.Sortie.cardsFor(run); const c = cards[0]; const h0 = run.hours;
+test('임무 출격: 카드 시간 차감, 하루 1회 완료, 재도전은 예약 없음, 더 깊이 탐험 불가, 보상은 다음 레벨업 예약(단일)', () => {
+  const run = PA.Run.newRun(5, 'sword'); run.day = 2; run.cards = null; const cards = PA.Sortie.cardsFor(run); const c = cards[0]; const h0 = run.hours; assert.notEqual(c.objective, 'clear');
   const s = PA.Sortie.start(run, c.id); assert.equal(run.hours, h0 - c.timeCost); assert.equal(s.objective, c.objective); assert.equal(c.attempts, 1);
   assert.equal(PA.Run.canDeepExplore(run, s), false);
   const st = PA.Flow.makeEncounter(run, s); assert.equal(st.objective, c.objective); assert.ok(st.obj);
   st.status = 'won'; const rw = PA.Flow.settleVictory(run, s, st);
-  assert.ok(rw.mission && rw.missionPick); assert.deepEqual(rw.mats, {}); assert.ok(run.growth.pendingMissionPick); assert.equal(c.done, true);
-  // 같은 카드는 다시 시작 불가, 정산을 한 번 더 해도 3택은 등록되지 않음
+  assert.ok(rw.mission && rw.missionPick); assert.deepEqual(rw.mats, {}); assert.equal(c.done, true);
+  if (c.rewardKind === 'service') assert.ok(run.growth.pendingMissionPick); else assert.ok(run.growth.steer && run.growth.steer.kind === c.rewardKind, '단일 예약 등록');
+  // 같은 카드는 다시 시작 불가, 정산을 한 번 더 해도 예약은 등록되지 않음
   assert.equal(PA.Sortie.canStart(run, c), false); assert.throws(() => PA.Sortie.start(run, c.id));
-  run.growth.pendingMissionPick = null; const s2 = Object.assign({}, s); const rw2 = PA.Flow.settleVictory(run, s2, st); assert.equal(rw2.missionPick, false); assert.equal(run.growth.pendingMissionPick, null);
+  const steer1 = j(run.growth.steer); run.growth.pendingMissionPick = null; const s2 = Object.assign({}, s); const rw2 = PA.Flow.settleVictory(run, s2, st); assert.equal(rw2.missionPick, false); assert.deepEqual(j(run.growth.steer), steer1);
+  // 예약이 있으면 두 번째 임무는 금화 대체(덮어쓰지 않음)
+  const run2 = PA.Run.newRun(5, 'sword'); run2.growth.steer = { kind: 'weapon_level', fallbackGold: 10 }; run2.day = 2; run2.cards = null; const c2 = PA.Sortie.cardsFor(run2)[0]; const g0 = run2.gold;
+  const s3 = PA.Sortie.start(run2, c2.id); const st3 = PA.Flow.makeEncounter(run2, s3); st3.status = 'won'; PA.Flow.settleVictory(run2, s3, st3);
+  if (c2.rewardKind !== 'service') { assert.equal(run2.growth.steer.kind, 'weapon_level'); assert.equal(run2.gold, g0 + c2.fallbackGold); assert.ok(PA.Sortie.steerState(run2, c2).gold); }
+});
+test('성장 예약: 다음 자연 레벨업 제시가 예약 종류로 한정되고 1회 소비된다. 이미 열린 제시에는 소급되지 않고, 후보가 없으면 금화로 대체된다', () => {
+  const run = PA.Run.newRun(31, 'sword'); const g = run.growth; g.level = 3; g.pendingLevelUps = 1;
+  const before = PA.Growth.generateOffer(run, { pool: 'level' }); assert.equal(before.steer, null);
+  g.steer = { kind: 'weapon_level', fallbackGold: 40 }; assert.equal(PA.Flow.nextOffer(run, {}), before, '이미 열린 제시는 그대로');
+  PA.Flow.resolveOffer(run, before, before.choices[0]); assert.ok(g.steer, '예약 유지');
+  g.pendingLevelUps = 1; const off = PA.Flow.nextOffer(run, {}); assert.equal(off.steer, 'weapon_level'); assert.ok(off.choices.length && off.choices.every(c => c.kind === 'weapon_level'));
+  PA.Flow.resolveOffer(run, off, off.choices[0]); assert.equal(g.steer, null, '소비'); assert.equal(g.picks.steered, 1);
+  g.pendingLevelUps = 1; const off2 = PA.Flow.nextOffer(run, {}); assert.equal(off2.steer, null); PA.Flow.resolveOffer(run, off2, null);
+  g.weapons.forEach(w => w.level = PA.GROWTH.SLOTS.weaponMax); g.steer = { kind: 'weapon_level', fallbackGold: 40 }; const gold0 = run.gold; g.pendingLevelUps = 1;
+  const off3 = PA.Flow.nextOffer(run, {}); assert.equal(off3.steer, null); assert.equal(g.steer, null); assert.equal(run.gold, gold0 + 40, '후보 없음 → 금화'); assert.equal(g.steerFallbacks, 1);
 });
 test('임무 보상 3택: 종류 제한·유효 후보만·건너뛰기 가능, 후보가 없으면 정해진 금화(1회)', () => {
   const run = PA.Run.newRun(8, 'sword'); run.growth.level = 4; while (run.growth.pendingLevelUps) run.growth.pendingLevelUps = 0;

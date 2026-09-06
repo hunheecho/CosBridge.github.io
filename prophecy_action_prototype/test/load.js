@@ -1,6 +1,6 @@
 // 브라우저용 전역 스크립트를 Node vm 컨텍스트에 로드한다. index.html의 순서와 동일해야 한다.
 const fs = require('fs'), vm = require('vm'), path = require('path');
-const ORDER = ['core', 'input', 'data', 'growth_data', 'growth', 'mission_data', 'boss_data', 'balance_data', 'build', 'combat', 'weapons', 'skills', 'boss', 'boss2', 'enemies', 'objectives', 'run', 'sortie', 'events', 'flow', 'bot', 'lab_data', 'lab'];
+const ORDER = ['core', 'input', 'data', 'growth_data', 'growth', 'mission_data', 'boss_data', 'balance_data', 'world_data', 'build', 'combat', 'weapons', 'skills', 'boss', 'boss2', 'enemies', 'objectives', 'run', 'sortie', 'events', 'flow', 'bot', 'lab_data', 'lab'];
 function load() {
   const ctx = { console }; vm.createContext(ctx);
   for (const f of ORDER) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f + '.js'), 'utf8'), ctx, { filename: f + '.js' });
@@ -9,7 +9,8 @@ function load() {
 function fakeStorage() { const m = {}; return { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); }, removeItem: k => { delete m[k]; } }; }
 function runWith(PA, opts) {
   const run = PA.Run.newRun(1, opts.start);
-  Object.assign(run.gear, opts.gear || {});
+  Object.assign(run.gear, opts.gear || {}); if (opts.gear && opts.gear.upgrade) run.forge = Math.min(3, opts.gear.upgrade); // v0.8: 대장간 강화 = 공용 공격 강화 단계
+  if (opts.equipment) Object.assign(run.equipment, opts.equipment); if (opts.forge != null) run.forge = opts.forge;
   if (opts.gear && opts.gear.weapon === 'pierce') { run.owned.push('pierce_sword'); } // 레거시 표기 호환
   if ((opts.augments && Object.keys(opts.augments).length) || (opts.gear && opts.gear.weapon === 'pierce')) { run.augments = Object.assign({}, opts.augments || {}); run.growth = PA.Growth.migrateFromLegacy(run); }
   if (opts.growth) { const g = run.growth; if (opts.growth.weapons) g.weapons = opts.growth.weapons.map(w => ({ id: w.id, level: w.level || 1, mods: (w.mods || []).slice() })); if (opts.growth.commons) g.commons = Object.assign({}, opts.growth.commons); if (opts.growth.passives) g.passives = Object.assign({}, opts.growth.passives); if (opts.growth.e) g.skills.e = Object.assign({ level: 1, variant: null }, opts.growth.e); if (opts.growth.q) g.skills.q = Object.assign({ id: 'slowfield', level: 1, variant: null }, opts.growth.q); if (opts.growth.bossRewards) g.bossRewards = opts.growth.bossRewards.slice(); }

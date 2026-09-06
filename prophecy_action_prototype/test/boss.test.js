@@ -118,13 +118,13 @@ test('한 번에 두 체력선을 넘기면 구슬 2개, 단계는 3으로 한 �
 });
 
 test('회복 구슬: 최대 체력의 15%(내림), 최대치 초과 없음, 같은 구슬 중복 없음, 시간 경과로 사라지지 않음', () => {
-  const st = bossFight({ gear: { armor: 'leather_armor' } }); const p = st.player;
-  assert.equal(p.hpMax, 130);
+  const st = bossFight({ equipment: { armor: 'vitality_coat' } }); const p = st.player;
+  assert.equal(p.hpMax, 120);
   st.pickups.push({ kind: 'heal', x: p.x, y: p.y, r: 14, amount: Math.floor(p.hpMax * 0.15), t: 0 });
-  assert.equal(st.pickups[0].amount, 19);
-  p.hp = 100; steps(PA, st, 0.05); assert.equal(p.hp, 119); assert.equal(st.pickups.length, 0);
-  st.pickups.push({ kind: 'heal', x: 100, y: 100, r: 14, amount: 19, t: 0 }); steps(PA, st, 5); assert.equal(st.pickups.length, 1, '사라지지 않음');
-  p.hp = 125; p.x = 100; p.y = 100; steps(PA, st, 0.05); assert.equal(p.hp, 130, '최대치 초과 없음');
+  assert.equal(st.pickups[0].amount, 18);
+  p.hp = 100; steps(PA, st, 0.05); assert.equal(p.hp, 118); assert.equal(st.pickups.length, 0);
+  st.pickups.push({ kind: 'heal', x: 100, y: 100, r: 14, amount: 18, t: 0 }); steps(PA, st, 5); assert.equal(st.pickups.length, 1, '사라지지 않음');
+  p.hp = 115; p.x = 100; p.y = 100; steps(PA, st, 0.05); assert.equal(p.hp, 120, '최대치 초과 없음');
 });
 
 test('3단계 돌진은 2연속: 두 번째도 새 준비·확정 예고, 첫 돌진이 장애물에 막혀도 즉시 발동하지 않음, 끝나면 빈틈 3초', () => {

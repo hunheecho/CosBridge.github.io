@@ -124,12 +124,12 @@ test('조합 프리셋 12개 이상: 적 종류가 모두 존재하고, 의도·
 test('지역 배치안: 기본은 기존 배치, 시험안은 신규 적을 지역별로 소개하며, 이전 저장(layout 없음)도 정상 진행된다. 난이도 후보는 지역별 체력 배율만 바꾼다', () => {
   const R = PA.Run;
   const run = R.newRun(1, 'sword'); assert.equal(run.layout, 'classic'); assert.equal(run.difficulty, 'base');
-  assert.deepEqual(j(R.encounterWaves('forest', false, run)), j(PA.REGIONS[0].waves));
+  assert.deepEqual(j(R.encounterWaves('forest', false, run)), j(PA.DAY_WAVES.forest[1]), '1일차 숲 편성'); run.day = 2; assert.deepEqual(j(R.encounterWaves('forest', false, run)), j(PA.DAY_WAVES.forest[2])); run.day = 4; assert.deepEqual(j(R.encounterWaves('forest', false, run)), j(PA.DAY_WAVES.forest[2]), '정의 없는 날짜는 가장 가까운 이전 정의'); run.day = 1;
   const old = JSON.parse(R.serialize(run)); delete old.layout; delete old.difficulty; const mig = R.deserialize(JSON.stringify(old)); assert.equal(mig.layout, 'classic'); assert.equal(mig.difficulty, 'base');
   assert.deepEqual(j(R.hpMultFor(mig, 'deep', true)), { normal: 1, elite: 1, boss: 1 });
   run.layout = 'trial';
-  for (const r of PA.REGIONS) { const waves = R.encounterWaves(r.id, false, run); assert.ok(waves.length >= 2); for (const w of waves) for (const g of w) assert.ok(PA.ENEMIES[g.type], g.type); const deep = R.encounterWaves(r.id, true, run); assert.ok(deep[deep.length - 1].some(g => g.type === 'wolf_alpha')); assert.ok(R.regionEnemies(r.id, run).length >= 2); }
-  assert.equal(R.encounterWaves('forest', false, run)[0].every(g => g.type === 'wolf'), true, '첫 웨이브는 이미 아는 적');
+  for (const r of PA.REGIONS) { const waves = R.encounterWaves(r.id, false, run); assert.ok(waves.length >= 2); for (const w of waves) for (const g of w) assert.ok(PA.ENEMIES[g.type], g.type); const deep = R.encounterWaves(r.id, true, run); assert.ok(deep[deep.length - 1].some(g => g.type === 'wolf_alpha')); assert.ok(R.regionEnemies(r.id, run).length >= 1); }
+  assert.equal(R.encounterWaves('forest', false, run)[0].every(g => g.type === 'wolf'), true, '1일차 첫 웨이브는 늑대만');
   assert.equal(R.encounterObjective('den', false, run), 'elite');
   run.difficulty = 'candA'; assert.deepEqual(j(R.hpMultFor(run, 'deep', false)), { normal: 3, elite: 3, boss: 1 }); assert.deepEqual(j(R.hpMultFor(run, 'forest', false)), { normal: 1, elite: 1, boss: 1 });
   run.difficulty = 'candC'; assert.equal(R.hpMultFor(run, 'marsh', true).normal, 3);

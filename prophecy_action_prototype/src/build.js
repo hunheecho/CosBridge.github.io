@@ -8,12 +8,16 @@ PA.Build = {
     const C = PA.CONFIG;
     const gear = run.gear || PA.Build.emptyGear();
     let hpMax = C.PLAYER.hp;
-    if (gear.armor === 'leather_armor') hpMax += 30;
     let dodgeCdMult = 1, accSpecialBonus = 0, exposedMult = C.PLAYER.exposedMult;
-    if (gear.acc === 'time_charm') { dodgeCdMult = 0.7; accSpecialBonus = 3; }
-    if (gear.acc === 'fang_necklace') exposedMult = 2.0;
-    const b = { gear, hpMax, dodgeCdMult, accSpecialBonus, exposedMult, skillCdMult: 1, shield: 0, forgeMult: 1 + 0.15 * (gear.upgrade || 0) };
+    // v0.8 장비: 슬롯당 1개(무기/방어구/방패). 효과는 여기서만 수치로 합산되고, 전투 훅은 b.equip을 읽는다
+    const eq = run.equipment || { weapon: null, armor: null, shield: null }; const equip = {}; const equipIds = [];
+    for (const slot of (PA.EQUIP_SLOTS || [])) { const d = eq[slot] && PA.EQUIPMENT[eq[slot]]; if (d) { equipIds.push(eq[slot]); Object.assign(equip, d.eff); } }
+    if (equip.hpMax) hpMax += equip.hpMax;
+    const forge = Math.min(3, run.forge || 0);
+    const b = { gear, hpMax, dodgeCdMult, accSpecialBonus, exposedMult, skillCdMult: 1, shield: equip.startShield || 0, forgeMult: 1 + ((PA.SHOP && PA.SHOP.forgeMult) || [0, 0.1, 0.2, 0.3])[forge], forge, equip, equipIds };
     PA.Growth.derive(run, b);
+    if (equip.speed) b.speedMult *= 1 + equip.speed;
+    if (equip.reach) { b.rangeMult *= 1 + equip.reach; b.widthMult *= 1 + equip.reach; b.weapons = b.growth.weapons.map(w => PA.Growth.weaponStats(b, w)); } // 개척자의 창: 사거리·범위 (회전 칼날은 반지름이 커질 뿐 안쪽 사각은 넓히지 않음 — weapons.js 스포크 판정)
     // 레거시 호환 필드(기존 화면·테스트): 첫 무기를 대표값으로
     const w0 = b.weapons[0];
     b.weaponId = w0.id; b.weapon = Object.assign({ name: w0.name, form: w0.kind === 'beam' ? 'beam' : 'arc' }, w0);
@@ -26,6 +30,8 @@ PA.Build = {
   preview(run, patch) {
     const r = JSON.parse(JSON.stringify(run));
     if (patch.gear) Object.assign(r.gear, patch.gear);
+    if (patch.equipment) Object.assign(r.equipment, patch.equipment);
+    if (patch.forge != null) r.forge = patch.forge;
     if (patch.augment) { try { PA.Growth.applyChoice(r, patch.augment); } catch (e) {} }
     return PA.Build.derive(r);
   },

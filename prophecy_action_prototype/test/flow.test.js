@@ -10,26 +10,23 @@ test('조우 시드: 게임·시뮬레이터 공통 규칙 seed + 조우수×100
   assert.equal(PA.Flow.encounterOpts(run, s).seed, s.seed + 1000 + 7);
   const o = PA.Flow.encounterOpts(run, s); assert.equal(o.objective, 'elite'); assert.equal(o.regionId, 'forest'); assert.ok(o.waves.length);
 });
-test('더 깊이 승리: 지역 3택은 정확히 1회, 저장·복구를 거쳐도 같은 제시가 한 번만 나온다', () => {
-  const run = PA.Run.newRun(11, 'sword'); run.growth.level = 5; // 후보 확보용
-  const s = PA.Run.startSortie(run, 'ridge'); PA.Run.deepExplore(run, s);
+test('더 깊이 승리(v0.8): 표시된 보상이 정확히 1회 전리품에 얹히고, 저장·복구를 거쳐도 귀환 정산은 1회', () => {
+  const run = PA.Run.newRun(11, 'sword'); run.growth.level = 5;
+  const s = PA.Run.startSortie(run, 'ridge'); const pv = PA.Run.deepPreview(run, s); assert.ok(['gold_big', 'equipment', 'voucher', 'steer'].includes(pv.reward.kind)); assert.equal(pv.extraTime, 1); assert.ok(pv.lootAtRisk);
+  PA.Run.deepExplore(run, s); assert.deepEqual(j(s.deepReward), j(pv.reward), '들어가기 전 표시와 같은 보상');
   const st = winDeep(run, s); st.status = 'won'; for (const e of st.enemies) e.dead = true;
   const rw = PA.Flow.settleVictory(run, s, st);
-  assert.ok(run.growth.pendingDeepPick, '보류 등록'); assert.equal(rw.xp, PA.Run.regionBonusXp('ridge', true));
-  const gold1 = s.loot.gold; PA.Flow.settleVictory(run, s, st); assert.equal(run.growth.pendingDeepPick.key, `${s.seed}:1`); // 재정산돼도 보류는 1개(deepPicked)
-  s.loot.gold = gold1;
-  // 레벨업을 먼저 소진
-  while (run.growth.pendingLevelUps > 0) { const off = PA.Flow.nextOffer(run, { regionId: 'ridge' }); assert.equal(off.pool, 'level'); PA.Flow.resolveOffer(run, off, off.choices[0] || null); }
-  // 저장·복구 후 더 깊이 3택 제시
-  const store = fakeStorage(); PA.Run.save(run, store); const run2 = PA.Run.load(store);
-  const off = PA.Flow.nextOffer(run2, { regionId: 'ridge' }); assert.ok(off && off.pool === 'deep', '더 깊이 3택'); assert.ok(off.choices.every(c => c.regionMatch));
-  assert.equal(run2.growth.pendingDeepPick, null, '보류는 제시로 소비됨');
-  // 제시 중 다시 저장·복구해도 같은 제시(재굴림 없음)
-  PA.Run.save(run2, store); const run3 = PA.Run.load(store); const off2 = PA.Flow.nextOffer(run3, { regionId: 'ridge' });
-  assert.deepEqual(j(off2), j(off));
-  PA.Flow.resolveOffer(run3, off2, off2.choices[0]);
-  assert.equal(PA.Flow.nextOffer(run3, { regionId: 'ridge' }), null, '두 번째 더 깊이 3택 없음');
-  assert.equal(run3.growth.picks.skip || 0, 0);
+  assert.equal(run.growth.pendingDeepPick, undefined, '3택 보류 없음'); assert.ok(rw.deep && rw.deep.kind === pv.reward.kind); assert.equal(rw.xp, PA.Run.regionBonusXp('ridge', true));
+  const loot1 = j(s.loot); PA.Flow.settleVictory(run, s, st); assert.deepEqual(j(s.loot).gold >= loot1.gold, true); assert.equal(s.deepRewarded, true);
+  assert.ok(PA.Flow.mustReturn(s), '심층 승리 뒤에는 귀환만');
+  const store = fakeStorage(); PA.Run.save(run, store); const run2 = PA.Run.load(store); assert.deepEqual(j(run2.pendingSortie.deepReward), j(pv.reward));
+  const gold0 = run2.gold, bag0 = run2.bag.length, sv0 = (run2.services.mod_swap || 0), steer0 = run2.growth.steer;
+  PA.Flow.returnHome(run2, run2.pendingSortie); PA.Flow.returnHome(run2, run2.pendingSortie || s); // 두 번 호출해도 정산은 1회
+  if (pv.reward.kind === 'gold_big') assert.equal(run2.gold, gold0 + loot1.gold);
+  if (pv.reward.kind === 'equipment') assert.equal(run2.bag.length, bag0 + 1);
+  if (pv.reward.kind === 'voucher') assert.equal(run2.services.mod_swap, sv0 + 1);
+  if (pv.reward.kind === 'steer') assert.ok(steer0 || run2.growth.steer);
+  assert.equal(PA.Flow.nextOffer(run2, { regionId: 'ridge' }) && PA.Flow.nextOffer(run2, { regionId: 'ridge' }).pool, run2.growth.pendingLevelUps > 0 ? 'level' : null);
 });
 test('일반 조우 승리에는 지역 3택이 없고, 패배 정산은 전리품을 남기지 않는다', () => {
   const run = PA.Run.newRun(3, 'spear'); const s = PA.Run.startSortie(run, 'forest');

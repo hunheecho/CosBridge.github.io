@@ -96,25 +96,25 @@ test('레거시 v2 저장 이행: 관통검·증강·강화가 새 슬롯으로 
   const old = R.newRun(9); old.version = 2; delete old.growth; old.gear.weapon = 'pierce'; old.owned.push('pierce_sword'); old.gear.upgrade = 2; old.augments = { spin: 1, sharp: 2, quick: 1, wide: 1, ember: 1, frost: 1, flare: 1, saving: 1, barrier: 1, mark: 1 };
   st.setItem(R.SAVE_KEY, JSON.stringify(old));
   const r = R.load(st); const g = r.growth;
-  assert.equal(r.version, 3); assert.equal(r.gear.weapon, undefined);
+  assert.equal(r.version, 4); assert.equal(r.gear.weapon, undefined); assert.equal(r.forge, 2, '대장간 강화 → 공용 공격 강화 단계'); assert.ok(r.migrationNotes && r.log[0].includes('v0.8'), '변환 내용 기록');
   assert.deepEqual(j(g.weapons.map(w => w.id)), ['spear', 'sword', 'blades']);
   assert.equal(g.passives.mastery, 2); assert.equal(g.passives.haste, 1);
   assert.equal(g.skills.e.id, 'ward'); assert.equal(g.legacy.mark, 1);
   assert.ok(g.migrationPending && g.migrationPending.commons.length === 5, '공통 5개 → 이행 대기');
   assert.deepEqual(j(Object.keys(g.commons)), []);
   Gr.resolveMigration(r, ['frost', 'flare', 'saving', 'wide']); assert.deepEqual(j(Object.keys(r.growth.commons)).sort(), ['flare', 'frost', 'saving']); assert.equal(r.growth.migrationPending, null);
-  const b = R.build(r); assert.equal(b.weapons.length, 3); assert.ok(Math.abs(b.damageMult - 1.3 * 1.2) < 1e-9, '대장간 강화 × 무기 숙련 각 1회');
+  const b = R.build(r); assert.equal(b.weapons.length, 3); assert.ok(Math.abs(b.damageMult - 1.2 * 1.2) < 1e-9, '공용 공격 강화 2단계(×1.2) × 무기 숙련 각 1회');
 });
 
 test('무기 레벨 배율은 누적(100/120/140/160/180%)이며 대장간 강화·숙련과 한 번씩 곱한다. 시작·추가 무기 성능 동일', () => {
   const run = runWith(PA, { gear: { upgrade: 1 }, growth: { weapons: [{ id: 'sword', level: 3 }, { id: 'blades', level: 1 }], passives: { mastery: 1 } } });
   const b = R.build(run);
-  assert.ok(Math.abs(b.weapons[0].damage - 12 * 1.4 * 1.15 * 1.1) < 1e-9);
+  assert.ok(Math.abs(b.weapons[0].damage - 12 * 1.4 * 1.1 * 1.1) < 1e-9);
   const run2 = runWith(PA, { gear: { upgrade: 1 }, growth: { weapons: [{ id: 'blades', level: 1 }, { id: 'sword', level: 3 }], passives: { mastery: 1 } } });
   const b2 = R.build(run2);
   assert.equal(b2.weapons[1].damage, b.weapons[0].damage, '같은 무기·같은 레벨이면 시작/추가와 무관하게 같은 피해');
   assert.equal(b2.weapons[0].damage, b.weapons[1].damage);
-  assert.ok(Math.abs(b.weapons[1].damage - 8 * 1.0 * 1.15 * 1.1) < 1e-9, '추가 무기 피해에 시작 무기 레벨을 쓰지 않음');
+  assert.ok(Math.abs(b.weapons[1].damage - 8 * 1.0 * 1.1 * 1.1) < 1e-9, '추가 무기 피해에 시작 무기 레벨을 쓰지 않음');
 });
 
 test('보스 재도전은 입장 시점 성장으로 복구된다(소환 경험치 누적 악용 방지)', () => {

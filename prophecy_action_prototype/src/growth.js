@@ -10,7 +10,7 @@ PA.Growth = (function () {
       level: 1, xp: 0, pendingLevelUps: 0, choiceSeq: 0, pendingOffer: null, lastKind: null,
       weapons: [{ id: startWeapon || 'sword', level: 1, mods: [] }],
       commons: {}, passives: {}, skills: { q: { id: 'slowfield', level: 1, variant: null }, e: null },
-      bossRewards: [], legacy: {}, migrationPending: null, picks: { weapon_new: 0, weapon_level: 0, weapon_mod: 0, common: 0, skill_new: 0, skill_level: 0, skill_variant: 0, passive: 0, skip: 0 },
+      bossRewards: [], legacy: {}, steer: null, migrationPending: null, picks: { weapon_new: 0, weapon_level: 0, weapon_mod: 0, common: 0, skill_new: 0, skill_level: 0, skill_variant: 0, passive: 0, skip: 0 },
       log: [],
     };
   }
@@ -100,7 +100,14 @@ PA.Growth = (function () {
   function generateOffer(run, ctx) {
     const g = ensure(run);
     if (g.pendingOffer && g.pendingOffer.pool === ((ctx && ctx.pool) || 'level')) return g.pendingOffer;
-    const pool = candidates(run, ctx), rng = PA.rng.create((run.seed * 7919 + g.choiceSeq * 104729 + g.level * 31) >>> 0);
+    let pool = candidates(run, ctx), steerKind = null;
+    // 성장 예약(임무 보상): 자연 레벨업 제시를 예약 종류로 한정. 예약은 이후 생성되는 제시에만 적용되고, 후보가 없으면 금화로 대체(기록)
+    if (g.steer && (!ctx || !ctx.pool || ctx.pool === 'level')) {
+      const kinds = (PA.MISSIONS.kindPools[g.steer.kind] || [g.steer.kind]); const sub = pool.filter(c => kinds.includes(c.kind));
+      if (sub.length) { pool = sub; steerKind = g.steer.kind; }
+      else { run.gold = (run.gold || 0) + (g.steer.fallbackGold || 0); if (PA.Run) PA.Run.addLog(run, `성장 예약(${g.steer.kind}): 유효 후보 없음 → 금화 +${g.steer.fallbackGold || 0}`); g.steerFallbacks = (g.steerFallbacks || 0) + 1; g.steer = null; }
+    }
+    const rng = PA.rng.create((run.seed * 7919 + g.choiceSeq * 104729 + g.level * 31) >>> 0);
     const picked = [];
     const remaining = pool.slice();
     while (picked.length < 3 && remaining.length) {
@@ -112,7 +119,7 @@ PA.Growth = (function () {
       if (!(ctx && ctx.pool === 'mission') && picked.some(p => p.kind === c.kind && p.id === c.id)) continue; // 임무·사건·교체 3택(한 무기의 개조만 후보)은 같은 무기의 개조 여러 개를 허용
       picked.push(c);
     }
-    g.pendingOffer = { seq: g.choiceSeq, pool: (ctx && ctx.pool) || 'level', regionId: ctx && ctx.regionId || null, choices: picked.map(c => Object.assign({ key: keyOf(c) }, c)) };
+    g.pendingOffer = { seq: g.choiceSeq, pool: (ctx && ctx.pool) || 'level', regionId: ctx && ctx.regionId || null, steer: steerKind, choices: picked.map(c => Object.assign({ key: keyOf(c) }, c)) };
     g.choiceSeq++;
     return g.pendingOffer;
   }
@@ -135,9 +142,10 @@ PA.Growth = (function () {
     g.lastKind = choice.kind;
     g.log.push(keyOf(choice));
     if (g.pendingOffer && g.pendingOffer.pool === 'level') g.pendingLevelUps = Math.max(0, g.pendingLevelUps - 1);
+    if (g.pendingOffer && g.pendingOffer.steer) { g.steer = null; g.picks.steered = (g.picks.steered || 0) + 1; } // 예약 소비(선택 1회)
     g.pendingOffer = null;
   }
-  function skipChoice(run) { const g = ensure(run); g.picks.skip++; if (g.pendingOffer && g.pendingOffer.pool === 'level') g.pendingLevelUps = Math.max(0, g.pendingLevelUps - 1); g.pendingOffer = null; run.gold = (run.gold || 0) + PA.CONFIG.SKIP_AUGMENT_GOLD; }
+  function skipChoice(run) { const g = ensure(run); g.picks.skip++; if (g.pendingOffer && g.pendingOffer.pool === 'level') g.pendingLevelUps = Math.max(0, g.pendingLevelUps - 1); if (g.pendingOffer && g.pendingOffer.steer) g.steer = null; g.pendingOffer = null; run.gold = (run.gold || 0) + PA.CONFIG.SKIP_AUGMENT_GOLD; }
 
   // ---------- 파생 수치 ----------
   function weaponStats(b, w) {
@@ -155,7 +163,7 @@ PA.Growth = (function () {
     const g = ensure(run), PV = G().PASSIVE_VALUES, CV = G().COMMON_VALUES, p = g.passives;
     b.growth = g; b.level = g.level;
     b.masteryMult = 1 + PV.mastery * (p.mastery || 0);
-    b.damageMult = (1 + 0.15 * (run.gear.upgrade || 0)) * b.masteryMult;   // 대장간 강화(세 무기 공통) × 무기 숙련
+    b.damageMult = (b.forgeMult || 1) * b.masteryMult;   // 공용 공격 강화(Build.derive에서 run.forge로 계산, 자동기술 공통) × 무기 숙련
     b.intervalMult = 1 - PV.haste * (p.haste || 0);
     b.rangeMult = CV.reach[(g.commons.reach || 0) - 1] || 1;
     b.widthMult = CV.wide[(g.commons.wide || 0) - 1] || 1;
