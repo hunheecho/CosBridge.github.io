@@ -1539,6 +1539,7 @@ PA.Combat = (function () {
   }
 
   function step(st, input, dt) {
+    st.stepN = (st.stepN || 0) + 1; // 고정 단계 번호: 봇 판단 주기(PA.Bot.DECIDE_STEPS)의 기준. 렌더 프레임과 무관
     if (st.status !== 'running') { updateEffects(st, dt); for (const e of st.enemies) if (e.dead) e.deathT += dt; if (st.boss && st.boss.dead) st.bossDownT += dt; return; }
     if (st.intro > 0) { // 입장 연출: 시간·행동·피해 없음
       st.intro -= dt; for (const e of st.enemies) e.animT += dt; updateEffects(st, dt);
@@ -2680,6 +2681,66 @@ PA.Run = (function () {
 
 </script>
 <script>
+// 회차 진행 공유 흐름: 조우 생성·정산·다음 선택을 브라우저(main.js)와 헤드리스 시뮬레이터(tools/run_sim.js)가 같은 함수로 처리한다.
+// 화면은 결과를 표시하고 선택을 전달할 뿐, 보상·경험치·3택의 규칙은 여기서만 결정된다.
+PA.Flow = (function () {
+  // 조우 시드: 출격 시드 + 조우 순번×1000 + (더 깊이 7). 게임과 시뮬레이터가 같은 값을 쓴다
+  function encounterSeed(sortie) { return sortie.seed + (sortie.encounters || 0) * 1000 + (sortie.deep ? 7 : 0); }
+  // 조우 생성 옵션(일반 조우). 보스는 Run.startBoss/bossSeed 경로
+  function encounterOpts(run, sortie, extra) {
+    const R = PA.Run;
+    return Object.assign({
+      build: R.build(run), hp: run.hp, seed: encounterSeed(sortie),
+      waves: R.encounterWaves(sortie.regionId, sortie.deep, run), objective: R.encounterObjective(sortie.regionId, sortie.deep, run),
+      arena: sortie.arena || R.regionArena(sortie.regionId, run), hpMult: R.hpMultFor(run, sortie.regionId, sortie.deep), regionId: sortie.regionId,
+      labText: R.layoutText(run) || null,
+    }, extra || {});
+  }
+  function makeEncounter(run, sortie, extra) { return PA.Combat.create(encounterOpts(run, sortie, extra)); }
+  // 조우 승리 정산(정확히 1회): 전리품 굴림 → 출격 전리품 반영 → 지역 경험치 → 더 깊이면 지역 3택을 보류 선택으로 등록(저장됨)
+  function settleVictory(run, sortie, st) {
+    const eliteKilled = st.enemies.some(e => e.elite && e.dead) || (st.status === 'won' && st.objective === 'elite');
+    const reward = PA.Run.rollReward(run, sortie, st.rng, { chestGold: st.stats.chestGold, eliteKilled });
+    PA.Run.applyEncounterResult(run, sortie, 'won', reward, st.player.hp);
+    reward.xp = PA.Run.regionBonusXp(sortie.regionId, sortie.deep); PA.Growth.addXp(run.growth, reward.xp);
+    if (sortie.deep && PA.GROWTH.DEEP_PICK && !sortie.deepPicked) { sortie.deepPicked = true; run.growth.pendingDeepPick = { regionId: sortie.regionId, key: `${sortie.seed}:${sortie.encounters}` }; }
+    return reward;
+  }
+  function settleDefeat(run, sortie, st) { PA.Run.applyEncounterResult(run, sortie, 'lost', null, 0); PA.Run.defeat(run, sortie); }
+  // 다음에 제시할 선택(순서 고정): 저장된 보류 제시 → 미처리 레벨업 → 더 깊이 지역 3택 → 없음(null)
+  // 더 깊이 3택은 여기서 보류 등록을 소비하고 pendingOffer로 옮긴다(새로고침해도 같은 제시, 두 번 제시되지 않음). 후보가 없으면 제시 없이 소비
+  function nextOffer(run, ctx) {
+    const g = run.growth; ctx = ctx || {};
+    if (g.pendingOffer) return g.pendingOffer;
+    if (g.pendingLevelUps > 0) return PA.Growth.generateOffer(run, { pool: 'level', regionId: ctx.regionId || null });
+    if (g.pendingDeepPick) {
+      const rid = g.pendingDeepPick.regionId; g.pendingDeepPick = null;
+      const off = PA.Growth.generateOffer(run, { pool: 'deep', regionId: rid });
+      if (!off.choices.length) { g.pendingOffer = null; g.deepPickNone = (g.deepPickNone || 0) + 1; PA.Run.addLog(run, '지역 보상: 남은 후보 없음(제시 생략)'); return nextOffer(run, ctx); } // 유효 후보 0개: 명시적으로 생략·기록
+      return off;
+    }
+    return null;
+  }
+  // 제시된 선택을 적용(choice) 또는 건너뜀(null). 레벨업 건너뜀은 금화, 그 외 건너뜀은 제시만 닫힘
+  function resolveOffer(run, offer, choice) {
+    if (choice) PA.Growth.applyChoice(run, choice);
+    else if (offer.pool === 'level') PA.Growth.skipChoice(run);
+    else run.growth.pendingOffer = null;
+  }
+  // 헤드리스: 남은 선택을 봇 정책으로 전부 처리. onPick(offer, choice) 콜백으로 기록
+  function resolveAll(run, ctx, pick, onPick) {
+    let guard = 0, n = 0;
+    for (;;) {
+      const off = nextOffer(run, ctx); if (!off || guard++ > 200) break;
+      const c = off.choices.length ? pick(off) : null; resolveOffer(run, off, c); n++; if (onPick) onPick(off, c);
+    }
+    return n;
+  }
+  return { encounterSeed, encounterOpts, makeEncounter, settleVictory, settleDefeat, nextOffer, resolveOffer, resolveAll };
+})();
+
+</script>
+<script>
 // 조작 정책 봇(브라우저 시험실·헤드리스 시뮬레이션 공용). 사람 플레이의 대체가 아니라 서로 다른 정책을 비교하는 도구다.
 // 읽는 정보: 화면에 보이는 것만(적 상태·예고 각도·확정 방향·바닥 지역·투사체·체력·재사용). 미래 난수나 미공개 결과는 읽지 않는다.
 // 규칙 위반 금지: 순간이동·체력 보정·피해 무효화 없음. 입력은 {mx,my,dodge,special,skillE}로만 나간다.
@@ -2798,12 +2859,21 @@ PA.Bot = (function () {
     if (es && p.eCd <= 0) { const nearE = alive.filter(e => M.dist(e, p) < pol.eRange).length; if (nearE >= pol.eMinEnemies) skillE = true; if (es.id === 'ward' && pol !== POLICIES.survival && !threatened && hpRatio > 0.7) skillE = false; }
     return { mx: mv.x, my: mv.y, dodge, special, skillE };
   }
-  // 헤드리스 실행 보조: 5스텝마다 판단(40ms), 단발 입력은 그 프레임만
+  // 판단 주기 양자화: 고정 시뮬레이션 단계 번호(st.stepN, 다음에 실행될 단계)가 DECIDE_STEPS의 배수일 때만 판단한다(120단계/초 → 5단계 = 40ms).
+  // 판단 결과의 단발 입력(회피·Q·E)은 그 판단이 붙은 단계에서 소비되고, 다음 판단 전까지 이동 입력만 유지된다.
+  // 브라우저(main.frame)와 헤드리스(runCombat)가 모두 이 함수를 단계마다 호출하므로 프레임 속도와 무관하게 같은 입력 일정을 만든다.
+  const DECIDE_STEPS = 5;
+  function stepInput(st, policyId, mem) {
+    const n = (st.stepN || 0); // 이번에 실행될 단계 번호(step 호출 전)
+    if (!mem.last || n % DECIDE_STEPS === 0) { mem.last = decide(policyId, st, mem); mem.lastN = n; return mem.last; }
+    return { mx: mem.last.mx, my: mem.last.my, dodge: false, special: false, skillE: false };
+  }
+  // 헤드리스 실행 보조: 단계마다 stepInput
   function runCombat(st, policyId, opts) {
-    opts = opts || {}; const dt = PA.CONFIG.STEP, maxN = Math.round((opts.maxSec || 180) / dt); let n = 0, last = { mx: 0, my: 0 }; const mem = {};
+    opts = opts || {}; const dt = PA.CONFIG.STEP, maxN = Math.round((opts.maxSec || 180) / dt); let n = 0; const mem = opts.mem || {};
     let farSteps = 0, aliveSteps = 0;
     while (st.status === 'running' && n < maxN) {
-      const inp = n % 5 === 0 ? decide(policyId, st, mem) : Object.assign({}, last, { dodge: false, special: false, skillE: false }); last = inp;
+      const inp = stepInput(st, policyId, mem);
       PA.Combat.step(st, inp, dt); n++;
       if (n % 12 === 0) { // 길찾기 실패 진단: 적이 살아 있는데 모든 적과 300 이상 떨어진 시간 비율(시간 초과의 원인 구분용)
         const p = st.player; let near = false, any = false; for (const e of st.enemies) { if (e.dead || e.hidden) continue; any = true; if (PA.m.dist(e, p) < 300) { near = true; break; } }
@@ -2814,6 +2884,16 @@ PA.Bot = (function () {
     if (st.metrics) st.metrics.farFrac = aliveSteps ? Math.round(farSteps / aliveSteps * 100) / 100 : 0;
     return st;
   }
+  // 브라우저 프레임 재현(검증용): 프레임마다 dt를 누적하고 고정 단계를 실행한다(main.frame과 같은 규칙: 12단계 상한, 초과분 버림)
+  function frameLoop(st, policyId, fps, opts) {
+    opts = opts || {}; const dt = PA.CONFIG.STEP, mem = {}; let acc = 0, frames = 0; const maxFrames = Math.round((opts.maxSec || 180) * fps);
+    while (st.status === 'running' && frames < maxFrames) {
+      acc += Math.min(0.1, 1 / fps); let guard = 0;
+      while (acc >= dt && guard++ < 12) { PA.Combat.step(st, stepInput(st, policyId, mem), dt); acc -= dt; }
+      if (guard >= 12) acc = 0; frames++;
+    }
+    return st;
+  }
   // 성장 모드에서 봇의 카드 선택: 새 무기 > E 습득 > 무기 방식 > 무기 레벨 > 나머지 순, 같은 순위면 시드 난수
   function pickChoice(offer, seed) {
     const order = ['weapon_new', 'skill_new', 'weapon_mod', 'weapon_level', 'common', 'skill_level', 'skill_variant', 'passive', 'boss_reward'];
@@ -2822,7 +2902,7 @@ PA.Bot = (function () {
     const pool = cs.filter(c => order.indexOf(c.kind) === best);
     return pool[Math.floor(PA.rng.create((seed || 1) + offer.seq * 13).next() * pool.length)];
   }
-  return { POLICIES, threats, decide, runCombat, pickChoice, weaponRange };
+  return { POLICIES, threats, decide, stepInput, runCombat, frameLoop, pickChoice, weaponRange, DECIDE_STEPS };
 })();
 
 </script>
@@ -4455,15 +4535,15 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       if (G.run.growth.pendingLevelUps > 0) offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId });
     } else {
       closeChoice();
-      if (G.run.growth.pendingLevelUps > 0 && G.screen !== 'reward') offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId });
-      else show(G.screen);
+      const off = G.screen !== 'reward' ? PA.Flow.nextOffer(G.run, { regionId: G.sortie && G.sortie.regionId }) : null; // 보상 화면은 버튼으로 다음 선택을 이어감
+      if (off) { openChoice(off); saveRun(); } else show(G.screen);
     }
   }
   function pauseCombat(on) { if (G.screen !== 'combat') return; G.paused = on; PA.Input.setBlocked(G.input, on); if (on) openOverlay('pause'); else closeOverlay(); }
 
   // ---------- 회차 흐름 ----------
   function saveRun() { if (G.run && !G.scenario) PA.Run.save(G.run); }
-  function goBase() { saveRun(); if (G.run.growth && G.run.growth.migrationPending) { show('migration'); return; } show('base'); } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
+  function goBase() { saveRun(); if (G.run.growth && G.run.growth.migrationPending) { show('migration'); return; } show('base'); const g = G.run.growth; if (g && (g.pendingDeepPick || (g.pendingOffer && g.pendingOffer.pool !== 'level'))) { const off = PA.Flow.nextOffer(G.run); if (off) { openChoice(off); saveRun(); } } } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
   function leaveScenario() { if (G.scenario) { G.scenario = null; try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
   function newRun() { leaveScenario(); G.startAll = false; show('pick_start'); }
   function startRun(weaponId) { G.run = PA.Run.newRun(undefined, weaponId); const lay = $('#start-layout'), dif = $('#start-difficulty'); if (lay && PA.LAYOUTS[lay.value]) G.run.layout = lay.value; if (dif && PA.DIFFICULTY.candidates[dif.value]) G.run.difficulty = dif.value; G.sortie = null; G.combat = null; saveRun(); show('base'); }
@@ -4477,11 +4557,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     G.choice = null;
     if (s.regionId === 'boss') {
       G.combat = PA.Combat.create({ build: PA.Run.build(run), hp: PA.Run.build(run).hpMax, seed: s.seed, boss: true, arena: 'clearing', waves: [] });
-    } else G.combat = PA.Combat.create({
-      build: PA.Run.build(run), hp: run.hp, seed: s.seed + s.encounters * 1000 + (s.deep ? 7 : 0),
-      waves: PA.Run.encounterWaves(s.regionId, s.deep, run), objective: PA.Run.encounterObjective(s.regionId, s.deep, run), arena: s.arena || PA.Run.regionArena(s.regionId, run),
-      hpMult: PA.Run.hpMultFor(run, s.regionId, s.deep), regionId: s.regionId, labText: PA.Run.layoutText(run) || null,
-    });
+    } else G.combat = PA.Flow.makeEncounter(run, s); // 시드·웨이브·목표·배율은 공유 흐름(시뮬레이터와 동일)
     G.endTimer = 0; G.acc = 0; G.paused = false; G.eventCounts = {}; PA.Input.setBlocked(G.input, false); closeOverlay();
     show('combat');
   }
@@ -4507,18 +4583,13 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       } else { PA.Run.bossDefeat(run); saveRun(); G.sortie = null; show('boss_defeat'); }
       return;
     }
-    const eliteKilled = c.enemies.some(e => e.elite && e.dead) || c.status === 'won' && c.objective === 'elite';
     if (c.status === 'won') {
-      const reward = PA.Run.rollReward(run, s, c.rng, { chestGold: c.stats.chestGold, eliteKilled });
-      PA.Run.applyEncounterResult(run, s, 'won', reward, c.player.hp);
-      reward.xp = PA.Run.regionBonusXp(s.regionId, s.deep); PA.Growth.addXp(run.growth, reward.xp); // 조우 승리: 지역 경험치(증강 3택 대체)
-      G.lastReward = reward; G.offers = null;
+      G.lastReward = PA.Flow.settleVictory(run, s, c); G.offers = null; // 정산은 공유 흐름에서 정확히 1회(전리품·지역 경험치·더 깊이 3택 보류 등록)
       saveRun();
       show('reward');
       if (run.growth.pendingLevelUps > 0) offerPendingLevelUps({ regionId: s.regionId });
     } else {
-      PA.Run.applyEncounterResult(run, s, 'lost', null, 0);
-      PA.Run.defeat(run, s);
+      PA.Flow.settleDefeat(run, s, c);
       saveRun();
       show('defeat');
     }
@@ -4561,12 +4632,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     show('lab_result');
   }
   function exitLab() { leaveScenario(); G.run = null; G.sortie = null; G.combat = null; G.paused = false; G.overlay = null; closeOverlay(); PA.Input.setBlocked(G.input, false); PA.Input.clearAll(G.input); G.saved = PA.Run.load(); show('title'); }
-  // 봇 조작: 40ms마다 판단, 단발 입력은 그 판단 프레임만
-  function botInput(dt) {
-    G.botT += dt;
-    if (!G.botLast || G.botT >= 0.04) { G.botT = 0; G.botLast = PA.Bot.decide(G.lab.cfg.bot, G.combat, G.botMem); return G.botLast; }
-    return Object.assign({}, G.botLast, { dodge: false, special: false, skillE: false });
-  }
+  // 봇 조작: 판단은 고정 시뮬레이션 단계 기준(PA.Bot.stepInput). 렌더 프레임 속도와 무관하게 헤드리스와 같은 입력 일정
 
   // ---------- 동작 처리 ----------
   const actions = {
@@ -4575,10 +4641,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'newrun-confirm': () => newRun(),
     'start-weapon': (id) => startRun(id),
     'start-all': () => { G.startAll = true; show('pick_start'); },
-    'pick': (key) => { const off = G.choice; if (!off) return; const c = off.choices.find(x => x.key === key); if (!c) return; PA.Growth.applyChoice(G.run, c); PA.Audio.play('buy'); afterChoice(); },
-    'skip': () => { const off = G.choice; if (!off) return; if (off.pool === 'level') PA.Growth.skipChoice(G.run); else G.run.growth.pendingOffer = null; afterChoice(); },
+    'pick': (key) => { const off = G.choice; if (!off) return; const c = off.choices.find(x => x.key === key); if (!c) return; PA.Flow.resolveOffer(G.run, off, c); PA.Audio.play('buy'); afterChoice(); },
+    'skip': () => { const off = G.choice; if (!off) return; PA.Flow.resolveOffer(G.run, off, null); afterChoice(); },
     'resolve-levelup': () => { offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId }); },
-    'after-reward': () => { if (G.run.growth.pendingLevelUps > 0) { offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId }); return; } if (G.sortie && G.sortie.deep && PA.GROWTH.DEEP_PICK && !G.sortie.deepPicked) { G.sortie.deepPicked = true; G.screen = 'after'; uiEl.innerHTML = PA.Screens.after(G); openChoice(PA.Growth.generateOffer(G.run, { pool: 'deep', regionId: G.sortie.regionId })); return; } show('after'); },
+    'after-reward': () => { const off = PA.Flow.nextOffer(G.run, { regionId: G.sortie && G.sortie.regionId }); if (off) { openChoice(off); saveRun(); return; } show('after'); }, // 보류 제시 → 레벨업 → 더 깊이 3택 순서(공유 흐름), 모두 끝나면 다음 행동
     'mig-toggle': (id) => { G.migSel = G.migSel || []; if (G.migSel.includes(id)) G.migSel = G.migSel.filter(x => x !== id); else if (G.migSel.length < 3) G.migSel.push(id); show('migration'); },
     'mig-confirm': () => { PA.Growth.resolveMigration(G.run, G.migSel || []); G.migSel = null; saveRun(); goBase(); },
     'title': () => { leaveScenario(); G.saved = PA.Run.load(); show('title'); },
@@ -4679,10 +4745,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       G.acc += dt;
       const STEP = PA.CONFIG.STEP;
       const bot = G.scenario && G.scenario.lab && G.lab.cfg && G.lab.cfg.control === 'bot';
-      let inp = bot ? botInput(dt) : inputState(); let first = true; let guard = 0;
+      let inp = bot ? null : inputState(); let first = true; let guard = 0;
       while (G.acc >= STEP && guard++ < 12) {
-        PA.Combat.step(G.combat, inp, STEP);
-        if (first) { if (!bot) { PA.Input.consumePressed(G.input); inp = inputState(); } else inp = Object.assign({}, inp, { dodge: false, special: false, skillE: false }); first = false; }
+        PA.Combat.step(G.combat, bot ? PA.Bot.stepInput(G.combat, G.lab.cfg.bot, G.botMem) : inp, STEP);
+        if (first && !bot) { PA.Input.consumePressed(G.input); inp = inputState(); first = false; } // 사람 입력: 단발 입력은 프레임의 첫 단계에서 소비
         G.acc -= STEP;
       }
       if (guard >= 12) G.acc = 0;

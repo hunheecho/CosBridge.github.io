@@ -116,12 +116,21 @@ PA.Bot = (function () {
     if (es && p.eCd <= 0) { const nearE = alive.filter(e => M.dist(e, p) < pol.eRange).length; if (nearE >= pol.eMinEnemies) skillE = true; if (es.id === 'ward' && pol !== POLICIES.survival && !threatened && hpRatio > 0.7) skillE = false; }
     return { mx: mv.x, my: mv.y, dodge, special, skillE };
   }
-  // 헤드리스 실행 보조: 5스텝마다 판단(40ms), 단발 입력은 그 프레임만
+  // 판단 주기 양자화: 고정 시뮬레이션 단계 번호(st.stepN, 다음에 실행될 단계)가 DECIDE_STEPS의 배수일 때만 판단한다(120단계/초 → 5단계 = 40ms).
+  // 판단 결과의 단발 입력(회피·Q·E)은 그 판단이 붙은 단계에서 소비되고, 다음 판단 전까지 이동 입력만 유지된다.
+  // 브라우저(main.frame)와 헤드리스(runCombat)가 모두 이 함수를 단계마다 호출하므로 프레임 속도와 무관하게 같은 입력 일정을 만든다.
+  const DECIDE_STEPS = 5;
+  function stepInput(st, policyId, mem) {
+    const n = (st.stepN || 0); // 이번에 실행될 단계 번호(step 호출 전)
+    if (!mem.last || n % DECIDE_STEPS === 0) { mem.last = decide(policyId, st, mem); mem.lastN = n; return mem.last; }
+    return { mx: mem.last.mx, my: mem.last.my, dodge: false, special: false, skillE: false };
+  }
+  // 헤드리스 실행 보조: 단계마다 stepInput
   function runCombat(st, policyId, opts) {
-    opts = opts || {}; const dt = PA.CONFIG.STEP, maxN = Math.round((opts.maxSec || 180) / dt); let n = 0, last = { mx: 0, my: 0 }; const mem = {};
+    opts = opts || {}; const dt = PA.CONFIG.STEP, maxN = Math.round((opts.maxSec || 180) / dt); let n = 0; const mem = opts.mem || {};
     let farSteps = 0, aliveSteps = 0;
     while (st.status === 'running' && n < maxN) {
-      const inp = n % 5 === 0 ? decide(policyId, st, mem) : Object.assign({}, last, { dodge: false, special: false, skillE: false }); last = inp;
+      const inp = stepInput(st, policyId, mem);
       PA.Combat.step(st, inp, dt); n++;
       if (n % 12 === 0) { // 길찾기 실패 진단: 적이 살아 있는데 모든 적과 300 이상 떨어진 시간 비율(시간 초과의 원인 구분용)
         const p = st.player; let near = false, any = false; for (const e of st.enemies) { if (e.dead || e.hidden) continue; any = true; if (PA.m.dist(e, p) < 300) { near = true; break; } }
@@ -132,6 +141,16 @@ PA.Bot = (function () {
     if (st.metrics) st.metrics.farFrac = aliveSteps ? Math.round(farSteps / aliveSteps * 100) / 100 : 0;
     return st;
   }
+  // 브라우저 프레임 재현(검증용): 프레임마다 dt를 누적하고 고정 단계를 실행한다(main.frame과 같은 규칙: 12단계 상한, 초과분 버림)
+  function frameLoop(st, policyId, fps, opts) {
+    opts = opts || {}; const dt = PA.CONFIG.STEP, mem = {}; let acc = 0, frames = 0; const maxFrames = Math.round((opts.maxSec || 180) * fps);
+    while (st.status === 'running' && frames < maxFrames) {
+      acc += Math.min(0.1, 1 / fps); let guard = 0;
+      while (acc >= dt && guard++ < 12) { PA.Combat.step(st, stepInput(st, policyId, mem), dt); acc -= dt; }
+      if (guard >= 12) acc = 0; frames++;
+    }
+    return st;
+  }
   // 성장 모드에서 봇의 카드 선택: 새 무기 > E 습득 > 무기 방식 > 무기 레벨 > 나머지 순, 같은 순위면 시드 난수
   function pickChoice(offer, seed) {
     const order = ['weapon_new', 'skill_new', 'weapon_mod', 'weapon_level', 'common', 'skill_level', 'skill_variant', 'passive', 'boss_reward'];
@@ -140,5 +159,5 @@ PA.Bot = (function () {
     const pool = cs.filter(c => order.indexOf(c.kind) === best);
     return pool[Math.floor(PA.rng.create((seed || 1) + offer.seq * 13).next() * pool.length)];
   }
-  return { POLICIES, threats, decide, runCombat, pickChoice, weaponRange };
+  return { POLICIES, threats, decide, stepInput, runCombat, frameLoop, pickChoice, weaponRange, DECIDE_STEPS };
 })();

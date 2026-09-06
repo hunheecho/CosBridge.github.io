@@ -122,4 +122,6 @@
 | R-GROW-40 | 조우 3택 → 지역 경험치·심층 지역 보상 통합 | 성장 속도 이중화 방지 | 성장 | ✅ | main.js onEncounterEnd | — |
 | R-GROW-41 | 회차 35~45분·레벨업 20~25회 | 측정 가설 | 성장 | 🟡 | tools/growth_sim.js | 봇 12분·25회. 사람 기준 재측정 필요 |
 | R-BOSS-13 | 추가 보스 2종(보스 3마리 구성) | 회차 중간 보상 | 후속 | ⏳ | — | 별도 콘텐츠 작업 |
-
+| R-FIX-01 | 봇 판단 일정을 고정 시뮬레이션 단계 기준으로 통일 | 프레임 속도와 무관한 봇 결과 | v0.7 | ✅ | combat.js `st.stepN`, bot.js `stepInput`/`frameLoop`(DECIDE_STEPS 5), main.js frame, test/lab.test.js fps 회귀(30/60/120/240) | 사람 입력의 정지·재개는 변경 없음 |
+| R-FIX-02 | 조우 생성·정산·3택을 게임과 시뮬레이터가 한 경로로 | 더 깊이 지역 3택 누락·시드 불일치 제거 | v0.7 | ✅ | src/flow.js `PA.Flow`(encounterSeed·makeEncounter·settleVictory·nextOffer), main.js·tools/run_sim.js, test/flow.test.js | 더 깊이 3택은 `growth.pendingDeepPick`→`pendingOffer`로 저장·1회 |
+| R-FIX-03 | 회차 시간 계정 분리(전투/카드/화면/휴식·하루/보스) | 합계는 보스 후 1회, 카드는 실제 시점 | v0.7 | ✅ | tools/run_sim.js `T` 버킷·`events`, docs/sim/run_sim*.md(수정 전은 prefix_v06_*) | 시간 초과는 패배와 별도 열 |

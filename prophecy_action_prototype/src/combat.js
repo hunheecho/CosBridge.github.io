@@ -703,6 +703,7 @@ PA.Combat = (function () {
   }
 
   function step(st, input, dt) {
+    st.stepN = (st.stepN || 0) + 1; // 고정 단계 번호: 봇 판단 주기(PA.Bot.DECIDE_STEPS)의 기준. 렌더 프레임과 무관
     if (st.status !== 'running') { updateEffects(st, dt); for (const e of st.enemies) if (e.dead) e.deathT += dt; if (st.boss && st.boss.dead) st.bossDownT += dt; return; }
     if (st.intro > 0) { // 입장 연출: 시간·행동·피해 없음
       st.intro -= dt; for (const e of st.enemies) e.animT += dt; updateEffects(st, dt);

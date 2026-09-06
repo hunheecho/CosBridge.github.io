@@ -138,3 +138,16 @@ test('지역 배치안: 기본은 기존 배치, 시험안은 신규 적을 지�
   const sp = PA.Combat.spawnEnemy(st, 'spore', 100, 100); assert.equal(sp.hp, 110);
   const t = L.enemyPreset('trial:marsh'); assert.ok(t && t.waves.some(w => w.some(g => g.type === 'bomber')));
 });
+
+test('봇 입력 일정은 프레임 속도와 무관하다: 30/60/120/240fps 프레임 루프와 헤드리스가 같은 결과를 낸다(Codex 재현 설정)', () => {
+  const cfgText = 'enemy=combo:boar_terrain;hp=2,1,1;seed=3;build=mid_melee;arena=pillars;control=bot;bot=balanced;time=120';
+  const fresh = () => { const cfg = L.decode(cfgText); return L.makeCombat(cfg, L.makeRun(cfg)); };
+  const sig = (st) => { const s = CB.summary(st); return JSON.stringify([s.status, s.elapsed, s.damageTaken, s.dodges, s.specialUses, s.eUses, s.kills, Math.round(st.player.x), Math.round(st.player.y)]); };
+  const head = sig(PA.Bot.runCombat(fresh(), 'balanced', { maxSec: 120 }));
+  const results = {};
+  for (const fps of [30, 60, 120, 240]) results[fps] = sig(PA.Bot.frameLoop(fresh(), 'balanced', fps, { maxSec: 120 }));
+  for (const fps of [30, 60, 120, 240]) assert.equal(results[fps], head, `${fps}fps ${results[fps]} vs headless ${head}`);
+  const st = fresh(); const mem = {}; let decisions = 0; const dt = PA.CONFIG.STEP;
+  for (let i = 0; i < 600; i++) { const before = mem.last; PA.Bot.stepInput(st, 'balanced', mem); if (mem.last !== before) decisions++; CB.step(st, mem.last, dt); }
+  assert.equal(decisions, 120, '600단계 동안 5단계마다 정확히 120회 판단');
+});
