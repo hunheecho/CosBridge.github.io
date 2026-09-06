@@ -10,26 +10,31 @@ PA.Flow = (function () {
       build: R.build(run), hp: run.hp, seed: encounterSeed(sortie),
       waves: R.encounterWaves(sortie.regionId, sortie.deep, run), objective: R.encounterObjective(sortie.regionId, sortie.deep, run),
       arena: sortie.arena || R.regionArena(sortie.regionId, run), hpMult: R.hpMultFor(run, sortie.regionId, sortie.deep), regionId: sortie.regionId,
-      labText: R.layoutText(run) || null,
-    }, extra || {});
+      labText: R.layoutText(run) || null, run,
+    }, sortie.mission ? { objective: sortie.objective, risk: sortie.risk || null, mission: { cardId: sortie.cardId, objective: sortie.objective, risk: sortie.risk || null } } : {}, extra || {});
   }
   function makeEncounter(run, sortie, extra) { return PA.Combat.create(encounterOpts(run, sortie, extra)); }
   // 조우 승리 정산(정확히 1회): 전리품 굴림 → 출격 전리품 반영 → 지역 경험치 → 더 깊이면 지역 3택을 보류 선택으로 등록(저장됨)
   function settleVictory(run, sortie, st) {
     const eliteKilled = st.enemies.some(e => e.elite && e.dead) || (st.status === 'won' && st.objective === 'elite');
     const reward = PA.Run.rollReward(run, sortie, st.rng, { chestGold: st.stats.chestGold, eliteKilled });
+    if (sortie.mission) { // 임무: 지역 보상의 재료를 종류 지정 3택으로 대체(금화는 유지, 위험 조건이면 ×1.25). 처치 경험치는 전투 중 즉시
+      reward.mats = {}; if (sortie.risk) reward.gold = Math.round(reward.gold * PA.MISSIONS.riskRewardMult); reward.mission = true;
+      reward.missionPick = PA.Sortie.onMissionWin(run, sortie); // 하루 1회: 이미 완료된 카드면 3택 없음
+    }
     PA.Run.applyEncounterResult(run, sortie, 'won', reward, st.player.hp);
     reward.xp = PA.Run.regionBonusXp(sortie.regionId, sortie.deep); PA.Growth.addXp(run.growth, reward.xp);
     if (sortie.deep && PA.GROWTH.DEEP_PICK && !sortie.deepPicked) { sortie.deepPicked = true; run.growth.pendingDeepPick = { regionId: sortie.regionId, key: `${sortie.seed}:${sortie.encounters}` }; }
     return reward;
   }
   function settleDefeat(run, sortie, st) { PA.Run.applyEncounterResult(run, sortie, 'lost', null, 0); PA.Run.defeat(run, sortie); }
-  // 다음에 제시할 선택(순서 고정): 저장된 보류 제시 → 미처리 레벨업 → 더 깊이 지역 3택 → 없음(null)
+  // 다음에 제시할 선택(순서 고정): 저장된 보류 제시 → 미처리 레벨업 → 임무 보상 3택 → 더 깊이 지역 3택 → 없음(null)
   // 더 깊이 3택은 여기서 보류 등록을 소비하고 pendingOffer로 옮긴다(새로고침해도 같은 제시, 두 번 제시되지 않음). 후보가 없으면 제시 없이 소비
   function nextOffer(run, ctx) {
     const g = run.growth; ctx = ctx || {};
     if (g.pendingOffer) return g.pendingOffer;
     if (g.pendingLevelUps > 0) return PA.Growth.generateOffer(run, { pool: 'level', regionId: ctx.regionId || null });
+    if (g.pendingMissionPick) { const off = PA.Sortie.missionOffer(run); return off || nextOffer(run, ctx); } // 임무 보상 3택(후보 없으면 금화로 대체·1회)
     if (g.pendingDeepPick) {
       const rid = g.pendingDeepPick.regionId; g.pendingDeepPick = null;
       const off = PA.Growth.generateOffer(run, { pool: 'deep', regionId: rid });

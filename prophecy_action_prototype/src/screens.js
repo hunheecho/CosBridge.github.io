@@ -89,10 +89,10 @@ PA.Screens = (function () {
       <p class="big-desc">${esc(d.change)}</p>
       <div class="kv"><span>단계</span><b>${esc(d.stage)}</b></div><div class="kv"><span>적용</span><b>${esc(d.scope)}</b></div><div class="kv"><span>슬롯</span><b>${esc(d.slot)}</b></div>
       <button class="primary" data-action="pick" data-arg="${esc(c.key)}">선택</button></div>`; }).join('');
-    const title = pool === 'boss' ? '보스 희귀 보상' : pool === 'deep' ? '지역 보상 선택' : `레벨 업! Lv ${run.growth.level}${run.growth.pendingLevelUps > 1 ? ` (남은 선택 ${run.growth.pendingLevelUps})` : ''}`;
+    const title = pool === 'boss' ? '보스 희귀 보상' : pool === 'deep' ? '지역 보상 선택' : pool === 'mission' ? `임무 보상 · ${PA.MISSIONS.kindText[offer.missionKind] || '3택'}` : `레벨 업! Lv ${run.growth.level}${run.growth.pendingLevelUps > 1 ? ` (남은 선택 ${run.growth.pendingLevelUps})` : ''}`;
     return `<div class="panel wide"><h2>${title}</h2>${offer.regionId && pool !== 'boss' ? `<p class="dim small">지역 계열: ${esc(PA.REGION_TAG_TEXT[offer.regionId] || '—')}</p>` : ''}
       <div class="grid3">${cards.length ? cards : '<p class="dim">제시할 수 있는 후보가 없습니다.</p>'}</div>
-      <div class="row">${pool === 'level' ? `<button data-action="skip">건너뛰기 (금화 +${PA.CONFIG.SKIP_AUGMENT_GOLD})</button>` : pool === 'deep' ? '<button data-action="skip">받지 않음</button>' : ''}</div></div>`;
+      <div class="row">${pool === 'level' ? `<button data-action="skip">건너뛰기 (금화 +${PA.CONFIG.SKIP_AUGMENT_GOLD})</button>` : pool === 'deep' || pool === 'mission' ? '<button data-action="skip">받지 않음</button>' : ''}</div></div>`;
   }
   function migration(G) {
     const run = G.run, mp = run.growth.migrationPending, sel = G.migSel || [];
@@ -152,6 +152,7 @@ PA.Screens = (function () {
               <button class="big" data-action="endday-confirm">하루 종료 → ${run.day + 1}일차${run.day + 1 >= PA.CONFIG.BOSS_DAY ? ' <span class="warn">(보스 도래)</span>' : ''}${run.hours > 0 ? ` <span class="dim">(남은 ${run.hours}시간 버림)</span>` : ''}</button>
               <button data-action="save-quit">저장 후 종료</button>
             </div></div>
+          ${Object.keys(run.services || {}).some(k => run.services[k] > 0) ? `<div class="card"><div class="card-title">거점 서비스</div><p>${Object.keys(run.services).filter(k => run.services[k] > 0).map(k => `<b>${esc(PA.SERVICES[k].name)}</b> ×${run.services[k]} <span class="dim small">${esc(PA.SERVICES[k].desc)}</span>`).join('<br>')}</p></div>` : ''}
           <div class="card"><div class="card-title">재료</div>${matsRow(run)}<p class="dim small">재료는 상점에서 팔 수 있습니다. 제작에 쓸지 현금으로 바꿀지 선택하세요.</p></div>
         </div>
         <div>
@@ -180,9 +181,31 @@ PA.Screens = (function () {
       </div>`;
     }).join('');
     return `<div class="screen">${header(run)}
-      <div class="row between"><h2>지역 선택</h2><button data-action="base">거점으로</button></div>
+      <div class="row between"><h2>출격</h2><button data-action="base">거점으로</button></div>
+      <h3>오늘의 출격 카드 <span class="dim small">하루 3장 · 아침에 확정(다시 굴리기 없음) · 임무는 하루 1회 완료</span></h3>
+      <div class="grid3">${missionCards(run)}</div>
+      <h3>일반 탐험 <span class="dim small">지역 선택 · 승리 후 더 깊이 탐험 가능</span></h3>
       <p class="dim">출격 비용은 출발 시 차감됩니다. 전투가 오래 걸려도 추가로 시간을 빼지 않습니다. 조우 승리 후 "더 깊이 탐험"은 별도로 1시간을 씁니다.</p>
       <div class="grid3">${cards}</div></div>`;
+  }
+  // 출격 카드: 지역+목표, 시간, 주요 적 2~3, 위험 조건, 보상 종류·대상, 빌드 연결, 첫 도입
+  function missionCards(run) {
+    return PA.Sortie.cardsFor(run).map(c => {
+      const r = R().region(c.regionId), O = PA.OBJECTIVES[c.objective], can = PA.Sortie.canStart(run, c), M = PA.MISSIONS;
+      const enemies = c.enemies.map(id => `<li><b>${esc(PA.ENEMIES[id].name)}</b> <span class="dim">${esc(PA.ENEMIES[id].role)}</span></li>`).join('');
+      const rewardGold = `금화 ${Math.round(r.reward.gold[0] * (c.risk ? M.riskRewardMult : 1))}~${Math.round(r.reward.gold[1] * (c.risk ? M.riskRewardMult : 1))}`;
+      const riskDesc = c.risk === 'reinforce' ? '지원병 총량 ×1.5, 동시 수 동일' : c.risk === 'escort' ? '첫 웨이브에 정예 1 추가' : '주기적 바닥 붕괴 예고, 안전 통로 있음';
+      return `<div class="card region mission ${can ? '' : 'off'} ${c.done ? 'done' : ''}">
+        <div class="card-title">${esc(r.name)} · ${esc(O.name)} <span class="cost-badge">${c.timeCost}시간</span>${c.first ? ' <span class="tag">첫 도입</span>' : ''}${c.linked ? ' <span class="tag">내 빌드</span>' : ''}</div>
+        <p>${esc(O.desc)}</p>
+        <div class="kv"><span>주요 적</span><b>${c.enemies.map(id => esc(PA.ENEMIES[id].name)).join(', ')}</b></div>
+        <div class="kv"><span>위험 조건</span><b>${c.risk ? esc(M.riskText[c.risk]) + ' <span class="dim small">(' + riskDesc + ')</span>' : '없음'}</b></div>
+        <div class="kv"><span>보상</span><b>${esc(M.kindText[c.rewardKind])}${c.rewardTarget ? ' <span class="dim small">' + esc(c.rewardTarget) + '</span>' : ''}</b></div>
+        <div class="kv"><span>기타</span><b>${rewardGold}${c.risk ? ' (위험 ×' + M.riskRewardMult + ')' : ''} · 처치 경험치 즉시 · 지역 경험치 +${PA.GROWTH.REGION_BONUS_XP[c.regionId]}</b> <span class="dim small">재료 대신 위 3택. 후보가 없으면 금화 +${c.fallbackGold}</span></div>
+        <ul class="enemies">${enemies}</ul>
+        <button class="primary" data-action="mission" data-arg="${c.id}" ${can ? '' : 'disabled'}>${c.done ? '오늘 완료' : can ? `임무 출격 (${c.timeCost}시간 → ${run.hours - c.timeCost}시간 남음)` : run.phase !== 'prep' ? '출격 종료' : '시간 부족'}${c.attempts && !c.done ? ` · 시도 ${c.attempts}` : ''}</button>
+      </div>`;
+    }).join('');
   }
   function previewRows(run, patch) {
     const a = R().build(run), b = PA.Build.preview(run, patch);
@@ -233,19 +256,19 @@ PA.Screens = (function () {
     const matText = Object.keys(rw.mats).map(k => `${matName(k)} ${rw.mats[k]}`).join(', ');
     return `<div class="screen"><h2>조우 승리</h2>
       <div class="card"><div class="card-title">보상 (귀환 시 거점에 반영)</div>
-        <p>금화 <b class="gold">+${rw.gold}</b>${rw.chestGold ? ` (보급 상자 +${rw.chestGold} 포함)` : ''}${matText ? ` · ${matText}` : ''} · 지역 경험치 <b class="gold">+${rw.xp || 0}</b></p>
+        <p>금화 <b class="gold">+${rw.gold}</b>${rw.chestGold ? ` (보급 상자 +${rw.chestGold} 포함)` : ''}${matText ? ` · ${matText}` : ''} · 지역 경험치 <b class="gold">+${rw.xp || 0}</b>${rw.mission ? (rw.missionPick ? ' · <b>임무 완료: 보상 3택은 다음 단계에서</b>' : ' · 임무(오늘 이미 완료: 추가 3택 없음)') : ''}</p>
         <p class="dim small">처치 ${G.lastStats.kills}${G.lastStats.savingKills ? ` (감속장 안 ${G.lastStats.savingKills})` : ''} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · ${Math.round(G.lastStats.elapsed)}초 · 전투 중 경험치 ${G.lastStats.xp} · 레벨업 ${G.lastStats.levelUps}회 (Lv ${g.level})</p></div>
       ${g.pendingLevelUps ? `<div class="card boss"><div class="card-title">미처리 레벨업 ${g.pendingLevelUps}</div><p>조우 종료와 동시에 오른 레벨입니다. 지금 선택합니다.</p><button class="primary" data-action="resolve-levelup">선택하기</button></div>` : ''}
       <div class="row"><button class="primary big" data-action="after-reward">다음</button></div></div>`;
   }
   function after(G) {
     const run = G.run, s = G.sortie, r = R().region(s.regionId), b = R().build(run);
-    const canDeep = !s.deep && R().canDeepExplore(run);
+    const canDeep = !s.deep && R().canDeepExplore(run, s);
     const lootText = `금화 ${s.loot.gold}` + Object.keys(s.loot.mats).map(k => `, ${matName(k)} ${s.loot.mats[k]}`).join('');
     return `<div class="screen center"><h2>${esc(r.name)} · 다음 행동</h2>
       <p>체력 <b>${run.hp} / ${b.hpMax}</b> · 이번 출격 전리품: <b>${lootText}</b> · 오늘 남은 시간 <b>${run.hours}</b></p>
       <div class="menu">
-        <button class="big ${canDeep ? '' : 'off'}" data-action="deep" ${canDeep ? '' : 'disabled'}>더 깊이 탐험 (+1시간) <span class="dim">적 수 +1, 마지막에 정예. 보상 ×${PA.CONFIG.DEEP_REWARD_MULT}${s.deep ? ' · 이미 탐험함' : (canDeep ? '' : ' · 시간 부족')}</span></button>
+        <button class="big ${canDeep ? '' : 'off'}" data-action="deep" ${canDeep ? '' : 'disabled'}>더 깊이 탐험 (+1시간) <span class="dim">적 수 +1, 마지막에 정예. 보상 ×${PA.CONFIG.DEEP_REWARD_MULT}${s.deep ? ' · 이미 탐험함' : s.mission ? ' · 임무 출격에서는 불가' : (canDeep ? '' : ' · 시간 부족')}</span></button>
         <button class="primary big" data-action="return">귀환 (전리품 확정)</button>
       </div><p class="dim small">패배하면 이번 출격의 전리품을 잃습니다.</p></div>`;
   }

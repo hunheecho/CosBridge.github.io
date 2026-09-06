@@ -163,5 +163,5 @@ test('공통: 감속장은 신규 적의 준비 시간을 늦추고, 신규 적�
 test('데이터 표와 코드 일치: 신규 8종이 모두 ENEMIES에 있고 처리기·그림 대상이며, 단독 시험 프리셋이 존재한다', () => {
   const ids = ['boar', 'shieldbearer', 'shaman', 'bomber', 'burrower', 'spider', 'frostcaller', 'rogue'];
   for (const id of ids) { assert.ok(PA.ENEMIES[id], id); assert.ok(E.has(id), id + ' 처리기'); assert.ok(PA.Lab.enemyPreset('solo:' + id), id + ' 단독 프리셋'); assert.ok(E.COMMITTED[id].length >= 1); }
-  assert.equal(Object.keys(PA.ENEMIES).filter(k => !PA.ENEMIES[k].boss && !PA.ENEMIES[k].elite).length, 11, '기본 몬스터 11종');
+  assert.equal(Object.keys(PA.ENEMIES).filter(k => !PA.ENEMIES[k].boss && !PA.ENEMIES[k].elite && !PA.ENEMIES[k].structure).length, 11, '기본 몬스터 11종(구조물 제외)');
 });

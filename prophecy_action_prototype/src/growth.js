@@ -77,6 +77,10 @@ PA.Growth = (function () {
       push({ kind: 'passive', id, tags: [] });
     }
     if (ctx && ctx.pool === 'deep') return out.filter(c => c.regionMatch); // 지역 보상: 지역 태그 후보만
+    if (ctx && ctx.pool === 'mission') { // 임무 보상: 종류 제한. 서비스 종류는 거점 서비스 목록
+      if (ctx.kinds.includes('service')) { for (const id in PA.SERVICES) push({ kind: 'service', id, tags: [] }); return out.filter(c => c.kind === 'service'); }
+      return out.filter(c => ctx.kinds.includes(c.kind));
+    }
     return out;
   }
   function weightOf(g, c) {
@@ -119,6 +123,7 @@ PA.Growth = (function () {
       case 'skill_variant': { const sk = g.skills[choice.slot]; if (!sk || sk.id !== choice.id || sk.variant) throw new Error('기술 변형'); sk.variant = choice.variant; break; }
       case 'passive': { const d = PA.PASSIVES[choice.id], lv = g.passives[choice.id] || 0; if (lv >= d.max || (lv === 0 && passiveCount(g) >= S.passives)) throw new Error('패시브'); g.passives[choice.id] = lv + 1; if (choice.id === 'vitality') run.hp = (run.hp || 0) + G().PASSIVE_VALUES.vitality; break; }
       case 'boss_reward': if (g.bossRewards.includes(choice.id)) throw new Error('중복'); g.bossRewards.push(choice.id); break;
+      case 'service': if (!PA.SERVICES[choice.id]) throw new Error('알 수 없는 서비스'); run.services = run.services || {}; run.services[choice.id] = (run.services[choice.id] || 0) + 1; break;
       default: throw new Error('알 수 없는 선택');
     }
     g.picks[choice.kind] = (g.picks[choice.kind] || 0) + 1;
@@ -219,6 +224,7 @@ PA.Growth = (function () {
       case 'skill_level': { const sk = g.skills[c.slot], d = PA.SKILLS[c.id]; out.title = `${d.name} ${sk.level}→${sk.level + 1}`; out.type = '기술 레벨'; out.stage = `${sk.level} → ${sk.level + 1} / ${S.skillMax}`; const cd1 = d.cooldown[sk.level - 1] * before.skillCdMult, cd2 = d.cooldown[sk.level] * before.skillCdMult; out.change = `재사용 ${fmt(cd1)}초 → ${fmt(cd2)}초` + (d.damage ? ` · 피해 ${d.damage[sk.level - 1]} → ${d.damage[sk.level]}` : d.shield ? ` · 흡수 ${d.shield[sk.level - 1]} → ${d.shield[sk.level]}` : ''); out.scope = `${d.key} 기술`; out.slot = '슬롯 소비 없음'; break; }
       case 'skill_variant': { const d = PA.SKILLS[c.id], v = d.variants[c.variant]; out.title = `${d.name} 변형: ${v.name}`; out.type = '기술 변형'; out.stage = '변형 없음 → 선택(기술당 1개)'; out.change = v.desc; out.scope = `${d.key} 기술`; out.slot = '변형 슬롯 1/1'; break; }
       case 'passive': { const d = PA.PASSIVES[c.id], lv = g.passives[c.id] || 0; out.title = `${d.name} ${lv}→${lv + 1}`; out.type = '패시브'; out.stage = `${lv} → ${lv + 1} / ${d.max}`; let ch = d.desc; if (c.id === 'vitality') ch += ` · 최대 체력 ${before.hpMax} → ${b2.hpMax}`; if (c.id === 'mastery') ch += ` · ${wname(g.weapons[0].id)} 피해 ${fmt(before.weapons[0].damage)} → ${fmt(b2.weapons[0].damage)}`; if (c.id === 'haste') ch += ` · ${wname(g.weapons[0].id)} 주기 ${fmt(before.weapons[0].interval)} → ${fmt(b2.weapons[0].interval)}초`; if (c.id === 'focus') ch += ` · 감속장 ${fmt(before.specialCd)} → ${fmt(b2.specialCd)}초`; if (c.id === 'exploit') ch += ` · 빈틈 ×${before.exposedMult} → ×${b2.exposedMult}`; out.change = ch; out.scope = '캐릭터 전체'; out.slot = lv ? '슬롯 소비 없음' : `패시브 슬롯 ${passiveCount(g) + 1}/${S.passives}`; break; }
+      case 'service': { const d = PA.SERVICES[c.id], n = (run.services || {})[c.id] || 0; out.title = `거점 서비스: ${d.name}`; out.type = '거점 서비스'; out.stage = n ? `보유 ${n} → ${n + 1}회` : '획득(1회)'; out.change = d.desc; out.scope = '이번 회차 거점에서 사용'; out.slot = '슬롯 소비 없음'; break; }
       case 'boss_reward': { const d = PA.BOSS_REWARDS[c.id]; out.title = `보스 보상: ${d.name}`; out.type = '희귀 보상'; out.stage = '획득'; out.change = d.desc; out.scope = '모든 무기·기술'; out.slot = '별도 보관'; break; }
     }
     return out;

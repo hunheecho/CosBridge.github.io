@@ -125,3 +125,11 @@
 | R-FIX-01 | 봇 판단 일정을 고정 시뮬레이션 단계 기준으로 통일 | 프레임 속도와 무관한 봇 결과 | v0.7 | ✅ | combat.js `st.stepN`, bot.js `stepInput`/`frameLoop`(DECIDE_STEPS 5), main.js frame, test/lab.test.js fps 회귀(30/60/120/240) | 사람 입력의 정지·재개는 변경 없음 |
 | R-FIX-02 | 조우 생성·정산·3택을 게임과 시뮬레이터가 한 경로로 | 더 깊이 지역 3택 누락·시드 불일치 제거 | v0.7 | ✅ | src/flow.js `PA.Flow`(encounterSeed·makeEncounter·settleVictory·nextOffer), main.js·tools/run_sim.js, test/flow.test.js | 더 깊이 3택은 `growth.pendingDeepPick`→`pendingOffer`로 저장·1회 |
 | R-FIX-03 | 회차 시간 계정 분리(전투/카드/화면/휴식·하루/보스) | 합계는 보스 후 1회, 카드는 실제 시점 | v0.7 | ✅ | tools/run_sim.js `T` 버킷·`events`, docs/sim/run_sim*.md(수정 전은 prefix_v06_*) | 시간 초과는 패배와 별도 열 |
+| R-SORTIE-01 | 출격 카드: 하루 3장, 지역+목표, 시드 확정·저장, 다시 굴리기 없음 | 어떤 전투를 하러 나갈지 고름 | v0.7 | ✅ | src/sortie.js generate/cardsFor, run.cards, screens.map missionCards, test/objectives.test.js | 임무는 하루 1회 완료, 일반 탐험은 별도 |
+| R-SORTIE-02 | 카드 표시: 시간·주요 적·위험 조건·보상 종류/대상·빌드 연결·첫 도입 | 카드만 보고 판단 | v0.7 | ✅ | mission_data.js MISSIONS, screens.missionCards | 최소 1장은 빌드 연결(가능할 때) |
+| R-OBJ-01 | 정예 추적: 정예+지원 처음부터, 체력 50%에 지원 1회(예산 유한), 정예 처치 시 종료 | 배회 없음 | v0.7 | ✅ | objectives.js hunt, leash 가속, 테스트 | 정예 체력 HUD |
+| R-OBJ-02 | 제단 파괴: 3제단(치료/바닥 위험/증원) 분리 배치, 파괴 시 효과 제거, 자동 공격 대상 표시, 경험치 0 | 공략 순서 판단 | v0.7 | ✅ | mission_data.js STRUCTURES, objectives.js altars, render drawStructure, HUD 자동 공격 | 치료 총량·증원 예산 유한 |
+| R-OBJ-03 | 봉인 해제: 지점 안 진행·밖 정지(유지)·피격 정지·절반에서 지점 이동 예고 | 제자리 버티기 금지 | v0.7 | ✅ | objectives.js seal, OBJECTIVES.seal(time 14, hitPause 0.6) | 목표 시간은 데이터 |
+| R-OBJ-04 | 포로 구출: 우리 2개 근접 진행(재개 가능), 포로 자율 탈출, 둘 다 구한 뒤 출구 | 호위 없음 | v0.7 | ✅ | objectives.js rescue, render drawObjects | 출구는 우리·플레이어에서 먼 가장자리 |
+| R-OBJ-05 | 공통: HUD 목표·진행, 지형 검사 배치, 지원 예산·동시 상한, 승패 우선순위(승리 우선), 시험실 시작 | 공통 흐름 | v0.7 | ✅ | objectives.js place/reinforce/check, combat.js checkObjective, lab.js mission: 프리셋 | 목표 달성 시 적이 남아도 승리 |
+| R-REWARD-01 | 임무 보상: 종류 지정 3택(무기 레벨/개조/기술/공통/서비스), 무효 후보 제외, 없으면 정액 금화 | 빌드에 맞는 보상 | v0.7 | ✅ | sortie.js missionOffer, growth.js candidates pool mission, SERVICES, run.services | 지역 재료를 3택으로 대체, 금화·처치 경험치 유지 |

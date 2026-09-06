@@ -42,10 +42,12 @@ PA.Combat = (function () {
       // 시험실·측정(v0.6): 체력 배율은 체력에만 적용, 시간 제한, 빌드 고정, 동시 공격 제한, 지역
       hpMult: Object.assign({ normal: 1, elite: 1, boss: 1 }, opts.hpMult || {}), timeLimit: opts.timeLimit || 0, fixedBuild: !!opts.fixedBuild, overlapLimit: opts.overlapLimit || 0, regionId: opts.regionId || null,
       metrics: newMetrics(), labText: opts.labText || null,
+      objects: [], obj: null, mission: opts.mission || null, // v0.7 목표 구조물 외 객체(우리·봉인·출구·포로)와 목표 진행 상태
     };
     st.stats.xp = 0; st.stats.levelUps = 0; st.stats.eUses = 0; st.stats.absorbed = 0;
     st.weapons = PA.Weapons.init(st);
     PA.Skills.init(st);
+    if (!opts.boss && PA.Objectives && PA.Objectives.is(st.objective)) PA.Objectives.setup(st, { risk: opts.risk || null, regionId: opts.regionId, run: opts.run || null });
     if (opts.boss) {
       st.objective = 'boss'; st.waveIndex = 99; st.spawnedAll = true;
       const bs = arenaDef.bossStart || { x: cfg.ARENA.w / 2, y: 120 };
@@ -207,7 +209,7 @@ PA.Combat = (function () {
       dashLeft: d.dashes || 1, vx: 0, vy: 0, animT: 0, elite: !!d.elite, hitBy: null, biteT: 9, moveT: 0, lastX: x, lastY: y, faceX: 1,
     };
     const cls = d.boss ? 'boss' : d.elite ? 'elite' : 'normal', mult = st.hpMult ? (st.hpMult[cls] || 1) : 1; // 체력 배율: 체력만(피해·속도·예고·경험치 불변)
-    e.hp = e.hp * mult; e.hpMax = e.hpMax * mult; e.hpClass = cls;
+    e.hp = e.hp * mult; e.hpMax = e.hpMax * mult; e.hpClass = cls; if (d.structure) e.structure = true;
     st.enemies.push(e);
     if (st.metrics) metricsFor(st, e).spawned++;
     if (st.build.has('mark')) assignMark(st);
@@ -247,6 +249,7 @@ PA.Combat = (function () {
     return true;
   }
   function applyPlayerDamage(st, amount, src) {
+    if (st.obj && PA.Objectives) PA.Objectives.onPlayerHit(st);
     const p = st.player;
     if (src !== 'zone' && st.build.toughness) amount = Math.round(amount * (1 - st.build.toughness) * 10) / 10; // 강인함: 직접 공격만
     let rest = amount;
@@ -325,14 +328,14 @@ PA.Combat = (function () {
     return dmg;
   }
   function killEnemy(st, e, opt) {
-    e.dead = true; e.deathT = 0; st.stats.kills++;
+    e.dead = true; e.deathT = 0; if (!e.structure) st.stats.kills++;
     if (st.metrics) { const m = metricsFor(st, e); m.killed++; if (!e.acted) m.diedBeforeAttack++; m.ttk.push(Math.round((st.t - e.spawnT) * 100) / 100); if (e.firstHitT != null) m.ttkFromHit.push(Math.round((st.t - e.firstHitT) * 100) / 100); }
     ev(st, 'kill', { type: e.type });
     // 경험치: 처치 원인과 무관하게 즉시, 같은 적은 1회(dead 플래그)
     const xp = PA.Growth.xpValue(e, st.regionId);
     if (xp > 0 && st.build.growth && !st.fixedBuild) { st.stats.xp += xp; st.xpGained += xp; const gained = PA.Growth.addXp(st.build.growth, xp); if (gained) { st.levelUps += gained; st.stats.levelUps += gained; ev(st, 'levelup', { n: gained }); text(st, st.player.x, st.player.y - 62, '레벨 업!', '#ffe066'); } }
     if (e.boss) { e.state = 'dead'; e.airborne = false; st.bossDownT = 0; ev(st, 'boss_down'); }
-    if (st.build.has('saving') && inField(st, e) && st.player.special.cd > 0) {
+    if (!e.structure && st.build.has('saving') && inField(st, e) && st.player.special.cd > 0) {
       st.player.special.cd = Math.max(0, st.player.special.cd - C().SAVING.cdPerKill);
       st.stats.savingKills = (st.stats.savingKills || 0) + 1;
       text(st, e.x, e.y - e.r - 22, '감속장 -' + C().SAVING.cdPerKill + '초', '#a9d8ff');
@@ -577,7 +580,7 @@ PA.Combat = (function () {
       const A = alive[i], B = alive[j];
       if (A.state === 'dash' || B.state === 'dash' || A.airborne || B.airborne || A.hidden || B.hidden) continue;
       const dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy), min = A.r + B.r;
-      if (d < min && d > 1e-6) { const push = (min - d) / 2 * C().SEPARATION; A.x -= dx / d * push; A.y -= dy / d * push; B.x += dx / d * push; B.y += dy / d * push; pushOut(st, A); pushOut(st, B); }
+      if (d < min && d > 1e-6) { const push = (min - d) / 2 * C().SEPARATION; if (A.structure && B.structure) continue; if (A.structure) { B.x += dx / d * push * 2; B.y += dy / d * push * 2; pushOut(st, B); continue; } if (B.structure) { A.x -= dx / d * push * 2; A.y -= dy / d * push * 2; pushOut(st, A); continue; } A.x -= dx / d * push; A.y -= dy / d * push; B.x += dx / d * push; B.y += dy / d * push; pushOut(st, A); pushOut(st, B); }
     }
     st.enemies = st.enemies.filter(e => !e.dead || e.deathT < 0.9 || e.boss);
   }
@@ -620,6 +623,7 @@ PA.Combat = (function () {
     for (const z of st.zones) {
       z.ttl -= dt; z.t += dt;
       if (z.type === 'spore' && m().dist(z, p) <= z.r + p.r * 0.5) maxDmg = Math.max(maxDmg, z.dmg);
+      if (z.type === 'hazard' && PA.Objectives) maxDmg = Math.max(maxDmg, PA.Objectives.zoneDamage(st, z, p));
       if (z.type === 'fire') {
         z.tick -= dt;
         if (z.tick <= 0) { z.tick = C().EMBER.tick; for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) damageEnemy(st, e, z.weapon ? z.dmg : z.dmg * st.build.masteryMult, { src: z.weapon ? { weapon: z.weapon.stats, weaponId: z.weapon.id, direct: false, extra: true } : { extra: true, direct: false, tag: 'common:ember' } }); }
@@ -675,7 +679,7 @@ PA.Combat = (function () {
     // 대기 중 스폰
     for (const s of st.pending) { s.t -= dt; if (s.t <= 0) { const e = spawnEnemy(st, s.type, s.x, s.y); if (s.summoned) { e.summoned = true; e.grace = PA.BOSS.overlap.summonGrace; } } }
     st.pending = st.pending.filter(s => s.t > 0);
-    const alive = st.enemies.filter(e => !e.dead).length;
+    const alive = st.enemies.filter(e => !e.dead && !e.structure).length;
     if (st.mode !== 'boss' && st.waveIndex < st.waves.length - 1 && alive === 0 && st.pending.length === 0) {
       st.waveTimer -= dt;
       if (st.waveTimer <= 0) {
@@ -690,7 +694,8 @@ PA.Combat = (function () {
   }
   function checkObjective(st) {
     if (st.status !== 'running') return;
-    const alive = st.enemies.filter(e => !e.dead);
+    const alive = st.enemies.filter(e => !e.dead && !e.structure);
+    if (PA.Objectives && PA.Objectives.is(st.objective)) { if (PA.Objectives.check(st)) { st.status = 'won'; ev(st, 'win'); } return; } // 목표 4종: 적이 살아 있어도 달성 시 승리
     if (st.objective === 'boss') {
       if (st.boss && st.boss.dead) { st.status = 'won'; ev(st, 'win'); }
     } else if (st.objective === 'elite') {
@@ -715,6 +720,7 @@ PA.Combat = (function () {
     updatePlayer(st, input || {}, dt);
     PA.Skills.update(st, dt);
     updateEnemies(st, dt);
+    if (st.obj && PA.Objectives) PA.Objectives.update(st, dt);
     updateProjectiles(st, dt);
     updateZones(st, dt);
     updatePickups(st, dt);

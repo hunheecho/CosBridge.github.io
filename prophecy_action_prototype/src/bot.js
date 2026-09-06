@@ -36,6 +36,7 @@ PA.Bot = (function () {
     for (const pr of st.projectiles) if (pr.owner === 'enemy') out.push({ kind: 'beam', x: pr.x, y: pr.y, ang: Math.atan2(pr.vy, pr.vx), len: 220, w: 40 + pr.r * 2, prog: 1, locked: true, proj: true });
     for (const z of st.zones) if (z.type === 'spore') out.push({ kind: 'zone', x: z.x, y: z.y, r: z.r });
     if (PA.Enemies && PA.Enemies.zoneThreats) PA.Enemies.zoneThreats(st, out);
+    if (PA.Objectives && st.obj) PA.Objectives.threats(st, out);
     return out;
   }
   function bossThreats(st, bz, out) {
@@ -65,6 +66,7 @@ PA.Bot = (function () {
     if (!alive.length) return null;
     if (st.markTarget && !st.markTarget.dead) return st.markTarget;
     const bz = st.boss; if (bz && !bz.dead) return bz;
+    if (PA.Objectives && st.obj) { const ot = PA.Objectives.botTarget(st); if (ot) return ot; } // 목표 우선 대상(제단·정예)
     if (pol === POLICIES.balanced) { const back = alive.filter(e => BACKLINE.includes(e.type)).sort((a, b) => m().dist(a, p) - m().dist(b, p)); if (back.length) return back[0]; }
     return alive.slice().sort((a, b) => m().dist(a, p) - m().dist(b, p))[0];
   }
@@ -91,9 +93,11 @@ PA.Bot = (function () {
       if (th.locked && th.e && M.dist(th.e, p) < 200) lockedNear = true;
     }
     if (n) { const d = M.norm(ex, ey); mv = (d.x || d.y) ? d : { x: 1, y: 0 }; }
-    // 2) 접근·이탈
+    // 2) 접근·이탈. 목표 지점(봉인·우리·출구)이 있으면 위협이 없을 때 그쪽으로(적은 자동 공격이 처리)
+    const goal = (PA.Objectives && st.obj) ? PA.Objectives.botGoal(st) : null;
     const target = pickTarget(st, pol);
-    if (!threatened && n === 0 && target) {
+    if (!threatened && n === 0 && goal && !(pol === POLICIES.survival && hpRatio < pol.retreatHp)) { const s = mem.steer; s.x = p.x; s.y = p.y; if (s.steerT > 0) s.steerT -= 0.04; mv = st.obstacles.length ? PA.Combat.steerDir(st, s, goal.x, goal.y) : M.norm(goal.x - p.x, goal.y - p.y); }
+    else if (!threatened && n === 0 && target) {
       const d = M.dist(target, p), toT = M.norm(target.x - p.x, target.y - p.y);
       const bz = target.boss ? target : null;
       const range = weaponRange(st);

@@ -22,6 +22,7 @@ PA.Run = (function () {
       target: 'pierce_sword',
       log: [], // 최근 사건 기록(거점 표시)
       stats: { encounters: 0, wins: 0, losses: 0, kills: 0 },
+      services: {}, cards: null, missionsDone: {}, // v0.7 거점 서비스 횟수·오늘의 출격 카드·목표별 완료 수
       ended: false,            // v1 호환 필드. v2에서는 phase를 사용
     };
   }
@@ -41,6 +42,7 @@ PA.Run = (function () {
     if (r.gear && 'weapon' in r.gear) delete r.gear.weapon;
     if (!r.layout || !PA.LAYOUTS[r.layout]) r.layout = 'classic';                       // 이전 저장: 기존 배치 유지
     if (!r.difficulty || !PA.DIFFICULTY.candidates[r.difficulty]) r.difficulty = 'base';
+    if (!r.services) r.services = {}; if (!r.missionsDone) r.missionsDone = {}; if (r.cards === undefined) r.cards = null; // v0.7 필드: 이전 저장은 기존 규칙 유지, 카드는 오늘부터 생성
     return r;
   }
 
@@ -75,7 +77,7 @@ PA.Run = (function () {
   // 지역별 체력 배율(난이도 후보). 보스는 1. 더 깊이 탐험은 후보의 deepMult
   function hpMultFor(run, regionId, deep) { const c = PA.DIFFICULTY.candidates[(run && run.difficulty) || 'base'] || PA.DIFFICULTY.candidates.base; const v = (c.hp[regionId] || 1) * (deep ? (c.deepMult || 1) : 1); return { normal: v, elite: v, boss: 1 }; }
   function layoutText(run) { const parts = []; if (run.layout && run.layout !== 'classic') parts.push('배치: ' + PA.LAYOUTS[run.layout].name); if (run.difficulty && run.difficulty !== 'base') parts.push('난이도: ' + PA.DIFFICULTY.candidates[run.difficulty].name); return parts.join(' · '); }
-  function canDeepExplore(run) { return run.hours >= C().DEEP_EXPLORE_HOURS; }
+  function canDeepExplore(run, sortie) { return run.hours >= C().DEEP_EXPLORE_HOURS && !(sortie && sortie.mission); } // 임무 출격은 더 깊이 탐험 없음(특수 보상 반복 금지)
   function deepExplore(run, sortie) { if (!canDeepExplore(run)) throw new Error('시간 부족'); run.hours -= C().DEEP_EXPLORE_HOURS; sortie.deep = true; }
 
   // 조우 승리 보상 계산(실제 난수는 전투의 rng 사용 → 재현 가능)
@@ -119,13 +121,16 @@ PA.Run = (function () {
   }
 
   // ---------- 거점 행동 ----------
-  function canRest(run) { return run.hours >= C().REST_HOURS && run.hp < build(run).hpMax; }
-  function rest(run) { if (!canRest(run)) throw new Error('휴식 불가'); run.hours -= C().REST_HOURS; run.hp = build(run).hpMax; addLog(run, '휴식: 체력 회복'); }
+  function hasService(run, id) { return !!(run.services && run.services[id] > 0); }
+  function useService(run, id) { if (!hasService(run, id)) throw new Error('서비스 없음'); run.services[id]--; addLog(run, `${PA.SERVICES[id].name} 사용`); }
+  function canRest(run) { return (run.hours >= C().REST_HOURS || hasService(run, 'free_rest')) && run.hp < build(run).hpMax; }
+  function rest(run) { if (!canRest(run)) throw new Error('휴식 불가'); if (hasService(run, 'free_rest')) useService(run, 'free_rest'); else run.hours -= C().REST_HOURS; run.hp = build(run).hpMax; addLog(run, '휴식: 체력 회복'); }
   function endDay(run) {
     if (run.phase !== 'prep') throw new Error('보스 준비 중에는 하루를 넘길 수 없음');
     run.day++; run.hours = C().HOURS_PER_DAY; run.hp = build(run).hpMax;
     addLog(run, '새로운 아침');
     if (isBossDay(run)) { run.phase = 'boss_prep'; addLog(run, '예언의 날: 최종 준비'); }
+    if (PA.Sortie) PA.Sortie.cardsFor(run); // 오늘의 출격 카드 확정(시드·저장)
   }
   // ---------- 보스전 ----------
   function bossSeed(run) { return run.seed * 997 + 7; } // 같은 회차·같은 빌드 재도전 = 같은 시드·지형
@@ -164,7 +169,7 @@ PA.Run = (function () {
 
   // ---------- 상점/대장간 ----------
   function item(id) { return PA.ITEMS.find(i => i.id === id); }
-  function itemCost(run, it) { return it.slot === 'upgrade' ? it.costs[Math.min(run.gear.upgrade, it.costs.length - 1)] : it.cost; }
+  function itemCost(run, it) { const c = it.slot === 'upgrade' ? it.costs[Math.min(run.gear.upgrade, it.costs.length - 1)] : it.cost; return hasService(run, 'shop_discount') ? Object.assign({}, c, { gold: Math.round(c.gold * (1 - PA.SERVICES.shop_discount.rate)) }) : c; }
   function itemAvailable(run, it) {
     if (it.slot === 'upgrade') return run.gear.upgrade < it.costs.length;
     if (it.slot === 'weapon') { const g = PA.Growth.ensure(run); return !run.owned.includes(it.id) && !PA.Growth.weaponOf(g, 'spear') && g.weapons.length < PA.GROWTH.SLOTS.weapons; }
@@ -181,7 +186,7 @@ PA.Run = (function () {
     const it = item(itemId);
     if (!canBuy(run, it)) throw new Error('구매 불가');
     const cost = itemCost(run, it);
-    run.gold -= cost.gold;
+    run.gold -= cost.gold; if (hasService(run, 'shop_discount')) useService(run, 'shop_discount');
     for (const k in cost.mats) run.mats[k] -= cost.mats[k];
     if (it.slot === 'upgrade') { run.gear.upgrade++; addLog(run, `무기 강화 +${run.gear.upgrade} (세 장착 무기 공통)`); }
     else if (it.slot === 'weapon') {
@@ -243,5 +248,5 @@ PA.Run = (function () {
   function load(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(SAVE_KEY); return s ? deserialize(s) : null; } catch (e) { return null; } }
   function clearSave(storage) { storage = storage || globalThis.localStorage; try { storage.removeItem(SAVE_KEY); } catch (e) {} }
 
-  return { SAVE_KEY, RECORDS_KEY, VERSION, regionBonusXp, layoutRegion, regionEnemies, regionArena, hpMultFor, layoutText, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
+  return { SAVE_KEY, RECORDS_KEY, VERSION, hasService, useService, regionBonusXp, layoutRegion, regionEnemies, regionArena, hpMultFor, layoutText, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
 })();

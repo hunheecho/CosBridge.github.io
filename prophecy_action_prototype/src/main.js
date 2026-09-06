@@ -193,6 +193,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'unequip': (slot) => { PA.Run.unequip(G.run, slot); saveRun(); show(G.screen); },
     'save-quit': () => { saveRun(); G.saved = PA.Run.load(); show('title'); },
     'sortie': (id) => startSortie(id),
+    'mission': (id) => { G.sortie = PA.Sortie.start(G.run, id); saveRun(); startEncounter(); },
     'buy': (id) => { PA.Run.buy(G.run, id); PA.Audio.play('buy'); saveRun(); show('shop'); },
     'target': (id) => { PA.Run.setTarget(G.run, id); saveRun(); show('shop'); },
     'sell': (id) => { PA.Run.sell(G.run, id, 1); saveRun(); show('shop'); },
