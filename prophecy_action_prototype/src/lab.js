@@ -43,6 +43,7 @@ PA.Lab = (function () {
     for (const r of PA.REGIONS) list.push({ id: 'region:' + r.id, group: '지역(기존 배치)', name: r.name, regionId: r.id, waves: r.waves, objective: r.objective, arena: 'forest', desc: r.desc });
     if (PA.LAYOUTS && PA.LAYOUTS.trial) for (const r of PA.REGIONS) { const L = PA.LAYOUTS.trial.regions[r.id]; if (L) list.push({ id: 'trial:' + r.id, group: '지역(시험안 배치)', name: r.name + ' · 시험안', regionId: r.id, waves: L.waves, objective: L.objective || r.objective, arena: L.arena || 'forest', desc: L.desc || r.desc }); }
     for (const t of PA.LAB.ENEMY_ORDER) { const d = PA.ENEMIES[t]; if (!d || t === 'boss') continue; const n = t === 'wolf' ? 2 : 1; const ally = t === 'shaman' ? [{ type: 'wolf', n: 2 }] : []; list.push({ id: 'solo:' + t, group: '단독 시험', name: d.name + (n > 1 ? ` ×${n}` : '') + (ally.length ? ' (+늑대 2: 치료 대상)' : '') + (d.impl === false ? ' (미구현)' : ''), regionId: null, waves: [[{ type: t, n }].concat(ally), [{ type: t, n: n + 1 }].concat(ally)], objective: 'clear', arena: d.arena || 'forest', desc: d.readme, impl: d.impl !== false }); }
+    for (const bid of ['guardian', 'eater']) { const B = PA.BOSS_DEFS[bid]; list.push({ id: 'boss:' + bid, group: '보스', name: `${B.name} — ${B.title}`, regionId: null, waves: [], objective: 'boss', arena: 'clearing', boss: true, bossId: bid, desc: B.info.join(' ') }); }
     for (const oid of PA.OBJECTIVE_IDS) for (const rid of ['forest', 'ridge', 'marsh']) { const O = PA.OBJECTIVES[oid], r = PA.REGIONS.find(x => x.id === rid); list.push({ id: `mission:${oid}:${rid}`, group: '전투 목표(임무)', name: `${O.name} · ${r.name}`, regionId: rid, waves: r.waves, objective: oid, arena: 'clearing', desc: O.desc, mission: true }); }
     for (const rk of PA.MISSIONS.risks) { const r = PA.REGIONS.find(x => x.id === 'ridge'); list.push({ id: `risk:${rk}`, group: '위험 조건(임무·능선 봉인 해제)', name: `${PA.MISSIONS.riskText[rk]} · 봉인 해제`, regionId: 'ridge', waves: r.waves, objective: 'seal', risk: rk, arena: 'clearing', desc: `위험 조건 ${PA.MISSIONS.riskText[rk]} 확인용`, mission: true }); }
     for (const c of PA.LAB_COMBOS) list.push(Object.assign({}, c, { id: 'combo:' + c.id, comboId: c.id, group: '조합 프리셋', regionId: c.regionId || null, objective: c.objective || 'clear', arena: c.arena || 'forest' }));
@@ -115,7 +116,7 @@ PA.Lab = (function () {
     const ep = enemyPreset(cfg.enemy), build = PA.Run.build(run);
     const arena = cfg.arena === 'auto' ? (ep.arena || 'forest') : cfg.arena;
     const common = { build, hp: build.hpMax, seed: cfg.seed, arena, hpMult: cfg.hp, timeLimit: cfg.time, fixedBuild: cfg.growth !== 'grow', regionId: ep.regionId, labText: labText(cfg), overlapLimit: cfg.overlap >= 0 ? cfg.overlap : (ep.overlapLimit || 0) };
-    if (ep.boss) return PA.Combat.create(Object.assign(common, { boss: true, waves: [] }));
+    if (ep.boss) return PA.Combat.create(Object.assign(common, { boss: true, waves: [], bossId: ep.bossId || 'boss', bossHp: cfg.bossHp || null, run }));
     let waves = ep.waves.map(w => w.map(g => Object.assign({}, g)));
     if (cfg.deep && ep.regionId && ep.regionId !== 'lab') { const r2 = Object.assign({}, run, { layout: cfg.enemy.startsWith('trial:') ? 'trial' : 'classic' }); waves = PA.Run.encounterWaves(ep.regionId, true, r2); }
     return PA.Combat.create(Object.assign(common, { waves, objective: cfg.deep && ep.regionId ? 'elite' : (ep.objective || 'clear'), risk: ep.risk || null, run, mission: ep.mission ? { objective: ep.objective, risk: ep.risk || null } : null }));
@@ -140,5 +141,12 @@ PA.Lab = (function () {
   function saveResults(list, storage) { storage = storage || globalThis.localStorage; try { storage.setItem(RESULTS_KEY, JSON.stringify(list.slice(-30))); } catch (e) {} }
   function loadResults(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(RESULTS_KEY); return s ? JSON.parse(s) : []; } catch (e) { return []; } }
 
-  return { LAB_KEY, RESULTS_KEY, defaultConfig, encode, decode, normalize, enemyPresets, enemyPreset, growthFromPreset, pickCount, validateBuild, describeBuild, makeRun, makeCombat, labText, result, csvRow, toCsv, CSV_COLS, saveConfig, loadConfig, saveResults, loadResults };
+  // 회차 구조 빠른 경로(검증용): 3보스 회차를 지정 단계의 보스 관문 직전 상태로 만든다(단계 빌드 프리셋, 저장 덮어쓰기 없음: 호출자가 결정)
+  function quickRun(stage, seed) {
+    const buildId = ['stage1', 'stage2', 'stage3'][stage] || 'stage1', preset = PA.LAB.BUILDS[buildId];
+    const run = PA.Run.newRun(seed || 7, preset.growth.weapons[0].id, 'trio'); run.growth = growthFromPreset(preset); run.stage = stage; run.bossesDone = PA.RUN_MODES.trio.bosses.slice(0, stage).map(b => b.id);
+    const nb = PA.Run.nextBoss(run); run.day = nb.day; run.hours = PA.CONFIG.HOURS_PER_DAY; run.phase = 'boss_prep'; run.hp = PA.Run.build(run).hpMax; run.gold = 200 + stage * 150; run.quick = true;
+    PA.Sortie.cardsFor(run); return run;
+  }
+  return { LAB_KEY, RESULTS_KEY, quickRun, defaultConfig, encode, decode, normalize, enemyPresets, enemyPreset, growthFromPreset, pickCount, validateBuild, describeBuild, makeRun, makeCombat, labText, result, csvRow, toCsv, CSV_COLS, saveConfig, loadConfig, saveResults, loadResults };
 })();

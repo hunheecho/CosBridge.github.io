@@ -36,10 +36,11 @@ PA.Bot = (function () {
     for (const pr of st.projectiles) if (pr.owner === 'enemy') out.push({ kind: 'beam', x: pr.x, y: pr.y, ang: Math.atan2(pr.vy, pr.vx), len: 220, w: 40 + pr.r * 2, prog: 1, locked: true, proj: true });
     for (const z of st.zones) if (z.type === 'spore') out.push({ kind: 'zone', x: z.x, y: z.y, r: z.r });
     if (PA.Enemies && PA.Enemies.zoneThreats) PA.Enemies.zoneThreats(st, out);
-    if (PA.Objectives && st.obj) PA.Objectives.threats(st, out);
+    if (PA.Objectives) PA.Objectives.threats(st, out); // 바닥 위험(목표·봉인 장치)
     return out;
   }
   function bossThreats(st, bz, out) {
+    if (bz.bossId && bz.bossId !== 'boss' && PA.Boss2) return PA.Boss2.threats(st, bz, out);
     const cfg = PA.BOSS, p = st.player;
     if (bz.state === 'dash_aim') out.push({ kind: 'beam', e: bz, x: bz.x, y: bz.y, ang: bz.aimAngle, len: cfg.dash.dist + 40, w: (bz.r + p.r) * 2 + 40, prog: bz.stateT / cfg.dash.aim, locked: false });
     if (bz.state === 'dash_lock' || bz.state === 'dash') out.push({ kind: 'beam', e: bz, x: bz.x, y: bz.y, ang: bz.dir, len: (bz.dashLen || cfg.dash.dist) + 40, w: (bz.r + p.r) * 2 + 40, prog: 1, locked: true });

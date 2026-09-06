@@ -37,12 +37,16 @@ PA.Growth = (function () {
 
   // ---------- 후보 생성 ----------
   // ctx: { regionId, pool: 'level' | 'deep' | 'boss' }
+  // 보스 희귀 보상 적용 조건: 현재 빌드에서 효과가 실제로 발동할 수 있어야 후보(무의미한 보상 제외)
+  function hasDotSource(g) { return hasCommon(g, 'frost') || hasCommon(g, 'burn') || hasFireSource(g) || g.weapons.some(w => w.mods.includes('bleed')); }
+  function bossRewardApplies(g, id) { if (id === 'resonance') return g.weapons.length >= 2; if (id === 'seed') return hasDotSource(g); if (id === 'clone') return hasProjectileWeapon(g); if (id === 'volley') return !!g.skills.e; return true; }
   function candidates(run, ctx) {
     const g = ensure(run), S = G().SLOTS, out = [];
     const region = (ctx && ctx.regionId) || null, tags = PA.REGION_TAGS[region] || [];
     const push = (c) => { c.tags = c.tags || []; c.regionMatch = c.tags.some(t => tags.includes(t)); out.push(c); };
     if (ctx && ctx.pool === 'boss') {
-      for (const id in PA.BOSS_REWARDS) { const d = PA.BOSS_REWARDS[id]; if (!d.impl || g.bossRewards.includes(id)) continue; if (id === 'clone' && !hasProjectileWeapon(g)) continue; push({ kind: 'boss_reward', id, tags: d.tags }); }
+      for (const id in PA.BOSS_REWARDS) { const d = PA.BOSS_REWARDS[id]; if (!d.impl || d.generic || g.bossRewards.includes(id)) continue; if (!bossRewardApplies(g, id)) continue; push({ kind: 'boss_reward', id, tags: d.tags }); }
+      if (out.length < 3) for (const id in PA.BOSS_REWARDS) { const d = PA.BOSS_REWARDS[id]; if (d.generic && d.impl && !g.bossRewards.includes(id)) push({ kind: 'boss_reward', id, tags: [], generic: true }); } // 유효 후보 3개 미만: 범용 희귀로 채움(중복 없음)
       return out;
     }
     // 새 무기
@@ -87,6 +91,7 @@ PA.Growth = (function () {
     const Wt = G().WEIGHTS; let w = Wt.base[c.kind] || 1;
     if (g.level <= Wt.early.untilLevel && Wt.early[c.kind]) w *= Wt.early[c.kind];
     if (c.regionMatch) w *= Wt.regionTag;
+    if (c.generic) w *= 0.5; // 범용 희귀 보상은 전용 후보보다 낮은 가중치
     if (g.lastKind && g.lastKind === c.kind && (c.kind === 'weapon_level' || c.kind === 'passive')) w *= Wt.repeatPenalty;
     return w;
   }
@@ -122,7 +127,7 @@ PA.Growth = (function () {
       case 'skill_level': { const sk = g.skills[choice.slot]; if (!sk || sk.id !== choice.id || sk.level >= S.skillMax) throw new Error('기술 레벨'); sk.level++; break; }
       case 'skill_variant': { const sk = g.skills[choice.slot]; if (!sk || sk.id !== choice.id || sk.variant) throw new Error('기술 변형'); sk.variant = choice.variant; break; }
       case 'passive': { const d = PA.PASSIVES[choice.id], lv = g.passives[choice.id] || 0; if (lv >= d.max || (lv === 0 && passiveCount(g) >= S.passives)) throw new Error('패시브'); g.passives[choice.id] = lv + 1; if (choice.id === 'vitality') run.hp = (run.hp || 0) + G().PASSIVE_VALUES.vitality; break; }
-      case 'boss_reward': if (g.bossRewards.includes(choice.id)) throw new Error('중복'); g.bossRewards.push(choice.id); break;
+      case 'boss_reward': if (g.bossRewards.includes(choice.id)) throw new Error('중복'); g.bossRewards.push(choice.id); if (choice.id === 'vigor') run.hp = (run.hp || 0) + 25; break;
       case 'service': if (!PA.SERVICES[choice.id]) throw new Error('알 수 없는 서비스'); run.services = run.services || {}; run.services[choice.id] = (run.services[choice.id] || 0) + 1; break;
       default: throw new Error('알 수 없는 선택');
     }
@@ -160,6 +165,7 @@ PA.Growth = (function () {
     b.exposedMult = b.exposedMult + PV.exploit * (p.exploit || 0);       // 기본/목걸이 → 빈틈 포착 가산
     b.durationMult = 1 + PV.persistence * (p.persistence || 0);
     b.skillCdMult = (1 - PV.focus * (p.focus || 0)) * b.skillCdMult;
+    if (g.bossRewards.includes('tempo')) b.skillCdMult *= 0.85; if (g.bossRewards.includes('vigor')) b.hpMax += 25; // 범용 희귀 보상
     if (run.buffs && run.buffs.skillCd) b.skillCdMult *= run.buffs.skillCd; // 시간의 샘: 다음 전투 1회 임시 강화(전투 시작 시 소비)
     b.weapons = g.weapons.map(w => weaponStats(b, w));
     b.commons = Object.assign({}, g.commons);
@@ -226,7 +232,7 @@ PA.Growth = (function () {
       case 'skill_variant': { const d = PA.SKILLS[c.id], v = d.variants[c.variant]; out.title = `${d.name} 변형: ${v.name}`; out.type = '기술 변형'; out.stage = '변형 없음 → 선택(기술당 1개)'; out.change = v.desc; out.scope = `${d.key} 기술`; out.slot = '변형 슬롯 1/1'; break; }
       case 'passive': { const d = PA.PASSIVES[c.id], lv = g.passives[c.id] || 0; out.title = `${d.name} ${lv}→${lv + 1}`; out.type = '패시브'; out.stage = `${lv} → ${lv + 1} / ${d.max}`; let ch = d.desc; if (c.id === 'vitality') ch += ` · 최대 체력 ${before.hpMax} → ${b2.hpMax}`; if (c.id === 'mastery') ch += ` · ${wname(g.weapons[0].id)} 피해 ${fmt(before.weapons[0].damage)} → ${fmt(b2.weapons[0].damage)}`; if (c.id === 'haste') ch += ` · ${wname(g.weapons[0].id)} 주기 ${fmt(before.weapons[0].interval)} → ${fmt(b2.weapons[0].interval)}초`; if (c.id === 'focus') ch += ` · 감속장 ${fmt(before.specialCd)} → ${fmt(b2.specialCd)}초`; if (c.id === 'exploit') ch += ` · 빈틈 ×${before.exposedMult} → ×${b2.exposedMult}`; out.change = ch; out.scope = '캐릭터 전체'; out.slot = lv ? '슬롯 소비 없음' : `패시브 슬롯 ${passiveCount(g) + 1}/${S.passives}`; break; }
       case 'service': { const d = PA.SERVICES[c.id], n = (run.services || {})[c.id] || 0; out.title = `거점 서비스: ${d.name}`; out.type = '거점 서비스'; out.stage = n ? `보유 ${n} → ${n + 1}회` : '획득(1회)'; out.change = d.desc; out.scope = '이번 회차 거점에서 사용'; out.slot = '슬롯 소비 없음'; break; }
-      case 'boss_reward': { const d = PA.BOSS_REWARDS[c.id]; out.title = `보스 보상: ${d.name}`; out.type = '희귀 보상'; out.stage = '획득'; out.change = d.desc; out.scope = '모든 무기·기술'; out.slot = '별도 보관'; break; }
+      case 'boss_reward': { const d = PA.BOSS_REWARDS[c.id]; out.title = `보스 보상: ${d.name}`; out.type = d.generic ? '희귀 보상(범용)' : '희귀 보상'; out.stage = '획득(회차 동안 유지)'; out.change = d.desc; const wn = g.weapons.map(w => wname(w.id)); const ex = { resonance: `적용: ${wn.join('·')}${g.weapons.length < 3 ? ' (무기 3종이 되면 발동)' : ''} · 예: ${wn.slice(0, 3).join('+')}이 4초 안에 같은 적을 치면 폭발 40`, seed: `적용: ${[hasCommon(g, 'frost') ? '냉기' : null, hasCommon(g, 'burn') || hasFireSource(g) ? '화상' : null, g.weapons.some(w => w.mods.includes('bleed')) ? '출혈' : null].filter(Boolean).join('·') || '상태 이상 없음'} · 예: 화상 남은 4초인 적 처치 → 주변 적에게 2초 화상`, clone: `적용: ${g.weapons.filter(w => ['homing', 'bolt', 'beam'].includes(W()[w.id].kind) || w.mods.includes('crescent') || w.mods.includes('launch')).map(w => wname(w.id)).join('·')} · 예: 감속장 안을 지나는 투사체가 1회 복제`, volley: `적용: E ${g.skills.e ? PA.SKILLS[g.skills.e.id].name : '없음'} · 예: E 사용 시 ${wn.join('·')}이 즉시 1회씩 추가 공격`, vigor: `적용: 캐릭터 전체 · 최대 체력 ${before.hpMax} → ${before.hpMax + 25}`, tempo: `적용: 감속장 ${fmt(before.specialCd)} → ${fmt(before.specialCd * 0.85)}초${g.skills.e ? ', E 재사용도 15% 감소' : ''}` }; out.scope = ex[c.id] || '모든 무기·기술'; out.slot = '별도 보관(슬롯 소비 없음)'; break; }
     }
     return out;
   }

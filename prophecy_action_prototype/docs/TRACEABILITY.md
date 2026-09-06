@@ -137,3 +137,8 @@
 | R-EVENT-02 | 사건 규칙: 제단은 체력 ≤1 불가·후보 없으면 제외, 보급소 이틀 1회·둘 다 금지, 상인 전투는 전리품 없음, 샘은 무료 시간 없음(임시 강화 또는 1시간), 봉인 전리품은 더 깊이 경로, 정찰자는 교체 서비스 | 파밍 경로 없음 | v0.7 | ✅ | events.js EVENTS.valid, Flow.settleVictory(eventFight·deepGoldMult) | 보장된 파밍 경로 점검: 시간·체력·2일 제한 |
 | R-EVENT-03 | 거점 서비스 4종(무료 휴식·상인 할인·개조 교체·제시 재선택) | 임무·사건 보상 | v0.7 | ✅ | mission_data SERVICES, run.hasService/useService, Flow.rerollOffer/modSwapOffer, base 화면 | 개조 교체 후보 없으면 되돌리고 권 유지 |
 | R-RISK-01 | 위험 조건 3종: 지원병 증가(총량 ×1.5·동시 상한 동일·금화 ×1.25), 정예 호위(첫 웨이브 정예), 위험 지형(주기 예고·안전 통로·목표 지점 회피) | 조건이 보이는 위험 | v0.7 | ✅ | objectives.js setup(risk)·coversObjective, MISSIONS.risks, 카드 표시, test/events.test.js | 무작위 묶음 없음 |
+| R-RUN3-01 | 3보스 회차 구조(1~2일 → 보스1 → 3~4일 → 보스2 → 5~6일 → 최종), 관문은 하루 시간 밖, 승리 시 그날 5시간 | 한 회차 완주 구조 | v0.7 | ✅ | boss_data.js RUN_MODES, run.js modeDef/nextBoss/bossVictory, Flow.settleBossVictory, test/boss2.test.js | 단일 보스 회차·이전 저장 유지(mode single) |
+| R-RUN3-02 | 보스별 준비 화면·단계 체력 후보·입장 스냅샷·재도전 복구·기록 1회·다음 단계 해금·회차 종료 | 재도전 중복 없음 | v0.7 | ✅ | run.startBoss/bossDefeat/bossVictory, screens.finalPrep/bossVictory, quick-run 검증 | 최종 보스 뒤 성장 없음 |
+| R-BOSS-20 | 봉인 수호자: 무거운 휩쓸기·직선 충격파·봉인 장치(파괴 시 패턴 제거, 경험치 0), 완전 무적 없음 | 2단계 보스 | v0.7 | ✅ | boss_data.js BOSS_GUARDIAN, boss2.js, render drawGuardian, 테스트 | 수치 임시 |
+| R-BOSS-21 | 예언을 먹는 자: 과거 위치 표식 지연 폭발·두 줄 순차 직선·광역 후 긴 빈틈·제한 소환, 숨기 없음, 무적·피해 상한 없음 | 최종 보스 | v0.7 | ✅ | boss_data.js BOSS_EATER, boss2.js, render drawEater, 테스트 | 표식은 0.5초 이상 지난 위치만 |
+| R-BOSS-22 | 희귀 보상 연결: 적용 가능한 것만·중복 없음·1보스 보상은 2단계에서 사용·저장된 제시·재굴림 없음·3개 미만 시 범용 채움 | 보스 보상이 회차에 의미 | v0.7 | ✅ | growth.js bossRewardApplies·generic, Flow.nextOffer(pendingBossPick), describe 예시 | 마지막 보스 뒤 없음 |

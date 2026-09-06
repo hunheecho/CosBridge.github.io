@@ -74,10 +74,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 회차 흐름 ----------
   function saveRun() { if (G.run && !G.scenario) PA.Run.save(G.run); }
-  function goBase() { saveRun(); if (G.run.growth && G.run.growth.migrationPending) { show('migration'); return; } show('base'); const g = G.run.growth; if (g && (g.pendingDeepPick || (g.pendingOffer && g.pendingOffer.pool !== 'level'))) { const off = PA.Flow.nextOffer(G.run); if (off) { openChoice(off); saveRun(); } } } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
+  function goBase() { saveRun(); if (G.run.growth && G.run.growth.migrationPending) { show('migration'); return; } show('base'); const g = G.run.growth; if (g && (g.pendingDeepPick || g.pendingBossPick || g.pendingMissionPick || (g.pendingOffer && g.pendingOffer.pool !== 'level'))) { const off = PA.Flow.nextOffer(G.run); if (off) { openChoice(off); saveRun(); } } } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
   function leaveScenario() { if (G.scenario) { G.scenario = null; try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
   function newRun() { leaveScenario(); G.startAll = false; show('pick_start'); }
-  function startRun(weaponId) { G.run = PA.Run.newRun(undefined, weaponId); const lay = $('#start-layout'), dif = $('#start-difficulty'); if (lay && PA.LAYOUTS[lay.value]) G.run.layout = lay.value; if (dif && PA.DIFFICULTY.candidates[dif.value]) G.run.difficulty = dif.value; G.sortie = null; G.combat = null; saveRun(); show('base'); }
+  function startRun(weaponId) { const modeEl = $('#start-mode'); G.run = PA.Run.newRun(undefined, weaponId, modeEl ? modeEl.value : 'trio'); const lay = $('#start-layout'), dif = $('#start-difficulty'); if (lay && PA.LAYOUTS[lay.value]) G.run.layout = lay.value; if (dif && PA.DIFFICULTY.candidates[dif.value]) G.run.difficulty = dif.value; G.sortie = null; G.combat = null; saveRun(); show('base'); }
   function startSortie(regionId) {
     G.sortie = PA.Run.startSortie(G.run, regionId);
     saveRun(); // 출격 비용은 지불된 상태로 저장(전투 중 종료 시 복구 기준)
@@ -87,7 +87,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     const run = G.run, s = G.sortie;
     G.choice = null;
     if (s.regionId === 'boss') {
-      G.combat = PA.Combat.create({ build: PA.Run.build(run), hp: PA.Run.build(run).hpMax, seed: s.seed, boss: true, arena: 'clearing', waves: [] });
+      G.combat = PA.Flow.makeBossEncounter(run, s); // 단계별 보스·체력 후보(공유 흐름)
     } else G.combat = PA.Flow.makeEncounter(run, s); // 시드·웨이브·목표·배율은 공유 흐름(시뮬레이터와 동일)
     G.endTimer = 0; G.acc = 0; G.paused = false; G.eventCounts = {}; PA.Input.setBlocked(G.input, false); closeOverlay();
     show('combat');
@@ -106,12 +106,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (c.mode === 'boss') {
       if (c.status === 'won') {
         const hadFirst = !!run.bossClear;
-        const rec = PA.Run.bossVictory(run, c.stats); G.lastRecord = rec;
+        const rec = PA.Flow.settleBossVictory(run, c); G.lastRecord = rec; // 정산 1회: 기록·다음 단계·희귀 보상 보류(마지막 보스는 없음)
         const R = PA.Run.saveRecord(rec); G.firstClearNew = !hadFirst && R.firstClear && R.firstClear.at === rec.at;
         saveRun(); G.sortie = null; show('boss_victory');
-        // 보스 희귀 보상: 현재 보스가 마지막 보스가 아닐 때만(현재 보스 1종 → 정상 회차에서는 제시되지 않음)
-        const idx = PA.BOSSES.indexOf('boss'); if (idx >= 0 && idx < PA.BOSSES.length - 1) openChoice(PA.Growth.generateOffer(run, { pool: 'boss' }));
-      } else { PA.Run.bossDefeat(run); saveRun(); G.sortie = null; show('boss_defeat'); }
+      } else { PA.Flow.settleBossDefeat(run, c); saveRun(); G.sortie = null; show('boss_defeat'); }
       return;
     }
     if (c.status === 'won') {
@@ -207,6 +205,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'give-up': () => { closeOverlay(); G.paused = false; PA.Input.setBlocked(G.input, false); if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
     'scenario-again': () => startScenario(G.scenario),
     'lab': () => { if (G.screen === 'lab_result') { G.combat = null; show('lab'); return; } enterLab(); },
+    'quick-run': (stage) => { leaveScenario(); G.run = PA.Lab.quickRun(Number(stage) || 0); G.sortie = null; G.combat = null; saveRun(); goBase(); }, // 검증 메뉴: 3보스 회차 관문 직전(현재 저장을 덮어씀)
     'lab-start': () => { readLabForm(); startLab(); },
     'lab-restart': () => startLab(G.lab.cfg),
     'lab-restart-hp': () => { const el = $('#lab-result-hp'); const c = Object.assign({}, G.lab.cfg, { hp: Object.assign({}, G.lab.cfg.hp) }); if (el) c.hp.normal = parseFloat(el.value); startLab(c); },

@@ -571,12 +571,16 @@ PA.Growth = (function () {
 
   // ---------- 후보 생성 ----------
   // ctx: { regionId, pool: 'level' | 'deep' | 'boss' }
+  // 보스 희귀 보상 적용 조건: 현재 빌드에서 효과가 실제로 발동할 수 있어야 후보(무의미한 보상 제외)
+  function hasDotSource(g) { return hasCommon(g, 'frost') || hasCommon(g, 'burn') || hasFireSource(g) || g.weapons.some(w => w.mods.includes('bleed')); }
+  function bossRewardApplies(g, id) { if (id === 'resonance') return g.weapons.length >= 2; if (id === 'seed') return hasDotSource(g); if (id === 'clone') return hasProjectileWeapon(g); if (id === 'volley') return !!g.skills.e; return true; }
   function candidates(run, ctx) {
     const g = ensure(run), S = G().SLOTS, out = [];
     const region = (ctx && ctx.regionId) || null, tags = PA.REGION_TAGS[region] || [];
     const push = (c) => { c.tags = c.tags || []; c.regionMatch = c.tags.some(t => tags.includes(t)); out.push(c); };
     if (ctx && ctx.pool === 'boss') {
-      for (const id in PA.BOSS_REWARDS) { const d = PA.BOSS_REWARDS[id]; if (!d.impl || g.bossRewards.includes(id)) continue; if (id === 'clone' && !hasProjectileWeapon(g)) continue; push({ kind: 'boss_reward', id, tags: d.tags }); }
+      for (const id in PA.BOSS_REWARDS) { const d = PA.BOSS_REWARDS[id]; if (!d.impl || d.generic || g.bossRewards.includes(id)) continue; if (!bossRewardApplies(g, id)) continue; push({ kind: 'boss_reward', id, tags: d.tags }); }
+      if (out.length < 3) for (const id in PA.BOSS_REWARDS) { const d = PA.BOSS_REWARDS[id]; if (d.generic && d.impl && !g.bossRewards.includes(id)) push({ kind: 'boss_reward', id, tags: [], generic: true }); } // 유효 후보 3개 미만: 범용 희귀로 채움(중복 없음)
       return out;
     }
     // 새 무기
@@ -621,6 +625,7 @@ PA.Growth = (function () {
     const Wt = G().WEIGHTS; let w = Wt.base[c.kind] || 1;
     if (g.level <= Wt.early.untilLevel && Wt.early[c.kind]) w *= Wt.early[c.kind];
     if (c.regionMatch) w *= Wt.regionTag;
+    if (c.generic) w *= 0.5; // 범용 희귀 보상은 전용 후보보다 낮은 가중치
     if (g.lastKind && g.lastKind === c.kind && (c.kind === 'weapon_level' || c.kind === 'passive')) w *= Wt.repeatPenalty;
     return w;
   }
@@ -656,7 +661,7 @@ PA.Growth = (function () {
       case 'skill_level': { const sk = g.skills[choice.slot]; if (!sk || sk.id !== choice.id || sk.level >= S.skillMax) throw new Error('기술 레벨'); sk.level++; break; }
       case 'skill_variant': { const sk = g.skills[choice.slot]; if (!sk || sk.id !== choice.id || sk.variant) throw new Error('기술 변형'); sk.variant = choice.variant; break; }
       case 'passive': { const d = PA.PASSIVES[choice.id], lv = g.passives[choice.id] || 0; if (lv >= d.max || (lv === 0 && passiveCount(g) >= S.passives)) throw new Error('패시브'); g.passives[choice.id] = lv + 1; if (choice.id === 'vitality') run.hp = (run.hp || 0) + G().PASSIVE_VALUES.vitality; break; }
-      case 'boss_reward': if (g.bossRewards.includes(choice.id)) throw new Error('중복'); g.bossRewards.push(choice.id); break;
+      case 'boss_reward': if (g.bossRewards.includes(choice.id)) throw new Error('중복'); g.bossRewards.push(choice.id); if (choice.id === 'vigor') run.hp = (run.hp || 0) + 25; break;
       case 'service': if (!PA.SERVICES[choice.id]) throw new Error('알 수 없는 서비스'); run.services = run.services || {}; run.services[choice.id] = (run.services[choice.id] || 0) + 1; break;
       default: throw new Error('알 수 없는 선택');
     }
@@ -694,6 +699,7 @@ PA.Growth = (function () {
     b.exposedMult = b.exposedMult + PV.exploit * (p.exploit || 0);       // 기본/목걸이 → 빈틈 포착 가산
     b.durationMult = 1 + PV.persistence * (p.persistence || 0);
     b.skillCdMult = (1 - PV.focus * (p.focus || 0)) * b.skillCdMult;
+    if (g.bossRewards.includes('tempo')) b.skillCdMult *= 0.85; if (g.bossRewards.includes('vigor')) b.hpMax += 25; // 범용 희귀 보상
     if (run.buffs && run.buffs.skillCd) b.skillCdMult *= run.buffs.skillCd; // 시간의 샘: 다음 전투 1회 임시 강화(전투 시작 시 소비)
     b.weapons = g.weapons.map(w => weaponStats(b, w));
     b.commons = Object.assign({}, g.commons);
@@ -760,7 +766,7 @@ PA.Growth = (function () {
       case 'skill_variant': { const d = PA.SKILLS[c.id], v = d.variants[c.variant]; out.title = `${d.name} 변형: ${v.name}`; out.type = '기술 변형'; out.stage = '변형 없음 → 선택(기술당 1개)'; out.change = v.desc; out.scope = `${d.key} 기술`; out.slot = '변형 슬롯 1/1'; break; }
       case 'passive': { const d = PA.PASSIVES[c.id], lv = g.passives[c.id] || 0; out.title = `${d.name} ${lv}→${lv + 1}`; out.type = '패시브'; out.stage = `${lv} → ${lv + 1} / ${d.max}`; let ch = d.desc; if (c.id === 'vitality') ch += ` · 최대 체력 ${before.hpMax} → ${b2.hpMax}`; if (c.id === 'mastery') ch += ` · ${wname(g.weapons[0].id)} 피해 ${fmt(before.weapons[0].damage)} → ${fmt(b2.weapons[0].damage)}`; if (c.id === 'haste') ch += ` · ${wname(g.weapons[0].id)} 주기 ${fmt(before.weapons[0].interval)} → ${fmt(b2.weapons[0].interval)}초`; if (c.id === 'focus') ch += ` · 감속장 ${fmt(before.specialCd)} → ${fmt(b2.specialCd)}초`; if (c.id === 'exploit') ch += ` · 빈틈 ×${before.exposedMult} → ×${b2.exposedMult}`; out.change = ch; out.scope = '캐릭터 전체'; out.slot = lv ? '슬롯 소비 없음' : `패시브 슬롯 ${passiveCount(g) + 1}/${S.passives}`; break; }
       case 'service': { const d = PA.SERVICES[c.id], n = (run.services || {})[c.id] || 0; out.title = `거점 서비스: ${d.name}`; out.type = '거점 서비스'; out.stage = n ? `보유 ${n} → ${n + 1}회` : '획득(1회)'; out.change = d.desc; out.scope = '이번 회차 거점에서 사용'; out.slot = '슬롯 소비 없음'; break; }
-      case 'boss_reward': { const d = PA.BOSS_REWARDS[c.id]; out.title = `보스 보상: ${d.name}`; out.type = '희귀 보상'; out.stage = '획득'; out.change = d.desc; out.scope = '모든 무기·기술'; out.slot = '별도 보관'; break; }
+      case 'boss_reward': { const d = PA.BOSS_REWARDS[c.id]; out.title = `보스 보상: ${d.name}`; out.type = d.generic ? '희귀 보상(범용)' : '희귀 보상'; out.stage = '획득(회차 동안 유지)'; out.change = d.desc; const wn = g.weapons.map(w => wname(w.id)); const ex = { resonance: `적용: ${wn.join('·')}${g.weapons.length < 3 ? ' (무기 3종이 되면 발동)' : ''} · 예: ${wn.slice(0, 3).join('+')}이 4초 안에 같은 적을 치면 폭발 40`, seed: `적용: ${[hasCommon(g, 'frost') ? '냉기' : null, hasCommon(g, 'burn') || hasFireSource(g) ? '화상' : null, g.weapons.some(w => w.mods.includes('bleed')) ? '출혈' : null].filter(Boolean).join('·') || '상태 이상 없음'} · 예: 화상 남은 4초인 적 처치 → 주변 적에게 2초 화상`, clone: `적용: ${g.weapons.filter(w => ['homing', 'bolt', 'beam'].includes(W()[w.id].kind) || w.mods.includes('crescent') || w.mods.includes('launch')).map(w => wname(w.id)).join('·')} · 예: 감속장 안을 지나는 투사체가 1회 복제`, volley: `적용: E ${g.skills.e ? PA.SKILLS[g.skills.e.id].name : '없음'} · 예: E 사용 시 ${wn.join('·')}이 즉시 1회씩 추가 공격`, vigor: `적용: 캐릭터 전체 · 최대 체력 ${before.hpMax} → ${before.hpMax + 25}`, tempo: `적용: 감속장 ${fmt(before.specialCd)} → ${fmt(before.specialCd * 0.85)}초${g.skills.e ? ', E 재사용도 15% 감소' : ''}` }; out.scope = ex[c.id] || '모든 무기·기술'; out.slot = '별도 보관(슬롯 소비 없음)'; break; }
     }
     return out;
   }
@@ -829,6 +835,63 @@ PA.MISSIONS = {
   riskText: { reinforce: '지원병 증가', escort: '정예 호위', hazard: '위험 지형' },
   riskRewardMult: 1.25, // 위험 조건 카드는 지역 금화 보상 ×1.25(눈에 보이는 증가)
 };
+
+</script>
+<script>
+// 보스 3종 데이터와 3보스 회차 구조(v0.7). 모든 수치는 임시값(docs/ASSUMPTIONS.md). 가시갈기(PA.BOSS)는 단일 보스 회차 수치를 그대로 유지한다.
+var PA = (typeof PA !== 'undefined') ? PA : {};
+
+// ---------- 봉인 수호자: 무거운 휩쓸기·고정 방향 직선 충격파·봉인 장치(주기적 바닥 위험) ----------
+PA.BOSS_GUARDIAN = {
+  id: 'guardian', name: '봉인 수호자', title: '봉인의 파수꾼',
+  hp: 3000, speed: 95, r: 40, phases: [0.65, 0.3],
+  intro: 1.6, roar: 0.9, stagger: 1.0, knockMult: 0.15, stopDist: 130,
+  // 패턴 데이터: 준비(aim) → 확정(lock) → 실행 → 빈틈(recover). 피해·범위. 단계(2·3)에서 바뀌는 값은 phase 필드
+  sweep: { aim: 0.8, lock: 0.45, radius: 165, arcDeg: 150, damage: 22, recover: 1.8, maxDist: 210 },
+  shock: { aim: 0.6, lock: 0.35, len: 520, width: 70, speed: 900, damage: 18, recover: 1.6, minDist: 60, maxDist: 620, count: [1, 1, 2], gap: 0.4, spread: 0.35 }, // 3단계: 2발(±20°)
+  devices: { count: 3, hp: 120, minGap: 220, minBossGap: 160, interval: 6, first: 3, warn: 1.1, ttl: 1.5, r: 55, dmg: 10, n: 2, dist: 110 }, // 장치당 주기적 바닥 위험 2개(플레이어 좌우). 파괴 시 그 장치의 패턴 제거
+  orb: { healRatio: 0.15, r: 14, ring: 170 },
+  overlap: { bossWaitMax: 1.0, maxHazardZones: 6 }, // 동시에 존재하는 장치 위험 상한(잔여+다음이 전장을 다 막지 않게)
+  minApproach: 0.5,
+  weights: { sweep: 1.2, shock: 1.2 },
+  info: ['무거운 휩쓸기: 준비가 길고 부채꼴이 넓다(150°). 등 뒤로 돌아가면 안전.', '직선 충격파: 확정된 방향으로 굳은 뒤 파동이 날아간다. 옆으로 한 걸음.', '봉인 장치 3개가 주기적으로 바닥 위험을 만든다. 장치를 부수면 그 패턴이 사라진다(경험치 없음). 자동 공격 대상이 장치인지 보스인지 표시됨.', '완전 무적 구간 없음. 감속장(Q)은 준비·확정·빈틈과 파동을 늦춘다.', '넉백은 15%만, 방벽 파열은 진행 중 공격을 끊는다.'],
+};
+// ---------- 예언을 먹는 자: 과거 위치 표식 폭발·두 줄 순차 직선·광역 후 긴 빈틈·제한 소환 ----------
+PA.BOSS_EATER = {
+  id: 'eater', name: '예언을 먹는 자', title: '시간의 포식자',
+  hp: 3600, speed: 100, r: 38, phases: [0.6, 0.3],
+  intro: 1.8, roar: 1.0, stagger: 1.0, knockMult: 0.15, stopDist: 150,
+  mark: { history: 2.5, sample: 0.5, count: [4, 6, 6], r: 58, cast: 0.5, delay: 1.2, gap: 0.25, damage: 14, recover: 1.4 }, // 플레이어의 지난 2.5초 위치를 표식(공개) → 1.2초 뒤 순차 폭발
+  lanes: { warn: 0.7, lock: 0.3, width: 90, len: 720, speed: 1000, damage: 16, gap: 0.5, secondDeg: 70, recover: 1.5, minDist: 90 }, // 두 줄: 첫 줄은 플레이어 방향, 둘째 줄은 +70°(두 줄 사이 사분면은 안전)
+  wide: { aim: 1.2, lock: 0.5, radius: [230, 230, 270], damage: 24, recover: 3.0, maxDist: 320 }, // 광역 뒤 긴 빈틈(피해 기회)
+  summon: { count: 2, cap: 3, budget: 6, interval: 16, warn: 0.9, ring: [120, 190], pool: ['wolf', 'archer', 'spore'], duration: 1.4 }, // 마지막 단계 몬스터, 총 6마리·동시 3
+  orb: { healRatio: 0.15, r: 14, ring: 170 },
+  overlap: { bossWaitMax: 1.0 },
+  minApproach: 0.5,
+  weights: { mark: 1.5, lanes: 1.2, wide: 1.0, summon: 1.3 },
+  info: ['표식: 당신이 지나온 자리에 원이 찍히고 잠시 뒤 차례로 터진다. 계속 움직이고 되돌아가지 않기.', '두 줄 직선: 첫 줄은 지금 위치, 둘째 줄은 70° 옆. 두 줄 사이로.', '광역 폭발 뒤에는 긴 빈틈(3초). 이때 몰아치기.', '소환은 총 6마리·동시 3마리로 제한. 숨거나 순간이동하지 않는다.', '체력 구간 무적·피해 상한 없음: 강한 빌드는 빨리 끝낸다.'],
+};
+PA.BOSS_DEFS = { boss: PA.BOSS, guardian: PA.BOSS_GUARDIAN, eater: PA.BOSS_EATER };
+PA.ENEMIES.guardian = { name: '봉인 수호자', role: '보스 · 봉인의 파수꾼', r: 40, hp: 3000, speed: 95, color: '#5a6a9a', boss: true, readme: '무거운 휩쓸기·직선 충격파·봉인 장치.' };
+PA.ENEMIES.eater = { name: '예언을 먹는 자', role: '보스 · 시간의 포식자', r: 38, hp: 3600, speed: 100, color: '#7a3a8a', boss: true, readme: '표식 폭발·두 줄 직선·광역·제한 소환.' };
+PA.ENEMIES.seal_device = { name: '봉인 장치', role: '구조물 · 바닥 위험', r: 20, hp: 120, speed: 0, color: '#9ad0ff', structure: true, device: true, readme: '주기적으로 바닥 위험을 만든다. 부수면 멈춘다(경험치 없음).' };
+PA.GROWTH.XP_VALUE.seal_device = 0; PA.GROWTH.XP_VALUE.guardian = 0; PA.GROWTH.XP_VALUE.eater = 0;
+Object.assign(PA.BOSS_ACTION_TEXT, { shock_aim: '충격파 준비', shock_lock: '충격파!', mark_cast: '표식', mark_wait: '표식 폭발 대기', lanes_warn: '두 줄 직선 준비', lanes_lock: '직선!', lanes_fire: '직선 발사', wide_aim: '광역 준비', wide_lock: '광역!', summon: '소환' });
+
+// 보스 체력 후보: 단일 보스 회차는 기존 수치, 3보스 회차는 단계 빌드 기준 후보(임시)
+PA.BOSS_HP = { boss: { single: 2400, stage1: 1500 }, guardian: { stage2: 3000 }, eater: { stage3: 3600 } };
+
+// ---------- 회차 구조 ----------
+// single: 7일 단일 보스(기존 규칙, 이전 저장). trio: 1~2일 준비 → 3일차 시작에 보스1 → 3~4일 → 5일차 보스2 → 5~6일 → 7일차 최종
+PA.RUN_MODES = {
+  single: { name: '단일 보스 (7일, 기존)', days: 7, bosses: [{ id: 'boss', day: 7, hpKey: 'single', rare: false }] },
+  trio:   { name: '보스 3마리 (7일, 시험)', days: 7, bosses: [{ id: 'boss', day: 3, hpKey: 'stage1', rare: true }, { id: 'guardian', day: 5, hpKey: 'stage2', rare: true }, { id: 'eater', day: 7, hpKey: 'stage3', rare: false }] },
+};
+// 범용 희귀 보상(유효 후보가 3개 미만일 때 채움용). 기존 4종은 적용 가능한 것만 후보
+Object.assign(PA.BOSS_REWARDS, {
+  vigor: { name: '불굴의 심장', impl: true, generic: true, desc: '최대 체력 +25(즉시 회복). 모든 빌드에 적용', tags: [] },
+  tempo: { name: '시간의 박자', impl: true, generic: true, desc: '감속장(Q)·E 기술 재사용 15% 감소. 모든 빌드에 적용', tags: [] },
+});
 
 </script>
 <script>
@@ -958,8 +1021,9 @@ PA.Combat = (function () {
     if (opts.boss) {
       st.objective = 'boss'; st.waveIndex = 99; st.spawnedAll = true;
       const bs = arenaDef.bossStart || { x: cfg.ARENA.w / 2, y: 120 };
-      PA.Boss.spawn(st, bs.x, bs.y);
-      st.intro = PA.BOSS.intro; // 입장 연출: 아무도 행동하지 않고 피해도 없다
+      const bz = PA.Boss.spawn(st, bs.x, bs.y, opts.bossId || 'boss');
+      if (opts.bossHp) { bz.hp = opts.bossHp; bz.hpMax = opts.bossHp; } // 단계별 체력 후보(회차 구조). 배율은 체력에만
+      st.bossId = bz.bossId; st.intro = PA.Boss.cfgOf(bz).intro; // 입장 연출: 아무도 행동하지 않고 피해도 없다
     }
     return st;
   }
@@ -1195,7 +1259,7 @@ PA.Combat = (function () {
   }
   function knockEnemy(e, n, amount) {
     if (e.state === 'dash' || e.state === 'leap') return;
-    if (e.boss) amount *= PA.BOSS.knockMult; // 보스는 일반 넉백의 20%
+    if (e.boss) amount *= PA.Boss.cfgOf(e).knockMult; // 보스는 일반 넉백의 20%(신규 보스 15%)
     if (e.def && e.def.knockMult) amount *= e.def.knockMult; // 방패병 50%
     if (e.state === 'charge' || e.state === 'under' || e.state === 'warn') return; // 돌파·지하 이동 중 넉백 무시
     e.vx += n.x * amount * 4; e.vy += n.y * amount * 4;
@@ -2018,23 +2082,26 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
 PA.Boss = (function () {
   const B = () => PA.BOSS;
+  const cfgOf = (e) => (PA.BOSS_DEFS && PA.BOSS_DEFS[e.bossId]) || PA.BOSS; // 보스별 설정(가시갈기는 PA.BOSS)
   const m = () => PA.m;
   const K = () => PA.Combat; // 내부 헬퍼 접근
 
-  function spawn(st, x, y) {
-    const e = K().spawnEnemy(st, 'boss', x, y);
+  function spawn(st, x, y, bossId) {
+    bossId = bossId || 'boss';
+    const e = K().spawnEnemy(st, bossId, x, y); e.bossId = bossId;
     Object.assign(e, {
       boss: true, phase: 1, phasePending: 0, state: 'intro', stateT: 0, actions: 0, history: [], lastHowl: -999,
       dashSeq: 1, dashTotal: 1, dashDist: 0, dashEnd: null, dashLen: 0, hitDone: false, waitT: 0, approachT: 0,
       land: null, leapFrom: null, leapK: 0, staggerAfterLand: false, exposed: false,
     });
     st.boss = e;
+    if (bossId !== 'boss' && PA.Boss2) PA.Boss2.init(st, e);
     return e;
   }
 
   // ---------- 판단 보조 ----------
   function wolfAttacking(st) { return st.enemies.some(e => !e.dead && !e.boss && (e.type === 'wolf' || e.type === 'wolf_alpha') && (e.state === 'crouch' || e.state === 'lock' || e.state === 'dash')); }
-  function bossCommitted(e) { return e.state === 'sweep_lock' || e.state === 'dash_lock' || e.state === 'dash' || e.state === 'pounce_lock' || e.state === 'leap'; }
+  function bossCommitted(e) { return e.state === 'sweep_lock' || e.state === 'dash_lock' || e.state === 'dash' || e.state === 'pounce_lock' || e.state === 'leap' || (PA.Boss2 && PA.Boss2.isCommitted(e)); }
   function summonedAlive(st) { return st.enemies.filter(e => !e.dead && e.summoned).length; }
   function isExposed(e) { return e.state === 'recover' || e.state === 'stagger'; }
 
@@ -2094,14 +2161,14 @@ PA.Boss = (function () {
   function checkPhase(st, e) {
     // 체력선을 처음 통과할 때 회복 구슬 생성. 단계 적용은 현재 행동이 끝난 뒤(phasePending).
     const ratio = e.hp / e.hpMax;
-    const ph = B().phases;
+    const ph = cfgOf(e).phases;
     for (let i = 0; i < ph.length; i++) {
       const want = i + 2;
       if (ratio <= ph[i] && !st.orbsSpawned[want]) { st.orbsSpawned[want] = true; spawnOrb(st, e); if (e.phasePending < want && e.phase < want) e.phasePending = want; }
     }
   }
   function spawnOrb(st, e) {
-    const cfg = B().orb, p = st.player;
+    const cfg = cfgOf(e).orb, p = st.player;
     let best = null, bd = Infinity;
     for (let i = 0; i < 24; i++) {
       const a = i / 24 * Math.PI * 2, x = e.x + Math.cos(a) * cfg.ring, y = e.y + Math.sin(a) * cfg.ring;
@@ -2117,6 +2184,7 @@ PA.Boss = (function () {
   }
   // 현재 위험 예고 한가운데인가(돌진 통로·휩쓸기 부채꼴·착지 원)
   function inDanger(st, e, pt) {
+    if (e.bossId && e.bossId !== 'boss' && PA.Boss2) return PA.Boss2.inDanger(st, e, pt);
     const cfg = B();
     if ((e.state === 'dash_lock' || e.state === 'dash') && e.dashEnd) return m().inBeam(e, e.dir, e.dashLen, (e.r + 14) * 2, pt, 14);
     if (e.state === 'sweep_aim' || e.state === 'sweep_lock') return m().inArc(e, cfg.sweep.radius, e.state === 'sweep_aim' ? e.aimAngle : e.dir, cfg.sweep.arcDeg * Math.PI / 360, pt, 14);
@@ -2126,6 +2194,7 @@ PA.Boss = (function () {
 
   // ---------- 갱신 ----------
   function update(st, e, dt) {
+    if (e.bossId && e.bossId !== 'boss' && PA.Boss2) return PA.Boss2.update(st, e, dt);
     const cfg = B(), p = st.player, tf = K().timeFactor(st, e), sm = K().enemySpeedMult(st, e);
     const dist = m().dist(e, p);
     const adv = dt * tf;
@@ -2264,7 +2333,141 @@ PA.Boss = (function () {
     K().text(st, e.x, e.y - e.r - 30, '비틀거림!', '#7ef2ff');
   }
 
-  return { spawn, update, checkPhase, stagger, isExposed, wolfAttacking, bossCommitted, dashPath, landingFor, summonedAlive, inDanger };
+  return { spawn, update, checkPhase, stagger, isExposed, wolfAttacking, bossCommitted, dashPath, landingFor, summonedAlive, inDanger, cfgOf };
+})();
+
+</script>
+<script>
+// 신규 보스 2종 행동: 봉인 수호자(guardian)·예언을 먹는 자(eater). PA.Boss.update가 bossId로 여기로 넘긴다.
+// 공통: 준비 → 확정 → 실행 → 빈틈. 감속장(timeFactor)은 모든 단계에 적용. 완전 무적·체력 구간 피해 상한 없음.
+var PA = (typeof PA !== 'undefined') ? PA : {};
+
+PA.Boss2 = (function () {
+  const m = () => PA.m, K = () => PA.Combat;
+  const cfgOf = (e) => PA.BOSS_DEFS[e.bossId];
+  const COMMITTED = ['sweep_lock', 'shock_lock', 'mark_wait', 'lanes_lock', 'lanes_fire', 'wide_lock'];
+  function isCommitted(e) { return COMMITTED.includes(e.state); }
+  function toRecover(st, e, dur) { e.state = 'recover'; e.stateT = 0; e.recoverDur = dur; K().text(st, e.x, e.y - e.r - 30, '빈틈!', '#ffd166'); }
+  function toApproach(st, e) { e.state = 'approach'; e.stateT = 0; e.approachT = 0; }
+  function alliesCommitted(st) { return st.enemies.some(o => !o.dead && !o.boss && !o.structure && K().isCommitted(o)); }
+
+  // ---------- 설정(스폰 시) ----------
+  function init(st, e) {
+    const cfg = cfgOf(e);
+    e.history = []; e.actions = 0; e.waitT = 0; e.approachT = 0; e.marks = []; e.lanes = []; e.trail = []; e.trailT = 0; e.summonBudget = cfg.summon ? cfg.summon.budget : 0; e.lastSummon = -999; e.shockLeft = 0;
+    if (e.bossId === 'guardian') {
+      const D = cfg.devices; e.devices = []; const others = [{ x: e.x, y: e.y }, { x: st.player.x, y: st.player.y }];
+      for (let i = 0; i < D.count; i++) { const p = PA.Objectives.place(st, 20, D.minGap, 150, others); others.push(p); const d = K().spawnEnemy(st, 'seal_device', p.x, p.y); d.timer = D.first + i * 1.5; d.deviceIndex = i; e.devices.push(d); }
+    }
+  }
+  // ---------- 패턴 선택 ----------
+  function choose(st, e) {
+    const cfg = cfgOf(e), p = st.player, d = m().dist(e, p), los = !K().losBlocked(st, e, p), cands = [];
+    if (e.bossId === 'guardian') {
+      if (e.actions === 0) return 'shock';
+      if (d <= cfg.sweep.maxDist && los) cands.push(['sweep', cfg.weights.sweep]);
+      if (d >= cfg.shock.minDist && d <= cfg.shock.maxDist) cands.push(['shock', cfg.weights.shock]);
+      if (!cands.length) return d <= cfg.sweep.maxDist ? 'sweep' : 'shock';
+    } else {
+      if (e.actions === 0) return 'lanes';
+      if (e.marks.length) return null; // 표식이 남아 있으면 새 패턴 없음(잔여+다음이 전부를 막지 않게)
+      cands.push(['mark', cfg.weights.mark]);
+      if (d >= cfg.lanes.minDist) cands.push(['lanes', cfg.weights.lanes]);
+      if (d <= cfg.wide.maxDist) cands.push(['wide', cfg.weights.wide]);
+      if (canSummon(st, e)) cands.push(['summon', cfg.weights.summon]);
+    }
+    const h = e.history, last2 = h.length >= 2 && h[h.length - 1] === h[h.length - 2] ? h[h.length - 1] : null;
+    const pool = cands.filter(c => c[0] !== last2), use = pool.length ? pool : cands; if (!use.length) return null;
+    let sum = 0; for (const c of use) sum += c[1]; let r = st.rng.next() * sum; for (const c of use) { r -= c[1]; if (r <= 0) return c[0]; } return use[use.length - 1][0];
+  }
+  function canSummon(st, e) { const S = cfgOf(e).summon; return S && e.summonBudget > 0 && (st.t - e.lastSummon) >= S.interval && PA.Boss.summonedAlive(st) < S.cap; }
+  function begin(st, e, pat) {
+    const cfg = cfgOf(e); e.actions++; e.history.push(pat); if (e.history.length > 6) e.history.shift(); e.stateT = 0; e.waitT = 0; K().noteAttack(st, e, 'prepare');
+    if (pat === 'sweep') e.state = 'sweep_aim';
+    else if (pat === 'shock') { e.state = 'shock_aim'; e.shockLeft = cfg.shock.count[Math.min(2, e.phase - 1)]; }
+    else if (pat === 'mark') e.state = 'mark_cast';
+    else if (pat === 'lanes') { e.state = 'lanes_warn'; const a1 = Math.atan2(st.player.y - e.y, st.player.x - e.x); e.lanes = [{ ang: a1 }, { ang: a1 + cfg.lanes.secondDeg * Math.PI / 180 }]; e.laneIdx = 0; }
+    else if (pat === 'wide') e.state = 'wide_aim';
+    else if (pat === 'summon') { e.state = 'summon'; e.lastSummon = st.t; K().ev(st, 'boss_howl'); }
+  }
+  // 직선 충격파: 방향 고정, 파동(적 투사체)이 날아간다. 감속장 안에서는 파동도 느려짐(투사체 규칙)
+  function fireShock(st, e, ang, S) { st.projectiles.push({ owner: 'enemy', kind: 'shock', x: e.x + Math.cos(ang) * e.r, y: e.y + Math.sin(ang) * e.r, vx: Math.cos(ang) * S.speed, vy: Math.sin(ang) * S.speed, r: S.width / 2, dmg: S.damage, ttl: S.len / S.speed, angle: ang, width: S.width }); K().ev(st, 'boss_sweep'); }
+
+  // ---------- 갱신 ----------
+  function update(st, e, dt) {
+    const cfg = cfgOf(e), p = st.player, tf = K().timeFactor(st, e), sm = K().enemySpeedMult(st, e), adv = dt * tf, dist = m().dist(e, p);
+    // 플레이어 위치 기록(표식용, 공개 정보)
+    if (e.bossId === 'eater') { e.trailT += dt; if (e.trailT >= cfg.mark.sample) { e.trailT = 0; e.trail.push({ x: p.x, y: p.y, t: st.t }); while (e.trail.length > Math.ceil(cfg.mark.history / cfg.mark.sample) + 1) e.trail.shift(); } updateMarks(st, e, dt); }
+    if (e.bossId === 'guardian') updateDevices(st, e, dt);
+    switch (e.state) {
+      case 'intro': e.stateT += dt; if (e.stateT >= cfg.intro) toApproach(st, e); break;
+      case 'approach': {
+        e.stateT += adv; e.approachT += adv;
+        if (e.phasePending > e.phase) { e.phase = e.phasePending; e.state = 'roar'; e.stateT = 0; K().text(st, e.x, e.y - e.r - 40, e.phase === 2 ? '2단계' : '마지막 단계', '#ff9f43'); K().ev(st, 'boss_roar', { phase: e.phase }); st.phaseEvents.push({ t: st.t, phase: e.phase }); break; }
+        if (dist > cfg.stopDist) K().approach(st, e, p.x, p.y, cfg.speed * sm, dt);
+        if (e.approachT < cfg.minApproach) break;
+        const pat = choose(st, e); if (!pat) break;
+        if (pat !== 'summon' && alliesCommitted(st) && e.waitT < cfg.overlap.bossWaitMax) { e.waitT += adv; break; }
+        begin(st, e, pat); break;
+      }
+      case 'roar': e.stateT += adv; if (e.stateT >= cfg.roar) toApproach(st, e); break;
+      // 봉인 수호자
+      case 'sweep_aim': e.aimAngle = Math.atan2(p.y - e.y, p.x - e.x); e.stateT += adv; if (e.stateT >= cfg.sweep.aim) { e.state = 'sweep_lock'; e.stateT = 0; e.dir = e.aimAngle; K().ev(st, 'boss_lock'); } break;
+      case 'sweep_lock': e.stateT += adv; if (e.stateT >= cfg.sweep.lock) { if (m().inArc(e, cfg.sweep.radius, e.dir, cfg.sweep.arcDeg * Math.PI / 360, p, p.r) && !K().losBlocked(st, e, p)) K().damagePlayer(st, cfg.sweep.damage, 'boss_sweep'); K().fx(st, { kind: 'bosssweep', x: e.x, y: e.y, angle: e.dir, r: cfg.sweep.radius, half: cfg.sweep.arcDeg * Math.PI / 360, ttl: 0.3, t: 0 }); K().ev(st, 'boss_sweep'); K().noteAttack(st, e, 'execute'); toRecover(st, e, cfg.sweep.recover); } break;
+      case 'shock_aim': e.aimAngle = Math.atan2(p.y - e.y, p.x - e.x); e.stateT += adv; if (e.stateT >= cfg.shock.aim) { e.state = 'shock_lock'; e.stateT = 0; e.dir = e.aimAngle; K().ev(st, 'boss_lock'); } break;
+      case 'shock_lock': e.stateT += adv; if (e.stateT >= cfg.shock.lock) { const S = cfg.shock; if (e.shockLeft >= 2) { fireShock(st, e, e.dir - S.spread, S); fireShock(st, e, e.dir + S.spread, S); } else fireShock(st, e, e.dir, S); K().noteAttack(st, e, 'execute'); toRecover(st, e, S.recover); } break;
+      // 예언을 먹는 자
+      case 'mark_cast': { e.stateT += adv; if (e.stateT >= cfg.mark.cast) { const M = cfg.mark, n = M.count[Math.min(2, e.phase - 1)]; const pts = e.trail.filter(q => q.t == null || st.t - q.t >= M.sample).slice(-n); /* 시전 시점 기준 0.5초 이상 지난 위치만(현재 위치 제외) */ e.marks = pts.map((q, i) => ({ x: q.x, y: q.y, r: M.r, explodeAt: st.t + M.delay + i * M.gap, done: false })); if (!e.marks.length) e.marks = [{ x: p.x, y: p.y, r: M.r, explodeAt: st.t + M.delay, done: false }]; e.state = 'mark_wait'; e.stateT = 0; K().noteAttack(st, e, 'execute'); K().ev(st, 'boss_lock'); } break; }
+      case 'mark_wait': e.stateT += adv; if (!e.marks.length) toRecover(st, e, cfg.mark.recover); break;
+      case 'lanes_warn': { e.stateT += adv; if (e.stateT >= cfg.lanes.warn) { e.state = 'lanes_lock'; e.stateT = 0; K().ev(st, 'boss_lock'); } break; }
+      case 'lanes_lock': { e.stateT += adv; if (e.stateT >= cfg.lanes.lock) { const L = cfg.lanes, ln = e.lanes[e.laneIdx]; fireShock(st, e, ln.ang, L); ln.fired = true; K().noteAttack(st, e, 'execute'); e.laneIdx++; if (e.laneIdx < e.lanes.length) { e.state = 'lanes_fire'; e.stateT = 0; } else toRecover(st, e, L.recover); } break; }
+      case 'lanes_fire': e.stateT += adv; if (e.stateT >= cfg.lanes.gap) { e.state = 'lanes_lock'; e.stateT = 0; } break;
+      case 'wide_aim': e.stateT += adv; if (e.stateT >= cfg.wide.aim) { e.state = 'wide_lock'; e.stateT = 0; K().ev(st, 'boss_lock'); } break;
+      case 'wide_lock': e.stateT += adv; if (e.stateT >= cfg.wide.lock) { const R = cfg.wide.radius[Math.min(2, e.phase - 1)]; if (m().dist(e, p) <= R + p.r) K().damagePlayer(st, cfg.wide.damage, 'boss_wide'); K().fx(st, { kind: 'bossland', x: e.x, y: e.y, r: R, ttl: 0.5, t: 0 }); K().ev(st, 'boss_land'); K().noteAttack(st, e, 'execute'); toRecover(st, e, cfg.wide.recover); } break;
+      case 'summon': e.stateT += adv; if (e.stateT >= cfg.summon.duration) { summon(st, e); K().noteAttack(st, e, 'execute'); toApproach(st, e); } break;
+      case 'recover': e.stateT += adv; if (e.stateT >= e.recoverDur) toApproach(st, e); break;
+      case 'stagger': e.stateT += adv; if (e.stateT >= cfg.stagger) toApproach(st, e); break;
+    }
+    K().pushOut(st, e);
+  }
+  // 표식 폭발: 공개된 위치, 정해진 시각에 순차. 감속장은 표식 시계를 늦추지 않는다(위치 기반 예고이므로 회피 여유가 이미 큼)
+  function updateMarks(st, e, dt) {
+    const p = st.player; for (const mk of e.marks) { if (mk.done || st.t < mk.explodeAt) continue; mk.done = true; if (m().dist(mk, p) <= mk.r + p.r) K().damagePlayer(st, cfgOf(e).mark.damage, 'boss_mark'); K().fx(st, { kind: 'burst', x: mk.x, y: mk.y, r: mk.r, ttl: 0.35, t: 0, color: '#c080ff' }); K().ev(st, 'explode'); }
+    e.marks = e.marks.filter(mk => !mk.done);
+  }
+  // 봉인 장치: 살아 있는 장치마다 주기적으로 플레이어 좌우에 바닥 위험. 동시 위험 상한
+  function updateDevices(st, e, dt) {
+    const D = cfgOf(e).devices, p = st.player;
+    for (const d of e.devices) { if (d.dead) continue; d.timer -= dt; if (d.timer > 0) continue; d.timer = D.interval; if (st.zones.filter(z => z.type === 'hazard').length >= cfgOf(e).overlap.maxHazardZones) continue; PA.Objectives.ringHazards(st, p.x, p.y, D.n, D.dist, D.r, D, 'device', p.face + Math.PI / 2 + d.deviceIndex * 0.6); K().ev(st, 'hazard_warn'); }
+  }
+  function summon(st, e) {
+    const S = cfgOf(e).summon, p = st.player; let n = Math.min(S.count, e.summonBudget, S.cap - PA.Boss.summonedAlive(st) - st.pending.filter(s => s.summoned).length); if (n <= 0) return;
+    let placed = 0;
+    for (const rr of [S.ring[0], S.ring[1], S.ring[1] + 60]) for (let i = 0; i < 12 && placed < n; i++) { const a = i / 12 * Math.PI * 2 + st.rng.range(-0.1, 0.1), x = e.x + Math.cos(a) * rr, y = e.y + Math.sin(a) * rr; const type = S.pool[(e.summonBudget + placed) % S.pool.length]; if (!K().validPos(st, x, y, PA.ENEMIES[type].r) || m().dist({ x, y }, p) < 150) continue; if (st.pending.some(s => m().dist(s, { x, y }) < 30)) continue; st.pending.push({ type, x, y, t: S.warn, summoned: true }); K().fx(st, { kind: 'pawwarn', x, y, ttl: S.warn, t: 0, type }); placed++; }
+    e.summonBudget -= placed; if (placed) K().ev(st, 'wave', { summon: true });
+  }
+  // 현재 위험 예고 안인가(회복 구슬 배치용)
+  function inDanger(st, e, pt) {
+    const cfg = cfgOf(e);
+    if ((e.state === 'sweep_aim' || e.state === 'sweep_lock') && cfg.sweep) return m().inArc(e, cfg.sweep.radius, e.state === 'sweep_aim' ? e.aimAngle : e.dir, cfg.sweep.arcDeg * Math.PI / 360, pt, 14);
+    if ((e.state === 'shock_aim' || e.state === 'shock_lock') && cfg.shock) return m().inBeam(e, e.state === 'shock_aim' ? e.aimAngle : e.dir, cfg.shock.len, cfg.shock.width + 28, pt, 14);
+    if (e.marks && e.marks.some(mk => m().dist(mk, pt) <= mk.r + 14)) return true;
+    if ((e.state === 'wide_aim' || e.state === 'wide_lock') && cfg.wide) return m().dist(e, pt) <= cfg.wide.radius[Math.min(2, e.phase - 1)] + 14;
+    if (e.state === 'lanes_warn' || e.state === 'lanes_lock' || e.state === 'lanes_fire') return e.lanes.some(l => !l.fired && m().inBeam(e, l.ang, cfg.lanes.len, cfg.lanes.width + 28, pt, 14));
+    return false;
+  }
+  // 봇 위협 도형
+  function threats(st, bz, out) {
+    const cfg = cfgOf(bz), p = st.player;
+    if (bz.state === 'sweep_aim') out.push({ kind: 'arc', e: bz, x: bz.x, y: bz.y, ang: bz.aimAngle, r: cfg.sweep.radius + 30, half: cfg.sweep.arcDeg * Math.PI / 360 + 0.2, prog: bz.stateT / cfg.sweep.aim, locked: false });
+    if (bz.state === 'sweep_lock') out.push({ kind: 'arc', e: bz, x: bz.x, y: bz.y, ang: bz.dir, r: cfg.sweep.radius + 30, half: cfg.sweep.arcDeg * Math.PI / 360 + 0.2, prog: 1, locked: true });
+    if (bz.state === 'shock_aim') out.push({ kind: 'beam', e: bz, x: bz.x, y: bz.y, ang: bz.aimAngle, len: cfg.shock.len, w: cfg.shock.width + 30 + (bz.shockLeft >= 2 ? 200 : 0), prog: bz.stateT / cfg.shock.aim, locked: false });
+    if (bz.state === 'shock_lock') out.push({ kind: 'beam', e: bz, x: bz.x, y: bz.y, ang: bz.dir, len: cfg.shock.len, w: cfg.shock.width + 30 + (bz.shockLeft >= 2 ? 200 : 0), prog: 1, locked: true });
+    if (bz.marks) for (const mk of bz.marks) out.push({ kind: 'circle', e: bz, x: mk.x, y: mk.y, r: mk.r + 10, prog: Math.min(1, 1 - (mk.explodeAt - st.t) / cfg.mark.delay), locked: mk.explodeAt - st.t < 0.6 });
+    if (bz.state === 'lanes_warn' || bz.state === 'lanes_lock' || bz.state === 'lanes_fire') for (const l of bz.lanes) if (!l.fired) out.push({ kind: 'beam', e: bz, x: bz.x, y: bz.y, ang: l.ang, len: cfg.lanes.len, w: cfg.lanes.width + 30, prog: bz.state === 'lanes_warn' ? bz.stateT / cfg.lanes.warn : 1, locked: bz.state !== 'lanes_warn' });
+    if (bz.state === 'wide_aim' || bz.state === 'wide_lock') out.push({ kind: 'circle', e: bz, x: bz.x, y: bz.y, r: cfg.wide.radius[Math.min(2, bz.phase - 1)] + 30, prog: bz.state === 'wide_aim' ? bz.stateT / cfg.wide.aim : 1, locked: bz.state === 'wide_lock' });
+  }
+  return { init, update, inDanger, threats, isCommitted, COMMITTED, choose, summon };
 })();
 
 </script>
@@ -2696,7 +2899,7 @@ PA.Objectives = (function () {
   // 봇 위협: 바닥 위험(예고 중 포함)
   function threats(st, out) { for (const z of st.zones) if (z.type === 'hazard') out.push({ kind: 'zone', x: z.x, y: z.y, r: z.r }); }
   function text(st) { const S = spec(st); return S ? S.short : (st.objective === 'elite' ? '정예 처치' : '전멸'); }
-  return { is, setup, update, check, onPlayerHit, zoneDamage, hud, autoTarget, botGoal, botTarget, threats, text, place };
+  return { is, setup, update, check, onPlayerHit, zoneDamage, hud, autoTarget, botGoal, botTarget, threats, text, place, ringHazards, hazardAt };
 })();
 
 </script>
@@ -2710,9 +2913,10 @@ PA.Run = (function () {
   const RECORDS_KEY = 'prophecy_action_records_v1';
   const VERSION = 3;
 
-  function newRun(seed, startWeapon) {
+  function newRun(seed, startWeapon, mode) {
     const cfg = C();
     return {
+      mode: mode && PA.RUN_MODES[mode] ? mode : 'trio', stage: 0, bossesDone: [], bossRecords: {}, // v0.7 회차 구조: 새 회차 기본은 3보스 시험안, 이전 저장은 single
       growth: PA.Growth.newGrowth(startWeapon || 'sword'),
       layout: 'classic', difficulty: 'base',   // v0.6: 지역 배치안·난이도 후보(기본은 기존 배치·×1)
       version: VERSION, seed: seed || (Date.now() % 100000), sortieCount: 0,
@@ -2745,13 +2949,20 @@ PA.Run = (function () {
     if (r.gear && 'weapon' in r.gear) delete r.gear.weapon;
     if (!r.layout || !PA.LAYOUTS[r.layout]) r.layout = 'classic';                       // 이전 저장: 기존 배치 유지
     if (!r.difficulty || !PA.DIFFICULTY.candidates[r.difficulty]) r.difficulty = 'base';
-    if (!r.services) r.services = {}; if (!r.missionsDone) r.missionsDone = {}; if (r.cards === undefined) r.cards = null; if (r.pendingSortie === undefined) r.pendingSortie = null; if (!r.buffs) r.buffs = {}; // v0.7 필드: 이전 저장은 기존 규칙 유지, 카드는 오늘부터 생성
+    if (!r.services) r.services = {}; if (!r.missionsDone) r.missionsDone = {}; if (r.cards === undefined) r.cards = null; if (r.pendingSortie === undefined) r.pendingSortie = null; if (!r.buffs) r.buffs = {};
+    if (!r.mode || !PA.RUN_MODES[r.mode]) r.mode = 'single'; if (r.stage == null) r.stage = 0; if (!r.bossesDone) r.bossesDone = r.bossClear ? ['boss'] : []; if (!r.bossRecords) r.bossRecords = r.bossClear ? { boss: r.bossClear } : {}; // 이전 저장: 단일 보스 규칙 유지 // v0.7 필드: 이전 저장은 기존 규칙 유지, 카드는 오늘부터 생성
     return r;
   }
 
   function build(run) { return PA.Build.derive(run); }
-  function bossDaysLeft(run) { return C().BOSS_DAY - run.day; }
-  function isBossDay(run) { return run.day >= C().BOSS_DAY; }
+  // ---------- 회차 구조(v0.7): single(7일 단일 보스, 기존) | trio(보스 3마리 관문) ----------
+  function modeDef(run) { return PA.RUN_MODES[(run && run.mode) || 'single'] || PA.RUN_MODES.single; }
+  function nextBoss(run) { return modeDef(run).bosses[run.stage || 0] || null; }
+  function nextBossCfg(run) { const nb = nextBoss(run); if (nb) return PA.BOSS_DEFS[nb.id]; const done = run.bossesDone && run.bossesDone[run.bossesDone.length - 1]; return PA.BOSS_DEFS[done] || PA.BOSS; } // 완주 후에는 마지막 보스
+  function bossHp(run, bossId) { const nb = modeDef(run).bosses.find(b => b.id === bossId); const H = PA.BOSS_HP[bossId]; return nb && H && H[nb.hpKey] ? H[nb.hpKey] : PA.BOSS_DEFS[bossId].hp; }
+  function stageCount(run) { return modeDef(run).bosses.length; }
+  function bossDaysLeft(run) { const nb = nextBoss(run); return nb ? nb.day - run.day : 0; }
+  function isBossDay(run) { const nb = nextBoss(run); return !!nb && run.day >= nb.day; }
   function addLog(run, msg) { run.log.unshift(`${run.day}일차 · ${msg}`); if (run.log.length > 8) run.log.length = 8; }
 
   // ---------- 지역/출격 ----------
@@ -2836,13 +3047,14 @@ PA.Run = (function () {
     if (PA.Sortie) PA.Sortie.cardsFor(run); // 오늘의 출격 카드 확정(시드·저장)
   }
   // ---------- 보스전 ----------
-  function bossSeed(run) { return run.seed * 997 + 7; } // 같은 회차·같은 빌드 재도전 = 같은 시드·지형
+  function bossSeed(run) { return run.seed * 997 + 7 + (run.stage || 0) * 31; } // 같은 회차·같은 단계 재도전 = 같은 시드·지형
   function canStartBoss(run) { return run.phase === 'boss_prep' || run.phase === 'cleared'; }
   function startBoss(run) {
     if (!canStartBoss(run)) throw new Error('보스 준비 상태가 아님');
     run.hp = build(run).hpMax; // 입장: 체력 완전 회복(회피·감속장·방벽은 전투 생성 시 초기화)
-    run.bossEntry = JSON.parse(JSON.stringify({ growth: run.growth, hp: run.hp })); // 재도전 복구 기준(소환 경험치 누적 악용 방지)
-    return { regionId: 'boss', seed: bossSeed(run), loot: { gold: 0, mats: {} }, encounters: 0 };
+    run.bossEntry = JSON.parse(JSON.stringify({ growth: run.growth, hp: run.hp, stage: run.stage, gold: run.gold })); // 재도전 복구 기준(소환 경험치 누적 악용 방지)
+    const nb = nextBoss(run);
+    return { regionId: 'boss', bossId: nb ? nb.id : 'boss', stage: run.stage || 0, seed: bossSeed(run), loot: { gold: 0, mats: {} }, encounters: 0 };
   }
   function bossDefeat(run) {
     run.bossRetries = (run.bossRetries || 0) + 1;
@@ -2850,11 +3062,20 @@ PA.Run = (function () {
     run.hp = build(run).hpMax; addLog(run, `보스전 패배 (재도전 ${run.bossRetries}회, 성장은 입장 시점으로 복구)`);
   }
   function bossVictory(run, stats) {
-    const b = build(run);
-    const rec = { time: Math.round(stats.elapsed * 10) / 10, retries: run.bossRetries || 0, weapon: b.weapon.name, upgrade: run.gear.upgrade, acc: run.gear.acc, armor: run.gear.armor, augments: Object.assign({}, run.augments), specialUses: stats.specialUses || 0, bossDamage: Math.round(stats.bossDamage || 0), day: run.day, seed: run.seed, at: Date.now() };
-    if (!run.bossClear) run.bossClear = rec; // 첫 처치 기록은 회차 안에서 유지
-    run.lastBossClear = rec; run.phase = 'cleared';
-    addLog(run, `가시갈기 처치 (${rec.time}초)`);
+    const b = build(run), nb = nextBoss(run), bossId = nb ? nb.id : 'boss', cfg = PA.BOSS_DEFS[bossId];
+    const rec = { bossId, stage: run.stage || 0, time: Math.round(stats.elapsed * 10) / 10, retries: run.bossRetries || 0, weapon: b.weapon.name, upgrade: run.gear.upgrade, acc: run.gear.acc, armor: run.gear.armor, augments: Object.assign({}, run.augments), level: run.growth.level, specialUses: stats.specialUses || 0, bossDamage: Math.round(stats.bossDamage || 0), day: run.day, seed: run.seed, mode: run.mode, at: Date.now() };
+    if (!run.bossRecords[bossId]) run.bossRecords[bossId] = rec; // 보스별 처치 기록은 1회(재도전·재정산으로 갱신하지 않음)
+    if (bossId === 'boss' && !run.bossClear) run.bossClear = rec; // 단일 보스 회차 호환 필드
+    run.lastBossClear = rec; if (!run.bossesDone.includes(bossId)) run.bossesDone.push(bossId);
+    addLog(run, `${cfg.name} 처치 (${rec.time}초)`);
+    const last = (run.stage || 0) >= stageCount(run) - 1;
+    if (last) { run.phase = 'cleared'; run.ended = true; run.stage = stageCount(run); } // 마지막 보스: 회차 종료, 다음 보스 없음, 추가 성장 없음
+    else { // 다음 단계 해금: 그날의 5시간 시작, 희귀 보상 3택은 1회 보류 등록(저장됨)
+      if (nb.rare) run.growth.pendingBossPick = { bossId, stage: run.stage || 0, key: `${run.seed}:${run.stage}` };
+      run.stage = (run.stage || 0) + 1; run.phase = 'prep'; run.hours = C().HOURS_PER_DAY; run.hp = b.hpMax; run.bossRetries = 0; run.bossEntry = null;
+      addLog(run, `${run.stage + 1}단계 해금: 오늘 ${C().HOURS_PER_DAY}시간 시작`);
+      if (PA.Sortie) PA.Sortie.cardsFor(run);
+    }
     return rec;
   }
   function ownedBySlot(run, slot) { return run.owned.filter(id => item(id) && item(id).slot === slot); }
@@ -2951,7 +3172,7 @@ PA.Run = (function () {
   function load(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(SAVE_KEY); return s ? deserialize(s) : null; } catch (e) { return null; } }
   function clearSave(storage) { storage = storage || globalThis.localStorage; try { storage.removeItem(SAVE_KEY); } catch (e) {} }
 
-  return { SAVE_KEY, RECORDS_KEY, VERSION, hasService, useService, regionBonusXp, layoutRegion, regionEnemies, regionArena, hpMultFor, layoutText, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
+  return { SAVE_KEY, RECORDS_KEY, VERSION, hasService, useService, modeDef, nextBoss, nextBossCfg, bossHp, stageCount, regionBonusXp, layoutRegion, regionEnemies, regionArena, hpMultFor, layoutText, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
 })();
 
 </script>
@@ -3154,6 +3375,11 @@ PA.Flow = (function () {
     if (sortie.deep && PA.GROWTH.DEEP_PICK && !sortie.deepPicked) { sortie.deepPicked = true; run.growth.pendingDeepPick = { regionId: sortie.regionId, key: `${sortie.seed}:${sortie.encounters}` }; }
     return reward;
   }
+  // 보스전(회차 관문): 단계별 보스·체력 후보. 입장 스냅샷은 Run.startBoss가 만든다
+  function makeBossEncounter(run, sortie) { const b = PA.Run.build(run); const st = PA.Combat.create({ build: b, hp: b.hpMax, seed: sortie.seed, boss: true, bossId: sortie.bossId || 'boss', bossHp: PA.Run.bossHp(run, sortie.bossId || 'boss'), arena: 'clearing', waves: [], run }); if (run.buffs && run.buffs.skillCd) { st.tempBuff = 'skillCd'; delete run.buffs.skillCd; } run.pendingSortie = null; return st; }
+  // 보스 승리 정산(정확히 1회): 처치 기록·다음 단계·희귀 보상 보류(마지막 보스는 없음)
+  function settleBossVictory(run, st) { const rec = PA.Run.bossVictory(run, st.stats); run.pendingSortie = null; return rec; }
+  function settleBossDefeat(run, st) { PA.Run.bossDefeat(run); run.pendingSortie = null; }
   function settleDefeat(run, sortie, st) { PA.Run.applyEncounterResult(run, sortie, 'lost', null, 0); PA.Run.defeat(run, sortie); run.pendingSortie = null; }
   // 다음에 제시할 선택(순서 고정): 저장된 보류 제시 → 미처리 레벨업 → 임무 보상 3택 → 더 깊이 지역 3택 → 없음(null)
   // 더 깊이 3택은 여기서 보류 등록을 소비하고 pendingOffer로 옮긴다(새로고침해도 같은 제시, 두 번 제시되지 않음). 후보가 없으면 제시 없이 소비
@@ -3162,6 +3388,7 @@ PA.Flow = (function () {
     if (g.pendingOffer) return g.pendingOffer;
     if (g.pendingLevelUps > 0) return PA.Growth.generateOffer(run, { pool: 'level', regionId: ctx.regionId || null });
     if (g.pendingMissionPick) { const off = PA.Sortie.missionOffer(run); return off || nextOffer(run, ctx); } // 임무 보상 3택(후보 없으면 금화로 대체·1회)
+    if (g.pendingBossPick) { const bp = g.pendingBossPick; g.pendingBossPick = null; const off = PA.Growth.generateOffer(run, { pool: 'boss', bossId: bp.bossId, stage: bp.stage }); if (!off.choices.length) { g.pendingOffer = null; PA.Run.addLog(run, '희귀 보상: 적용 가능한 후보 없음(제시 생략)'); g.bossPickNone = (g.bossPickNone || 0) + 1; return nextOffer(run, ctx); } return off; } // 보스 희귀 보상(1·2보스 뒤 1회, 유효 후보만)
     if (g.pendingEventPick) { const ep = g.pendingEventPick; g.pendingEventPick = null; const off = PA.Growth.generateOffer(run, { pool: 'mission', kinds: [ep.kind], regionId: ep.regionId, missionKind: ep.kind, event: true }); if (!off.choices.length) { g.pendingOffer = null; return nextOffer(run, ctx); } return off; } // 사건 보상(무기 제단)
     if (g.pendingDeepPick) {
       const rid = g.pendingDeepPick.regionId; g.pendingDeepPick = null;
@@ -3206,7 +3433,7 @@ PA.Flow = (function () {
   // 전투 뒤 안전 화면의 다음 단계(화면·봇 공용): 남은 선택 → 미처리 사건 → 다음 행동(after)
   function afterCombatStep(run, sortie) { if (nextOffer(run, { regionId: sortie.regionId })) return 'offer'; if (sortie.event && !sortie.event.resolved) return 'event'; return 'after'; }
   function returnHome(run, sortie) { PA.Run.returnToBase(run, sortie); run.pendingSortie = null; }
-  return { encounterSeed, encounterOpts, makeEncounter, settleVictory, settleDefeat, nextOffer, resolveOffer, resolveAll, afterCombatStep, returnHome, rerollOffer, modSwapOffer };
+  return { encounterSeed, encounterOpts, makeEncounter, settleVictory, settleDefeat, nextOffer, resolveOffer, resolveAll, afterCombatStep, returnHome, rerollOffer, modSwapOffer, makeBossEncounter, settleBossVictory, settleBossDefeat };
 })();
 
 </script>
@@ -3249,10 +3476,11 @@ PA.Bot = (function () {
     for (const pr of st.projectiles) if (pr.owner === 'enemy') out.push({ kind: 'beam', x: pr.x, y: pr.y, ang: Math.atan2(pr.vy, pr.vx), len: 220, w: 40 + pr.r * 2, prog: 1, locked: true, proj: true });
     for (const z of st.zones) if (z.type === 'spore') out.push({ kind: 'zone', x: z.x, y: z.y, r: z.r });
     if (PA.Enemies && PA.Enemies.zoneThreats) PA.Enemies.zoneThreats(st, out);
-    if (PA.Objectives && st.obj) PA.Objectives.threats(st, out);
+    if (PA.Objectives) PA.Objectives.threats(st, out); // 바닥 위험(목표·봉인 장치)
     return out;
   }
   function bossThreats(st, bz, out) {
+    if (bz.bossId && bz.bossId !== 'boss' && PA.Boss2) return PA.Boss2.threats(st, bz, out);
     const cfg = PA.BOSS, p = st.player;
     if (bz.state === 'dash_aim') out.push({ kind: 'beam', e: bz, x: bz.x, y: bz.y, ang: bz.aimAngle, len: cfg.dash.dist + 40, w: (bz.r + p.r) * 2 + 40, prog: bz.stateT / cfg.dash.aim, locked: false });
     if (bz.state === 'dash_lock' || bz.state === 'dash') out.push({ kind: 'beam', e: bz, x: bz.x, y: bz.y, ang: bz.dir, len: (bz.dashLen || cfg.dash.dist) + 40, w: (bz.r + p.r) * 2 + 40, prog: 1, locked: true });
@@ -3399,6 +3627,9 @@ PA.LAB = {
     slowfield:    { name: '감속장 중심 조합', stage: '중간', purpose: '감속장 Lv3 동행 + 정지된 칼날 + 시간 저축 + 회전 칼날 이중 궤도 + 집중. 감속장이 예고 읽기에 주는 여유를 비교', growth: { weapons: [{ id: 'sword', level: 2 }, { id: 'blades', level: 3, mods: ['dual'] }], commons: { stasis: 1, saving: 1, wide: 1 }, passives: { focus: 2 }, q: { level: 3, variant: 'follow' } }, gear: { upgrade: 1 } },
     dot:          { name: '불길·지속 피해 조합', stage: '중간', purpose: '불씨 정령(화염 띠·재점화) + 잔불 걸음 + 불꽃 파열 + 불붙은 공격 + 지속력. 바닥 유도형 빌드의 처치 시간 분포', growth: { weapons: [{ id: 'sword', level: 2 }, { id: 'ember', level: 3, mods: ['trail', 'reignite'] }], commons: { ember: 1, flare: 1, burn: 1 }, passives: { persistence: 2 } }, gear: { upgrade: 1 } },
     late_multi:   { name: '후반 다중 무기 조합', stage: '후반', purpose: '관통창 5(귀환·표식) + 회전 4(이중) + 구체 3(분기) + 숙련 3·가속 2 + 낙뢰 2 연쇄 + 강화 3·송곳니 목걸이·가죽 갑옷. 6일차 완성 빌드에 가까운 상한선', growth: { weapons: [{ id: 'spear', level: 5, mods: ['returning', 'brand'] }, { id: 'blades', level: 4, mods: ['dual'] }, { id: 'orb', level: 3, mods: ['fork'] }], commons: { stasis: 1, saving: 1, wide: 2 }, passives: { mastery: 3, haste: 2 }, e: { id: 'strike', level: 2, variant: 'chain' } }, gear: { upgrade: 3, acc: 'fang_necklace', armor: 'leather_armor' } },
+    stage1: { name: '1단계 빌드(3일차, Lv 9)', stage: '관문 1', purpose: '2일 준비 뒤 가시갈기(체력 후보 1500) 도전 시점의 평균 빌드: 검 3(십자) + 불씨 1 + 냉기 1, E 돌풍 1', growth: { weapons: [{ id: 'sword', level: 3, mods: ['cross'] }, { id: 'ember', level: 1 }], commons: { frost: 1 }, passives: { toughness: 1 }, e: { id: 'gust', level: 1 } }, gear: { upgrade: 0 } },
+    stage2: { name: '2단계 빌드(5일차, Lv 18)', stage: '관문 2', purpose: '4일 준비 뒤 봉인 수호자(3000) 도전 시점: 검 5(십자·초승달) + 불씨 3(재점화) + 단검 2, 공통 냉기·화상, E 돌풍 2', growth: { weapons: [{ id: 'sword', level: 5, mods: ['cross', 'crescent'] }, { id: 'ember', level: 3, mods: ['reignite'] }, { id: 'daggers', level: 2 }], commons: { frost: 1, burn: 1 }, passives: { toughness: 1, mastery: 1, focus: 1 }, e: { id: 'gust', level: 2 } }, gear: { upgrade: 1, armor: 'leather_armor' } },
+    stage3: { name: '3단계 빌드(7일차, Lv 26)', stage: '관문 3', purpose: '6일 준비 뒤 예언을 먹는 자(3600) 도전 시점: 검 5(십자·초승달) + 불씨 5(재점화·흔적) + 단검 4(출혈·측면), 공통 냉기·화상·불꽃, E 돌풍 3 변형', growth: { weapons: [{ id: 'sword', level: 5, mods: ['cross', 'crescent'] }, { id: 'ember', level: 5, mods: ['reignite', 'trail'] }, { id: 'daggers', level: 4, mods: ['bleed', 'flank'] }], commons: { frost: 1, burn: 1, flare: 1 }, passives: { toughness: 2, mastery: 2, focus: 1, vitality: 1 }, e: { id: 'gust', level: 3 } }, gear: { upgrade: 2, armor: 'leather_armor', acc: 'time_charm' } },
     late_hammer:  { name: '후반 망치·지뢰 조합', stage: '후반', purpose: '전투망치 4(충격파·여진) + 룬 지뢰 3(연결·서리 함정) + 불씨 2 + 넓어진 공격 2 + 강인함·건강. 느리고 큰 한 방 계열의 상한선', growth: { weapons: [{ id: 'hammer', level: 4, mods: ['shockwave', 'aftershock'] }, { id: 'mine', level: 3, mods: ['chain', 'frosttrap'] }, { id: 'ember', level: 2 }], commons: { wide: 2, flare: 1, burn: 1 }, passives: { toughness: 2, vitality: 2, mastery: 1 }, e: { id: 'gravity', level: 2, variant: 'collapse' } }, gear: { upgrade: 2, armor: 'leather_armor' } },
   },
   // 지형 프리셋. auto = 조합 프리셋이 정한 기본 전장(일반 지역: 숲, 보스: 공터)
@@ -3509,6 +3740,7 @@ PA.Lab = (function () {
     for (const r of PA.REGIONS) list.push({ id: 'region:' + r.id, group: '지역(기존 배치)', name: r.name, regionId: r.id, waves: r.waves, objective: r.objective, arena: 'forest', desc: r.desc });
     if (PA.LAYOUTS && PA.LAYOUTS.trial) for (const r of PA.REGIONS) { const L = PA.LAYOUTS.trial.regions[r.id]; if (L) list.push({ id: 'trial:' + r.id, group: '지역(시험안 배치)', name: r.name + ' · 시험안', regionId: r.id, waves: L.waves, objective: L.objective || r.objective, arena: L.arena || 'forest', desc: L.desc || r.desc }); }
     for (const t of PA.LAB.ENEMY_ORDER) { const d = PA.ENEMIES[t]; if (!d || t === 'boss') continue; const n = t === 'wolf' ? 2 : 1; const ally = t === 'shaman' ? [{ type: 'wolf', n: 2 }] : []; list.push({ id: 'solo:' + t, group: '단독 시험', name: d.name + (n > 1 ? ` ×${n}` : '') + (ally.length ? ' (+늑대 2: 치료 대상)' : '') + (d.impl === false ? ' (미구현)' : ''), regionId: null, waves: [[{ type: t, n }].concat(ally), [{ type: t, n: n + 1 }].concat(ally)], objective: 'clear', arena: d.arena || 'forest', desc: d.readme, impl: d.impl !== false }); }
+    for (const bid of ['guardian', 'eater']) { const B = PA.BOSS_DEFS[bid]; list.push({ id: 'boss:' + bid, group: '보스', name: `${B.name} — ${B.title}`, regionId: null, waves: [], objective: 'boss', arena: 'clearing', boss: true, bossId: bid, desc: B.info.join(' ') }); }
     for (const oid of PA.OBJECTIVE_IDS) for (const rid of ['forest', 'ridge', 'marsh']) { const O = PA.OBJECTIVES[oid], r = PA.REGIONS.find(x => x.id === rid); list.push({ id: `mission:${oid}:${rid}`, group: '전투 목표(임무)', name: `${O.name} · ${r.name}`, regionId: rid, waves: r.waves, objective: oid, arena: 'clearing', desc: O.desc, mission: true }); }
     for (const rk of PA.MISSIONS.risks) { const r = PA.REGIONS.find(x => x.id === 'ridge'); list.push({ id: `risk:${rk}`, group: '위험 조건(임무·능선 봉인 해제)', name: `${PA.MISSIONS.riskText[rk]} · 봉인 해제`, regionId: 'ridge', waves: r.waves, objective: 'seal', risk: rk, arena: 'clearing', desc: `위험 조건 ${PA.MISSIONS.riskText[rk]} 확인용`, mission: true }); }
     for (const c of PA.LAB_COMBOS) list.push(Object.assign({}, c, { id: 'combo:' + c.id, comboId: c.id, group: '조합 프리셋', regionId: c.regionId || null, objective: c.objective || 'clear', arena: c.arena || 'forest' }));
@@ -3581,7 +3813,7 @@ PA.Lab = (function () {
     const ep = enemyPreset(cfg.enemy), build = PA.Run.build(run);
     const arena = cfg.arena === 'auto' ? (ep.arena || 'forest') : cfg.arena;
     const common = { build, hp: build.hpMax, seed: cfg.seed, arena, hpMult: cfg.hp, timeLimit: cfg.time, fixedBuild: cfg.growth !== 'grow', regionId: ep.regionId, labText: labText(cfg), overlapLimit: cfg.overlap >= 0 ? cfg.overlap : (ep.overlapLimit || 0) };
-    if (ep.boss) return PA.Combat.create(Object.assign(common, { boss: true, waves: [] }));
+    if (ep.boss) return PA.Combat.create(Object.assign(common, { boss: true, waves: [], bossId: ep.bossId || 'boss', bossHp: cfg.bossHp || null, run }));
     let waves = ep.waves.map(w => w.map(g => Object.assign({}, g)));
     if (cfg.deep && ep.regionId && ep.regionId !== 'lab') { const r2 = Object.assign({}, run, { layout: cfg.enemy.startsWith('trial:') ? 'trial' : 'classic' }); waves = PA.Run.encounterWaves(ep.regionId, true, r2); }
     return PA.Combat.create(Object.assign(common, { waves, objective: cfg.deep && ep.regionId ? 'elite' : (ep.objective || 'clear'), risk: ep.risk || null, run, mission: ep.mission ? { objective: ep.objective, risk: ep.risk || null } : null }));
@@ -3606,7 +3838,14 @@ PA.Lab = (function () {
   function saveResults(list, storage) { storage = storage || globalThis.localStorage; try { storage.setItem(RESULTS_KEY, JSON.stringify(list.slice(-30))); } catch (e) {} }
   function loadResults(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(RESULTS_KEY); return s ? JSON.parse(s) : []; } catch (e) { return []; } }
 
-  return { LAB_KEY, RESULTS_KEY, defaultConfig, encode, decode, normalize, enemyPresets, enemyPreset, growthFromPreset, pickCount, validateBuild, describeBuild, makeRun, makeCombat, labText, result, csvRow, toCsv, CSV_COLS, saveConfig, loadConfig, saveResults, loadResults };
+  // 회차 구조 빠른 경로(검증용): 3보스 회차를 지정 단계의 보스 관문 직전 상태로 만든다(단계 빌드 프리셋, 저장 덮어쓰기 없음: 호출자가 결정)
+  function quickRun(stage, seed) {
+    const buildId = ['stage1', 'stage2', 'stage3'][stage] || 'stage1', preset = PA.LAB.BUILDS[buildId];
+    const run = PA.Run.newRun(seed || 7, preset.growth.weapons[0].id, 'trio'); run.growth = growthFromPreset(preset); run.stage = stage; run.bossesDone = PA.RUN_MODES.trio.bosses.slice(0, stage).map(b => b.id);
+    const nb = PA.Run.nextBoss(run); run.day = nb.day; run.hours = PA.CONFIG.HOURS_PER_DAY; run.phase = 'boss_prep'; run.hp = PA.Run.build(run).hpMax; run.gold = 200 + stage * 150; run.quick = true;
+    PA.Sortie.cardsFor(run); return run;
+  }
+  return { LAB_KEY, RESULTS_KEY, quickRun, defaultConfig, encode, decode, normalize, enemyPresets, enemyPreset, growthFromPreset, pickCount, validateBuild, describeBuild, makeRun, makeCombat, labText, result, csvRow, toCsv, CSV_COLS, saveConfig, loadConfig, saveResults, loadResults };
 })();
 
 </script>
@@ -3970,7 +4209,38 @@ PA.Render = (function () {
   }
 
   // ---------- 보스: 가시갈기 ----------
+  // 봉인 수호자: 돌 갑옷 거인(각진 몸통·어깨 판·룬 눈). 실루엣은 늑대(가시갈기)와 구분되는 세로로 긴 사각
+  function drawGuardian(ctx, st, e) {
+    const s = e.r / 40, dying = e.dead, alpha = dying ? Math.max(0.25, 1 - Math.max(0, e.deathT - 1.2) / 1.5) : 1, glow = 0.5 + 0.5 * Math.sin(st.t * 3);
+    ctx.save(); ctx.translate(e.x, e.y); ctx.globalAlpha = alpha; shadow(ctx, 0, 30 * s, 34 * s, 10 * s);
+    if (dying) ctx.rotate(Math.min(1.2, e.deathT * 2));
+    const flash = e.flash > 0; const armor = flash ? '#ffffff' : '#5a6a9a', dark = flash ? '#eeeeff' : '#38456a';
+    ctx.fillStyle = dark; ctx.fillRect(-22 * s, 6 * s, 16 * s, 26 * s); ctx.fillRect(6 * s, 6 * s, 16 * s, 26 * s); // 다리
+    ctx.fillStyle = armor; ctx.beginPath(); ctx.moveTo(-30 * s, -26 * s); ctx.lineTo(30 * s, -26 * s); ctx.lineTo(26 * s, 12 * s); ctx.lineTo(-26 * s, 12 * s); ctx.closePath(); ctx.fill(); // 몸통
+    ctx.fillStyle = dark; ctx.fillRect(-46 * s, -30 * s, 18 * s, 14 * s); ctx.fillRect(28 * s, -30 * s, 18 * s, 14 * s); // 어깨 판
+    const armAng = (e.state === 'sweep_aim' || e.state === 'sweep_lock') ? -0.9 + (e.state === 'sweep_lock' ? 0.3 : 0) : 0.4;
+    ctx.save(); ctx.translate(38 * s, -20 * s); ctx.rotate(armAng); ctx.fillStyle = armor; ctx.fillRect(-6 * s, 0, 12 * s, 44 * s); ctx.fillStyle = dark; ctx.fillRect(-12 * s, 40 * s, 24 * s, 14 * s); ctx.restore(); // 오른팔(철퇴)
+    ctx.save(); ctx.translate(-38 * s, -20 * s); ctx.rotate(-0.3); ctx.fillStyle = armor; ctx.fillRect(-6 * s, 0, 12 * s, 40 * s); ctx.restore();
+    ctx.fillStyle = armor; ctx.fillRect(-14 * s, -44 * s, 28 * s, 20 * s); // 머리
+    ctx.fillStyle = `rgba(150,210,255,${0.5 + 0.5 * glow})`; ctx.fillRect(-9 * s, -38 * s, 18 * s, 4 * s); // 룬 눈
+    ctx.strokeStyle = `rgba(150,210,255,${0.4 + 0.4 * glow})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -8 * s, 9 * s, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -17 * s); ctx.lineTo(0, 1 * s); ctx.stroke(); // 가슴 룬
+    ctx.restore();
+  }
+  // 예언을 먹는 자: 떠 있는 검은 구체·갈라진 입·여러 눈·촉수. 실루엣은 둥글고 비대칭
+  function drawEater(ctx, st, e) {
+    const s = e.r / 38, dying = e.dead, alpha = dying ? Math.max(0.25, 1 - Math.max(0, e.deathT - 1.2) / 1.5) : 1, bob = Math.sin(st.t * 2.2) * 4;
+    ctx.save(); ctx.translate(e.x, e.y); ctx.globalAlpha = alpha; shadow(ctx, 0, 30 * s, 30 * s, 9 * s); ctx.translate(0, -8 * s + bob);
+    const flash = e.flash > 0; const body = flash ? '#ffffff' : '#3a1f4a', edge = flash ? '#eeeeff' : '#7a3a8a';
+    for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + st.t * 0.7, L = (30 + 10 * Math.sin(st.t * 3 + i)) * s; ctx.strokeStyle = edge; ctx.lineWidth = 4 * s; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 26 * s, Math.sin(a) * 26 * s); ctx.quadraticCurveTo(Math.cos(a + 0.4) * (26 * s + L * 0.6), Math.sin(a + 0.4) * (26 * s + L * 0.6), Math.cos(a) * (26 * s + L), Math.sin(a) * (26 * s + L)); ctx.stroke(); } // 촉수
+    ctx.fillStyle = body; ctx.beginPath(); ctx.ellipse(0, 0, 34 * s, 30 * s, 0.2, 0, TAU); ctx.fill(); ctx.strokeStyle = edge; ctx.lineWidth = 3; ctx.stroke();
+    const open = (e.state === 'wide_aim' || e.state === 'wide_lock' || e.state === 'mark_cast') ? 0.9 : e.state === 'summon' ? 0.6 : 0.25; // 입
+    ctx.fillStyle = '#12060f'; ctx.beginPath(); ctx.ellipse(2 * s, 8 * s, 20 * s, 8 * s * open + 2, 0, 0, TAU); ctx.fill(); ctx.fillStyle = '#e0c0ff'; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo((i * 7 - 1) * s, (8 - 6 * open) * s); ctx.lineTo((i * 7 + 2) * s, (8 - 6 * open) * s); ctx.lineTo((i * 7) * s, (8 - 6 * open + 6 * open) * s); ctx.fill(); }
+    const eyes = [[-14, -10, 6], [8, -14, 8], [18, -2, 4], [-4, -18, 3]]; for (const [ex, ey, er] of eyes) { ctx.fillStyle = e.state === 'recover' || e.state === 'stagger' ? '#ffd166' : '#c080ff'; ctx.beginPath(); ctx.arc(ex * s, ey * s, er * s, 0, TAU); ctx.fill(); ctx.fillStyle = '#12060f'; ctx.beginPath(); ctx.arc(ex * s + 1, ey * s, er * s * 0.45, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
   function drawBoss(ctx, st, e) {
+    if (e.bossId === 'guardian') return drawGuardian(ctx, st, e);
+    if (e.bossId === 'eater') return drawEater(ctx, st, e);
     const cfg = PA.BOSS, p = st.player, s = e.r / 14 * 0.95;
     const facingAng = (e.state === 'sweep_aim' || e.state === 'pounce_aim' || e.state === 'dash_aim') ? e.aimAngle : (e.state === 'sweep_lock' || e.state === 'dash_lock' || e.state === 'dash') ? e.dir : (e.state === 'leap' && e.land ? Math.atan2(e.land.y - e.leapFrom.y, e.land.x - e.leapFrom.x) : Math.atan2(p.y - e.y, p.x - e.x));
     let faceX = Math.abs(Math.cos(facingAng)) > 0.15 ? (Math.cos(facingAng) >= 0 ? 1 : -1) : e.faceX;
@@ -4383,7 +4653,14 @@ PA.Render = (function () {
     }
     const bz = st.boss;
     if (bz && !bz.dead) {
-      const cfg = PA.BOSS, flash = 0.75 + 0.25 * Math.sin(st.t * 60);
+      const cfg = PA.Boss.cfgOf(bz), flash = 0.75 + 0.25 * Math.sin(st.t * 60);
+      if (bz.bossId === 'guardian' || bz.bossId === 'eater') { // 신규 보스 예고: 직선 충격파·두 줄·표식·광역
+        const beam = (ang, len, w, locked, k) => { const alpha = locked ? flash : 0.35 + 0.35 * k; ctx.save(); ctx.translate(bz.x, bz.y); ctx.rotate(ang); ctx.fillStyle = `rgba(255,60,60,${alpha * 0.3})`; ctx.fillRect(0, -w / 2, len, w); ctx.strokeStyle = `rgba(255,80,80,${alpha})`; ctx.lineWidth = locked ? 4 : 2; ctx.strokeRect(0, -w / 2, len, w); ctx.restore(); };
+        if (bz.state === 'shock_aim' || bz.state === 'shock_lock') { const S = cfg.shock, locked = bz.state === 'shock_lock', ang = locked ? bz.dir : bz.aimAngle, k = bz.stateT / S.aim; if (bz.shockLeft >= 2) { beam(ang - S.spread, S.len, S.width, locked, k); beam(ang + S.spread, S.len, S.width, locked, k); } else beam(ang, S.len, S.width, locked, k); ctx.fillStyle = '#ffd9b0'; ctx.font = `bold 13px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(locked ? '충격파!' : '충격파 준비 — 옆으로', bz.x, bz.y - bz.r - 44); }
+        if (bz.state === 'lanes_warn' || bz.state === 'lanes_lock' || bz.state === 'lanes_fire') { const L = cfg.lanes; bz.lanes.forEach((ln, i) => { if (ln.fired) return; const locked = bz.state !== 'lanes_warn' && i === bz.laneIdx; beam(ln.ang, L.len, L.width, locked, Math.min(1, bz.stateT / L.warn)); ctx.fillStyle = '#ffd9b0'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(`직선 ${i + 1}/2`, bz.x + Math.cos(ln.ang) * 140, bz.y + Math.sin(ln.ang) * 140); }); }
+        if (bz.marks) for (const mk of bz.marks) { const left = Math.max(0, mk.explodeAt - st.t), k = 1 - Math.min(1, left / cfg.mark.delay); ctx.strokeStyle = left < 0.4 ? `rgba(230,120,255,${flash})` : 'rgba(200,120,255,0.8)'; ctx.lineWidth = left < 0.4 ? 4 : 2; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.arc(mk.x, mk.y, mk.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = `rgba(200,120,255,${0.12 + 0.25 * k})`; ctx.beginPath(); ctx.arc(mk.x, mk.y, mk.r * k, 0, TAU); ctx.fill(); ctx.fillStyle = '#e0c0ff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(left.toFixed(1), mk.x, mk.y + 4); }
+        if (bz.state === 'wide_aim' || bz.state === 'wide_lock') { const R = cfg.wide.radius[Math.min(2, bz.phase - 1)], locked = bz.state === 'wide_lock', k = bz.stateT / cfg.wide.aim, alpha = locked ? flash : 0.3 + 0.4 * k; ctx.fillStyle = `rgba(200,80,255,${alpha * 0.25})`; ctx.beginPath(); ctx.arc(bz.x, bz.y, R, 0, TAU); ctx.fill(); ctx.strokeStyle = `rgba(230,120,255,${alpha})`; ctx.lineWidth = locked ? 4 : 2; ctx.stroke(); ctx.fillStyle = '#e0c0ff'; ctx.font = `bold 13px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(locked ? '광역!' : '광역 준비 — 원 밖으로 (뒤에 긴 빈틈)', bz.x, bz.y - R - 8); }
+      }
       if (bz.state === 'sweep_aim' || bz.state === 'sweep_lock') {
         const locked = bz.state === 'sweep_lock', ang = locked ? bz.dir : bz.aimAngle, half = cfg.sweep.arcDeg * Math.PI / 360;
         const alpha = locked ? flash : 0.35 + 0.35 * (bz.stateT / cfg.sweep.aim);
@@ -4435,6 +4712,7 @@ PA.Render = (function () {
         if (p.kind === 'bolt') { ctx.fillStyle = '#bfefff'; ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, TAU); ctx.fill(); ctx.strokeStyle = 'rgba(160,230,255,0.7)'; ctx.lineWidth = 2; for (let i = 0; i < 3; i++) { const a = i * Math.PI / 3 + st.t * 6; ctx.beginPath(); ctx.moveTo(p.x - Math.cos(a) * 7, p.y - Math.sin(a) * 7); ctx.lineTo(p.x + Math.cos(a) * 7, p.y + Math.sin(a) * 7); ctx.stroke(); } continue; }
         if (p.kind === 'blade') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(st.t * 20); ctx.fillStyle = '#e6edf5'; for (let i = 0; i < 3; i++) { ctx.rotate(TAU / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(12, -3); ctx.lineTo(12, 3); ctx.fill(); } ctx.restore(); continue; }
       }
+      if (p.kind === 'shock') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); ctx.strokeStyle = 'rgba(255,200,120,0.95)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(-10, 0, p.r, -1.2, 1.2); ctx.stroke(); ctx.strokeStyle = 'rgba(255,120,60,0.6)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(-22, 0, p.r * 0.8, -1.0, 1.0); ctx.stroke(); ctx.restore(); }
       if (p.kind === 'hex') { ctx.fillStyle = 'rgba(200,120,255,0.45)'; ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, TAU); ctx.fill(); ctx.fillStyle = '#e9b6ff'; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, TAU); ctx.fill(); continue; }
       if (p.kind === 'arrow') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); ctx.strokeStyle = '#ffd9a0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(8, 0); ctx.stroke(); ctx.fillStyle = '#ff6b6b'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(4, -4); ctx.lineTo(4, 4); ctx.fill(); ctx.restore(); }
       else { ctx.fillStyle = '#bfefff'; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(191,239,255,0.4)'; ctx.beginPath(); ctx.arc(p.x - p.vx * 0.02, p.y - p.vy * 0.02, 3, 0, TAU); ctx.fill(); }
@@ -4489,7 +4767,7 @@ PA.Render = (function () {
     if (p.shieldMax > 0) bar(ctx, 14, 38, 240, 16, p.shield / p.shieldMax, '#38c6d8', '보호막', `${Math.ceil(p.shield)} / ${p.shieldMax}`);
     const alive = st.enemies.filter(e => !e.dead).length + st.pending.length;
     if (st.mode === 'boss' && st.boss) {
-      const bz = st.boss, cfg = PA.BOSS, bw = 520, bx = W / 2 - bw / 2, by = 14;
+      const bz = st.boss, cfg = PA.Boss.cfgOf(bz), bw = 520, bx = W / 2 - bw / 2, by = 14;
       ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(bx - 10, by - 4, bw + 20, 58);
       ctx.fillStyle = '#ffe066'; ctx.font = `bold 15px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(`${cfg.name} — ${cfg.title}`, bx, by + 12);
       const act = PA.BOSS_ACTION_TEXT[bz.state] || ''; const slow = PA.Combat.inField(st, bz) && !bz.dead;
@@ -4501,8 +4779,8 @@ PA.Render = (function () {
       for (const ph of cfg.phases) { const px = bx + bw * ph; ctx.fillStyle = '#fff'; ctx.fillRect(px - 1, by + 18, 2, 22); ctx.font = `11px ${FONT}`; ctx.textAlign = 'center'; ctx.fillStyle = '#ffd9b0'; ctx.fillText(Math.round(ph * 100) + '%', px, by + 50); }
       ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, by + 20.5, bw - 1, 17);
       ctx.fillStyle = '#fff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(`${Math.ceil(Math.max(0, bz.hp))} / ${bz.hpMax} · ${bz.phase}단계`, bx + bw / 2, by + 34);
-      if (alive - 1 > 0) { ctx.font = `12px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.textAlign = 'left'; ctx.fillText(`소환 늑대 ${alive - 1}`, bx, by + 50); }
-      if (st.intro > 0) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, H / 2 - 50, W, 100); ctx.fillStyle = '#ffe066'; ctx.font = `bold 36px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(`${cfg.name} — ${cfg.title}`, W / 2, H / 2 + 2); ctx.fillStyle = '#fff'; ctx.font = `14px ${FONT}`; ctx.fillText('예언의 날. 숲의 왕이 나타났다.', W / 2, H / 2 + 30); }
+      { const summ = st.enemies.filter(x => !x.dead && !x.boss && !x.structure).length + st.pending.length, dev = st.enemies.filter(x => !x.dead && x.structure).length; if (summ > 0 || dev > 0) { ctx.font = `12px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.textAlign = 'left'; ctx.fillText(`${summ > 0 ? '소환 ' + summ : ''}${summ > 0 && dev > 0 ? ' · ' : ''}${dev > 0 ? '봉인 장치 ' + dev : ''}`, bx, by + 50); } }
+      if (st.intro > 0) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, H / 2 - 50, W, 100); ctx.fillStyle = '#ffe066'; ctx.font = `bold 36px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(`${cfg.name} — ${cfg.title}`, W / 2, H / 2 + 2); ctx.fillStyle = '#fff'; ctx.font = `14px ${FONT}`; ctx.fillText(cfg.id === 'boss' ? '예언의 날. 숲의 왕이 나타났다.' : `${cfg.title}이 길을 막는다.`, W / 2, H / 2 + 30); }
     } else {
       const oh = st.obj && PA.Objectives ? PA.Objectives.hud(st) : null; const alive2 = st.enemies.filter(e => !e.dead && !e.structure).length;
       ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W - 234, 12, 220, oh ? 64 : 46);
@@ -4604,12 +4882,12 @@ PA.Screens = (function () {
   const costText = (cost) => `금화 ${cost.gold}` + Object.keys(cost.mats || {}).map(k => ` + ${matName(k)} ${cost.mats[k]}`).join('');
 
   function header(run) {
-    const b = R().build(run), left = R().bossDaysLeft(run);
-    const bossPct = Math.round(((run.day - 1) / (PA.CONFIG.BOSS_DAY - 1)) * 100);
+    const b = R().build(run), left = R().bossDaysLeft(run), nb = R().nextBoss(run), nbc = R().nextBossCfg(run), stages = R().stageCount(run);
+    const bossPct = Math.round(((run.day - 1) / (R().modeDef(run).days - 1)) * 100);
     return `<div class="topbar">
       <div class="stat"><span class="lbl">날짜</span><b>${run.day}일차</b></div>
       <div class="stat"><span class="lbl">오늘 남은 시간</span><b>${run.hours} / ${PA.CONFIG.HOURS_PER_DAY}시간</b> ${hoursPips(run.hours, PA.CONFIG.HOURS_PER_DAY)}</div>
-      <div class="stat boss"><span class="lbl">보스 도래까지</span><b class="${left <= 2 ? 'warn' : ''}">${left > 0 ? left + '일' : '오늘'}</b><span class="bossbar"><i style="width:${bossPct}%"></i></span></div>
+      <div class="stat boss"><span class="lbl">${stages > 1 ? `보스 ${(run.stage || 0) + 1}/${stages} · ${esc(nbc.name)}` : '보스 도래까지'}</span><b class="${left <= 2 ? 'warn' : ''}">${!nb ? '완료' : left > 0 ? left + '일 뒤' : '오늘'}</b><span class="bossbar"><i style="width:${bossPct}%"></i></span></div>
       <div class="stat"><span class="lbl">체력</span><b>${run.hp} / ${b.hpMax}</b></div>
       <div class="stat"><span class="lbl">금화</span><b class="gold">${run.gold}</b></div>
       ${R().layoutText(run) ? `<div class="stat"><span class="lbl">시험안</span><b class="warn small">${esc(R().layoutText(run))}</b></div>` : ''}
@@ -4628,12 +4906,14 @@ PA.Screens = (function () {
   }
   // 다가오는 보스 정보(준비 기간부터 공개)
   function bossCard(run, full) {
-    const B = PA.BOSS, left = R().bossDaysLeft(run);
+    const B = R().nextBossCfg(run), left = R().bossDaysLeft(run), nb = R().nextBoss(run), stages = R().stageCount(run);
     const when = run.phase === 'cleared' ? '처치함' : left > 0 ? `${left}일 뒤 도래` : '오늘 도래';
-    return `<div class="card boss"><div class="card-title">다가오는 보스: ${esc(B.name)} — ${esc(B.title)} <span class="tag">${when}</span></div>
-      <div class="bossart"><canvas class="bossportrait" width="160" height="90"></canvas><div><p>숲과 늑대 무리를 지배하는 거대한 늑대. 목과 등에 부러진 나뭇가지 같은 검은 가시가 돋았고, 한쪽 송곳니가 부러졌다.</p>
+    const desc = { boss: '숲과 늑대 무리를 지배하는 거대한 늑대. 목과 등에 부러진 나뭇가지 같은 검은 가시가 돋았고, 한쪽 송곳니가 부러졌다.', guardian: '봉인을 지키는 돌 갑옷의 거인. 느리지만 한 번의 휩쓸기가 무겁고, 봉인 장치가 바닥을 위험하게 만든다.', eater: '예언을 삼키는 시간의 포식자. 당신이 지나온 자리를 표식으로 찍고, 두 줄의 직선과 광역으로 공간을 좁힌다.' }[B.id];
+    const hp = R().bossHp(run, B.id);
+    return `<div class="card boss"><div class="card-title">${stages > 1 ? `${(run.stage || 0) + 1}단계 보스` : '다가오는 보스'}: ${esc(B.name)} — ${esc(B.title)} <span class="tag">${when}</span></div>
+      <div class="bossart">${B.id === 'boss' ? '<canvas class="bossportrait" width="160" height="90"></canvas>' : ''}<div><p>${esc(desc)}</p>
       <ul class="tips">${B.info.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
-      ${full ? `<p class="dim small">전장: ${esc(PA.ARENAS.clearing.name)} · 바위 2, 나무 2 · 체력 ${B.hp} · 단계 전환 70%·35% · 시간제한 없음</p>` : ''}</div></div></div>`;
+      ${full ? `<p class="dim small">전장: ${esc(PA.ARENAS.clearing.name)} · 바위 2, 나무 2 · 체력 ${hp}${hp !== B.hp ? ` (단계 후보, 단일 보스 ${B.hp})` : ''} · 단계 전환 ${B.phases.map(p => Math.round(p * 100) + '%').join('·')} · 시간제한 없음${nb && nb.rare ? ' · 승리 시 희귀 보상 3택' : ''}</p>` : ''}</div></div></div>`;
   }
   function gearPanel(run) {
     const g = run.gear;
@@ -4670,9 +4950,10 @@ PA.Screens = (function () {
   function pickStart(G) {
     const list = (G.startAll ? PA.STARTABLE_ALL : PA.STARTABLE).map(id => { const d = PA.WEAPONS[id]; return `<div class="card"><div class="card-title">${esc(d.name)}</div><p>${esc(d.desc)}</p><p class="dim small">기본 피해 ${d.base.damage} · 주기 ${d.base.interval}초 · 전용 방식: ${Object.values(d.mods).map(m => esc(m.name)).join(', ')}</p><button class="primary" data-action="start-weapon" data-arg="${id}">이 무기로 시작</button></div>`; }).join('');
     const laySel = `<select id="start-layout">${Object.keys(PA.LAYOUTS).map(k => `<option value="${k}">${esc(PA.LAYOUTS[k].name)}</option>`).join('')}</select>`;
+    const modeSel = `<select id="start-mode">${Object.keys(PA.RUN_MODES).map(k => `<option value="${k}">${esc(PA.RUN_MODES[k].name)}</option>`).join('')}</select>`;
     const difSel = `<select id="start-difficulty">${Object.keys(PA.DIFFICULTY.candidates).map(k => `<option value="${k}">${esc(PA.DIFFICULTY.candidates[k].name)}</option>`).join('')}</select>`;
     return `<div class="screen"><h2>시작 무기 선택</h2><p class="dim">시작 무기 1개로 출발하고, 전투 중 레벨업으로 무기를 최대 2개 더 얻습니다. 시작 무기와 추가 무기는 같은 규칙으로 성장합니다.</p>
-      <div class="card"><div class="card-title small">검증 메뉴: 지역 배치안·난이도 후보 <span class="dim">(기본값은 기존 배치·×1. 시험안은 검증되지 않은 임시값이며 화면에 표시됩니다)</span></div><div class="kv"><span>배치</span>${laySel}</div><div class="kv"><span>난이도</span>${difSel}</div></div>
+      <div class="card"><div class="card-title small">검증 메뉴: 지역 배치안·난이도 후보 <span class="dim">(기본값은 기존 배치·×1. 시험안은 검증되지 않은 임시값이며 화면에 표시됩니다)</span></div><div class="kv"><span>회차 구조</span>${modeSel} <span class="dim small">3보스: 1~2일 준비 → 3일차 가시갈기 → 3~4일 → 5일차 봉인 수호자 → 5~6일 → 7일차 예언을 먹는 자</span></div><div class="kv"><span>배치</span>${laySel}</div><div class="kv"><span>난이도</span>${difSel}</div></div>
       <div class="grid3">${list}</div>
       <div class="row">${G.startAll ? '' : '<button data-action="start-all">검증 메뉴: 다른 시작 후보 보기 (쌍검·추적궁·전투망치·번개 구체)</button>'}<button data-action="title">돌아가기</button></div></div>`;
   }
@@ -4703,6 +4984,7 @@ PA.Screens = (function () {
         <button class="big ${hasSave ? '' : 'primary'}" data-action="newrun">새 회차</button>
         <button class="big" data-action="controls">조작법</button>
         <button class="big" data-action="lab">전투 시험실 <span class="dim">(정식 회차와 분리 · 체력 배율·빌드·적 조합 비교)</span></button>
+        <div class="row"><span class="dim small">검증 메뉴 · 3보스 회차 빠른 경로(현재 저장을 덮어씀):</span>${[0, 1, 2].map(i => `<button class="mini" data-action="quick-run" data-arg="${i}">${i + 1}단계 관문 직전</button>`).join(' ')}</div>
       </div>
       <p class="dim small">${esc(PA.KEYS_TEXT)}</p><p class="dim small">v${PA.VERSION}</p></div>`;
   }
@@ -4710,12 +4992,13 @@ PA.Screens = (function () {
     return `<div class="screen center"><h2>새 회차를 시작할까요?</h2><p>기존 저장(진행 중인 회차)이 덮어씌워집니다.</p><div class="row"><button class="primary" data-action="newrun-confirm">새 회차 시작</button><button data-action="title">돌아가기</button></div></div>`;
   }
   function finalPrep(G) {
-    const run = G.run, b = R().build(run), cleared = run.phase === 'cleared';
-    const rec = run.bossClear;
+    const run = G.run, b = R().build(run), cleared = run.phase === 'cleared', stages = R().stageCount(run), g = run.growth;
+    const rec = run.bossClear; const recs = Object.values(run.bossRecords || {});
     return `<div class="screen">${header(run)}
-      <h2>${run.day}일차 — ${cleared ? '예언의 날을 넘겼다' : '최종 준비'}</h2>
-      <p class="dim">오늘은 일반 출격이 없습니다. 보유 자금으로 구매·강화하고, 재료를 팔고, 장비를 교체한 뒤 보스에게 갑니다. 입장 시 체력·회피·감속장·방벽이 모두 준비된 상태로 시작합니다.</p>
-      ${cleared && rec ? `<div class="card ok"><div class="card-title">첫 처치 기록</div><p>${rec.time}초 · 재도전 ${rec.retries}회 · ${esc(rec.weapon)}${rec.upgrade ? ' +' + rec.upgrade : ''} · 보스에게 준 피해 ${rec.bossDamage}</p></div>` : ''}
+      <h2>${run.day}일차 — ${cleared ? (stages > 1 ? '회차 완주' : '예언의 날을 넘겼다') : stages > 1 ? `${(run.stage || 0) + 1}단계 보스 관문` : '최종 준비'}</h2>
+      <p class="dim">${cleared ? '마지막 보스를 넘었습니다. 이 회차의 성장은 여기서 끝납니다(추가 성장 없음). 같은 빌드로 다시 도전하거나 새 회차를 시작하세요.' : '보스전은 하루 시간 밖의 관문입니다. 보유 자금으로 구매·강화하고, 재료를 팔고, 장비를 교체한 뒤 보스에게 갑니다. 입장 시 체력·회피·감속장·방벽이 모두 준비된 상태로 시작합니다.' + (stages > 1 && (run.stage || 0) < stages - 1 ? ' 승리하면 그날의 5시간이 시작됩니다.' : '')}</p>
+      <div class="card"><div class="card-title small">입장 스냅샷</div><p class="dim small">Lv ${g.level} · 무기 ${g.weapons.map(w => PA.WEAPONS[w.id].name + ' Lv' + w.level).join(', ')} · 체력 ${b.hpMax} · 재도전 ${run.bossRetries || 0}회${run.bossRetries ? ' (입장 시점 상태로 복구됨: 처치 경험치·보상 중복 없음)' : ''}</p></div>
+      ${recs.length ? `<div class="card ok"><div class="card-title">처치 기록</div>${recs.map(r => `<p>${esc(PA.BOSS_DEFS[r.bossId || 'boss'].name)}: ${r.time}초 · 재도전 ${r.retries}회 · Lv ${r.level || '-'} · 보스에게 준 피해 ${r.bossDamage}</p>`).join('')}</div>` : ''}
       <div class="grid2"><div>
         ${bossCard(run, true)}
         <div class="card"><div class="card-title">준비</div><div class="actions">
@@ -4882,15 +5165,19 @@ PA.Screens = (function () {
       <button class="primary big" data-action="base">거점으로</button></div>`;
   }
   function bossDefeat(G) {
-    const run = G.run, s = G.lastStats;
-    return `<div class="screen center"><h2 class="bad">쓰러졌다</h2><p>${esc(PA.BOSS.name)}에게 패배했습니다. 준비 기간의 성과는 그대로입니다. 같은 장비·무기·증강으로 바로 다시 도전할 수 있습니다.</p><p class="dim small">재도전은 입장 시점의 상태로 복구됩니다: 레벨·경험치·전투 중 선택은 입장 전으로, 체력·회피·감속장·E는 초기화, 보스·소환 늑대·구슬은 처음부터.</p>
-      <p class="dim small">전투 ${Math.round(s.elapsed)}초 · 보스에게 준 피해 ${Math.round(s.bossDamage)} / ${PA.BOSS.hp} · 감속장 ${s.specialUses}회 · 재도전 ${run.bossRetries}회</p>
+    const run = G.run, s = G.lastStats, B = R().nextBossCfg(run);
+    return `<div class="screen center"><h2 class="bad">쓰러졌다</h2><p>${esc(B.name)}에게 패배했습니다. 준비 기간의 성과는 그대로입니다. 같은 장비·무기·증강으로 바로 다시 도전할 수 있습니다.</p><p class="dim small">재도전은 입장 시점의 상태로 복구됩니다: 레벨·경험치·전투 중 선택은 입장 전으로, 체력·회피·감속장·E는 초기화, 보스·소환 늑대·구슬은 처음부터.</p>
+      <p class="dim small">전투 ${Math.round(s.elapsed)}초 · 보스에게 준 피해 ${Math.round(s.bossDamage)} / ${R().bossHp(run, B.id)} · 감속장 ${s.specialUses}회 · 재도전 ${run.bossRetries}회</p>
       <div class="menu"><button class="primary big" data-action="boss-start">같은 준비로 재도전</button><button class="big" data-action="base">최종 준비 화면으로</button><button class="big" data-action="title">제목으로</button></div></div>`;
   }
   function bossVictory(G) {
-    const run = G.run, s = G.lastStats, b = R().build(run), rec = G.lastRecord || run.lastBossClear || {};
+    const run = G.run, s = G.lastStats, b = R().build(run), rec = G.lastRecord || run.lastBossClear || {}; const B = PA.BOSS_DEFS[rec.bossId || 'boss'], stages = R().stageCount(run), ended = run.phase === 'cleared';
     const augs = Object.keys(run.augments).filter(k => run.augments[k] > 0).map(k => { const d = PA.AUGMENTS.find(a => a.id === k); return d.name + (d.max > 1 ? ' ' + run.augments[k] : ''); }).join(', ') || '없음';
-    return `<div class="screen center"><h1>예언의 날을 넘겼다.</h1><h2>${esc(PA.BOSS.name)} — ${esc(PA.BOSS.title)} 처치</h2>
+    if (!ended) return `<div class="screen center"><h1>${(run.stage || 0)}단계 돌파</h1><h2>${esc(B.name)} — ${esc(B.title)} 처치</h2>
+      <div class="card"><div class="card-title">기록</div><ul class="gear" style="text-align:left"><li>전투 시간 <b>${Math.round(s.elapsed * 10) / 10}초</b> · 재도전 <b>${rec.retries || 0}회</b> · Lv ${run.growth.level}</li><li>감속장 사용 <b>${s.specialUses}</b>회 · 보스에게 준 총피해 <b>${Math.round(s.bossDamage)}</b></li></ul></div>
+      <div class="card boss"><div class="card-title">다음 단계 해금</div><p>${run.day}일차의 ${PA.CONFIG.HOURS_PER_DAY}시간이 시작됩니다. ${R().nextBoss(run) ? `다음 보스 <b>${esc(R().nextBossCfg(run).name)}</b>은(는) ${R().nextBoss(run).day}일차 시작에 옵니다.` : ''}${run.growth.pendingBossPick || (run.growth.pendingOffer && run.growth.pendingOffer.pool === 'boss') ? ' <b>희귀 보상 3택</b>이 거점에서 제시됩니다(1회, 저장됨).' : ''}</p></div>
+      <div class="menu"><button class="primary big" data-action="base">거점으로 (오늘 시간 시작)</button></div></div>`;
+    return `<div class="screen center"><h1>${stages > 1 ? '회차 완주.' : '예언의 날을 넘겼다.'}</h1><h2>${esc(B.name)} — ${esc(B.title)} 처치</h2>
       <div class="card"><div class="card-title">회차 결과</div>
         <ul class="gear" style="text-align:left">
           <li>전투 시간: <b>${Math.round(s.elapsed * 10) / 10}초</b> · 재도전 <b>${run.bossRetries}회</b></li>
@@ -4904,7 +5191,7 @@ PA.Screens = (function () {
   function enddayConfirm(G) {
     const run = G.run;
     return `<div class="screen center"><h2>하루를 마칠까요?</h2><p>남은 ${run.hours}시간을 버리고 ${run.day + 1}일차로 넘어갑니다. 체력이 완전히 회복되고 시간이 5로 돌아옵니다.</p>
-      ${run.day + 1 >= PA.CONFIG.BOSS_DAY ? `<div class="card boss"><div class="card-title">내일 ${esc(PA.BOSS.name)}가 도래합니다</div><p>7일차에는 일반 출격이 없습니다. 최종 준비(구매·강화·판매·장비 교체) 뒤 보스전에 들어갑니다. 패배해도 같은 준비로 바로 재도전할 수 있습니다.</p></div>` : `<p class="dim">보스 도래까지 ${R().bossDaysLeft(run) - 1}일 남음</p>`}
+      ${R().bossDaysLeft(run) === 1 ? `<div class="card boss"><div class="card-title">내일 ${esc(R().nextBossCfg(run).name)}가 도래합니다</div><p>${R().stageCount(run) > 1 ? '내일은 보스 관문으로 시작합니다. 준비(구매·강화·판매·장비 교체) 뒤 보스전에 들어가고, 이기면 그날의 5시간이 시작됩니다.' : '7일차에는 일반 출격이 없습니다. 최종 준비(구매·강화·판매·장비 교체) 뒤 보스전에 들어갑니다.'} 패배해도 같은 준비로 바로 재도전할 수 있습니다.</p></div>` : `<p class="dim">${R().nextBoss(run) ? `다음 보스까지 ${R().bossDaysLeft(run) - 1}일 남음` : ''}</p>`}
       <div class="row"><button class="primary" data-action="endday">하루 종료</button><button data-action="base">돌아가기</button></div></div>`;
   }
   function bossday(G) {
@@ -5099,10 +5386,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 회차 흐름 ----------
   function saveRun() { if (G.run && !G.scenario) PA.Run.save(G.run); }
-  function goBase() { saveRun(); if (G.run.growth && G.run.growth.migrationPending) { show('migration'); return; } show('base'); const g = G.run.growth; if (g && (g.pendingDeepPick || (g.pendingOffer && g.pendingOffer.pool !== 'level'))) { const off = PA.Flow.nextOffer(G.run); if (off) { openChoice(off); saveRun(); } } } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
+  function goBase() { saveRun(); if (G.run.growth && G.run.growth.migrationPending) { show('migration'); return; } show('base'); const g = G.run.growth; if (g && (g.pendingDeepPick || g.pendingBossPick || g.pendingMissionPick || (g.pendingOffer && g.pendingOffer.pool !== 'level'))) { const off = PA.Flow.nextOffer(G.run); if (off) { openChoice(off); saveRun(); } } } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
   function leaveScenario() { if (G.scenario) { G.scenario = null; try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
   function newRun() { leaveScenario(); G.startAll = false; show('pick_start'); }
-  function startRun(weaponId) { G.run = PA.Run.newRun(undefined, weaponId); const lay = $('#start-layout'), dif = $('#start-difficulty'); if (lay && PA.LAYOUTS[lay.value]) G.run.layout = lay.value; if (dif && PA.DIFFICULTY.candidates[dif.value]) G.run.difficulty = dif.value; G.sortie = null; G.combat = null; saveRun(); show('base'); }
+  function startRun(weaponId) { const modeEl = $('#start-mode'); G.run = PA.Run.newRun(undefined, weaponId, modeEl ? modeEl.value : 'trio'); const lay = $('#start-layout'), dif = $('#start-difficulty'); if (lay && PA.LAYOUTS[lay.value]) G.run.layout = lay.value; if (dif && PA.DIFFICULTY.candidates[dif.value]) G.run.difficulty = dif.value; G.sortie = null; G.combat = null; saveRun(); show('base'); }
   function startSortie(regionId) {
     G.sortie = PA.Run.startSortie(G.run, regionId);
     saveRun(); // 출격 비용은 지불된 상태로 저장(전투 중 종료 시 복구 기준)
@@ -5112,7 +5399,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     const run = G.run, s = G.sortie;
     G.choice = null;
     if (s.regionId === 'boss') {
-      G.combat = PA.Combat.create({ build: PA.Run.build(run), hp: PA.Run.build(run).hpMax, seed: s.seed, boss: true, arena: 'clearing', waves: [] });
+      G.combat = PA.Flow.makeBossEncounter(run, s); // 단계별 보스·체력 후보(공유 흐름)
     } else G.combat = PA.Flow.makeEncounter(run, s); // 시드·웨이브·목표·배율은 공유 흐름(시뮬레이터와 동일)
     G.endTimer = 0; G.acc = 0; G.paused = false; G.eventCounts = {}; PA.Input.setBlocked(G.input, false); closeOverlay();
     show('combat');
@@ -5131,12 +5418,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (c.mode === 'boss') {
       if (c.status === 'won') {
         const hadFirst = !!run.bossClear;
-        const rec = PA.Run.bossVictory(run, c.stats); G.lastRecord = rec;
+        const rec = PA.Flow.settleBossVictory(run, c); G.lastRecord = rec; // 정산 1회: 기록·다음 단계·희귀 보상 보류(마지막 보스는 없음)
         const R = PA.Run.saveRecord(rec); G.firstClearNew = !hadFirst && R.firstClear && R.firstClear.at === rec.at;
         saveRun(); G.sortie = null; show('boss_victory');
-        // 보스 희귀 보상: 현재 보스가 마지막 보스가 아닐 때만(현재 보스 1종 → 정상 회차에서는 제시되지 않음)
-        const idx = PA.BOSSES.indexOf('boss'); if (idx >= 0 && idx < PA.BOSSES.length - 1) openChoice(PA.Growth.generateOffer(run, { pool: 'boss' }));
-      } else { PA.Run.bossDefeat(run); saveRun(); G.sortie = null; show('boss_defeat'); }
+      } else { PA.Flow.settleBossDefeat(run, c); saveRun(); G.sortie = null; show('boss_defeat'); }
       return;
     }
     if (c.status === 'won') {
@@ -5232,6 +5517,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'give-up': () => { closeOverlay(); G.paused = false; PA.Input.setBlocked(G.input, false); if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
     'scenario-again': () => startScenario(G.scenario),
     'lab': () => { if (G.screen === 'lab_result') { G.combat = null; show('lab'); return; } enterLab(); },
+    'quick-run': (stage) => { leaveScenario(); G.run = PA.Lab.quickRun(Number(stage) || 0); G.sortie = null; G.combat = null; saveRun(); goBase(); }, // 검증 메뉴: 3보스 회차 관문 직전(현재 저장을 덮어씀)
     'lab-start': () => { readLabForm(); startLab(); },
     'lab-restart': () => startLab(G.lab.cfg),
     'lab-restart-hp': () => { const el = $('#lab-result-hp'); const c = Object.assign({}, G.lab.cfg, { hp: Object.assign({}, G.lab.cfg.hp) }); if (el) c.hp.normal = parseFloat(el.value); startLab(c); },

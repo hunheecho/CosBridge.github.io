@@ -283,7 +283,38 @@ PA.Render = (function () {
   }
 
   // ---------- 보스: 가시갈기 ----------
+  // 봉인 수호자: 돌 갑옷 거인(각진 몸통·어깨 판·룬 눈). 실루엣은 늑대(가시갈기)와 구분되는 세로로 긴 사각
+  function drawGuardian(ctx, st, e) {
+    const s = e.r / 40, dying = e.dead, alpha = dying ? Math.max(0.25, 1 - Math.max(0, e.deathT - 1.2) / 1.5) : 1, glow = 0.5 + 0.5 * Math.sin(st.t * 3);
+    ctx.save(); ctx.translate(e.x, e.y); ctx.globalAlpha = alpha; shadow(ctx, 0, 30 * s, 34 * s, 10 * s);
+    if (dying) ctx.rotate(Math.min(1.2, e.deathT * 2));
+    const flash = e.flash > 0; const armor = flash ? '#ffffff' : '#5a6a9a', dark = flash ? '#eeeeff' : '#38456a';
+    ctx.fillStyle = dark; ctx.fillRect(-22 * s, 6 * s, 16 * s, 26 * s); ctx.fillRect(6 * s, 6 * s, 16 * s, 26 * s); // 다리
+    ctx.fillStyle = armor; ctx.beginPath(); ctx.moveTo(-30 * s, -26 * s); ctx.lineTo(30 * s, -26 * s); ctx.lineTo(26 * s, 12 * s); ctx.lineTo(-26 * s, 12 * s); ctx.closePath(); ctx.fill(); // 몸통
+    ctx.fillStyle = dark; ctx.fillRect(-46 * s, -30 * s, 18 * s, 14 * s); ctx.fillRect(28 * s, -30 * s, 18 * s, 14 * s); // 어깨 판
+    const armAng = (e.state === 'sweep_aim' || e.state === 'sweep_lock') ? -0.9 + (e.state === 'sweep_lock' ? 0.3 : 0) : 0.4;
+    ctx.save(); ctx.translate(38 * s, -20 * s); ctx.rotate(armAng); ctx.fillStyle = armor; ctx.fillRect(-6 * s, 0, 12 * s, 44 * s); ctx.fillStyle = dark; ctx.fillRect(-12 * s, 40 * s, 24 * s, 14 * s); ctx.restore(); // 오른팔(철퇴)
+    ctx.save(); ctx.translate(-38 * s, -20 * s); ctx.rotate(-0.3); ctx.fillStyle = armor; ctx.fillRect(-6 * s, 0, 12 * s, 40 * s); ctx.restore();
+    ctx.fillStyle = armor; ctx.fillRect(-14 * s, -44 * s, 28 * s, 20 * s); // 머리
+    ctx.fillStyle = `rgba(150,210,255,${0.5 + 0.5 * glow})`; ctx.fillRect(-9 * s, -38 * s, 18 * s, 4 * s); // 룬 눈
+    ctx.strokeStyle = `rgba(150,210,255,${0.4 + 0.4 * glow})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -8 * s, 9 * s, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -17 * s); ctx.lineTo(0, 1 * s); ctx.stroke(); // 가슴 룬
+    ctx.restore();
+  }
+  // 예언을 먹는 자: 떠 있는 검은 구체·갈라진 입·여러 눈·촉수. 실루엣은 둥글고 비대칭
+  function drawEater(ctx, st, e) {
+    const s = e.r / 38, dying = e.dead, alpha = dying ? Math.max(0.25, 1 - Math.max(0, e.deathT - 1.2) / 1.5) : 1, bob = Math.sin(st.t * 2.2) * 4;
+    ctx.save(); ctx.translate(e.x, e.y); ctx.globalAlpha = alpha; shadow(ctx, 0, 30 * s, 30 * s, 9 * s); ctx.translate(0, -8 * s + bob);
+    const flash = e.flash > 0; const body = flash ? '#ffffff' : '#3a1f4a', edge = flash ? '#eeeeff' : '#7a3a8a';
+    for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + st.t * 0.7, L = (30 + 10 * Math.sin(st.t * 3 + i)) * s; ctx.strokeStyle = edge; ctx.lineWidth = 4 * s; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 26 * s, Math.sin(a) * 26 * s); ctx.quadraticCurveTo(Math.cos(a + 0.4) * (26 * s + L * 0.6), Math.sin(a + 0.4) * (26 * s + L * 0.6), Math.cos(a) * (26 * s + L), Math.sin(a) * (26 * s + L)); ctx.stroke(); } // 촉수
+    ctx.fillStyle = body; ctx.beginPath(); ctx.ellipse(0, 0, 34 * s, 30 * s, 0.2, 0, TAU); ctx.fill(); ctx.strokeStyle = edge; ctx.lineWidth = 3; ctx.stroke();
+    const open = (e.state === 'wide_aim' || e.state === 'wide_lock' || e.state === 'mark_cast') ? 0.9 : e.state === 'summon' ? 0.6 : 0.25; // 입
+    ctx.fillStyle = '#12060f'; ctx.beginPath(); ctx.ellipse(2 * s, 8 * s, 20 * s, 8 * s * open + 2, 0, 0, TAU); ctx.fill(); ctx.fillStyle = '#e0c0ff'; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo((i * 7 - 1) * s, (8 - 6 * open) * s); ctx.lineTo((i * 7 + 2) * s, (8 - 6 * open) * s); ctx.lineTo((i * 7) * s, (8 - 6 * open + 6 * open) * s); ctx.fill(); }
+    const eyes = [[-14, -10, 6], [8, -14, 8], [18, -2, 4], [-4, -18, 3]]; for (const [ex, ey, er] of eyes) { ctx.fillStyle = e.state === 'recover' || e.state === 'stagger' ? '#ffd166' : '#c080ff'; ctx.beginPath(); ctx.arc(ex * s, ey * s, er * s, 0, TAU); ctx.fill(); ctx.fillStyle = '#12060f'; ctx.beginPath(); ctx.arc(ex * s + 1, ey * s, er * s * 0.45, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
   function drawBoss(ctx, st, e) {
+    if (e.bossId === 'guardian') return drawGuardian(ctx, st, e);
+    if (e.bossId === 'eater') return drawEater(ctx, st, e);
     const cfg = PA.BOSS, p = st.player, s = e.r / 14 * 0.95;
     const facingAng = (e.state === 'sweep_aim' || e.state === 'pounce_aim' || e.state === 'dash_aim') ? e.aimAngle : (e.state === 'sweep_lock' || e.state === 'dash_lock' || e.state === 'dash') ? e.dir : (e.state === 'leap' && e.land ? Math.atan2(e.land.y - e.leapFrom.y, e.land.x - e.leapFrom.x) : Math.atan2(p.y - e.y, p.x - e.x));
     let faceX = Math.abs(Math.cos(facingAng)) > 0.15 ? (Math.cos(facingAng) >= 0 ? 1 : -1) : e.faceX;
@@ -696,7 +727,14 @@ PA.Render = (function () {
     }
     const bz = st.boss;
     if (bz && !bz.dead) {
-      const cfg = PA.BOSS, flash = 0.75 + 0.25 * Math.sin(st.t * 60);
+      const cfg = PA.Boss.cfgOf(bz), flash = 0.75 + 0.25 * Math.sin(st.t * 60);
+      if (bz.bossId === 'guardian' || bz.bossId === 'eater') { // 신규 보스 예고: 직선 충격파·두 줄·표식·광역
+        const beam = (ang, len, w, locked, k) => { const alpha = locked ? flash : 0.35 + 0.35 * k; ctx.save(); ctx.translate(bz.x, bz.y); ctx.rotate(ang); ctx.fillStyle = `rgba(255,60,60,${alpha * 0.3})`; ctx.fillRect(0, -w / 2, len, w); ctx.strokeStyle = `rgba(255,80,80,${alpha})`; ctx.lineWidth = locked ? 4 : 2; ctx.strokeRect(0, -w / 2, len, w); ctx.restore(); };
+        if (bz.state === 'shock_aim' || bz.state === 'shock_lock') { const S = cfg.shock, locked = bz.state === 'shock_lock', ang = locked ? bz.dir : bz.aimAngle, k = bz.stateT / S.aim; if (bz.shockLeft >= 2) { beam(ang - S.spread, S.len, S.width, locked, k); beam(ang + S.spread, S.len, S.width, locked, k); } else beam(ang, S.len, S.width, locked, k); ctx.fillStyle = '#ffd9b0'; ctx.font = `bold 13px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(locked ? '충격파!' : '충격파 준비 — 옆으로', bz.x, bz.y - bz.r - 44); }
+        if (bz.state === 'lanes_warn' || bz.state === 'lanes_lock' || bz.state === 'lanes_fire') { const L = cfg.lanes; bz.lanes.forEach((ln, i) => { if (ln.fired) return; const locked = bz.state !== 'lanes_warn' && i === bz.laneIdx; beam(ln.ang, L.len, L.width, locked, Math.min(1, bz.stateT / L.warn)); ctx.fillStyle = '#ffd9b0'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(`직선 ${i + 1}/2`, bz.x + Math.cos(ln.ang) * 140, bz.y + Math.sin(ln.ang) * 140); }); }
+        if (bz.marks) for (const mk of bz.marks) { const left = Math.max(0, mk.explodeAt - st.t), k = 1 - Math.min(1, left / cfg.mark.delay); ctx.strokeStyle = left < 0.4 ? `rgba(230,120,255,${flash})` : 'rgba(200,120,255,0.8)'; ctx.lineWidth = left < 0.4 ? 4 : 2; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.arc(mk.x, mk.y, mk.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = `rgba(200,120,255,${0.12 + 0.25 * k})`; ctx.beginPath(); ctx.arc(mk.x, mk.y, mk.r * k, 0, TAU); ctx.fill(); ctx.fillStyle = '#e0c0ff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(left.toFixed(1), mk.x, mk.y + 4); }
+        if (bz.state === 'wide_aim' || bz.state === 'wide_lock') { const R = cfg.wide.radius[Math.min(2, bz.phase - 1)], locked = bz.state === 'wide_lock', k = bz.stateT / cfg.wide.aim, alpha = locked ? flash : 0.3 + 0.4 * k; ctx.fillStyle = `rgba(200,80,255,${alpha * 0.25})`; ctx.beginPath(); ctx.arc(bz.x, bz.y, R, 0, TAU); ctx.fill(); ctx.strokeStyle = `rgba(230,120,255,${alpha})`; ctx.lineWidth = locked ? 4 : 2; ctx.stroke(); ctx.fillStyle = '#e0c0ff'; ctx.font = `bold 13px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(locked ? '광역!' : '광역 준비 — 원 밖으로 (뒤에 긴 빈틈)', bz.x, bz.y - R - 8); }
+      }
       if (bz.state === 'sweep_aim' || bz.state === 'sweep_lock') {
         const locked = bz.state === 'sweep_lock', ang = locked ? bz.dir : bz.aimAngle, half = cfg.sweep.arcDeg * Math.PI / 360;
         const alpha = locked ? flash : 0.35 + 0.35 * (bz.stateT / cfg.sweep.aim);
@@ -748,6 +786,7 @@ PA.Render = (function () {
         if (p.kind === 'bolt') { ctx.fillStyle = '#bfefff'; ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, TAU); ctx.fill(); ctx.strokeStyle = 'rgba(160,230,255,0.7)'; ctx.lineWidth = 2; for (let i = 0; i < 3; i++) { const a = i * Math.PI / 3 + st.t * 6; ctx.beginPath(); ctx.moveTo(p.x - Math.cos(a) * 7, p.y - Math.sin(a) * 7); ctx.lineTo(p.x + Math.cos(a) * 7, p.y + Math.sin(a) * 7); ctx.stroke(); } continue; }
         if (p.kind === 'blade') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(st.t * 20); ctx.fillStyle = '#e6edf5'; for (let i = 0; i < 3; i++) { ctx.rotate(TAU / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(12, -3); ctx.lineTo(12, 3); ctx.fill(); } ctx.restore(); continue; }
       }
+      if (p.kind === 'shock') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); ctx.strokeStyle = 'rgba(255,200,120,0.95)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(-10, 0, p.r, -1.2, 1.2); ctx.stroke(); ctx.strokeStyle = 'rgba(255,120,60,0.6)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(-22, 0, p.r * 0.8, -1.0, 1.0); ctx.stroke(); ctx.restore(); }
       if (p.kind === 'hex') { ctx.fillStyle = 'rgba(200,120,255,0.45)'; ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, TAU); ctx.fill(); ctx.fillStyle = '#e9b6ff'; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, TAU); ctx.fill(); continue; }
       if (p.kind === 'arrow') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); ctx.strokeStyle = '#ffd9a0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(8, 0); ctx.stroke(); ctx.fillStyle = '#ff6b6b'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(4, -4); ctx.lineTo(4, 4); ctx.fill(); ctx.restore(); }
       else { ctx.fillStyle = '#bfefff'; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(191,239,255,0.4)'; ctx.beginPath(); ctx.arc(p.x - p.vx * 0.02, p.y - p.vy * 0.02, 3, 0, TAU); ctx.fill(); }
@@ -802,7 +841,7 @@ PA.Render = (function () {
     if (p.shieldMax > 0) bar(ctx, 14, 38, 240, 16, p.shield / p.shieldMax, '#38c6d8', '보호막', `${Math.ceil(p.shield)} / ${p.shieldMax}`);
     const alive = st.enemies.filter(e => !e.dead).length + st.pending.length;
     if (st.mode === 'boss' && st.boss) {
-      const bz = st.boss, cfg = PA.BOSS, bw = 520, bx = W / 2 - bw / 2, by = 14;
+      const bz = st.boss, cfg = PA.Boss.cfgOf(bz), bw = 520, bx = W / 2 - bw / 2, by = 14;
       ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(bx - 10, by - 4, bw + 20, 58);
       ctx.fillStyle = '#ffe066'; ctx.font = `bold 15px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(`${cfg.name} — ${cfg.title}`, bx, by + 12);
       const act = PA.BOSS_ACTION_TEXT[bz.state] || ''; const slow = PA.Combat.inField(st, bz) && !bz.dead;
@@ -814,8 +853,8 @@ PA.Render = (function () {
       for (const ph of cfg.phases) { const px = bx + bw * ph; ctx.fillStyle = '#fff'; ctx.fillRect(px - 1, by + 18, 2, 22); ctx.font = `11px ${FONT}`; ctx.textAlign = 'center'; ctx.fillStyle = '#ffd9b0'; ctx.fillText(Math.round(ph * 100) + '%', px, by + 50); }
       ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, by + 20.5, bw - 1, 17);
       ctx.fillStyle = '#fff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(`${Math.ceil(Math.max(0, bz.hp))} / ${bz.hpMax} · ${bz.phase}단계`, bx + bw / 2, by + 34);
-      if (alive - 1 > 0) { ctx.font = `12px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.textAlign = 'left'; ctx.fillText(`소환 늑대 ${alive - 1}`, bx, by + 50); }
-      if (st.intro > 0) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, H / 2 - 50, W, 100); ctx.fillStyle = '#ffe066'; ctx.font = `bold 36px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(`${cfg.name} — ${cfg.title}`, W / 2, H / 2 + 2); ctx.fillStyle = '#fff'; ctx.font = `14px ${FONT}`; ctx.fillText('예언의 날. 숲의 왕이 나타났다.', W / 2, H / 2 + 30); }
+      { const summ = st.enemies.filter(x => !x.dead && !x.boss && !x.structure).length + st.pending.length, dev = st.enemies.filter(x => !x.dead && x.structure).length; if (summ > 0 || dev > 0) { ctx.font = `12px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.textAlign = 'left'; ctx.fillText(`${summ > 0 ? '소환 ' + summ : ''}${summ > 0 && dev > 0 ? ' · ' : ''}${dev > 0 ? '봉인 장치 ' + dev : ''}`, bx, by + 50); } }
+      if (st.intro > 0) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, H / 2 - 50, W, 100); ctx.fillStyle = '#ffe066'; ctx.font = `bold 36px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(`${cfg.name} — ${cfg.title}`, W / 2, H / 2 + 2); ctx.fillStyle = '#fff'; ctx.font = `14px ${FONT}`; ctx.fillText(cfg.id === 'boss' ? '예언의 날. 숲의 왕이 나타났다.' : `${cfg.title}이 길을 막는다.`, W / 2, H / 2 + 30); }
     } else {
       const oh = st.obj && PA.Objectives ? PA.Objectives.hud(st) : null; const alive2 = st.enemies.filter(e => !e.dead && !e.structure).length;
       ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W - 234, 12, 220, oh ? 64 : 46);

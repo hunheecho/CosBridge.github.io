@@ -51,8 +51,9 @@ PA.Combat = (function () {
     if (opts.boss) {
       st.objective = 'boss'; st.waveIndex = 99; st.spawnedAll = true;
       const bs = arenaDef.bossStart || { x: cfg.ARENA.w / 2, y: 120 };
-      PA.Boss.spawn(st, bs.x, bs.y);
-      st.intro = PA.BOSS.intro; // 입장 연출: 아무도 행동하지 않고 피해도 없다
+      const bz = PA.Boss.spawn(st, bs.x, bs.y, opts.bossId || 'boss');
+      if (opts.bossHp) { bz.hp = opts.bossHp; bz.hpMax = opts.bossHp; } // 단계별 체력 후보(회차 구조). 배율은 체력에만
+      st.bossId = bz.bossId; st.intro = PA.Boss.cfgOf(bz).intro; // 입장 연출: 아무도 행동하지 않고 피해도 없다
     }
     return st;
   }
@@ -288,7 +289,7 @@ PA.Combat = (function () {
   }
   function knockEnemy(e, n, amount) {
     if (e.state === 'dash' || e.state === 'leap') return;
-    if (e.boss) amount *= PA.BOSS.knockMult; // 보스는 일반 넉백의 20%
+    if (e.boss) amount *= PA.Boss.cfgOf(e).knockMult; // 보스는 일반 넉백의 20%(신규 보스 15%)
     if (e.def && e.def.knockMult) amount *= e.def.knockMult; // 방패병 50%
     if (e.state === 'charge' || e.state === 'under' || e.state === 'warn') return; // 돌파·지하 이동 중 넉백 무시
     e.vx += n.x * amount * 4; e.vy += n.y * amount * 4;

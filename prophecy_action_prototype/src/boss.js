@@ -3,23 +3,26 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
 PA.Boss = (function () {
   const B = () => PA.BOSS;
+  const cfgOf = (e) => (PA.BOSS_DEFS && PA.BOSS_DEFS[e.bossId]) || PA.BOSS; // 보스별 설정(가시갈기는 PA.BOSS)
   const m = () => PA.m;
   const K = () => PA.Combat; // 내부 헬퍼 접근
 
-  function spawn(st, x, y) {
-    const e = K().spawnEnemy(st, 'boss', x, y);
+  function spawn(st, x, y, bossId) {
+    bossId = bossId || 'boss';
+    const e = K().spawnEnemy(st, bossId, x, y); e.bossId = bossId;
     Object.assign(e, {
       boss: true, phase: 1, phasePending: 0, state: 'intro', stateT: 0, actions: 0, history: [], lastHowl: -999,
       dashSeq: 1, dashTotal: 1, dashDist: 0, dashEnd: null, dashLen: 0, hitDone: false, waitT: 0, approachT: 0,
       land: null, leapFrom: null, leapK: 0, staggerAfterLand: false, exposed: false,
     });
     st.boss = e;
+    if (bossId !== 'boss' && PA.Boss2) PA.Boss2.init(st, e);
     return e;
   }
 
   // ---------- 판단 보조 ----------
   function wolfAttacking(st) { return st.enemies.some(e => !e.dead && !e.boss && (e.type === 'wolf' || e.type === 'wolf_alpha') && (e.state === 'crouch' || e.state === 'lock' || e.state === 'dash')); }
-  function bossCommitted(e) { return e.state === 'sweep_lock' || e.state === 'dash_lock' || e.state === 'dash' || e.state === 'pounce_lock' || e.state === 'leap'; }
+  function bossCommitted(e) { return e.state === 'sweep_lock' || e.state === 'dash_lock' || e.state === 'dash' || e.state === 'pounce_lock' || e.state === 'leap' || (PA.Boss2 && PA.Boss2.isCommitted(e)); }
   function summonedAlive(st) { return st.enemies.filter(e => !e.dead && e.summoned).length; }
   function isExposed(e) { return e.state === 'recover' || e.state === 'stagger'; }
 
@@ -79,14 +82,14 @@ PA.Boss = (function () {
   function checkPhase(st, e) {
     // 체력선을 처음 통과할 때 회복 구슬 생성. 단계 적용은 현재 행동이 끝난 뒤(phasePending).
     const ratio = e.hp / e.hpMax;
-    const ph = B().phases;
+    const ph = cfgOf(e).phases;
     for (let i = 0; i < ph.length; i++) {
       const want = i + 2;
       if (ratio <= ph[i] && !st.orbsSpawned[want]) { st.orbsSpawned[want] = true; spawnOrb(st, e); if (e.phasePending < want && e.phase < want) e.phasePending = want; }
     }
   }
   function spawnOrb(st, e) {
-    const cfg = B().orb, p = st.player;
+    const cfg = cfgOf(e).orb, p = st.player;
     let best = null, bd = Infinity;
     for (let i = 0; i < 24; i++) {
       const a = i / 24 * Math.PI * 2, x = e.x + Math.cos(a) * cfg.ring, y = e.y + Math.sin(a) * cfg.ring;
@@ -102,6 +105,7 @@ PA.Boss = (function () {
   }
   // 현재 위험 예고 한가운데인가(돌진 통로·휩쓸기 부채꼴·착지 원)
   function inDanger(st, e, pt) {
+    if (e.bossId && e.bossId !== 'boss' && PA.Boss2) return PA.Boss2.inDanger(st, e, pt);
     const cfg = B();
     if ((e.state === 'dash_lock' || e.state === 'dash') && e.dashEnd) return m().inBeam(e, e.dir, e.dashLen, (e.r + 14) * 2, pt, 14);
     if (e.state === 'sweep_aim' || e.state === 'sweep_lock') return m().inArc(e, cfg.sweep.radius, e.state === 'sweep_aim' ? e.aimAngle : e.dir, cfg.sweep.arcDeg * Math.PI / 360, pt, 14);
@@ -111,6 +115,7 @@ PA.Boss = (function () {
 
   // ---------- 갱신 ----------
   function update(st, e, dt) {
+    if (e.bossId && e.bossId !== 'boss' && PA.Boss2) return PA.Boss2.update(st, e, dt);
     const cfg = B(), p = st.player, tf = K().timeFactor(st, e), sm = K().enemySpeedMult(st, e);
     const dist = m().dist(e, p);
     const adv = dt * tf;
@@ -249,5 +254,5 @@ PA.Boss = (function () {
     K().text(st, e.x, e.y - e.r - 30, '비틀거림!', '#7ef2ff');
   }
 
-  return { spawn, update, checkPhase, stagger, isExposed, wolfAttacking, bossCommitted, dashPath, landingFor, summonedAlive, inDanger };
+  return { spawn, update, checkPhase, stagger, isExposed, wolfAttacking, bossCommitted, dashPath, landingFor, summonedAlive, inDanger, cfgOf };
 })();

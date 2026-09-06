@@ -186,5 +186,5 @@ PA.Objectives = (function () {
   // 봇 위협: 바닥 위험(예고 중 포함)
   function threats(st, out) { for (const z of st.zones) if (z.type === 'hazard') out.push({ kind: 'zone', x: z.x, y: z.y, r: z.r }); }
   function text(st) { const S = spec(st); return S ? S.short : (st.objective === 'elite' ? '정예 처치' : '전멸'); }
-  return { is, setup, update, check, onPlayerHit, zoneDamage, hud, autoTarget, botGoal, botTarget, threats, text, place };
+  return { is, setup, update, check, onPlayerHit, zoneDamage, hud, autoTarget, botGoal, botTarget, threats, text, place, ringHazards, hazardAt };
 })();

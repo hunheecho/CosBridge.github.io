@@ -77,7 +77,7 @@ test('재료 판매와 목표 안내', () => {
 });
 
 test('하루 일정: 출격·더 깊이·휴식 비용과 하루 종료·보스 도래', () => {
-  const run = R.newRun(1);
+  const run = R.newRun(1, 'sword', 'single'); // 단일 보스 회차(기존 규칙)
   assert.equal(R.canSortie(run, 'deep'), true);
   const s = R.startSortie(run, 'deep'); assert.equal(run.hours, 2);
   assert.equal(R.canSortie(run, 'deep'), false, '3시간 필요');

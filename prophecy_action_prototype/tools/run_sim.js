@@ -16,9 +16,9 @@ const STRATS = {
 };
 // 시간 계정(수정 후): 전투(시뮬레이션 초) / 카드(레벨업·지역 3택, 실제 발생 시점에 기록·전투 중 포함) / 화면(조우 전후) / 휴식·하루 종료 / 보스. 합계는 마지막에 한 번만 더한다.
 // 시뮬레이션된 시간(전투·보스)과 가정한 메뉴 시간(카드·화면·휴식·하루)을 구분해 표기한다. 시간 초과(봇이 maxSec 안에 못 끝냄)는 패배와 별도로 센다.
-const startWeapon = opt('start', 'sword');
+const startWeapon = opt('start', 'sword'), runMode = opt('mode', 'trio');
 function simulate(seed, stratId) {
-  const S = STRATS[stratId], run = PA.Run.newRun(seed, startWeapon); run.layout = layout; run.difficulty = difficulty; const g = run.growth;
+  const S = STRATS[stratId], run = PA.Run.newRun(seed, startWeapon, runMode); run.layout = layout; run.difficulty = difficulty; const g = run.growth;
   const T = { combat: 0, cards: 0, screens: 0, rest: 0, dayEnd: 0, boss: 0 }; // 초 단위 버킷
   const log = { encounters: 0, losses: 0, timeouts: 0, rests: 0, deeps: 0, cards: 0, cardsInCombat: 0, deepPicks: 0, missions: 0, missionPicks: 0, eventCount: 0, eventChoices: [], eventFights: 0, levelUpsByDay: [], weapon2: null, weapon3: null, eSkill: null, events: [] };
   let clock = 0; // 실제 경과 시점(초): 카드 획득 시점 기록용
@@ -37,7 +37,23 @@ function simulate(seed, stratId) {
   // 탐험 사건(출격당 최대 1회): 봇 정책으로 선택. 추가 전투/더 깊이는 같은 조우 경로. 반환: 'fight' | 'deep' | null
   const handleEvent = (s) => { if (!s.event || s.event.resolved) return null; const choice = PA.Events.botChoose(run, s, stratId); const r = PA.Events.resolve(run, s, choice); log.eventCount++; log.eventChoices.push(s.event.id + ':' + choice); T.screens += MENU.event; clock += MENU.event; if (r.next === 'offer') PA.Flow.resolveAll(run, { regionId: s.regionId }, pick, onPick('screen')); return r.next === 'fight' || r.next === 'deep' ? r.next : null; };
   const settleLoss = (s, st) => { PA.Flow.settleDefeat(run, s, st); if (st.status === 'lost') log.losses++; mark(); };
-  for (let day = 1; day <= 6; day++) {
+  // 보스 관문(회차 구조 공유 흐름): 승리하면 다음 단계·희귀 보상 3택(봇 선택), 패배하면 입장 스냅샷으로 재도전(최대 3회)
+  log.bosses = []; log.bossSec = 0; log.bossRetries = 0; log.rarePicks = [];
+  const bossGate = () => {
+    while (PA.Run.canStartBoss(run) && run.phase === 'boss_prep') {
+      const bs = PA.Run.startBoss(run); const st = PA.Flow.makeBossEncounter(run, bs); PA.Bot.runCombat(st, botId, { maxSec: 300 });
+      if (st.status === 'running') st.status = 'timeout';
+      T.boss += st.t; clock += st.t; log.bossSec += Math.round(st.t);
+      const row = { id: bs.bossId, stage: bs.stage, status: st.status, sec: Math.round(st.t), hp: Math.round(st.player.hp), bossHp: Math.round(st.boss.hp), level: g.level, day: run.day, retries: run.bossRetries };
+      log.bosses.push(row);
+      if (st.status === 'won') { PA.Flow.settleBossVictory(run, st); const before = log.cards; PA.Flow.resolveAll(run, {}, pick, (off, c) => { onPick('screen')(off, c); if (off.pool === 'boss') log.rarePicks.push(c ? c.key : 'skip'); }); }
+      else { PA.Flow.settleBossDefeat(run, st); log.bossRetries++; if (run.bossRetries >= 3) { log.failedAt = bs.id; return false; } }
+    }
+    return run.phase !== 'cleared' || true;
+  };
+  for (let day = 1; day <= PA.Run.modeDef(run).days; day++) {
+    if (run.phase === 'boss_prep') { if (!bossGate()) break; }
+    if (run.phase === 'cleared' || run.ended) break;
     const lvStart = g.level; let guard = 0;
     while (guard++ < 20) {
       const hpMax = PA.Run.build(run).hpMax;
@@ -60,16 +76,14 @@ function simulate(seed, stratId) {
         PA.Flow.returnHome(run, s);
       } else settleLoss(s, st);
     }
-    log.levelUpsByDay.push(g.level - lvStart); T.dayEnd += MENU.dayEnd; clock += MENU.dayEnd;
-    PA.Run.endDay(run);
+    log.levelUpsByDay.push(g.level - lvStart); log.levelAtBoss = log.levelAtBoss || []; T.dayEnd += MENU.dayEnd; clock += MENU.dayEnd;
+    if (day < PA.Run.modeDef(run).days) PA.Run.endDay(run); else if (run.phase === 'prep' && runMode === 'single') { run.day++; run.phase = 'boss_prep'; }
   }
+  if (run.phase === 'boss_prep') bossGate();
   log.level = g.level; log.gold = run.gold; log.mats = Object.assign({}, run.mats); log.hpBeforeBoss = run.hp;
   log.build = `${g.weapons.map(w => w.id + w.level + (w.mods.length ? '[' + w.mods.join('+') + ']' : '')).join(' ')} | 공통 ${Object.keys(g.commons).map(k => k + g.commons[k]).join(',') || '-'} | E ${g.skills.e ? g.skills.e.id + g.skills.e.level : '-'} | 패시브 ${Object.keys(g.passives).map(k => k + g.passives[k]).join(',') || '-'}`;
-  run.phase = 'boss_prep'; PA.Run.startBoss(run);
-  const bs = PA.Combat.create({ build: PA.Run.build(run), seed: PA.Run.bossSeed(run), boss: true, arena: 'clearing', waves: [] }); PA.Bot.runCombat(bs, botId, { maxSec: 300 });
-  if (bs.status === 'running') bs.status = 'timeout';
-  T.boss += bs.t; clock += bs.t;
-  log.boss = `${bs.status}@${Math.round(bs.t)}s hp${Math.round(bs.player.hp)} 보스${Math.round(bs.boss.hp)}`; log.bossStatus = bs.status; log.bossSec = Math.round(bs.t);
+  const lastB = log.bosses[log.bosses.length - 1] || { status: 'none', sec: 0, hp: 0, bossHp: 0 };
+  log.boss = log.bosses.map(b => `${b.id}:${b.status}@${b.sec}s`).join(' '); log.bossStatus = run.phase === 'cleared' ? 'won' : lastB.status; log.cleared = run.phase === 'cleared';
   // 합계는 여기서 한 번만: 버킷 합 = 시계(clock)와 같아야 한다(검증)
   const sum = Object.values(T).reduce((a, b) => a + b, 0); if (Math.abs(sum - clock) > 0.5) throw new Error(`시간 계정 불일치 ${sum} vs ${clock}`);
   log.time = Object.fromEntries(Object.keys(T).map(k => [k, Math.round(T[k])])); log.simulatedSec = Math.round(T.combat + T.boss); log.assumedSec = Math.round(T.cards + T.screens + T.rest + T.dayEnd);
@@ -79,7 +93,7 @@ function simulate(seed, stratId) {
 if (xpOpt) { const [b, st, q] = xpOpt.split(',').map(Number); PA.GROWTH.XP_CURVES.custom = { base: b, step: st, quad: q || 0, regionMult: regionXpOpt ? Object.fromEntries(['forest', 'ridge', 'marsh', 'den', 'deep'].map((k, i) => [k, Number(regionXpOpt.split(',')[i]) || 1])) : PA.GROWTH.XP_CURVES.v06.regionMult }; }
 const curves = xpOpt ? ['custom'] : curveOpt === 'both' ? ['v05', 'v06'] : [curveOpt];
 if (stratsOpt) for (const k of Object.keys(STRATS)) if (!stratsOpt.split(',').includes(k)) delete STRATS[k];
-let md = `# 회차 시뮬레이션 (v${PA.VERSION}, 봇 ${botId}, 배치 ${layout}, 난이도 ${difficulty}, 시작 무기 ${startWeapon})\n\n전략 ${Object.keys(STRATS).length}종 × 시드 ${seeds.join(',')} × 경험치 곡선 ${curves.join('/')}. 봇 결과는 정책 비교용이며 사람의 체감 플레이타임·재미와 다르다.\n\n시간 계정(검수 수정 후): 시뮬레이션된 시간 = 전투 + 보스(고정 단계 시계). 가정한 메뉴 시간 = 카드 1장 ${MENU.card}초(전투 중 레벨업·지역 3택 포함, 실제 발생 시점에 기록) + 조우 전후 화면 ${MENU.encounter}초 + 하루 종료 ${MENU.dayEnd}초 + 휴식 ${MENU.rest}초. 합계는 보스전까지 포함해 마지막에 한 번만 더한다. 시간 초과(봇이 조우 240초/보스 300초 안에 못 끝냄)는 패배와 별도 열. 조우 생성·정산·3택은 게임과 같은 PA.Flow 경로(더 깊이 지역 3택 포함).\n`;
+let md = `# 회차 시뮬레이션 (v${PA.VERSION}, 봇 ${botId}, 배치 ${layout}, 난이도 ${difficulty}, 시작 무기 ${startWeapon}, 회차 구조 ${runMode})\n\n전략 ${Object.keys(STRATS).length}종 × 시드 ${seeds.join(',')} × 경험치 곡선 ${curves.join('/')}. 봇 결과는 정책 비교용이며 사람의 체감 플레이타임·재미와 다르다.\n\n시간 계정(검수 수정 후): 시뮬레이션된 시간 = 전투 + 보스(고정 단계 시계). 가정한 메뉴 시간 = 카드 1장 ${MENU.card}초(전투 중 레벨업·지역 3택 포함, 실제 발생 시점에 기록) + 조우 전후 화면 ${MENU.encounter}초 + 하루 종료 ${MENU.dayEnd}초 + 휴식 ${MENU.rest}초. 합계는 보스전까지 포함해 마지막에 한 번만 더한다. 시간 초과(봇이 조우 240초/보스 300초 안에 못 끝냄)는 패배와 별도 열. 조우 생성·정산·3택은 게임과 같은 PA.Flow 경로(더 깊이 지역 3택 포함).\n`;
 const all = [];
 for (const curve of curves) {
   const C = PA.GROWTH.XP_CURVES[curve]; Object.assign(PA.GROWTH.XP, { base: C.base, step: C.step, quad: C.quad }); PA.GROWTH.REGION_XP_MULT = Object.assign({}, C.regionMult);
@@ -89,7 +103,7 @@ for (const curve of curves) {
     md += `| ${STRATS[sid].name} | ${seed} | ${L.level} | ${L.levelUpsByDay.join('/')} | ${L.encounters}(${L.losses}/${L.timeouts}) | ${L.rests} | ${L.deeps}(${L.deepPicks}) | ${L.cards}(${L.cardsInCombat}) | ${L.combatMin} | ${L.cardMin} | ${L.menuMin} | ${L.bossMin} | ${L.totalMin} | ${L.weapon2}/${L.weapon3}/${L.eSkill} | ${L.gold} | ${L.boss} |\n`;
   }
   md += `\n전략별 평균(곡선 ${curve}):\n\n| 전략 | 레벨 | 1일차 레벨업 | 1일차 비중% | 조우 | 패배 | 초과 | 휴식 | 더깊이 3택 | 전투분 | 메뉴분(가정) | 합계분 | 금화 | 보스 승리 | 보스 평균초 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n`;
-  for (const sid of Object.keys(STRATS)) { const rows = all.filter(r => r.curve === curve && r.strategy === sid); const avg = (f) => Math.round(rows.reduce((a, r) => a + f(r), 0) / rows.length * 10) / 10; const d1 = avg(r => r.levelUpsByDay[0]); md += `| ${STRATS[sid].name} | ${avg(r => r.level)} | ${d1} | ${Math.round(d1 / Math.max(1, avg(r => r.level - 1)) * 100)} | ${avg(r => r.encounters)} | ${avg(r => r.losses)} | ${avg(r => r.timeouts)} | ${avg(r => r.rests)} | ${avg(r => r.deepPicks)} | ${avg(r => r.combatMin)} | ${avg(r => r.menuMin)} | ${avg(r => r.totalMin)} | ${avg(r => r.gold)} | ${rows.filter(r => r.bossStatus === 'won').length}/${rows.length} | ${avg(r => r.bossSec)} |\n`; }
+  for (const sid of Object.keys(STRATS)) { const rows = all.filter(r => r.curve === curve && r.strategy === sid); const avg = (f) => Math.round(rows.reduce((a, r) => a + f(r), 0) / rows.length * 10) / 10; const d1 = avg(r => r.levelUpsByDay[0]); md += `| ${STRATS[sid].name} | ${avg(r => r.level)} | ${d1} | ${Math.round(d1 / Math.max(1, avg(r => r.level - 1)) * 100)} | ${avg(r => r.encounters)} | ${avg(r => r.losses)} | ${avg(r => r.timeouts)} | ${avg(r => r.rests)} | ${avg(r => r.deepPicks)} | ${avg(r => r.combatMin)} | ${avg(r => r.menuMin)} | ${avg(r => r.totalMin)} | ${avg(r => r.gold)} | ${rows.filter(r => r.cleared).length}/${rows.length} | ${avg(r => r.bossSec)} |\n`; }
 }
 md += `\n## 6일차 빌드 예시(곡선 ${curves[curves.length - 1]}, 시드 ${seeds[0]})\n\n` + Object.keys(STRATS).map(sid => { const r = all.find(x => x.curve === curves[curves.length - 1] && x.strategy === sid && x.seed === seeds[0]); return `- ${STRATS[sid].name}: ${r.build}`; }).join('\n') + '\n';
 fs.mkdirSync(path.dirname(mdPath), { recursive: true }); fs.writeFileSync(mdPath, md); fs.writeFileSync(mdPath.replace(/\.md$/, '.json'), JSON.stringify(all, null, 1));

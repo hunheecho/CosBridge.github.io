@@ -31,6 +31,11 @@ PA.Flow = (function () {
     if (sortie.deep && PA.GROWTH.DEEP_PICK && !sortie.deepPicked) { sortie.deepPicked = true; run.growth.pendingDeepPick = { regionId: sortie.regionId, key: `${sortie.seed}:${sortie.encounters}` }; }
     return reward;
   }
+  // 보스전(회차 관문): 단계별 보스·체력 후보. 입장 스냅샷은 Run.startBoss가 만든다
+  function makeBossEncounter(run, sortie) { const b = PA.Run.build(run); const st = PA.Combat.create({ build: b, hp: b.hpMax, seed: sortie.seed, boss: true, bossId: sortie.bossId || 'boss', bossHp: PA.Run.bossHp(run, sortie.bossId || 'boss'), arena: 'clearing', waves: [], run }); if (run.buffs && run.buffs.skillCd) { st.tempBuff = 'skillCd'; delete run.buffs.skillCd; } run.pendingSortie = null; return st; }
+  // 보스 승리 정산(정확히 1회): 처치 기록·다음 단계·희귀 보상 보류(마지막 보스는 없음)
+  function settleBossVictory(run, st) { const rec = PA.Run.bossVictory(run, st.stats); run.pendingSortie = null; return rec; }
+  function settleBossDefeat(run, st) { PA.Run.bossDefeat(run); run.pendingSortie = null; }
   function settleDefeat(run, sortie, st) { PA.Run.applyEncounterResult(run, sortie, 'lost', null, 0); PA.Run.defeat(run, sortie); run.pendingSortie = null; }
   // 다음에 제시할 선택(순서 고정): 저장된 보류 제시 → 미처리 레벨업 → 임무 보상 3택 → 더 깊이 지역 3택 → 없음(null)
   // 더 깊이 3택은 여기서 보류 등록을 소비하고 pendingOffer로 옮긴다(새로고침해도 같은 제시, 두 번 제시되지 않음). 후보가 없으면 제시 없이 소비
@@ -39,6 +44,7 @@ PA.Flow = (function () {
     if (g.pendingOffer) return g.pendingOffer;
     if (g.pendingLevelUps > 0) return PA.Growth.generateOffer(run, { pool: 'level', regionId: ctx.regionId || null });
     if (g.pendingMissionPick) { const off = PA.Sortie.missionOffer(run); return off || nextOffer(run, ctx); } // 임무 보상 3택(후보 없으면 금화로 대체·1회)
+    if (g.pendingBossPick) { const bp = g.pendingBossPick; g.pendingBossPick = null; const off = PA.Growth.generateOffer(run, { pool: 'boss', bossId: bp.bossId, stage: bp.stage }); if (!off.choices.length) { g.pendingOffer = null; PA.Run.addLog(run, '희귀 보상: 적용 가능한 후보 없음(제시 생략)'); g.bossPickNone = (g.bossPickNone || 0) + 1; return nextOffer(run, ctx); } return off; } // 보스 희귀 보상(1·2보스 뒤 1회, 유효 후보만)
     if (g.pendingEventPick) { const ep = g.pendingEventPick; g.pendingEventPick = null; const off = PA.Growth.generateOffer(run, { pool: 'mission', kinds: [ep.kind], regionId: ep.regionId, missionKind: ep.kind, event: true }); if (!off.choices.length) { g.pendingOffer = null; return nextOffer(run, ctx); } return off; } // 사건 보상(무기 제단)
     if (g.pendingDeepPick) {
       const rid = g.pendingDeepPick.regionId; g.pendingDeepPick = null;
@@ -83,5 +89,5 @@ PA.Flow = (function () {
   // 전투 뒤 안전 화면의 다음 단계(화면·봇 공용): 남은 선택 → 미처리 사건 → 다음 행동(after)
   function afterCombatStep(run, sortie) { if (nextOffer(run, { regionId: sortie.regionId })) return 'offer'; if (sortie.event && !sortie.event.resolved) return 'event'; return 'after'; }
   function returnHome(run, sortie) { PA.Run.returnToBase(run, sortie); run.pendingSortie = null; }
-  return { encounterSeed, encounterOpts, makeEncounter, settleVictory, settleDefeat, nextOffer, resolveOffer, resolveAll, afterCombatStep, returnHome, rerollOffer, modSwapOffer };
+  return { encounterSeed, encounterOpts, makeEncounter, settleVictory, settleDefeat, nextOffer, resolveOffer, resolveAll, afterCombatStep, returnHome, rerollOffer, modSwapOffer, makeBossEncounter, settleBossVictory, settleBossDefeat };
 })();

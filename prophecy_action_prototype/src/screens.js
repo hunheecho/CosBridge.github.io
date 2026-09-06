@@ -10,12 +10,12 @@ PA.Screens = (function () {
   const costText = (cost) => `금화 ${cost.gold}` + Object.keys(cost.mats || {}).map(k => ` + ${matName(k)} ${cost.mats[k]}`).join('');
 
   function header(run) {
-    const b = R().build(run), left = R().bossDaysLeft(run);
-    const bossPct = Math.round(((run.day - 1) / (PA.CONFIG.BOSS_DAY - 1)) * 100);
+    const b = R().build(run), left = R().bossDaysLeft(run), nb = R().nextBoss(run), nbc = R().nextBossCfg(run), stages = R().stageCount(run);
+    const bossPct = Math.round(((run.day - 1) / (R().modeDef(run).days - 1)) * 100);
     return `<div class="topbar">
       <div class="stat"><span class="lbl">날짜</span><b>${run.day}일차</b></div>
       <div class="stat"><span class="lbl">오늘 남은 시간</span><b>${run.hours} / ${PA.CONFIG.HOURS_PER_DAY}시간</b> ${hoursPips(run.hours, PA.CONFIG.HOURS_PER_DAY)}</div>
-      <div class="stat boss"><span class="lbl">보스 도래까지</span><b class="${left <= 2 ? 'warn' : ''}">${left > 0 ? left + '일' : '오늘'}</b><span class="bossbar"><i style="width:${bossPct}%"></i></span></div>
+      <div class="stat boss"><span class="lbl">${stages > 1 ? `보스 ${(run.stage || 0) + 1}/${stages} · ${esc(nbc.name)}` : '보스 도래까지'}</span><b class="${left <= 2 ? 'warn' : ''}">${!nb ? '완료' : left > 0 ? left + '일 뒤' : '오늘'}</b><span class="bossbar"><i style="width:${bossPct}%"></i></span></div>
       <div class="stat"><span class="lbl">체력</span><b>${run.hp} / ${b.hpMax}</b></div>
       <div class="stat"><span class="lbl">금화</span><b class="gold">${run.gold}</b></div>
       ${R().layoutText(run) ? `<div class="stat"><span class="lbl">시험안</span><b class="warn small">${esc(R().layoutText(run))}</b></div>` : ''}
@@ -34,12 +34,14 @@ PA.Screens = (function () {
   }
   // 다가오는 보스 정보(준비 기간부터 공개)
   function bossCard(run, full) {
-    const B = PA.BOSS, left = R().bossDaysLeft(run);
+    const B = R().nextBossCfg(run), left = R().bossDaysLeft(run), nb = R().nextBoss(run), stages = R().stageCount(run);
     const when = run.phase === 'cleared' ? '처치함' : left > 0 ? `${left}일 뒤 도래` : '오늘 도래';
-    return `<div class="card boss"><div class="card-title">다가오는 보스: ${esc(B.name)} — ${esc(B.title)} <span class="tag">${when}</span></div>
-      <div class="bossart"><canvas class="bossportrait" width="160" height="90"></canvas><div><p>숲과 늑대 무리를 지배하는 거대한 늑대. 목과 등에 부러진 나뭇가지 같은 검은 가시가 돋았고, 한쪽 송곳니가 부러졌다.</p>
+    const desc = { boss: '숲과 늑대 무리를 지배하는 거대한 늑대. 목과 등에 부러진 나뭇가지 같은 검은 가시가 돋았고, 한쪽 송곳니가 부러졌다.', guardian: '봉인을 지키는 돌 갑옷의 거인. 느리지만 한 번의 휩쓸기가 무겁고, 봉인 장치가 바닥을 위험하게 만든다.', eater: '예언을 삼키는 시간의 포식자. 당신이 지나온 자리를 표식으로 찍고, 두 줄의 직선과 광역으로 공간을 좁힌다.' }[B.id];
+    const hp = R().bossHp(run, B.id);
+    return `<div class="card boss"><div class="card-title">${stages > 1 ? `${(run.stage || 0) + 1}단계 보스` : '다가오는 보스'}: ${esc(B.name)} — ${esc(B.title)} <span class="tag">${when}</span></div>
+      <div class="bossart">${B.id === 'boss' ? '<canvas class="bossportrait" width="160" height="90"></canvas>' : ''}<div><p>${esc(desc)}</p>
       <ul class="tips">${B.info.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
-      ${full ? `<p class="dim small">전장: ${esc(PA.ARENAS.clearing.name)} · 바위 2, 나무 2 · 체력 ${B.hp} · 단계 전환 70%·35% · 시간제한 없음</p>` : ''}</div></div></div>`;
+      ${full ? `<p class="dim small">전장: ${esc(PA.ARENAS.clearing.name)} · 바위 2, 나무 2 · 체력 ${hp}${hp !== B.hp ? ` (단계 후보, 단일 보스 ${B.hp})` : ''} · 단계 전환 ${B.phases.map(p => Math.round(p * 100) + '%').join('·')} · 시간제한 없음${nb && nb.rare ? ' · 승리 시 희귀 보상 3택' : ''}</p>` : ''}</div></div></div>`;
   }
   function gearPanel(run) {
     const g = run.gear;
@@ -76,9 +78,10 @@ PA.Screens = (function () {
   function pickStart(G) {
     const list = (G.startAll ? PA.STARTABLE_ALL : PA.STARTABLE).map(id => { const d = PA.WEAPONS[id]; return `<div class="card"><div class="card-title">${esc(d.name)}</div><p>${esc(d.desc)}</p><p class="dim small">기본 피해 ${d.base.damage} · 주기 ${d.base.interval}초 · 전용 방식: ${Object.values(d.mods).map(m => esc(m.name)).join(', ')}</p><button class="primary" data-action="start-weapon" data-arg="${id}">이 무기로 시작</button></div>`; }).join('');
     const laySel = `<select id="start-layout">${Object.keys(PA.LAYOUTS).map(k => `<option value="${k}">${esc(PA.LAYOUTS[k].name)}</option>`).join('')}</select>`;
+    const modeSel = `<select id="start-mode">${Object.keys(PA.RUN_MODES).map(k => `<option value="${k}">${esc(PA.RUN_MODES[k].name)}</option>`).join('')}</select>`;
     const difSel = `<select id="start-difficulty">${Object.keys(PA.DIFFICULTY.candidates).map(k => `<option value="${k}">${esc(PA.DIFFICULTY.candidates[k].name)}</option>`).join('')}</select>`;
     return `<div class="screen"><h2>시작 무기 선택</h2><p class="dim">시작 무기 1개로 출발하고, 전투 중 레벨업으로 무기를 최대 2개 더 얻습니다. 시작 무기와 추가 무기는 같은 규칙으로 성장합니다.</p>
-      <div class="card"><div class="card-title small">검증 메뉴: 지역 배치안·난이도 후보 <span class="dim">(기본값은 기존 배치·×1. 시험안은 검증되지 않은 임시값이며 화면에 표시됩니다)</span></div><div class="kv"><span>배치</span>${laySel}</div><div class="kv"><span>난이도</span>${difSel}</div></div>
+      <div class="card"><div class="card-title small">검증 메뉴: 지역 배치안·난이도 후보 <span class="dim">(기본값은 기존 배치·×1. 시험안은 검증되지 않은 임시값이며 화면에 표시됩니다)</span></div><div class="kv"><span>회차 구조</span>${modeSel} <span class="dim small">3보스: 1~2일 준비 → 3일차 가시갈기 → 3~4일 → 5일차 봉인 수호자 → 5~6일 → 7일차 예언을 먹는 자</span></div><div class="kv"><span>배치</span>${laySel}</div><div class="kv"><span>난이도</span>${difSel}</div></div>
       <div class="grid3">${list}</div>
       <div class="row">${G.startAll ? '' : '<button data-action="start-all">검증 메뉴: 다른 시작 후보 보기 (쌍검·추적궁·전투망치·번개 구체)</button>'}<button data-action="title">돌아가기</button></div></div>`;
   }
@@ -109,6 +112,7 @@ PA.Screens = (function () {
         <button class="big ${hasSave ? '' : 'primary'}" data-action="newrun">새 회차</button>
         <button class="big" data-action="controls">조작법</button>
         <button class="big" data-action="lab">전투 시험실 <span class="dim">(정식 회차와 분리 · 체력 배율·빌드·적 조합 비교)</span></button>
+        <div class="row"><span class="dim small">검증 메뉴 · 3보스 회차 빠른 경로(현재 저장을 덮어씀):</span>${[0, 1, 2].map(i => `<button class="mini" data-action="quick-run" data-arg="${i}">${i + 1}단계 관문 직전</button>`).join(' ')}</div>
       </div>
       <p class="dim small">${esc(PA.KEYS_TEXT)}</p><p class="dim small">v${PA.VERSION}</p></div>`;
   }
@@ -116,12 +120,13 @@ PA.Screens = (function () {
     return `<div class="screen center"><h2>새 회차를 시작할까요?</h2><p>기존 저장(진행 중인 회차)이 덮어씌워집니다.</p><div class="row"><button class="primary" data-action="newrun-confirm">새 회차 시작</button><button data-action="title">돌아가기</button></div></div>`;
   }
   function finalPrep(G) {
-    const run = G.run, b = R().build(run), cleared = run.phase === 'cleared';
-    const rec = run.bossClear;
+    const run = G.run, b = R().build(run), cleared = run.phase === 'cleared', stages = R().stageCount(run), g = run.growth;
+    const rec = run.bossClear; const recs = Object.values(run.bossRecords || {});
     return `<div class="screen">${header(run)}
-      <h2>${run.day}일차 — ${cleared ? '예언의 날을 넘겼다' : '최종 준비'}</h2>
-      <p class="dim">오늘은 일반 출격이 없습니다. 보유 자금으로 구매·강화하고, 재료를 팔고, 장비를 교체한 뒤 보스에게 갑니다. 입장 시 체력·회피·감속장·방벽이 모두 준비된 상태로 시작합니다.</p>
-      ${cleared && rec ? `<div class="card ok"><div class="card-title">첫 처치 기록</div><p>${rec.time}초 · 재도전 ${rec.retries}회 · ${esc(rec.weapon)}${rec.upgrade ? ' +' + rec.upgrade : ''} · 보스에게 준 피해 ${rec.bossDamage}</p></div>` : ''}
+      <h2>${run.day}일차 — ${cleared ? (stages > 1 ? '회차 완주' : '예언의 날을 넘겼다') : stages > 1 ? `${(run.stage || 0) + 1}단계 보스 관문` : '최종 준비'}</h2>
+      <p class="dim">${cleared ? '마지막 보스를 넘었습니다. 이 회차의 성장은 여기서 끝납니다(추가 성장 없음). 같은 빌드로 다시 도전하거나 새 회차를 시작하세요.' : '보스전은 하루 시간 밖의 관문입니다. 보유 자금으로 구매·강화하고, 재료를 팔고, 장비를 교체한 뒤 보스에게 갑니다. 입장 시 체력·회피·감속장·방벽이 모두 준비된 상태로 시작합니다.' + (stages > 1 && (run.stage || 0) < stages - 1 ? ' 승리하면 그날의 5시간이 시작됩니다.' : '')}</p>
+      <div class="card"><div class="card-title small">입장 스냅샷</div><p class="dim small">Lv ${g.level} · 무기 ${g.weapons.map(w => PA.WEAPONS[w.id].name + ' Lv' + w.level).join(', ')} · 체력 ${b.hpMax} · 재도전 ${run.bossRetries || 0}회${run.bossRetries ? ' (입장 시점 상태로 복구됨: 처치 경험치·보상 중복 없음)' : ''}</p></div>
+      ${recs.length ? `<div class="card ok"><div class="card-title">처치 기록</div>${recs.map(r => `<p>${esc(PA.BOSS_DEFS[r.bossId || 'boss'].name)}: ${r.time}초 · 재도전 ${r.retries}회 · Lv ${r.level || '-'} · 보스에게 준 피해 ${r.bossDamage}</p>`).join('')}</div>` : ''}
       <div class="grid2"><div>
         ${bossCard(run, true)}
         <div class="card"><div class="card-title">준비</div><div class="actions">
@@ -288,15 +293,19 @@ PA.Screens = (function () {
       <button class="primary big" data-action="base">거점으로</button></div>`;
   }
   function bossDefeat(G) {
-    const run = G.run, s = G.lastStats;
-    return `<div class="screen center"><h2 class="bad">쓰러졌다</h2><p>${esc(PA.BOSS.name)}에게 패배했습니다. 준비 기간의 성과는 그대로입니다. 같은 장비·무기·증강으로 바로 다시 도전할 수 있습니다.</p><p class="dim small">재도전은 입장 시점의 상태로 복구됩니다: 레벨·경험치·전투 중 선택은 입장 전으로, 체력·회피·감속장·E는 초기화, 보스·소환 늑대·구슬은 처음부터.</p>
-      <p class="dim small">전투 ${Math.round(s.elapsed)}초 · 보스에게 준 피해 ${Math.round(s.bossDamage)} / ${PA.BOSS.hp} · 감속장 ${s.specialUses}회 · 재도전 ${run.bossRetries}회</p>
+    const run = G.run, s = G.lastStats, B = R().nextBossCfg(run);
+    return `<div class="screen center"><h2 class="bad">쓰러졌다</h2><p>${esc(B.name)}에게 패배했습니다. 준비 기간의 성과는 그대로입니다. 같은 장비·무기·증강으로 바로 다시 도전할 수 있습니다.</p><p class="dim small">재도전은 입장 시점의 상태로 복구됩니다: 레벨·경험치·전투 중 선택은 입장 전으로, 체력·회피·감속장·E는 초기화, 보스·소환 늑대·구슬은 처음부터.</p>
+      <p class="dim small">전투 ${Math.round(s.elapsed)}초 · 보스에게 준 피해 ${Math.round(s.bossDamage)} / ${R().bossHp(run, B.id)} · 감속장 ${s.specialUses}회 · 재도전 ${run.bossRetries}회</p>
       <div class="menu"><button class="primary big" data-action="boss-start">같은 준비로 재도전</button><button class="big" data-action="base">최종 준비 화면으로</button><button class="big" data-action="title">제목으로</button></div></div>`;
   }
   function bossVictory(G) {
-    const run = G.run, s = G.lastStats, b = R().build(run), rec = G.lastRecord || run.lastBossClear || {};
+    const run = G.run, s = G.lastStats, b = R().build(run), rec = G.lastRecord || run.lastBossClear || {}; const B = PA.BOSS_DEFS[rec.bossId || 'boss'], stages = R().stageCount(run), ended = run.phase === 'cleared';
     const augs = Object.keys(run.augments).filter(k => run.augments[k] > 0).map(k => { const d = PA.AUGMENTS.find(a => a.id === k); return d.name + (d.max > 1 ? ' ' + run.augments[k] : ''); }).join(', ') || '없음';
-    return `<div class="screen center"><h1>예언의 날을 넘겼다.</h1><h2>${esc(PA.BOSS.name)} — ${esc(PA.BOSS.title)} 처치</h2>
+    if (!ended) return `<div class="screen center"><h1>${(run.stage || 0)}단계 돌파</h1><h2>${esc(B.name)} — ${esc(B.title)} 처치</h2>
+      <div class="card"><div class="card-title">기록</div><ul class="gear" style="text-align:left"><li>전투 시간 <b>${Math.round(s.elapsed * 10) / 10}초</b> · 재도전 <b>${rec.retries || 0}회</b> · Lv ${run.growth.level}</li><li>감속장 사용 <b>${s.specialUses}</b>회 · 보스에게 준 총피해 <b>${Math.round(s.bossDamage)}</b></li></ul></div>
+      <div class="card boss"><div class="card-title">다음 단계 해금</div><p>${run.day}일차의 ${PA.CONFIG.HOURS_PER_DAY}시간이 시작됩니다. ${R().nextBoss(run) ? `다음 보스 <b>${esc(R().nextBossCfg(run).name)}</b>은(는) ${R().nextBoss(run).day}일차 시작에 옵니다.` : ''}${run.growth.pendingBossPick || (run.growth.pendingOffer && run.growth.pendingOffer.pool === 'boss') ? ' <b>희귀 보상 3택</b>이 거점에서 제시됩니다(1회, 저장됨).' : ''}</p></div>
+      <div class="menu"><button class="primary big" data-action="base">거점으로 (오늘 시간 시작)</button></div></div>`;
+    return `<div class="screen center"><h1>${stages > 1 ? '회차 완주.' : '예언의 날을 넘겼다.'}</h1><h2>${esc(B.name)} — ${esc(B.title)} 처치</h2>
       <div class="card"><div class="card-title">회차 결과</div>
         <ul class="gear" style="text-align:left">
           <li>전투 시간: <b>${Math.round(s.elapsed * 10) / 10}초</b> · 재도전 <b>${run.bossRetries}회</b></li>
@@ -310,7 +319,7 @@ PA.Screens = (function () {
   function enddayConfirm(G) {
     const run = G.run;
     return `<div class="screen center"><h2>하루를 마칠까요?</h2><p>남은 ${run.hours}시간을 버리고 ${run.day + 1}일차로 넘어갑니다. 체력이 완전히 회복되고 시간이 5로 돌아옵니다.</p>
-      ${run.day + 1 >= PA.CONFIG.BOSS_DAY ? `<div class="card boss"><div class="card-title">내일 ${esc(PA.BOSS.name)}가 도래합니다</div><p>7일차에는 일반 출격이 없습니다. 최종 준비(구매·강화·판매·장비 교체) 뒤 보스전에 들어갑니다. 패배해도 같은 준비로 바로 재도전할 수 있습니다.</p></div>` : `<p class="dim">보스 도래까지 ${R().bossDaysLeft(run) - 1}일 남음</p>`}
+      ${R().bossDaysLeft(run) === 1 ? `<div class="card boss"><div class="card-title">내일 ${esc(R().nextBossCfg(run).name)}가 도래합니다</div><p>${R().stageCount(run) > 1 ? '내일은 보스 관문으로 시작합니다. 준비(구매·강화·판매·장비 교체) 뒤 보스전에 들어가고, 이기면 그날의 5시간이 시작됩니다.' : '7일차에는 일반 출격이 없습니다. 최종 준비(구매·강화·판매·장비 교체) 뒤 보스전에 들어갑니다.'} 패배해도 같은 준비로 바로 재도전할 수 있습니다.</p></div>` : `<p class="dim">${R().nextBoss(run) ? `다음 보스까지 ${R().bossDaysLeft(run) - 1}일 남음` : ''}</p>`}
       <div class="row"><button class="primary" data-action="endday">하루 종료</button><button data-action="base">돌아가기</button></div></div>`;
   }
   function bossday(G) {

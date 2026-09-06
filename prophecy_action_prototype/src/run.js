@@ -7,9 +7,10 @@ PA.Run = (function () {
   const RECORDS_KEY = 'prophecy_action_records_v1';
   const VERSION = 3;
 
-  function newRun(seed, startWeapon) {
+  function newRun(seed, startWeapon, mode) {
     const cfg = C();
     return {
+      mode: mode && PA.RUN_MODES[mode] ? mode : 'trio', stage: 0, bossesDone: [], bossRecords: {}, // v0.7 회차 구조: 새 회차 기본은 3보스 시험안, 이전 저장은 single
       growth: PA.Growth.newGrowth(startWeapon || 'sword'),
       layout: 'classic', difficulty: 'base',   // v0.6: 지역 배치안·난이도 후보(기본은 기존 배치·×1)
       version: VERSION, seed: seed || (Date.now() % 100000), sortieCount: 0,
@@ -42,13 +43,20 @@ PA.Run = (function () {
     if (r.gear && 'weapon' in r.gear) delete r.gear.weapon;
     if (!r.layout || !PA.LAYOUTS[r.layout]) r.layout = 'classic';                       // 이전 저장: 기존 배치 유지
     if (!r.difficulty || !PA.DIFFICULTY.candidates[r.difficulty]) r.difficulty = 'base';
-    if (!r.services) r.services = {}; if (!r.missionsDone) r.missionsDone = {}; if (r.cards === undefined) r.cards = null; if (r.pendingSortie === undefined) r.pendingSortie = null; if (!r.buffs) r.buffs = {}; // v0.7 필드: 이전 저장은 기존 규칙 유지, 카드는 오늘부터 생성
+    if (!r.services) r.services = {}; if (!r.missionsDone) r.missionsDone = {}; if (r.cards === undefined) r.cards = null; if (r.pendingSortie === undefined) r.pendingSortie = null; if (!r.buffs) r.buffs = {};
+    if (!r.mode || !PA.RUN_MODES[r.mode]) r.mode = 'single'; if (r.stage == null) r.stage = 0; if (!r.bossesDone) r.bossesDone = r.bossClear ? ['boss'] : []; if (!r.bossRecords) r.bossRecords = r.bossClear ? { boss: r.bossClear } : {}; // 이전 저장: 단일 보스 규칙 유지 // v0.7 필드: 이전 저장은 기존 규칙 유지, 카드는 오늘부터 생성
     return r;
   }
 
   function build(run) { return PA.Build.derive(run); }
-  function bossDaysLeft(run) { return C().BOSS_DAY - run.day; }
-  function isBossDay(run) { return run.day >= C().BOSS_DAY; }
+  // ---------- 회차 구조(v0.7): single(7일 단일 보스, 기존) | trio(보스 3마리 관문) ----------
+  function modeDef(run) { return PA.RUN_MODES[(run && run.mode) || 'single'] || PA.RUN_MODES.single; }
+  function nextBoss(run) { return modeDef(run).bosses[run.stage || 0] || null; }
+  function nextBossCfg(run) { const nb = nextBoss(run); if (nb) return PA.BOSS_DEFS[nb.id]; const done = run.bossesDone && run.bossesDone[run.bossesDone.length - 1]; return PA.BOSS_DEFS[done] || PA.BOSS; } // 완주 후에는 마지막 보스
+  function bossHp(run, bossId) { const nb = modeDef(run).bosses.find(b => b.id === bossId); const H = PA.BOSS_HP[bossId]; return nb && H && H[nb.hpKey] ? H[nb.hpKey] : PA.BOSS_DEFS[bossId].hp; }
+  function stageCount(run) { return modeDef(run).bosses.length; }
+  function bossDaysLeft(run) { const nb = nextBoss(run); return nb ? nb.day - run.day : 0; }
+  function isBossDay(run) { const nb = nextBoss(run); return !!nb && run.day >= nb.day; }
   function addLog(run, msg) { run.log.unshift(`${run.day}일차 · ${msg}`); if (run.log.length > 8) run.log.length = 8; }
 
   // ---------- 지역/출격 ----------
@@ -133,13 +141,14 @@ PA.Run = (function () {
     if (PA.Sortie) PA.Sortie.cardsFor(run); // 오늘의 출격 카드 확정(시드·저장)
   }
   // ---------- 보스전 ----------
-  function bossSeed(run) { return run.seed * 997 + 7; } // 같은 회차·같은 빌드 재도전 = 같은 시드·지형
+  function bossSeed(run) { return run.seed * 997 + 7 + (run.stage || 0) * 31; } // 같은 회차·같은 단계 재도전 = 같은 시드·지형
   function canStartBoss(run) { return run.phase === 'boss_prep' || run.phase === 'cleared'; }
   function startBoss(run) {
     if (!canStartBoss(run)) throw new Error('보스 준비 상태가 아님');
     run.hp = build(run).hpMax; // 입장: 체력 완전 회복(회피·감속장·방벽은 전투 생성 시 초기화)
-    run.bossEntry = JSON.parse(JSON.stringify({ growth: run.growth, hp: run.hp })); // 재도전 복구 기준(소환 경험치 누적 악용 방지)
-    return { regionId: 'boss', seed: bossSeed(run), loot: { gold: 0, mats: {} }, encounters: 0 };
+    run.bossEntry = JSON.parse(JSON.stringify({ growth: run.growth, hp: run.hp, stage: run.stage, gold: run.gold })); // 재도전 복구 기준(소환 경험치 누적 악용 방지)
+    const nb = nextBoss(run);
+    return { regionId: 'boss', bossId: nb ? nb.id : 'boss', stage: run.stage || 0, seed: bossSeed(run), loot: { gold: 0, mats: {} }, encounters: 0 };
   }
   function bossDefeat(run) {
     run.bossRetries = (run.bossRetries || 0) + 1;
@@ -147,11 +156,20 @@ PA.Run = (function () {
     run.hp = build(run).hpMax; addLog(run, `보스전 패배 (재도전 ${run.bossRetries}회, 성장은 입장 시점으로 복구)`);
   }
   function bossVictory(run, stats) {
-    const b = build(run);
-    const rec = { time: Math.round(stats.elapsed * 10) / 10, retries: run.bossRetries || 0, weapon: b.weapon.name, upgrade: run.gear.upgrade, acc: run.gear.acc, armor: run.gear.armor, augments: Object.assign({}, run.augments), specialUses: stats.specialUses || 0, bossDamage: Math.round(stats.bossDamage || 0), day: run.day, seed: run.seed, at: Date.now() };
-    if (!run.bossClear) run.bossClear = rec; // 첫 처치 기록은 회차 안에서 유지
-    run.lastBossClear = rec; run.phase = 'cleared';
-    addLog(run, `가시갈기 처치 (${rec.time}초)`);
+    const b = build(run), nb = nextBoss(run), bossId = nb ? nb.id : 'boss', cfg = PA.BOSS_DEFS[bossId];
+    const rec = { bossId, stage: run.stage || 0, time: Math.round(stats.elapsed * 10) / 10, retries: run.bossRetries || 0, weapon: b.weapon.name, upgrade: run.gear.upgrade, acc: run.gear.acc, armor: run.gear.armor, augments: Object.assign({}, run.augments), level: run.growth.level, specialUses: stats.specialUses || 0, bossDamage: Math.round(stats.bossDamage || 0), day: run.day, seed: run.seed, mode: run.mode, at: Date.now() };
+    if (!run.bossRecords[bossId]) run.bossRecords[bossId] = rec; // 보스별 처치 기록은 1회(재도전·재정산으로 갱신하지 않음)
+    if (bossId === 'boss' && !run.bossClear) run.bossClear = rec; // 단일 보스 회차 호환 필드
+    run.lastBossClear = rec; if (!run.bossesDone.includes(bossId)) run.bossesDone.push(bossId);
+    addLog(run, `${cfg.name} 처치 (${rec.time}초)`);
+    const last = (run.stage || 0) >= stageCount(run) - 1;
+    if (last) { run.phase = 'cleared'; run.ended = true; run.stage = stageCount(run); } // 마지막 보스: 회차 종료, 다음 보스 없음, 추가 성장 없음
+    else { // 다음 단계 해금: 그날의 5시간 시작, 희귀 보상 3택은 1회 보류 등록(저장됨)
+      if (nb.rare) run.growth.pendingBossPick = { bossId, stage: run.stage || 0, key: `${run.seed}:${run.stage}` };
+      run.stage = (run.stage || 0) + 1; run.phase = 'prep'; run.hours = C().HOURS_PER_DAY; run.hp = b.hpMax; run.bossRetries = 0; run.bossEntry = null;
+      addLog(run, `${run.stage + 1}단계 해금: 오늘 ${C().HOURS_PER_DAY}시간 시작`);
+      if (PA.Sortie) PA.Sortie.cardsFor(run);
+    }
     return rec;
   }
   function ownedBySlot(run, slot) { return run.owned.filter(id => item(id) && item(id).slot === slot); }
@@ -248,5 +266,5 @@ PA.Run = (function () {
   function load(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(SAVE_KEY); return s ? deserialize(s) : null; } catch (e) { return null; } }
   function clearSave(storage) { storage = storage || globalThis.localStorage; try { storage.removeItem(SAVE_KEY); } catch (e) {} }
 
-  return { SAVE_KEY, RECORDS_KEY, VERSION, hasService, useService, regionBonusXp, layoutRegion, regionEnemies, regionArena, hpMultFor, layoutText, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
+  return { SAVE_KEY, RECORDS_KEY, VERSION, hasService, useService, modeDef, nextBoss, nextBossCfg, bossHp, stageCount, regionBonusXp, layoutRegion, regionEnemies, regionArena, hpMultFor, layoutText, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
 })();
