@@ -18,9 +18,11 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     const S = PA.Screens;
     const html = {
       title: () => S.title(G), newrun_confirm: () => S.newrunConfirm(G), base: () => S.base(G), map: () => S.map(G), shop: () => S.shop(G),
-      reward: () => S.reward(G), after: () => S.after(G), defeat: () => S.defeat(G), endday_confirm: () => S.enddayConfirm(G), bossday: () => S.bossday(G), scenario_end: () => S.scenarioEnd(G),
+      reward: () => S.reward(G), after: () => S.after(G), defeat: () => S.defeat(G), endday_confirm: () => S.enddayConfirm(G), scenario_end: () => S.scenarioEnd(G),
+      boss_defeat: () => S.bossDefeat(G), boss_victory: () => S.bossVictory(G),
     }[name];
     uiEl.innerHTML = html ? html() : '';
+    if (html) { try { S.paintPortraits(); } catch (e) {} }
     uiEl.hidden = !html;
     stageEl.hidden = !!html;
     if (!html) fitCanvas();
@@ -39,7 +41,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 회차 흐름 ----------
   function saveRun() { if (G.run && !G.scenario) PA.Run.save(G.run); }
-  function goBase() { if (G.run.ended) { show('bossday'); return; } saveRun(); show('base'); }
+  function goBase() { saveRun(); show('base'); } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
   function leaveScenario() { if (G.scenario) { G.scenario = null; try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
   function newRun() { leaveScenario(); G.run = PA.Run.newRun(); G.sortie = null; G.combat = null; saveRun(); show('base'); }
   function startSortie(regionId) {
@@ -49,18 +51,34 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   }
   function startEncounter() {
     const run = G.run, s = G.sortie;
-    G.combat = PA.Combat.create({
+    if (s.regionId === 'boss') {
+      G.combat = PA.Combat.create({ build: PA.Run.build(run), hp: PA.Run.build(run).hpMax, seed: s.seed, boss: true, arena: 'clearing', waves: [] });
+    } else G.combat = PA.Combat.create({
       build: PA.Run.build(run), hp: run.hp, seed: s.seed + s.encounters * 1000 + (s.deep ? 7 : 0),
       waves: PA.Run.encounterWaves(s.regionId, s.deep), objective: PA.Run.encounterObjective(s.regionId, s.deep), arena: s.arena || 'forest',
     });
     G.endTimer = 0; G.acc = 0; G.paused = false; G.eventCounts = {}; PA.Input.setBlocked(G.input, false); closeOverlay();
     show('combat');
   }
+  function startBoss() {
+    G.sortie = PA.Run.startBoss(G.run);
+    saveRun(); // 보스 직전 상태 저장: 전투 중 종료 시 최종 준비에서 다시 시작
+    startEncounter();
+  }
   function onEncounterEnd() {
     const c = G.combat, run = G.run, s = G.sortie;
     G.lastStats = Object.assign({}, c.stats);
     G.lastResult = c.status;
     if (G.scenario) { show('scenario_end'); return; }
+    if (c.mode === 'boss') {
+      if (c.status === 'won') {
+        const hadFirst = !!run.bossClear;
+        const rec = PA.Run.bossVictory(run, c.stats); G.lastRecord = rec;
+        const R = PA.Run.saveRecord(rec); G.firstClearNew = !hadFirst && R.firstClear && R.firstClear.at === rec.at;
+        saveRun(); G.sortie = null; show('boss_victory');
+      } else { PA.Run.bossDefeat(run); saveRun(); G.sortie = null; show('boss_defeat'); }
+      return;
+    }
     const eliteKilled = c.enemies.some(e => e.elite && e.dead) || c.status === 'won' && c.objective === 'elite';
     if (c.status === 'won') {
       const reward = PA.Run.rollReward(run, s, c.rng, { chestGold: c.stats.chestGold, eliteKilled });
@@ -91,6 +109,9 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'rest': () => { PA.Run.rest(G.run); saveRun(); show('base'); },
     'endday-confirm': () => show('endday_confirm'),
     'endday': () => { PA.Run.endDay(G.run); saveRun(); goBase(); },
+    'boss-start': () => startBoss(),
+    'equip': (id) => { PA.Run.equip(G.run, id); saveRun(); show(G.screen); },
+    'unequip': (slot) => { PA.Run.unequip(G.run, slot); saveRun(); show(G.screen); },
     'save-quit': () => { saveRun(); G.saved = PA.Run.load(); show('title'); },
     'sortie': (id) => startSortie(id),
     'buy': (id) => { PA.Run.buy(G.run, id); PA.Audio.play('buy'); saveRun(); show('shop'); },
@@ -102,7 +123,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'deep': () => { PA.Run.deepExplore(G.run, G.sortie); saveRun(); startEncounter(); },
     'return': () => { PA.Run.returnToBase(G.run, G.sortie); G.sortie = null; goBase(); },
     'resume': () => pauseCombat(false),
-    'give-up': () => { closeOverlay(); G.paused = false; if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
+    'give-up': () => { closeOverlay(); G.paused = false; PA.Input.setBlocked(G.input, false); if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
     'scenario-again': () => startScenario(G.scenario),
   };
   function dispatch(action, arg) {
@@ -115,13 +136,15 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   function parseScenario() {
     const q = new URLSearchParams(location.search);
     if (!q.get('scenario')) return null;
-    return { region: q.get('scenario'), arena: q.get('arena') || null, seed: parseInt(q.get('seed') || '1', 10), aug: (q.get('aug') || '').split(',').filter(Boolean), weapon: q.get('weapon') || 'sword', deep: q.get('deep') === '1', upgrade: parseInt(q.get('upgrade') || '0', 10) };
+    return { region: q.get('scenario'), arena: q.get('arena') || null, acc: q.get('acc') || null, armor: q.get('armor') || null, seed: parseInt(q.get('seed') || '1', 10), aug: (q.get('aug') || '').split(',').filter(Boolean), weapon: q.get('weapon') || 'sword', deep: q.get('deep') === '1', upgrade: parseInt(q.get('upgrade') || '0', 10) };
   }
   function startScenario(sc) {
     G.scenario = sc;
     const run = PA.Run.newRun(sc.seed);
     run.gear.weapon = sc.weapon === 'pierce' ? 'pierce' : 'sword';
     run.gear.upgrade = sc.upgrade || 0;
+    if (sc.acc) { run.owned.push(sc.acc); run.gear.acc = sc.acc; }
+    if (sc.armor) { run.owned.push(sc.armor); run.gear.armor = sc.armor; }
     for (const a of sc.aug) { const [id, lv] = a.split(':'); run.augments[id] = parseInt(lv || '1', 10); }
     if (run.augments.barrier) {} // 파생은 Build.derive에서
     run.hp = PA.Run.build(run).hpMax;
@@ -162,9 +185,9 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       }
       if (guard >= 12) G.acc = 0;
       for (const e of G.combat.events) G.eventCounts[e.name] = (G.eventCounts[e.name] || 0) + 1;
-      for (const e of G.combat.events) PA.Audio.play(e.name === 'hit' ? (e.crit ? 'crit' : 'hit') : ({ kill: 'kill', hurt: 'hurt', lock: 'lock', dodge: 'dodge', perfect: 'perfect', special: 'special', chest: 'chest', win: 'win', lose: 'lose', wave: 'wave', shoot: 'shoot', spore: 'spore', explode: 'explode', shatter: 'shatter', burst: 'burst', bite: 'bite', swing: 'swing' }[e.name] || null));
+      for (const e of G.combat.events) PA.Audio.play(e.name === 'hit' ? (e.crit ? 'crit' : 'hit') : ({ kill: 'kill', hurt: 'hurt', lock: 'lock', dodge: 'dodge', perfect: 'perfect', special: 'special', chest: 'chest', win: 'win', lose: 'lose', wave: 'wave', shoot: 'shoot', spore: 'spore', explode: 'explode', shatter: 'shatter', burst: 'burst', bite: 'bite', swing: 'swing', boss_howl: 'boss_howl', boss_roar: 'boss_roar', boss_land: 'boss_land', boss_sweep: 'boss_sweep', boss_lock: 'boss_lock', boss_down: 'win', orb: 'orb' }[e.name] || null));
       G.combat.events.length = 0;
-      if (G.combat.status !== 'running') { G.endTimer += dt; if (G.endTimer >= 1.3) onEncounterEnd(); }
+      if (G.combat.status !== 'running') { G.endTimer += dt; if (G.endTimer >= (G.combat.mode === 'boss' && G.combat.status === 'won' ? 2.4 : 1.3)) onEncounterEnd(); }
     }
     render();
   }

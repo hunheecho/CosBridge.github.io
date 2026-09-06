@@ -30,7 +30,7 @@ PA.CONFIG = {
   ECHO: { every: 4, delay: 0.2 },
   EMBER: { count: 3, radius: 30, ttl: 2.5, tick: 0.4, damage: 5 },
   FROST: { chill: 2.0, slow: 0.6, shards: 6, shardDamage: 8, shardSpeed: 300, shardTtl: 0.5 },
-  MARK: { damageMult: 1.3, priority: ['wolf_alpha', 'archer', 'spore', 'wolf'] },
+  MARK: { damageMult: 1.3, priority: ['boss', 'wolf_alpha', 'archer', 'spore', 'wolf'] },
   BARRIER: { shield: 30, knockRadius: 120, knock: 140 },
   STASIS: { maxStacks: 5, damagePerStack: 10 },
   FLARE: { radius: 80, damage: 20 },
@@ -57,7 +57,24 @@ PA.ARENAS = {
   },
 };
 
+// 보스: 가시갈기 — 숲의 왕. 모든 수치는 첫 시험용 임시값(docs/ASSUMPTIONS.md).
+PA.BOSS = {
+  id: 'boss', name: '가시갈기', title: '숲의 왕',
+  hp: 2400, speed: 110, r: 42, phases: [0.7, 0.35],
+  intro: 1.6, roar: 0.9, stagger: 1.0, knockMult: 0.2, stopDist: 118,
+  sweep:  { aim: 0.65, lock: 0.40, radius: 145, arcDeg: 120, damage: 16, recover: 1.5, maxDist: 200 },
+  dash:   { aim: 0.70, lock: 0.45, dist: 460, speed: 800, damage: 20, recover: 2.2, minDist: 150, maxDist: 520, second: { aim: 0.45, lock: 0.40 }, doubleRecover: 3.0 },
+  howl:   { duration: 1.6, count: 2, maxWolves: 4, interval: 18, warn: 0.9, ring: [90, 150] },
+  pounce: { aim: 0.50, lock: 0.65, leap: 0.45, radius: 105, damage: 18, recover: 1.8, minDist: 300 },
+  overlap: { bossWaitMax: 1.2, wolfDelay: [0.15, 0.5], summonGrace: 0.8 },
+  orb: { healRatio: 0.15, r: 14, ring: 170 },
+  minApproach: 0.4,
+  weights: { sweep: 1.0, dash: 1.2, pounce: 1.5, howl: 2.0 },
+  info: ['긴 돌진: 붉은 통로가 굳으면 방향이 고정됩니다. 옆으로.', '무리 소환: 울부짖으면 늑대가 발자국 자리에 나타납니다. 광역·파편·폭발의 기회.', '큰 공격 뒤에는 확실히 지칩니다(빈틈 피해 1.5배).', '감속장(Q)은 보스의 준비·돌진·빈틈 모두를 40% 속도로 늦춥니다.', '바위와 나무는 이동과 돌진을 막습니다. 직접 공격은 장애물을 관통하지 않지만 불길·폭발·감속장은 바닥 범위대로 적용됩니다.'],
+};
+
 PA.ENEMIES = {
+  boss: { name: '가시갈기', role: '보스 · 숲의 왕', r: 42, hp: 2400, speed: 110, color: '#6e5a3a', boss: true, readme: '거대한 늑대. 휩쓸기·돌진·무리 소환·덮쳐찍기.' },
   wolf: {
     name: '늑대', role: '돌진 습격', r: 14, hp: 30, speed: 150, color: '#9aa0a8',
     engageDist: 170, crouch: 0.6, lock: 0.15, dashTime: 0.32, dashSpeed: 800, recover: 0.9, damage: 12, dashes: 1,
@@ -137,5 +154,7 @@ PA.REGIONS = [
     waves: [ [ { type: 'spore', n: 2 }, { type: 'archer', n: 2 } ], [ { type: 'wolf', n: 4 }, { type: 'spore', n: 1 } ], [ { type: 'wolf_alpha', n: 1 }, { type: 'spore', n: 2 }, { type: 'archer', n: 2 } ] ],
     reward: { gold: [100, 140], mats: { spore: [2, 3], iron: [2, 2], fang: [1, 1] } } },
 ];
+
+PA.BOSS_ACTION_TEXT = { intro: '입장', approach: '접근', sweep_aim: '송곳니 휩쓸기 준비', sweep_lock: '휩쓸기!', dash_aim: '사냥 돌진 준비', dash_lock: '돌진!', dash: '돌진 중', howl: '무리 소환', pounce_aim: '덮쳐찍기 준비', pounce_lock: '덮쳐찍기!', leap: '도약 중', recover: '빈틈!', roar: '포효', stagger: '비틀거림!', dead: '쓰러짐' };
 
 PA.KEYS_TEXT = 'WASD/방향키 이동 · Space 회피 · Q 감속장 · Esc 일시정지';

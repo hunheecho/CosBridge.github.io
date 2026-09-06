@@ -1,0 +1,28 @@
+PASS | A1 거점에 보스 카드(이름·도래일·정보) 표시 | 
+PASS | A2 6일차 도달 | 
+PASS | A3 6일차 종료 확인에 "내일 보스 도래" 안내 | 
+PASS | A4 7일차 = 최종 준비(boss_prep) | 
+PASS | A5 최종 준비 화면에 출격(지도) 버튼 없음 | 
+PASS | A5b 지도 화면을 강제로 열어도 출격 버튼 잠김 | 
+PASS | A6 지도에서 돌아와도 최종 준비 | 
+PASS | A7 상점에서 돌아와도 최종 준비(우회 경로 없음) | 
+PASS | B1 마지막 구매(목걸이) 장착, 부적 보유 | 
+PASS | B2 먼저 산 장신구로 교체(추가 비용 없음) | 
+PASS | B3 다시 목걸이로 | 
+PASS | C1 입장 연출 중(피해·행동 없음) | 
+PASS | C2 실제 키보드: A 이동·Space 회피·Q 감속장 | 
+PASS | C3 Esc 정지: 시뮬레이션 정지 | 
+PASS | C4 재개 직후 정지 중 입력이 발동하지 않음 | 
+PASS | C5 포커스 이탈 시 자동 정지 | 
+PASS | C6 복귀 후 재개 | 
+PASS | C7 창 크기 변경 후 전장·장애물 동일 | 
+PASS | C8 봇이 보스전을 끝냄 | boss_victory 단계 1/2/3 상태 recover,howl,sweep_lock,orb,roar,dash_lock,dash_aim_p3
+PASS | C9 승리 화면 문구·기록 저장 | 
+PASS | D1 전투 중 새로고침 → 보스 직전(최종 준비) 상태로 복구 | 
+PASS | D2 재실행으로 재화·장비 복제 없음 | 
+PASS | D3 패배 화면(재도전·최종 준비·제목) | 
+PASS | D4 같은 준비로 재도전: 체력·보스 초기화, 재도전 횟수 기록 | 
+PASS | E1 v1 7일차 ended 저장 → 보스 준비로 복구 | 
+PASS | E2 v1 준비 기간 저장 그대로 이어짐 | 
+PASS | F1 ?scenario=boss 로 바로 보스전 | 
+PASS | 오류 없음 | 

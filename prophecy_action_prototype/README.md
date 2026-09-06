@@ -19,8 +19,14 @@
 | Enter / 클릭 | 메뉴 확인 |
 | F3 | 디버그 오버레이 (개발용) |
 
+## 보스전 (v0.4)
+- 정상 회차: 6일차까지 준비 → 하루 종료(내일 보스 도래 안내) → 7일차 최종 준비(상점·판매·장비 교체·보스 정보) → "보스에게 간다" → 패배 시 같은 준비로 재도전, 승리 시 결과 화면.
+- 바로 시험: `index.html?scenario=boss&seed=5` (+ `weapon=pierce&aug=spin,stasis,saving&upgrade=2&acc=fang_necklace&armor=leather_armor`).
+- 빌드별 시험 링크: 기본 `?scenario=boss&seed=5&upgrade=2&aug=sharp:2` · 감속장+회전+정지된 칼날 `?scenario=boss&seed=5&aug=spin,stasis,saving,wide` · 관통+얼음 `?scenario=boss&seed=5&weapon=pierce&aug=frost,quick` · 잔불+파열 `?scenario=boss&seed=5&aug=ember,flare,wide:2`.
+- 헤드리스 길이 측정: `node tools/boss_sim.js`, 브라우저 통합 검증: `NODE_PATH=<playwright> node tools/verify_boss.js`.
+
 ## 한 바퀴
-거점(시간·보스·목표 장비 확인) → 지역 선택(비용·위험·보상) → 실시간 전투 → 보상·증강 선택 → 더 깊이/귀환 → 상점·대장간에서 구매·제작·장착 → 다시 출격 → 하루 종료 → … → 7일차 보스 도래(보스전은 미구현, 정직하게 표시).
+거점(시간·보스·목표 장비 확인) → 지역 선택(비용·위험·보상) → 실시간 전투 → 보상·증강 선택 → 더 깊이/귀환 → 상점·대장간에서 구매·제작·장착 → 다시 출격 → 하루 종료 → … → 7일차 최종 준비 → 보스전(가시갈기) → 재도전 또는 결과.
 
 ## 조합 바로 시험하기
 | 조합 | 주소 |

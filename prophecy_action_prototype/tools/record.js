@@ -4,7 +4,9 @@
 const path = require('path'); const fs = require('fs'); const { chromium } = require('playwright');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(ROOT, 'docs', 'video'); fs.mkdirSync(OUT, { recursive: true });
 const q = process.argv[2] || '?scenario=forest&seed=11'; const SEC = parseInt(process.argv[3] || '30', 10);
-const BOT = fs.readFileSync(path.join(__dirname, 'playthrough.js'), 'utf8').match(/const BOT = `([\s\S]*?)`;/)[1];
+const POLICY_SRC = fs.readFileSync(path.join(__dirname, '..', 'test', 'bot.js'), 'utf8').replace(/module\.exports[\s\S]*$/, '');
+const BOT_POLICY = `(() => { ${POLICY_SRC}; if (window.__bot) clearInterval(window.__bot); window.__bot = setInterval(() => { const G = window.PA_G; if (!G || G.screen !== 'combat' || !G.combat || G.combat.status !== 'running' || G.paused) return; const inp = policy(PA, G.combat); const keys = new Set(); if (inp.mx > 0.3) keys.add('KeyD'); if (inp.mx < -0.3) keys.add('KeyA'); if (inp.my > 0.3) keys.add('KeyS'); if (inp.my < -0.3) keys.add('KeyW'); G.input.keys = keys; if (inp.dodge) G.input.pressed.add('Space'); if (inp.special) G.input.pressed.add('KeyQ'); }, 40); })()`;
+const BOT = /scenario=boss/.test(q) ? BOT_POLICY : fs.readFileSync(path.join(__dirname, 'playthrough.js'), 'utf8').match(/const BOT = `([\s\S]*?)`;/)[1];
 (async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1048, height: 688 } });

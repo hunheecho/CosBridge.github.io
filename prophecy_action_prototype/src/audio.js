@@ -50,6 +50,12 @@ PA.Audio = (function () {
     burst: () => { tone(600, 0.3, 'sine', 0.2, 100); noise(0.15, 0.15); },
     buy: () => { [784, 1046].forEach((f, i) => setTimeout(() => ctx && tone(f, 0.12, 'triangle', 0.15), i * 80)); },
     bite: () => { noise(0.05, 0.2, 400); tone(220, 0.08, 'square', 0.15, 90); },
+    boss_howl: () => { tone(160, 1.2, 'sawtooth', 0.18, 240); tone(80, 1.2, 'sine', 0.2, 120); },
+    boss_roar: () => { tone(90, 0.7, 'sawtooth', 0.25, 50); noise(0.4, 0.2); },
+    boss_land: () => { tone(60, 0.35, 'sine', 0.35, 30); noise(0.25, 0.3); },
+    boss_sweep: () => { noise(0.18, 0.2, 600); tone(140, 0.2, 'triangle', 0.15, 70); },
+    boss_lock: () => { tone(500, 0.08, 'square', 0.18); setTimeout(() => ctx && tone(700, 0.1, 'square', 0.2), 90); },
+    orb: () => { [880, 1175, 1568].forEach((f, i) => setTimeout(() => ctx && tone(f, 0.15, 'sine', 0.15), i * 60)); },
     swing: () => noise(0.07, 0.05, 2500),
     ui: () => tone(700, 0.04, 'square', 0.06),
   };

@@ -35,9 +35,16 @@ PA.Combat = (function () {
       chest: null, chestSpawned: false,
       markTarget: null,
       status: 'running',    // running | won | lost
-      stats: { kills: 0, damageTaken: 0, perfectDodges: 0, chestGold: 0, elapsed: 0, attacks: 0 },
+      stats: { kills: 0, damageTaken: 0, perfectDodges: 0, chestGold: 0, elapsed: 0, attacks: 0, bossDamage: 0, specialUses: 0 },
       spawnedAll: false,
+      mode: opts.boss ? 'boss' : 'normal', intro: 0, boss: null, pickups: [], orbsSpawned: {}, phaseEvents: [], pendingLoss: false, bossDownT: 0,
     };
+    if (opts.boss) {
+      st.objective = 'boss'; st.waveIndex = 99; st.spawnedAll = true;
+      const bs = arenaDef.bossStart || { x: cfg.ARENA.w / 2, y: 120 };
+      PA.Boss.spawn(st, bs.x, bs.y);
+      st.intro = PA.BOSS.intro; // 입장 연출: 아무도 행동하지 않고 피해도 없다
+    }
     return st;
   }
 
@@ -65,7 +72,7 @@ PA.Combat = (function () {
     let x1 = x0 + dx, y1 = y0 + dy, t = 1, hit = null;
     // 벽
     const wx = m().clamp(x1, o.r, a.w - o.r), wy = m().clamp(y1, o.r, a.h - o.r);
-    if (wx !== x1 || wy !== y1) { const tx = dx !== 0 ? (wx - x0) / dx : 1, ty = dy !== 0 ? (wy - y0) / dy : 1; t = Math.max(0, Math.min(t, tx, ty)); hit = 'wall'; }
+    if (wx !== x1 || wy !== y1) { const tx = wx !== x1 ? (wx - x0) / dx : 1, ty = wy !== y1 ? (wy - y0) / dy : 1; t = Math.max(0, Math.min(t, tx, ty)); hit = 'wall'; } // 바뀐 축만 계산(미세 dx로 t=0이 되는 오류 방지)
     const sw = m().sweepCircle(x0, y0, x0 + dx, y0 + dy, o.r, st.obstacles);
     if (sw && sw.t < t) { t = sw.t; hit = sw.ob; }
     if (hit) { const tt = Math.max(0, t - 1e-3); o.x = x0 + dx * tt; o.y = y0 + dy * tt; } else { o.x = x1; o.y = y1; }
@@ -184,7 +191,8 @@ PA.Combat = (function () {
   // ---------- 플레이어 피해 ----------
   function damagePlayer(st, amount, src) {
     const p = st.player;
-    if (p.dead || st.status !== 'running') return false;
+    if (p.dead || st.status !== 'running' || st.intro > 0) return false;
+    if (st.boss && st.boss.dead) return false; // 보스가 쓰러진 뒤에는 추가 피해 없음
     if (p.dodge.active) { // 아슬아슬한 회피
       st.stats.perfectDodges++; // 내부 통계(성장 보상과 연결하지 않는다)
       text(st, p.x, p.y - 30, '회피!', '#7ef2ff');
@@ -209,11 +217,11 @@ PA.Combat = (function () {
     fx(st, { kind: 'hitflash', x: p.x, y: p.y, ttl: 0.25, t: 0 });
     text(st, p.x, p.y - 28, '-' + Math.round(amount), '#ff6b6b');
     ev(st, 'hurt', { src });
-    if (p.hp <= 0) { p.hp = 0; p.dead = true; st.status = 'lost'; ev(st, 'lose'); }
+    if (p.hp <= 0) { p.hp = 0; p.dead = true; st.pendingLoss = true; }
   }
   function zoneDamage(st, amount) {
     const p = st.player;
-    if (p.dead || p.dodge.active) return;
+    if (p.dead || p.dodge.active || st.intro > 0 || (st.boss && st.boss.dead)) return;
     applyPlayerDamage(st, amount, 'zone');
   }
   function barrierBurst(st) {
@@ -221,37 +229,48 @@ PA.Combat = (function () {
     for (const e of st.enemies) {
       if (e.dead) continue;
       const d = m().dist(e, p);
-      if (d <= cfg.knockRadius) { const n = m().norm(e.x - p.x, e.y - p.y); if (e.state === 'dash' || e.state === 'lock' || e.state === 'crouch') { e.state = 'recover'; e.stateT = 0; e.biteT = 0; } knockEnemy(e, n, cfg.knock); }
+      if (d <= cfg.knockRadius) {
+        if (e.boss) { PA.Boss.stagger(st, e); continue; }
+        const n = m().norm(e.x - p.x, e.y - p.y); if (e.state === 'dash' || e.state === 'lock' || e.state === 'crouch') { e.state = 'recover'; e.stateT = 0; e.biteT = 0; } knockEnemy(e, n, cfg.knock);
+      }
     }
     fx(st, { kind: 'burst', x: p.x, y: p.y, r: cfg.knockRadius, ttl: 0.35, t: 0, color: '#7ef2ff' });
     text(st, p.x, p.y - 44, '방벽 파열!', '#7ef2ff');
     ev(st, 'burst');
   }
-  function knockEnemy(e, n, amount) { if (e.state === 'dash') return; e.vx += n.x * amount * 4; e.vy += n.y * amount * 4; }
+  function knockEnemy(e, n, amount) {
+    if (e.state === 'dash' || e.state === 'leap') return;
+    if (e.boss) amount *= PA.BOSS.knockMult; // 보스는 일반 넉백의 20%
+    e.vx += n.x * amount * 4; e.vy += n.y * amount * 4;
+  }
 
   // ---------- 적 피해 ----------
   function damageEnemy(st, e, amount, opt) {
     opt = opt || {};
     if (e.dead) return 0;
     let dmg = amount;
-    if (e.state === 'recover') dmg *= st.build.exposedMult;
+    if (e.state === 'recover' || e.state === 'stagger') dmg *= st.build.exposedMult;
     if (st.markTarget === e) dmg *= C().MARK.damageMult;
     dmg = Math.round(dmg * 10) / 10;
+    if (e.boss) st.stats.bossDamage += Math.min(dmg, Math.max(0, e.hp)); // 실제 체력 감소 기준(과잉 피해 제외)
     e.hp -= dmg; e.flash = 0.12;
+    if (e.boss && e.hp > 0) PA.Boss.checkPhase(st, e);
     if (opt.knock && opt.dir) knockEnemy(e, opt.dir, opt.knock);
     if (opt.sword) {
       if (st.build.has('frost')) e.chill = C().FROST.chill;
       if (st.build.has('stasis') && inField(st, e)) e.stasis = Math.min(C().STASIS.maxStacks, e.stasis + 1);
     }
-    fx(st, { kind: 'spark', x: e.x, y: e.y, ttl: 0.22, t: 0, angle: opt.dir ? Math.atan2(opt.dir.y, opt.dir.x) : st.rng.range(0, Math.PI * 2), crit: e.state === 'recover' });
-    text(st, e.x + st.rng.range(-8, 8), e.y - e.r - 6, String(Math.round(dmg)), e.state === 'recover' ? '#ffd166' : '#fff');
-    ev(st, 'hit', { crit: e.state === 'recover' });
+    const crit = e.state === 'recover' || e.state === 'stagger';
+    fx(st, { kind: 'spark', x: e.x, y: e.y, ttl: 0.22, t: 0, angle: opt.dir ? Math.atan2(opt.dir.y, opt.dir.x) : st.rng.range(0, Math.PI * 2), crit });
+    text(st, e.x + st.rng.range(-8, 8), e.y - e.r - 6, String(Math.round(dmg)), crit ? '#ffd166' : '#fff');
+    ev(st, 'hit', { crit });
     if (e.hp <= 0) killEnemy(st, e, opt);
     return dmg;
   }
   function killEnemy(st, e, opt) {
     e.dead = true; e.deathT = 0; st.stats.kills++;
     ev(st, 'kill', { type: e.type });
+    if (e.boss) { e.state = 'dead'; e.airborne = false; st.bossDownT = 0; ev(st, 'boss_down'); }
     if (st.build.has('saving') && inField(st, e) && st.player.special.cd > 0) {
       st.player.special.cd = Math.max(0, st.player.special.cd - C().SAVING.cdPerKill);
       st.stats.savingKills = (st.stats.savingKills || 0) + 1;
@@ -374,7 +393,7 @@ PA.Combat = (function () {
     if (input.special && p.special.cd <= 0) {
       if (st.field) endField(st); // 활성 감속장이 있으면 먼저 정상 종료(정지된 칼날 폭발 포함)
       st.field = { x: p.x, y: p.y, r: cfg.special.radius, ttl: cfg.special.duration, maxTtl: cfg.special.duration };
-      p.special.cd = b.specialCd;
+      p.special.cd = b.specialCd; st.stats.specialUses++;
       ev(st, 'special');
       text(st, p.x, p.y - 50, '감속장', '#a9d8ff');
     }
@@ -393,15 +412,28 @@ PA.Combat = (function () {
     const n = st.obstacles.length ? steerDir(st, e, tx, ty) : m().norm(tx - e.x, ty - e.y);
     moveSwept(st, e, n.x * speed * dt, n.y * speed * dt, true);
   }
-  function enemySpeedMult(st, e) { return timeFactor(st, e) * (e.chill > 0 ? C().FROST.slow : 1); }
+  // 이동 속도: 냉기 60%, 감속장 40%, 둘 다면 더 강한 40%(곱하지 않는다). 준비·빈틈 진행 감소는 감속장만(timeFactor)
+  function enemySpeedMult(st, e) { return Math.min(timeFactor(st, e), e.chill > 0 ? C().FROST.slow : 1); }
 
+  // 보스전 겹침 제한: 늑대의 돌진 준비·실행은 동시에 1마리, 보스의 큰 공격 확정·실행 중에는 시작 금지.
+  // 조건이 열려도 개체마다 짧은 무작위 지연을 두어 재개 순간 한꺼번에 발동하지 않게 한다.
+  function wolfMayAttack(st, e, dt) {
+    if (st.mode !== 'boss') return true;
+    const others = st.enemies.some(o => o !== e && !o.dead && !o.boss && (o.state === 'crouch' || o.state === 'lock' || o.state === 'dash'));
+    const bossBusy = st.boss && !st.boss.dead && PA.Boss.bossCommitted(st.boss);
+    if (others || bossBusy) { e.readyT = null; return false; }
+    if (e.readyT == null) { const d = PA.BOSS.overlap.wolfDelay; e.readyT = st.rng.range(d[0], d[1]); }
+    e.readyT -= dt;
+    return e.readyT <= 0;
+  }
   function updateWolf(st, e, dt) {
     const d = e.def, p = st.player, tf = timeFactor(st, e), sm = enemySpeedMult(st, e);
     const dist = m().dist(e, p);
     switch (e.state) {
       case 'approach':
         approach(st, e, p.x, p.y, d.speed * sm, dt);
-        if (dist <= d.engageDist && !losBlocked(st, e, p)) { e.state = 'crouch'; e.stateT = 0; e.dashLeft = d.dashes || 1; }
+        if (e.grace > 0) { e.grace -= dt; break; }
+        if (dist <= d.engageDist && !losBlocked(st, e, p) && wolfMayAttack(st, e, dt)) { e.state = 'crouch'; e.stateT = 0; e.dashLeft = d.dashes || 1; e.readyT = null; }
         break;
       case 'crouch': // 방향 추적 중
         e.aimAngle = Math.atan2(p.y - e.y, p.x - e.x);
@@ -493,9 +525,11 @@ PA.Combat = (function () {
       e.lastX = e.x; e.lastY = e.y;
       if (e.flash > 0) e.flash -= dt;
       if (e.chill > 0) e.chill -= dt;
-      if (e.type === 'wolf' || e.type === 'wolf_alpha') updateWolf(st, e, dt);
+      if (e.boss) PA.Boss.update(st, e, dt);
+      else if (e.type === 'wolf' || e.type === 'wolf_alpha') updateWolf(st, e, dt);
       else if (e.type === 'archer') updateArcher(st, e, dt);
       else if (e.type === 'spore') updateSpore(st, e, dt);
+      if (e.airborne) continue; // 도약 중: 지형·분리 무시
       // 넉백 속도 감쇠
       if (e.vx || e.vy) { moveSwept(st, e, e.vx * dt, e.vy * dt); const k = Math.exp(-10 * dt); e.vx *= k; e.vy *= k; if (Math.abs(e.vx) < 1) e.vx = 0; if (Math.abs(e.vy) < 1) e.vy = 0; }
       pushOut(st, e);
@@ -504,11 +538,11 @@ PA.Combat = (function () {
     const alive = st.enemies.filter(e => !e.dead);
     for (let i = 0; i < alive.length; i++) for (let j = i + 1; j < alive.length; j++) {
       const A = alive[i], B = alive[j];
-      if (A.state === 'dash' || B.state === 'dash') continue;
+      if (A.state === 'dash' || B.state === 'dash' || A.airborne || B.airborne) continue;
       const dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy), min = A.r + B.r;
       if (d < min && d > 1e-6) { const push = (min - d) / 2 * C().SEPARATION; A.x -= dx / d * push; A.y -= dy / d * push; B.x += dx / d * push; B.y += dy / d * push; pushOut(st, A); pushOut(st, B); }
     }
-    st.enemies = st.enemies.filter(e => !e.dead || e.deathT < 0.9);
+    st.enemies = st.enemies.filter(e => !e.dead || e.deathT < 0.9 || e.boss);
   }
 
   // ---------- 투사체/지역/필드 ----------
@@ -564,6 +598,18 @@ PA.Combat = (function () {
     fx(st, { kind: 'fieldend', x: f.x, y: f.y, r: f.r, ttl: 0.35, t: 0 });
     st.field = null;
   }
+  function updatePickups(st, dt) {
+    const p = st.player;
+    for (const k of st.pickups) {
+      k.t += dt;
+      if (!k.taken && m().dist(k, p) <= k.r + p.r) {
+        k.taken = true;
+        const before = p.hp; p.hp = Math.min(p.hpMax, p.hp + k.amount);
+        text(st, p.x, p.y - 34, '+' + Math.round(p.hp - before), '#9cffb0'); ev(st, 'orb');
+      }
+    }
+    st.pickups = st.pickups.filter(k => !k.taken);
+  }
   function updateChest(st, dt) {
     const p = st.player;
     if (st.chest && !st.chest.opened && m().dist(st.chest, p) <= st.chest.r + p.r) {
@@ -577,10 +623,10 @@ PA.Combat = (function () {
   }
   function updateWaves(st, dt) {
     // 대기 중 스폰
-    for (const s of st.pending) { s.t -= dt; if (s.t <= 0) spawnEnemy(st, s.type, s.x, s.y); }
+    for (const s of st.pending) { s.t -= dt; if (s.t <= 0) { const e = spawnEnemy(st, s.type, s.x, s.y); if (s.summoned) { e.summoned = true; e.grace = PA.BOSS.overlap.summonGrace; } } }
     st.pending = st.pending.filter(s => s.t > 0);
     const alive = st.enemies.filter(e => !e.dead).length;
-    if (st.waveIndex < st.waves.length - 1 && alive === 0 && st.pending.length === 0) {
+    if (st.mode !== 'boss' && st.waveIndex < st.waves.length - 1 && alive === 0 && st.pending.length === 0) {
       st.waveTimer -= dt;
       if (st.waveTimer <= 0) {
         st.waveIndex++; st.waveTimer = C().WAVE_DELAY;
@@ -590,12 +636,14 @@ PA.Combat = (function () {
         }
       }
     }
-    st.spawnedAll = st.waveIndex >= st.waves.length - 1 && st.pending.length === 0;
+    if (st.mode !== 'boss') st.spawnedAll = st.waveIndex >= st.waves.length - 1 && st.pending.length === 0;
   }
   function checkObjective(st) {
     if (st.status !== 'running') return;
     const alive = st.enemies.filter(e => !e.dead);
-    if (st.objective === 'elite') {
+    if (st.objective === 'boss') {
+      if (st.boss && st.boss.dead) { st.status = 'won'; ev(st, 'win'); }
+    } else if (st.objective === 'elite') {
       if (st.enemies.some(e => e.elite && e.dead)) { st.status = 'won'; ev(st, 'win'); }
     } else if (st.objective === 'clear' && st.spawnedAll && alive.length === 0) { st.status = 'won'; ev(st, 'win'); }
   }
@@ -605,17 +653,26 @@ PA.Combat = (function () {
   }
 
   function step(st, input, dt) {
-    if (st.status !== 'running') { updateEffects(st, dt); for (const e of st.enemies) if (e.dead) e.deathT += dt; return; }
+    if (st.status !== 'running') { updateEffects(st, dt); for (const e of st.enemies) if (e.dead) e.deathT += dt; if (st.boss && st.boss.dead) st.bossDownT += dt; return; }
+    if (st.intro > 0) { // 입장 연출: 시간·행동·피해 없음
+      st.intro -= dt; for (const e of st.enemies) e.animT += dt; updateEffects(st, dt);
+      if (st.intro <= 0 && st.boss) { st.boss.state = 'approach'; st.boss.stateT = 0; ev(st, 'boss_roar', { phase: 1 }); }
+      return;
+    }
     st.t += dt; st.stats.elapsed += dt;
     updatePlayer(st, input || {}, dt);
     updateEnemies(st, dt);
     updateProjectiles(st, dt);
     updateZones(st, dt);
+    updatePickups(st, dt);
     updateChest(st, dt);
     updateWaves(st, dt);
     updateEffects(st, dt);
     checkObjective(st);
+    // 같은 단계에서 보스와 플레이어가 함께 죽으면 승리 우선
+    if (st.status === 'running' && st.pendingLoss) { st.status = 'lost'; ev(st, 'lose'); }
+    if (st.status === 'won') st.pendingLoss = false;
   }
 
-  return { create, step, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir };
+  return { create, step, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
 })();

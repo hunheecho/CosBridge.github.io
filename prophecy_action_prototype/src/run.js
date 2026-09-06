@@ -3,12 +3,16 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
 PA.Run = (function () {
   const C = () => PA.CONFIG;
-  const SAVE_KEY = 'prophecy_action_save_v1';
+  const SAVE_KEY = 'prophecy_action_save_v1';   // 키는 유지(호환), 내용의 version으로 구분
+  const RECORDS_KEY = 'prophecy_action_records_v1';
+  const VERSION = 2;
 
   function newRun(seed) {
     const cfg = C();
     return {
-      version: 1, seed: seed || (Date.now() % 100000), sortieCount: 0,
+      version: VERSION, seed: seed || (Date.now() % 100000), sortieCount: 0,
+      phase: 'prep',            // prep(준비 기간) | boss_prep(7일차 최종 준비) | cleared(보스 처치)
+      bossRetries: 0, bossClear: null,
       day: 1, hours: cfg.HOURS_PER_DAY,
       gold: cfg.START_GOLD, mats: { pelt: 0, iron: 0, spore: 0, fang: 0 },
       gear: PA.Build.emptyGear(), owned: [], augments: {},
@@ -16,8 +20,18 @@ PA.Run = (function () {
       target: 'pierce_sword',
       log: [], // 최근 사건 기록(거점 표시)
       stats: { encounters: 0, wins: 0, losses: 0, kills: 0 },
-      ended: false,
+      ended: false,            // v1 호환 필드. v2에서는 phase를 사용
     };
+  }
+  // v1 저장 → v2: 7일차 ended=true 저장은 보스 준비 상태로 복구. 삭제하지 않는다.
+  function migrate(r) {
+    if (!r.version || r.version === 1) {
+      r.version = 2;
+      r.phase = (r.day >= C().BOSS_DAY) ? 'boss_prep' : 'prep';
+      r.bossRetries = r.bossRetries || 0; r.bossClear = r.bossClear || null; r.ended = false;
+    }
+    if (!r.phase) r.phase = r.day >= C().BOSS_DAY ? 'boss_prep' : 'prep';
+    return r;
   }
 
   function build(run) { return PA.Build.derive(run); }
@@ -27,7 +41,7 @@ PA.Run = (function () {
 
   // ---------- 지역/출격 ----------
   function region(id) { return PA.REGIONS.find(r => r.id === id); }
-  function canSortie(run, regionId) { const r = region(regionId); return !run.ended && !isBossDay(run) && run.hours >= r.cost; }
+  function canSortie(run, regionId) { const r = region(regionId); return run.phase === 'prep' && !isBossDay(run) && run.hours >= r.cost; }
   function startSortie(run, regionId) {
     const r = region(regionId);
     if (!canSortie(run, regionId)) throw new Error('시간 부족');
@@ -91,9 +105,39 @@ PA.Run = (function () {
   function canRest(run) { return run.hours >= C().REST_HOURS && run.hp < build(run).hpMax; }
   function rest(run) { if (!canRest(run)) throw new Error('휴식 불가'); run.hours -= C().REST_HOURS; run.hp = build(run).hpMax; addLog(run, '휴식: 체력 회복'); }
   function endDay(run) {
+    if (run.phase !== 'prep') throw new Error('보스 준비 중에는 하루를 넘길 수 없음');
     run.day++; run.hours = C().HOURS_PER_DAY; run.hp = build(run).hpMax;
     addLog(run, '새로운 아침');
-    if (isBossDay(run)) run.ended = true;
+    if (isBossDay(run)) { run.phase = 'boss_prep'; addLog(run, '예언의 날: 최종 준비'); }
+  }
+  // ---------- 보스전 ----------
+  function bossSeed(run) { return run.seed * 997 + 7; } // 같은 회차·같은 빌드 재도전 = 같은 시드·지형
+  function canStartBoss(run) { return run.phase === 'boss_prep' || run.phase === 'cleared'; }
+  function startBoss(run) {
+    if (!canStartBoss(run)) throw new Error('보스 준비 상태가 아님');
+    run.hp = build(run).hpMax; // 입장: 체력 완전 회복(회피·감속장·방벽은 전투 생성 시 초기화)
+    return { regionId: 'boss', seed: bossSeed(run), loot: { gold: 0, mats: {} }, encounters: 0 };
+  }
+  function bossDefeat(run) { run.bossRetries = (run.bossRetries || 0) + 1; run.hp = build(run).hpMax; addLog(run, `보스전 패배 (재도전 ${run.bossRetries}회)`); }
+  function bossVictory(run, stats) {
+    const b = build(run);
+    const rec = { time: Math.round(stats.elapsed * 10) / 10, retries: run.bossRetries || 0, weapon: b.weapon.name, upgrade: run.gear.upgrade, acc: run.gear.acc, armor: run.gear.armor, augments: Object.assign({}, run.augments), specialUses: stats.specialUses || 0, bossDamage: Math.round(stats.bossDamage || 0), day: run.day, seed: run.seed, at: Date.now() };
+    if (!run.bossClear) run.bossClear = rec; // 첫 처치 기록은 회차 안에서 유지
+    run.lastBossClear = rec; run.phase = 'cleared';
+    addLog(run, `가시갈기 처치 (${rec.time}초)`);
+    return rec;
+  }
+  function ownedBySlot(run, slot) { return run.owned.filter(id => item(id) && item(id).slot === slot); }
+  function unequip(run, slot) { if (slot === 'armor') run.gear.armor = null; else if (slot === 'acc') run.gear.acc = null; else if (slot === 'weapon') run.gear.weapon = 'sword'; run.hp = Math.min(run.hp, build(run).hpMax); }
+  // 처치 기록(회차와 별도 보관, 새 회차로 삭제되지 않음)
+  function loadRecords(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(RECORDS_KEY); return s ? JSON.parse(s) : { firstClear: null, clears: [] }; } catch (e) { return { firstClear: null, clears: [] }; } }
+  function saveRecord(rec, storage) {
+    storage = storage || globalThis.localStorage;
+    const R = loadRecords(storage);
+    if (!R.firstClear) R.firstClear = rec;
+    R.clears.push(rec); if (R.clears.length > 20) R.clears.shift();
+    try { storage.setItem(RECORDS_KEY, JSON.stringify(R)); } catch (e) {}
+    return R;
   }
 
   // ---------- 상점/대장간 ----------
@@ -166,10 +210,10 @@ PA.Run = (function () {
 
   // ---------- 저장 ----------
   function serialize(run) { return JSON.stringify(run); }
-  function deserialize(s) { const r = JSON.parse(s); if (r.version !== 1) throw new Error('저장 버전 불일치'); return r; }
+  function deserialize(s) { const r = JSON.parse(s); if (r.version !== 1 && r.version !== 2) throw new Error('저장 버전 불일치'); return migrate(r); }
   function save(run, storage) { storage = storage || globalThis.localStorage; try { storage.setItem(SAVE_KEY, serialize(run)); return true; } catch (e) { return false; } }
   function load(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(SAVE_KEY); return s ? deserialize(s) : null; } catch (e) { return null; } }
   function clearSave(storage) { storage = storage || globalThis.localStorage; try { storage.removeItem(SAVE_KEY); } catch (e) {} }
 
-  return { SAVE_KEY, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
+  return { SAVE_KEY, RECORDS_KEY, VERSION, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
 })();

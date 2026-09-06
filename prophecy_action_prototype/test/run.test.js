@@ -89,8 +89,9 @@ test('하루 일정: 출격·더 깊이·휴식 비용과 하루 종료·보스 
   run.hp = 10; R.rest(run); assert.equal(run.hours, 0); assert.equal(run.hp, 100);
   assert.throws(() => R.rest(run));
   assert.throws(() => R.deepExplore(run, s), '시간 0이면 더 깊이 불가');
-  for (let d = 1; d < 6; d++) { R.endDay(run); assert.equal(run.day, d + 1); assert.equal(run.hours, 5); assert.equal(run.ended, false); }
-  R.endDay(run); assert.equal(run.day, 7); assert.equal(run.ended, true); assert.equal(R.canSortie(run, 'forest'), false);
+  for (let d = 1; d < 6; d++) { R.endDay(run); assert.equal(run.day, d + 1); assert.equal(run.hours, 5); assert.equal(run.phase, 'prep'); }
+  R.endDay(run); assert.equal(run.day, 7); assert.equal(run.phase, 'boss_prep'); assert.equal(run.ended, false); assert.equal(R.canSortie(run, 'forest'), false);
+  assert.throws(() => R.endDay(run), /보스 준비/); assert.equal(R.canStartBoss(run), true);
 });
 
 test('더 깊이 탐험 웨이브: 적 +1, 마지막에 정예. 보상 배율과 송곳니 조건', () => {

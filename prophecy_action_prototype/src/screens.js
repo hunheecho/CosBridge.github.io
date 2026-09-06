@@ -31,6 +31,25 @@ PA.Screens = (function () {
       <div class="cost">비용: ${costText(t.cost)}</div>${needs}
       <div class="row"><button data-action="shop" class="${t.ready ? 'primary' : ''}">상점·대장간</button><button data-action="map">지역 보기</button></div></div>`;
   }
+  // 다가오는 보스 정보(준비 기간부터 공개)
+  function bossCard(run, full) {
+    const B = PA.BOSS, left = R().bossDaysLeft(run);
+    const when = run.phase === 'cleared' ? '처치함' : left > 0 ? `${left}일 뒤 도래` : '오늘 도래';
+    return `<div class="card boss"><div class="card-title">다가오는 보스: ${esc(B.name)} — ${esc(B.title)} <span class="tag">${when}</span></div>
+      <div class="bossart"><canvas class="bossportrait" width="160" height="90"></canvas><div><p>숲과 늑대 무리를 지배하는 거대한 늑대. 목과 등에 부러진 나뭇가지 같은 검은 가시가 돋았고, 한쪽 송곳니가 부러졌다.</p>
+      <ul class="tips">${B.info.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+      ${full ? `<p class="dim small">전장: ${esc(PA.ARENAS.clearing.name)} · 바위 2, 나무 2 · 체력 ${B.hp} · 단계 전환 70%·35% · 시간제한 없음</p>` : ''}</div></div></div>`;
+  }
+  function gearPanel(run) {
+    const g = run.gear;
+    const accs = R().ownedBySlot(run, 'acc'), armors = R().ownedBySlot(run, 'armor');
+    const accBtns = accs.map(id => g.acc === id ? `<span class="tag">${esc(R().item(id).name)} 장착 중</span>` : `<button class="mini" data-action="equip" data-arg="${id}">${esc(R().item(id).name)} 장착</button>`).join(' ');
+    const armorBtns = armors.map(id => g.armor === id ? `<span class="tag">${esc(R().item(id).name)} 장착 중</span>` : `<button class="mini" data-action="equip" data-arg="${id}">${esc(R().item(id).name)} 장착</button>`).join(' ');
+    return `<div class="card"><div class="card-title">장비 교체 <span class="sub">추가 비용 없음</span></div>
+      <div class="kv"><span>무기</span><b>${g.weapon === 'pierce' ? '관통검' : '기본검'}${g.upgrade ? ' +' + g.upgrade : ''}</b> ${run.owned.includes('pierce_sword') ? `<button class="mini" data-action="toggle-weapon">${g.weapon === 'pierce' ? '기본검으로' : '관통검으로'}</button>` : '<span class="dim small">관통검 미보유</span>'}</div>
+      <div class="kv"><span>방어구</span>${armorBtns || '<span class="dim">보유 없음</span>'}${g.armor ? ` <button class="mini" data-action="unequip" data-arg="armor">해제</button>` : ''}</div>
+      <div class="kv"><span>장신구</span>${accBtns || '<span class="dim">보유 없음</span>'}${g.acc ? ` <button class="mini" data-action="unequip" data-arg="acc">해제</button>` : ''}</div></div>`;
+  }
   function buildPanel(run) {
     const b = R().build(run), g = run.gear;
     const augs = Object.keys(run.augments).filter(k => run.augments[k] > 0).map(k => { const d = PA.AUGMENTS.find(a => a.id === k); return `<li><b>${esc(d.name)}</b>${d.max > 1 ? ` ${run.augments[k]}단계` : ''} <span class="dim">${esc(d.desc)}</span></li>`; }).join('');
@@ -57,19 +76,40 @@ PA.Screens = (function () {
   function newrunConfirm() {
     return `<div class="screen center"><h2>새 회차를 시작할까요?</h2><p>기존 저장(진행 중인 회차)이 덮어씌워집니다.</p><div class="row"><button class="primary" data-action="newrun-confirm">새 회차 시작</button><button data-action="title">돌아가기</button></div></div>`;
   }
+  function finalPrep(G) {
+    const run = G.run, b = R().build(run), cleared = run.phase === 'cleared';
+    const rec = run.bossClear;
+    return `<div class="screen">${header(run)}
+      <h2>${run.day}일차 — ${cleared ? '예언의 날을 넘겼다' : '최종 준비'}</h2>
+      <p class="dim">오늘은 일반 출격이 없습니다. 보유 자금으로 구매·강화하고, 재료를 팔고, 장비를 교체한 뒤 보스에게 갑니다. 입장 시 체력·회피·감속장·방벽이 모두 준비된 상태로 시작합니다.</p>
+      ${cleared && rec ? `<div class="card ok"><div class="card-title">첫 처치 기록</div><p>${rec.time}초 · 재도전 ${rec.retries}회 · ${esc(rec.weapon)}${rec.upgrade ? ' +' + rec.upgrade : ''} · 보스에게 준 피해 ${rec.bossDamage}</p></div>` : ''}
+      <div class="grid2"><div>
+        ${bossCard(run, true)}
+        <div class="card"><div class="card-title">준비</div><div class="actions">
+          <button class="primary big" data-action="boss-start">${cleared ? '이번 빌드로 보스 다시 도전' : '보스에게 간다 (입장)'}</button>
+          <button class="big" data-action="shop">상점 · 대장간 · 재료 판매</button>
+          ${cleared ? '<button class="big" data-action="newrun-confirm">새 회차 시작</button>' : ''}
+          <button data-action="save-quit">저장 후 종료</button></div></div>
+        <div class="card"><div class="card-title">재료</div>${matsRow(run)}</div>
+      </div><div>${gearPanel(run)}${buildPanel(run)}
+        <div class="card"><div class="card-title">최근 기록</div>${run.log.length ? `<ul class="log">${run.log.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '<p class="dim">아직 없음</p>'}</div>
+      </div></div></div>`;
+  }
   function base(G) {
     const run = G.run;
+    if (run.phase !== 'prep') return finalPrep(G);
     const canRest = R().canRest(run);
     return `<div class="screen">${header(run)}
       <div class="grid2">
         <div>
           ${targetCard(run)}
+          ${bossCard(run, false)}
           <div class="card"><div class="card-title">오늘 할 일</div>
             <div class="actions">
               <button class="primary big" data-action="map">출격 · 지역 선택</button>
               <button class="big" data-action="shop">상점 · 대장간</button>
               <button class="big" data-action="rest" ${canRest ? '' : 'disabled'}>휴식 (1시간, 체력 완전 회복)${canRest ? '' : run.hp >= R().build(run).hpMax ? ' · 체력 가득' : ' · 시간 부족'}</button>
-              <button class="big" data-action="endday-confirm">하루 종료 → ${run.day + 1}일차${run.hours > 0 ? ` <span class="dim">(남은 ${run.hours}시간 버림)</span>` : ''}</button>
+              <button class="big" data-action="endday-confirm">하루 종료 → ${run.day + 1}일차${run.day + 1 >= PA.CONFIG.BOSS_DAY ? ' <span class="warn">(보스 도래)</span>' : ''}${run.hours > 0 ? ` <span class="dim">(남은 ${run.hours}시간 버림)</span>` : ''}</button>
               <button data-action="save-quit">저장 후 종료</button>
             </div></div>
           <div class="card"><div class="card-title">재료</div>${matsRow(run)}<p class="dim small">재료는 상점에서 팔 수 있습니다. 제작에 쓸지 현금으로 바꿀지 선택하세요.</p></div>
@@ -94,7 +134,7 @@ PA.Screens = (function () {
         <div class="kv"><span>목적</span><b>${r.objective === 'elite' ? '정예 처치' : '전멸'} · ${r.waves.length}웨이브</b></div>
         <div class="kv"><span>보상</span><b>${rewardText}</b>${forTarget ? ' <span class="tag">목표 장비 재료</span>' : ''}</div>
         <ul class="enemies">${enemies}</ul>
-        <button class="primary" data-action="sortie" data-arg="${r.id}" ${can ? '' : 'disabled'}>${can ? `출격 (${r.cost}시간 사용 → ${run.hours - r.cost}시간 남음)` : '시간 부족'}</button>
+        <button class="primary" data-action="sortie" data-arg="${r.id}" ${can ? '' : 'disabled'}>${can ? `출격 (${r.cost}시간 사용 → ${run.hours - r.cost}시간 남음)` : run.phase !== 'prep' ? '7일차: 출격 종료' : '시간 부족'}</button>
       </div>`;
     }).join('');
     return `<div class="screen">${header(run)}
@@ -179,10 +219,30 @@ PA.Screens = (function () {
       <p class="dim small">처치 ${G.lastStats.kills} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · ${Math.round(G.lastStats.elapsed)}초</p>
       <button class="primary big" data-action="base">거점으로</button></div>`;
   }
+  function bossDefeat(G) {
+    const run = G.run, s = G.lastStats;
+    return `<div class="screen center"><h2 class="bad">쓰러졌다</h2><p>${esc(PA.BOSS.name)}에게 패배했습니다. 준비 기간의 성과는 그대로입니다. 같은 장비·증강으로 바로 다시 도전할 수 있습니다.</p>
+      <p class="dim small">전투 ${Math.round(s.elapsed)}초 · 보스에게 준 피해 ${Math.round(s.bossDamage)} / ${PA.BOSS.hp} · 감속장 ${s.specialUses}회 · 재도전 ${run.bossRetries}회</p>
+      <div class="menu"><button class="primary big" data-action="boss-start">같은 준비로 재도전</button><button class="big" data-action="base">최종 준비 화면으로</button><button class="big" data-action="title">제목으로</button></div></div>`;
+  }
+  function bossVictory(G) {
+    const run = G.run, s = G.lastStats, b = R().build(run), rec = G.lastRecord || run.lastBossClear || {};
+    const augs = Object.keys(run.augments).filter(k => run.augments[k] > 0).map(k => { const d = PA.AUGMENTS.find(a => a.id === k); return d.name + (d.max > 1 ? ' ' + run.augments[k] : ''); }).join(', ') || '없음';
+    return `<div class="screen center"><h1>예언의 날을 넘겼다.</h1><h2>${esc(PA.BOSS.name)} — ${esc(PA.BOSS.title)} 처치</h2>
+      <div class="card"><div class="card-title">회차 결과</div>
+        <ul class="gear" style="text-align:left">
+          <li>전투 시간: <b>${Math.round(s.elapsed * 10) / 10}초</b> · 재도전 <b>${run.bossRetries}회</b></li>
+          <li>무기: <b>${esc(b.weapon.name)}${run.gear.upgrade ? ' +' + run.gear.upgrade : ''}</b> · 장신구: <b>${run.gear.acc ? esc(R().item(run.gear.acc).name) : '없음'}</b> · 방어구: <b>${run.gear.armor ? esc(R().item(run.gear.armor).name) : '없음'}</b></li>
+          <li>증강: ${esc(augs)}</li>
+          <li>감속장 사용 <b>${s.specialUses}</b>회 · 보스에게 준 총피해 <b>${Math.round(s.bossDamage)}</b> (실제 체력 감소 기준)</li>
+          <li class="dim small">첫 처치 기록${G.firstClearNew ? '으로 저장됨' : ': ' + (run.bossClear ? run.bossClear.time + '초' : '—')} · 효과별 피해 통계는 후속</li>
+        </ul></div>
+      <div class="menu"><button class="primary big" data-action="boss-start">이번 빌드로 보스 다시 도전</button><button class="big" data-action="newrun-confirm">새 회차 시작</button><button class="big" data-action="title">제목으로</button></div></div>`;
+  }
   function enddayConfirm(G) {
     const run = G.run;
     return `<div class="screen center"><h2>하루를 마칠까요?</h2><p>남은 ${run.hours}시간을 버리고 ${run.day + 1}일차로 넘어갑니다. 체력이 완전히 회복되고 시간이 5로 돌아옵니다.</p>
-      <p class="dim">보스 도래까지 ${R().bossDaysLeft(run) - 1 > 0 ? (R().bossDaysLeft(run) - 1) + '일 남음' : '내일이 도래일입니다'}</p>
+      ${run.day + 1 >= PA.CONFIG.BOSS_DAY ? `<div class="card boss"><div class="card-title">내일 ${esc(PA.BOSS.name)}가 도래합니다</div><p>7일차에는 일반 출격이 없습니다. 최종 준비(구매·강화·판매·장비 교체) 뒤 보스전에 들어갑니다. 패배해도 같은 준비로 바로 재도전할 수 있습니다.</p></div>` : `<p class="dim">보스 도래까지 ${R().bossDaysLeft(run) - 1}일 남음</p>`}
       <div class="row"><button class="primary" data-action="endday">하루 종료</button><button data-action="base">돌아가기</button></div></div>`;
   }
   function bossday(G) {
@@ -197,7 +257,7 @@ PA.Screens = (function () {
   function scenarioEnd(G) {
     const s = G.lastStats;
     return `<div class="screen center"><h2>시험 전투 종료: ${G.lastResult === 'won' ? '승리' : '패배'}</h2>
-      <p class="dim">처치 ${s.kills}${s.savingKills ? ` (감속장 안 ${s.savingKills})` : ''} · 받은 피해 ${Math.round(s.damageTaken)} · 공격 ${s.attacks}회 · ${Math.round(s.elapsed)}초</p>
+      <p class="dim">처치 ${s.kills}${s.savingKills ? ` (감속장 안 ${s.savingKills})` : ''} · 받은 피해 ${Math.round(s.damageTaken)} · 공격 ${s.attacks}회 · ${Math.round(s.elapsed)}초${s.bossDamage ? ` · 보스 피해 ${Math.round(s.bossDamage)} · 감속장 ${s.specialUses}회` : ''}</p>
       <div class="row"><button class="primary" data-action="scenario-again">같은 시드로 다시</button><button data-action="title">제목으로</button></div></div>`;
   }
   function controls() {
@@ -208,7 +268,9 @@ PA.Screens = (function () {
         <li><b>붉은 점선</b>: 궁수의 조준선. 굵어지면 발사 직전.</li>
         <li><b>보라색 원</b>: 포자 구름이 생길 자리. 원 밖으로 나가세요. 구름은 5초간 남습니다.</li>
         <li><b>노란 별</b>: 빈틈. 이때 때리면 피해 1.5배.</li>
-        <li>자동 공격은 사거리 안에 적이 있을 때만 가장 가까운 적을 향해 나갑니다.</li></ul>
+        <li>자동 공격은 사거리 안에 적이 있을 때만 가장 가까운 적을 향해 나갑니다.</li>
+        <li><b>바위·나무</b>: 이동·회피·돌진을 막습니다. 검격·관통·회전 같은 <b>직접 공격</b>은 장애물 뒤를 때리지 못하지만, <b>불길·폭발·감속장·정지된 칼날</b>은 바닥 범위대로 적용됩니다.</li>
+        <li><b>보스</b>: 붉은 통로(돌진), 부채꼴(휩쓸기), 원(덮쳐찍기), 발자국(늑대 등장). 큰 공격 뒤 "빈틈!"에 붙어서 때리세요. 감속장은 보스도 늦춥니다.</li></ul>
       <button data-action="close-overlay" class="primary">닫기</button></div>`;
   }
   function pause(G) {
@@ -216,5 +278,14 @@ PA.Screens = (function () {
       <div class="row"><label>음량 <input type="range" id="vol" min="0" max="100" value="${Math.round(PA.Audio.volume * 100)}"></label><label><input type="checkbox" id="mute" ${PA.Audio.muted ? 'checked' : ''}> 음소거</label></div>
       <div class="row"><button class="primary" data-action="resume">계속 (Esc)</button><button data-action="show-controls">조작법</button><button class="danger" data-action="give-up">포기하고 거점으로 (패배 처리)</button></div></div>`;
   }
-  return { title, newrunConfirm, base, map, shop, reward, after, defeat, enddayConfirm, bossday, scenarioEnd, controls, pause };
+  // 보스 초상(카드용 작은 캔버스): 렌더러의 보스 그리기를 재사용
+  function paintPortraits() {
+    for (const c of document.querySelectorAll('canvas.bossportrait')) {
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#1b2118'; ctx.fillRect(0, 0, c.width, c.height);
+      const fake = { arena: PA.CONFIG.ARENA, obstacles: [], player: { x: 400, y: 45, r: 14 }, enemies: [], effects: [], zones: [], pickups: [], field: null, t: 0, boss: null, markTarget: null };
+      const e = { boss: true, type: 'boss', def: PA.ENEMIES.boss, x: 70, y: 52, r: 42, hp: 1, hpMax: 1, state: 'intro', stateT: 0, animT: 0, moveT: 0, faceX: 1, flash: 0, chill: 0, stasis: 0, biteT: 9, dead: false, deathT: 0, aimAngle: 0, dir: 0, leapK: 0 };
+      ctx.save(); ctx.scale(0.8, 0.8); PA.Render.drawBoss(ctx, fake, e); ctx.restore();
+    }
+  }
+  return { title, newrunConfirm, base, finalPrep, map, shop, reward, after, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard };
 })();
