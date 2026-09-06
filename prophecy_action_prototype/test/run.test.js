@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs'), path = require('path');
-const { load, fakeStorage, ORDER } = require('./load');
+const { load, fakeStorage, ORDER, runWith } = require('./load');
 const PA = load();
 const R = PA.Run;
 const j = (x) => JSON.parse(JSON.stringify(x)); // vm 컨텍스트 프로토타입 차이를 없앤다
@@ -12,31 +12,28 @@ test('index.html의 스크립트 순서가 테스트 로더의 순서와 일치�
   assert.deepEqual(tags.slice(0, ORDER.length), ORDER);
 });
 
-test('빌드 파생: 증강·강화가 정확히 한 번씩 곱해진다', () => {
-  const run = R.newRun(1); run.augments.sharp = 2; run.gear.upgrade = 1; run.augments.quick = 1; run.augments.wide = 1;
-  const b = R.build(run);
-  assert.ok(Math.abs(b.damage - 12 * 1.5 * 1.15) < 1e-9);
-  assert.ok(Math.abs(b.interval - 0.55 * 0.85) < 1e-9);
-  assert.ok(Math.abs(b.range - 95 * 1.25) < 1e-9);
-  assert.equal(PA.Build.hitsToKill(b, 'wolf'), Math.ceil(30 / b.damage));
+test('빌드 파생: 대장간 강화·무기 숙련·가속·넓어진 공격이 정확히 한 번씩 곱해진다', () => {
+  const run = runWith(PA, { gear: { upgrade: 1 }, growth: { weapons: [{ id: 'sword', level: 1 }], commons: { wide: 1 }, passives: { mastery: 2, haste: 1 } } });
+  const b = R.build(run), w = b.weapons[0];
+  assert.ok(Math.abs(w.damage - 12 * 1.15 * 1.2) < 1e-9);
+  assert.ok(Math.abs(w.interval - 0.55 * 0.92) < 1e-9);
+  assert.ok(Math.abs(w.arcDeg - 110 * 1.25) < 1e-9);
+  assert.equal(PA.Build.hitsToKill(b, 'wolf'), Math.ceil(30 / w.damage));
 });
 
-test('증강: 최대 단계·전제 조건을 지키며, 제시 목록에 무효 선택이 없다', () => {
-  const run = R.newRun(1);
-  R.takeAugment(run, 'sharp'); R.takeAugment(run, 'sharp'); R.takeAugment(run, 'sharp');
-  assert.equal(run.augments.sharp, 3);
-  assert.throws(() => R.takeAugment(run, 'sharp'));
-  assert.throws(() => R.takeAugment(run, 'flare'), '잔불 걸음 없이 불꽃 파열 불가');
-  const rng = PA.rng.create(5);
-  for (let i = 0; i < 50; i++) for (const a of R.augmentOffers(run, rng, 3)) { assert.notEqual(a.id, 'sharp'); assert.notEqual(a.id, 'flare'); }
-  R.takeAugment(run, 'ember');
-  let seen = false; for (let i = 0; i < 100; i++) if (R.augmentOffers(run, rng, 3).some(a => a.id === 'flare')) seen = true;
+test('공통 증강: 최대 단계·전제 조건을 지키며, 제시 목록에 무효 선택이 없다', () => {
+  const run = runWith(PA, {}); const Gr = PA.Growth;
+  Gr.applyChoice(run, { kind: 'common', id: 'wide' }); Gr.applyChoice(run, { kind: 'common', id: 'wide' });
+  assert.throws(() => Gr.applyChoice(run, { kind: 'common', id: 'wide' }));
+  assert.throws(() => Gr.applyChoice(run, { kind: 'common', id: 'flare' }), '불길 공급원 없이 불꽃 파열 불가');
+  for (let i = 0; i < 30; i++) { run.growth.choiceSeq = i; run.growth.pendingOffer = null; for (const c of Gr.generateOffer(run, {}).choices) { assert.notEqual(c.key, 'common:wide'); assert.notEqual(c.key, 'common:flare'); } }
+  Gr.applyChoice(run, { kind: 'common', id: 'ember' });
+  let seen = false; for (let i = 0; i < 80; i++) { run.growth.choiceSeq = 100 + i; run.growth.pendingOffer = null; if (Gr.generateOffer(run, {}).choices.some(c => c.key === 'common:flare')) seen = true; }
   assert.ok(seen, '잔불 걸음 이후에는 불꽃 파열이 제시됨');
-  R.takeAugment(run, 'spin'); assert.throws(() => R.takeAugment(run, 'spin'), '1회 증강 중복 불가');
 });
 
 test('조우 간 유지/제거: 증강·장비·체력은 유지되고 보호막·감속장·지역은 새 조우에서 초기화된다', () => {
-  const run = R.newRun(1); run.augments.barrier = 1; run.hp = 55;
+  const run = runWith(PA, { augments: { barrier: 1 } }); run.hp = 55;
   const st = PA.Combat.create({ build: R.build(run), hp: run.hp, seed: 1, waves: [], objective: 'clear' });
   st.player.shield = 0; st.field = { x: 0, y: 0, r: 1, ttl: 9, maxTtl: 9 }; PA.Combat.addZone(st, 'spore', 1, 1, 10, 9, 1);
   const st2 = PA.Combat.create({ build: R.build(run), hp: st.player.hp, seed: 2, waves: [], objective: 'clear' });
@@ -53,8 +50,8 @@ test('구매·제작: 비용이 정확히 차감되고 즉시 장착되어 전�
   assert.equal(R.canBuy(run, it), true);
   R.buy(run, 'pierce_sword');
   assert.equal(run.gold, 40); assert.equal(run.mats.pelt, 0); assert.equal(run.mats.iron, 0);
-  assert.equal(run.gear.weapon, 'pierce');
-  assert.equal(R.build(run).weapon.form, 'beam');
+  assert.ok(PA.Growth.weaponOf(run.growth, 'spear'), '관통창이 추가 무기 슬롯에 장착');
+  assert.ok(R.build(run).weapons.some(w => w.kind === 'beam'));
   assert.equal(R.itemAvailable(run, it), false);
   assert.notEqual(run.target, 'pierce_sword', '목표 달성 후 다음 목표로');
   // 강화 3단계 비용 진행
@@ -62,7 +59,7 @@ test('구매·제작: 비용이 정확히 차감되고 즉시 장착되어 전�
   R.buy(run, 'whetstone'); R.buy(run, 'whetstone'); R.buy(run, 'whetstone');
   assert.equal(run.gear.upgrade, 3); assert.equal(run.gold, 1000 - 80 - 140 - 220); assert.equal(run.mats.iron, 0);
   assert.equal(R.itemAvailable(run, R.item('whetstone')), false);
-  assert.ok(Math.abs(R.build(run).damage - 14 * 1.45) < 1e-9);
+  assert.ok(Math.abs(R.build(run).weapons[0].damage - 12 * 1.45) < 1e-9, '대장간 강화는 세 무기 공통 배율');
   // 장신구/방어구
   run.gold = 500; run.mats.spore = 1; run.mats.pelt = 2;
   R.buy(run, 'time_charm'); R.buy(run, 'leather_armor');
@@ -134,30 +131,24 @@ test('시드가 같으면 전투가 동일하게 재현된다', () => {
   assert.deepEqual(j(play()), j(play()));
 });
 
-test('증강 미리보기 문구의 수치가 실제 파생값과 일치한다(넓은 검격 1→2단계 등)', () => {
-  const run = R.newRun(1); run.augments.wide = 1;
-  const wide = PA.AUGMENTS.find(a => a.id === 'wide');
-  const txt = PA.Build.connectionText(run, wide);
-  const actual = Math.round(PA.Build.preview(run, { augment: 'wide' }).range);
-  assert.ok(txt.includes(`${Math.round(R.build(run).range)} → ${actual}`), txt);
-  assert.equal(actual, 143);
-  run.gear.weapon = 'pierce';
-  const t2 = PA.Build.connectionText(run, wide); assert.ok(t2.includes('관통검') && t2.includes(String(Math.round(PA.Build.preview(run, { augment: 'wide' }).range))), t2);
-  const sharp = PA.AUGMENTS.find(a => a.id === 'sharp'); run.augments.sharp = 2;
-  const t3 = PA.Build.connectionText(run, sharp); assert.ok(t3.includes(`→ ${PA.fmt.num(PA.Build.preview(run, { augment: 'sharp' }).damage)}`), t3);
-  // 보유하지 않은 효과와 연결된 것처럼 말하지 않는다
-  const frost = PA.AUGMENTS.find(a => a.id === 'frost'); run.gear.weapon = 'sword'; run.augments = {};
-  assert.ok(!PA.Build.connectionText(run, frost).startsWith('관통검:'));
+test('카드 미리보기 수치가 실제 파생값과 일치한다(넓어진 공격, 무기 숙련)', () => {
+  const run = runWith(PA, { growth: { weapons: [{ id: 'spear', level: 1 }], commons: { wide: 1 } } });
+  const d = PA.Growth.describe(run, { kind: 'common', id: 'wide' });
+  const nb = PA.Build.preview(run, { augment: { kind: 'common', id: 'wide' } });
+  assert.ok(d.change.includes(`→ ${Math.round(nb.weapons[0].width)}`), d.change);
+  const dm = PA.Growth.describe(run, { kind: 'passive', id: 'mastery' });
+  const nb2 = PA.Build.preview(run, { augment: { kind: 'passive', id: 'mastery' } });
+  assert.ok(dm.change.includes(`→ ${PA.fmt.num(nb2.weapons[0].damage)}`), dm.change);
 });
 
 test('기존 저장의 시간 저축(saving)이 새 규칙으로 이어진다', () => {
   const st = fakeStorage();
-  const old = R.newRun(1); old.augments.saving = 1; old.day = 2;
+  const old = R.newRun(1); old.version = 1; delete old.growth; old.augments.saving = 1; old.day = 2;
   st.setItem(R.SAVE_KEY, JSON.stringify(old));
   const back = R.load(st);
   const b = R.build(back);
-  assert.equal(b.has('saving'), true);
-  assert.equal(PA.AUGMENTS.find(a => a.id === 'saving').desc.includes('처치'), true);
+  assert.equal(b.has('saving'), true); assert.equal(back.version, 3);
+  assert.equal(PA.COMMONS.saving.desc.includes('처치'), true);
   const c = PA.Combat.create({ build: b, seed: 1, waves: [], objective: 'none' }); c.waveIndex = 99;
   PA.Combat.step(c, { special: true }, PA.CONFIG.STEP); const cd = c.player.special.cd;
   const e = PA.Combat.spawnEnemy(c, 'wolf', c.player.x + 30, c.player.y); e.hp = 1; PA.Combat.damageEnemy(c, e, 5, {});

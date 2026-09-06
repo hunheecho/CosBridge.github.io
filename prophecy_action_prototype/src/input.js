@@ -3,7 +3,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
 PA.Input = (function () {
   const MOVE = { KeyA: [-1, 0], ArrowLeft: [-1, 0], KeyD: [1, 0], ArrowRight: [1, 0], KeyW: [0, -1], ArrowUp: [0, -1], KeyS: [0, 1], ArrowDown: [0, 1] };
-  const ONESHOT = { Space: 'dodge', KeyQ: 'special' };
+  const ONESHOT = { Space: 'dodge', KeyQ: 'special', KeyE: 'skillE' };
   function create() { return { keys: new Set(), pressed: new Set(), blocked: false }; }
   // 정지(blocked=true)·재개(blocked=false) 양쪽에서 남은 눌림/단발 입력을 모두 비운다
   function setBlocked(inp, blocked) { inp.blocked = !!blocked; inp.keys.clear(); inp.pressed.clear(); }
@@ -18,7 +18,7 @@ PA.Input = (function () {
   function state(inp) {
     let mx = 0, my = 0;
     for (const code of inp.keys) { const m = MOVE[code]; if (m) { mx += m[0]; my += m[1]; } }
-    return { mx: Math.max(-1, Math.min(1, mx)), my: Math.max(-1, Math.min(1, my)), dodge: inp.pressed.has('Space'), special: inp.pressed.has('KeyQ') };
+    return { mx: Math.max(-1, Math.min(1, mx)), my: Math.max(-1, Math.min(1, my)), dodge: inp.pressed.has('Space'), special: inp.pressed.has('KeyQ'), skillE: inp.pressed.has('KeyE') };
   }
   function consumePressed(inp) { inp.pressed.clear(); }
   return { create, setBlocked, keyDown, keyUp, clearAll, state, consumePressed, MOVE, ONESHOT };

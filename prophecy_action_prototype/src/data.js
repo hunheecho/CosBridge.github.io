@@ -157,4 +157,4 @@ PA.REGIONS = [
 
 PA.BOSS_ACTION_TEXT = { intro: '입장', approach: '접근', sweep_aim: '송곳니 휩쓸기 준비', sweep_lock: '휩쓸기!', dash_aim: '사냥 돌진 준비', dash_lock: '돌진!', dash: '돌진 중', howl: '무리 소환', pounce_aim: '덮쳐찍기 준비', pounce_lock: '덮쳐찍기!', leap: '도약 중', recover: '빈틈!', roar: '포효', stagger: '비틀거림!', dead: '쓰러짐' };
 
-PA.KEYS_TEXT = 'WASD/방향키 이동 · Space 회피 · Q 감속장 · Esc 일시정지';
+PA.KEYS_TEXT = 'WASD/방향키 이동 · Space 회피 · Q 감속장 · E 기술 · Esc 일시정지';

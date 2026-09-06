@@ -19,6 +19,14 @@
 | Enter / 클릭 | 메뉴 확인 |
 | F3 | 디버그 오버레이 (개발용) |
 
+## 성장 시스템 (v0.5)
+- 새 회차 → **시작 무기 선택**(검·관통창·회전 칼날, 검증 메뉴에서 쌍검·추적궁·전투망치·번개 구체). 전투 중 레벨업 카드에서 무기 2개를 더 얻고, 공통 증강 3칸·E 기술·패시브 4칸을 채운다.
+- 조작: WASD 이동, Space 회피, Q 감속장, **E 선택 기술**, Esc.
+- 조합 시험 링크(v3 파라미터): `index.html?scenario=forest&seed=11&start=spear&weapons=blades:2:dual,frost:1:fan&commons=frost,echo&e=gust:1:whirl&passives=mastery:1` — `weapons=무기:레벨:방식+방식`, `commons=`, `passives=`, `e=기술:레벨:변형`, `q=slowfield:레벨:변형`, `rewards=resonance` (보스 보상 시험).
+- 예시: 관통창+귀환+분열 `weapons=spear:3:returning+split` · 번개 구체 분기+전도 `start=orb&weapons=orb:3:fork+conduct` · 불씨+재점화+불꽃 파열 `start=sword&weapons=ember:2:reignite&commons=flare` · 지뢰 연결+유인 `weapons=mine:2:chain+lure` · 낙뢰 연쇄 `e=strike:2:chain` · 중력핵 붕괴 `e=gravity:2:collapse`.
+- 전체 목록·구현 상태: `src/growth_data.js`(모든 항목 `impl: true`), 명세 §5.
+- 성장 속도 시뮬레이션: `node tools/growth_sim.js mixed|easy|risky 1,2,3`.
+
 ## 보스전 (v0.4)
 - 정상 회차: 6일차까지 준비 → 하루 종료(내일 보스 도래 안내) → 7일차 최종 준비(상점·판매·장비 교체·보스 정보) → "보스에게 간다" → 패배 시 같은 준비로 재도전, 승리 시 결과 화면.
 - 바로 시험: `index.html?scenario=boss&seed=5` (+ `weapon=pierce&aug=spin,stasis,saving&upgrade=2&acc=fang_necklace&armor=leather_armor`).

@@ -38,7 +38,11 @@ PA.Combat = (function () {
       stats: { kills: 0, damageTaken: 0, perfectDodges: 0, chestGold: 0, elapsed: 0, attacks: 0, bossDamage: 0, specialUses: 0 },
       spawnedAll: false,
       mode: opts.boss ? 'boss' : 'normal', intro: 0, boss: null, pickups: [], orbsSpawned: {}, phaseEvents: [], pendingLoss: false, bossDownT: 0,
+      weapons: [], mines: [], delayed: [], levelUps: 0, xpGained: 0,
     };
+    st.stats.xp = 0; st.stats.levelUps = 0;
+    st.weapons = PA.Weapons.init(st);
+    PA.Skills.init(st);
     if (opts.boss) {
       st.objective = 'boss'; st.waveIndex = 99; st.spawnedAll = true;
       const bs = arenaDef.bossStart || { x: cfg.ARENA.w / 2, y: 120 };
@@ -185,8 +189,9 @@ PA.Combat = (function () {
   }
 
   // ---------- 감속 ----------
-  function inField(st, o) { return st.field && m().dist(st.field, o) <= st.field.r + (o.r || 0); }
-  function timeFactor(st, o) { return inField(st, o) ? C().PLAYER.special.slow : 1; }
+  function inField(st, o) { return (st.field && m().dist(st.field, o) <= st.field.r + (o.r || 0)) || PA.Skills.inField2(st, o) || false; }
+  function inSlowEcho(st, o) { return st.zones.some(z => z.type === 'slowecho' && m().dist(z, o) <= z.r + (o.r || 0)); }
+  function timeFactor(st, o) { return inField(st, o) ? C().PLAYER.special.slow : (inSlowEcho(st, o) ? 0.7 : 1); }
 
   // ---------- 플레이어 피해 ----------
   function damagePlayer(st, amount, src) {
@@ -206,10 +211,12 @@ PA.Combat = (function () {
   }
   function applyPlayerDamage(st, amount, src) {
     const p = st.player;
+    if (src !== 'zone' && st.build.toughness) amount = Math.round(amount * (1 - st.build.toughness) * 10) / 10; // 강인함: 직접 공격만
     let rest = amount;
     if (p.shield > 0) {
       const used = Math.min(p.shield, rest);
       p.shield -= used; rest -= used;
+      PA.Skills.onShieldDamaged(st, used);
       if (p.shield <= 0 && st.build.has('barrier')) barrierBurst(st);
     }
     if (rest > 0) { p.hp -= rest; st.stats.damageTaken += rest; }
@@ -248,6 +255,8 @@ PA.Combat = (function () {
   function damageEnemy(st, e, amount, opt) {
     opt = opt || {};
     if (e.dead) return 0;
+    const sr = opt.src || { direct: !!opt.sword };
+    const direct = sr.direct !== false && !sr.extra && !sr.skill;
     let dmg = amount;
     if (e.state === 'recover' || e.state === 'stagger') dmg *= st.build.exposedMult;
     if (st.markTarget === e) dmg *= C().MARK.damageMult;
@@ -256,10 +265,15 @@ PA.Combat = (function () {
     e.hp -= dmg; e.flash = 0.12;
     if (e.boss && e.hp > 0) PA.Boss.checkPhase(st, e);
     if (opt.knock && opt.dir) knockEnemy(e, opt.dir, opt.knock);
-    if (opt.sword) {
-      if (st.build.has('frost')) e.chill = C().FROST.chill;
-      if (st.build.has('stasis') && inField(st, e)) e.stasis = Math.min(C().STASIS.maxStacks, e.stasis + 1);
+    const b = st.build, dm = b.durationMult || 1;
+    if (direct) { // 기본 공격 적중 효과(공통 규칙): 냉기·화상은 중첩 없이 유지 시간만 갱신, 흔적은 감속장 안에서만
+      if (b.has('frost')) e.chill = Math.max(e.chill, C().FROST.chill * dm);
+      if (b.has('burn')) { const BV = PA.GROWTH.COMMON_VALUES.burn; if (!e.burn || e.burn.dps <= BV.dps) e.burn = { t: Math.max(e.burn ? e.burn.t : 0, BV.dur * dm), dps: BV.dps }; }
+      if (b.has('stasis') && inField(st, e)) e.stasis = Math.min(C().STASIS.maxStacks, e.stasis + 1);
     }
+    if (opt.chill) e.chill = Math.max(e.chill, opt.chill * dm);                 // 무기 고유 냉기(서리 수정·서리 함정): 같은 규칙
+    if (opt.bleed && sr.weapon) { const dps = sr.weapon.damage * 0.3; if (!e.bleed || e.bleed.dps <= dps) e.bleed = { t: Math.max(e.bleed ? e.bleed.t : 0, opt.bleed), dps }; }
+    PA.Weapons.onHit(st, e, opt, dmg);
     const crit = e.state === 'recover' || e.state === 'stagger';
     fx(st, { kind: 'spark', x: e.x, y: e.y, ttl: 0.22, t: 0, angle: opt.dir ? Math.atan2(opt.dir.y, opt.dir.x) : st.rng.range(0, Math.PI * 2), crit });
     text(st, e.x + st.rng.range(-8, 8), e.y - e.r - 6, String(Math.round(dmg)), crit ? '#ffd166' : '#fff');
@@ -270,6 +284,9 @@ PA.Combat = (function () {
   function killEnemy(st, e, opt) {
     e.dead = true; e.deathT = 0; st.stats.kills++;
     ev(st, 'kill', { type: e.type });
+    // 경험치: 처치 원인과 무관하게 즉시, 같은 적은 1회(dead 플래그)
+    const xp = PA.Growth.xpValue(e);
+    if (xp > 0 && st.build.growth) { st.stats.xp += xp; st.xpGained += xp; const gained = PA.Growth.addXp(st.build.growth, xp); if (gained) { st.levelUps += gained; st.stats.levelUps += gained; ev(st, 'levelup', { n: gained }); text(st, st.player.x, st.player.y - 62, '레벨 업!', '#ffe066'); } }
     if (e.boss) { e.state = 'dead'; e.airborne = false; st.bossDownT = 0; ev(st, 'boss_down'); }
     if (st.build.has('saving') && inField(st, e) && st.player.special.cd > 0) {
       st.player.special.cd = Math.max(0, st.player.special.cd - C().SAVING.cdPerKill);
@@ -279,11 +296,11 @@ PA.Combat = (function () {
     }
     fx(st, { kind: 'death', x: e.x, y: e.y, r: e.r, ttl: 0.4, t: 0, color: e.def.color });
     if (e.type === 'spore') addZone(st, 'spore', e.x, e.y, e.def.deathCloudR, e.def.deathCloudTtl, e.def.cloudDamage);
-    if (st.build.has('frost') && e.chill > 0) {
+    if (st.build.has('frost') && e.chill > 0) { // 파편: 추가 피해(냉기를 다시 부여하지 않음)
       const F = C().FROST;
       for (let i = 0; i < F.shards; i++) {
         const a = (i / F.shards) * Math.PI * 2;
-        st.projectiles.push({ owner: 'player', kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * F.shardSpeed, vy: Math.sin(a) * F.shardSpeed, r: 4, dmg: F.shardDamage * st.build.damageMult, ttl: F.shardTtl });
+        st.projectiles.push({ owner: 'player', kind: 'shard_common', x: e.x, y: e.y, vx: Math.cos(a) * F.shardSpeed, vy: Math.sin(a) * F.shardSpeed, r: 4, dmg: F.shardDamage * st.build.masteryMult, ttl: F.shardTtl, hits: new Set([e.id]) });
       }
       text(st, e.x, e.y - 20, '파편!', '#bfefff');
       ev(st, 'shatter');
@@ -291,69 +308,32 @@ PA.Combat = (function () {
     if (st.build.has('flare') && st.zones.some(z => z.type === 'fire' && m().dist(z, e) <= z.r + e.r)) {
       const F = C().FLARE;
       fx(st, { kind: 'flare', x: e.x, y: e.y, r: F.radius, ttl: 0.35, t: 0 });
-      for (const o of st.enemies) if (!o.dead && o !== e && m().dist(o, e) <= F.radius + o.r) damageEnemy(st, o, F.damage * st.build.damageMult, { dir: m().norm(o.x - e.x, o.y - e.y), knock: 40 });
+      for (const o of st.enemies) if (!o.dead && o !== e && m().dist(o, e) <= F.radius + o.r) damageEnemy(st, o, F.damage * st.build.masteryMult, { dir: m().norm(o.x - e.x, o.y - e.y), knock: 40, src: { extra: true, direct: false } });
       text(st, e.x, e.y - 34, '불꽃 파열!', '#ff9f43');
       ev(st, 'explode');
     }
+    PA.Weapons.onKill(st, e, opt);
     if (st.markTarget === e) { st.markTarget = null; assignMark(st); }
   }
-  function addZone(st, type, x, y, r, ttl, dmg) { st.zones.push({ type, x, y, r, ttl, maxTtl: ttl, dmg, tick: 0, t: 0 }); }
+  function addZone(st, type, x, y, r, ttl, dmg) { const z = { type, x, y, r, ttl, maxTtl: ttl, dmg, tick: 0, t: 0 }; st.zones.push(z); return z; }
   // 잔불: 장애물 안쪽(바닥이 아닌 곳)이면 그 조각은 생략한다(플레이어 위치는 항상 유효하므로 보통 발생하지 않음)
   function addFireAt(st, x, y) {
     const E = C().EMBER;
     if (!validPos(st, x, y, 0)) return false;
-    addZone(st, 'fire', x, y, E.radius, E.ttl, E.damage); return true;
+    addZone(st, 'fire', x, y, E.radius * (st.build.widthMult || 1), E.ttl * (st.build.durationMult || 1), E.damage); return true;
   }
 
-  // ---------- 플레이어 공격 ----------
-  function chooseTarget(st) {
-    const p = st.player, b = st.build;
-    const reach = (e) => {
-      if (losBlocked(st, p, e)) return false; // 장애물에 가려진 대상은 공격 대상이 아니다
-      if (b.weapon.form === 'beam') { const ang = Math.atan2(e.y - p.y, e.x - p.x); return m().inBeam(p, ang, beamLength(st, p, ang, b.range), b.weapon.width, e, e.r); }
-      return m().dist(p, e) <= b.range + e.r;
-    };
-    if (st.markTarget && !st.markTarget.dead && reach(st.markTarget)) return st.markTarget;
-    let best = null, bd = Infinity;
-    for (const e of st.enemies) { if (e.dead) continue; const d = m().dist(p, e); if (d < bd && reach(e)) { bd = d; best = e; } }
-    return best;
-  }
+  // ---------- 플레이어 공격(무기 엔진) ----------
+  // 레거시 호환: 첫 무기 기준 대상 선택·발사(기존 테스트·디버그용)
+  function chooseTarget(st) { const w = st.weapons[0]; return PA.Weapons.pickTarget(st, w, w.stats.range || 95, true); }
   function performAttack(st, angle, form) {
-    const p = st.player, b = st.build, hit = new Set();
-    st.stats.attacks++;
-    p.swingT = 0; p.swingForm = form; p.swingAngle = angle;
-    if (form === 'spin') {
-      const S = C().SPIN, r = S.radius * b.rangeMult;
-      fx(st, { kind: 'spin', x: p.x, y: p.y, r, ttl: 0.22, t: 0 });
-      for (const e of st.enemies) if (!e.dead && m().dist(p, e) <= r + e.r && !losBlocked(st, p, e)) { hit.add(e); damageEnemy(st, e, b.damage * S.damageMult, { sword: true, knock: S.knock, dir: m().norm(e.x - p.x, e.y - p.y) }); }
-    } else if (form === 'beam') {
-      const L = beamLength(st, p, angle, b.range), W = b.weapon.width; // 검광은 장애물에서 멈춘다
-      fx(st, { kind: 'beam', x: p.x, y: p.y, angle, len: L, w: W, ttl: 0.18, t: 0 });
-      for (const e of st.enemies) if (!e.dead && m().inBeam(p, angle, L, W, e, e.r) && !losBlocked(st, p, e)) { hit.add(e); damageEnemy(st, e, b.damage, { sword: true, knock: b.weapon.knock, dir: { x: Math.cos(angle), y: Math.sin(angle) } }); }
-    } else {
-      const R = b.range, half = (b.weapon.arcDeg * Math.PI / 180) / 2;
-      fx(st, { kind: 'arc', x: p.x, y: p.y, angle, r: R, half, ttl: 0.16, t: 0 });
-      for (const e of st.enemies) if (!e.dead && m().inArc(p, R, angle, half, e, e.r) && !losBlocked(st, p, e)) { hit.add(e); damageEnemy(st, e, b.damage, { sword: true, knock: b.weapon.knock, dir: m().norm(e.x - p.x, e.y - p.y) }); }
-    }
-    ev(st, 'swing', { form, hits: hit.size });
-    return hit.size;
+    const w = st.weapons[0], p = st.player, fake = { x: p.x + Math.cos(angle) * 50, y: p.y + Math.sin(angle) * 50, r: 1, dead: false };
+    st.stats.attacks++; w.count++;
+    const kind = form === 'beam' ? 'beam' : (w.stats.kind === 'beam' ? 'beam' : 'arc');
+    if (form === 'spin') { const S = C().SPIN, r = S.radius * st.build.widthMult; fx(st, { kind: 'spin', x: p.x, y: p.y, r, ttl: 0.22, t: 0 }); PA.Weapons.hitCircle(st, w, p.x, p.y, r, S.damageMult, { knock: S.knock }); return; }
+    PA.Weapons.FIRE[kind](st, w, fake, true);
   }
-  function updateAttack(st, dt) {
-    const p = st.player, b = st.build;
-    if (p.echo) { p.echo.t -= dt; if (p.echo.t <= 0) { performAttack(st, p.echo.angle, p.echo.form); text(st, p.x, p.y - 40, '메아리', '#dcd6ff'); p.echo = null; } }
-    p.attackTimer -= dt;
-    if (p.attackTimer > 0) return;
-    const target = chooseTarget(st);
-    if (!target) { p.attackTimer = 0.05; return; }
-    p.attackTimer = Math.max(-b.interval * 0.5, p.attackTimer) + b.interval;
-    p.attackCount++;
-    const angle = Math.atan2(target.y - p.y, target.x - p.x);
-    p.face = angle;
-    let form = b.weapon.form;
-    if (b.has('spin') && p.attackCount % C().SPIN.every === 0) form = 'spin';
-    performAttack(st, angle, form);
-    if (b.has('echo') && p.attackCount % C().ECHO.every === 0) p.echo = { t: C().ECHO.delay, angle, form };
-  }
+  function updateAttack(st, dt) { const before = st.weapons.reduce((n, w) => n + w.count, 0); PA.Weapons.update(st, dt); st.stats.attacks += st.weapons.reduce((n, w) => n + w.count, 0) - before; }
 
   // ---------- 플레이어 이동/회피/특수기 ----------
   function updatePlayer(st, input, dt) {
@@ -388,15 +368,11 @@ PA.Combat = (function () {
       if (p.dodge.t >= cfg.dodge.duration) { p.dodge.active = false; p.dodge.cd = cfg.dodge.cooldown * b.dodgeCdMult - (p.dodge.t - cfg.dodge.duration); }
     } else {
       if (p.dodge.cd > 0) p.dodge.cd -= dt;
-      moveSwept(st, p, mv.x * cfg.speed * dt, mv.y * cfg.speed * dt, true); // 표면을 따라 미끄러진다
+      const wind = st.zones.some(z => z.type === 'windpath' && m().dist(z, p) <= z.r) ? 1.4 : 1;
+      moveSwept(st, p, mv.x * cfg.speed * b.speedMult * wind * dt, mv.y * cfg.speed * b.speedMult * wind * dt, true); // 표면을 따라 미끄러진다
     }
-    if (input.special && p.special.cd <= 0) {
-      if (st.field) endField(st); // 활성 감속장이 있으면 먼저 정상 종료(정지된 칼날 폭발 포함)
-      st.field = { x: p.x, y: p.y, r: cfg.special.radius, ttl: cfg.special.duration, maxTtl: cfg.special.duration };
-      p.special.cd = b.specialCd; st.stats.specialUses++;
-      ev(st, 'special');
-      text(st, p.x, p.y - 50, '감속장', '#a9d8ff');
-    }
+    if (input.special && p.special.cd <= 0) PA.Skills.castQ(st);
+    if (input.skillE && p.eCd <= 0 && b.skills.e) PA.Skills.castE(st);
     pushOut(st, p);
     updateAttack(st, dt);
   }
@@ -525,6 +501,9 @@ PA.Combat = (function () {
       e.lastX = e.x; e.lastY = e.y;
       if (e.flash > 0) e.flash -= dt;
       if (e.chill > 0) e.chill -= dt;
+      if (e.conduct > 0) e.conduct -= dt;
+      for (const key of ['burn', 'bleed']) { const d = e[key]; if (d && d.t > 0) { d.t -= dt; d.tick = (d.tick || 0) - dt; if (d.tick <= 0) { d.tick = 0.5; damageEnemy(st, e, d.dps * 0.5, { src: { extra: true, direct: false }, dot: key }); if (e.dead) break; } } }
+      if (e.dead) continue;
       if (e.boss) PA.Boss.update(st, e, dt);
       else if (e.type === 'wolf' || e.type === 'wolf_alpha') updateWolf(st, e, dt);
       else if (e.type === 'archer') updateArcher(st, e, dt);
@@ -550,15 +529,24 @@ PA.Combat = (function () {
     const p = st.player, a = st.arena;
     for (const pr of st.projectiles) {
       const tf = pr.owner === 'enemy' ? timeFactor(st, pr) : 1;
+      if (pr.owner === 'player' && (pr.target || pr.boomerang)) PA.Weapons.steerProjectile(st, pr, dt);
+      if (pr.dead) continue;
+      // 시간의 복제(보스 보상): 감속장을 통과하는 아군 투사체를 한 번 복제
+      if (pr.owner === 'player' && pr.weapon && !pr.cloned && !pr.isClone && st.build.bossRewards.includes('clone') && inField(st, pr)) { pr.cloned = true; const c = Object.assign({}, pr, { hits: new Set(pr.hits), isClone: true, cloned: true, x: pr.x - pr.vy * 0.03, y: pr.y + pr.vx * 0.03, boomerang: null, target: pr.target }); st.projectiles.push(c); }
       const nx = pr.x + pr.vx * tf * dt, ny = pr.y + pr.vy * tf * dt;
       const obs = m().sweepCircle(pr.x, pr.y, nx, ny, pr.r, st.obstacles); const tObs = obs ? obs.t : Infinity;
       if (pr.owner === 'enemy') {
         const tp = m().segCircleT(pr.x, pr.y, nx, ny, p, p.r + pr.r);
         if (tp != null && tp <= tObs) { pr.dead = true; damagePlayer(st, pr.dmg, pr.kind); }
       } else {
-        let best = null, bt = Infinity;
-        for (const e of st.enemies) { if (e.dead) continue; const t = m().segCircleT(pr.x, pr.y, nx, ny, e, e.r + pr.r); if (t != null && t < bt) { bt = t; best = e; } }
-        if (best && bt <= tObs) { pr.dead = true; damageEnemy(st, best, pr.dmg, { dir: m().norm(pr.vx, pr.vy), knock: 10 }); }
+        const cands = [];
+        for (const e of st.enemies) { if (e.dead || (pr.hits && pr.hits.has(e.id))) continue; const t = m().segCircleT(pr.x, pr.y, nx, ny, e, e.r + pr.r); if (t != null) cands.push([t, e]); }
+        cands.sort((a, b) => a[0] - b[0]);
+        for (const [t, e] of cands) {
+          if (t > tObs) break;
+          if (pr.weapon || pr.kind === 'shard_common') { if (!pr.hits) pr.hits = new Set(); if (PA.Weapons.onProjectileHit(st, pr, e)) { pr.dead = true; break; } }
+          else { pr.dead = true; damageEnemy(st, e, pr.dmg, { dir: m().norm(pr.vx, pr.vy), knock: 10 }); break; }
+        }
       }
       if (!pr.dead && obs) { pr.dead = true; fx(st, { kind: 'spark', x: pr.x + pr.vx * tf * dt * obs.t, y: pr.y + pr.vy * tf * dt * obs.t, ttl: 0.15, t: 0, angle: Math.atan2(-pr.vy, -pr.vx), crit: false }); }
       pr.x = nx; pr.y = ny; pr.ttl -= dt;
@@ -576,8 +564,10 @@ PA.Combat = (function () {
       if (z.type === 'spore' && m().dist(z, p) <= z.r + p.r * 0.5) maxDmg = Math.max(maxDmg, z.dmg);
       if (z.type === 'fire') {
         z.tick -= dt;
-        if (z.tick <= 0) { z.tick = C().EMBER.tick; for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) damageEnemy(st, e, z.dmg * st.build.damageMult, {}); }
+        if (z.tick <= 0) { z.tick = C().EMBER.tick; for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) damageEnemy(st, e, z.weapon ? z.dmg : z.dmg * st.build.masteryMult, { src: z.weapon ? { weapon: z.weapon.stats, weaponId: z.weapon.id, direct: false, extra: true } : { extra: true, direct: false } }); }
       }
+      if (z.type === 'coldground') { z.tick -= dt; if (z.tick <= 0) { z.tick = 0.25; for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) e.chill = Math.max(e.chill, 1.0); } }
+      if (z.type === 'storm') { z.tick -= dt; if (z.tick <= 0) { z.tick = 0.5; fx(st, { kind: 'strike', x: z.x + st.rng.range(-20, 20), y: z.y + st.rng.range(-20, 20), r: 30, ttl: 0.2, t: 0 }); for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) damageEnemy(st, e, z.dmg, { src: { skill: true, direct: false } }); } }
     }
     if (maxDmg > 0 && p.zoneTick <= 0) { p.zoneTick = C().PLAYER.zoneTick; zoneDamage(st, maxDmg); }
     if (maxDmg === 0 && p.zoneTick < 0) p.zoneTick = 0;
@@ -592,11 +582,12 @@ PA.Combat = (function () {
     const f = st.field; if (!f) return;
     if (st.build.has('stasis')) {
       let total = 0;
-      for (const e of st.enemies) if (!e.dead && e.stasis > 0) { const dmg = e.stasis * C().STASIS.damagePerStack * st.build.damageMult; fx(st, { kind: 'stasisburst', x: e.x, y: e.y, r: 34 + e.stasis * 10, ttl: 0.4, t: 0 }); e.stasis = 0; total += damageEnemy(st, e, dmg, {}); }
+      for (const e of st.enemies) if (!e.dead && e.stasis > 0) { const dmg = e.stasis * C().STASIS.damagePerStack * st.build.masteryMult; fx(st, { kind: 'stasisburst', x: e.x, y: e.y, r: 34 + e.stasis * 10, ttl: 0.4, t: 0 }); e.stasis = 0; total += damageEnemy(st, e, dmg, {}); }
       if (total > 0) { text(st, f.x, f.y - f.r - 26, '정지된 칼날 폭발 ' + Math.round(total), '#cfeaff'); ev(st, 'explode'); }
     }
     fx(st, { kind: 'fieldend', x: f.x, y: f.y, r: f.r, ttl: 0.35, t: 0 });
     st.field = null;
+    PA.Skills.onFieldEnd(st, f);
   }
   function updatePickups(st, dt) {
     const p = st.player;
@@ -661,6 +652,7 @@ PA.Combat = (function () {
     }
     st.t += dt; st.stats.elapsed += dt;
     updatePlayer(st, input || {}, dt);
+    PA.Skills.update(st, dt);
     updateEnemies(st, dt);
     updateProjectiles(st, dt);
     updateZones(st, dt);
@@ -674,5 +666,11 @@ PA.Combat = (function () {
     if (st.status === 'won') st.pendingLoss = false;
   }
 
-  return { create, step, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
+  // 레벨업 선택 적용 뒤: 파생 수치를 다시 계산하고 무기 목록을 갱신(타이머 유지)
+  function rebuild(st, build) {
+    const p = st.player, oldMax = p.hpMax;
+    st.build = build; p.hpMax = build.hpMax; if (build.hpMax > oldMax) p.hp = Math.min(p.hpMax, p.hp + (build.hpMax - oldMax));
+    PA.Weapons.refresh(st);
+  }
+  return { create, step, rebuild, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
 })();

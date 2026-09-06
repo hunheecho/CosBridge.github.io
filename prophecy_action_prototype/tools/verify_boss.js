@@ -16,7 +16,7 @@ const results = []; const ok = (name, cond, extra) => { results.push([cond ? 'PA
 
   // ---- A. 정상 회차: 1일차 → 6일차 종료 안내 → 7일차 최종 준비 ----
   await page.goto(url()); await page.waitForTimeout(400); await page.evaluate(() => localStorage.clear()); await page.reload(); await page.waitForTimeout(400);
-  await click('[data-action=newrun]');
+  await click('[data-action=newrun]'); await click('[data-action=start-weapon][data-arg=sword]');
   ok('A1 거점에 보스 카드(이름·도래일·정보) 표시', await page.$eval('.card.boss', el => /가시갈기/.test(el.textContent) && /6일 뒤/.test(el.textContent)));
   // 실제 플레이 대신 상점 재화만 부여(장비 교체 UI 검증용). 빌드는 시험 빌드로 표시
   await page.evaluate(() => { const r = PA_G.run; r.gold = 900; r.mats.pelt = 5; r.mats.iron = 4; r.mats.spore = 2; r.mats.fang = 1; PA.Run.save(r); });
@@ -43,7 +43,7 @@ const results = []; const ok = (name, cond, extra) => { results.push([cond ? 'PA
   await click('[data-action=equip][data-arg=fang_necklace]'); s = await state(); ok('B3 다시 목걸이로', s.acc === 'fang_necklace');
   await page.screenshot({ path: path.join(OUT, 'v05_gear_swap.png') });
   // ---- C. 보스 입장 → 실제 키 입력 검증 → 봇 진행 → 승리 ----
-  await page.evaluate(() => { const r = PA_G.run; r.augments = { spin: 1, stasis: 1, saving: 1, sharp: 2, frost: 1 }; r.gear.upgrade = 2; PA.Run.save(r); });
+  await page.evaluate(() => { const r = PA_G.run, g = r.growth; g.weapons = [{ id: 'sword', level: 3, mods: ['cross'] }, { id: 'blades', level: 2, mods: [] }, { id: 'spear', level: 2, mods: ['returning'] }]; g.commons = { stasis: 1, saving: 1, frost: 1 }; g.passives = { mastery: 2 }; g.skills.e = { id: 'strike', level: 1, variant: null }; g.level = 12; r.gear.upgrade = 2; PA.Run.save(r); });
   await click('[data-action=boss-start]'); await page.waitForTimeout(300); s = await state();
   ok('C1 입장 연출 중(피해·행동 없음)', s.screen === 'combat' && s.combat.mode === 'boss' && s.combat.intro > 0 && s.combat.hp === 100);
   await page.screenshot({ path: path.join(OUT, 'v05_boss_intro.png') });

@@ -2,45 +2,31 @@
 var PA = (typeof PA !== 'undefined') ? PA : {};
 
 PA.Build = {
-  emptyGear() { return { weapon: 'sword', armor: null, acc: null, upgrade: 0 }; },
+  emptyGear() { return { armor: null, acc: null, upgrade: 0 }; }, // upgrade = 대장간 강화(세 장착 무기 공통)
 
   derive(run) {
     const C = PA.CONFIG;
     const gear = run.gear || PA.Build.emptyGear();
-    const aug = run.augments || {};
-    const level = (id) => aug[id] || 0;
-    const has = (id) => level(id) > 0;
-    const weaponId = gear.weapon || 'sword';
-    const weapon = Object.assign({}, PA.CONFIG.WEAPONS[weaponId]);
-
-    let damageMult = 1, rangeMult = 1, intervalMult = 1;
-    damageMult *= 1 + 0.25 * level('sharp');
-    rangeMult *= 1 + 0.25 * level('wide');
-    intervalMult *= Math.pow(0.85, level('quick'));
-    damageMult *= 1 + 0.15 * (gear.upgrade || 0);
-
     let hpMax = C.PLAYER.hp;
     if (gear.armor === 'leather_armor') hpMax += 30;
-
-    let dodgeCdMult = 1, specialCd = C.PLAYER.special.cooldown, exposedMult = C.PLAYER.exposedMult;
-    if (gear.acc === 'time_charm') { dodgeCdMult = 0.7; specialCd -= 3; }
+    let dodgeCdMult = 1, accSpecialBonus = 0, exposedMult = C.PLAYER.exposedMult;
+    if (gear.acc === 'time_charm') { dodgeCdMult = 0.7; accSpecialBonus = 3; }
     if (gear.acc === 'fang_necklace') exposedMult = 2.0;
-
-    return {
-      weaponId, weapon, damageMult, rangeMult, intervalMult, hpMax, dodgeCdMult, specialCd, exposedMult,
-      damage: weapon.damage * damageMult,
-      interval: weapon.interval * intervalMult,
-      range: weapon.range * rangeMult,
-      aug: Object.assign({}, aug), has, level,
-      shield: has('barrier') ? C.BARRIER.shield : 0,
-    };
+    const b = { gear, hpMax, dodgeCdMult, accSpecialBonus, exposedMult, skillCdMult: 1, shield: 0, forgeMult: 1 + 0.15 * (gear.upgrade || 0) };
+    PA.Growth.derive(run, b);
+    // 레거시 호환 필드(기존 화면·테스트): 첫 무기를 대표값으로
+    const w0 = b.weapons[0];
+    b.weaponId = w0.id; b.weapon = Object.assign({ name: w0.name, form: w0.kind === 'beam' ? 'beam' : 'arc' }, w0);
+    b.damage = w0.damage; b.interval = w0.interval; b.range = w0.range || 0;
+    b.aug = Object.assign({}, b.commons);
+    return b;
   },
 
   // 미리보기용: 장비/증강 후보를 적용했을 때의 파생 수치
   preview(run, patch) {
-    const r = { gear: Object.assign({}, run.gear), augments: Object.assign({}, run.augments) };
+    const r = JSON.parse(JSON.stringify(run));
     if (patch.gear) Object.assign(r.gear, patch.gear);
-    if (patch.augment) r.augments[patch.augment] = (r.augments[patch.augment] || 0) + 1;
+    if (patch.augment) { try { PA.Growth.applyChoice(r, patch.augment); } catch (e) {} }
     return PA.Build.derive(r);
   },
 

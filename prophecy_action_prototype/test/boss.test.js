@@ -1,13 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { load, steps } = require('./load');
+const { load, steps, runWith } = require('./load');
 const { runBossFight } = require('./bot');
 const PA = load();
 const CB = PA.Combat, BZ = PA.Boss, CFG = () => PA.BOSS;
 
 function bossFight(opts) {
   opts = opts || {};
-  const run = PA.Run.newRun(1); Object.assign(run.gear, opts.gear || {}); if (opts.gear && opts.gear.acc) run.owned.push(opts.gear.acc); Object.assign(run.augments, opts.augments || {});
+  const run = runWith(PA, opts); if (opts.gear && opts.gear.acc) run.owned.push(opts.gear.acc);
   const st = CB.create({ build: PA.Run.build(run), seed: opts.seed || 5, boss: true, arena: 'clearing', waves: [] });
   if (!opts.keepIntro) { st.intro = 0; st.boss.state = 'approach'; st.boss.stateT = 0; st.boss.approachT = 9; }
   return st;
@@ -235,7 +235,7 @@ test('재도전 결정성: 같은 시드·같은 입력이면 같은 결과', ()
 
 test('정책 봇 완주: 기본 장비도 승리 가능하며 강한 빌드는 더 빠르다(길이 참고값)', () => {
   const base = PA.Run.newRun(1); const sb = runBossFight(PA, base, 5, 400);
-  const strong = PA.Run.newRun(1); strong.gear.weapon = 'pierce'; strong.gear.upgrade = 3; strong.gear.acc = 'fang_necklace'; strong.owned.push('fang_necklace'); strong.augments = { sharp: 3, quick: 2, spin: 1, stasis: 1, saving: 1 };
+  const strong = runWith(PA, { gear: { upgrade: 3, acc: 'fang_necklace' }, growth: { weapons: [{ id: 'spear', level: 5, mods: ['returning', 'brand'] }, { id: 'blades', level: 4, mods: ['dual'] }, { id: 'orb', level: 3 }], commons: { stasis: 1, saving: 1, wide: 2 }, passives: { mastery: 3, haste: 2 } } }); strong.owned.push('fang_necklace');
   const ss = runBossFight(PA, strong, 5, 400);
   assert.equal(sb.status, 'won'); assert.equal(ss.status, 'won'); assert.ok(ss.t < sb.t / 2, `${ss.t.toFixed(0)}s vs ${sb.t.toFixed(0)}s`);
 });

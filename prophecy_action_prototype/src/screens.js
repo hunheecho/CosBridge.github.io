@@ -51,16 +51,50 @@ PA.Screens = (function () {
       <div class="kv"><span>장신구</span>${accBtns || '<span class="dim">보유 없음</span>'}${g.acc ? ` <button class="mini" data-action="unequip" data-arg="acc">해제</button>` : ''}</div></div>`;
   }
   function buildPanel(run) {
-    const b = R().build(run), g = run.gear;
-    const augs = Object.keys(run.augments).filter(k => run.augments[k] > 0).map(k => { const d = PA.AUGMENTS.find(a => a.id === k); return `<li><b>${esc(d.name)}</b>${d.max > 1 ? ` ${run.augments[k]}단계` : ''} <span class="dim">${esc(d.desc)}</span></li>`; }).join('');
-    return `<div class="card"><div class="card-title">현재 빌드</div>
-      <ul class="gear">
-        <li>무기: <b>${esc(b.weapon.name)}${g.upgrade ? ' +' + g.upgrade : ''}</b> <span class="dim">${b.weapon.form === 'beam' ? '관통 직선' : '부채꼴'} · 피해 ${PA.fmt.num(b.damage)} · 주기 ${PA.fmt.num(b.interval)}초 · 범위 ${Math.round(b.range)}</span>${run.owned.includes('pierce_sword') ? ` <button class="mini" data-action="toggle-weapon">${g.weapon === 'pierce' ? '기본검으로' : '관통검으로'}</button>` : ''}</li>
-        <li>방어구: <b>${g.armor ? esc(R().item(g.armor).name) : '없음'}</b> <span class="dim">최대 체력 ${b.hpMax}</span></li>
-        <li>장신구: <b>${g.acc ? esc(R().item(g.acc).name) : '없음'}</b> <span class="dim">회피 재사용 ${PA.fmt.num(PA.CONFIG.PLAYER.dodge.cooldown * b.dodgeCdMult)}초 · 감속장 ${b.specialCd}초 · 빈틈 피해 ×${b.exposedMult}</span></li>
-        <li>수동 특수기(Q): <b>감속장</b> <span class="dim">반지름 150 · 3초 · 적 속도 40%</span></li>
-      </ul>
-      <div class="card-title small">증강 (회차 동안 유지)</div>${augs ? `<ul class="augs">${augs}</ul>` : '<p class="dim">아직 없음. 조우 승리 시 선택합니다.</p>'}</div>`;
+    const b = R().build(run), g = PA.Growth.ensure(run), S = PA.GROWTH.SLOTS;
+    const wrows = b.weapons.map((w, i) => `<li><b>${esc(w.name)}</b> Lv${w.level}/${S.weaponMax} <span class="dim">${i === 0 ? '시작 무기' : '추가 무기'} · 피해 ${PA.fmt.num(w.damage)} · 주기 ${PA.fmt.num(w.interval)}초${w.range ? ' · 사거리 ' + Math.round(w.range) : ''}</span><br><span class="small">전용 방식 ${w.mods.length}/${S.weaponMods}: ${w.mods.length ? w.mods.map(mid => esc(w.def.mods[mid].name)).join(', ') : '없음'}</span></li>`).join('');
+    const empties = Array.from({ length: S.weapons - b.weapons.length }, () => '<li class="dim">빈 무기 슬롯 (레벨업에서 새 무기 획득)</li>').join('');
+    const commons = Object.keys(g.commons).filter(k => g.commons[k] > 0).map(k => `<li><b>${esc(PA.COMMONS[k].name)}</b>${PA.COMMONS[k].max > 1 ? ` ${g.commons[k]}/${PA.COMMONS[k].max}` : ''} <span class="dim">${esc(PA.COMMONS[k].desc)}</span></li>`).join('');
+    const passives = Object.keys(g.passives).filter(k => g.passives[k] > 0).map(k => `<li><b>${esc(PA.PASSIVES[k].name)}</b> ${g.passives[k]}/${PA.PASSIVES[k].max} <span class="dim">${esc(PA.PASSIVES[k].desc)}</span></li>`).join('');
+    const sk = (slot) => { const x = g.skills[slot]; if (!x) return `<li><b>E</b>: <span class="dim">비어 있음 (레벨업에서 습득)</span></li>`; const d = PA.SKILLS[x.id]; return `<li><b>${d.key}</b>: <b>${esc(d.name)}</b> Lv${x.level}/${S.skillMax} <span class="dim">${esc(d.desc)} · 재사용 ${PA.fmt.num(PA.SKILLS[x.id].cooldown[x.level - 1] * b.skillCdMult - (slot === 'q' ? b.accSpecialBonus : 0))}초${x.variant ? ' · 변형: ' + esc(d.variants[x.variant].name) : ''}</span></li>`; };
+    const legacy = Object.keys(g.legacy).length ? `<p class="dim small">레거시 유지: ${Object.keys(g.legacy).map(k => k === 'mark' ? '사냥꾼의 표식(우선 대상)' : k === 'barrier' ? '파열 방벽(조우 시작 보호막 30)' : k).join(', ')} — 신규 제시는 없음</p>` : '';
+    return `<div class="card"><div class="card-title">현재 빌드 <span class="sub">캐릭터 Lv ${g.level} · 경험치 ${g.xp}/${PA.Growth.xpNeed(g.level)}${g.pendingLevelUps ? ` · <b class="warn">미처리 레벨업 ${g.pendingLevelUps}</b>` : ''}</span></div>
+      <div class="card-title small">무기 ${b.weapons.length}/${S.weapons} <span class="dim">(대장간 강화 +${run.gear.upgrade || 0}은 세 무기 공통 ×${PA.fmt.num(b.forgeMult)})</span></div><ul class="gear">${wrows}${empties}</ul>
+      <div class="card-title small">공통 증강 ${PA.Growth.commonCount(g)}/${S.commons}</div>${commons ? `<ul class="augs">${commons}</ul>` : '<p class="dim">없음</p>'}
+      <div class="card-title small">수동 기술</div><ul class="gear">${sk('q')}${sk('e')}</ul>
+      <div class="card-title small">패시브 ${PA.Growth.passiveCount(g)}/${S.passives}</div>${passives ? `<ul class="augs">${passives}</ul>` : '<p class="dim">없음</p>'}
+      ${g.bossRewards.length ? `<div class="card-title small">보스 희귀 보상</div><ul class="augs">${g.bossRewards.map(id => `<li><b>${esc(PA.BOSS_REWARDS[id].name)}</b> <span class="dim">${esc(PA.BOSS_REWARDS[id].desc)}</span></li>`).join('')}</ul>` : ''}
+      <div class="card-title small">장비</div><ul class="gear">
+        <li>방어구: <b>${g_armor(run)}</b> <span class="dim">최대 체력 ${b.hpMax}</span></li>
+        <li>장신구: <b>${run.gear.acc ? esc(R().item(run.gear.acc).name) : '없음'}</b> <span class="dim">회피 재사용 ${PA.fmt.num(PA.CONFIG.PLAYER.dodge.cooldown * b.dodgeCdMult)}초 · 빈틈 피해 ×${PA.fmt.num(b.exposedMult)}</span></li></ul>
+      ${legacy}</div>`;
+  }
+  function g_armor(run) { return run.gear.armor ? esc(R().item(run.gear.armor).name) : '없음'; }
+
+  // 시작 무기 선택
+  function pickStart(G) {
+    const list = (G.startAll ? PA.STARTABLE_ALL : PA.STARTABLE).map(id => { const d = PA.WEAPONS[id]; return `<div class="card"><div class="card-title">${esc(d.name)}</div><p>${esc(d.desc)}</p><p class="dim small">기본 피해 ${d.base.damage} · 주기 ${d.base.interval}초 · 전용 방식: ${Object.values(d.mods).map(m => esc(m.name)).join(', ')}</p><button class="primary" data-action="start-weapon" data-arg="${id}">이 무기로 시작</button></div>`; }).join('');
+    return `<div class="screen"><h2>시작 무기 선택</h2><p class="dim">시작 무기 1개로 출발하고, 전투 중 레벨업으로 무기를 최대 2개 더 얻습니다. 시작 무기와 추가 무기는 같은 규칙으로 성장합니다.</p>
+      <div class="grid3">${list}</div>
+      <div class="row">${G.startAll ? '' : '<button data-action="start-all">검증 메뉴: 다른 시작 후보 보기 (쌍검·추적궁·전투망치·번개 구체)</button>'}<button data-action="title">돌아가기</button></div></div>`;
+  }
+  // 레벨업 카드(전투 중 오버레이·거점·보상 화면 공용)
+  function levelCards(G, offer, run) {
+    const pool = offer.pool;
+    const cards = offer.choices.map(c => { const d = PA.Growth.describe(run, c); return `<div class="card aug ${d.regionMatch ? 'region' : ''}"><div class="card-title">${esc(d.title)} <span class="kind">${esc(d.type)}</span>${d.regionMatch ? ' <span class="tag">지역 계열</span>' : ''}</div>
+      <p class="big-desc">${esc(d.change)}</p>
+      <div class="kv"><span>단계</span><b>${esc(d.stage)}</b></div><div class="kv"><span>적용</span><b>${esc(d.scope)}</b></div><div class="kv"><span>슬롯</span><b>${esc(d.slot)}</b></div>
+      <button class="primary" data-action="pick" data-arg="${esc(c.key)}">선택</button></div>`; }).join('');
+    const title = pool === 'boss' ? '보스 희귀 보상' : pool === 'deep' ? '지역 보상 선택' : `레벨 업! Lv ${run.growth.level}${run.growth.pendingLevelUps > 1 ? ` (남은 선택 ${run.growth.pendingLevelUps})` : ''}`;
+    return `<div class="panel wide"><h2>${title}</h2>${offer.regionId && pool !== 'boss' ? `<p class="dim small">지역 계열: ${esc(PA.REGION_TAG_TEXT[offer.regionId] || '—')}</p>` : ''}
+      <div class="grid3">${cards.length ? cards : '<p class="dim">제시할 수 있는 후보가 없습니다.</p>'}</div>
+      <div class="row">${pool === 'level' ? `<button data-action="skip">건너뛰기 (금화 +${PA.CONFIG.SKIP_AUGMENT_GOLD})</button>` : pool === 'deep' ? '<button data-action="skip">받지 않음</button>' : ''}</div></div>`;
+  }
+  function migration(G) {
+    const run = G.run, mp = run.growth.migrationPending, sel = G.migSel || [];
+    return `<div class="screen center"><h2>성장 시스템 이행</h2><p>이전 저장에 공통 증강이 ${mp.commons.length}개 있습니다. 새 규칙의 공통 슬롯은 3개입니다. 사용할 3개를 고르세요(나머지는 사라집니다).</p>
+      <div class="grid3">${mp.commons.map(c => `<div class="card ${sel.includes(c.id) ? 'can' : ''}"><div class="card-title">${esc(PA.COMMONS[c.id].name)}${c.level > 1 ? ' ' + c.level + '단계' : ''}</div><p class="dim">${esc(PA.COMMONS[c.id].desc)}</p><button data-action="mig-toggle" data-arg="${c.id}">${sel.includes(c.id) ? '선택 해제' : '선택'}</button></div>`).join('')}</div>
+      <div class="row"><button class="primary" data-action="mig-confirm" ${sel.length === Math.min(3, mp.commons.length) ? '' : 'disabled'}>확정 (${sel.length}/3)</button></div></div>`;
   }
 
   function title(G) {
@@ -106,7 +140,8 @@ PA.Screens = (function () {
           ${bossCard(run, false)}
           <div class="card"><div class="card-title">오늘 할 일</div>
             <div class="actions">
-              <button class="primary big" data-action="map">출격 · 지역 선택</button>
+              ${run.growth.pendingLevelUps ? `<button class="primary big" data-action="resolve-levelup">미처리 레벨업 선택 (${run.growth.pendingLevelUps})</button>` : ''}
+              <button class="${run.growth.pendingLevelUps ? '' : 'primary'} big" data-action="map">출격 · 지역 선택</button>
               <button class="big" data-action="shop">상점 · 대장간</button>
               <button class="big" data-action="rest" ${canRest ? '' : 'disabled'}>휴식 (1시간, 체력 완전 회복)${canRest ? '' : run.hp >= R().build(run).hpMax ? ' · 체력 가득' : ' · 시간 부족'}</button>
               <button class="big" data-action="endday-confirm">하루 종료 → ${run.day + 1}일차${run.day + 1 >= PA.CONFIG.BOSS_DAY ? ' <span class="warn">(보스 도래)</span>' : ''}${run.hours > 0 ? ` <span class="dim">(남은 ${run.hours}시간 버림)</span>` : ''}</button>
@@ -133,6 +168,7 @@ PA.Screens = (function () {
         <p>${esc(r.desc)}</p>
         <div class="kv"><span>목적</span><b>${r.objective === 'elite' ? '정예 처치' : '전멸'} · ${r.waves.length}웨이브</b></div>
         <div class="kv"><span>보상</span><b>${rewardText}</b>${forTarget ? ' <span class="tag">목표 장비 재료</span>' : ''}</div>
+        <div class="kv"><span>성장</span><b>${esc(PA.REGION_TAG_TEXT[r.id] || '—')}</b> <span class="dim small">경험치 +${PA.GROWTH.REGION_BONUS_XP[r.id]} · 더 깊이 승리 시 지역 보상 선택</span></div>
         <ul class="enemies">${enemies}</ul>
         <button class="primary" data-action="sortie" data-arg="${r.id}" ${can ? '' : 'disabled'}>${can ? `출격 (${r.cost}시간 사용 → ${run.hours - r.cost}시간 남음)` : run.phase !== 'prep' ? '7일차: 출격 종료' : '시간 부족'}</button>
       </div>`;
@@ -187,19 +223,14 @@ PA.Screens = (function () {
       ${buildPanel(run)}</div>`;
   }
   function reward(G) {
-    const run = G.run, rw = G.lastReward, offers = G.offers || [];
+    const run = G.run, rw = G.lastReward, g = run.growth;
     const matText = Object.keys(rw.mats).map(k => `${matName(k)} ${rw.mats[k]}`).join(', ');
-    const cards = offers.map(a => `<div class="card aug"><div class="card-title">${esc(a.name)} <span class="kind">${esc(a.kind)}</span></div>
-      <p class="big-desc">${esc(a.desc)}</p><p class="dim">${esc(a.long)}</p>
-      <div class="connect">연결: ${esc(PA.Build.connectionText(run, a) || '—')}${a.connect ? ` <span class="tag">${esc(a.connect)}</span>` : ''}</div>
-      <button class="primary" data-action="pick" data-arg="${a.id}">선택</button></div>`).join('');
     return `<div class="screen"><h2>조우 승리</h2>
       <div class="card"><div class="card-title">보상 (귀환 시 거점에 반영)</div>
-        <p>금화 <b class="gold">+${rw.gold}</b>${rw.chestGold ? ` (보급 상자 +${rw.chestGold} 포함)` : ''}${matText ? ` · ${matText}` : ''}</p>
-        <p class="dim small">처치 ${G.lastStats.kills}${G.lastStats.savingKills ? ` (감속장 안 ${G.lastStats.savingKills})` : ''} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · ${Math.round(G.lastStats.elapsed)}초</p></div>
-      <h3>증강 선택 (회차 동안 유지)</h3>
-      <div class="grid3">${cards.length ? cards : '<p class="dim">제시할 수 있는 증강이 없습니다.</p>'}</div>
-      <div class="row"><button data-action="skip">건너뛰기 (금화 +${PA.CONFIG.SKIP_AUGMENT_GOLD})</button></div></div>`;
+        <p>금화 <b class="gold">+${rw.gold}</b>${rw.chestGold ? ` (보급 상자 +${rw.chestGold} 포함)` : ''}${matText ? ` · ${matText}` : ''} · 지역 경험치 <b class="gold">+${rw.xp || 0}</b></p>
+        <p class="dim small">처치 ${G.lastStats.kills}${G.lastStats.savingKills ? ` (감속장 안 ${G.lastStats.savingKills})` : ''} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · ${Math.round(G.lastStats.elapsed)}초 · 전투 중 경험치 ${G.lastStats.xp} · 레벨업 ${G.lastStats.levelUps}회 (Lv ${g.level})</p></div>
+      ${g.pendingLevelUps ? `<div class="card boss"><div class="card-title">미처리 레벨업 ${g.pendingLevelUps}</div><p>조우 종료와 동시에 오른 레벨입니다. 지금 선택합니다.</p><button class="primary" data-action="resolve-levelup">선택하기</button></div>` : ''}
+      <div class="row"><button class="primary big" data-action="after-reward">다음</button></div></div>`;
   }
   function after(G) {
     const run = G.run, s = G.sortie, r = R().region(s.regionId), b = R().build(run);
@@ -221,7 +252,7 @@ PA.Screens = (function () {
   }
   function bossDefeat(G) {
     const run = G.run, s = G.lastStats;
-    return `<div class="screen center"><h2 class="bad">쓰러졌다</h2><p>${esc(PA.BOSS.name)}에게 패배했습니다. 준비 기간의 성과는 그대로입니다. 같은 장비·증강으로 바로 다시 도전할 수 있습니다.</p>
+    return `<div class="screen center"><h2 class="bad">쓰러졌다</h2><p>${esc(PA.BOSS.name)}에게 패배했습니다. 준비 기간의 성과는 그대로입니다. 같은 장비·무기·증강으로 바로 다시 도전할 수 있습니다.</p><p class="dim small">재도전은 입장 시점의 상태로 복구됩니다: 레벨·경험치·전투 중 선택은 입장 전으로, 체력·회피·감속장·E는 초기화, 보스·소환 늑대·구슬은 처음부터.</p>
       <p class="dim small">전투 ${Math.round(s.elapsed)}초 · 보스에게 준 피해 ${Math.round(s.bossDamage)} / ${PA.BOSS.hp} · 감속장 ${s.specialUses}회 · 재도전 ${run.bossRetries}회</p>
       <div class="menu"><button class="primary big" data-action="boss-start">같은 준비로 재도전</button><button class="big" data-action="base">최종 준비 화면으로</button><button class="big" data-action="title">제목으로</button></div></div>`;
   }
@@ -262,7 +293,7 @@ PA.Screens = (function () {
   }
   function controls() {
     return `<div class="panel"><h2>조작법</h2>
-      <table class="keys"><tr><td>W A S D / 방향키</td><td>이동</td></tr><tr><td>Space</td><td>회피 (0.26초 무적, 이동 방향으로 구르기)</td></tr><tr><td>Q</td><td>감속장 (주변 적을 3초간 느리게)</td></tr><tr><td>Esc</td><td>일시정지 / 메뉴</td></tr><tr><td>Enter · 클릭</td><td>메뉴 확인</td></tr></table>
+      <table class="keys"><tr><td>W A S D / 방향키</td><td>이동</td></tr><tr><td>Space</td><td>회피 (0.26초 무적, 이동 방향으로 구르기)</td></tr><tr><td>Q</td><td>감속장 (주변 적을 3초간 느리게)</td></tr><tr><td>E</td><td>선택 수동 기술 (레벨업에서 습득: 돌풍·칼날 폭풍·낙뢰·중력핵·수호 결계)</td></tr><tr><td>Esc</td><td>일시정지 / 메뉴</td></tr><tr><td>Enter · 클릭</td><td>메뉴 확인</td></tr></table>
       <h3>읽어야 할 것</h3><ul>
         <li><b>붉은 화살표</b>: 늑대가 돌진할 직선. 화살표가 굵어지며 "!"가 뜨면 방향이 고정된 것 — 옆으로 피하세요.</li>
         <li><b>붉은 점선</b>: 궁수의 조준선. 굵어지면 발사 직전.</li>
@@ -287,5 +318,5 @@ PA.Screens = (function () {
       ctx.save(); ctx.scale(0.8, 0.8); PA.Render.drawBoss(ctx, fake, e); ctx.restore();
     }
   }
-  return { title, newrunConfirm, base, finalPrep, map, shop, reward, after, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard };
+  return { title, newrunConfirm, base, finalPrep, map, shop, reward, after, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard, pickStart, levelCards, migration };
 })();

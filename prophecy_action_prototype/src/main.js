@@ -19,7 +19,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     const html = {
       title: () => S.title(G), newrun_confirm: () => S.newrunConfirm(G), base: () => S.base(G), map: () => S.map(G), shop: () => S.shop(G),
       reward: () => S.reward(G), after: () => S.after(G), defeat: () => S.defeat(G), endday_confirm: () => S.enddayConfirm(G), scenario_end: () => S.scenarioEnd(G),
-      boss_defeat: () => S.bossDefeat(G), boss_victory: () => S.bossVictory(G),
+      boss_defeat: () => S.bossDefeat(G), boss_victory: () => S.bossVictory(G), pick_start: () => S.pickStart(G), migration: () => S.migration(G),
     }[name];
     uiEl.innerHTML = html ? html() : '';
     if (html) { try { S.paintPortraits(); } catch (e) {} }
@@ -37,13 +37,45 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (mute) mute.addEventListener('change', () => PA.Audio.setMuted(mute.checked));
   }
   function closeOverlay() { G.overlay = null; overlayEl.hidden = true; overlayEl.innerHTML = ''; }
+  // ---------- 레벨업 선택(전투 중: 정지 + 오버레이 / 화면: 오버레이) ----------
+  function openChoice(offer) {
+    G.choice = offer;
+    if (G.screen === 'combat') { G.paused = true; PA.Input.setBlocked(G.input, true); }
+    G.overlay = 'choice';
+    overlayEl.innerHTML = PA.Screens.levelCards(G, offer, G.run); overlayEl.hidden = false;
+  }
+  function closeChoice() {
+    G.choice = null; closeOverlay();
+    if (G.screen === 'combat') { G.paused = false; PA.Input.setBlocked(G.input, false); G.last = 0; }
+  }
+  // 전투 중 레벨업: 미처리 선택이 있으면 하나씩 제시
+  function offerPendingLevelUps(ctx) {
+    const g = G.run.growth;
+    if (g.pendingLevelUps <= 0) return false;
+    openChoice(PA.Growth.generateOffer(G.run, Object.assign({ pool: 'level' }, ctx || {})));
+    saveRun(); // 레벨업 시점의 레벨·경험치·보류 제시를 저장(새로고침 재굴림 방지, 미처리 선택 보존)
+    return true;
+  }
+  function afterChoice() {
+    if (!G.scenario) saveRun();
+    if (G.screen === 'combat' && G.combat) {
+      PA.Combat.rebuild(G.combat, PA.Run.build(G.run));
+      closeChoice();
+      if (G.run.growth.pendingLevelUps > 0) offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId });
+    } else {
+      closeChoice();
+      if (G.run.growth.pendingLevelUps > 0 && G.screen !== 'reward') offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId });
+      else show(G.screen);
+    }
+  }
   function pauseCombat(on) { if (G.screen !== 'combat') return; G.paused = on; PA.Input.setBlocked(G.input, on); if (on) openOverlay('pause'); else closeOverlay(); }
 
   // ---------- 회차 흐름 ----------
   function saveRun() { if (G.run && !G.scenario) PA.Run.save(G.run); }
-  function goBase() { saveRun(); show('base'); } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
+  function goBase() { saveRun(); if (G.run.growth && G.run.growth.migrationPending) { show('migration'); return; } show('base'); } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
   function leaveScenario() { if (G.scenario) { G.scenario = null; try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
-  function newRun() { leaveScenario(); G.run = PA.Run.newRun(); G.sortie = null; G.combat = null; saveRun(); show('base'); }
+  function newRun() { leaveScenario(); G.startAll = false; show('pick_start'); }
+  function startRun(weaponId) { G.run = PA.Run.newRun(undefined, weaponId); G.sortie = null; G.combat = null; saveRun(); show('base'); }
   function startSortie(regionId) {
     G.sortie = PA.Run.startSortie(G.run, regionId);
     saveRun(); // 출격 비용은 지불된 상태로 저장(전투 중 종료 시 복구 기준)
@@ -51,6 +83,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   }
   function startEncounter() {
     const run = G.run, s = G.sortie;
+    G.choice = null;
     if (s.regionId === 'boss') {
       G.combat = PA.Combat.create({ build: PA.Run.build(run), hp: PA.Run.build(run).hpMax, seed: s.seed, boss: true, arena: 'clearing', waves: [] });
     } else G.combat = PA.Combat.create({
@@ -76,6 +109,8 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
         const rec = PA.Run.bossVictory(run, c.stats); G.lastRecord = rec;
         const R = PA.Run.saveRecord(rec); G.firstClearNew = !hadFirst && R.firstClear && R.firstClear.at === rec.at;
         saveRun(); G.sortie = null; show('boss_victory');
+        // 보스 희귀 보상: 현재 보스가 마지막 보스가 아닐 때만(현재 보스 1종 → 정상 회차에서는 제시되지 않음)
+        const idx = PA.BOSSES.indexOf('boss'); if (idx >= 0 && idx < PA.BOSSES.length - 1) openChoice(PA.Growth.generateOffer(run, { pool: 'boss' }));
       } else { PA.Run.bossDefeat(run); saveRun(); G.sortie = null; show('boss_defeat'); }
       return;
     }
@@ -83,9 +118,11 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (c.status === 'won') {
       const reward = PA.Run.rollReward(run, s, c.rng, { chestGold: c.stats.chestGold, eliteKilled });
       PA.Run.applyEncounterResult(run, s, 'won', reward, c.player.hp);
-      G.lastReward = reward;
-      G.offers = PA.Run.augmentOffers(run, c.rng, 3);
+      reward.xp = PA.Run.regionBonusXp(s.regionId, s.deep); PA.Growth.addXp(run.growth, reward.xp); // 조우 승리: 지역 경험치(증강 3택 대체)
+      G.lastReward = reward; G.offers = null;
+      saveRun();
       show('reward');
+      if (run.growth.pendingLevelUps > 0) offerPendingLevelUps({ regionId: s.regionId });
     } else {
       PA.Run.applyEncounterResult(run, s, 'lost', null, 0);
       PA.Run.defeat(run, s);
@@ -99,6 +136,14 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'continue': () => { leaveScenario(); G.run = G.saved; G.sortie = null; G.combat = null; goBase(); },
     'newrun': () => { if (G.saved) show('newrun_confirm'); else newRun(); },
     'newrun-confirm': () => newRun(),
+    'start-weapon': (id) => startRun(id),
+    'start-all': () => { G.startAll = true; show('pick_start'); },
+    'pick': (key) => { const off = G.choice; if (!off) return; const c = off.choices.find(x => x.key === key); if (!c) return; PA.Growth.applyChoice(G.run, c); PA.Audio.play('buy'); afterChoice(); },
+    'skip': () => { const off = G.choice; if (!off) return; if (off.pool === 'level') PA.Growth.skipChoice(G.run); else G.run.growth.pendingOffer = null; afterChoice(); },
+    'resolve-levelup': () => { offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId }); },
+    'after-reward': () => { if (G.run.growth.pendingLevelUps > 0) { offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId }); return; } if (G.sortie && G.sortie.deep && PA.GROWTH.DEEP_PICK && !G.sortie.deepPicked) { G.sortie.deepPicked = true; G.screen = 'after'; uiEl.innerHTML = PA.Screens.after(G); openChoice(PA.Growth.generateOffer(G.run, { pool: 'deep', regionId: G.sortie.regionId })); return; } show('after'); },
+    'mig-toggle': (id) => { G.migSel = G.migSel || []; if (G.migSel.includes(id)) G.migSel = G.migSel.filter(x => x !== id); else if (G.migSel.length < 3) G.migSel.push(id); show('migration'); },
+    'mig-confirm': () => { PA.Growth.resolveMigration(G.run, G.migSel || []); G.migSel = null; saveRun(); goBase(); },
     'title': () => { leaveScenario(); G.saved = PA.Run.load(); show('title'); },
     'controls': () => openOverlay('controls'),
     'show-controls': () => openOverlay('controls'),
@@ -118,8 +163,6 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'target': (id) => { PA.Run.setTarget(G.run, id); saveRun(); show('shop'); },
     'sell': (id) => { PA.Run.sell(G.run, id, 1); saveRun(); show('shop'); },
     'toggle-weapon': () => { if (G.run.gear.weapon === 'pierce') PA.Run.unequipWeapon(G.run); else PA.Run.equip(G.run, 'pierce_sword'); saveRun(); show(G.screen); },
-    'pick': (id) => { PA.Run.takeAugment(G.run, id); G.offers = null; saveRun(); show('after'); },
-    'skip': () => { PA.Run.skipAugment(G.run); G.offers = null; saveRun(); show('after'); },
     'deep': () => { PA.Run.deepExplore(G.run, G.sortie); saveRun(); startEncounter(); },
     'return': () => { PA.Run.returnToBase(G.run, G.sortie); G.sortie = null; goBase(); },
     'resume': () => pauseCombat(false),
@@ -136,17 +179,25 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   function parseScenario() {
     const q = new URLSearchParams(location.search);
     if (!q.get('scenario')) return null;
-    return { region: q.get('scenario'), arena: q.get('arena') || null, acc: q.get('acc') || null, armor: q.get('armor') || null, seed: parseInt(q.get('seed') || '1', 10), aug: (q.get('aug') || '').split(',').filter(Boolean), weapon: q.get('weapon') || 'sword', deep: q.get('deep') === '1', upgrade: parseInt(q.get('upgrade') || '0', 10) };
+    return { region: q.get('scenario'), arena: q.get('arena') || null, acc: q.get('acc') || null, armor: q.get('armor') || null, seed: parseInt(q.get('seed') || '1', 10), aug: (q.get('aug') || '').split(',').filter(Boolean), weapon: q.get('weapon') || 'sword', deep: q.get('deep') === '1', upgrade: parseInt(q.get('upgrade') || '0', 10),
+      start: q.get('start') || null, weapons: (q.get('weapons') || '').split(',').filter(Boolean), commons: (q.get('commons') || '').split(',').filter(Boolean), passives: (q.get('passives') || '').split(',').filter(Boolean), e: q.get('e') || null, q: q.get('q') || null, level: parseInt(q.get('level') || '0', 10), rewards: (q.get('rewards') || '').split(',').filter(Boolean) };
   }
   function startScenario(sc) {
     G.scenario = sc;
-    const run = PA.Run.newRun(sc.seed);
-    run.gear.weapon = sc.weapon === 'pierce' ? 'pierce' : 'sword';
+    const run = PA.Run.newRun(sc.seed, sc.start || (sc.weapon === 'pierce' ? 'spear' : 'sword'));
     run.gear.upgrade = sc.upgrade || 0;
+    // v3 파라미터: weapons=spear:3:returning+brand,frost:2 commons=frost,wide:2 passives=mastery:2 e=gust:2:whirl q=slowfield:3:follow level=8 rewards=resonance
+    const g = run.growth;
+    for (const spec of sc.weapons) { const [id, lv, mods] = spec.split(':'); if (!PA.WEAPONS[id]) continue; const w = PA.Growth.weaponOf(g, id) || (g.weapons.length < PA.GROWTH.SLOTS.weapons ? (g.weapons.push({ id, level: 1, mods: [] }), g.weapons[g.weapons.length - 1]) : null); if (!w) continue; w.level = Math.min(5, parseInt(lv || '1', 10)); w.mods = (mods || '').split('+').filter(x => PA.WEAPONS[id].mods[x]).slice(0, 2); }
+    for (const spec of sc.commons) { const [id, lv] = spec.split(':'); if (PA.COMMONS[id]) g.commons[id] = Math.min(PA.COMMONS[id].max, parseInt(lv || '1', 10)); }
+    for (const spec of sc.passives) { const [id, lv] = spec.split(':'); if (PA.PASSIVES[id]) g.passives[id] = Math.min(3, parseInt(lv || '1', 10)); }
+    if (sc.e) { const [id, lv, v] = sc.e.split(':'); if (PA.SKILLS[id] && PA.E_SKILLS.includes(id)) g.skills.e = { id, level: Math.min(3, parseInt(lv || '1', 10)), variant: v && PA.SKILLS[id].variants[v] ? v : null }; }
+    if (sc.q) { const [id, lv, v] = sc.q.split(':'); g.skills.q = { id: 'slowfield', level: Math.min(3, parseInt(lv || '1', 10)), variant: v && PA.SKILLS.slowfield.variants[v] ? v : null }; }
+    for (const id of sc.rewards) if (PA.BOSS_REWARDS[id]) g.bossRewards.push(id);
+    if (sc.level > 1) g.level = sc.level;
     if (sc.acc) { run.owned.push(sc.acc); run.gear.acc = sc.acc; }
     if (sc.armor) { run.owned.push(sc.armor); run.gear.armor = sc.armor; }
-    for (const a of sc.aug) { const [id, lv] = a.split(':'); run.augments[id] = parseInt(lv || '1', 10); }
-    if (run.augments.barrier) {} // 파생은 Build.derive에서
+    if (sc.aug.length) { for (const a of sc.aug) { const [id, lv] = a.split(':'); run.augments[id] = parseInt(lv || '1', 10); } if (sc.weapon === 'pierce') { run.owned.push('pierce_sword'); run.gear.weapon = 'pierce'; } run.growth = PA.Growth.migrateFromLegacy(run); delete run.gear.weapon; if (run.growth.migrationPending) PA.Growth.resolveMigration(run, run.growth.migrationPending.commons.slice(0, 3).map(c => c.id)); } // 레거시 aug= 파라미터 호환
     run.hp = PA.Run.build(run).hpMax;
     G.run = run;
     G.sortie = { regionId: sc.region, deep: sc.deep, loot: { gold: 0, mats: {} }, encounters: 0, seed: sc.seed, arena: sc.arena };
@@ -185,9 +236,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       }
       if (guard >= 12) G.acc = 0;
       for (const e of G.combat.events) G.eventCounts[e.name] = (G.eventCounts[e.name] || 0) + 1;
-      for (const e of G.combat.events) PA.Audio.play(e.name === 'hit' ? (e.crit ? 'crit' : 'hit') : ({ kill: 'kill', hurt: 'hurt', lock: 'lock', dodge: 'dodge', perfect: 'perfect', special: 'special', chest: 'chest', win: 'win', lose: 'lose', wave: 'wave', shoot: 'shoot', spore: 'spore', explode: 'explode', shatter: 'shatter', burst: 'burst', bite: 'bite', swing: 'swing', boss_howl: 'boss_howl', boss_roar: 'boss_roar', boss_land: 'boss_land', boss_sweep: 'boss_sweep', boss_lock: 'boss_lock', boss_down: 'win', orb: 'orb' }[e.name] || null));
+      for (const e of G.combat.events) PA.Audio.play(e.name === 'hit' ? (e.crit ? 'crit' : 'hit') : ({ kill: 'kill', hurt: 'hurt', lock: 'lock', dodge: 'dodge', perfect: 'perfect', special: 'special', chest: 'chest', win: 'win', lose: 'lose', wave: 'wave', shoot: 'shoot', spore: 'spore', explode: 'explode', shatter: 'shatter', burst: 'burst', bite: 'bite', swing: 'swing', boss_howl: 'boss_howl', boss_roar: 'boss_roar', boss_land: 'boss_land', boss_sweep: 'boss_sweep', boss_lock: 'boss_lock', boss_down: 'win', orb: 'orb', levelup: 'chest', skill_e: 'special' }[e.name] || null));
       G.combat.events.length = 0;
-      if (G.combat.status !== 'running') { G.endTimer += dt; if (G.endTimer >= (G.combat.mode === 'boss' && G.combat.status === 'won' ? 2.4 : 1.3)) onEncounterEnd(); }
+      if (G.combat.levelUps > 0 && G.combat.status === 'running' && !G.overlay) { G.combat.levelUps = 0; offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId }); }
+      if (G.combat.status !== 'running') { G.combat.levelUps = 0; G.endTimer += dt; if (G.endTimer >= (G.combat.mode === 'boss' && G.combat.status === 'won' ? 2.4 : 1.3)) onEncounterEnd(); }
     }
     render();
   }
@@ -197,8 +249,8 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (e.repeat) return;
     if (e.code === 'F3') { G.debug = !G.debug; e.preventDefault(); return; }
     if (G.screen === 'combat') {
-      if (e.code === 'Escape') { if (G.overlay === 'controls') openOverlay('pause'); else pauseCombat(!G.paused); e.preventDefault(); return; }
-      if (['Space', 'KeyQ', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+      if (e.code === 'Escape') { if (G.overlay === 'choice') { e.preventDefault(); return; } if (G.overlay === 'controls') openOverlay('pause'); else pauseCombat(!G.paused); e.preventDefault(); return; }
+      if (['Space', 'KeyQ', 'KeyE', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
       if (G.paused || G.overlay) return;          // 정지·메뉴 중 전투 입력은 버린다
       PA.Input.keyDown(G.input, e.code);
       PA.Audio.init();

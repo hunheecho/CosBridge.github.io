@@ -108,6 +108,14 @@ PA.Render = (function () {
         ctx.strokeStyle = `rgba(215,160,255,${0.5 + 0.3 * life})`; ctx.lineWidth = 2; ctx.setLineDash([6, 6]); ctx.stroke(); ctx.setLineDash([]);
         for (let i = 0; i < 6; i++) { const ang = z.t * 0.8 + i * 1.1, rr = z.r * (0.25 + 0.6 * ((i * 0.37 + z.t * 0.2) % 1)); ctx.fillStyle = 'rgba(235,200,255,0.55)'; ctx.beginPath(); ctx.arc(z.x + Math.cos(ang) * rr, z.y + Math.sin(ang) * rr, 3 + (i % 2), 0, TAU); ctx.fill(); }
         ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = `bold 14px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('☠', z.x, z.y + 5);
+      } else if (z.type === 'coldground') {
+        ctx.fillStyle = `rgba(160,220,255,${0.22 * life + 0.08})`; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.fill(); ctx.strokeStyle = `rgba(200,240,255,${0.6 * life})`; ctx.lineWidth = 1.5; ctx.stroke();
+      } else if (z.type === 'windpath') {
+        ctx.strokeStyle = `rgba(200,255,220,${0.5 * life})`; ctx.lineWidth = 2; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+      } else if (z.type === 'slowecho') {
+        ctx.fillStyle = `rgba(110,180,255,${0.08 * life + 0.04})`; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.fill();
+      } else if (z.type === 'storm') {
+        ctx.strokeStyle = `rgba(255,240,150,${0.5 * life})`; ctx.lineWidth = 2; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
       } else if (z.type === 'fire') {
         const fl = 1 + 0.12 * Math.sin(z.t * 22);
         ctx.fillStyle = `rgba(255,110,30,${0.25 + 0.25 * life})`; ctx.beginPath(); ctx.arc(z.x, z.y, z.r * fl, 0, TAU); ctx.fill();
@@ -150,6 +158,27 @@ PA.Render = (function () {
         ctx.fillStyle = `rgba(255,255,255,${0.8 * k})`; ctx.fillRect(0, -2, f.len * (0.6 + 0.4 * (1 - k)), 4);
         ctx.fillStyle = `rgba(200,240,255,${0.6 * k})`; ctx.beginPath(); ctx.moveTo(f.len, 0); ctx.lineTo(f.len - 18, -f.w / 2); ctx.lineTo(f.len - 18, f.w / 2); ctx.fill();
         ctx.restore();
+      } else if (f.kind === 'dagger') {
+        ctx.strokeStyle = `rgba(255,255,255,${0.9 * k})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.9, f.angle - f.half * (f.side % 2 ? 1 : -1), f.angle + f.half * (f.side % 2 ? -0.2 : 0.2) ); ctx.stroke();
+      } else if (f.kind === 'scar') {
+        ctx.fillStyle = `rgba(255,120,120,${0.35 * k})`; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.arc(f.x, f.y, f.r, f.angle - f.half, f.angle + f.half); ctx.closePath(); ctx.fill();
+      } else if (f.kind === 'impact') {
+        ctx.fillStyle = f.after ? `rgba(200,150,90,${0.35 * k})` : `rgba(230,200,150,${0.4 * k})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.6 + 0.4 * (1 - k)), 0, TAU); ctx.fill();
+        ctx.strokeStyle = `rgba(255,230,180,${0.9 * k})`; ctx.lineWidth = 5 * k + 1; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 - k * 0.25), 0, TAU); ctx.stroke();
+      } else if (f.kind === 'chain') {
+        ctx.strokeStyle = `rgba(200,240,255,${0.95 * k})`; ctx.lineWidth = 3; ctx.beginPath(); for (let i = 0; i < f.pts.length; i++) { const p0 = f.pts[i]; if (i === 0) ctx.moveTo(p0.x, p0.y); else { const p1 = f.pts[i - 1]; const mx = (p0.x + p1.x) / 2 + (i % 2 ? 8 : -8), my = (p0.y + p1.y) / 2 + (i % 2 ? -8 : 8); ctx.lineTo(mx, my); ctx.lineTo(p0.x, p0.y); } } ctx.stroke();
+        ctx.strokeStyle = `rgba(120,200,255,${0.5 * k})`; ctx.lineWidth = 7; ctx.stroke();
+      } else if (f.kind === 'emberthrow') {
+        const kk = f.t / f.ttl; const x = f.x0 + (f.x - f.x0) * kk, y = f.y0 + (f.y - f.y0) * kk - Math.sin(kk * Math.PI) * 60; ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.arc(x, y, 6, 0, TAU); ctx.fill();
+      } else if (f.kind === 'mineburst') {
+        ctx.fillStyle = `rgba(190,120,255,${0.4 * k})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.5 + 0.5 * (1 - k)), 0, TAU); ctx.fill(); ctx.strokeStyle = `rgba(230,200,255,${0.9 * k})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.stroke();
+      } else if (f.kind === 'strike' || f.kind === 'strikewarn') {
+        if (f.kind === 'strikewarn') { ctx.strokeStyle = `rgba(255,240,150,${0.6 + 0.4 * (1 - k)})`; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+        else { ctx.fillStyle = `rgba(255,250,200,${0.4 * k})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.fill(); ctx.strokeStyle = `rgba(255,255,255,${k})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(f.x + 10, f.y - 160); ctx.lineTo(f.x - 8, f.y - 70); ctx.lineTo(f.x + 8, f.y - 60); ctx.lineTo(f.x, f.y); ctx.stroke(); }
+      } else if (f.kind === 'gust') {
+        ctx.strokeStyle = `rgba(200,255,220,${0.8 * k})`; ctx.lineWidth = 3;
+        if (f.whirl) { for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.4 + 0.2 * i) * (1 + (1 - k) * 0.6), i, i + 4); ctx.stroke(); } }
+        else { ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.angle); for (let i = 0; i < 3; i++) { const xx = f.len * (0.3 + 0.35 * i) * (1 - k * 0.3); ctx.beginPath(); ctx.moveTo(xx, -f.w / 2 * (0.4 + 0.3 * i)); ctx.quadraticCurveTo(xx + 25, 0, xx, f.w / 2 * (0.4 + 0.3 * i)); ctx.stroke(); } ctx.restore(); }
       } else if (f.kind === 'spin') {
         ctx.strokeStyle = `rgba(210,235,255,${0.85 * k})`; ctx.lineWidth = 7 * k + 2; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.7 + 0.3 * (1 - k)), 0, TAU); ctx.stroke();
         ctx.fillStyle = `rgba(150,205,255,${0.18 * k})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.fill();
@@ -374,6 +403,9 @@ PA.Render = (function () {
     let ix = e.x - 10, iy = e.y - e.r - 28;
     if (e.state === 'recover' || e.state === 'stagger') { statusIcon(ctx, ix, iy, 'exposed'); ix += 16; }
     if (e.chill > 0) { statusIcon(ctx, ix, iy, 'chill'); ix += 16; }
+    if (e.burn && e.burn.t > 0) { ctx.fillStyle = '#ff9f43'; ctx.beginPath(); ctx.moveTo(ix, iy - 7); ctx.quadraticCurveTo(ix + 7, iy, ix, iy + 7); ctx.quadraticCurveTo(ix - 7, iy, ix, iy - 7); ctx.fill(); ix += 16; }
+    if (e.bleed && e.bleed.t > 0) { ctx.fillStyle = '#ff5a5a'; ctx.beginPath(); ctx.arc(ix, iy + 2, 4, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.moveTo(ix, iy - 7); ctx.lineTo(ix + 4, iy + 1); ctx.lineTo(ix - 4, iy + 1); ctx.fill(); ix += 16; }
+    if (e.conduct > 0) { ctx.strokeStyle = '#bfe8ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ix + 3, iy - 7); ctx.lineTo(ix - 3, iy); ctx.lineTo(ix + 2, iy); ctx.lineTo(ix - 3, iy + 7); ctx.stroke(); ix += 16; }
     if (inField) { statusIcon(ctx, ix, iy, 'slow'); ix += 16; }
     if (st.markTarget === e) statusIcon(ctx, e.x, e.y - e.r - 44, 'mark');
     if (e.chill > 0) { ctx.strokeStyle = 'rgba(160,230,255,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 1.4 + 3, st.t * 1.5, st.t * 1.5 + TAU); ctx.stroke(); ctx.setLineDash([]); }
@@ -434,6 +466,23 @@ PA.Render = (function () {
     ctx.restore();
     ctx.restore();
     if (p.shield > 0) { ctx.strokeStyle = 'rgba(126,242,255,0.85)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(p.x, p.y - 2, p.r + 10, 0, TAU); ctx.stroke(); ctx.fillStyle = 'rgba(126,242,255,0.08)'; ctx.fill(); }
+  }
+  function drawWeaponBodies(ctx, st) {
+    const p = st.player;
+    for (const w of st.weapons || []) {
+      if (w.stats.kind === 'orbit' && w.bladePos) for (const bp of w.bladePos) { ctx.save(); ctx.translate(bp.x, bp.y); ctx.rotate(bp.a + st.t * 8); ctx.fillStyle = '#e6edf5'; ctx.strokeStyle = '#8fb6ee'; ctx.lineWidth = 1.5; for (let i = 0; i < 3; i++) { ctx.rotate(TAU / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(14, -4); ctx.lineTo(16, 0); ctx.lineTo(14, 4); ctx.closePath(); ctx.fill(); ctx.stroke(); } ctx.restore(); }
+      if (w.stats.kind === 'chain') { const ox = p.x + Math.cos(st.t * 2) * 26, oy = p.y - 30 + Math.sin(st.t * 3) * 6; ctx.fillStyle = 'rgba(120,200,255,0.35)'; ctx.beginPath(); ctx.arc(ox, oy, 12, 0, TAU); ctx.fill(); ctx.fillStyle = '#dff4ff'; ctx.beginPath(); ctx.arc(ox, oy, 6, 0, TAU); ctx.fill(); }
+      if (w.stats.kind === 'bolt') { const ox = p.x - 22, oy = p.y - 26 + Math.sin(st.t * 3 + 1) * 4; ctx.fillStyle = '#bfefff'; ctx.beginPath(); ctx.moveTo(ox, oy - 9); ctx.lineTo(ox + 6, oy); ctx.lineTo(ox, oy + 9); ctx.lineTo(ox - 6, oy); ctx.closePath(); ctx.fill(); }
+      if (w.stats.kind === 'ember') { const ox = p.x + 24, oy = p.y - 28 + Math.sin(st.t * 4) * 4; ctx.fillStyle = 'rgba(255,150,60,0.5)'; ctx.beginPath(); ctx.arc(ox, oy, 9, 0, TAU); ctx.fill(); ctx.fillStyle = '#ffd27a'; ctx.beginPath(); ctx.arc(ox, oy, 4, 0, TAU); ctx.fill(); }
+    }
+    for (const mn of st.mines || []) { const armed = mn.arm <= 0; ctx.strokeStyle = armed ? 'rgba(200,140,255,0.9)' : 'rgba(200,140,255,0.4)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mn.x, mn.y, 9, 0, TAU); ctx.stroke(); ctx.fillStyle = armed ? '#d9b3ff' : '#8a6bb0'; ctx.beginPath(); ctx.moveTo(mn.x, mn.y - 6); ctx.lineTo(mn.x + 5, mn.y + 3); ctx.lineTo(mn.x - 5, mn.y + 3); ctx.closePath(); ctx.fill(); if (armed) { ctx.strokeStyle = 'rgba(200,140,255,0.25)'; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.arc(mn.x, mn.y, mn.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); } }
+    // 기술 상태
+    const S = st.skillState; if (S) {
+      if (S.storm) { const s = S.storm; ctx.strokeStyle = 'rgba(230,240,255,0.8)'; ctx.lineWidth = 3; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(s.x, s.y, s.r * (0.5 + 0.5 * ((st.t * 2 + i * 0.25) % 1)), st.t * 10 + i, st.t * 10 + i + 2.2); ctx.stroke(); } }
+      if (S.gravity) { const g = S.gravity; ctx.fillStyle = 'rgba(150,100,255,0.18)'; ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, TAU); ctx.fill(); ctx.strokeStyle = 'rgba(200,170,255,0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(g.x, g.y, 14 + Math.sin(st.t * 12) * 3, 0, TAU); ctx.stroke(); for (let i = 0; i < 8; i++) { const a = i * TAU / 8 - st.t * 4, rr = g.r * (0.3 + 0.6 * ((st.t * 0.8 + i * 0.13) % 1)); ctx.fillStyle = 'rgba(210,190,255,0.7)'; ctx.beginPath(); ctx.arc(g.x + Math.cos(a) * rr, g.y + Math.sin(a) * rr, 2.5, 0, TAU); ctx.fill(); } }
+      if (S.ward) { ctx.strokeStyle = 'rgba(126,242,255,0.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y - 2, p.r + 14, 0, TAU); ctx.stroke(); }
+      if (S.target) { ctx.strokeStyle = 'rgba(255,240,150,0.85)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(S.target.x, S.target.y, 12, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.moveTo(S.target.x - 16, S.target.y); ctx.lineTo(S.target.x - 8, S.target.y); ctx.moveTo(S.target.x + 8, S.target.y); ctx.lineTo(S.target.x + 16, S.target.y); ctx.stroke(); ctx.fillStyle = 'rgba(255,240,150,0.9)'; ctx.font = `10px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('E', S.target.x, S.target.y - 16); }
+    }
   }
   function drawRange(ctx, st) {
     const p = st.player, b = st.build;
@@ -518,6 +567,13 @@ PA.Render = (function () {
 
   function drawProjectiles(ctx, st) {
     for (const p of st.projectiles) {
+      if (p.owner === 'player' && p.kind !== 'shard' && p.kind !== 'shard_common') {
+        const ang = Math.atan2(p.vy, p.vx);
+        if (p.kind === 'crescent') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ang); ctx.strokeStyle = 'rgba(220,245,255,0.95)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(-8, 0, 18, -1.1, 1.1); ctx.stroke(); ctx.restore(); continue; }
+        if (p.kind === 'arrow_h') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ang); ctx.strokeStyle = '#e8f7ff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(8, 0); ctx.stroke(); ctx.fillStyle = '#9fd8ff'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(4, -4); ctx.lineTo(4, 4); ctx.fill(); ctx.restore(); continue; }
+        if (p.kind === 'bolt') { ctx.fillStyle = '#bfefff'; ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, TAU); ctx.fill(); ctx.strokeStyle = 'rgba(160,230,255,0.7)'; ctx.lineWidth = 2; for (let i = 0; i < 3; i++) { const a = i * Math.PI / 3 + st.t * 6; ctx.beginPath(); ctx.moveTo(p.x - Math.cos(a) * 7, p.y - Math.sin(a) * 7); ctx.lineTo(p.x + Math.cos(a) * 7, p.y + Math.sin(a) * 7); ctx.stroke(); } continue; }
+        if (p.kind === 'blade') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(st.t * 20); ctx.fillStyle = '#e6edf5'; for (let i = 0; i < 3; i++) { ctx.rotate(TAU / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(12, -3); ctx.lineTo(12, 3); ctx.fill(); } ctx.restore(); continue; }
+      }
       if (p.kind === 'arrow') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); ctx.strokeStyle = '#ffd9a0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(8, 0); ctx.stroke(); ctx.fillStyle = '#ff6b6b'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(4, -4); ctx.lineTo(4, 4); ctx.fill(); ctx.restore(); }
       else { ctx.fillStyle = '#bfefff'; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(191,239,255,0.4)'; ctx.beginPath(); ctx.arc(p.x - p.vx * 0.02, p.y - p.vy * 0.02, 3, 0, TAU); ctx.fill(); }
     }
@@ -589,19 +645,41 @@ PA.Render = (function () {
       ctx.font = `13px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.fillText(`웨이브 ${Math.max(1, st.waveIndex + 1)}/${st.waves.length} · 남은 적 ${alive}`, W - 204, 50);
     }
     const cfg = PA.CONFIG.PLAYER, dodgeCd = cfg.dodge.cooldown * b.dodgeCdMult;
-    slot(ctx, W / 2 - 70, H - 78, 'Space', '회피', !p.dodge.active && p.dodge.cd <= 0, p.dodge.active ? 1 : Math.max(0, p.dodge.cd) / dodgeCd, '#7ef2ff');
-    slot(ctx, W / 2 + 6, H - 78, 'Q', '감속장', p.special.cd <= 0, p.special.cd / b.specialCd, '#a9d8ff');
-    if (p.special.cd > 0) { ctx.fillStyle = '#fff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(p.special.cd.toFixed(1) + 's', W / 2 + 38, H - 84); }
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(14, H - 40, 360, 28);
-    ctx.fillStyle = '#fff'; ctx.font = `13px ${FONT}`; ctx.textAlign = 'left';
-    const augs = Object.keys(b.aug).filter(k => b.aug[k] > 0).map(k => PA.AUGMENTS.find(x => x.id === k).name + (b.aug[k] > 1 ? b.aug[k] : '')).join(', ');
-    ctx.fillText(`${b.weapon.name} · 피해 ${PA.fmt.num(b.damage)} · 주기 ${PA.fmt.num(b.interval)}s` + (augs ? ' · ' + augs : ''), 20, H - 21);
+    // 레벨·경험치
+    const g = b.growth; if (g) { const need = PA.Growth.xpNeed(g.level), yy = p.shieldMax > 0 ? 58 : 38; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(14, yy, 240, 14); ctx.fillStyle = '#ffd166'; ctx.fillRect(14, yy, 240 * Math.min(1, g.xp / need), 14); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(14.5, yy + 0.5, 239, 13); ctx.fillStyle = '#fff'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(`Lv ${g.level}`, 20, yy + 11); ctx.textAlign = 'right'; ctx.fillText(`${g.xp} / ${need}`, 250, yy + 11); }
+    slot(ctx, W / 2 - 108, H - 78, 'Space', '회피', !p.dodge.active && p.dodge.cd <= 0, p.dodge.active ? 1 : Math.max(0, p.dodge.cd) / dodgeCd, '#7ef2ff');
+    slot(ctx, W / 2 - 32, H - 78, 'Q', '감속장', p.special.cd <= 0, p.special.cd / b.specialCd, '#a9d8ff');
+    if (p.special.cd > 0) { ctx.fillStyle = '#fff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(p.special.cd.toFixed(1) + 's', W / 2, H - 84); }
+    const es = b.skills && b.skills.e; const ecd = es ? PA.Skills.cdOf(st, 'e') : 1;
+    slot(ctx, W / 2 + 44, H - 78, 'E', es ? PA.SKILLS[es.id].name : '비어 있음', !!es && p.eCd <= 0, es ? (p.eCd || 0) / ecd : 1, '#ffe9a8');
+    if (es && p.eCd > 0) { ctx.fillStyle = '#fff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(p.eCd.toFixed(1) + 's', W / 2 + 76, H - 84); }
+    // 무기 아이콘·레벨
+    let wx = 14; const wy = H - 46;
+    for (const w of st.weapons || []) { const s = w.stats; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(wx, wy, 96, 34); ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(wx + 0.5, wy + 0.5, 95, 33); weaponIcon(ctx, wx + 16, wy + 17, s.kind); ctx.fillStyle = '#fff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(`${s.name}`, wx + 32, wy + 14); ctx.font = `11px ${FONT}`; ctx.fillStyle = '#ffd166'; ctx.fillText(`Lv${s.level}${s.mods.length ? ' · ' + s.mods.map(mid => s.def.mods[mid].name).join(',') : ''}`, wx + 32, wy + 28); wx += 100; }
+    const cm = Object.keys(b.commons || {}).filter(k => b.commons[k] > 0).map(k => PA.COMMONS[k].name + (b.commons[k] > 1 ? b.commons[k] : '')).join(', ');
+    if (cm) { ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(14, H - 70, Math.min(360, 16 + cm.length * 12), 20); ctx.fillStyle = '#cfeaff'; ctx.font = `11px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText('공통: ' + cm, 20, H - 56); }
     ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = `12px ${FONT}`; ctx.textAlign = 'right'; ctx.fillText(PA.KEYS_TEXT, W - 14, H - 18);
     if (st.status !== 'running') {
       ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = st.status === 'won' ? '#ffe066' : '#ff6b6b'; ctx.font = `bold 40px ${FONT}`; ctx.textAlign = 'center';
       ctx.fillText(st.status === 'won' ? (st.mode === 'boss' ? '숲의 왕을 쓰러뜨렸다' : '조우 승리') : '패배', W / 2, H / 2 - 10);
     }
+  }
+  function weaponIcon(ctx, x, y, kind) {
+    ctx.save(); ctx.translate(x, y); ctx.strokeStyle = '#e6edf5'; ctx.fillStyle = '#e6edf5'; ctx.lineWidth = 2;
+    switch (kind) {
+      case 'arc': ctx.beginPath(); ctx.arc(-4, 0, 11, -1, 1); ctx.stroke(); break;
+      case 'beam': ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.stroke(); ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(5, -4); ctx.lineTo(5, 4); ctx.fill(); break;
+      case 'melee': ctx.beginPath(); ctx.moveTo(-8, 8); ctx.lineTo(4, -8); ctx.moveTo(-2, 8); ctx.lineTo(10, -8); ctx.stroke(); break;
+      case 'homing': ctx.beginPath(); ctx.arc(-4, 0, 10, -1.3, 1.3); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(10, 0); ctx.stroke(); break;
+      case 'heavy': ctx.fillRect(-3, -2, 6, 12); ctx.fillRect(-9, -10, 18, 9); break;
+      case 'orbit': ctx.beginPath(); ctx.arc(0, 0, 9, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(9, 0, 3, 0, TAU); ctx.arc(-9, 0, 3, 0, TAU); ctx.fill(); break;
+      case 'chain': ctx.beginPath(); ctx.moveTo(-9, -8); ctx.lineTo(-2, 0); ctx.lineTo(-5, 1); ctx.lineTo(4, 9); ctx.stroke(); ctx.beginPath(); ctx.arc(6, -6, 4, 0, TAU); ctx.fill(); break;
+      case 'bolt': ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(7, 0); ctx.lineTo(0, 10); ctx.lineTo(-7, 0); ctx.closePath(); ctx.fill(); break;
+      case 'ember': ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.arc(0, 2, 7, 0, TAU); ctx.fill(); ctx.fillStyle = '#ffe9a8'; ctx.beginPath(); ctx.arc(0, 0, 3, 0, TAU); ctx.fill(); break;
+      case 'mine': ctx.fillStyle = '#d9b3ff'; ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(8, 5); ctx.lineTo(-8, 5); ctx.closePath(); ctx.fill(); break;
+    }
+    ctx.restore();
   }
   function drawDebug(ctx, st) {
     ctx.strokeStyle = '#0f0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(st.player.x, st.player.y, st.player.r, 0, TAU); ctx.stroke();
@@ -622,6 +700,7 @@ PA.Render = (function () {
     drawChest(ctx, st);
     drawPickups(ctx, st);
     drawRange(ctx, st);
+    drawWeaponBodies(ctx, st);
     drawPlayerEffects(ctx, st);
     // 개체는 y순으로 그려 겹침이 자연스럽게
     const ents = st.enemies.map(e => ({ y: e.y, f: () => drawEnemy(ctx, st, e) }));

@@ -65,6 +65,9 @@ input[type=range] { width: 160px; vertical-align: middle; }
 .bossart canvas { flex: 0 0 160px; border-radius: 8px; background: #1b2118; }
 ul.tips li { margin: 3px 0; font-size: 14px; }
 .card.ok { border-color: var(--ok); }
+.panel.wide { max-width: 1100px; }
+.card.aug.region { border-color: var(--gold); }
+#overlay .grid3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 
 </style>
 
@@ -76,7 +79,7 @@ ul.tips li { margin: 3px 0; font-size: 14px; }
 var PA = (typeof PA !== 'undefined') ? PA : {};
 if (typeof globalThis !== 'undefined') globalThis.PA = PA;
 
-PA.VERSION = '0.4.0';
+PA.VERSION = '0.5.0';
 
 // mulberry32: 시드 기반 결정적 난수
 PA.rng = {
@@ -165,7 +168,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
 PA.Input = (function () {
   const MOVE = { KeyA: [-1, 0], ArrowLeft: [-1, 0], KeyD: [1, 0], ArrowRight: [1, 0], KeyW: [0, -1], ArrowUp: [0, -1], KeyS: [0, 1], ArrowDown: [0, 1] };
-  const ONESHOT = { Space: 'dodge', KeyQ: 'special' };
+  const ONESHOT = { Space: 'dodge', KeyQ: 'special', KeyE: 'skillE' };
   function create() { return { keys: new Set(), pressed: new Set(), blocked: false }; }
   // 정지(blocked=true)·재개(blocked=false) 양쪽에서 남은 눌림/단발 입력을 모두 비운다
   function setBlocked(inp, blocked) { inp.blocked = !!blocked; inp.keys.clear(); inp.pressed.clear(); }
@@ -180,7 +183,7 @@ PA.Input = (function () {
   function state(inp) {
     let mx = 0, my = 0;
     for (const code of inp.keys) { const m = MOVE[code]; if (m) { mx += m[0]; my += m[1]; } }
-    return { mx: Math.max(-1, Math.min(1, mx)), my: Math.max(-1, Math.min(1, my)), dodge: inp.pressed.has('Space'), special: inp.pressed.has('KeyQ') };
+    return { mx: Math.max(-1, Math.min(1, mx)), my: Math.max(-1, Math.min(1, my)), dodge: inp.pressed.has('Space'), special: inp.pressed.has('KeyQ'), skillE: inp.pressed.has('KeyE') };
   }
   function consumePressed(inp) { inp.pressed.clear(); }
   return { create, setBlocked, keyDown, keyUp, clearAll, state, consumePressed, MOVE, ONESHOT };
@@ -347,7 +350,352 @@ PA.REGIONS = [
 
 PA.BOSS_ACTION_TEXT = { intro: '입장', approach: '접근', sweep_aim: '송곳니 휩쓸기 준비', sweep_lock: '휩쓸기!', dash_aim: '사냥 돌진 준비', dash_lock: '돌진!', dash: '돌진 중', howl: '무리 소환', pounce_aim: '덮쳐찍기 준비', pounce_lock: '덮쳐찍기!', leap: '도약 중', recover: '빈틈!', roar: '포효', stagger: '비틀거림!', dead: '쓰러짐' };
 
-PA.KEYS_TEXT = 'WASD/방향키 이동 · Space 회피 · Q 감속장 · Esc 일시정지';
+PA.KEYS_TEXT = 'WASD/방향키 이동 · Space 회피 · Q 감속장 · E 기술 · Esc 일시정지';
+
+</script>
+<script>
+// 성장 시스템 데이터(v0.5). 모든 수치는 임시값. `impl: false`인 항목은 미구현이며 게임에 후보로 노출되지 않는다.
+var PA = (typeof PA !== 'undefined') ? PA : {};
+
+PA.GROWTH = {
+  SLOTS: { weapons: 3, weaponMods: 2, weaponMax: 5, commons: 3, passives: 4, passiveMax: 3, skillMax: 3, skillVariants: 1 },
+  LEVEL_MULT: [1.0, 1.2, 1.4, 1.6, 1.8],            // 무기 레벨 1~5 기본 피해 누적 배율(복리 아님)
+  XP: { base: 14, step: 4, maxLevel: 40 },              // 레벨 n→n+1 필요 경험치 = base + step*(n-1)
+  XP_VALUE: { wolf: 6, archer: 7, spore: 8, wolf_alpha: 30, boss: 0, summoned: 6 }, // 보스 처치 자체는 경험치 0(보스 보상은 별도)
+  REGION_BONUS_XP: { forest: 10, ridge: 16, marsh: 34, den: 50, deep: 90 },        // 조우 승리 시 추가 경험치(조우 3택 증강을 대체). 시간당 경험치가 쉬운 지역 반복보다 낮지 않도록 비용에 비례(임시값)
+  DEEP_PICK: true,                                      // 더 깊이 탐험 승리 시 지역 태그 3택 1회(지역 보상)
+  WEIGHTS: {
+    base: { weapon_new: 1.0, weapon_level: 1.0, weapon_mod: 1.0, common: 1.0, skill_new: 1.0, skill_level: 0.8, skill_variant: 0.9, passive: 0.9 },
+    early: { untilLevel: 5, weapon_new: 2.0, skill_new: 2.0, weapon_mod: 1.5, passive: 0.6 },   // 초반 보정
+    regionTag: 1.8,                                     // 지역 태그와 맞는 후보 가중치
+    repeatPenalty: 0.5,                                 // 직전 선택과 같은 종류(무기 레벨업 등) 완화
+  },
+  COMMON_VALUES: { wide: [1.25, 1.5], reach: [1.25, 1.5], burn: { dps: 4, dur: 2.0 }, echoEvery: 4, echoDelay: 0.2 },
+  PASSIVE_VALUES: { vitality: 20, toughness: 0.10, mastery: 0.10, haste: 0.08, mobility: 0.08, focus: 0.10, exploit: 0.25, persistence: 0.20 },
+};
+
+// 무기 10종. kind: arc(부채꼴) beam(직선) melee(근접 연타) homing(추적 투사체) heavy(범위 타격) orbit(공전) chain(연쇄) bolt(냉기 탄환) ember(불씨) mine(지뢰)
+// reach: 긴 사거리 적용 / width: 넓어진 공격 적용. category: direct(장애물 가림) | projectile(장애물 충돌) | ground(바닥 범위)
+PA.WEAPONS = {
+  sword:   { name: '검', kind: 'arc', startable: true, impl: true, base: { damage: 12, interval: 0.55, range: 95, arcDeg: 110, knock: 40 }, reach: true, width: true, category: 'direct', tags: ['melee', 'combo'],
+    desc: '전방 부채꼴 검격. 접근과 광역 처리의 균형.',
+    mods: { cross: { name: '교차 검격', desc: '3번째 검격마다 반대 방향으로 한 번 더', impl: true, tags: ['combo'] }, crescent: { name: '날아가는 검광', desc: '검격 끝에서 초승달 검기가 전진(피해 60%, 관통)', impl: true, tags: ['projectile'] }, scar: { name: '잔류 검흔', desc: '벤 자리에 검흔이 남아 0.5초 뒤 한 번 더(피해 50%)', impl: true, tags: ['combo'] } } },
+  spear:   { name: '관통창', kind: 'beam', startable: true, impl: true, base: { damage: 14, interval: 0.70, range: 230, width: 44, knock: 30 }, reach: true, width: true, category: 'direct', tags: ['pierce'],
+    desc: '긴 직선 관통 검기. 적을 일렬로 세우는 재미. (기존 관통검이 이 무기로 이어진다)',
+    mods: { returning: { name: '귀환 검기', desc: '끝까지 간 검기가 0.35초 뒤 돌아오며 다시 공격', impl: true, tags: ['pierce'] }, split: { name: '분열 창날', desc: '첫 적중 뒤 작은 검기 2개가 사선으로 분열(피해 40%)', impl: true, tags: ['projectile'] }, brand: { name: '꿰뚫는 표식', desc: '같은 적을 4번 찌르면 표식 폭발(피해 150%, 반지름 60)', impl: true, tags: ['pierce'] } } },
+  daggers: { name: '쌍검', kind: 'melee', startable: true, impl: true, base: { damage: 6, interval: 0.75, range: 62, hits: 3, hitGap: 0.09, arcDeg: 70, knock: 10 }, reach: false, width: true, category: 'direct', tags: ['melee', 'bleed'],
+    desc: '가까운 적에게 짧은 3연속 공격. 근접 집중.',
+    mods: { bleed: { name: '출혈 칼날', desc: '적중 시 2초 출혈(초당 30%)', impl: true, tags: ['bleed'] }, flank: { name: '측면 연무', desc: '연속 공격 마지막이 좌우 넓은 검격', impl: true, tags: ['melee'] }, pursuit: { name: '추격 칼날', desc: '적 처치 시 가까운 다른 적에게 작은 칼날(피해 80%)', impl: true, tags: ['combo'] } } },
+  bow:     { name: '추적궁', kind: 'homing', startable: true, impl: true, base: { damage: 11, interval: 0.8, range: 320, speed: 380, turn: 4.0 }, reach: true, width: false, category: 'projectile', tags: ['projectile'],
+    desc: '적을 향해 경로를 보정하는 화살. 이동하며 원거리 공격. 장애물에 막힌다.',
+    mods: { spread: { name: '갈래 사격', desc: '화살 3발을 부채꼴로', impl: true, tags: ['projectile'] }, ricochet: { name: '도탄 화살', desc: '적중 후 가까운 다른 적에게 한 번 튕김(피해 70%)', impl: true, tags: ['projectile'] }, pierce: { name: '관통 화살', desc: '적을 통과해 뒤쪽 적까지', impl: true, tags: ['pierce'] } } },
+  hammer:  { name: '전투망치', kind: 'heavy', startable: true, impl: true, base: { damage: 30, interval: 1.4, range: 110, radius: 70, knock: 120 }, reach: true, width: true, category: 'direct', tags: ['melee'],
+    desc: '느리고 강한 범위 타격. 큰 한 방과 밀어내기.',
+    mods: { shockwave: { name: '전방 충격파', desc: '타격 지점에서 앞으로 충격파(길이 160, 피해 60%)', impl: true, tags: ['melee'] }, aftershock: { name: '여진', desc: '타격한 바닥이 0.6초 뒤 다시 폭발(피해 50%)', impl: true, tags: ['zone'] }, pull: { name: '끌어당기는 망치', desc: '타격 직전 근처 작은 적을 타격점으로 조금 당김', impl: true, tags: ['melee'] } } },
+  blades:  { name: '회전 칼날', kind: 'orbit', startable: true, impl: true, base: { damage: 8, interval: 0.45, count: 2, radius: 78, angular: 3.2, hitGap: 0.45, knock: 20 }, reach: false, width: true, category: 'direct', tags: ['melee', 'combo'],
+    desc: '플레이어 주변을 도는 칼날. 궤도에 적을 걸치게 이동. 같은 적은 0.45초마다 한 번.',
+    mods: { dual: { name: '이중 궤도', desc: '안쪽·바깥쪽 궤도에 칼날 배치', impl: true, tags: ['melee'] }, launch: { name: '사출 칼날', desc: '3초마다 칼날 하나가 적에게 날아갔다 복귀(피해 120%)', impl: true, tags: ['projectile'] }, serrated: { name: '톱날', desc: '적중한 적에게 짧은 출혈', impl: true, tags: ['bleed'] } } },
+  orb:     { name: '번개 구체', kind: 'chain', startable: true, impl: true, base: { damage: 9, interval: 0.9, range: 200, hop: 130, hops: 3 }, reach: true, width: false, category: 'direct', tags: ['chain'],
+    desc: '주변 구체가 연쇄 번개를 쏜다. 가까운 적들을 연결. 한 연쇄에서 같은 적은 한 번만.',
+    mods: { fork: { name: '분기 번개', desc: '첫 대상에서 두 갈래로 연쇄', impl: true, tags: ['chain'] }, loop: { name: '순환 전류', desc: '연쇄 마지막에 최초 대상으로 한 번 돌아옴(명시적 예외)', impl: true, tags: ['chain'] }, conduct: { name: '전도 표식', desc: '번개에 맞은 적을 다른 무기로 치면 작은 전기 폭발(피해 40%)', impl: true, tags: ['combo'] } } },
+  frost:   { name: '서리 수정', kind: 'bolt', startable: false, impl: true, base: { damage: 7, interval: 1.0, range: 260, speed: 360, chill: 2.0 }, reach: true, width: false, category: 'projectile', tags: ['dot', 'projectile'],
+    desc: '주기적으로 냉기 탄환 발사. 냉기 공급과 조합 지원. 우선 추가 획득.',
+    mods: { fan: { name: '서리 부채', desc: '냉기 탄환 3발을 부채꼴로', impl: true, tags: ['projectile'] }, shatter: { name: '깨지는 수정', desc: '탄환 적중 시 작은 파편 3개로 분열(피해 40%)', impl: true, tags: ['projectile'] }, ground: { name: '차가운 바닥', desc: '적중 지점에 2초 냉기 영역(반지름 40)', impl: true, tags: ['zone'] } } },
+  ember:   { name: '불씨 정령', kind: 'ember', startable: false, impl: true, base: { damage: 5, interval: 1.6, range: 260, radius: 34, ttl: 2.5, tick: 0.4 }, reach: true, width: true, category: 'ground', tags: ['dot', 'zone'],
+    desc: '적 주변으로 불씨를 던져 불길 생성. 적을 불길로 유도. 우선 추가 획득.',
+    mods: { scatter: { name: '불씨 산개', desc: '작은 불씨 3개를 여러 위치로', impl: true, tags: ['zone'] }, trail: { name: '화염 띠', desc: '착탄 지점에서 불길이 길게 이어짐(3조각)', impl: true, tags: ['zone'] }, reignite: { name: '재점화', desc: '불길 위 적 처치 시 그 불길 +1.5초(상한 +4.5초)', impl: true, tags: ['dot'] } } },
+  mine:    { name: '룬 지뢰', kind: 'mine', startable: false, impl: true, base: { damage: 22, interval: 1.5, radius: 70, trigger: 30, arm: 0.5, max: 6 }, reach: false, width: true, category: 'ground', tags: ['zone', 'chain'],
+    desc: '일정 간격으로 바닥에 지뢰 설치. 뒤따르는 적의 경로 활용. 회피 성공과 무관. 우선 추가 획득.',
+    mods: { chain: { name: '연결 폭발', desc: '폭발이 90 안의 다른 지뢰를 0.15초 뒤 연달아 기폭', impl: true, tags: ['chain'] }, frosttrap: { name: '서리 함정', desc: '폭발 범위 적에게 냉기', impl: true, tags: ['dot'] }, lure: { name: '유인 룬', desc: '준비된 지뢰가 70 안의 작은 적을 천천히 당김', impl: true, tags: ['zone'] } } },
+};
+PA.STARTABLE = ['sword', 'spear', 'blades'];              // 첫 검증 시작 무기. 나머지 시작 후보는 검증 메뉴(?start=)에서
+PA.STARTABLE_ALL = Object.keys(PA.WEAPONS).filter(id => PA.WEAPONS[id].startable);
+
+// 공통 증강 9종(별도 3슬롯). max: 단계
+PA.COMMONS = {
+  wide:   { name: '넓어진 공격', max: 2, impl: true, desc: '적용 가능한 모든 무기의 폭·반경 증가', long: '직접 공격의 크기를 바꿉니다(사거리와 구분). 검격 반지름, 관통 폭, 망치 반지름, 칼날 궤도, 불길·지뢰 반지름.', applies: (w) => w.width, tags: ['mod'] },
+  reach:  { name: '긴 사거리', max: 2, impl: true, desc: '적용 가능한 모든 무기의 도달 거리 증가', long: '검격·관통 길이, 화살·탄환·불씨 사거리, 번개 사거리. 쌍검·회전 칼날·지뢰에는 적용되지 않습니다.', applies: (w) => w.reach, tags: ['projectile', 'pierce'] },
+  frost:  { name: '얼음 파편', max: 1, impl: true, desc: '모든 무기의 기본 공격이 냉기 부여. 냉기 적 처치 시 파편', long: '냉기는 중첩되지 않고 유지 시간만 갱신됩니다. 파편은 냉기를 다시 부여하지 않습니다.', tags: ['dot', 'chain'] },
+  burn:   { name: '불붙은 공격', max: 1, impl: true, desc: '모든 무기의 기본 공격에 짧은 화상(2초, 초당 4)', long: '화상 피해는 화상을 다시 만들지 않습니다.', tags: ['dot'] },
+  echo:   { name: '메아리', max: 1, impl: true, desc: '각 무기의 4번째 공격을 한 번 반복', long: '무기마다 공격 횟수를 따로 셉니다. 메아리로 생긴 공격은 다시 메아리를 만들지 않습니다.', tags: ['combo'] },
+  ember:  { name: '잔불 걸음', max: 1, impl: true, desc: '회피 경로에 불길 3개', long: '회피를 사용하기만 하면 됩니다(성공 판정 없음).', tags: ['dot', 'zone'] },
+  flare:  { name: '불꽃 파열', max: 1, impl: true, desc: '불길 위 적 처치 시 주변 폭발(반지름 80)', long: '불길 공급원(잔불 걸음, 불씨 정령, 불붙은 공격은 제외)이 있을 때 제시됩니다.', requiresAny: ['common:ember', 'weapon:ember'], tags: ['zone', 'chain'] },
+  saving: { name: '시간 저축', max: 1, impl: true, desc: '감속장 안 처치마다 감속장 재사용 -1초', long: '어떤 무기로 처치했든 적 1마리당 1회. 0 미만 불가.', tags: ['chain'] },
+  stasis: { name: '정지된 칼날', max: 1, impl: true, desc: '감속장 안의 적을 기본 공격으로 치면 흔적(최대 5). 종료 시 폭발', long: '흔적당 10 피해(무기 숙련 배율 적용).', tags: ['combo'] },
+};
+
+// 공통 패시브 8종(서로 다른 4종, 각 3레벨)
+PA.PASSIVES = {
+  vitality:    { name: '건강', max: 3, impl: true, desc: '최대 체력 +20/레벨', long: '증가분만큼 현재 체력도 오릅니다. 사망을 되돌리지 않습니다.' },
+  toughness:   { name: '강인함', max: 3, impl: true, desc: '직접 공격 피해 -10%/레벨', long: '늑대 물기·화살·휩쓸기·돌진·덮쳐찍기. 포자 구름 같은 지면 지속 피해에는 적용되지 않습니다(첫 구현).' },
+  mastery:     { name: '무기 숙련', max: 3, impl: true, desc: '모든 자동 무기 피해 +10%/레벨', long: '수동 기술(Q/E) 피해에는 적용되지 않습니다.' },
+  haste:       { name: '가속', max: 3, impl: true, desc: '모든 자동 무기 공격 주기 -8%/레벨', long: '' },
+  mobility:    { name: '기동력', max: 3, impl: true, desc: '이동 속도 +8%/레벨', long: '회피 거리·무적 시간은 그대로입니다.' },
+  focus:       { name: '집중', max: 3, impl: true, desc: 'Q/E 재사용 시간 -10%/레벨', long: '' },
+  exploit:     { name: '빈틈 포착', max: 3, impl: true, desc: '빈틈 상태 적 피해 배율 +0.25/레벨', long: '계산 순서: 기본 1.5 → 송곳니 목걸이면 2.0 → 빈틈 포착 레벨×0.25를 더함.' },
+  persistence: { name: '지속력', max: 3, impl: true, desc: '불길·냉기·감속장·화상 유지 시간 +20%/레벨', long: '적용: 잔불·불씨 정령 불길, 냉기, 화상, 감속장. 적의 포자 구름 등은 늘리지 않습니다.' },
+};
+
+// 수동 기술. Q는 감속장 고정, E는 5종 중 1개
+PA.SKILLS = {
+  slowfield: { key: 'Q', name: '감속장', impl: true, max: 3, cooldown: [14, 12, 10], desc: '반지름 150, 3초, 적 속도·준비 40%', long: '레벨: 재사용 단축.',
+    variants: { follow: { name: '동행하는 시간', impl: true, desc: '감속장이 플레이어를 따라 이동' }, split: { name: '분할된 시간', impl: true, desc: '플레이어 주변과 가장 가까운 적 무리 위치에 작은 감속장 2개(반지름 100). 겹쳐도 감속·처치 보상은 1회' }, echo: { name: '시간의 잔향', impl: true, desc: '종료 뒤 1.5초 동안 약한 감속(70%) 영역이 남음' } } },
+  gust:      { key: 'E', name: '돌풍', impl: true, max: 3, cooldown: [8, 7, 6], damage: [10, 14, 18], desc: '바라보는 방향 전방의 적을 밀어냄(길이 170, 폭 120)', long: '레벨: 피해·밀어내는 힘. 보스는 밀리지 않고 피해만.',
+    variants: { whirl: { name: '회오리', impl: true, desc: '전방 밀어내기를 주변 전체(반지름 130) 밀어내기로' }, windpath: { name: '바람길', impl: true, desc: '지나간 자리에 3초 동안 플레이어 이동 속도 +40% 영역' } } },
+  bladestorm:{ key: 'E', name: '칼날 폭풍', impl: true, max: 3, cooldown: [10, 9, 8], damage: [8, 11, 14], desc: '주변(반지름 110)을 1.2초 동안 0.2초마다 공격', long: '레벨: 피해.',
+    variants: { advancing: { name: '전진하는 폭풍', impl: true, desc: '바라보는 방향으로 이동하는 폭풍(속도 150)' }, condensed: { name: '응축된 폭풍', impl: true, desc: '반지름 70으로 줄고 피해 1.8배' } } },
+  strike:    { key: 'E', name: '낙뢰', impl: true, max: 3, cooldown: [9, 8, 7], damage: [40, 55, 70], desc: '범위(260) 안 자동 선택 대상(표식 > 정예 > 가장 가까운)에 강한 번개(반지름 45)', long: '레벨: 피해. 자동 목표는 작은 표시로 확인.',
+    variants: { chain: { name: '연쇄 낙뢰', impl: true, desc: '주변 대상 2개에 추가 낙뢰(피해 50%)' }, storm: { name: '뇌우 지대', impl: true, desc: '타격 위치에 2초 동안 0.5초마다 약한 낙뢰(피해 30%)' } } },
+  gravity:   { key: 'E', name: '중력핵', impl: true, max: 3, cooldown: [12, 11, 10], damage: [6, 9, 12], pull: [1.0, 1.3, 1.6], desc: '범위(260) 안 적 무리 중심에 1.2초 동안 작은 적을 끌어모음(반지름 140), 초당 피해', long: '레벨: 피해·끌어당김. 보스는 끌리지 않고 피해만.',
+    variants: { collapse: { name: '붕괴', impl: true, desc: '끝날 때 폭발(피해 3배, 반지름 100)' }, orbit: { name: '궤도 포획', impl: true, desc: '작은 적이 1초 더 중심 주변에 붙잡힘' } } },
+  ward:      { key: 'E', name: '수호 결계', impl: true, max: 3, cooldown: [14, 12, 10], shield: [30, 45, 60], desc: '4초 동안 피해를 흡수하는 보호막', long: '레벨: 흡수량. 파열 방벽처럼 깨져야 효과가 나오지 않습니다.',
+    variants: { fortress: { name: '이동 요새', impl: true, desc: '유지 중 주변(반지름 60) 적을 조금씩 밀어냄' }, pulse: { name: '공격 결계', impl: true, desc: '유지 중 0.8초마다 주변(반지름 110) 공격 파동(피해 8)' } } },
+};
+PA.E_SKILLS = ['gust', 'bladestorm', 'strike', 'gravity', 'ward'];
+
+// 보스 희귀 보상 4종. 현재 보스 목록에서 마지막 보스 뒤에는 제시하지 않는다(사용처 없음).
+PA.BOSS_REWARDS = {
+  resonance: { name: '무기 공명', impl: true, desc: '서로 다른 무기 3종이 4초 안에 같은 적을 치면 추가 폭발(피해 40, 반지름 70). 적당 6초 간격', tags: ['combo'] },
+  seed:      { name: '연쇄의 씨앗', impl: true, desc: '냉기·화상·출혈이 있는 적 처치 시 반지름 90 안 적에게 남은 시간의 절반 전파(중첩 없음, 더 긴 쪽 유지)', tags: ['dot', 'chain'] },
+  clone:     { name: '시간의 복제', impl: true, desc: '감속장을 통과하는 아군 투사체를 한 번 복제(복제본은 재복제 없음). 투사체 무기가 없으면 후보 제외', tags: ['projectile'] },
+  volley:    { name: '일제 공격', impl: true, desc: 'E 기술 사용 시 장착 무기들이 즉시 한 번씩 추가 공격(추가 공격은 E 효과를 다시 일으키지 않음)', tags: ['combo'] },
+};
+PA.BOSSES = ['boss']; // 회차의 보스 순서. 마지막 보스 뒤에는 희귀 보상 없음(추적표 R-BOSS-13)
+
+// 지역 성장 태그
+PA.REGION_TAGS = { forest: ['melee', 'combo', 'bleed'], ridge: ['pierce', 'projectile', 'mod'], marsh: ['dot', 'zone', 'chain'], den: ['melee', 'bleed', 'combo'], deep: ['dot', 'zone', 'chain', 'projectile'], boss: [] };
+PA.REGION_TAG_TEXT = { forest: '근접·연속 공격·출혈', ridge: '관통·투사체·무기 개조', marsh: '지속 피해·영역·처치 연쇄', den: '근접·출혈·연속 공격', deep: '지속 피해·영역·연쇄·투사체' };
+
+</script>
+<script>
+// 성장 시스템(회차 상태 쪽): 경험치·레벨, 무기/공통/패시브/기술 슬롯, 선택지 생성(시드 결정적), 레거시 저장 매핑.
+var PA = (typeof PA !== 'undefined') ? PA : {};
+
+PA.Growth = (function () {
+  const G = () => PA.GROWTH;
+  const W = () => PA.WEAPONS;
+
+  function newGrowth(startWeapon) {
+    return {
+      level: 1, xp: 0, pendingLevelUps: 0, choiceSeq: 0, pendingOffer: null, lastKind: null,
+      weapons: [{ id: startWeapon || 'sword', level: 1, mods: [] }],
+      commons: {}, passives: {}, skills: { q: { id: 'slowfield', level: 1, variant: null }, e: null },
+      bossRewards: [], legacy: {}, migrationPending: null, picks: { weapon_new: 0, weapon_level: 0, weapon_mod: 0, common: 0, skill_new: 0, skill_level: 0, skill_variant: 0, passive: 0, skip: 0 },
+      log: [],
+    };
+  }
+  function ensure(run) { if (!run.growth) run.growth = migrateFromLegacy(run); return run.growth; }
+
+  // ---------- 경험치 ----------
+  function xpNeed(level) { return G().XP.base + G().XP.step * (level - 1); }
+  function addXp(g, amount) {
+    if (amount <= 0 || g.level >= G().XP.maxLevel) return 0;
+    g.xp += amount; let gained = 0;
+    while (g.level < G().XP.maxLevel && g.xp >= xpNeed(g.level)) { g.xp -= xpNeed(g.level); g.level++; gained++; }
+    g.pendingLevelUps += gained;
+    return gained;
+  }
+  function xpValue(e) { const v = G().XP_VALUE; if (e.summoned) return v.summoned; return v[e.type] != null ? v[e.type] : 5; }
+
+  // ---------- 조회 ----------
+  const weaponOf = (g, id) => g.weapons.find(w => w.id === id);
+  const hasCommon = (g, id) => (g.commons[id] || 0) > 0;
+  const commonCount = (g) => Object.keys(g.commons).filter(k => g.commons[k] > 0).length;
+  const passiveCount = (g) => Object.keys(g.passives).filter(k => g.passives[k] > 0).length;
+  function hasProjectileWeapon(g) { return g.weapons.some(w => ['homing', 'bolt', 'beam'].includes(W()[w.id].kind) || w.mods.includes('crescent') || w.mods.includes('launch')); }
+  function hasFireSource(g) { return hasCommon(g, 'ember') || !!weaponOf(g, 'ember'); }
+
+  // ---------- 후보 생성 ----------
+  // ctx: { regionId, pool: 'level' | 'deep' | 'boss' }
+  function candidates(run, ctx) {
+    const g = ensure(run), S = G().SLOTS, out = [];
+    const region = (ctx && ctx.regionId) || null, tags = PA.REGION_TAGS[region] || [];
+    const push = (c) => { c.tags = c.tags || []; c.regionMatch = c.tags.some(t => tags.includes(t)); out.push(c); };
+    if (ctx && ctx.pool === 'boss') {
+      for (const id in PA.BOSS_REWARDS) { const d = PA.BOSS_REWARDS[id]; if (!d.impl || g.bossRewards.includes(id)) continue; if (id === 'clone' && !hasProjectileWeapon(g)) continue; push({ kind: 'boss_reward', id, tags: d.tags }); }
+      return out;
+    }
+    // 새 무기
+    if (g.weapons.length < S.weapons) for (const id in W()) { const d = W()[id]; if (!d.impl || weaponOf(g, id)) continue; push({ kind: 'weapon_new', id, tags: d.tags }); }
+    // 무기 레벨업·전용 증강 (장착 무기만)
+    for (const w of g.weapons) {
+      const d = W()[w.id];
+      if (w.level < S.weaponMax) push({ kind: 'weapon_level', id: w.id, tags: d.tags });
+      if (w.mods.length < S.weaponMods) for (const mid in d.mods) { const md = d.mods[mid]; if (!md.impl || w.mods.includes(mid)) continue; push({ kind: 'weapon_mod', id: w.id, mod: mid, tags: md.tags }); }
+    }
+    // 공통 증강
+    for (const id in PA.COMMONS) {
+      const d = PA.COMMONS[id]; if (!d.impl) continue;
+      const lv = g.commons[id] || 0;
+      if (lv >= d.max) continue;
+      if (lv === 0 && commonCount(g) >= S.commons) continue;               // 슬롯 초과
+      if (d.applies && !g.weapons.some(w => d.applies(W()[w.id]))) continue; // 적용 대상 없음
+      if (d.requiresAny && !d.requiresAny.some(r => r === 'common:ember' ? hasCommon(g, 'ember') : r === 'weapon:ember' ? !!weaponOf(g, 'ember') : false)) continue;
+      push({ kind: 'common', id, tags: d.tags });
+    }
+    // 수동 기술
+    if (!g.skills.e) { for (const id of PA.E_SKILLS) if (PA.SKILLS[id].impl) push({ kind: 'skill_new', id, tags: [] }); }
+    for (const slot of ['q', 'e']) {
+      const sk = g.skills[slot]; if (!sk) continue; const d = PA.SKILLS[sk.id];
+      if (sk.level < S.skillMax) push({ kind: 'skill_level', id: sk.id, slot, tags: [] });
+      if (!sk.variant) for (const vid in d.variants) if (d.variants[vid].impl) push({ kind: 'skill_variant', id: sk.id, slot, variant: vid, tags: [] });
+    }
+    // 패시브
+    for (const id in PA.PASSIVES) {
+      const d = PA.PASSIVES[id]; if (!d.impl) continue; const lv = g.passives[id] || 0;
+      if (lv >= d.max) continue; if (lv === 0 && passiveCount(g) >= S.passives) continue;
+      push({ kind: 'passive', id, tags: [] });
+    }
+    if (ctx && ctx.pool === 'deep') return out.filter(c => c.regionMatch); // 지역 보상: 지역 태그 후보만
+    return out;
+  }
+  function weightOf(g, c) {
+    const Wt = G().WEIGHTS; let w = Wt.base[c.kind] || 1;
+    if (g.level <= Wt.early.untilLevel && Wt.early[c.kind]) w *= Wt.early[c.kind];
+    if (c.regionMatch) w *= Wt.regionTag;
+    if (g.lastKind && g.lastKind === c.kind && (c.kind === 'weapon_level' || c.kind === 'passive')) w *= Wt.repeatPenalty;
+    return w;
+  }
+  const keyOf = (c) => c.kind + ':' + c.id + (c.mod ? ':' + c.mod : '') + (c.variant ? ':' + c.variant : '');
+  // 시드 결정적 3택. 같은 seq는 항상 같은 결과(새로고침 재굴림 방지: pendingOffer에 저장)
+  function generateOffer(run, ctx) {
+    const g = ensure(run);
+    if (g.pendingOffer && g.pendingOffer.pool === ((ctx && ctx.pool) || 'level')) return g.pendingOffer;
+    const pool = candidates(run, ctx), rng = PA.rng.create((run.seed * 7919 + g.choiceSeq * 104729 + g.level * 31) >>> 0);
+    const picked = [];
+    const remaining = pool.slice();
+    while (picked.length < 3 && remaining.length) {
+      let sum = 0; const ws = remaining.map(c => { const w = weightOf(g, c); sum += w; return w; });
+      let r = rng.next() * sum, idx = remaining.length - 1;
+      for (let i = 0; i < remaining.length; i++) { r -= ws[i]; if (r <= 0) { idx = i; break; } }
+      const c = remaining.splice(idx, 1)[0];
+      // 같은 무기의 레벨업과 전용 증강이 한 화면에 둘 이상 나오지 않게(다양성)
+      if (picked.some(p => p.kind === c.kind && p.id === c.id)) continue;
+      picked.push(c);
+    }
+    g.pendingOffer = { seq: g.choiceSeq, pool: (ctx && ctx.pool) || 'level', regionId: ctx && ctx.regionId || null, choices: picked.map(c => Object.assign({ key: keyOf(c) }, c)) };
+    g.choiceSeq++;
+    return g.pendingOffer;
+  }
+  function applyChoice(run, choice) {
+    const g = ensure(run), S = G().SLOTS;
+    switch (choice.kind) {
+      case 'weapon_new': if (g.weapons.length >= S.weapons || weaponOf(g, choice.id)) throw new Error('무기 슬롯'); g.weapons.push({ id: choice.id, level: 1, mods: [] }); break;
+      case 'weapon_level': { const w = weaponOf(g, choice.id); if (!w || w.level >= S.weaponMax) throw new Error('무기 레벨'); w.level++; break; }
+      case 'weapon_mod': { const w = weaponOf(g, choice.id); if (!w || w.mods.length >= S.weaponMods || w.mods.includes(choice.mod)) throw new Error('전용 증강'); w.mods.push(choice.mod); break; }
+      case 'common': { const d = PA.COMMONS[choice.id], lv = g.commons[choice.id] || 0; if (lv >= d.max || (lv === 0 && commonCount(g) >= S.commons)) throw new Error('공통 증강'); if (d.requiresAny && !d.requiresAny.some(r => r === 'common:ember' ? hasCommon(g, 'ember') : r === 'weapon:ember' ? !!weaponOf(g, 'ember') : false)) throw new Error('전제 미충족'); if (d.applies && !g.weapons.some(w => d.applies(W()[w.id]))) throw new Error('적용 대상 없음'); g.commons[choice.id] = lv + 1; break; }
+      case 'skill_new': if (g.skills.e) throw new Error('E 슬롯'); g.skills.e = { id: choice.id, level: 1, variant: null }; break;
+      case 'skill_level': { const sk = g.skills[choice.slot]; if (!sk || sk.id !== choice.id || sk.level >= S.skillMax) throw new Error('기술 레벨'); sk.level++; break; }
+      case 'skill_variant': { const sk = g.skills[choice.slot]; if (!sk || sk.id !== choice.id || sk.variant) throw new Error('기술 변형'); sk.variant = choice.variant; break; }
+      case 'passive': { const d = PA.PASSIVES[choice.id], lv = g.passives[choice.id] || 0; if (lv >= d.max || (lv === 0 && passiveCount(g) >= S.passives)) throw new Error('패시브'); g.passives[choice.id] = lv + 1; if (choice.id === 'vitality') run.hp = (run.hp || 0) + G().PASSIVE_VALUES.vitality; break; }
+      case 'boss_reward': if (g.bossRewards.includes(choice.id)) throw new Error('중복'); g.bossRewards.push(choice.id); break;
+      default: throw new Error('알 수 없는 선택');
+    }
+    g.picks[choice.kind] = (g.picks[choice.kind] || 0) + 1;
+    g.lastKind = choice.kind;
+    g.log.push(keyOf(choice));
+    if (g.pendingOffer && g.pendingOffer.pool === 'level') g.pendingLevelUps = Math.max(0, g.pendingLevelUps - 1);
+    g.pendingOffer = null;
+  }
+  function skipChoice(run) { const g = ensure(run); g.picks.skip++; if (g.pendingOffer && g.pendingOffer.pool === 'level') g.pendingLevelUps = Math.max(0, g.pendingLevelUps - 1); g.pendingOffer = null; run.gold = (run.gold || 0) + PA.CONFIG.SKIP_AUGMENT_GOLD; }
+
+  // ---------- 파생 수치 ----------
+  function weaponStats(b, w) {
+    const d = W()[w.id], base = d.base, lvMult = G().LEVEL_MULT[Math.min(w.level, G().SLOTS.weaponMax) - 1];
+    const s = Object.assign({}, base);
+    s.id = w.id; s.level = w.level; s.mods = w.mods.slice(); s.def = d; s.kind = d.kind; s.name = d.name;
+    s.damage = base.damage * lvMult * b.damageMult;      // 기본 × 레벨 배율 × (대장간 강화 × 무기 숙련) — 각각 한 번씩
+    s.interval = base.interval * b.intervalMult;
+    if (d.reach && base.range != null) s.range = base.range * b.rangeMult;
+    if (d.width) { if (base.arcDeg) s.arcDeg = Math.min(360, base.arcDeg * b.widthMult); if (base.width) s.width = base.width * b.widthMult; if (base.radius) s.radius = base.radius * b.widthMult; if (base.trigger) s.trigger = base.trigger * b.widthMult; }
+    if (d.kind === 'arc' && d.width) s.range = (s.range || base.range) * (1 + (b.widthMult - 1) * 0.5); // 검격은 반지름도 조금 커진다
+    return s;
+  }
+  function derive(run, b) {
+    const g = ensure(run), PV = G().PASSIVE_VALUES, CV = G().COMMON_VALUES, p = g.passives;
+    b.growth = g; b.level = g.level;
+    b.masteryMult = 1 + PV.mastery * (p.mastery || 0);
+    b.damageMult = (1 + 0.15 * (run.gear.upgrade || 0)) * b.masteryMult;   // 대장간 강화(세 무기 공통) × 무기 숙련
+    b.intervalMult = 1 - PV.haste * (p.haste || 0);
+    b.rangeMult = CV.reach[(g.commons.reach || 0) - 1] || 1;
+    b.widthMult = CV.wide[(g.commons.wide || 0) - 1] || 1;
+    b.hpMax += PV.vitality * (p.vitality || 0);
+    b.speedMult = 1 + PV.mobility * (p.mobility || 0);
+    b.toughness = PV.toughness * (p.toughness || 0);
+    b.exposedMult = b.exposedMult + PV.exploit * (p.exploit || 0);       // 기본/목걸이 → 빈틈 포착 가산
+    b.durationMult = 1 + PV.persistence * (p.persistence || 0);
+    b.skillCdMult = (1 - PV.focus * (p.focus || 0)) * b.skillCdMult;
+    b.weapons = g.weapons.map(w => weaponStats(b, w));
+    b.commons = Object.assign({}, g.commons);
+    b.passives = Object.assign({}, p);
+    b.skills = { q: g.skills.q ? Object.assign({}, g.skills.q) : null, e: g.skills.e ? Object.assign({}, g.skills.e) : null };
+    b.bossRewards = g.bossRewards.slice();
+    b.legacy = Object.assign({}, g.legacy);
+    b.has = (id) => (g.commons[id] || 0) > 0 || !!g.legacy[id];
+    b.level_ = (id) => g.commons[id] || 0;
+    // 감속장 재사용: 레벨 → 부적 -3 → 집중
+    const q = g.skills.q; const qcd = PA.SKILLS.slowfield.cooldown[Math.min(3, q ? q.level : 1) - 1];
+    b.specialCd = Math.max(1, (qcd - (b.accSpecialBonus || 0)) * b.skillCdMult);
+    b.shield = g.skills.e && g.skills.e.id === 'ward' ? 0 : b.shield; // 방벽은 결계로 이행됨(레거시 barrier는 legacy.barrier)
+    if (g.legacy.barrier) b.shield = PA.CONFIG.BARRIER.shield;
+    return b;
+  }
+
+  // ---------- 레거시(v0.4 이하) 매핑 ----------
+  // gear.weapon 'pierce' → 관통창 보유, augments: sharp→무기 숙련, wide→넓어진 공격, quick→가속, spin→회전 칼날 추가 무기,
+  // ember/frost/flare/echo/saving/stasis→공통, barrier→수호 결계(E, 레벨1) 또는 레거시 방벽, mark→레거시 표식 유지(신규 제시 없음)
+  function migrateFromLegacy(run) {
+    const a = run.augments || {}, S = G().SLOTS;
+    const start = (run.gear && run.gear.weapon === 'pierce') ? 'spear' : 'sword';
+    const g = newGrowth(start);
+    if (run.gear && run.gear.weapon === 'pierce') { g.weapons.push({ id: 'sword', level: 1, mods: [] }); }
+    else if (run.owned && run.owned.includes('pierce_sword')) g.weapons.push({ id: 'spear', level: 1, mods: [] });
+    if (a.spin && g.weapons.length < S.weapons) g.weapons.push({ id: 'blades', level: 1, mods: [] });
+    const commons = {};
+    for (const id of ['wide', 'ember', 'frost', 'flare', 'echo', 'saving', 'stasis']) if (a[id]) commons[id] = Math.min(PA.COMMONS[id].max, a[id]);
+    if (a.sharp) g.passives.mastery = Math.min(3, a.sharp);
+    if (a.quick) g.passives.haste = Math.min(3, a.quick);
+    if (a.barrier) { g.skills.e = { id: 'ward', level: 1, variant: null }; g.legacy.barrier = 1; }
+    if (a.mark) g.legacy.mark = 1;
+    const ids = Object.keys(commons);
+    if (ids.length > S.commons) { g.migrationPending = { commons: ids.map(id => ({ id, level: commons[id] })) }; } // 거점에서 명시적으로 3개 선택
+    else g.commons = commons;
+    // 레벨: 과거 증강 수만큼 대략 성장한 것으로 간주(경험치 0, 미처리 선택 없음)
+    const count = Object.values(a).reduce((s, v) => s + (v || 0), 0);
+    g.level = 1 + count; g.xp = 0;
+    return g;
+  }
+  function resolveMigration(run, keepIds) {
+    const g = ensure(run); if (!g.migrationPending) return;
+    const keep = keepIds.slice(0, G().SLOTS.commons);
+    for (const c of g.migrationPending.commons) if (keep.includes(c.id)) g.commons[c.id] = c.level;
+    g.migrationPending = null;
+  }
+
+  // ---------- 카드 설명(실제 파생 계산 재사용) ----------
+  function cloneRun(run) { return JSON.parse(JSON.stringify(run)); }
+  function describe(run, c) {
+    const S = G().SLOTS, g = ensure(run), before = PA.Build.derive(run);
+    const after = cloneRun(run); try { applyChoice(after, c); } catch (e) {}
+    const b2 = PA.Build.derive(after);
+    const fmt = PA.fmt.num, out = { kind: c.kind, key: keyOf(c), tags: c.tags || [], regionMatch: !!c.regionMatch };
+    const wname = (id) => W()[id].name;
+    switch (c.kind) {
+      case 'weapon_new': { const d = W()[c.id], s = b2.weapons.find(w => w.id === c.id); out.title = `새 무기: ${d.name}`; out.type = '무기 획득'; out.stage = `무기 ${g.weapons.length}/${S.weapons} → ${g.weapons.length + 1}/${S.weapons}`; out.change = d.desc; out.scope = `기본 피해 ${fmt(s.damage)} · 주기 ${fmt(s.interval)}초 · 1레벨부터 ${d.kind === 'beam' ? '관통' : d.kind === 'orbit' ? '공전' : d.kind === 'chain' ? '연쇄' : '고유 방식'}`; out.slot = `무기 슬롯 ${g.weapons.length + 1}/${S.weapons}`; break; }
+      case 'weapon_level': { const w = weaponOf(g, c.id), s1 = before.weapons.find(x => x.id === c.id), s2 = b2.weapons.find(x => x.id === c.id); out.title = `${wname(c.id)} ${w.level}→${w.level + 1}`; out.type = '무기 레벨'; out.stage = `${w.level} → ${w.level + 1} / ${S.weaponMax}`; out.change = `기본 피해 ${fmt(s1.damage)} → ${fmt(s2.damage)}`; out.scope = '이 무기만'; out.slot = '슬롯 소비 없음'; break; }
+      case 'weapon_mod': { const w = weaponOf(g, c.id), md = W()[c.id].mods[c.mod]; out.title = `${wname(c.id)} 전용: ${md.name}`; out.type = '방식 증강'; out.stage = `방식 슬롯 ${w.mods.length}/${S.weaponMods} → ${w.mods.length + 1}/${S.weaponMods}`; out.change = md.desc; out.scope = `${wname(c.id)}만`; out.slot = `${wname(c.id)} 방식 슬롯 ${w.mods.length + 1}/${S.weaponMods}`; break; }
+      case 'common': { const d = PA.COMMONS[c.id], lv = g.commons[c.id] || 0; out.title = `공통: ${d.name}${d.max > 1 ? ` ${lv}→${lv + 1}` : ''}`; out.type = '공통 증강'; out.stage = d.max > 1 ? `${lv} → ${lv + 1} / ${d.max}` : (lv ? '보유' : '획득'); out.change = d.desc; const targets = d.applies ? g.weapons.filter(w => d.applies(W()[w.id])).map(w => wname(w.id)) : g.weapons.map(w => wname(w.id)); out.scope = `적용: ${targets.join(', ') || '없음'} (나중에 얻는 무기도 자동)`; if (c.id === 'wide' || c.id === 'reach') { const ex = before.weapons.find(w => d.applies(W()[w.id])); if (ex) { const ex2 = b2.weapons.find(w => w.id === ex.id); out.change += c.id === 'wide' ? ` · ${wname(ex.id)} ${ex.arcDeg ? '각도 ' + Math.round(ex.arcDeg) + '° → ' + Math.round(ex2.arcDeg) + '°' : ex.width ? '폭 ' + Math.round(ex.width) + ' → ' + Math.round(ex2.width) : ex.radius ? '반지름 ' + Math.round(ex.radius) + ' → ' + Math.round(ex2.radius) : ''}` : ` · ${wname(ex.id)} 사거리 ${Math.round(ex.range)} → ${Math.round(ex2.range)}`; } } out.slot = lv ? '슬롯 소비 없음(단계 상승)' : `공통 슬롯 ${commonCount(g) + 1}/${S.commons}`; break; }
+      case 'skill_new': { const d = PA.SKILLS[c.id]; out.title = `E 기술 습득: ${d.name}`; out.type = '수동 기술'; out.stage = 'E 슬롯 비어 있음 → 장착'; out.change = d.desc; out.scope = `재사용 ${fmt(d.cooldown[0] * before.skillCdMult)}초`; out.slot = 'E 슬롯'; break; }
+      case 'skill_level': { const sk = g.skills[c.slot], d = PA.SKILLS[c.id]; out.title = `${d.name} ${sk.level}→${sk.level + 1}`; out.type = '기술 레벨'; out.stage = `${sk.level} → ${sk.level + 1} / ${S.skillMax}`; const cd1 = d.cooldown[sk.level - 1] * before.skillCdMult, cd2 = d.cooldown[sk.level] * before.skillCdMult; out.change = `재사용 ${fmt(cd1)}초 → ${fmt(cd2)}초` + (d.damage ? ` · 피해 ${d.damage[sk.level - 1]} → ${d.damage[sk.level]}` : d.shield ? ` · 흡수 ${d.shield[sk.level - 1]} → ${d.shield[sk.level]}` : ''); out.scope = `${d.key} 기술`; out.slot = '슬롯 소비 없음'; break; }
+      case 'skill_variant': { const d = PA.SKILLS[c.id], v = d.variants[c.variant]; out.title = `${d.name} 변형: ${v.name}`; out.type = '기술 변형'; out.stage = '변형 없음 → 선택(기술당 1개)'; out.change = v.desc; out.scope = `${d.key} 기술`; out.slot = '변형 슬롯 1/1'; break; }
+      case 'passive': { const d = PA.PASSIVES[c.id], lv = g.passives[c.id] || 0; out.title = `${d.name} ${lv}→${lv + 1}`; out.type = '패시브'; out.stage = `${lv} → ${lv + 1} / ${d.max}`; let ch = d.desc; if (c.id === 'vitality') ch += ` · 최대 체력 ${before.hpMax} → ${b2.hpMax}`; if (c.id === 'mastery') ch += ` · ${wname(g.weapons[0].id)} 피해 ${fmt(before.weapons[0].damage)} → ${fmt(b2.weapons[0].damage)}`; if (c.id === 'haste') ch += ` · ${wname(g.weapons[0].id)} 주기 ${fmt(before.weapons[0].interval)} → ${fmt(b2.weapons[0].interval)}초`; if (c.id === 'focus') ch += ` · 감속장 ${fmt(before.specialCd)} → ${fmt(b2.specialCd)}초`; if (c.id === 'exploit') ch += ` · 빈틈 ×${before.exposedMult} → ×${b2.exposedMult}`; out.change = ch; out.scope = '캐릭터 전체'; out.slot = lv ? '슬롯 소비 없음' : `패시브 슬롯 ${passiveCount(g) + 1}/${S.passives}`; break; }
+      case 'boss_reward': { const d = PA.BOSS_REWARDS[c.id]; out.title = `보스 보상: ${d.name}`; out.type = '희귀 보상'; out.stage = '획득'; out.change = d.desc; out.scope = '모든 무기·기술'; out.slot = '별도 보관'; break; }
+    }
+    return out;
+  }
+
+  return { newGrowth, ensure, xpNeed, addXp, xpValue, candidates, weightOf, generateOffer, applyChoice, skipChoice, weaponStats, derive, migrateFromLegacy, resolveMigration, describe, keyOf, weaponOf, hasCommon, commonCount, passiveCount, hasProjectileWeapon, hasFireSource };
+})();
 
 </script>
 <script>
@@ -355,45 +703,31 @@ PA.KEYS_TEXT = 'WASD/방향키 이동 · Space 회피 · Q 감속장 · Esc 일�
 var PA = (typeof PA !== 'undefined') ? PA : {};
 
 PA.Build = {
-  emptyGear() { return { weapon: 'sword', armor: null, acc: null, upgrade: 0 }; },
+  emptyGear() { return { armor: null, acc: null, upgrade: 0 }; }, // upgrade = 대장간 강화(세 장착 무기 공통)
 
   derive(run) {
     const C = PA.CONFIG;
     const gear = run.gear || PA.Build.emptyGear();
-    const aug = run.augments || {};
-    const level = (id) => aug[id] || 0;
-    const has = (id) => level(id) > 0;
-    const weaponId = gear.weapon || 'sword';
-    const weapon = Object.assign({}, PA.CONFIG.WEAPONS[weaponId]);
-
-    let damageMult = 1, rangeMult = 1, intervalMult = 1;
-    damageMult *= 1 + 0.25 * level('sharp');
-    rangeMult *= 1 + 0.25 * level('wide');
-    intervalMult *= Math.pow(0.85, level('quick'));
-    damageMult *= 1 + 0.15 * (gear.upgrade || 0);
-
     let hpMax = C.PLAYER.hp;
     if (gear.armor === 'leather_armor') hpMax += 30;
-
-    let dodgeCdMult = 1, specialCd = C.PLAYER.special.cooldown, exposedMult = C.PLAYER.exposedMult;
-    if (gear.acc === 'time_charm') { dodgeCdMult = 0.7; specialCd -= 3; }
+    let dodgeCdMult = 1, accSpecialBonus = 0, exposedMult = C.PLAYER.exposedMult;
+    if (gear.acc === 'time_charm') { dodgeCdMult = 0.7; accSpecialBonus = 3; }
     if (gear.acc === 'fang_necklace') exposedMult = 2.0;
-
-    return {
-      weaponId, weapon, damageMult, rangeMult, intervalMult, hpMax, dodgeCdMult, specialCd, exposedMult,
-      damage: weapon.damage * damageMult,
-      interval: weapon.interval * intervalMult,
-      range: weapon.range * rangeMult,
-      aug: Object.assign({}, aug), has, level,
-      shield: has('barrier') ? C.BARRIER.shield : 0,
-    };
+    const b = { gear, hpMax, dodgeCdMult, accSpecialBonus, exposedMult, skillCdMult: 1, shield: 0, forgeMult: 1 + 0.15 * (gear.upgrade || 0) };
+    PA.Growth.derive(run, b);
+    // 레거시 호환 필드(기존 화면·테스트): 첫 무기를 대표값으로
+    const w0 = b.weapons[0];
+    b.weaponId = w0.id; b.weapon = Object.assign({ name: w0.name, form: w0.kind === 'beam' ? 'beam' : 'arc' }, w0);
+    b.damage = w0.damage; b.interval = w0.interval; b.range = w0.range || 0;
+    b.aug = Object.assign({}, b.commons);
+    return b;
   },
 
   // 미리보기용: 장비/증강 후보를 적용했을 때의 파생 수치
   preview(run, patch) {
-    const r = { gear: Object.assign({}, run.gear), augments: Object.assign({}, run.augments) };
+    const r = JSON.parse(JSON.stringify(run));
     if (patch.gear) Object.assign(r.gear, patch.gear);
-    if (patch.augment) r.augments[patch.augment] = (r.augments[patch.augment] || 0) + 1;
+    if (patch.augment) { try { PA.Growth.applyChoice(r, patch.augment); } catch (e) {} }
     return PA.Build.derive(r);
   },
 
@@ -478,7 +812,11 @@ PA.Combat = (function () {
       stats: { kills: 0, damageTaken: 0, perfectDodges: 0, chestGold: 0, elapsed: 0, attacks: 0, bossDamage: 0, specialUses: 0 },
       spawnedAll: false,
       mode: opts.boss ? 'boss' : 'normal', intro: 0, boss: null, pickups: [], orbsSpawned: {}, phaseEvents: [], pendingLoss: false, bossDownT: 0,
+      weapons: [], mines: [], delayed: [], levelUps: 0, xpGained: 0,
     };
+    st.stats.xp = 0; st.stats.levelUps = 0;
+    st.weapons = PA.Weapons.init(st);
+    PA.Skills.init(st);
     if (opts.boss) {
       st.objective = 'boss'; st.waveIndex = 99; st.spawnedAll = true;
       const bs = arenaDef.bossStart || { x: cfg.ARENA.w / 2, y: 120 };
@@ -625,8 +963,9 @@ PA.Combat = (function () {
   }
 
   // ---------- 감속 ----------
-  function inField(st, o) { return st.field && m().dist(st.field, o) <= st.field.r + (o.r || 0); }
-  function timeFactor(st, o) { return inField(st, o) ? C().PLAYER.special.slow : 1; }
+  function inField(st, o) { return (st.field && m().dist(st.field, o) <= st.field.r + (o.r || 0)) || PA.Skills.inField2(st, o) || false; }
+  function inSlowEcho(st, o) { return st.zones.some(z => z.type === 'slowecho' && m().dist(z, o) <= z.r + (o.r || 0)); }
+  function timeFactor(st, o) { return inField(st, o) ? C().PLAYER.special.slow : (inSlowEcho(st, o) ? 0.7 : 1); }
 
   // ---------- 플레이어 피해 ----------
   function damagePlayer(st, amount, src) {
@@ -646,10 +985,12 @@ PA.Combat = (function () {
   }
   function applyPlayerDamage(st, amount, src) {
     const p = st.player;
+    if (src !== 'zone' && st.build.toughness) amount = Math.round(amount * (1 - st.build.toughness) * 10) / 10; // 강인함: 직접 공격만
     let rest = amount;
     if (p.shield > 0) {
       const used = Math.min(p.shield, rest);
       p.shield -= used; rest -= used;
+      PA.Skills.onShieldDamaged(st, used);
       if (p.shield <= 0 && st.build.has('barrier')) barrierBurst(st);
     }
     if (rest > 0) { p.hp -= rest; st.stats.damageTaken += rest; }
@@ -688,6 +1029,8 @@ PA.Combat = (function () {
   function damageEnemy(st, e, amount, opt) {
     opt = opt || {};
     if (e.dead) return 0;
+    const sr = opt.src || { direct: !!opt.sword };
+    const direct = sr.direct !== false && !sr.extra && !sr.skill;
     let dmg = amount;
     if (e.state === 'recover' || e.state === 'stagger') dmg *= st.build.exposedMult;
     if (st.markTarget === e) dmg *= C().MARK.damageMult;
@@ -696,10 +1039,15 @@ PA.Combat = (function () {
     e.hp -= dmg; e.flash = 0.12;
     if (e.boss && e.hp > 0) PA.Boss.checkPhase(st, e);
     if (opt.knock && opt.dir) knockEnemy(e, opt.dir, opt.knock);
-    if (opt.sword) {
-      if (st.build.has('frost')) e.chill = C().FROST.chill;
-      if (st.build.has('stasis') && inField(st, e)) e.stasis = Math.min(C().STASIS.maxStacks, e.stasis + 1);
+    const b = st.build, dm = b.durationMult || 1;
+    if (direct) { // 기본 공격 적중 효과(공통 규칙): 냉기·화상은 중첩 없이 유지 시간만 갱신, 흔적은 감속장 안에서만
+      if (b.has('frost')) e.chill = Math.max(e.chill, C().FROST.chill * dm);
+      if (b.has('burn')) { const BV = PA.GROWTH.COMMON_VALUES.burn; if (!e.burn || e.burn.dps <= BV.dps) e.burn = { t: Math.max(e.burn ? e.burn.t : 0, BV.dur * dm), dps: BV.dps }; }
+      if (b.has('stasis') && inField(st, e)) e.stasis = Math.min(C().STASIS.maxStacks, e.stasis + 1);
     }
+    if (opt.chill) e.chill = Math.max(e.chill, opt.chill * dm);                 // 무기 고유 냉기(서리 수정·서리 함정): 같은 규칙
+    if (opt.bleed && sr.weapon) { const dps = sr.weapon.damage * 0.3; if (!e.bleed || e.bleed.dps <= dps) e.bleed = { t: Math.max(e.bleed ? e.bleed.t : 0, opt.bleed), dps }; }
+    PA.Weapons.onHit(st, e, opt, dmg);
     const crit = e.state === 'recover' || e.state === 'stagger';
     fx(st, { kind: 'spark', x: e.x, y: e.y, ttl: 0.22, t: 0, angle: opt.dir ? Math.atan2(opt.dir.y, opt.dir.x) : st.rng.range(0, Math.PI * 2), crit });
     text(st, e.x + st.rng.range(-8, 8), e.y - e.r - 6, String(Math.round(dmg)), crit ? '#ffd166' : '#fff');
@@ -710,6 +1058,9 @@ PA.Combat = (function () {
   function killEnemy(st, e, opt) {
     e.dead = true; e.deathT = 0; st.stats.kills++;
     ev(st, 'kill', { type: e.type });
+    // 경험치: 처치 원인과 무관하게 즉시, 같은 적은 1회(dead 플래그)
+    const xp = PA.Growth.xpValue(e);
+    if (xp > 0 && st.build.growth) { st.stats.xp += xp; st.xpGained += xp; const gained = PA.Growth.addXp(st.build.growth, xp); if (gained) { st.levelUps += gained; st.stats.levelUps += gained; ev(st, 'levelup', { n: gained }); text(st, st.player.x, st.player.y - 62, '레벨 업!', '#ffe066'); } }
     if (e.boss) { e.state = 'dead'; e.airborne = false; st.bossDownT = 0; ev(st, 'boss_down'); }
     if (st.build.has('saving') && inField(st, e) && st.player.special.cd > 0) {
       st.player.special.cd = Math.max(0, st.player.special.cd - C().SAVING.cdPerKill);
@@ -719,11 +1070,11 @@ PA.Combat = (function () {
     }
     fx(st, { kind: 'death', x: e.x, y: e.y, r: e.r, ttl: 0.4, t: 0, color: e.def.color });
     if (e.type === 'spore') addZone(st, 'spore', e.x, e.y, e.def.deathCloudR, e.def.deathCloudTtl, e.def.cloudDamage);
-    if (st.build.has('frost') && e.chill > 0) {
+    if (st.build.has('frost') && e.chill > 0) { // 파편: 추가 피해(냉기를 다시 부여하지 않음)
       const F = C().FROST;
       for (let i = 0; i < F.shards; i++) {
         const a = (i / F.shards) * Math.PI * 2;
-        st.projectiles.push({ owner: 'player', kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * F.shardSpeed, vy: Math.sin(a) * F.shardSpeed, r: 4, dmg: F.shardDamage * st.build.damageMult, ttl: F.shardTtl });
+        st.projectiles.push({ owner: 'player', kind: 'shard_common', x: e.x, y: e.y, vx: Math.cos(a) * F.shardSpeed, vy: Math.sin(a) * F.shardSpeed, r: 4, dmg: F.shardDamage * st.build.masteryMult, ttl: F.shardTtl, hits: new Set([e.id]) });
       }
       text(st, e.x, e.y - 20, '파편!', '#bfefff');
       ev(st, 'shatter');
@@ -731,69 +1082,32 @@ PA.Combat = (function () {
     if (st.build.has('flare') && st.zones.some(z => z.type === 'fire' && m().dist(z, e) <= z.r + e.r)) {
       const F = C().FLARE;
       fx(st, { kind: 'flare', x: e.x, y: e.y, r: F.radius, ttl: 0.35, t: 0 });
-      for (const o of st.enemies) if (!o.dead && o !== e && m().dist(o, e) <= F.radius + o.r) damageEnemy(st, o, F.damage * st.build.damageMult, { dir: m().norm(o.x - e.x, o.y - e.y), knock: 40 });
+      for (const o of st.enemies) if (!o.dead && o !== e && m().dist(o, e) <= F.radius + o.r) damageEnemy(st, o, F.damage * st.build.masteryMult, { dir: m().norm(o.x - e.x, o.y - e.y), knock: 40, src: { extra: true, direct: false } });
       text(st, e.x, e.y - 34, '불꽃 파열!', '#ff9f43');
       ev(st, 'explode');
     }
+    PA.Weapons.onKill(st, e, opt);
     if (st.markTarget === e) { st.markTarget = null; assignMark(st); }
   }
-  function addZone(st, type, x, y, r, ttl, dmg) { st.zones.push({ type, x, y, r, ttl, maxTtl: ttl, dmg, tick: 0, t: 0 }); }
+  function addZone(st, type, x, y, r, ttl, dmg) { const z = { type, x, y, r, ttl, maxTtl: ttl, dmg, tick: 0, t: 0 }; st.zones.push(z); return z; }
   // 잔불: 장애물 안쪽(바닥이 아닌 곳)이면 그 조각은 생략한다(플레이어 위치는 항상 유효하므로 보통 발생하지 않음)
   function addFireAt(st, x, y) {
     const E = C().EMBER;
     if (!validPos(st, x, y, 0)) return false;
-    addZone(st, 'fire', x, y, E.radius, E.ttl, E.damage); return true;
+    addZone(st, 'fire', x, y, E.radius * (st.build.widthMult || 1), E.ttl * (st.build.durationMult || 1), E.damage); return true;
   }
 
-  // ---------- 플레이어 공격 ----------
-  function chooseTarget(st) {
-    const p = st.player, b = st.build;
-    const reach = (e) => {
-      if (losBlocked(st, p, e)) return false; // 장애물에 가려진 대상은 공격 대상이 아니다
-      if (b.weapon.form === 'beam') { const ang = Math.atan2(e.y - p.y, e.x - p.x); return m().inBeam(p, ang, beamLength(st, p, ang, b.range), b.weapon.width, e, e.r); }
-      return m().dist(p, e) <= b.range + e.r;
-    };
-    if (st.markTarget && !st.markTarget.dead && reach(st.markTarget)) return st.markTarget;
-    let best = null, bd = Infinity;
-    for (const e of st.enemies) { if (e.dead) continue; const d = m().dist(p, e); if (d < bd && reach(e)) { bd = d; best = e; } }
-    return best;
-  }
+  // ---------- 플레이어 공격(무기 엔진) ----------
+  // 레거시 호환: 첫 무기 기준 대상 선택·발사(기존 테스트·디버그용)
+  function chooseTarget(st) { const w = st.weapons[0]; return PA.Weapons.pickTarget(st, w, w.stats.range || 95, true); }
   function performAttack(st, angle, form) {
-    const p = st.player, b = st.build, hit = new Set();
-    st.stats.attacks++;
-    p.swingT = 0; p.swingForm = form; p.swingAngle = angle;
-    if (form === 'spin') {
-      const S = C().SPIN, r = S.radius * b.rangeMult;
-      fx(st, { kind: 'spin', x: p.x, y: p.y, r, ttl: 0.22, t: 0 });
-      for (const e of st.enemies) if (!e.dead && m().dist(p, e) <= r + e.r && !losBlocked(st, p, e)) { hit.add(e); damageEnemy(st, e, b.damage * S.damageMult, { sword: true, knock: S.knock, dir: m().norm(e.x - p.x, e.y - p.y) }); }
-    } else if (form === 'beam') {
-      const L = beamLength(st, p, angle, b.range), W = b.weapon.width; // 검광은 장애물에서 멈춘다
-      fx(st, { kind: 'beam', x: p.x, y: p.y, angle, len: L, w: W, ttl: 0.18, t: 0 });
-      for (const e of st.enemies) if (!e.dead && m().inBeam(p, angle, L, W, e, e.r) && !losBlocked(st, p, e)) { hit.add(e); damageEnemy(st, e, b.damage, { sword: true, knock: b.weapon.knock, dir: { x: Math.cos(angle), y: Math.sin(angle) } }); }
-    } else {
-      const R = b.range, half = (b.weapon.arcDeg * Math.PI / 180) / 2;
-      fx(st, { kind: 'arc', x: p.x, y: p.y, angle, r: R, half, ttl: 0.16, t: 0 });
-      for (const e of st.enemies) if (!e.dead && m().inArc(p, R, angle, half, e, e.r) && !losBlocked(st, p, e)) { hit.add(e); damageEnemy(st, e, b.damage, { sword: true, knock: b.weapon.knock, dir: m().norm(e.x - p.x, e.y - p.y) }); }
-    }
-    ev(st, 'swing', { form, hits: hit.size });
-    return hit.size;
+    const w = st.weapons[0], p = st.player, fake = { x: p.x + Math.cos(angle) * 50, y: p.y + Math.sin(angle) * 50, r: 1, dead: false };
+    st.stats.attacks++; w.count++;
+    const kind = form === 'beam' ? 'beam' : (w.stats.kind === 'beam' ? 'beam' : 'arc');
+    if (form === 'spin') { const S = C().SPIN, r = S.radius * st.build.widthMult; fx(st, { kind: 'spin', x: p.x, y: p.y, r, ttl: 0.22, t: 0 }); PA.Weapons.hitCircle(st, w, p.x, p.y, r, S.damageMult, { knock: S.knock }); return; }
+    PA.Weapons.FIRE[kind](st, w, fake, true);
   }
-  function updateAttack(st, dt) {
-    const p = st.player, b = st.build;
-    if (p.echo) { p.echo.t -= dt; if (p.echo.t <= 0) { performAttack(st, p.echo.angle, p.echo.form); text(st, p.x, p.y - 40, '메아리', '#dcd6ff'); p.echo = null; } }
-    p.attackTimer -= dt;
-    if (p.attackTimer > 0) return;
-    const target = chooseTarget(st);
-    if (!target) { p.attackTimer = 0.05; return; }
-    p.attackTimer = Math.max(-b.interval * 0.5, p.attackTimer) + b.interval;
-    p.attackCount++;
-    const angle = Math.atan2(target.y - p.y, target.x - p.x);
-    p.face = angle;
-    let form = b.weapon.form;
-    if (b.has('spin') && p.attackCount % C().SPIN.every === 0) form = 'spin';
-    performAttack(st, angle, form);
-    if (b.has('echo') && p.attackCount % C().ECHO.every === 0) p.echo = { t: C().ECHO.delay, angle, form };
-  }
+  function updateAttack(st, dt) { const before = st.weapons.reduce((n, w) => n + w.count, 0); PA.Weapons.update(st, dt); st.stats.attacks += st.weapons.reduce((n, w) => n + w.count, 0) - before; }
 
   // ---------- 플레이어 이동/회피/특수기 ----------
   function updatePlayer(st, input, dt) {
@@ -828,15 +1142,11 @@ PA.Combat = (function () {
       if (p.dodge.t >= cfg.dodge.duration) { p.dodge.active = false; p.dodge.cd = cfg.dodge.cooldown * b.dodgeCdMult - (p.dodge.t - cfg.dodge.duration); }
     } else {
       if (p.dodge.cd > 0) p.dodge.cd -= dt;
-      moveSwept(st, p, mv.x * cfg.speed * dt, mv.y * cfg.speed * dt, true); // 표면을 따라 미끄러진다
+      const wind = st.zones.some(z => z.type === 'windpath' && m().dist(z, p) <= z.r) ? 1.4 : 1;
+      moveSwept(st, p, mv.x * cfg.speed * b.speedMult * wind * dt, mv.y * cfg.speed * b.speedMult * wind * dt, true); // 표면을 따라 미끄러진다
     }
-    if (input.special && p.special.cd <= 0) {
-      if (st.field) endField(st); // 활성 감속장이 있으면 먼저 정상 종료(정지된 칼날 폭발 포함)
-      st.field = { x: p.x, y: p.y, r: cfg.special.radius, ttl: cfg.special.duration, maxTtl: cfg.special.duration };
-      p.special.cd = b.specialCd; st.stats.specialUses++;
-      ev(st, 'special');
-      text(st, p.x, p.y - 50, '감속장', '#a9d8ff');
-    }
+    if (input.special && p.special.cd <= 0) PA.Skills.castQ(st);
+    if (input.skillE && p.eCd <= 0 && b.skills.e) PA.Skills.castE(st);
     pushOut(st, p);
     updateAttack(st, dt);
   }
@@ -965,6 +1275,9 @@ PA.Combat = (function () {
       e.lastX = e.x; e.lastY = e.y;
       if (e.flash > 0) e.flash -= dt;
       if (e.chill > 0) e.chill -= dt;
+      if (e.conduct > 0) e.conduct -= dt;
+      for (const key of ['burn', 'bleed']) { const d = e[key]; if (d && d.t > 0) { d.t -= dt; d.tick = (d.tick || 0) - dt; if (d.tick <= 0) { d.tick = 0.5; damageEnemy(st, e, d.dps * 0.5, { src: { extra: true, direct: false }, dot: key }); if (e.dead) break; } } }
+      if (e.dead) continue;
       if (e.boss) PA.Boss.update(st, e, dt);
       else if (e.type === 'wolf' || e.type === 'wolf_alpha') updateWolf(st, e, dt);
       else if (e.type === 'archer') updateArcher(st, e, dt);
@@ -990,15 +1303,24 @@ PA.Combat = (function () {
     const p = st.player, a = st.arena;
     for (const pr of st.projectiles) {
       const tf = pr.owner === 'enemy' ? timeFactor(st, pr) : 1;
+      if (pr.owner === 'player' && (pr.target || pr.boomerang)) PA.Weapons.steerProjectile(st, pr, dt);
+      if (pr.dead) continue;
+      // 시간의 복제(보스 보상): 감속장을 통과하는 아군 투사체를 한 번 복제
+      if (pr.owner === 'player' && pr.weapon && !pr.cloned && !pr.isClone && st.build.bossRewards.includes('clone') && inField(st, pr)) { pr.cloned = true; const c = Object.assign({}, pr, { hits: new Set(pr.hits), isClone: true, cloned: true, x: pr.x - pr.vy * 0.03, y: pr.y + pr.vx * 0.03, boomerang: null, target: pr.target }); st.projectiles.push(c); }
       const nx = pr.x + pr.vx * tf * dt, ny = pr.y + pr.vy * tf * dt;
       const obs = m().sweepCircle(pr.x, pr.y, nx, ny, pr.r, st.obstacles); const tObs = obs ? obs.t : Infinity;
       if (pr.owner === 'enemy') {
         const tp = m().segCircleT(pr.x, pr.y, nx, ny, p, p.r + pr.r);
         if (tp != null && tp <= tObs) { pr.dead = true; damagePlayer(st, pr.dmg, pr.kind); }
       } else {
-        let best = null, bt = Infinity;
-        for (const e of st.enemies) { if (e.dead) continue; const t = m().segCircleT(pr.x, pr.y, nx, ny, e, e.r + pr.r); if (t != null && t < bt) { bt = t; best = e; } }
-        if (best && bt <= tObs) { pr.dead = true; damageEnemy(st, best, pr.dmg, { dir: m().norm(pr.vx, pr.vy), knock: 10 }); }
+        const cands = [];
+        for (const e of st.enemies) { if (e.dead || (pr.hits && pr.hits.has(e.id))) continue; const t = m().segCircleT(pr.x, pr.y, nx, ny, e, e.r + pr.r); if (t != null) cands.push([t, e]); }
+        cands.sort((a, b) => a[0] - b[0]);
+        for (const [t, e] of cands) {
+          if (t > tObs) break;
+          if (pr.weapon || pr.kind === 'shard_common') { if (!pr.hits) pr.hits = new Set(); if (PA.Weapons.onProjectileHit(st, pr, e)) { pr.dead = true; break; } }
+          else { pr.dead = true; damageEnemy(st, e, pr.dmg, { dir: m().norm(pr.vx, pr.vy), knock: 10 }); break; }
+        }
       }
       if (!pr.dead && obs) { pr.dead = true; fx(st, { kind: 'spark', x: pr.x + pr.vx * tf * dt * obs.t, y: pr.y + pr.vy * tf * dt * obs.t, ttl: 0.15, t: 0, angle: Math.atan2(-pr.vy, -pr.vx), crit: false }); }
       pr.x = nx; pr.y = ny; pr.ttl -= dt;
@@ -1016,8 +1338,10 @@ PA.Combat = (function () {
       if (z.type === 'spore' && m().dist(z, p) <= z.r + p.r * 0.5) maxDmg = Math.max(maxDmg, z.dmg);
       if (z.type === 'fire') {
         z.tick -= dt;
-        if (z.tick <= 0) { z.tick = C().EMBER.tick; for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) damageEnemy(st, e, z.dmg * st.build.damageMult, {}); }
+        if (z.tick <= 0) { z.tick = C().EMBER.tick; for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) damageEnemy(st, e, z.weapon ? z.dmg : z.dmg * st.build.masteryMult, { src: z.weapon ? { weapon: z.weapon.stats, weaponId: z.weapon.id, direct: false, extra: true } : { extra: true, direct: false } }); }
       }
+      if (z.type === 'coldground') { z.tick -= dt; if (z.tick <= 0) { z.tick = 0.25; for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) e.chill = Math.max(e.chill, 1.0); } }
+      if (z.type === 'storm') { z.tick -= dt; if (z.tick <= 0) { z.tick = 0.5; fx(st, { kind: 'strike', x: z.x + st.rng.range(-20, 20), y: z.y + st.rng.range(-20, 20), r: 30, ttl: 0.2, t: 0 }); for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) damageEnemy(st, e, z.dmg, { src: { skill: true, direct: false } }); } }
     }
     if (maxDmg > 0 && p.zoneTick <= 0) { p.zoneTick = C().PLAYER.zoneTick; zoneDamage(st, maxDmg); }
     if (maxDmg === 0 && p.zoneTick < 0) p.zoneTick = 0;
@@ -1032,11 +1356,12 @@ PA.Combat = (function () {
     const f = st.field; if (!f) return;
     if (st.build.has('stasis')) {
       let total = 0;
-      for (const e of st.enemies) if (!e.dead && e.stasis > 0) { const dmg = e.stasis * C().STASIS.damagePerStack * st.build.damageMult; fx(st, { kind: 'stasisburst', x: e.x, y: e.y, r: 34 + e.stasis * 10, ttl: 0.4, t: 0 }); e.stasis = 0; total += damageEnemy(st, e, dmg, {}); }
+      for (const e of st.enemies) if (!e.dead && e.stasis > 0) { const dmg = e.stasis * C().STASIS.damagePerStack * st.build.masteryMult; fx(st, { kind: 'stasisburst', x: e.x, y: e.y, r: 34 + e.stasis * 10, ttl: 0.4, t: 0 }); e.stasis = 0; total += damageEnemy(st, e, dmg, {}); }
       if (total > 0) { text(st, f.x, f.y - f.r - 26, '정지된 칼날 폭발 ' + Math.round(total), '#cfeaff'); ev(st, 'explode'); }
     }
     fx(st, { kind: 'fieldend', x: f.x, y: f.y, r: f.r, ttl: 0.35, t: 0 });
     st.field = null;
+    PA.Skills.onFieldEnd(st, f);
   }
   function updatePickups(st, dt) {
     const p = st.player;
@@ -1101,6 +1426,7 @@ PA.Combat = (function () {
     }
     st.t += dt; st.stats.elapsed += dt;
     updatePlayer(st, input || {}, dt);
+    PA.Skills.update(st, dt);
     updateEnemies(st, dt);
     updateProjectiles(st, dt);
     updateZones(st, dt);
@@ -1114,7 +1440,375 @@ PA.Combat = (function () {
     if (st.status === 'won') st.pendingLoss = false;
   }
 
-  return { create, step, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
+  // 레벨업 선택 적용 뒤: 파생 수치를 다시 계산하고 무기 목록을 갱신(타이머 유지)
+  function rebuild(st, build) {
+    const p = st.player, oldMax = p.hpMax;
+    st.build = build; p.hpMax = build.hpMax; if (build.hpMax > oldMax) p.hp = Math.min(p.hpMax, p.hp + (build.hpMax - oldMax));
+    PA.Weapons.refresh(st);
+  }
+  return { create, step, rebuild, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
+})();
+
+</script>
+<script>
+// 무기 엔진(전투 쪽): 장착 무기 최대 3개가 각자 주기로 자동 공격한다. 피해 출처(무기·레벨·직접/추가)를 추적해 공통 효과가 정확히 한 번씩 적용되게 한다.
+// 판정 범주: direct(장애물 가림) / projectile(장애물 충돌) / ground(바닥 범위)
+var PA = (typeof PA !== 'undefined') ? PA : {};
+
+PA.Weapons = (function () {
+  const m = () => PA.m;
+  const K = () => PA.Combat;
+  const TAU = Math.PI * 2;
+
+  function init(st) {
+    const list = st.build.weapons.map((s, i) => ({ stats: s, id: s.id, timer: 0.25 + i * 0.2, count: 0, orbit: 0, launchT: 0, lastHit: new Map(), burst: null }));
+    st.mines = st.mines || []; st.delayed = st.delayed || [];
+    return list;
+  }
+  // 전투 중 성장(레벨업 선택) 반영: 타이머·상태 유지, 수치만 갱신, 새 무기 추가
+  function refresh(st) {
+    const old = st.weapons || [];
+    st.weapons = st.build.weapons.map((s, i) => { const prev = old.find(w => w.id === s.id); return prev ? Object.assign(prev, { stats: s }) : { stats: s, id: s.id, timer: 0.3, count: 0, orbit: 0, launchT: 0, lastHit: new Map(), burst: null }; });
+  }
+
+  // ---------- 공통 헬퍼 ----------
+  function src(w, opt) { return Object.assign({ weapon: w.stats, weaponId: w.id, level: w.stats.level, direct: true }, opt || {}); }
+  function alive(st) { return st.enemies.filter(e => !e.dead); }
+  function reachable(st, from, e) { return !K().losBlocked(st, from, e); }
+  // 대상: 표식 우선(사거리 안·가림 없음) → 가장 가까운 가림 없는 적
+  function pickTarget(st, w, range, needLos) {
+    const p = st.player, mk = st.markTarget;
+    const ok = (e) => !e.dead && m().dist(p, e) <= range + e.r && (!needLos || reachable(st, p, e));
+    if (mk && ok(mk)) return mk;
+    let best = null, bd = Infinity;
+    for (const e of st.enemies) { if (!ok(e)) continue; const d = m().dist(p, e); if (d < bd) { bd = d; best = e; } }
+    return best;
+  }
+  function dmgTo(st, e, w, mult, opt) { return K().damageEnemy(st, e, w.stats.damage * mult, Object.assign({ src: src(w, opt) }, opt || {})); }
+  // 원형 범위 직접 공격(가림 적용)
+  function hitCircle(st, w, cx, cy, r, mult, opt) {
+    let n = 0;
+    for (const e of alive(st)) if (m().dist({ x: cx, y: cy }, e) <= r + e.r && (opt && opt.ground || reachable(st, { x: cx, y: cy }, e))) { dmgTo(st, e, w, mult, Object.assign({ dir: m().norm(e.x - cx, e.y - cy) }, opt)); n++; }
+    return n;
+  }
+  function hitArc(st, w, from, angle, R, half, mult, opt) {
+    let n = 0;
+    for (const e of alive(st)) if (m().inArc(from, R, angle, half, e, e.r) && reachable(st, from, e)) { dmgTo(st, e, w, mult, Object.assign({ dir: m().norm(e.x - from.x, e.y - from.y), knock: w.stats.knock }, opt)); n++; }
+    return n;
+  }
+  function hitBeam(st, w, from, angle, L, W, mult, opt) {
+    const list = [];
+    for (const e of alive(st)) if (m().inBeam(from, angle, L, W, e, e.r) && reachable(st, from, e)) list.push(e);
+    list.sort((a, b) => m().dist(from, a) - m().dist(from, b));
+    for (const e of list) dmgTo(st, e, w, mult, Object.assign({ dir: { x: Math.cos(angle), y: Math.sin(angle) }, knock: w.stats.knock }, opt));
+    return list;
+  }
+  function proj(st, w, o) { // 아군 투사체 생성
+    const pr = Object.assign({ owner: 'player', weapon: w, r: 4, ttl: 2, hits: new Set(), dmgMult: 1, opt: {} }, o);
+    st.projectiles.push(pr); return pr;
+  }
+  function later(st, t, fn) { st.delayed.push({ t, fn }); }
+
+  // ---------- 무기별 발사 ----------
+  const FIRE = {
+    arc(st, w, target, echoed) {
+      const p = st.player, s = w.stats, ang = Math.atan2(target.y - p.y, target.x - p.x), half = s.arcDeg * Math.PI / 360;
+      p.face = ang; p.swingT = 0; p.swingForm = 'arc'; p.swingAngle = ang;
+      K().fx(st, { kind: 'arc', x: p.x, y: p.y, angle: ang, r: s.range, half, ttl: 0.16, t: 0 });
+      hitArc(st, w, p, ang, s.range, half, 1, {});
+      if (s.mods.includes('cross') && w.count % 3 === 0) { const a2 = ang + Math.PI; K().fx(st, { kind: 'arc', x: p.x, y: p.y, angle: a2, r: s.range, half, ttl: 0.16, t: 0 }); hitArc(st, w, p, a2, s.range, half, 1, {}); }
+      if (s.mods.includes('crescent')) { const sx = p.x + Math.cos(ang) * s.range * 0.8, sy = p.y + Math.sin(ang) * s.range * 0.8; proj(st, w, { kind: 'crescent', x: sx, y: sy, vx: Math.cos(ang) * 420, vy: Math.sin(ang) * 420, r: 16, ttl: 120 / 420, pierce: true, dmgMult: 0.6, angle: ang, opt: { direct: false } }); }
+      if (s.mods.includes('scar')) { const cx = p.x, cy = p.y; later(st, 0.5, () => { K().fx(st, { kind: 'scar', x: cx, y: cy, angle: ang, r: s.range, half, ttl: 0.25, t: 0 }); hitArc(st, w, { x: cx, y: cy }, ang, s.range, half, 0.5, { direct: false }); }); }
+      K().ev(st, 'swing', { form: 'arc' });
+    },
+    beam(st, w, target, echoed) {
+      const p = st.player, s = w.stats, ang = Math.atan2(target.y - p.y, target.x - p.x), L = K().beamLength(st, p, ang, s.range), W = s.width;
+      p.face = ang; p.swingT = 0; p.swingForm = 'beam'; p.swingAngle = ang;
+      K().fx(st, { kind: 'beam', x: p.x, y: p.y, angle: ang, len: L, w: W, ttl: 0.18, t: 0 });
+      const hit = hitBeam(st, w, p, ang, L, W, 1, {});
+      if (s.mods.includes('brand')) for (const e of hit) { e.brand = (e.brand || 0) + 1; if (e.brand >= 4) { e.brand = 0; K().fx(st, { kind: 'burst', x: e.x, y: e.y, r: 60, ttl: 0.3, t: 0, color: '#ffd166' }); K().text(st, e.x, e.y - e.r - 30, '표식 폭발!', '#ffd166'); hitCircle(st, w, e.x, e.y, 60, 1.5, { direct: false }); } }
+      if (s.mods.includes('split') && hit.length) { const h = hit[0]; for (const da of [-0.6, 0.6]) proj(st, w, { kind: 'shard', x: h.x, y: h.y, vx: Math.cos(ang + da) * 340, vy: Math.sin(ang + da) * 340, r: 4, ttl: 0.5, dmgMult: 0.4, opt: { direct: false } }); }
+      if (s.mods.includes('returning') && !echoed) { const fx0 = { x: p.x, y: p.y }; later(st, 0.35, () => { const ex = fx0.x + Math.cos(ang) * L, ey = fx0.y + Math.sin(ang) * L; K().fx(st, { kind: 'beam', x: ex, y: ey, angle: ang + Math.PI, len: L, w: W, ttl: 0.18, t: 0 }); hitBeam(st, w, { x: ex, y: ey }, ang + Math.PI, L, W, 1, { noMods: true }); }); }
+      K().ev(st, 'swing', { form: 'beam' });
+    },
+    melee(st, w, target, echoed) { // 쌍검: 3연속(0.09초 간격) 짧은 부채꼴
+      const s = w.stats, p = st.player;
+      const one = (i) => { const t = target.dead ? pickTarget(st, w, s.range, true) : target; if (!t) return; const ang = Math.atan2(t.y - p.y, t.x - p.x); p.face = ang; p.swingT = 0; p.swingForm = 'arc'; p.swingAngle = ang;
+        const half = s.arcDeg * Math.PI / 360; K().fx(st, { kind: 'dagger', x: p.x, y: p.y, angle: ang, r: s.range, half, ttl: 0.12, t: 0, side: i });
+        if (i === s.hits - 1 && s.mods.includes('flank')) { for (const da of [Math.PI / 2, -Math.PI / 2]) { K().fx(st, { kind: 'arc', x: p.x, y: p.y, angle: ang + da, r: s.range * 1.3, half: 0.9, ttl: 0.14, t: 0 }); hitArc(st, w, p, ang + da, s.range * 1.3, 0.9, 1, {}); } }
+        hitArc(st, w, p, ang, s.range, half, 1, s.mods.includes('bleed') ? { bleed: 2.0 } : {}); };
+      one(0); for (let i = 1; i < s.hits; i++) later(st, s.hitGap * i, () => one(i));
+      K().ev(st, 'swing', { form: 'melee' });
+    },
+    homing(st, w, target, echoed) {
+      const s = w.stats, p = st.player, ang = Math.atan2(target.y - p.y, target.x - p.x);
+      const angles = s.mods.includes('spread') ? [ang - 0.35, ang, ang + 0.35] : [ang];
+      for (const a of angles) proj(st, w, { kind: 'arrow_h', x: p.x, y: p.y, vx: Math.cos(a) * s.speed, vy: Math.sin(a) * s.speed, r: 5, ttl: (s.range / s.speed) * 1.4, target, turn: s.turn, speed: s.speed, pierce: s.mods.includes('pierce'), ricochet: s.mods.includes('ricochet') ? 1 : 0, angle: a });
+      p.face = ang; K().ev(st, 'shoot');
+    },
+    heavy(st, w, target, echoed) { // 망치: 사거리 안 대상 위치에 원형 타격
+      const s = w.stats, p = st.player, d = m().dist(p, target), ang = Math.atan2(target.y - p.y, target.x - p.x);
+      const ix = p.x + Math.cos(ang) * Math.min(d, s.range), iy = p.y + Math.sin(ang) * Math.min(d, s.range);
+      p.face = ang; p.swingT = 0; p.swingForm = 'heavy'; p.swingAngle = ang;
+      if (s.mods.includes('pull')) for (const e of alive(st)) if (!e.boss && !e.airborne && m().dist(e, { x: ix, y: iy }) <= 90 + e.r) { const n = m().norm(ix - e.x, iy - e.y); K().moveSwept(st, e, n.x * 30, n.y * 30); }
+      K().fx(st, { kind: 'impact', x: ix, y: iy, r: s.radius, ttl: 0.3, t: 0 });
+      hitCircle(st, w, ix, iy, s.radius, 1, { knock: s.knock });
+      if (s.mods.includes('shockwave')) { K().fx(st, { kind: 'beam', x: ix, y: iy, angle: ang, len: 160, w: 50, ttl: 0.2, t: 0 }); hitBeam(st, w, { x: ix, y: iy }, ang, 160, 50, 0.6, { direct: false }); }
+      if (s.mods.includes('aftershock')) later(st, 0.6, () => { K().fx(st, { kind: 'impact', x: ix, y: iy, r: s.radius, ttl: 0.3, t: 0, after: true }); hitCircle(st, w, ix, iy, s.radius, 0.5, { direct: false, ground: true }); });
+      K().ev(st, 'boss_land');
+    },
+    chain(st, w, target, echoed) {
+      const s = w.stats, p = st.player, visited = new Set(), pts = [{ x: p.x, y: p.y }];
+      const zap = (e, mult) => { visited.add(e.id); pts.push({ x: e.x, y: e.y }); dmgTo(st, e, w, mult, { knock: 0 }); if (s.mods.includes('conduct')) e.conduct = 2.0; };
+      const next = (from) => { let best = null, bd = Infinity; for (const e of alive(st)) { if (visited.has(e.id)) continue; const d = m().dist(from, e); if (d <= s.hop + e.r && d < bd && reachable(st, from, e)) { bd = d; best = e; } } return best; };
+      zap(target, 1);
+      const first = target;
+      if (s.mods.includes('fork')) { const branches = []; for (let k = 0; k < 2; k++) { const n = next(first); if (n) { zap(n, 1); branches.push(n); } } for (const b of branches) { let cur = b; for (let h = 1; h < Math.ceil(s.hops / 2); h++) { const n = next(cur); if (!n) break; zap(n, 1); cur = n; } } }
+      else { let cur = first; for (let h = 1; h < s.hops; h++) { const n = next(cur); if (!n) break; zap(n, 1); cur = n; } }
+      if (s.mods.includes('loop') && !first.dead && visited.size > 1) { pts.push({ x: first.x, y: first.y }); dmgTo(st, first, w, 1, { knock: 0, loop: true }); } // 명시적 예외: 최초 대상으로 한 번 복귀
+      K().fx(st, { kind: 'chain', pts, ttl: 0.22, t: 0 });
+      K().ev(st, 'shoot');
+    },
+    bolt(st, w, target, echoed) {
+      const s = w.stats, p = st.player, ang = Math.atan2(target.y - p.y, target.x - p.x);
+      const angles = s.mods.includes('fan') ? [ang - 0.44, ang, ang + 0.44] : [ang];
+      for (const a of angles) proj(st, w, { kind: 'bolt', x: p.x, y: p.y, vx: Math.cos(a) * s.speed, vy: Math.sin(a) * s.speed, r: 5, ttl: s.range / s.speed, chill: s.chill, angle: a, shatter: s.mods.includes('shatter'), ground: s.mods.includes('ground') });
+      K().ev(st, 'shoot');
+    },
+    ember(st, w, target, echoed) { // 불씨: 대상 위치(±20)에 불길. 바닥 효과
+      const s = w.stats, tx = target.x + st.rng.range(-20, 20), ty = target.y + st.rng.range(-20, 20);
+      const zones = s.mods.includes('scatter') ? [[tx, ty, s.radius * 0.7], [tx + 40, ty - 30, s.radius * 0.7], [tx - 40, ty + 30, s.radius * 0.7]] : [[tx, ty, s.radius]];
+      if (s.mods.includes('trail')) { const ang = Math.atan2(ty - st.player.y, tx - st.player.x); for (let i = 1; i <= 2; i++) zones.push([tx - Math.cos(ang) * 40 * i, ty - Math.sin(ang) * 40 * i, s.radius * 0.8]); }
+      K().fx(st, { kind: 'emberthrow', x0: st.player.x, y0: st.player.y, x: tx, y: ty, ttl: 0.3, t: 0 });
+      later(st, 0.3, () => { for (const [zx, zy, zr] of zones) { const pos = K().nearestValidPos(st, zx, zy, 0, 60); if (!pos) continue; const z = K().addZone(st, 'fire', pos.x, pos.y, zr, s.ttl * st.build.durationMult, s.damage); z.weapon = w; z.extended = 0; } });
+      K().ev(st, 'shoot');
+    },
+    mine(st, w) {
+      const s = w.stats, p = st.player;
+      if (st.mines.filter(mn => mn.weapon === w).length >= s.max) return false;
+      const pos = K().nearestValidPos(st, p.x, p.y, 8, 40); if (!pos) return false;
+      st.mines.push({ weapon: w, x: pos.x, y: pos.y, r: s.trigger, arm: s.arm, t: 0, dead: false });
+      return true;
+    },
+  };
+
+  // ---------- 갱신 ----------
+  function update(st, dt) {
+    const p = st.player, b = st.build;
+    // 지연 효과
+    if (st.delayed.length) { const keep = []; for (const d of st.delayed) { d.t -= dt; if (d.t <= 0) { try { d.fn(); } catch (e) { console.error(e); } } else keep.push(d); } st.delayed = keep; }
+    for (const w of st.weapons) {
+      const s = w.stats;
+      if (s.kind === 'orbit') { updateOrbit(st, w, dt); continue; }
+      if (w.echo) { w.echo.t -= dt; if (w.echo.t <= 0) { const e = w.echo; w.echo = null; if (!e.target.dead) FIRE[s.kind](st, w, e.target, true); K().text(st, p.x, p.y - 40, '메아리', '#dcd6ff'); } }
+      w.timer -= dt;
+      if (w.timer > 0) continue;
+      if (s.kind === 'mine') { if (FIRE.mine(st, w)) { w.timer = Math.max(-s.interval * 0.5, w.timer) + s.interval; w.count++; } else w.timer = 0.2; continue; }
+      const range = s.kind === 'melee' ? s.range : s.range;
+      const target = s.kind === 'ember' ? pickEmberTarget(st, w) : pickTarget(st, w, range, s.kind !== 'homing' && s.kind !== 'bolt' ? true : true);
+      if (!target) { w.timer = 0.05; continue; }
+      w.timer = Math.max(-s.interval * 0.5, w.timer) + s.interval;
+      w.count++;
+      FIRE[s.kind](st, w, target, false);
+      if (b.has('echo') && w.count % PA.GROWTH.COMMON_VALUES.echoEvery === 0) w.echo = { t: PA.GROWTH.COMMON_VALUES.echoDelay, target };
+    }
+    updateMines(st, dt);
+  }
+  function pickEmberTarget(st, w) { const p = st.player, list = alive(st).filter(e => m().dist(p, e) <= w.stats.range); return list.length ? st.rng.pick(list) : null; }
+
+  function updateOrbit(st, w, dt) {
+    const s = w.stats, p = st.player;
+    w.orbit += s.angular * dt;
+    const rings = s.mods.includes('dual') ? [[s.radius, 0], [s.radius * 0.58, Math.PI / s.count]] : [[s.radius, 0]];
+    w.bladePos = [];
+    for (const [R, off] of rings) for (let i = 0; i < s.count; i++) { const a = w.orbit + off + i * TAU / s.count; w.bladePos.push({ x: p.x + Math.cos(a) * R, y: p.y + Math.sin(a) * R, a }); }
+    for (const bp of w.bladePos) for (const e of alive(st)) {
+      if (m().dist(bp, e) > 16 + e.r) continue;
+      const last = w.lastHit.get(e.id) || -9; if (st.t - last < s.hitGap) continue;
+      if (!reachable(st, p, e)) continue;
+      w.lastHit.set(e.id, st.t); w.count++;
+      dmgTo(st, e, w, 1, Object.assign({ dir: m().norm(e.x - p.x, e.y - p.y), knock: s.knock }, s.mods.includes('serrated') ? { bleed: 1.5 } : {}));
+      if (st.build.has('echo') && w.count % PA.GROWTH.COMMON_VALUES.echoEvery === 0) later(st, PA.GROWTH.COMMON_VALUES.echoDelay, () => { if (!e.dead) dmgTo(st, e, w, 1, { direct: true, noEcho: true }); });
+    }
+    if (s.mods.includes('launch')) { w.launchT += dt; if (w.launchT >= 3) { const t = pickTarget(st, w, 240, true); if (t) { w.launchT = 0; proj(st, w, { kind: 'blade', x: p.x, y: p.y, vx: 0, vy: 0, r: 12, ttl: 3, boomerang: { tx: t.x, ty: t.y, phase: 0, speed: 520 }, pierce: true, dmgMult: 1.2 }); } } }
+  }
+  function updateMines(st, dt) {
+    const p = st.player;
+    for (const mn of st.mines) {
+      if (mn.dead) continue;
+      mn.t += dt; if (mn.arm > 0) { mn.arm -= dt; continue; }
+      const s = mn.weapon.stats;
+      if (s.mods.includes('lure')) for (const e of alive(st)) if (!e.boss && !e.airborne && m().dist(e, mn) <= 70 + e.r && m().dist(e, mn) > mn.r) { const n = m().norm(mn.x - e.x, mn.y - e.y); K().moveSwept(st, e, n.x * 40 * dt, n.y * 40 * dt); }
+      if (alive(st).some(e => !e.airborne && m().dist(e, mn) <= mn.r + e.r)) explodeMine(st, mn);
+    }
+    st.mines = st.mines.filter(mn => !mn.dead);
+  }
+  function explodeMine(st, mn) {
+    if (mn.dead) return; mn.dead = true; // 같은 지뢰는 한 번만
+    const w = mn.weapon, s = w.stats;
+    K().fx(st, { kind: 'mineburst', x: mn.x, y: mn.y, r: s.radius, ttl: 0.35, t: 0 });
+    hitCircle(st, w, mn.x, mn.y, s.radius, 1, Object.assign({ ground: true, knock: 30 }, s.mods.includes('frosttrap') ? { chill: 2.0 } : {}));
+    if (s.mods.includes('chain')) for (const o of st.mines) if (!o.dead && o !== mn && m().dist(o, mn) <= 90) { const oo = o; later(st, 0.15, () => explodeMine(st, oo)); }
+    K().ev(st, 'explode');
+  }
+
+  // ---------- 투사체 적중(combat.updateProjectiles에서 호출) ----------
+  // 반환: true면 투사체 소멸
+  function onProjectileHit(st, pr, e) {
+    const w = pr.weapon;
+    if (pr.hits.has(e.id)) return false;
+    pr.hits.add(e.id);
+    const opt = Object.assign({ dir: m().norm(pr.vx, pr.vy), knock: 10 }, pr.opt || {});
+    if (pr.chill) opt.chill = pr.chill;
+    if (pr.kind === 'shard_common') { K().damageEnemy(st, e, pr.dmg, { dir: opt.dir, knock: 10, src: { extra: true, direct: false } }); return true; }
+    dmgTo(st, e, w, pr.dmgMult, opt);
+    if (pr.kind === 'bolt') {
+      if (pr.shatter) for (let i = 0; i < 3; i++) { const a = Math.atan2(pr.vy, pr.vx) + (i - 1) * 0.7; proj(st, w, { kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * 300, vy: Math.sin(a) * 300, r: 3, ttl: 0.4, dmgMult: 0.4, opt: { direct: false }, hits: new Set([e.id]) }); }
+      if (pr.ground) { const z = K().addZone(st, 'coldground', e.x, e.y, 40, 2.0 * st.build.durationMult, 0); z.weapon = w; }
+      return true;
+    }
+    if (pr.kind === 'arrow_h' && pr.ricochet > 0) { pr.ricochet--; let best = null, bd = Infinity; for (const o of alive(st)) { if (o === e || pr.hits.has(o.id)) continue; const d = m().dist(e, o); if (d <= 160 && d < bd) { bd = d; best = o; } } if (best) { pr.target = best; pr.dmgMult *= 0.7; const a = Math.atan2(best.y - pr.y, best.x - pr.x); pr.vx = Math.cos(a) * pr.speed; pr.vy = Math.sin(a) * pr.speed; return false; } }
+    return !pr.pierce;
+  }
+  // 투사체 이동 보정(추적·부메랑)
+  function steerProjectile(st, pr, dt) {
+    if (pr.target && pr.turn) {
+      if (pr.target.dead) { pr.target = null; return; }
+      const want = Math.atan2(pr.target.y - pr.y, pr.target.x - pr.x), cur = Math.atan2(pr.vy, pr.vx), d = m().angDiff(cur, want);
+      const a = cur + Math.max(-pr.turn * dt, Math.min(pr.turn * dt, d)); pr.vx = Math.cos(a) * pr.speed; pr.vy = Math.sin(a) * pr.speed;
+    }
+    if (pr.boomerang) {
+      const bm = pr.boomerang, p = st.player, goal = bm.phase === 0 ? bm : p;
+      const a = Math.atan2(goal.y - pr.y, goal.x - pr.x); pr.vx = Math.cos(a) * bm.speed; pr.vy = Math.sin(a) * bm.speed;
+      if (m().dist(pr, bm.phase === 0 ? { x: bm.tx, y: bm.ty } : p) < 18) { if (bm.phase === 0) { bm.phase = 1; pr.hits = new Set(); } else pr.dead = true; }
+    }
+  }
+
+  // ---------- 적중·처치 훅(combat.damageEnemy / killEnemy에서 호출) ----------
+  function onHit(st, e, opt, dmg) {
+    const sr = opt.src || {}, b = st.build;
+    if (sr.direct !== false && sr.weaponId) {
+      // 전도 표식: 번개 외 무기의 직접 공격이 표식 적을 치면 작은 전기 폭발(구체 피해의 40%)
+      if (e.conduct > 0 && sr.weaponId !== 'orb' && !opt.noConduct) { const orb = st.weapons.find(w => w.id === 'orb'); if (orb) { e.conduct = 0; K().fx(st, { kind: 'burst', x: e.x, y: e.y, r: 50, ttl: 0.25, t: 0, color: '#bfe8ff' }); for (const o of alive(st)) if (m().dist(o, e) <= 50 + o.r) K().damageEnemy(st, o, orb.stats.damage * 0.4, { src: src(orb, { direct: false }), noConduct: true }); } }
+      // 무기 공명(보스 보상): 서로 다른 무기 3종이 4초 안에 같은 적 → 폭발(적당 6초 간격)
+      if (b.bossRewards.includes('resonance')) { e.resonance = e.resonance || {}; e.resonance[sr.weaponId] = st.t; const recent = Object.keys(e.resonance).filter(k => st.t - e.resonance[k] <= 4); if (recent.length >= 3 && (e.resonanceT == null || st.t - e.resonanceT >= 6)) { e.resonanceT = st.t; e.resonance = {}; K().fx(st, { kind: 'burst', x: e.x, y: e.y, r: 70, ttl: 0.35, t: 0, color: '#ffe066' }); K().text(st, e.x, e.y - e.r - 34, '무기 공명!', '#ffe066'); for (const o of alive(st)) if (m().dist(o, e) <= 70 + o.r) K().damageEnemy(st, o, 40 * b.masteryMult, { src: { extra: true, direct: false }, noConduct: true }); } }
+    }
+  }
+  function onKill(st, e, opt) {
+    const sr = (opt && opt.src) || {}, b = st.build;
+    // 추격 칼날(쌍검)
+    if (sr.weaponId === 'daggers') { const w = st.weapons.find(x => x.id === 'daggers'); if (w && w.stats.mods.includes('pursuit')) { let best = null, bd = Infinity; for (const o of alive(st)) { const d = m().dist(e, o); if (d <= 200 && d < bd) { bd = d; best = o; } } if (best) { const a = Math.atan2(best.y - e.y, best.x - e.x); proj(st, w, { kind: 'blade', x: e.x, y: e.y, vx: Math.cos(a) * 480, vy: Math.sin(a) * 480, r: 6, ttl: 0.6, dmgMult: 0.8, opt: { direct: false } }); } } }
+    // 재점화(불씨 정령)
+    const emberW = st.weapons.find(x => x.id === 'ember');
+    if (emberW && emberW.stats.mods.includes('reignite')) for (const z of st.zones) if (z.type === 'fire' && z.weapon === emberW && m().dist(z, e) <= z.r + e.r && (z.extended || 0) < 4.5) { z.ttl += 1.5; z.extended = (z.extended || 0) + 1.5; }
+    // 연쇄의 씨앗(보스 보상): 상태 전파(남은 시간 절반, 더 긴 쪽 유지)
+    if (b.bossRewards.includes('seed')) for (const o of alive(st)) if (m().dist(o, e) <= 90 + o.r) { if (e.chill > 0) o.chill = Math.max(o.chill, e.chill / 2); if (e.burn && e.burn.t > 0) { if (!o.burn || o.burn.t < e.burn.t / 2) o.burn = { t: e.burn.t / 2, dps: e.burn.dps }; } if (e.bleed && e.bleed.t > 0) { if (!o.bleed || o.bleed.t < e.bleed.t / 2) o.bleed = { t: e.bleed.t / 2, dps: e.bleed.dps }; } }
+  }
+  // 일제 공격(보스 보상): E 사용 시 장착 무기 즉시 1회
+  function volley(st) {
+    for (const w of st.weapons) { const s = w.stats; if (s.kind === 'orbit' || s.kind === 'mine') continue; const t = s.kind === 'ember' ? pickEmberTarget(st, w) : pickTarget(st, w, s.range, true); if (t) { w.count++; FIRE[s.kind](st, w, t, true); } }
+  }
+
+  return { init, refresh, update, pickTarget, FIRE, onProjectileHit, steerProjectile, onHit, onKill, volley, explodeMine, hitCircle, hitArc, hitBeam, proj };
+})();
+
+</script>
+<script>
+// 수동 기술: Q 감속장(레벨·변형) + E 선택 기술(5종, 레벨·변형). 기술 피해에는 무기 숙련이 적용되지 않는다.
+var PA = (typeof PA !== 'undefined') ? PA : {};
+
+PA.Skills = (function () {
+  const m = () => PA.m;
+  const K = () => PA.Combat;
+  const TAU = Math.PI * 2;
+  const alive = (st) => st.enemies.filter(e => !e.dead);
+  const cdOf = (st, slot) => { const sk = st.build.skills[slot]; if (!sk) return 0; return PA.SKILLS[sk.id].cooldown[Math.min(3, sk.level) - 1] * st.build.skillCdMult - (slot === 'q' ? (st.build.accSpecialBonus || 0) : 0); };
+  const sdmg = (st, slot) => { const sk = st.build.skills[slot]; const d = PA.SKILLS[sk.id]; return d.damage ? d.damage[Math.min(3, sk.level) - 1] : 0; };
+  const hit = (st, e, dmg, opt) => K().damageEnemy(st, e, dmg, Object.assign({ src: { skill: true, direct: false } }, opt || {}));
+
+  function init(st) { st.skillState = { storm: null, gravity: null, ward: null, target: null, field2: null }; st.player.eCd = 0; }
+
+  // ---------- Q 감속장 ----------
+  function castQ(st) {
+    const p = st.player, cfg = PA.CONFIG.PLAYER.special, b = st.build, sk = b.skills.q, variant = sk && sk.variant;
+    if (st.field) K().endField(st);
+    const dur = cfg.duration * b.durationMult;
+    if (variant === 'split') {
+      st.field = { x: p.x, y: p.y, r: 100, ttl: dur, maxTtl: dur };
+      const far = alive(st).filter(e => m().dist(e, p) > 60).sort((a, c) => m().dist(a, p) - m().dist(c, p))[0];
+      st.skillState.field2 = far ? { x: far.x, y: far.y, r: 100, ttl: dur, maxTtl: dur } : null;
+    } else st.field = { x: p.x, y: p.y, r: cfg.radius, ttl: dur, maxTtl: dur, follow: variant === 'follow' };
+    p.special.cd = Math.max(1, cdOf(st, 'q')); st.stats.specialUses++;
+    K().ev(st, 'special'); K().text(st, p.x, p.y - 50, '감속장', '#a9d8ff');
+  }
+  function onFieldEnd(st, f) { // 시간의 잔향
+    const sk = st.build.skills.q;
+    if (sk && sk.variant === 'echo') K().addZone(st, 'slowecho', f.x, f.y, f.r, 1.5, 0);
+    if (st.skillState && st.skillState.field2) { st.skillState.field2 = null; }
+  }
+  function inField2(st, o) { const f = st.skillState && st.skillState.field2; return f && m().dist(f, o) <= f.r + (o.r || 0); }
+
+  // ---------- E ----------
+  function autoTarget(st, range) { const p = st.player, mk = st.markTarget; const inR = (e) => !e.dead && m().dist(p, e) <= range + e.r; if (mk && inR(mk)) return mk; const el = alive(st).filter(e => e.elite && inR(e)); if (el.length) return el[0]; let best = null, bd = Infinity; for (const e of alive(st)) { const d = m().dist(p, e); if (inR(e) && d < bd) { bd = d; best = e; } } return best; }
+  function cluster(st, range) { const p = st.player, list = alive(st).filter(e => m().dist(p, e) <= range && !e.boss); if (!list.length) { const t = autoTarget(st, range); return t ? { x: t.x, y: t.y } : null; } let sx = 0, sy = 0; for (const e of list) { sx += e.x; sy += e.y; } return { x: sx / list.length, y: sy / list.length }; }
+  function pushEnemy(st, e, dir, amount) { if (e.boss || e.airborne) return; K().moveSwept(st, e, dir.x * amount, dir.y * amount); if (e.state === 'dash') { e.state = 'recover'; e.stateT = 0; } }
+
+  function castE(st) {
+    const p = st.player, b = st.build, sk = b.skills.e; if (!sk) return false;
+    const d = PA.SKILLS[sk.id], v = sk.variant, dmg = sdmg(st, 'e'), S = st.skillState;
+    switch (sk.id) {
+      case 'gust': {
+        const ang = p.face;
+        if (v === 'whirl') { K().fx(st, { kind: 'gust', x: p.x, y: p.y, r: 130, whirl: true, ttl: 0.3, t: 0 }); for (const e of alive(st)) if (m().dist(e, p) <= 130 + e.r) { hit(st, e, dmg); pushEnemy(st, e, m().norm(e.x - p.x, e.y - p.y), 140 + 30 * (sk.level - 1)); } }
+        else { K().fx(st, { kind: 'gust', x: p.x, y: p.y, angle: ang, len: 170, w: 120, ttl: 0.3, t: 0 }); for (const e of alive(st)) if (m().inBeam(p, ang, 170, 120, e, e.r) && !K().losBlocked(st, p, e)) { hit(st, e, dmg); pushEnemy(st, e, { x: Math.cos(ang), y: Math.sin(ang) }, 140 + 30 * (sk.level - 1)); } }
+        if (v === 'windpath') for (let i = 0; i <= 2; i++) { const pos = K().nearestValidPos(st, p.x + Math.cos(ang) * 55 * i, p.y + Math.sin(ang) * 55 * i, 0, 60); if (pos) K().addZone(st, 'windpath', pos.x, pos.y, 40, 3.0, 0); }
+        break;
+      }
+      case 'bladestorm': S.storm = { x: p.x, y: p.y, t: 1.2, tick: 0, r: v === 'condensed' ? 70 : 110, dmg: dmg * (v === 'condensed' ? 1.8 : 1), advancing: v === 'advancing', dir: { x: Math.cos(p.face), y: Math.sin(p.face) } }; break;
+      case 'strike': {
+        const t = autoTarget(st, 260); if (!t) return false;
+        const at = { x: t.x, y: t.y };
+        K().fx(st, { kind: 'strikewarn', x: at.x, y: at.y, r: 45, ttl: 0.25, t: 0 });
+        K().text(st, at.x, at.y - 30, '낙뢰', '#fff3a0');
+        st.delayed.push({ t: 0.25, fn: () => { boltAt(st, at, 45, dmg); if (v === 'chain') { const others = alive(st).filter(e => m().dist(e, at) <= 150 && m().dist(e, at) > 20).slice(0, 2); for (const o of others) { const oa = { x: o.x, y: o.y }; st.delayed.push({ t: 0.15, fn: () => boltAt(st, oa, 40, dmg * 0.5) }); } } if (v === 'storm') { const z = K().addZone(st, 'storm', at.x, at.y, 50, 2.0, dmg * 0.3); z.tick = 0.5; } } });
+        break;
+      }
+      case 'gravity': {
+        const c = cluster(st, 260); if (!c) return false;
+        S.gravity = { x: c.x, y: c.y, t: 1.2, hold: v === 'orbit' ? 1.0 : 0, r: 140, pull: 90 * d.pull[Math.min(3, sk.level) - 1], dps: dmg, tick: 0, collapse: v === 'collapse', dmg };
+        break;
+      }
+      case 'ward': {
+        const amt = d.shield[Math.min(3, sk.level) - 1];
+        S.ward = { t: 4.0, amt, fortress: v === 'fortress', pulse: v === 'pulse', pulseT: 0 };
+        p.wardShield = (p.wardShield || 0) + amt; p.shield += amt; p.shieldMax = Math.max(p.shieldMax, p.shield);
+        K().fx(st, { kind: 'burst', x: p.x, y: p.y, r: 40, ttl: 0.3, t: 0, color: '#7ef2ff' });
+        break;
+      }
+    }
+    p.eCd = cdOf(st, 'e'); st.stats.eUses = (st.stats.eUses || 0) + 1;
+    K().ev(st, 'skill_e', { id: sk.id }); K().text(st, p.x, p.y - 62, d.name, '#ffe9a8');
+    if (b.bossRewards.includes('volley')) PA.Weapons.volley(st); // 추가 공격은 E 효과를 다시 일으키지 않는다(무기 공격만)
+    return true;
+  }
+  function boltAt(st, at, r, dmg) { K().fx(st, { kind: 'strike', x: at.x, y: at.y, r, ttl: 0.3, t: 0 }); for (const e of alive(st)) if (m().dist(e, at) <= r + e.r) hit(st, e, dmg); K().ev(st, 'explode'); }
+
+  function update(st, dt) {
+    const p = st.player, S = st.skillState; if (!S) return;
+    if (p.eCd > 0) p.eCd = Math.max(0, p.eCd - dt);
+    if (st.field && st.field.follow) { st.field.x = p.x; st.field.y = p.y; }
+    if (S.field2) { S.field2.ttl -= dt; if (S.field2.ttl <= 0) S.field2 = null; }
+    // E 자동 목표 표시(낙뢰·중력핵)
+    const sk = st.build.skills.e;
+    if (sk && (sk.id === 'strike' || sk.id === 'gravity') && p.eCd <= 0) { const t = sk.id === 'strike' ? autoTarget(st, 260) : cluster(st, 260); S.target = t ? { x: t.x, y: t.y } : null; } else S.target = null;
+    if (S.storm) { const s = S.storm; s.t -= dt; if (s.advancing) { s.x += s.dir.x * 150 * dt; s.y += s.dir.y * 150 * dt; } else { s.x = p.x; s.y = p.y; } s.tick -= dt; if (s.tick <= 0) { s.tick = 0.2; for (const e of alive(st)) if (m().dist(e, s) <= s.r + e.r) hit(st, e, s.dmg, { dir: m().norm(e.x - s.x, e.y - s.y), knock: 8 }); } if (s.t <= 0) S.storm = null; }
+    if (S.gravity) { const g = S.gravity; g.t -= dt; const active = g.t > -g.hold; for (const e of alive(st)) { if (e.boss || e.airborne) continue; const dd = m().dist(e, g); if (dd <= g.r + e.r && dd > 8) { const n = m().norm(g.x - e.x, g.y - e.y); K().moveSwept(st, e, n.x * g.pull * dt, n.y * g.pull * dt); } } g.tick -= dt; if (g.tick <= 0 && g.t > 0) { g.tick = 0.25; for (const e of alive(st)) if (m().dist(e, g) <= g.r + e.r) hit(st, e, g.dps * 0.25); } if (!active) { if (g.collapse) { K().fx(st, { kind: 'burst', x: g.x, y: g.y, r: 100, ttl: 0.35, t: 0, color: '#c9a0ff' }); for (const e of alive(st)) if (m().dist(e, g) <= 100 + e.r) hit(st, e, g.dmg * 3, { dir: m().norm(e.x - g.x, e.y - g.y), knock: 60 }); K().ev(st, 'explode'); } S.gravity = null; } }
+    if (S.ward) { const w = S.ward; w.t -= dt; if (w.fortress) for (const e of alive(st)) if (m().dist(e, p) <= 60 + e.r) pushEnemy(st, e, m().norm(e.x - p.x, e.y - p.y), 30 * dt); if (w.pulse) { w.pulseT -= dt; if (w.pulseT <= 0) { w.pulseT = 0.8; K().fx(st, { kind: 'spin', x: p.x, y: p.y, r: 110, ttl: 0.2, t: 0 }); for (const e of alive(st)) if (m().dist(e, p) <= 110 + e.r && !K().losBlocked(st, p, e)) hit(st, e, 8, { dir: m().norm(e.x - p.x, e.y - p.y), knock: 10 }); } } if (w.t <= 0) { const rest = Math.min(p.shield, p.wardShield || 0); p.shield -= rest; p.wardShield = 0; S.ward = null; } }
+  }
+  // 결계 보호막이 피해로 줄면 잔여량 추적
+  function onShieldDamaged(st, used) { const p = st.player; if (p.wardShield) p.wardShield = Math.max(0, p.wardShield - used); }
+
+  return { init, castQ, castE, update, onFieldEnd, inField2, autoTarget, cluster, cdOf, onShieldDamaged };
 })();
 
 </script>
@@ -1381,17 +2075,18 @@ PA.Run = (function () {
   const C = () => PA.CONFIG;
   const SAVE_KEY = 'prophecy_action_save_v1';   // 키는 유지(호환), 내용의 version으로 구분
   const RECORDS_KEY = 'prophecy_action_records_v1';
-  const VERSION = 2;
+  const VERSION = 3;
 
-  function newRun(seed) {
+  function newRun(seed, startWeapon) {
     const cfg = C();
     return {
+      growth: PA.Growth.newGrowth(startWeapon || 'sword'),
       version: VERSION, seed: seed || (Date.now() % 100000), sortieCount: 0,
       phase: 'prep',            // prep(준비 기간) | boss_prep(7일차 최종 준비) | cleared(보스 처치)
       bossRetries: 0, bossClear: null,
       day: 1, hours: cfg.HOURS_PER_DAY,
       gold: cfg.START_GOLD, mats: { pelt: 0, iron: 0, spore: 0, fang: 0 },
-      gear: PA.Build.emptyGear(), owned: [], augments: {},
+      gear: PA.Build.emptyGear(), owned: [], augments: {}, // augments는 v2 이하 레거시 입력(growth로 이행)
       hp: cfg.PLAYER.hp,
       target: 'pierce_sword',
       log: [], // 최근 사건 기록(거점 표시)
@@ -1407,6 +2102,12 @@ PA.Run = (function () {
       r.bossRetries = r.bossRetries || 0; r.bossClear = r.bossClear || null; r.ended = false;
     }
     if (!r.phase) r.phase = r.day >= C().BOSS_DAY ? 'boss_prep' : 'prep';
+    if (r.version === 2 || !r.growth) { // v2 → v3: 증강·무기 소유를 성장 시스템으로 매핑(삭제하지 않음, 초과분은 거점에서 선택)
+      r.legacyAugments = Object.assign({}, r.augments || {});
+      r.growth = PA.Growth.migrateFromLegacy(r);
+      r.version = 3;
+    }
+    if (r.gear && 'weapon' in r.gear) delete r.gear.weapon;
     return r;
   }
 
@@ -1492,9 +2193,14 @@ PA.Run = (function () {
   function startBoss(run) {
     if (!canStartBoss(run)) throw new Error('보스 준비 상태가 아님');
     run.hp = build(run).hpMax; // 입장: 체력 완전 회복(회피·감속장·방벽은 전투 생성 시 초기화)
+    run.bossEntry = JSON.parse(JSON.stringify({ growth: run.growth, hp: run.hp })); // 재도전 복구 기준(소환 경험치 누적 악용 방지)
     return { regionId: 'boss', seed: bossSeed(run), loot: { gold: 0, mats: {} }, encounters: 0 };
   }
-  function bossDefeat(run) { run.bossRetries = (run.bossRetries || 0) + 1; run.hp = build(run).hpMax; addLog(run, `보스전 패배 (재도전 ${run.bossRetries}회)`); }
+  function bossDefeat(run) {
+    run.bossRetries = (run.bossRetries || 0) + 1;
+    if (run.bossEntry) { run.growth = JSON.parse(JSON.stringify(run.bossEntry.growth)); } // 입장 시 준비 상태로 복구(레벨·경험치·선택)
+    run.hp = build(run).hpMax; addLog(run, `보스전 패배 (재도전 ${run.bossRetries}회, 성장은 입장 시점으로 복구)`);
+  }
   function bossVictory(run, stats) {
     const b = build(run);
     const rec = { time: Math.round(stats.elapsed * 10) / 10, retries: run.bossRetries || 0, weapon: b.weapon.name, upgrade: run.gear.upgrade, acc: run.gear.acc, armor: run.gear.armor, augments: Object.assign({}, run.augments), specialUses: stats.specialUses || 0, bossDamage: Math.round(stats.bossDamage || 0), day: run.day, seed: run.seed, at: Date.now() };
@@ -1504,7 +2210,7 @@ PA.Run = (function () {
     return rec;
   }
   function ownedBySlot(run, slot) { return run.owned.filter(id => item(id) && item(id).slot === slot); }
-  function unequip(run, slot) { if (slot === 'armor') run.gear.armor = null; else if (slot === 'acc') run.gear.acc = null; else if (slot === 'weapon') run.gear.weapon = 'sword'; run.hp = Math.min(run.hp, build(run).hpMax); }
+  function unequip(run, slot) { if (slot === 'armor') run.gear.armor = null; else if (slot === 'acc') run.gear.acc = null; run.hp = Math.min(run.hp, build(run).hpMax); }
   // 처치 기록(회차와 별도 보관, 새 회차로 삭제되지 않음)
   function loadRecords(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(RECORDS_KEY); return s ? JSON.parse(s) : { firstClear: null, clears: [] }; } catch (e) { return { firstClear: null, clears: [] }; } }
   function saveRecord(rec, storage) {
@@ -1521,6 +2227,7 @@ PA.Run = (function () {
   function itemCost(run, it) { return it.slot === 'upgrade' ? it.costs[Math.min(run.gear.upgrade, it.costs.length - 1)] : it.cost; }
   function itemAvailable(run, it) {
     if (it.slot === 'upgrade') return run.gear.upgrade < it.costs.length;
+    if (it.slot === 'weapon') { const g = PA.Growth.ensure(run); return !run.owned.includes(it.id) && !PA.Growth.weaponOf(g, 'spear') && g.weapons.length < PA.GROWTH.SLOTS.weapons; }
     return !run.owned.includes(it.id);
   }
   function shortfall(run, it) {
@@ -1536,8 +2243,13 @@ PA.Run = (function () {
     const cost = itemCost(run, it);
     run.gold -= cost.gold;
     for (const k in cost.mats) run.mats[k] -= cost.mats[k];
-    if (it.slot === 'upgrade') { run.gear.upgrade++; addLog(run, `무기 강화 +${run.gear.upgrade}`); }
-    else {
+    if (it.slot === 'upgrade') { run.gear.upgrade++; addLog(run, `무기 강화 +${run.gear.upgrade} (세 장착 무기 공통)`); }
+    else if (it.slot === 'weapon') {
+      run.owned.push(it.id);
+      const g = PA.Growth.ensure(run);
+      if (!PA.Growth.weaponOf(g, 'spear') && g.weapons.length < PA.GROWTH.SLOTS.weapons) { g.weapons.push({ id: 'spear', level: 1, mods: [] }); addLog(run, '관통창 획득(추가 무기 슬롯)'); }
+      else addLog(run, '관통창 제작 — 슬롯이 차 있거나 이미 보유');
+    } else {
       run.owned.push(it.id);
       equip(run, it.id);
       addLog(run, `${it.name} 획득·장착`);
@@ -1547,12 +2259,12 @@ PA.Run = (function () {
   function equip(run, itemId) {
     const it = item(itemId);
     if (!run.owned.includes(itemId)) throw new Error('미보유');
-    if (it.slot === 'weapon') run.gear.weapon = itemId === 'pierce_sword' ? 'pierce' : 'sword';
+    if (it.slot === 'weapon') { /* 무기는 성장 슬롯에서 관리 */ }
     else if (it.slot === 'armor') run.gear.armor = itemId;
     else if (it.slot === 'acc') run.gear.acc = itemId;
     run.hp = Math.min(run.hp, build(run).hpMax);
   }
-  function unequipWeapon(run) { run.gear.weapon = 'sword'; }
+  function unequipWeapon(run) { /* v3: 무기 장착은 성장 슬롯. 호환용 no-op */ }
   function sell(run, matId, n) {
     n = n || 1;
     if ((run.mats[matId] || 0) < n) throw new Error('재료 부족');
@@ -1572,10 +2284,10 @@ PA.Run = (function () {
   }
 
   // ---------- 증강 ----------
-  function augmentOffers(run, rng, count) {
-    const pool = PA.AUGMENTS.filter(a => PA.Build.augmentEligible(run, a));
-    return rng.shuffle(pool).slice(0, count || 3);
+  function augmentOffers(run, rng, count) { // v3: 조우 승리 3택은 레벨업으로 통합. 호환용(빈 목록)
+    return [];
   }
+  function regionBonusXp(regionId, deep) { const v = PA.GROWTH.REGION_BONUS_XP[regionId] || 0; return deep ? Math.round(v * 1.5) : v; }
   function takeAugment(run, id) {
     const def = PA.AUGMENTS.find(a => a.id === id);
     if (!PA.Build.augmentEligible(run, def)) throw new Error('선택 불가');
@@ -1586,12 +2298,12 @@ PA.Run = (function () {
 
   // ---------- 저장 ----------
   function serialize(run) { return JSON.stringify(run); }
-  function deserialize(s) { const r = JSON.parse(s); if (r.version !== 1 && r.version !== 2) throw new Error('저장 버전 불일치'); return migrate(r); }
+  function deserialize(s) { const r = JSON.parse(s); if (![1, 2, 3].includes(r.version)) throw new Error('저장 버전 불일치'); return migrate(r); }
   function save(run, storage) { storage = storage || globalThis.localStorage; try { storage.setItem(SAVE_KEY, serialize(run)); return true; } catch (e) { return false; } }
   function load(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(SAVE_KEY); return s ? deserialize(s) : null; } catch (e) { return null; } }
   function clearSave(storage) { storage = storage || globalThis.localStorage; try { storage.removeItem(SAVE_KEY); } catch (e) {} }
 
-  return { SAVE_KEY, RECORDS_KEY, VERSION, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
+  return { SAVE_KEY, RECORDS_KEY, VERSION, regionBonusXp, migrate, bossSeed, canStartBoss, startBoss, bossDefeat, bossVictory, ownedBySlot, unequip, loadRecords, saveRecord, newRun, build, bossDaysLeft, isBossDay, region, canSortie, startSortie, encounterWaves, encounterObjective, canDeepExplore, deepExplore, rollReward, applyEncounterResult, returnToBase, defeat, canRest, rest, endDay, item, itemCost, itemAvailable, shortfall, canBuy, buy, equip, unequipWeapon, sell, setTarget, targetInfo, augmentOffers, takeAugment, skipAugment, serialize, deserialize, save, load, clearSave, addLog };
 })();
 
 </script>
@@ -1780,6 +2492,14 @@ PA.Render = (function () {
         ctx.strokeStyle = `rgba(215,160,255,${0.5 + 0.3 * life})`; ctx.lineWidth = 2; ctx.setLineDash([6, 6]); ctx.stroke(); ctx.setLineDash([]);
         for (let i = 0; i < 6; i++) { const ang = z.t * 0.8 + i * 1.1, rr = z.r * (0.25 + 0.6 * ((i * 0.37 + z.t * 0.2) % 1)); ctx.fillStyle = 'rgba(235,200,255,0.55)'; ctx.beginPath(); ctx.arc(z.x + Math.cos(ang) * rr, z.y + Math.sin(ang) * rr, 3 + (i % 2), 0, TAU); ctx.fill(); }
         ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = `bold 14px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('☠', z.x, z.y + 5);
+      } else if (z.type === 'coldground') {
+        ctx.fillStyle = `rgba(160,220,255,${0.22 * life + 0.08})`; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.fill(); ctx.strokeStyle = `rgba(200,240,255,${0.6 * life})`; ctx.lineWidth = 1.5; ctx.stroke();
+      } else if (z.type === 'windpath') {
+        ctx.strokeStyle = `rgba(200,255,220,${0.5 * life})`; ctx.lineWidth = 2; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+      } else if (z.type === 'slowecho') {
+        ctx.fillStyle = `rgba(110,180,255,${0.08 * life + 0.04})`; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.fill();
+      } else if (z.type === 'storm') {
+        ctx.strokeStyle = `rgba(255,240,150,${0.5 * life})`; ctx.lineWidth = 2; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
       } else if (z.type === 'fire') {
         const fl = 1 + 0.12 * Math.sin(z.t * 22);
         ctx.fillStyle = `rgba(255,110,30,${0.25 + 0.25 * life})`; ctx.beginPath(); ctx.arc(z.x, z.y, z.r * fl, 0, TAU); ctx.fill();
@@ -1822,6 +2542,27 @@ PA.Render = (function () {
         ctx.fillStyle = `rgba(255,255,255,${0.8 * k})`; ctx.fillRect(0, -2, f.len * (0.6 + 0.4 * (1 - k)), 4);
         ctx.fillStyle = `rgba(200,240,255,${0.6 * k})`; ctx.beginPath(); ctx.moveTo(f.len, 0); ctx.lineTo(f.len - 18, -f.w / 2); ctx.lineTo(f.len - 18, f.w / 2); ctx.fill();
         ctx.restore();
+      } else if (f.kind === 'dagger') {
+        ctx.strokeStyle = `rgba(255,255,255,${0.9 * k})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.9, f.angle - f.half * (f.side % 2 ? 1 : -1), f.angle + f.half * (f.side % 2 ? -0.2 : 0.2) ); ctx.stroke();
+      } else if (f.kind === 'scar') {
+        ctx.fillStyle = `rgba(255,120,120,${0.35 * k})`; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.arc(f.x, f.y, f.r, f.angle - f.half, f.angle + f.half); ctx.closePath(); ctx.fill();
+      } else if (f.kind === 'impact') {
+        ctx.fillStyle = f.after ? `rgba(200,150,90,${0.35 * k})` : `rgba(230,200,150,${0.4 * k})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.6 + 0.4 * (1 - k)), 0, TAU); ctx.fill();
+        ctx.strokeStyle = `rgba(255,230,180,${0.9 * k})`; ctx.lineWidth = 5 * k + 1; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 - k * 0.25), 0, TAU); ctx.stroke();
+      } else if (f.kind === 'chain') {
+        ctx.strokeStyle = `rgba(200,240,255,${0.95 * k})`; ctx.lineWidth = 3; ctx.beginPath(); for (let i = 0; i < f.pts.length; i++) { const p0 = f.pts[i]; if (i === 0) ctx.moveTo(p0.x, p0.y); else { const p1 = f.pts[i - 1]; const mx = (p0.x + p1.x) / 2 + (i % 2 ? 8 : -8), my = (p0.y + p1.y) / 2 + (i % 2 ? -8 : 8); ctx.lineTo(mx, my); ctx.lineTo(p0.x, p0.y); } } ctx.stroke();
+        ctx.strokeStyle = `rgba(120,200,255,${0.5 * k})`; ctx.lineWidth = 7; ctx.stroke();
+      } else if (f.kind === 'emberthrow') {
+        const kk = f.t / f.ttl; const x = f.x0 + (f.x - f.x0) * kk, y = f.y0 + (f.y - f.y0) * kk - Math.sin(kk * Math.PI) * 60; ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.arc(x, y, 6, 0, TAU); ctx.fill();
+      } else if (f.kind === 'mineburst') {
+        ctx.fillStyle = `rgba(190,120,255,${0.4 * k})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.5 + 0.5 * (1 - k)), 0, TAU); ctx.fill(); ctx.strokeStyle = `rgba(230,200,255,${0.9 * k})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.stroke();
+      } else if (f.kind === 'strike' || f.kind === 'strikewarn') {
+        if (f.kind === 'strikewarn') { ctx.strokeStyle = `rgba(255,240,150,${0.6 + 0.4 * (1 - k)})`; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+        else { ctx.fillStyle = `rgba(255,250,200,${0.4 * k})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.fill(); ctx.strokeStyle = `rgba(255,255,255,${k})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(f.x + 10, f.y - 160); ctx.lineTo(f.x - 8, f.y - 70); ctx.lineTo(f.x + 8, f.y - 60); ctx.lineTo(f.x, f.y); ctx.stroke(); }
+      } else if (f.kind === 'gust') {
+        ctx.strokeStyle = `rgba(200,255,220,${0.8 * k})`; ctx.lineWidth = 3;
+        if (f.whirl) { for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.4 + 0.2 * i) * (1 + (1 - k) * 0.6), i, i + 4); ctx.stroke(); } }
+        else { ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.angle); for (let i = 0; i < 3; i++) { const xx = f.len * (0.3 + 0.35 * i) * (1 - k * 0.3); ctx.beginPath(); ctx.moveTo(xx, -f.w / 2 * (0.4 + 0.3 * i)); ctx.quadraticCurveTo(xx + 25, 0, xx, f.w / 2 * (0.4 + 0.3 * i)); ctx.stroke(); } ctx.restore(); }
       } else if (f.kind === 'spin') {
         ctx.strokeStyle = `rgba(210,235,255,${0.85 * k})`; ctx.lineWidth = 7 * k + 2; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.7 + 0.3 * (1 - k)), 0, TAU); ctx.stroke();
         ctx.fillStyle = `rgba(150,205,255,${0.18 * k})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.fill();
@@ -2046,6 +2787,9 @@ PA.Render = (function () {
     let ix = e.x - 10, iy = e.y - e.r - 28;
     if (e.state === 'recover' || e.state === 'stagger') { statusIcon(ctx, ix, iy, 'exposed'); ix += 16; }
     if (e.chill > 0) { statusIcon(ctx, ix, iy, 'chill'); ix += 16; }
+    if (e.burn && e.burn.t > 0) { ctx.fillStyle = '#ff9f43'; ctx.beginPath(); ctx.moveTo(ix, iy - 7); ctx.quadraticCurveTo(ix + 7, iy, ix, iy + 7); ctx.quadraticCurveTo(ix - 7, iy, ix, iy - 7); ctx.fill(); ix += 16; }
+    if (e.bleed && e.bleed.t > 0) { ctx.fillStyle = '#ff5a5a'; ctx.beginPath(); ctx.arc(ix, iy + 2, 4, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.moveTo(ix, iy - 7); ctx.lineTo(ix + 4, iy + 1); ctx.lineTo(ix - 4, iy + 1); ctx.fill(); ix += 16; }
+    if (e.conduct > 0) { ctx.strokeStyle = '#bfe8ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ix + 3, iy - 7); ctx.lineTo(ix - 3, iy); ctx.lineTo(ix + 2, iy); ctx.lineTo(ix - 3, iy + 7); ctx.stroke(); ix += 16; }
     if (inField) { statusIcon(ctx, ix, iy, 'slow'); ix += 16; }
     if (st.markTarget === e) statusIcon(ctx, e.x, e.y - e.r - 44, 'mark');
     if (e.chill > 0) { ctx.strokeStyle = 'rgba(160,230,255,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 1.4 + 3, st.t * 1.5, st.t * 1.5 + TAU); ctx.stroke(); ctx.setLineDash([]); }
@@ -2106,6 +2850,23 @@ PA.Render = (function () {
     ctx.restore();
     ctx.restore();
     if (p.shield > 0) { ctx.strokeStyle = 'rgba(126,242,255,0.85)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(p.x, p.y - 2, p.r + 10, 0, TAU); ctx.stroke(); ctx.fillStyle = 'rgba(126,242,255,0.08)'; ctx.fill(); }
+  }
+  function drawWeaponBodies(ctx, st) {
+    const p = st.player;
+    for (const w of st.weapons || []) {
+      if (w.stats.kind === 'orbit' && w.bladePos) for (const bp of w.bladePos) { ctx.save(); ctx.translate(bp.x, bp.y); ctx.rotate(bp.a + st.t * 8); ctx.fillStyle = '#e6edf5'; ctx.strokeStyle = '#8fb6ee'; ctx.lineWidth = 1.5; for (let i = 0; i < 3; i++) { ctx.rotate(TAU / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(14, -4); ctx.lineTo(16, 0); ctx.lineTo(14, 4); ctx.closePath(); ctx.fill(); ctx.stroke(); } ctx.restore(); }
+      if (w.stats.kind === 'chain') { const ox = p.x + Math.cos(st.t * 2) * 26, oy = p.y - 30 + Math.sin(st.t * 3) * 6; ctx.fillStyle = 'rgba(120,200,255,0.35)'; ctx.beginPath(); ctx.arc(ox, oy, 12, 0, TAU); ctx.fill(); ctx.fillStyle = '#dff4ff'; ctx.beginPath(); ctx.arc(ox, oy, 6, 0, TAU); ctx.fill(); }
+      if (w.stats.kind === 'bolt') { const ox = p.x - 22, oy = p.y - 26 + Math.sin(st.t * 3 + 1) * 4; ctx.fillStyle = '#bfefff'; ctx.beginPath(); ctx.moveTo(ox, oy - 9); ctx.lineTo(ox + 6, oy); ctx.lineTo(ox, oy + 9); ctx.lineTo(ox - 6, oy); ctx.closePath(); ctx.fill(); }
+      if (w.stats.kind === 'ember') { const ox = p.x + 24, oy = p.y - 28 + Math.sin(st.t * 4) * 4; ctx.fillStyle = 'rgba(255,150,60,0.5)'; ctx.beginPath(); ctx.arc(ox, oy, 9, 0, TAU); ctx.fill(); ctx.fillStyle = '#ffd27a'; ctx.beginPath(); ctx.arc(ox, oy, 4, 0, TAU); ctx.fill(); }
+    }
+    for (const mn of st.mines || []) { const armed = mn.arm <= 0; ctx.strokeStyle = armed ? 'rgba(200,140,255,0.9)' : 'rgba(200,140,255,0.4)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mn.x, mn.y, 9, 0, TAU); ctx.stroke(); ctx.fillStyle = armed ? '#d9b3ff' : '#8a6bb0'; ctx.beginPath(); ctx.moveTo(mn.x, mn.y - 6); ctx.lineTo(mn.x + 5, mn.y + 3); ctx.lineTo(mn.x - 5, mn.y + 3); ctx.closePath(); ctx.fill(); if (armed) { ctx.strokeStyle = 'rgba(200,140,255,0.25)'; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.arc(mn.x, mn.y, mn.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); } }
+    // 기술 상태
+    const S = st.skillState; if (S) {
+      if (S.storm) { const s = S.storm; ctx.strokeStyle = 'rgba(230,240,255,0.8)'; ctx.lineWidth = 3; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(s.x, s.y, s.r * (0.5 + 0.5 * ((st.t * 2 + i * 0.25) % 1)), st.t * 10 + i, st.t * 10 + i + 2.2); ctx.stroke(); } }
+      if (S.gravity) { const g = S.gravity; ctx.fillStyle = 'rgba(150,100,255,0.18)'; ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, TAU); ctx.fill(); ctx.strokeStyle = 'rgba(200,170,255,0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(g.x, g.y, 14 + Math.sin(st.t * 12) * 3, 0, TAU); ctx.stroke(); for (let i = 0; i < 8; i++) { const a = i * TAU / 8 - st.t * 4, rr = g.r * (0.3 + 0.6 * ((st.t * 0.8 + i * 0.13) % 1)); ctx.fillStyle = 'rgba(210,190,255,0.7)'; ctx.beginPath(); ctx.arc(g.x + Math.cos(a) * rr, g.y + Math.sin(a) * rr, 2.5, 0, TAU); ctx.fill(); } }
+      if (S.ward) { ctx.strokeStyle = 'rgba(126,242,255,0.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y - 2, p.r + 14, 0, TAU); ctx.stroke(); }
+      if (S.target) { ctx.strokeStyle = 'rgba(255,240,150,0.85)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(S.target.x, S.target.y, 12, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.moveTo(S.target.x - 16, S.target.y); ctx.lineTo(S.target.x - 8, S.target.y); ctx.moveTo(S.target.x + 8, S.target.y); ctx.lineTo(S.target.x + 16, S.target.y); ctx.stroke(); ctx.fillStyle = 'rgba(255,240,150,0.9)'; ctx.font = `10px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('E', S.target.x, S.target.y - 16); }
+    }
   }
   function drawRange(ctx, st) {
     const p = st.player, b = st.build;
@@ -2190,6 +2951,13 @@ PA.Render = (function () {
 
   function drawProjectiles(ctx, st) {
     for (const p of st.projectiles) {
+      if (p.owner === 'player' && p.kind !== 'shard' && p.kind !== 'shard_common') {
+        const ang = Math.atan2(p.vy, p.vx);
+        if (p.kind === 'crescent') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ang); ctx.strokeStyle = 'rgba(220,245,255,0.95)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(-8, 0, 18, -1.1, 1.1); ctx.stroke(); ctx.restore(); continue; }
+        if (p.kind === 'arrow_h') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ang); ctx.strokeStyle = '#e8f7ff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(8, 0); ctx.stroke(); ctx.fillStyle = '#9fd8ff'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(4, -4); ctx.lineTo(4, 4); ctx.fill(); ctx.restore(); continue; }
+        if (p.kind === 'bolt') { ctx.fillStyle = '#bfefff'; ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, TAU); ctx.fill(); ctx.strokeStyle = 'rgba(160,230,255,0.7)'; ctx.lineWidth = 2; for (let i = 0; i < 3; i++) { const a = i * Math.PI / 3 + st.t * 6; ctx.beginPath(); ctx.moveTo(p.x - Math.cos(a) * 7, p.y - Math.sin(a) * 7); ctx.lineTo(p.x + Math.cos(a) * 7, p.y + Math.sin(a) * 7); ctx.stroke(); } continue; }
+        if (p.kind === 'blade') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(st.t * 20); ctx.fillStyle = '#e6edf5'; for (let i = 0; i < 3; i++) { ctx.rotate(TAU / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(12, -3); ctx.lineTo(12, 3); ctx.fill(); } ctx.restore(); continue; }
+      }
       if (p.kind === 'arrow') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); ctx.strokeStyle = '#ffd9a0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(8, 0); ctx.stroke(); ctx.fillStyle = '#ff6b6b'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(4, -4); ctx.lineTo(4, 4); ctx.fill(); ctx.restore(); }
       else { ctx.fillStyle = '#bfefff'; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(191,239,255,0.4)'; ctx.beginPath(); ctx.arc(p.x - p.vx * 0.02, p.y - p.vy * 0.02, 3, 0, TAU); ctx.fill(); }
     }
@@ -2261,19 +3029,41 @@ PA.Render = (function () {
       ctx.font = `13px ${FONT}`; ctx.fillStyle = '#ddd'; ctx.fillText(`웨이브 ${Math.max(1, st.waveIndex + 1)}/${st.waves.length} · 남은 적 ${alive}`, W - 204, 50);
     }
     const cfg = PA.CONFIG.PLAYER, dodgeCd = cfg.dodge.cooldown * b.dodgeCdMult;
-    slot(ctx, W / 2 - 70, H - 78, 'Space', '회피', !p.dodge.active && p.dodge.cd <= 0, p.dodge.active ? 1 : Math.max(0, p.dodge.cd) / dodgeCd, '#7ef2ff');
-    slot(ctx, W / 2 + 6, H - 78, 'Q', '감속장', p.special.cd <= 0, p.special.cd / b.specialCd, '#a9d8ff');
-    if (p.special.cd > 0) { ctx.fillStyle = '#fff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(p.special.cd.toFixed(1) + 's', W / 2 + 38, H - 84); }
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(14, H - 40, 360, 28);
-    ctx.fillStyle = '#fff'; ctx.font = `13px ${FONT}`; ctx.textAlign = 'left';
-    const augs = Object.keys(b.aug).filter(k => b.aug[k] > 0).map(k => PA.AUGMENTS.find(x => x.id === k).name + (b.aug[k] > 1 ? b.aug[k] : '')).join(', ');
-    ctx.fillText(`${b.weapon.name} · 피해 ${PA.fmt.num(b.damage)} · 주기 ${PA.fmt.num(b.interval)}s` + (augs ? ' · ' + augs : ''), 20, H - 21);
+    // 레벨·경험치
+    const g = b.growth; if (g) { const need = PA.Growth.xpNeed(g.level), yy = p.shieldMax > 0 ? 58 : 38; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(14, yy, 240, 14); ctx.fillStyle = '#ffd166'; ctx.fillRect(14, yy, 240 * Math.min(1, g.xp / need), 14); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(14.5, yy + 0.5, 239, 13); ctx.fillStyle = '#fff'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(`Lv ${g.level}`, 20, yy + 11); ctx.textAlign = 'right'; ctx.fillText(`${g.xp} / ${need}`, 250, yy + 11); }
+    slot(ctx, W / 2 - 108, H - 78, 'Space', '회피', !p.dodge.active && p.dodge.cd <= 0, p.dodge.active ? 1 : Math.max(0, p.dodge.cd) / dodgeCd, '#7ef2ff');
+    slot(ctx, W / 2 - 32, H - 78, 'Q', '감속장', p.special.cd <= 0, p.special.cd / b.specialCd, '#a9d8ff');
+    if (p.special.cd > 0) { ctx.fillStyle = '#fff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(p.special.cd.toFixed(1) + 's', W / 2, H - 84); }
+    const es = b.skills && b.skills.e; const ecd = es ? PA.Skills.cdOf(st, 'e') : 1;
+    slot(ctx, W / 2 + 44, H - 78, 'E', es ? PA.SKILLS[es.id].name : '비어 있음', !!es && p.eCd <= 0, es ? (p.eCd || 0) / ecd : 1, '#ffe9a8');
+    if (es && p.eCd > 0) { ctx.fillStyle = '#fff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(p.eCd.toFixed(1) + 's', W / 2 + 76, H - 84); }
+    // 무기 아이콘·레벨
+    let wx = 14; const wy = H - 46;
+    for (const w of st.weapons || []) { const s = w.stats; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(wx, wy, 96, 34); ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(wx + 0.5, wy + 0.5, 95, 33); weaponIcon(ctx, wx + 16, wy + 17, s.kind); ctx.fillStyle = '#fff'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(`${s.name}`, wx + 32, wy + 14); ctx.font = `11px ${FONT}`; ctx.fillStyle = '#ffd166'; ctx.fillText(`Lv${s.level}${s.mods.length ? ' · ' + s.mods.map(mid => s.def.mods[mid].name).join(',') : ''}`, wx + 32, wy + 28); wx += 100; }
+    const cm = Object.keys(b.commons || {}).filter(k => b.commons[k] > 0).map(k => PA.COMMONS[k].name + (b.commons[k] > 1 ? b.commons[k] : '')).join(', ');
+    if (cm) { ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(14, H - 70, Math.min(360, 16 + cm.length * 12), 20); ctx.fillStyle = '#cfeaff'; ctx.font = `11px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText('공통: ' + cm, 20, H - 56); }
     ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = `12px ${FONT}`; ctx.textAlign = 'right'; ctx.fillText(PA.KEYS_TEXT, W - 14, H - 18);
     if (st.status !== 'running') {
       ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = st.status === 'won' ? '#ffe066' : '#ff6b6b'; ctx.font = `bold 40px ${FONT}`; ctx.textAlign = 'center';
       ctx.fillText(st.status === 'won' ? (st.mode === 'boss' ? '숲의 왕을 쓰러뜨렸다' : '조우 승리') : '패배', W / 2, H / 2 - 10);
     }
+  }
+  function weaponIcon(ctx, x, y, kind) {
+    ctx.save(); ctx.translate(x, y); ctx.strokeStyle = '#e6edf5'; ctx.fillStyle = '#e6edf5'; ctx.lineWidth = 2;
+    switch (kind) {
+      case 'arc': ctx.beginPath(); ctx.arc(-4, 0, 11, -1, 1); ctx.stroke(); break;
+      case 'beam': ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.stroke(); ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(5, -4); ctx.lineTo(5, 4); ctx.fill(); break;
+      case 'melee': ctx.beginPath(); ctx.moveTo(-8, 8); ctx.lineTo(4, -8); ctx.moveTo(-2, 8); ctx.lineTo(10, -8); ctx.stroke(); break;
+      case 'homing': ctx.beginPath(); ctx.arc(-4, 0, 10, -1.3, 1.3); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(10, 0); ctx.stroke(); break;
+      case 'heavy': ctx.fillRect(-3, -2, 6, 12); ctx.fillRect(-9, -10, 18, 9); break;
+      case 'orbit': ctx.beginPath(); ctx.arc(0, 0, 9, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(9, 0, 3, 0, TAU); ctx.arc(-9, 0, 3, 0, TAU); ctx.fill(); break;
+      case 'chain': ctx.beginPath(); ctx.moveTo(-9, -8); ctx.lineTo(-2, 0); ctx.lineTo(-5, 1); ctx.lineTo(4, 9); ctx.stroke(); ctx.beginPath(); ctx.arc(6, -6, 4, 0, TAU); ctx.fill(); break;
+      case 'bolt': ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(7, 0); ctx.lineTo(0, 10); ctx.lineTo(-7, 0); ctx.closePath(); ctx.fill(); break;
+      case 'ember': ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.arc(0, 2, 7, 0, TAU); ctx.fill(); ctx.fillStyle = '#ffe9a8'; ctx.beginPath(); ctx.arc(0, 0, 3, 0, TAU); ctx.fill(); break;
+      case 'mine': ctx.fillStyle = '#d9b3ff'; ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(8, 5); ctx.lineTo(-8, 5); ctx.closePath(); ctx.fill(); break;
+    }
+    ctx.restore();
   }
   function drawDebug(ctx, st) {
     ctx.strokeStyle = '#0f0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(st.player.x, st.player.y, st.player.r, 0, TAU); ctx.stroke();
@@ -2294,6 +3084,7 @@ PA.Render = (function () {
     drawChest(ctx, st);
     drawPickups(ctx, st);
     drawRange(ctx, st);
+    drawWeaponBodies(ctx, st);
     drawPlayerEffects(ctx, st);
     // 개체는 y순으로 그려 겹침이 자연스럽게
     const ents = st.enemies.map(e => ({ y: e.y, f: () => drawEnemy(ctx, st, e) }));
@@ -2365,16 +3156,50 @@ PA.Screens = (function () {
       <div class="kv"><span>장신구</span>${accBtns || '<span class="dim">보유 없음</span>'}${g.acc ? ` <button class="mini" data-action="unequip" data-arg="acc">해제</button>` : ''}</div></div>`;
   }
   function buildPanel(run) {
-    const b = R().build(run), g = run.gear;
-    const augs = Object.keys(run.augments).filter(k => run.augments[k] > 0).map(k => { const d = PA.AUGMENTS.find(a => a.id === k); return `<li><b>${esc(d.name)}</b>${d.max > 1 ? ` ${run.augments[k]}단계` : ''} <span class="dim">${esc(d.desc)}</span></li>`; }).join('');
-    return `<div class="card"><div class="card-title">현재 빌드</div>
-      <ul class="gear">
-        <li>무기: <b>${esc(b.weapon.name)}${g.upgrade ? ' +' + g.upgrade : ''}</b> <span class="dim">${b.weapon.form === 'beam' ? '관통 직선' : '부채꼴'} · 피해 ${PA.fmt.num(b.damage)} · 주기 ${PA.fmt.num(b.interval)}초 · 범위 ${Math.round(b.range)}</span>${run.owned.includes('pierce_sword') ? ` <button class="mini" data-action="toggle-weapon">${g.weapon === 'pierce' ? '기본검으로' : '관통검으로'}</button>` : ''}</li>
-        <li>방어구: <b>${g.armor ? esc(R().item(g.armor).name) : '없음'}</b> <span class="dim">최대 체력 ${b.hpMax}</span></li>
-        <li>장신구: <b>${g.acc ? esc(R().item(g.acc).name) : '없음'}</b> <span class="dim">회피 재사용 ${PA.fmt.num(PA.CONFIG.PLAYER.dodge.cooldown * b.dodgeCdMult)}초 · 감속장 ${b.specialCd}초 · 빈틈 피해 ×${b.exposedMult}</span></li>
-        <li>수동 특수기(Q): <b>감속장</b> <span class="dim">반지름 150 · 3초 · 적 속도 40%</span></li>
-      </ul>
-      <div class="card-title small">증강 (회차 동안 유지)</div>${augs ? `<ul class="augs">${augs}</ul>` : '<p class="dim">아직 없음. 조우 승리 시 선택합니다.</p>'}</div>`;
+    const b = R().build(run), g = PA.Growth.ensure(run), S = PA.GROWTH.SLOTS;
+    const wrows = b.weapons.map((w, i) => `<li><b>${esc(w.name)}</b> Lv${w.level}/${S.weaponMax} <span class="dim">${i === 0 ? '시작 무기' : '추가 무기'} · 피해 ${PA.fmt.num(w.damage)} · 주기 ${PA.fmt.num(w.interval)}초${w.range ? ' · 사거리 ' + Math.round(w.range) : ''}</span><br><span class="small">전용 방식 ${w.mods.length}/${S.weaponMods}: ${w.mods.length ? w.mods.map(mid => esc(w.def.mods[mid].name)).join(', ') : '없음'}</span></li>`).join('');
+    const empties = Array.from({ length: S.weapons - b.weapons.length }, () => '<li class="dim">빈 무기 슬롯 (레벨업에서 새 무기 획득)</li>').join('');
+    const commons = Object.keys(g.commons).filter(k => g.commons[k] > 0).map(k => `<li><b>${esc(PA.COMMONS[k].name)}</b>${PA.COMMONS[k].max > 1 ? ` ${g.commons[k]}/${PA.COMMONS[k].max}` : ''} <span class="dim">${esc(PA.COMMONS[k].desc)}</span></li>`).join('');
+    const passives = Object.keys(g.passives).filter(k => g.passives[k] > 0).map(k => `<li><b>${esc(PA.PASSIVES[k].name)}</b> ${g.passives[k]}/${PA.PASSIVES[k].max} <span class="dim">${esc(PA.PASSIVES[k].desc)}</span></li>`).join('');
+    const sk = (slot) => { const x = g.skills[slot]; if (!x) return `<li><b>E</b>: <span class="dim">비어 있음 (레벨업에서 습득)</span></li>`; const d = PA.SKILLS[x.id]; return `<li><b>${d.key}</b>: <b>${esc(d.name)}</b> Lv${x.level}/${S.skillMax} <span class="dim">${esc(d.desc)} · 재사용 ${PA.fmt.num(PA.SKILLS[x.id].cooldown[x.level - 1] * b.skillCdMult - (slot === 'q' ? b.accSpecialBonus : 0))}초${x.variant ? ' · 변형: ' + esc(d.variants[x.variant].name) : ''}</span></li>`; };
+    const legacy = Object.keys(g.legacy).length ? `<p class="dim small">레거시 유지: ${Object.keys(g.legacy).map(k => k === 'mark' ? '사냥꾼의 표식(우선 대상)' : k === 'barrier' ? '파열 방벽(조우 시작 보호막 30)' : k).join(', ')} — 신규 제시는 없음</p>` : '';
+    return `<div class="card"><div class="card-title">현재 빌드 <span class="sub">캐릭터 Lv ${g.level} · 경험치 ${g.xp}/${PA.Growth.xpNeed(g.level)}${g.pendingLevelUps ? ` · <b class="warn">미처리 레벨업 ${g.pendingLevelUps}</b>` : ''}</span></div>
+      <div class="card-title small">무기 ${b.weapons.length}/${S.weapons} <span class="dim">(대장간 강화 +${run.gear.upgrade || 0}은 세 무기 공통 ×${PA.fmt.num(b.forgeMult)})</span></div><ul class="gear">${wrows}${empties}</ul>
+      <div class="card-title small">공통 증강 ${PA.Growth.commonCount(g)}/${S.commons}</div>${commons ? `<ul class="augs">${commons}</ul>` : '<p class="dim">없음</p>'}
+      <div class="card-title small">수동 기술</div><ul class="gear">${sk('q')}${sk('e')}</ul>
+      <div class="card-title small">패시브 ${PA.Growth.passiveCount(g)}/${S.passives}</div>${passives ? `<ul class="augs">${passives}</ul>` : '<p class="dim">없음</p>'}
+      ${g.bossRewards.length ? `<div class="card-title small">보스 희귀 보상</div><ul class="augs">${g.bossRewards.map(id => `<li><b>${esc(PA.BOSS_REWARDS[id].name)}</b> <span class="dim">${esc(PA.BOSS_REWARDS[id].desc)}</span></li>`).join('')}</ul>` : ''}
+      <div class="card-title small">장비</div><ul class="gear">
+        <li>방어구: <b>${g_armor(run)}</b> <span class="dim">최대 체력 ${b.hpMax}</span></li>
+        <li>장신구: <b>${run.gear.acc ? esc(R().item(run.gear.acc).name) : '없음'}</b> <span class="dim">회피 재사용 ${PA.fmt.num(PA.CONFIG.PLAYER.dodge.cooldown * b.dodgeCdMult)}초 · 빈틈 피해 ×${PA.fmt.num(b.exposedMult)}</span></li></ul>
+      ${legacy}</div>`;
+  }
+  function g_armor(run) { return run.gear.armor ? esc(R().item(run.gear.armor).name) : '없음'; }
+
+  // 시작 무기 선택
+  function pickStart(G) {
+    const list = (G.startAll ? PA.STARTABLE_ALL : PA.STARTABLE).map(id => { const d = PA.WEAPONS[id]; return `<div class="card"><div class="card-title">${esc(d.name)}</div><p>${esc(d.desc)}</p><p class="dim small">기본 피해 ${d.base.damage} · 주기 ${d.base.interval}초 · 전용 방식: ${Object.values(d.mods).map(m => esc(m.name)).join(', ')}</p><button class="primary" data-action="start-weapon" data-arg="${id}">이 무기로 시작</button></div>`; }).join('');
+    return `<div class="screen"><h2>시작 무기 선택</h2><p class="dim">시작 무기 1개로 출발하고, 전투 중 레벨업으로 무기를 최대 2개 더 얻습니다. 시작 무기와 추가 무기는 같은 규칙으로 성장합니다.</p>
+      <div class="grid3">${list}</div>
+      <div class="row">${G.startAll ? '' : '<button data-action="start-all">검증 메뉴: 다른 시작 후보 보기 (쌍검·추적궁·전투망치·번개 구체)</button>'}<button data-action="title">돌아가기</button></div></div>`;
+  }
+  // 레벨업 카드(전투 중 오버레이·거점·보상 화면 공용)
+  function levelCards(G, offer, run) {
+    const pool = offer.pool;
+    const cards = offer.choices.map(c => { const d = PA.Growth.describe(run, c); return `<div class="card aug ${d.regionMatch ? 'region' : ''}"><div class="card-title">${esc(d.title)} <span class="kind">${esc(d.type)}</span>${d.regionMatch ? ' <span class="tag">지역 계열</span>' : ''}</div>
+      <p class="big-desc">${esc(d.change)}</p>
+      <div class="kv"><span>단계</span><b>${esc(d.stage)}</b></div><div class="kv"><span>적용</span><b>${esc(d.scope)}</b></div><div class="kv"><span>슬롯</span><b>${esc(d.slot)}</b></div>
+      <button class="primary" data-action="pick" data-arg="${esc(c.key)}">선택</button></div>`; }).join('');
+    const title = pool === 'boss' ? '보스 희귀 보상' : pool === 'deep' ? '지역 보상 선택' : `레벨 업! Lv ${run.growth.level}${run.growth.pendingLevelUps > 1 ? ` (남은 선택 ${run.growth.pendingLevelUps})` : ''}`;
+    return `<div class="panel wide"><h2>${title}</h2>${offer.regionId && pool !== 'boss' ? `<p class="dim small">지역 계열: ${esc(PA.REGION_TAG_TEXT[offer.regionId] || '—')}</p>` : ''}
+      <div class="grid3">${cards.length ? cards : '<p class="dim">제시할 수 있는 후보가 없습니다.</p>'}</div>
+      <div class="row">${pool === 'level' ? `<button data-action="skip">건너뛰기 (금화 +${PA.CONFIG.SKIP_AUGMENT_GOLD})</button>` : pool === 'deep' ? '<button data-action="skip">받지 않음</button>' : ''}</div></div>`;
+  }
+  function migration(G) {
+    const run = G.run, mp = run.growth.migrationPending, sel = G.migSel || [];
+    return `<div class="screen center"><h2>성장 시스템 이행</h2><p>이전 저장에 공통 증강이 ${mp.commons.length}개 있습니다. 새 규칙의 공통 슬롯은 3개입니다. 사용할 3개를 고르세요(나머지는 사라집니다).</p>
+      <div class="grid3">${mp.commons.map(c => `<div class="card ${sel.includes(c.id) ? 'can' : ''}"><div class="card-title">${esc(PA.COMMONS[c.id].name)}${c.level > 1 ? ' ' + c.level + '단계' : ''}</div><p class="dim">${esc(PA.COMMONS[c.id].desc)}</p><button data-action="mig-toggle" data-arg="${c.id}">${sel.includes(c.id) ? '선택 해제' : '선택'}</button></div>`).join('')}</div>
+      <div class="row"><button class="primary" data-action="mig-confirm" ${sel.length === Math.min(3, mp.commons.length) ? '' : 'disabled'}>확정 (${sel.length}/3)</button></div></div>`;
   }
 
   function title(G) {
@@ -2420,7 +3245,8 @@ PA.Screens = (function () {
           ${bossCard(run, false)}
           <div class="card"><div class="card-title">오늘 할 일</div>
             <div class="actions">
-              <button class="primary big" data-action="map">출격 · 지역 선택</button>
+              ${run.growth.pendingLevelUps ? `<button class="primary big" data-action="resolve-levelup">미처리 레벨업 선택 (${run.growth.pendingLevelUps})</button>` : ''}
+              <button class="${run.growth.pendingLevelUps ? '' : 'primary'} big" data-action="map">출격 · 지역 선택</button>
               <button class="big" data-action="shop">상점 · 대장간</button>
               <button class="big" data-action="rest" ${canRest ? '' : 'disabled'}>휴식 (1시간, 체력 완전 회복)${canRest ? '' : run.hp >= R().build(run).hpMax ? ' · 체력 가득' : ' · 시간 부족'}</button>
               <button class="big" data-action="endday-confirm">하루 종료 → ${run.day + 1}일차${run.day + 1 >= PA.CONFIG.BOSS_DAY ? ' <span class="warn">(보스 도래)</span>' : ''}${run.hours > 0 ? ` <span class="dim">(남은 ${run.hours}시간 버림)</span>` : ''}</button>
@@ -2447,6 +3273,7 @@ PA.Screens = (function () {
         <p>${esc(r.desc)}</p>
         <div class="kv"><span>목적</span><b>${r.objective === 'elite' ? '정예 처치' : '전멸'} · ${r.waves.length}웨이브</b></div>
         <div class="kv"><span>보상</span><b>${rewardText}</b>${forTarget ? ' <span class="tag">목표 장비 재료</span>' : ''}</div>
+        <div class="kv"><span>성장</span><b>${esc(PA.REGION_TAG_TEXT[r.id] || '—')}</b> <span class="dim small">경험치 +${PA.GROWTH.REGION_BONUS_XP[r.id]} · 더 깊이 승리 시 지역 보상 선택</span></div>
         <ul class="enemies">${enemies}</ul>
         <button class="primary" data-action="sortie" data-arg="${r.id}" ${can ? '' : 'disabled'}>${can ? `출격 (${r.cost}시간 사용 → ${run.hours - r.cost}시간 남음)` : run.phase !== 'prep' ? '7일차: 출격 종료' : '시간 부족'}</button>
       </div>`;
@@ -2501,19 +3328,14 @@ PA.Screens = (function () {
       ${buildPanel(run)}</div>`;
   }
   function reward(G) {
-    const run = G.run, rw = G.lastReward, offers = G.offers || [];
+    const run = G.run, rw = G.lastReward, g = run.growth;
     const matText = Object.keys(rw.mats).map(k => `${matName(k)} ${rw.mats[k]}`).join(', ');
-    const cards = offers.map(a => `<div class="card aug"><div class="card-title">${esc(a.name)} <span class="kind">${esc(a.kind)}</span></div>
-      <p class="big-desc">${esc(a.desc)}</p><p class="dim">${esc(a.long)}</p>
-      <div class="connect">연결: ${esc(PA.Build.connectionText(run, a) || '—')}${a.connect ? ` <span class="tag">${esc(a.connect)}</span>` : ''}</div>
-      <button class="primary" data-action="pick" data-arg="${a.id}">선택</button></div>`).join('');
     return `<div class="screen"><h2>조우 승리</h2>
       <div class="card"><div class="card-title">보상 (귀환 시 거점에 반영)</div>
-        <p>금화 <b class="gold">+${rw.gold}</b>${rw.chestGold ? ` (보급 상자 +${rw.chestGold} 포함)` : ''}${matText ? ` · ${matText}` : ''}</p>
-        <p class="dim small">처치 ${G.lastStats.kills}${G.lastStats.savingKills ? ` (감속장 안 ${G.lastStats.savingKills})` : ''} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · ${Math.round(G.lastStats.elapsed)}초</p></div>
-      <h3>증강 선택 (회차 동안 유지)</h3>
-      <div class="grid3">${cards.length ? cards : '<p class="dim">제시할 수 있는 증강이 없습니다.</p>'}</div>
-      <div class="row"><button data-action="skip">건너뛰기 (금화 +${PA.CONFIG.SKIP_AUGMENT_GOLD})</button></div></div>`;
+        <p>금화 <b class="gold">+${rw.gold}</b>${rw.chestGold ? ` (보급 상자 +${rw.chestGold} 포함)` : ''}${matText ? ` · ${matText}` : ''} · 지역 경험치 <b class="gold">+${rw.xp || 0}</b></p>
+        <p class="dim small">처치 ${G.lastStats.kills}${G.lastStats.savingKills ? ` (감속장 안 ${G.lastStats.savingKills})` : ''} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · ${Math.round(G.lastStats.elapsed)}초 · 전투 중 경험치 ${G.lastStats.xp} · 레벨업 ${G.lastStats.levelUps}회 (Lv ${g.level})</p></div>
+      ${g.pendingLevelUps ? `<div class="card boss"><div class="card-title">미처리 레벨업 ${g.pendingLevelUps}</div><p>조우 종료와 동시에 오른 레벨입니다. 지금 선택합니다.</p><button class="primary" data-action="resolve-levelup">선택하기</button></div>` : ''}
+      <div class="row"><button class="primary big" data-action="after-reward">다음</button></div></div>`;
   }
   function after(G) {
     const run = G.run, s = G.sortie, r = R().region(s.regionId), b = R().build(run);
@@ -2535,7 +3357,7 @@ PA.Screens = (function () {
   }
   function bossDefeat(G) {
     const run = G.run, s = G.lastStats;
-    return `<div class="screen center"><h2 class="bad">쓰러졌다</h2><p>${esc(PA.BOSS.name)}에게 패배했습니다. 준비 기간의 성과는 그대로입니다. 같은 장비·증강으로 바로 다시 도전할 수 있습니다.</p>
+    return `<div class="screen center"><h2 class="bad">쓰러졌다</h2><p>${esc(PA.BOSS.name)}에게 패배했습니다. 준비 기간의 성과는 그대로입니다. 같은 장비·무기·증강으로 바로 다시 도전할 수 있습니다.</p><p class="dim small">재도전은 입장 시점의 상태로 복구됩니다: 레벨·경험치·전투 중 선택은 입장 전으로, 체력·회피·감속장·E는 초기화, 보스·소환 늑대·구슬은 처음부터.</p>
       <p class="dim small">전투 ${Math.round(s.elapsed)}초 · 보스에게 준 피해 ${Math.round(s.bossDamage)} / ${PA.BOSS.hp} · 감속장 ${s.specialUses}회 · 재도전 ${run.bossRetries}회</p>
       <div class="menu"><button class="primary big" data-action="boss-start">같은 준비로 재도전</button><button class="big" data-action="base">최종 준비 화면으로</button><button class="big" data-action="title">제목으로</button></div></div>`;
   }
@@ -2576,7 +3398,7 @@ PA.Screens = (function () {
   }
   function controls() {
     return `<div class="panel"><h2>조작법</h2>
-      <table class="keys"><tr><td>W A S D / 방향키</td><td>이동</td></tr><tr><td>Space</td><td>회피 (0.26초 무적, 이동 방향으로 구르기)</td></tr><tr><td>Q</td><td>감속장 (주변 적을 3초간 느리게)</td></tr><tr><td>Esc</td><td>일시정지 / 메뉴</td></tr><tr><td>Enter · 클릭</td><td>메뉴 확인</td></tr></table>
+      <table class="keys"><tr><td>W A S D / 방향키</td><td>이동</td></tr><tr><td>Space</td><td>회피 (0.26초 무적, 이동 방향으로 구르기)</td></tr><tr><td>Q</td><td>감속장 (주변 적을 3초간 느리게)</td></tr><tr><td>E</td><td>선택 수동 기술 (레벨업에서 습득: 돌풍·칼날 폭풍·낙뢰·중력핵·수호 결계)</td></tr><tr><td>Esc</td><td>일시정지 / 메뉴</td></tr><tr><td>Enter · 클릭</td><td>메뉴 확인</td></tr></table>
       <h3>읽어야 할 것</h3><ul>
         <li><b>붉은 화살표</b>: 늑대가 돌진할 직선. 화살표가 굵어지며 "!"가 뜨면 방향이 고정된 것 — 옆으로 피하세요.</li>
         <li><b>붉은 점선</b>: 궁수의 조준선. 굵어지면 발사 직전.</li>
@@ -2601,7 +3423,7 @@ PA.Screens = (function () {
       ctx.save(); ctx.scale(0.8, 0.8); PA.Render.drawBoss(ctx, fake, e); ctx.restore();
     }
   }
-  return { title, newrunConfirm, base, finalPrep, map, shop, reward, after, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard };
+  return { title, newrunConfirm, base, finalPrep, map, shop, reward, after, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard, pickStart, levelCards, migration };
 })();
 
 </script>
@@ -2627,7 +3449,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     const html = {
       title: () => S.title(G), newrun_confirm: () => S.newrunConfirm(G), base: () => S.base(G), map: () => S.map(G), shop: () => S.shop(G),
       reward: () => S.reward(G), after: () => S.after(G), defeat: () => S.defeat(G), endday_confirm: () => S.enddayConfirm(G), scenario_end: () => S.scenarioEnd(G),
-      boss_defeat: () => S.bossDefeat(G), boss_victory: () => S.bossVictory(G),
+      boss_defeat: () => S.bossDefeat(G), boss_victory: () => S.bossVictory(G), pick_start: () => S.pickStart(G), migration: () => S.migration(G),
     }[name];
     uiEl.innerHTML = html ? html() : '';
     if (html) { try { S.paintPortraits(); } catch (e) {} }
@@ -2645,13 +3467,45 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (mute) mute.addEventListener('change', () => PA.Audio.setMuted(mute.checked));
   }
   function closeOverlay() { G.overlay = null; overlayEl.hidden = true; overlayEl.innerHTML = ''; }
+  // ---------- 레벨업 선택(전투 중: 정지 + 오버레이 / 화면: 오버레이) ----------
+  function openChoice(offer) {
+    G.choice = offer;
+    if (G.screen === 'combat') { G.paused = true; PA.Input.setBlocked(G.input, true); }
+    G.overlay = 'choice';
+    overlayEl.innerHTML = PA.Screens.levelCards(G, offer, G.run); overlayEl.hidden = false;
+  }
+  function closeChoice() {
+    G.choice = null; closeOverlay();
+    if (G.screen === 'combat') { G.paused = false; PA.Input.setBlocked(G.input, false); G.last = 0; }
+  }
+  // 전투 중 레벨업: 미처리 선택이 있으면 하나씩 제시
+  function offerPendingLevelUps(ctx) {
+    const g = G.run.growth;
+    if (g.pendingLevelUps <= 0) return false;
+    openChoice(PA.Growth.generateOffer(G.run, Object.assign({ pool: 'level' }, ctx || {})));
+    saveRun(); // 레벨업 시점의 레벨·경험치·보류 제시를 저장(새로고침 재굴림 방지, 미처리 선택 보존)
+    return true;
+  }
+  function afterChoice() {
+    if (!G.scenario) saveRun();
+    if (G.screen === 'combat' && G.combat) {
+      PA.Combat.rebuild(G.combat, PA.Run.build(G.run));
+      closeChoice();
+      if (G.run.growth.pendingLevelUps > 0) offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId });
+    } else {
+      closeChoice();
+      if (G.run.growth.pendingLevelUps > 0 && G.screen !== 'reward') offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId });
+      else show(G.screen);
+    }
+  }
   function pauseCombat(on) { if (G.screen !== 'combat') return; G.paused = on; PA.Input.setBlocked(G.input, on); if (on) openOverlay('pause'); else closeOverlay(); }
 
   // ---------- 회차 흐름 ----------
   function saveRun() { if (G.run && !G.scenario) PA.Run.save(G.run); }
-  function goBase() { saveRun(); show('base'); } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
+  function goBase() { saveRun(); if (G.run.growth && G.run.growth.migrationPending) { show('migration'); return; } show('base'); } // 7일차(boss_prep/cleared)는 base가 최종 준비 화면을 그린다
   function leaveScenario() { if (G.scenario) { G.scenario = null; try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
-  function newRun() { leaveScenario(); G.run = PA.Run.newRun(); G.sortie = null; G.combat = null; saveRun(); show('base'); }
+  function newRun() { leaveScenario(); G.startAll = false; show('pick_start'); }
+  function startRun(weaponId) { G.run = PA.Run.newRun(undefined, weaponId); G.sortie = null; G.combat = null; saveRun(); show('base'); }
   function startSortie(regionId) {
     G.sortie = PA.Run.startSortie(G.run, regionId);
     saveRun(); // 출격 비용은 지불된 상태로 저장(전투 중 종료 시 복구 기준)
@@ -2659,6 +3513,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   }
   function startEncounter() {
     const run = G.run, s = G.sortie;
+    G.choice = null;
     if (s.regionId === 'boss') {
       G.combat = PA.Combat.create({ build: PA.Run.build(run), hp: PA.Run.build(run).hpMax, seed: s.seed, boss: true, arena: 'clearing', waves: [] });
     } else G.combat = PA.Combat.create({
@@ -2684,6 +3539,8 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
         const rec = PA.Run.bossVictory(run, c.stats); G.lastRecord = rec;
         const R = PA.Run.saveRecord(rec); G.firstClearNew = !hadFirst && R.firstClear && R.firstClear.at === rec.at;
         saveRun(); G.sortie = null; show('boss_victory');
+        // 보스 희귀 보상: 현재 보스가 마지막 보스가 아닐 때만(현재 보스 1종 → 정상 회차에서는 제시되지 않음)
+        const idx = PA.BOSSES.indexOf('boss'); if (idx >= 0 && idx < PA.BOSSES.length - 1) openChoice(PA.Growth.generateOffer(run, { pool: 'boss' }));
       } else { PA.Run.bossDefeat(run); saveRun(); G.sortie = null; show('boss_defeat'); }
       return;
     }
@@ -2691,9 +3548,11 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (c.status === 'won') {
       const reward = PA.Run.rollReward(run, s, c.rng, { chestGold: c.stats.chestGold, eliteKilled });
       PA.Run.applyEncounterResult(run, s, 'won', reward, c.player.hp);
-      G.lastReward = reward;
-      G.offers = PA.Run.augmentOffers(run, c.rng, 3);
+      reward.xp = PA.Run.regionBonusXp(s.regionId, s.deep); PA.Growth.addXp(run.growth, reward.xp); // 조우 승리: 지역 경험치(증강 3택 대체)
+      G.lastReward = reward; G.offers = null;
+      saveRun();
       show('reward');
+      if (run.growth.pendingLevelUps > 0) offerPendingLevelUps({ regionId: s.regionId });
     } else {
       PA.Run.applyEncounterResult(run, s, 'lost', null, 0);
       PA.Run.defeat(run, s);
@@ -2707,6 +3566,14 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'continue': () => { leaveScenario(); G.run = G.saved; G.sortie = null; G.combat = null; goBase(); },
     'newrun': () => { if (G.saved) show('newrun_confirm'); else newRun(); },
     'newrun-confirm': () => newRun(),
+    'start-weapon': (id) => startRun(id),
+    'start-all': () => { G.startAll = true; show('pick_start'); },
+    'pick': (key) => { const off = G.choice; if (!off) return; const c = off.choices.find(x => x.key === key); if (!c) return; PA.Growth.applyChoice(G.run, c); PA.Audio.play('buy'); afterChoice(); },
+    'skip': () => { const off = G.choice; if (!off) return; if (off.pool === 'level') PA.Growth.skipChoice(G.run); else G.run.growth.pendingOffer = null; afterChoice(); },
+    'resolve-levelup': () => { offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId }); },
+    'after-reward': () => { if (G.run.growth.pendingLevelUps > 0) { offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId }); return; } if (G.sortie && G.sortie.deep && PA.GROWTH.DEEP_PICK && !G.sortie.deepPicked) { G.sortie.deepPicked = true; G.screen = 'after'; uiEl.innerHTML = PA.Screens.after(G); openChoice(PA.Growth.generateOffer(G.run, { pool: 'deep', regionId: G.sortie.regionId })); return; } show('after'); },
+    'mig-toggle': (id) => { G.migSel = G.migSel || []; if (G.migSel.includes(id)) G.migSel = G.migSel.filter(x => x !== id); else if (G.migSel.length < 3) G.migSel.push(id); show('migration'); },
+    'mig-confirm': () => { PA.Growth.resolveMigration(G.run, G.migSel || []); G.migSel = null; saveRun(); goBase(); },
     'title': () => { leaveScenario(); G.saved = PA.Run.load(); show('title'); },
     'controls': () => openOverlay('controls'),
     'show-controls': () => openOverlay('controls'),
@@ -2726,8 +3593,6 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'target': (id) => { PA.Run.setTarget(G.run, id); saveRun(); show('shop'); },
     'sell': (id) => { PA.Run.sell(G.run, id, 1); saveRun(); show('shop'); },
     'toggle-weapon': () => { if (G.run.gear.weapon === 'pierce') PA.Run.unequipWeapon(G.run); else PA.Run.equip(G.run, 'pierce_sword'); saveRun(); show(G.screen); },
-    'pick': (id) => { PA.Run.takeAugment(G.run, id); G.offers = null; saveRun(); show('after'); },
-    'skip': () => { PA.Run.skipAugment(G.run); G.offers = null; saveRun(); show('after'); },
     'deep': () => { PA.Run.deepExplore(G.run, G.sortie); saveRun(); startEncounter(); },
     'return': () => { PA.Run.returnToBase(G.run, G.sortie); G.sortie = null; goBase(); },
     'resume': () => pauseCombat(false),
@@ -2744,17 +3609,25 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   function parseScenario() {
     const q = new URLSearchParams(location.search);
     if (!q.get('scenario')) return null;
-    return { region: q.get('scenario'), arena: q.get('arena') || null, acc: q.get('acc') || null, armor: q.get('armor') || null, seed: parseInt(q.get('seed') || '1', 10), aug: (q.get('aug') || '').split(',').filter(Boolean), weapon: q.get('weapon') || 'sword', deep: q.get('deep') === '1', upgrade: parseInt(q.get('upgrade') || '0', 10) };
+    return { region: q.get('scenario'), arena: q.get('arena') || null, acc: q.get('acc') || null, armor: q.get('armor') || null, seed: parseInt(q.get('seed') || '1', 10), aug: (q.get('aug') || '').split(',').filter(Boolean), weapon: q.get('weapon') || 'sword', deep: q.get('deep') === '1', upgrade: parseInt(q.get('upgrade') || '0', 10),
+      start: q.get('start') || null, weapons: (q.get('weapons') || '').split(',').filter(Boolean), commons: (q.get('commons') || '').split(',').filter(Boolean), passives: (q.get('passives') || '').split(',').filter(Boolean), e: q.get('e') || null, q: q.get('q') || null, level: parseInt(q.get('level') || '0', 10), rewards: (q.get('rewards') || '').split(',').filter(Boolean) };
   }
   function startScenario(sc) {
     G.scenario = sc;
-    const run = PA.Run.newRun(sc.seed);
-    run.gear.weapon = sc.weapon === 'pierce' ? 'pierce' : 'sword';
+    const run = PA.Run.newRun(sc.seed, sc.start || (sc.weapon === 'pierce' ? 'spear' : 'sword'));
     run.gear.upgrade = sc.upgrade || 0;
+    // v3 파라미터: weapons=spear:3:returning+brand,frost:2 commons=frost,wide:2 passives=mastery:2 e=gust:2:whirl q=slowfield:3:follow level=8 rewards=resonance
+    const g = run.growth;
+    for (const spec of sc.weapons) { const [id, lv, mods] = spec.split(':'); if (!PA.WEAPONS[id]) continue; const w = PA.Growth.weaponOf(g, id) || (g.weapons.length < PA.GROWTH.SLOTS.weapons ? (g.weapons.push({ id, level: 1, mods: [] }), g.weapons[g.weapons.length - 1]) : null); if (!w) continue; w.level = Math.min(5, parseInt(lv || '1', 10)); w.mods = (mods || '').split('+').filter(x => PA.WEAPONS[id].mods[x]).slice(0, 2); }
+    for (const spec of sc.commons) { const [id, lv] = spec.split(':'); if (PA.COMMONS[id]) g.commons[id] = Math.min(PA.COMMONS[id].max, parseInt(lv || '1', 10)); }
+    for (const spec of sc.passives) { const [id, lv] = spec.split(':'); if (PA.PASSIVES[id]) g.passives[id] = Math.min(3, parseInt(lv || '1', 10)); }
+    if (sc.e) { const [id, lv, v] = sc.e.split(':'); if (PA.SKILLS[id] && PA.E_SKILLS.includes(id)) g.skills.e = { id, level: Math.min(3, parseInt(lv || '1', 10)), variant: v && PA.SKILLS[id].variants[v] ? v : null }; }
+    if (sc.q) { const [id, lv, v] = sc.q.split(':'); g.skills.q = { id: 'slowfield', level: Math.min(3, parseInt(lv || '1', 10)), variant: v && PA.SKILLS.slowfield.variants[v] ? v : null }; }
+    for (const id of sc.rewards) if (PA.BOSS_REWARDS[id]) g.bossRewards.push(id);
+    if (sc.level > 1) g.level = sc.level;
     if (sc.acc) { run.owned.push(sc.acc); run.gear.acc = sc.acc; }
     if (sc.armor) { run.owned.push(sc.armor); run.gear.armor = sc.armor; }
-    for (const a of sc.aug) { const [id, lv] = a.split(':'); run.augments[id] = parseInt(lv || '1', 10); }
-    if (run.augments.barrier) {} // 파생은 Build.derive에서
+    if (sc.aug.length) { for (const a of sc.aug) { const [id, lv] = a.split(':'); run.augments[id] = parseInt(lv || '1', 10); } if (sc.weapon === 'pierce') { run.owned.push('pierce_sword'); run.gear.weapon = 'pierce'; } run.growth = PA.Growth.migrateFromLegacy(run); delete run.gear.weapon; if (run.growth.migrationPending) PA.Growth.resolveMigration(run, run.growth.migrationPending.commons.slice(0, 3).map(c => c.id)); } // 레거시 aug= 파라미터 호환
     run.hp = PA.Run.build(run).hpMax;
     G.run = run;
     G.sortie = { regionId: sc.region, deep: sc.deep, loot: { gold: 0, mats: {} }, encounters: 0, seed: sc.seed, arena: sc.arena };
@@ -2793,9 +3666,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       }
       if (guard >= 12) G.acc = 0;
       for (const e of G.combat.events) G.eventCounts[e.name] = (G.eventCounts[e.name] || 0) + 1;
-      for (const e of G.combat.events) PA.Audio.play(e.name === 'hit' ? (e.crit ? 'crit' : 'hit') : ({ kill: 'kill', hurt: 'hurt', lock: 'lock', dodge: 'dodge', perfect: 'perfect', special: 'special', chest: 'chest', win: 'win', lose: 'lose', wave: 'wave', shoot: 'shoot', spore: 'spore', explode: 'explode', shatter: 'shatter', burst: 'burst', bite: 'bite', swing: 'swing', boss_howl: 'boss_howl', boss_roar: 'boss_roar', boss_land: 'boss_land', boss_sweep: 'boss_sweep', boss_lock: 'boss_lock', boss_down: 'win', orb: 'orb' }[e.name] || null));
+      for (const e of G.combat.events) PA.Audio.play(e.name === 'hit' ? (e.crit ? 'crit' : 'hit') : ({ kill: 'kill', hurt: 'hurt', lock: 'lock', dodge: 'dodge', perfect: 'perfect', special: 'special', chest: 'chest', win: 'win', lose: 'lose', wave: 'wave', shoot: 'shoot', spore: 'spore', explode: 'explode', shatter: 'shatter', burst: 'burst', bite: 'bite', swing: 'swing', boss_howl: 'boss_howl', boss_roar: 'boss_roar', boss_land: 'boss_land', boss_sweep: 'boss_sweep', boss_lock: 'boss_lock', boss_down: 'win', orb: 'orb', levelup: 'chest', skill_e: 'special' }[e.name] || null));
       G.combat.events.length = 0;
-      if (G.combat.status !== 'running') { G.endTimer += dt; if (G.endTimer >= (G.combat.mode === 'boss' && G.combat.status === 'won' ? 2.4 : 1.3)) onEncounterEnd(); }
+      if (G.combat.levelUps > 0 && G.combat.status === 'running' && !G.overlay) { G.combat.levelUps = 0; offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId }); }
+      if (G.combat.status !== 'running') { G.combat.levelUps = 0; G.endTimer += dt; if (G.endTimer >= (G.combat.mode === 'boss' && G.combat.status === 'won' ? 2.4 : 1.3)) onEncounterEnd(); }
     }
     render();
   }
@@ -2805,8 +3679,8 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (e.repeat) return;
     if (e.code === 'F3') { G.debug = !G.debug; e.preventDefault(); return; }
     if (G.screen === 'combat') {
-      if (e.code === 'Escape') { if (G.overlay === 'controls') openOverlay('pause'); else pauseCombat(!G.paused); e.preventDefault(); return; }
-      if (['Space', 'KeyQ', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+      if (e.code === 'Escape') { if (G.overlay === 'choice') { e.preventDefault(); return; } if (G.overlay === 'controls') openOverlay('pause'); else pauseCombat(!G.paused); e.preventDefault(); return; }
+      if (['Space', 'KeyQ', 'KeyE', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
       if (G.paused || G.overlay) return;          // 정지·메뉴 중 전투 입력은 버린다
       PA.Input.keyDown(G.input, e.code);
       PA.Audio.init();

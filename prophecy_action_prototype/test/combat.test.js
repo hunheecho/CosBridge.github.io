@@ -173,21 +173,26 @@ test('관통 검격은 일렬로 선 적을 한 번에 모두 타격한다', () 
   for (const e of es) assert.ok(e.hp < e.hpMax, '모두 피해');
 });
 
-test('회전 검격: 3번째 검격은 360°로 뒤쪽 적도 때린다. 메아리: 4번째 검격이 0.2초 뒤 반복된다', () => {
-  const { st } = combat(PA, { augments: { spin: 1, echo: 1 } });
-  const p = st.player;
-  const front = PA.Combat.spawnEnemy(st, 'wolf', p.x + 50, p.y), back = PA.Combat.spawnEnemy(st, 'wolf', p.x - 70, p.y);
-  front.hp = back.hp = 1e6; front.state = back.state = 'recover'; front.def = back.def = Object.assign({}, front.def, { recover: 999 });
-  const pins = [[front, p.x + 50, p.y], [back, p.x - 70, p.y]];
-  steps(PA, st, 0.2 + st.build.interval + 0.05, {}, null, pins);
-  assert.equal(st.stats.attacks, 2); assert.equal(back.hp, 1e6, '부채꼴은 뒤를 못 침');
-  steps(PA, st, st.build.interval, {}, null, pins);
-  assert.equal(st.stats.attacks, 3); assert.ok(back.hp < 1e6, '3번째는 회전');
-  assert.ok(st.effects.some(f => f.kind === 'spin'));
-  steps(PA, st, st.build.interval, {}, null, pins);
-  assert.equal(st.player.attackCount, 4);
-  steps(PA, st, 0.25, {}, null, pins);
-  assert.equal(st.stats.attacks, 5, '메아리로 한 번 더');
+test('회전 칼날(추가 무기)은 궤도에 걸친 적을 0.45초마다 한 번 치고, 메아리는 무기별로 횟수를 따로 센다', () => {
+  const only = combat(PA, { growth: { weapons: [{ id: 'blades', level: 1 }] } }).st;
+  const q = only.player; const lone = PA.Combat.spawnEnemy(only, 'wolf', q.x - 78, q.y); lone.hp = 1e6; lone.state = 'recover'; lone.def = Object.assign({}, lone.def, { recover: 999 });
+  steps(PA, only, 1.0, {}, null, [[lone, q.x - 78, q.y]]);
+  const hits = Math.round((1e6 - lone.hp) / (8 * 1.5)); // 빈틈 배율 포함 1회 피해 12
+  assert.ok(hits >= 2 && hits <= 3, `궤도 적중 횟수 ${hits} (같은 적 0.45초 간격)`);
+  const { st } = combat(PA, { growth: { weapons: [{ id: 'sword', level: 1 }, { id: 'blades', level: 1 }], commons: { echo: 1 } } });
+  const p = st.player, blades = st.weapons.find(w => w.id === 'blades'), sword = st.weapons.find(w => w.id === 'sword');
+  const back = PA.Combat.spawnEnemy(st, 'wolf', p.x - 78, p.y); back.hp = 1e6; back.state = 'recover'; back.def = Object.assign({}, back.def, { recover: 999 });
+  steps(PA, st, 1.0, {}, null, [[back, p.x - 78, p.y]]);
+  assert.ok(sword.count > 0 && blades.count > 0, `두 무기 모두 공격 ${sword.count}/${blades.count}`); const bc = blades.count; sword.count = 10; steps(PA, st, 0.01, {}, null, [[back, p.x - 78, p.y]]); assert.equal(blades.count - bc <= 1 && sword.count >= 10, true, '무기별 공격 횟수는 독립');
+  // 메아리: 검의 4번째 공격 0.2초 뒤 한 번 더(검만 반복, 메아리 공격은 재반복 없음). 회전 칼날 간섭을 피해 검만 장착
+  const st2 = combat(PA, { growth: { weapons: [{ id: 'sword', level: 1 }], commons: { echo: 1 } } }).st; const p2 = st2.player, sw2 = st2.weapons[0];
+  const front = PA.Combat.spawnEnemy(st2, 'wolf', p2.x + 60, p2.y + 40); front.hp = 1e6; front.state = 'recover'; front.def = Object.assign({}, front.def, { recover: 999 });
+  sw2.count = 3; sw2.timer = 0; const hp0 = front.hp;
+  steps(PA, st2, 0.05, {}, null, [[front, p2.x + 60, p2.y + 40]]);
+  assert.ok(sw2.echo, '4번째 공격 뒤 메아리 예약');
+  const hp1 = front.hp; steps(PA, st2, 0.25, {}, null, [[front, p2.x + 60, p2.y + 40]]);
+  assert.ok(Math.abs((hp1 - front.hp) - (hp0 - hp1)) < 1e-6, `메아리 = 같은 공격 1회 반복 (${hp0 - hp1} vs ${hp1 - front.hp})`);
+  assert.equal(sw2.echo, null, '메아리는 다시 메아리를 만들지 않음');
 });
 
 test('잔불 걸음: 회피 경로에 불길 3개가 남고 불길 위의 적이 피해를 받는다. 불꽃 파열은 불길 위 처치 시 폭발', () => {
@@ -213,7 +218,7 @@ test('얼음 파편: 적중 시 냉기, 냉기 상태 처치 시 파편 6개', (
   assert.ok(e.chill > 0);
   e.hp = 1; steps(PA, st, st.build.interval);
   assert.equal(e.dead, true);
-  assert.equal(st.projectiles.filter(x => x.kind === 'shard').length, 6);
+  assert.equal(st.projectiles.filter(x => x.kind === 'shard_common').length, 6);
 });
 
 test('파열 방벽: 보호막이 먼저 깎이고 파괴 시 주변 적을 밀어낸다', () => {
@@ -297,17 +302,15 @@ test('일시정지·선택 화면: step을 호출하지 않으면 상태가 변�
   assert.equal(st.t, 0);
 });
 
-test('조합 ①: 감속장 안의 적을 회전 검격이 한 번에 처리한다(느려진 적, 회전 효과)', () => {
-  const { st } = combat(PA, { augments: { spin: 1 } });
+test('조합 ①: 감속장 안의 적을 회전 칼날이 사방에서 처리한다(느려진 적, 궤도 적중)', () => {
+  const { st } = combat(PA, { growth: { weapons: [{ id: 'blades', level: 1 }] } });
   const p = st.player;
-  const es = [[60, 0], [-60, 10], [0, 70], [0, -70]].map(([dx, dy]) => { const e = PA.Combat.spawnEnemy(st, 'wolf', p.x + dx, p.y + dy); e.state = 'recover'; e.def = Object.assign({}, e.def, { recover: 999 }); e.hp = 1e6; return e; });
+  const es = [[78, 0], [-78, 10], [0, 78], [0, -78]].map(([dx, dy]) => { const e = PA.Combat.spawnEnemy(st, 'wolf', p.x + dx, p.y + dy); e.state = 'recover'; e.def = Object.assign({}, e.def, { recover: 999 }); e.hp = 1e6; return e; });
   const pins = es.map(e => [e, e.x, e.y]);
   PA.Combat.step(st, { special: true }, PA.CONFIG.STEP);
   assert.ok(es.every(e => PA.Combat.inField(st, e)));
-  steps(PA, st, 0.2 + st.build.interval * 2 + 0.1, {}, null, pins);
-  assert.equal(st.stats.attacks, 3);
-  assert.ok(st.effects.some(f => f.kind === 'spin'));
-  assert.ok(es.every(e => e.hp < 1e6), '회전 검격이 감속장 안 4방향 적을 모두 타격');
+  steps(PA, st, 2.5, {}, null, pins);
+  assert.ok(es.every(e => e.hp < 1e6), '궤도 칼날이 4방향 적을 모두 타격');
 });
 
 test('조합 ②: 관통검이 한 줄의 적 모두에게 냉기를 묻히고, 냉기 처치가 파편 연쇄를 만든다', () => {
@@ -316,9 +319,9 @@ test('조합 ②: 관통검이 한 줄의 적 모두에게 냉기를 묻히고, 
   const es = [50, 110, 170].map(d => { const e = PA.Combat.spawnEnemy(st, 'wolf', p.x + d, p.y); e.state = 'recover'; e.def = Object.assign({}, e.def, { recover: 999 }); e.hp = 1e6; return e; });
   steps(PA, st, 0.3, {}, null, es.map(e => [e, e.x, e.y]));
   assert.ok(es.every(e => e.chill > 0), '관통 한 번에 3마리 모두 냉기');
-  es[0].hp = 1; steps(PA, st, st.build.interval, {}, null, es.slice(1).map(e => [e, e.x, e.y]));
+  es[0].hp = 1; for (let i = 0; i < 120 && !es[0].dead; i++) steps(PA, st, PA.CONFIG.STEP, {}, null, es.slice(1).map(e => [e, e.x, e.y]));
   assert.equal(es[0].dead, true);
-  const shards = st.projectiles.filter(x => x.kind === 'shard').length; assert.equal(shards, 6);
+  const shards = st.projectiles.filter(x => x.kind === 'shard_common').length; assert.equal(shards, 6);
   es[1].hp = 1; // 파편이 냉기 상태의 이웃을 죽이면 다시 파편
   steps(PA, st, 0.2, {}, null, es.slice(1).map(e => [e, e.x, e.y]));
   assert.equal(es[1].dead, true, '파편에 처치');
