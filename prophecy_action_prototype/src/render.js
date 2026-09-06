@@ -659,10 +659,14 @@ PA.Render = (function () {
     const cm = Object.keys(b.commons || {}).filter(k => b.commons[k] > 0).map(k => PA.COMMONS[k].name + (b.commons[k] > 1 ? b.commons[k] : '')).join(', ');
     if (cm) { ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(14, H - 70, Math.min(360, 16 + cm.length * 12), 20); ctx.fillStyle = '#cfeaff'; ctx.font = `11px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText('공통: ' + cm, 20, H - 56); }
     ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = `12px ${FONT}`; ctx.textAlign = 'right'; ctx.fillText(PA.KEYS_TEXT, W - 14, H - 18);
+    if (st.labText) { // 시험실: 현재 설정과 남은 시간(봇 실행 중에도 확인 가능)
+      const tl = st.timeLimit > 0 ? ` · 남은 ${Math.max(0, st.timeLimit - st.t).toFixed(0)}초` : '';
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W / 2 - 300, H - 118, 600, 20); ctx.fillStyle = '#ffe9a8'; ctx.font = `11px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(st.labText + tl, W / 2, H - 104);
+    }
     if (st.status !== 'running') {
       ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = st.status === 'won' ? '#ffe066' : '#ff6b6b'; ctx.font = `bold 40px ${FONT}`; ctx.textAlign = 'center';
-      ctx.fillText(st.status === 'won' ? (st.mode === 'boss' ? '숲의 왕을 쓰러뜨렸다' : '조우 승리') : '패배', W / 2, H / 2 - 10);
+      ctx.fillStyle = st.status === 'won' ? '#ffe066' : st.status === 'lost' ? '#ff6b6b' : '#cfd8e3'; ctx.font = `bold 40px ${FONT}`; ctx.textAlign = 'center';
+      ctx.fillText(st.status === 'won' ? (st.mode === 'boss' ? '숲의 왕을 쓰러뜨렸다' : '조우 승리') : st.status === 'lost' ? '패배' : st.status === 'timeout' ? '시간 초과' : '중단', W / 2, H / 2 - 10);
     }
   }
   function weaponIcon(ctx, x, y, kind) {

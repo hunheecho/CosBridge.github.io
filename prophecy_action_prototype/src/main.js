@@ -6,6 +6,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     screen: 'title', run: null, saved: null, sortie: null, combat: null, offers: null, lastReward: null, lastStats: null, lastResult: null,
     paused: false, debug: false, overlay: null, scenario: null,
     input: PA.Input.create(), acc: 0, last: 0, endTimer: 0, eventCounts: {},
+    lab: { cfg: null }, labResults: [], labResult: null, labCsv: null, botMem: null, botLast: null, botT: 0,
   };
   window.PA_G = G; // 검증용 훅(사람용 UI 아님)
 
@@ -20,6 +21,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       title: () => S.title(G), newrun_confirm: () => S.newrunConfirm(G), base: () => S.base(G), map: () => S.map(G), shop: () => S.shop(G),
       reward: () => S.reward(G), after: () => S.after(G), defeat: () => S.defeat(G), endday_confirm: () => S.enddayConfirm(G), scenario_end: () => S.scenarioEnd(G),
       boss_defeat: () => S.bossDefeat(G), boss_victory: () => S.bossVictory(G), pick_start: () => S.pickStart(G), migration: () => S.migration(G),
+      lab: () => S.lab(G), lab_result: () => S.labResult(G),
     }[name];
     uiEl.innerHTML = html ? html() : '';
     if (html) { try { S.paintPortraits(); } catch (e) {} }
@@ -102,6 +104,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     const c = G.combat, run = G.run, s = G.sortie;
     G.lastStats = Object.assign({}, c.stats);
     G.lastResult = c.status;
+    if (G.scenario && G.scenario.lab) { finishLab(); return; }
     if (G.scenario) { show('scenario_end'); return; }
     if (c.mode === 'boss') {
       if (c.status === 'won') {
@@ -129,6 +132,50 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       saveRun();
       show('defeat');
     }
+  }
+
+  // ---------- 전투 시험실(정식 회차와 분리: 저장 키·입력·배율이 회차로 새지 않는다) ----------
+  function enterLab(cfg) {
+    leaveScenario(); G.run = null; G.sortie = null; G.combat = null; G.saved = PA.Run.load();
+    G.lab.cfg = cfg || PA.Lab.loadConfig(); G.labResults = PA.Lab.loadResults(); G.labCsv = null;
+    show('lab');
+  }
+  // 화면의 입력 요소 → 설정
+  function readLabForm() {
+    const c = G.lab.cfg, v = (id) => { const el = $('#' + id); return el ? el.value : null; };
+    if (v('lab-enemy')) c.enemy = v('lab-enemy'); if (v('lab-arena')) c.arena = v('lab-arena'); if (v('lab-build')) c.build = v('lab-build'); if (v('lab-bot')) c.bot = v('lab-bot');
+    if (v('lab-hp-normal')) c.hp = { normal: parseFloat(v('lab-hp-normal')), elite: parseFloat(v('lab-hp-elite')), boss: parseFloat(v('lab-hp-boss')) };
+    if (v('lab-seed') != null) c.seed = parseInt(v('lab-seed') || '0', 10); if (v('lab-time')) c.time = parseInt(v('lab-time'), 10); if (v('lab-overlap') != null) c.overlap = parseInt(v('lab-overlap'), 10);
+    const deep = $('#lab-deep'); if (deep) c.deep = deep.checked;
+    const ctl = document.querySelector('input[name=lab-control]:checked'); if (ctl) c.control = ctl.value;
+    const gr = document.querySelector('input[name=lab-growth]:checked'); if (gr) c.growth = gr.value;
+    PA.Lab.normalize(c); PA.Lab.saveConfig(c);
+  }
+  function startLab(cfg) {
+    G.lab.cfg = PA.Lab.normalize(cfg || G.lab.cfg); PA.Lab.saveConfig(G.lab.cfg);
+    const c = G.lab.cfg; G.scenario = { lab: true }; G.choice = null;
+    G.run = PA.Lab.makeRun(c);
+    const ep = PA.Lab.enemyPreset(c.enemy);
+    G.sortie = { regionId: ep.regionId || 'lab', deep: c.deep, loot: { gold: 0, mats: {} }, encounters: 0, seed: c.seed, lab: true };
+    G.combat = PA.Lab.makeCombat(c, G.run);
+    G.botMem = {}; G.botLast = null; G.botT = 0;
+    G.endTimer = 0; G.acc = 0; G.paused = false; G.eventCounts = {}; PA.Input.setBlocked(G.input, false); closeOverlay();
+    show('combat');
+  }
+  function finishLab() {
+    const c = G.combat; c.levelUps = 0;
+    G.labResult = PA.Lab.result(G.lab.cfg, c);
+    G.labResults = (G.labResults || []).concat([G.labResult]).slice(-30); PA.Lab.saveResults(G.labResults);
+    G.combat = null; G.run = null; G.sortie = null; G.scenario = null; closeOverlay(); PA.Input.clearAll(G.input);
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    show('lab_result');
+  }
+  function exitLab() { leaveScenario(); G.run = null; G.sortie = null; G.combat = null; G.paused = false; G.overlay = null; closeOverlay(); PA.Input.setBlocked(G.input, false); PA.Input.clearAll(G.input); G.saved = PA.Run.load(); show('title'); }
+  // 봇 조작: 40ms마다 판단, 단발 입력은 그 판단 프레임만
+  function botInput(dt) {
+    G.botT += dt;
+    if (!G.botLast || G.botT >= 0.04) { G.botT = 0; G.botLast = PA.Bot.decide(G.lab.cfg.bot, G.combat, G.botMem); return G.botLast; }
+    return Object.assign({}, G.botLast, { dodge: false, special: false, skillE: false });
   }
 
   // ---------- 동작 처리 ----------
@@ -168,6 +215,18 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'resume': () => pauseCombat(false),
     'give-up': () => { closeOverlay(); G.paused = false; PA.Input.setBlocked(G.input, false); if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
     'scenario-again': () => startScenario(G.scenario),
+    'lab': () => { if (G.screen === 'lab_result') { G.combat = null; show('lab'); return; } enterLab(); },
+    'lab-start': () => { readLabForm(); startLab(); },
+    'lab-restart': () => startLab(G.lab.cfg),
+    'lab-restart-hp': () => { const el = $('#lab-result-hp'); const c = Object.assign({}, G.lab.cfg, { hp: Object.assign({}, G.lab.cfg.hp) }); if (el) c.hp.normal = parseFloat(el.value); startLab(c); },
+    'lab-apply': () => { const ta = $('#lab-config'); if (ta) { G.lab.cfg = PA.Lab.decode(ta.value); PA.Lab.saveConfig(G.lab.cfg); } show('lab'); },
+    'lab-load': (text) => { G.lab.cfg = PA.Lab.decode(text); PA.Lab.saveConfig(G.lab.cfg); show('lab'); },
+    'lab-reset': () => { G.lab.cfg = PA.Lab.defaultConfig(); PA.Lab.saveConfig(G.lab.cfg); show('lab'); },
+    'lab-csv': () => { G.labCsv = PA.Lab.toCsv(G.labResults || []); show('lab'); },
+    'lab-clear-results': () => { G.labResults = []; G.labCsv = null; PA.Lab.saveResults([]); show('lab'); },
+    'lab-abort': () => { if (G.combat && G.combat.status === 'running') { G.combat.status = 'aborted'; } closeOverlay(); G.paused = false; PA.Input.setBlocked(G.input, false); finishLab(); },
+    'lab-back': () => { G.combat = null; G.run = null; G.sortie = null; G.scenario = null; G.paused = false; closeOverlay(); PA.Input.setBlocked(G.input, false); PA.Input.clearAll(G.input); enterLab(G.lab.cfg); },
+    'lab-exit': () => exitLab(),
   };
   function dispatch(action, arg) {
     PA.Audio.init(); PA.Audio.play('ui');
@@ -178,6 +237,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   // ---------- 시나리오(시험 전투) ----------
   function parseScenario() {
     const q = new URLSearchParams(location.search);
+    if (q.get('lab') != null) return { lab: true, cfg: PA.Lab.decode(q.get('lab')) };
     if (!q.get('scenario')) return null;
     return { region: q.get('scenario'), arena: q.get('arena') || null, acc: q.get('acc') || null, armor: q.get('armor') || null, seed: parseInt(q.get('seed') || '1', 10), aug: (q.get('aug') || '').split(',').filter(Boolean), weapon: q.get('weapon') || 'sword', deep: q.get('deep') === '1', upgrade: parseInt(q.get('upgrade') || '0', 10),
       start: q.get('start') || null, weapons: (q.get('weapons') || '').split(',').filter(Boolean), commons: (q.get('commons') || '').split(',').filter(Boolean), passives: (q.get('passives') || '').split(',').filter(Boolean), e: q.get('e') || null, q: q.get('q') || null, level: parseInt(q.get('level') || '0', 10), rewards: (q.get('rewards') || '').split(',').filter(Boolean) };
@@ -228,10 +288,11 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     if (G.screen === 'combat' && G.combat && !G.paused) {
       G.acc += dt;
       const STEP = PA.CONFIG.STEP;
-      let inp = inputState(); let first = true; let guard = 0;
+      const bot = G.scenario && G.scenario.lab && G.lab.cfg && G.lab.cfg.control === 'bot';
+      let inp = bot ? botInput(dt) : inputState(); let first = true; let guard = 0;
       while (G.acc >= STEP && guard++ < 12) {
         PA.Combat.step(G.combat, inp, STEP);
-        if (first) { PA.Input.consumePressed(G.input); inp = inputState(); first = false; }
+        if (first) { if (!bot) { PA.Input.consumePressed(G.input); inp = inputState(); } else inp = Object.assign({}, inp, { dodge: false, special: false, skillE: false }); first = false; }
         G.acc -= STEP;
       }
       if (guard >= 12) G.acc = 0;
@@ -239,6 +300,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       for (const e of G.combat.events) PA.Audio.play(e.name === 'hit' ? (e.crit ? 'crit' : 'hit') : ({ kill: 'kill', hurt: 'hurt', lock: 'lock', dodge: 'dodge', perfect: 'perfect', special: 'special', chest: 'chest', win: 'win', lose: 'lose', wave: 'wave', shoot: 'shoot', spore: 'spore', explode: 'explode', shatter: 'shatter', burst: 'burst', bite: 'bite', swing: 'swing', boss_howl: 'boss_howl', boss_roar: 'boss_roar', boss_land: 'boss_land', boss_sweep: 'boss_sweep', boss_lock: 'boss_lock', boss_down: 'win', orb: 'orb', levelup: 'chest', skill_e: 'special' }[e.name] || null));
       G.combat.events.length = 0;
       if (G.combat.levelUps > 0 && G.combat.status === 'running' && !G.overlay) { G.combat.levelUps = 0; offerPendingLevelUps({ regionId: G.sortie && G.sortie.regionId }); }
+      if (bot && G.overlay === 'choice' && G.choice) { const c = PA.Bot.pickChoice(G.choice, G.lab.cfg.seed); if (c) { PA.Growth.applyChoice(G.run, c); afterChoice(); } else actions.skip(); } // 봇 성장 모드: 카드 자동 선택
       if (G.combat.status !== 'running') { G.combat.levelUps = 0; G.endTimer += dt; if (G.endTimer >= (G.combat.mode === 'boss' && G.combat.status === 'won' ? 2.4 : 1.3)) onEncounterEnd(); }
     }
     render();
@@ -267,10 +329,11 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     window.addEventListener('blur', () => { PA.Input.clearAll(G.input); if (G.screen === 'combat' && !G.paused && G.combat && G.combat.status === 'running') pauseCombat(true); });
     document.addEventListener('visibilitychange', () => { if (document.hidden) { PA.Input.clearAll(G.input); if (G.screen === 'combat' && !G.paused && G.combat && G.combat.status === 'running') pauseCombat(true); } });
     document.addEventListener('click', (e) => { const b = e.target.closest('[data-action]'); if (b && !b.disabled) dispatch(b.dataset.action, b.dataset.arg); });
+    document.addEventListener('change', (e) => { if (G.screen === 'lab' && e.target.dataset && e.target.dataset.lab) { readLabForm(); show('lab'); } });
     fitCanvas();
     G.saved = PA.Run.load();
     const sc = parseScenario();
-    if (sc) startScenario(sc); else show('title');
+    if (sc && sc.lab) { enterLab(sc.cfg); startLab(sc.cfg); } else if (sc) startScenario(sc); else show('title');
     requestAnimationFrame(frame);
   }
   if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', init); else init();

@@ -55,6 +55,17 @@ PA.ARENAS = {
     playerStart: { x: 480, y: 500 },
     bossStart: { x: 480, y: 120 },
   },
+  pillars: { // 기둥 숲: 멧돼지 돌진 유도·방패병 우회·잠복충 출현 위치 검증용(시험실). 바위 3·나무 1
+    name: '기둥 숲',
+    obstacles: [
+      { id: 'rockA', type: 'rock', x: 240, y: 300, r: 40 },
+      { id: 'rockB', type: 'rock', x: 720, y: 300, r: 40 },
+      { id: 'rockC', type: 'rock', x: 480, y: 140, r: 36 },
+      { id: 'treeA', type: 'tree', x: 480, y: 470, r: 26, canopy: 70 },
+    ],
+    playerStart: { x: 480, y: 330 },
+    bossStart: { x: 480, y: 120 },
+  },
 };
 
 // 보스: 가시갈기 — 숲의 왕. 모든 수치는 첫 시험용 임시값(docs/ASSUMPTIONS.md).

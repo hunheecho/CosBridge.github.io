@@ -39,8 +39,11 @@ PA.Combat = (function () {
       spawnedAll: false,
       mode: opts.boss ? 'boss' : 'normal', intro: 0, boss: null, pickups: [], orbsSpawned: {}, phaseEvents: [], pendingLoss: false, bossDownT: 0,
       weapons: [], mines: [], delayed: [], levelUps: 0, xpGained: 0,
+      // 시험실·측정(v0.6): 체력 배율은 체력에만 적용, 시간 제한, 빌드 고정, 동시 공격 제한, 지역
+      hpMult: Object.assign({ normal: 1, elite: 1, boss: 1 }, opts.hpMult || {}), timeLimit: opts.timeLimit || 0, fixedBuild: !!opts.fixedBuild, overlapLimit: opts.overlapLimit || 0, regionId: opts.regionId || null,
+      metrics: newMetrics(), labText: opts.labText || null,
     };
-    st.stats.xp = 0; st.stats.levelUps = 0;
+    st.stats.xp = 0; st.stats.levelUps = 0; st.stats.eUses = 0; st.stats.absorbed = 0;
     st.weapons = PA.Weapons.init(st);
     PA.Skills.init(st);
     if (opts.boss) {
@@ -56,6 +59,36 @@ PA.Combat = (function () {
   function ev(st, name, data) { st.events.push(Object.assign({ name }, data || {})); }
   function fx(st, e) { st.effects.push(e); }
   function text(st, x, y, txt, color) { fx(st, { kind: 'text', x, y, text: txt, color: color || '#fff', ttl: 0.8, t: 0 }); }
+
+  // ---------- 측정(시험실·시뮬레이션 공용) ----------
+  // 적 종류별 등장·처치·공격 준비·실행·공격 전 사망·처치 소요, 피해 출처별 실제 체력 감소(과잉 피해 제외), 받은 피해 원인별
+  function newMetrics() { return { enemies: {}, dmg: {}, taken: {}, takenHits: {}, absorbed: 0, deathEffects: {}, interrupts: 0, webs: 0, heals: 0, healAmount: 0 }; }
+  function enemyKey(e) { return e.type + (e.summoned ? ':summoned' : ''); }
+  function metricsFor(st, e) { const k = enemyKey(e); return st.metrics.enemies[k] || (st.metrics.enemies[k] = { spawned: 0, killed: 0, prepared: 0, executed: 0, diedBeforeAttack: 0, ttk: [], ttkFromHit: [], deathEffects: 0 }); }
+  // 공격 준비(예고 시작)·실행(피해 판정 발생 시점)을 구분해 센다. 죽으면서 생기는 효과(포자 사망 구름)는 deathEffect로 따로.
+  function noteAttack(st, e, phase) { const m = metricsFor(st, e); if (phase === 'prepare') { m.prepared++; e.prepared = true; } else if (phase === 'execute') { m.executed++; e.acted = true; } else if (phase === 'death') m.deathEffects++; }
+  function srcKey(st, opt) {
+    const sr = opt.src || {};
+    if (opt.tag) return opt.tag; if (sr.tag) return sr.tag;
+    if (opt.dot) return 'dot:' + opt.dot;
+    if (sr.skill) return 'skill:' + (sr.skillId || 'e');
+    if (sr.weaponId) return 'weapon:' + sr.weaponId;
+    return 'other';
+  }
+  function summary(st) {
+    const M = st.metrics, en = {};
+    const avg = (a) => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length * 100) / 100 : null;
+    for (const k in M.enemies) { const m = M.enemies[k]; en[k] = { spawned: m.spawned, killed: m.killed, prepared: m.prepared, executed: m.executed, diedBeforeAttack: m.diedBeforeAttack, diedBeforeAttackRate: m.killed ? Math.round(m.diedBeforeAttack / m.killed * 1000) / 1000 : null, ttkAvg: avg(m.ttk), ttkFromHitAvg: avg(m.ttkFromHit), deathEffects: m.deathEffects }; }
+    const dmgTotal = Object.values(M.dmg).reduce((a, b) => a + b, 0);
+    const dmg = {}; for (const k in M.dmg) dmg[k] = { amount: Math.round(M.dmg[k] * 10) / 10, share: dmgTotal ? Math.round(M.dmg[k] / dmgTotal * 1000) / 1000 : 0 };
+    return {
+      version: PA.VERSION, seed: st.seed, arena: st.arenaId, regionId: st.regionId, hpMult: st.hpMult, timeLimit: st.timeLimit, fixedBuild: st.fixedBuild,
+      status: st.status, elapsed: Math.round(st.t * 100) / 100, hp: Math.round(st.player.hp), hpMax: st.player.hpMax,
+      damageTaken: Math.round(st.stats.damageTaken), absorbed: Math.round(M.absorbed), kills: st.stats.kills, specialUses: st.stats.specialUses, eUses: st.stats.eUses || 0, dodges: st.stats.dodges || 0,
+      taken: M.taken, takenHits: M.takenHits, enemies: en, dmg, dmgTotal: Math.round(dmgTotal), interrupts: M.interrupts, heals: M.heals, healAmount: Math.round(M.healAmount), webs: M.webs,
+      xp: st.stats.xp, levelUps: st.stats.levelUps, build: st.build.growth ? { level: st.build.growth.level, weapons: st.build.growth.weapons.map(w => w.id + ':' + w.level + (w.mods.length ? ':' + w.mods.join('+') : '')), commons: st.build.growth.commons, passives: st.build.growth.passives, e: st.build.growth.skills.e, q: st.build.growth.skills.q } : null,
+    };
+  }
 
   // ---------- 지형 ----------
   // 원형 개체를 장애물·벽 밖으로 밀어낸다(표면을 따라 미끄러짐). 반환: 밀려났는지
@@ -169,10 +202,14 @@ PA.Combat = (function () {
     const d = PA.ENEMIES[type];
     const e = {
       id: nextId++, type, def: d, name: d.name, x, y, r: d.r, hp: d.hp, hpMax: d.hpMax || d.hp,
+      spawnT: st.t, firstHitT: null, acted: false, prepared: false,
       state: 'approach', stateT: 0, dir: 0, aimAngle: 0, chill: 0, stasis: 0, flash: 0, dead: false, deathT: 0,
       dashLeft: d.dashes || 1, vx: 0, vy: 0, animT: 0, elite: !!d.elite, hitBy: null, biteT: 9, moveT: 0, lastX: x, lastY: y, faceX: 1,
     };
+    const cls = d.boss ? 'boss' : d.elite ? 'elite' : 'normal', mult = st.hpMult ? (st.hpMult[cls] || 1) : 1; // 체력 배율: 체력만(피해·속도·예고·경험치 불변)
+    e.hp = e.hp * mult; e.hpMax = e.hpMax * mult; e.hpClass = cls;
     st.enemies.push(e);
+    if (st.metrics) metricsFor(st, e).spawned++;
     if (st.build.has('mark')) assignMark(st);
     return e;
   }
@@ -220,6 +257,7 @@ PA.Combat = (function () {
       if (p.shield <= 0 && st.build.has('barrier')) barrierBurst(st);
     }
     if (rest > 0) { p.hp -= rest; st.stats.damageTaken += rest; }
+    if (st.metrics) { const M = st.metrics, k = src || 'unknown'; M.taken[k] = (M.taken[k] || 0) + rest; M.takenHits[k] = (M.takenHits[k] || 0) + 1; M.absorbed += amount - rest; st.stats.absorbed += amount - rest; }
     p.flash = 0.2; p.hurtT = 0;
     fx(st, { kind: 'hitflash', x: p.x, y: p.y, ttl: 0.25, t: 0 });
     text(st, p.x, p.y - 28, '-' + Math.round(amount), '#ff6b6b');
@@ -262,6 +300,7 @@ PA.Combat = (function () {
     if (st.markTarget === e) dmg *= C().MARK.damageMult;
     dmg = Math.round(dmg * 10) / 10;
     if (e.boss) st.stats.bossDamage += Math.min(dmg, Math.max(0, e.hp)); // 실제 체력 감소 기준(과잉 피해 제외)
+    if (st.metrics) { const k = srcKey(st, opt); st.metrics.dmg[k] = (st.metrics.dmg[k] || 0) + Math.min(dmg, Math.max(0, e.hp)); if (e.firstHitT == null) e.firstHitT = st.t; }
     e.hp -= dmg; e.flash = 0.12;
     if (e.boss && e.hp > 0) PA.Boss.checkPhase(st, e);
     if (opt.knock && opt.dir) knockEnemy(e, opt.dir, opt.knock);
@@ -283,10 +322,11 @@ PA.Combat = (function () {
   }
   function killEnemy(st, e, opt) {
     e.dead = true; e.deathT = 0; st.stats.kills++;
+    if (st.metrics) { const m = metricsFor(st, e); m.killed++; if (!e.acted) m.diedBeforeAttack++; m.ttk.push(Math.round((st.t - e.spawnT) * 100) / 100); if (e.firstHitT != null) m.ttkFromHit.push(Math.round((st.t - e.firstHitT) * 100) / 100); }
     ev(st, 'kill', { type: e.type });
     // 경험치: 처치 원인과 무관하게 즉시, 같은 적은 1회(dead 플래그)
     const xp = PA.Growth.xpValue(e);
-    if (xp > 0 && st.build.growth) { st.stats.xp += xp; st.xpGained += xp; const gained = PA.Growth.addXp(st.build.growth, xp); if (gained) { st.levelUps += gained; st.stats.levelUps += gained; ev(st, 'levelup', { n: gained }); text(st, st.player.x, st.player.y - 62, '레벨 업!', '#ffe066'); } }
+    if (xp > 0 && st.build.growth && !st.fixedBuild) { st.stats.xp += xp; st.xpGained += xp; const gained = PA.Growth.addXp(st.build.growth, xp); if (gained) { st.levelUps += gained; st.stats.levelUps += gained; ev(st, 'levelup', { n: gained }); text(st, st.player.x, st.player.y - 62, '레벨 업!', '#ffe066'); } }
     if (e.boss) { e.state = 'dead'; e.airborne = false; st.bossDownT = 0; ev(st, 'boss_down'); }
     if (st.build.has('saving') && inField(st, e) && st.player.special.cd > 0) {
       st.player.special.cd = Math.max(0, st.player.special.cd - C().SAVING.cdPerKill);
@@ -295,12 +335,12 @@ PA.Combat = (function () {
       ev(st, 'saving');
     }
     fx(st, { kind: 'death', x: e.x, y: e.y, r: e.r, ttl: 0.4, t: 0, color: e.def.color });
-    if (e.type === 'spore') addZone(st, 'spore', e.x, e.y, e.def.deathCloudR, e.def.deathCloudTtl, e.def.cloudDamage);
+    if (e.type === 'spore') { addZone(st, 'spore', e.x, e.y, e.def.deathCloudR, e.def.deathCloudTtl, e.def.cloudDamage); noteAttack(st, e, 'death'); }
     if (st.build.has('frost') && e.chill > 0) { // 파편: 추가 피해(냉기를 다시 부여하지 않음)
       const F = C().FROST;
       for (let i = 0; i < F.shards; i++) {
         const a = (i / F.shards) * Math.PI * 2;
-        st.projectiles.push({ owner: 'player', kind: 'shard_common', x: e.x, y: e.y, vx: Math.cos(a) * F.shardSpeed, vy: Math.sin(a) * F.shardSpeed, r: 4, dmg: F.shardDamage * st.build.masteryMult, ttl: F.shardTtl, hits: new Set([e.id]) });
+        st.projectiles.push({ owner: 'player', kind: 'shard_common', x: e.x, y: e.y, vx: Math.cos(a) * F.shardSpeed, vy: Math.sin(a) * F.shardSpeed, r: 4, dmg: F.shardDamage * st.build.masteryMult, ttl: F.shardTtl, hits: new Set([e.id]), tag: 'common:frost' });
       }
       text(st, e.x, e.y - 20, '파편!', '#bfefff');
       ev(st, 'shatter');
@@ -308,7 +348,7 @@ PA.Combat = (function () {
     if (st.build.has('flare') && st.zones.some(z => z.type === 'fire' && m().dist(z, e) <= z.r + e.r)) {
       const F = C().FLARE;
       fx(st, { kind: 'flare', x: e.x, y: e.y, r: F.radius, ttl: 0.35, t: 0 });
-      for (const o of st.enemies) if (!o.dead && o !== e && m().dist(o, e) <= F.radius + o.r) damageEnemy(st, o, F.damage * st.build.masteryMult, { dir: m().norm(o.x - e.x, o.y - e.y), knock: 40, src: { extra: true, direct: false } });
+      for (const o of st.enemies) if (!o.dead && o !== e && m().dist(o, e) <= F.radius + o.r) damageEnemy(st, o, F.damage * st.build.masteryMult, { dir: m().norm(o.x - e.x, o.y - e.y), knock: 40, src: { extra: true, direct: false, tag: 'common:flare' } });
       text(st, e.x, e.y - 34, '불꽃 파열!', '#ff9f43');
       ev(st, 'explode');
     }
@@ -352,6 +392,7 @@ PA.Combat = (function () {
       const d = p.moving ? mv : { x: Math.cos(p.face), y: Math.sin(p.face) };
       p.dodge.active = true; p.dodge.t = 0; p.dodge.dx = d.x; p.dodge.dy = d.y; p.dodge.emberIdx = -1;
       if (b.has('ember')) { p.dodge.emberIdx = 0; addFireAt(st, p.x, p.y); }
+      st.stats.dodges = (st.stats.dodges || 0) + 1;
       ev(st, 'dodge');
     }
     if (p.dodge.active) {
@@ -394,10 +435,21 @@ PA.Combat = (function () {
   // 보스전 겹침 제한: 늑대의 돌진 준비·실행은 동시에 1마리, 보스의 큰 공격 확정·실행 중에는 시작 금지.
   // 조건이 열려도 개체마다 짧은 무작위 지연을 두어 재개 순간 한꺼번에 발동하지 않게 한다.
   function wolfMayAttack(st, e, dt) {
-    if (st.mode !== 'boss') return true;
+    if (st.mode !== 'boss') return mayAttack(st, e, dt);
     const others = st.enemies.some(o => o !== e && !o.dead && !o.boss && (o.state === 'crouch' || o.state === 'lock' || o.state === 'dash'));
     const bossBusy = st.boss && !st.boss.dead && PA.Boss.bossCommitted(st.boss);
     if (others || bossBusy) { e.readyT = null; return false; }
+    if (e.readyT == null) { const d = PA.BOSS.overlap.wolfDelay; e.readyT = st.rng.range(d[0], d[1]); }
+    e.readyT -= dt;
+    return e.readyT <= 0;
+  }
+  // 일반 조우의 동시 공격 제한(시험실·조합 프리셋에서 overlapLimit 지정 시). 준비·확정·실행 중인 적 수가 한도 이상이면 새 준비를 미룬다.
+  const COMMITTED = new Set(['crouch', 'lock', 'dash', 'aim', 'swell']);
+  function isCommitted(e) { return COMMITTED.has(e.state) || (PA.Enemies && PA.Enemies.isCommitted && PA.Enemies.isCommitted(e)); }
+  function mayAttack(st, e, dt) {
+    if (!st.overlapLimit) return true;
+    const n = st.enemies.filter(o => o !== e && !o.dead && !o.boss && isCommitted(o)).length;
+    if (n >= st.overlapLimit) { e.readyT = null; return false; }
     if (e.readyT == null) { const d = PA.BOSS.overlap.wolfDelay; e.readyT = st.rng.range(d[0], d[1]); }
     e.readyT -= dt;
     return e.readyT <= 0;
@@ -409,7 +461,7 @@ PA.Combat = (function () {
       case 'approach':
         approach(st, e, p.x, p.y, d.speed * sm, dt);
         if (e.grace > 0) { e.grace -= dt; break; }
-        if (dist <= d.engageDist && !losBlocked(st, e, p) && wolfMayAttack(st, e, dt)) { e.state = 'crouch'; e.stateT = 0; e.dashLeft = d.dashes || 1; e.readyT = null; }
+        if (dist <= d.engageDist && !losBlocked(st, e, p) && wolfMayAttack(st, e, dt)) { e.state = 'crouch'; e.stateT = 0; e.dashLeft = d.dashes || 1; e.readyT = null; noteAttack(st, e, 'prepare'); }
         break;
       case 'crouch': // 방향 추적 중
         e.aimAngle = Math.atan2(p.y - e.y, p.x - e.x);
@@ -418,7 +470,7 @@ PA.Combat = (function () {
         break;
       case 'lock': // 방향 고정. 절대 바꾸지 않음
         e.stateT += dt * tf;
-        if (e.stateT >= d.lock) { e.state = 'dash'; e.stateT = 0; e.hitBy = null; }
+        if (e.stateT >= d.lock) { e.state = 'dash'; e.stateT = 0; e.hitBy = null; noteAttack(st, e, 'execute'); }
         break;
       case 'dash': {
         const remain = Math.max(0, d.dashTime - e.stateT);
@@ -452,7 +504,7 @@ PA.Combat = (function () {
         if (dist < d.keepMin) approach(st, e, e.x * 2 - p.x, e.y * 2 - p.y, d.speed * sm, dt);
         else if (dist > d.keepMax) approach(st, e, p.x, p.y, d.speed * sm, dt);
         e.stateT += dt * tf;
-        if (dist <= d.keepMax + 40 && e.stateT >= 0.3) { e.state = 'aim'; e.stateT = 0; }
+        if (dist <= d.keepMax + 40 && e.stateT >= 0.3 && mayAttack(st, e, dt)) { e.state = 'aim'; e.stateT = 0; e.readyT = null; noteAttack(st, e, 'prepare'); }
         break;
       case 'aim':
         e.aimAngle = Math.atan2(p.y - e.y, p.x - e.x);
@@ -463,7 +515,7 @@ PA.Combat = (function () {
         e.stateT += dt * tf;
         if (e.stateT >= d.lock) {
           st.projectiles.push({ owner: 'enemy', kind: 'arrow', x: e.x + Math.cos(e.dir) * (e.r + 4), y: e.y + Math.sin(e.dir) * (e.r + 4), vx: Math.cos(e.dir) * d.arrowSpeed, vy: Math.sin(e.dir) * d.arrowSpeed, r: d.arrowR, dmg: d.arrowDamage, ttl: 4, angle: e.dir });
-          ev(st, 'shoot');
+          ev(st, 'shoot'); noteAttack(st, e, 'execute');
           e.state = 'recover'; e.stateT = 0;
         }
         break;
@@ -479,11 +531,11 @@ PA.Combat = (function () {
     switch (e.state) {
       case 'approach':
         approach(st, e, p.x, p.y, d.speed * sm, dt);
-        if (dist <= d.engageDist) { e.state = 'swell'; e.stateT = 0; }
+        if (dist <= d.engageDist && mayAttack(st, e, dt)) { e.state = 'swell'; e.stateT = 0; e.readyT = null; noteAttack(st, e, 'prepare'); }
         break;
       case 'swell':
         e.stateT += dt * tf;
-        if (e.stateT >= d.swell) { addZone(st, 'spore', e.x, e.y, d.cloudR, d.cloudTtl, d.cloudDamage); ev(st, 'spore'); e.state = 'recover'; e.stateT = 0; }
+        if (e.stateT >= d.swell) { addZone(st, 'spore', e.x, e.y, d.cloudR, d.cloudTtl, d.cloudDamage); ev(st, 'spore'); noteAttack(st, e, 'execute'); e.state = 'recover'; e.stateT = 0; }
         break;
       case 'recover':
         e.stateT += dt * tf;
@@ -508,6 +560,7 @@ PA.Combat = (function () {
       else if (e.type === 'wolf' || e.type === 'wolf_alpha') updateWolf(st, e, dt);
       else if (e.type === 'archer') updateArcher(st, e, dt);
       else if (e.type === 'spore') updateSpore(st, e, dt);
+      else if (PA.Enemies && PA.Enemies.has(e.type)) PA.Enemies.update(st, e, dt);
       if (e.airborne) continue; // 도약 중: 지형·분리 무시
       // 넉백 속도 감쇠
       if (e.vx || e.vy) { moveSwept(st, e, e.vx * dt, e.vy * dt); const k = Math.exp(-10 * dt); e.vx *= k; e.vy *= k; if (Math.abs(e.vx) < 1) e.vx = 0; if (Math.abs(e.vy) < 1) e.vy = 0; }
@@ -564,10 +617,10 @@ PA.Combat = (function () {
       if (z.type === 'spore' && m().dist(z, p) <= z.r + p.r * 0.5) maxDmg = Math.max(maxDmg, z.dmg);
       if (z.type === 'fire') {
         z.tick -= dt;
-        if (z.tick <= 0) { z.tick = C().EMBER.tick; for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) damageEnemy(st, e, z.weapon ? z.dmg : z.dmg * st.build.masteryMult, { src: z.weapon ? { weapon: z.weapon.stats, weaponId: z.weapon.id, direct: false, extra: true } : { extra: true, direct: false } }); }
+        if (z.tick <= 0) { z.tick = C().EMBER.tick; for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) damageEnemy(st, e, z.weapon ? z.dmg : z.dmg * st.build.masteryMult, { src: z.weapon ? { weapon: z.weapon.stats, weaponId: z.weapon.id, direct: false, extra: true } : { extra: true, direct: false, tag: 'common:ember' } }); }
       }
       if (z.type === 'coldground') { z.tick -= dt; if (z.tick <= 0) { z.tick = 0.25; for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) e.chill = Math.max(e.chill, 1.0); } }
-      if (z.type === 'storm') { z.tick -= dt; if (z.tick <= 0) { z.tick = 0.5; fx(st, { kind: 'strike', x: z.x + st.rng.range(-20, 20), y: z.y + st.rng.range(-20, 20), r: 30, ttl: 0.2, t: 0 }); for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) damageEnemy(st, e, z.dmg, { src: { skill: true, direct: false } }); } }
+      if (z.type === 'storm') { z.tick -= dt; if (z.tick <= 0) { z.tick = 0.5; fx(st, { kind: 'strike', x: z.x + st.rng.range(-20, 20), y: z.y + st.rng.range(-20, 20), r: 30, ttl: 0.2, t: 0 }); for (const e of st.enemies) if (!e.dead && m().dist(z, e) <= z.r + e.r) damageEnemy(st, e, z.dmg, { src: { skill: true, direct: false, skillId: 'strike' } }); } }
     }
     if (maxDmg > 0 && p.zoneTick <= 0) { p.zoneTick = C().PLAYER.zoneTick; zoneDamage(st, maxDmg); }
     if (maxDmg === 0 && p.zoneTick < 0) p.zoneTick = 0;
@@ -582,7 +635,7 @@ PA.Combat = (function () {
     const f = st.field; if (!f) return;
     if (st.build.has('stasis')) {
       let total = 0;
-      for (const e of st.enemies) if (!e.dead && e.stasis > 0) { const dmg = e.stasis * C().STASIS.damagePerStack * st.build.masteryMult; fx(st, { kind: 'stasisburst', x: e.x, y: e.y, r: 34 + e.stasis * 10, ttl: 0.4, t: 0 }); e.stasis = 0; total += damageEnemy(st, e, dmg, {}); }
+      for (const e of st.enemies) if (!e.dead && e.stasis > 0) { const dmg = e.stasis * C().STASIS.damagePerStack * st.build.masteryMult; fx(st, { kind: 'stasisburst', x: e.x, y: e.y, r: 34 + e.stasis * 10, ttl: 0.4, t: 0 }); e.stasis = 0; total += damageEnemy(st, e, dmg, { src: { extra: true, direct: false, tag: 'common:stasis' } }); }
       if (total > 0) { text(st, f.x, f.y - f.r - 26, '정지된 칼날 폭발 ' + Math.round(total), '#cfeaff'); ev(st, 'explode'); }
     }
     fx(st, { kind: 'fieldend', x: f.x, y: f.y, r: f.r, ttl: 0.35, t: 0 });
@@ -651,6 +704,7 @@ PA.Combat = (function () {
       return;
     }
     st.t += dt; st.stats.elapsed += dt;
+    if (st.timeLimit > 0 && st.t >= st.timeLimit) { st.status = 'timeout'; ev(st, 'timeout'); return; } // 시간 초과: 승패와 별도 상태
     updatePlayer(st, input || {}, dt);
     PA.Skills.update(st, dt);
     updateEnemies(st, dt);
@@ -672,5 +726,5 @@ PA.Combat = (function () {
     st.build = build; p.hpMax = build.hpMax; if (build.hpMax > oldMax) p.hp = Math.min(p.hpMax, p.hp + (build.hpMax - oldMax));
     PA.Weapons.refresh(st);
   }
-  return { create, step, rebuild, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
+  return { create, step, rebuild, summary, noteAttack, metricsFor, enemyKey, srcKey, mayAttack, isCommitted, knockEnemy, addFireAt, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField, pushOut, moveSwept, losBlocked, validPos, nearestValidPos, beamLength, steerDir, ev, fx, text, approach, timeFactor, enemySpeedMult, wolfMayAttack };
 })();

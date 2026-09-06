@@ -66,6 +66,7 @@ PA.Boss = (function () {
   function begin(st, e, pattern) {
     e.actions++; e.history.push(pattern); if (e.history.length > 6) e.history.shift();
     e.stateT = 0; e.hitDone = false; e.waitT = 0;
+    K().noteAttack(st, e, 'prepare');
     if (pattern === 'sweep') e.state = 'sweep_aim';
     else if (pattern === 'dash') { e.state = 'dash_aim'; e.dashSeq = 1; e.dashTotal = e.phase >= 3 ? 2 : 1; }
     else if (pattern === 'pounce') e.state = 'pounce_aim';
@@ -146,7 +147,7 @@ PA.Boss = (function () {
           // 판정: 표시된 부채꼴과 동일. 직접 공격이므로 장애물 가림 적용
           if (m().inArc(e, cfg.sweep.radius, e.dir, cfg.sweep.arcDeg * Math.PI / 360, p, p.r) && !K().losBlocked(st, e, p)) K().damagePlayer(st, cfg.sweep.damage, 'boss_sweep');
           K().fx(st, { kind: 'bosssweep', x: e.x, y: e.y, angle: e.dir, r: cfg.sweep.radius, half: cfg.sweep.arcDeg * Math.PI / 360, ttl: 0.3, t: 0 });
-          K().ev(st, 'boss_sweep');
+          K().ev(st, 'boss_sweep'); K().noteAttack(st, e, 'execute');
           toRecover(st, e, cfg.sweep.recover);
         }
         break;
@@ -160,7 +161,7 @@ PA.Boss = (function () {
       case 'dash_lock': {
         e.stateT += adv;
         const lockT = e.dashSeq === 2 ? cfg.dash.second.lock : cfg.dash.lock;
-        if (e.stateT >= lockT) { e.state = 'dash'; e.stateT = 0; }
+        if (e.stateT >= lockT) { e.state = 'dash'; e.stateT = 0; K().noteAttack(st, e, 'execute'); }
         break;
       }
       case 'dash': {
@@ -179,7 +180,7 @@ PA.Boss = (function () {
       }
       case 'howl':
         e.stateT += adv;
-        if (e.stateT >= cfg.howl.duration) { summon(st, e); toApproach(st, e); e.approachT = 0; }
+        if (e.stateT >= cfg.howl.duration) { summon(st, e); K().noteAttack(st, e, 'execute'); toApproach(st, e); e.approachT = 0; }
         break;
       case 'pounce_aim':
         e.land = landingFor(st, e, p.x, p.y);
@@ -188,7 +189,7 @@ PA.Boss = (function () {
         break;
       case 'pounce_lock':
         e.stateT += adv;
-        if (e.stateT >= cfg.pounce.lock) { e.state = 'leap'; e.stateT = 0; e.leapFrom = { x: e.x, y: e.y }; e.leapK = 0; e.airborne = true; }
+        if (e.stateT >= cfg.pounce.lock) { e.state = 'leap'; e.stateT = 0; e.leapFrom = { x: e.x, y: e.y }; e.leapK = 0; e.airborne = true; K().noteAttack(st, e, 'execute'); }
         break;
       case 'leap': {
         e.leapK = Math.min(1, e.leapK + adv / cfg.pounce.leap);

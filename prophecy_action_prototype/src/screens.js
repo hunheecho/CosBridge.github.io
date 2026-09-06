@@ -104,6 +104,7 @@ PA.Screens = (function () {
         ${hasSave ? `<button class="primary big" data-action="continue">계속하기 <span class="dim">(${G.saved.day}일차 · 금화 ${G.saved.gold})</span></button>` : ''}
         <button class="big ${hasSave ? '' : 'primary'}" data-action="newrun">새 회차</button>
         <button class="big" data-action="controls">조작법</button>
+        <button class="big" data-action="lab">전투 시험실 <span class="dim">(정식 회차와 분리 · 체력 배율·빌드·적 조합 비교)</span></button>
       </div>
       <p class="dim small">${esc(PA.KEYS_TEXT)}</p><p class="dim small">v${PA.VERSION}</p></div>`;
   }
@@ -305,10 +306,79 @@ PA.Screens = (function () {
       <button data-action="close-overlay" class="primary">닫기</button></div>`;
   }
   function pause(G) {
-    return `<div class="panel"><h2>일시정지</h2><p class="dim">전투가 멈춰 있습니다.</p>
+    const lab = G.scenario && G.scenario.lab && G.combat ? `<div class="card"><div class="card-title small">시험실 설정</div><p class="small">${esc(G.combat.labText || '')}</p><p class="small dim">${esc(PA.Lab.encode(G.lab.cfg))}</p><div class="row"><button data-action="lab-abort">중단하고 결과 보기</button><button data-action="lab-back">설정 화면으로(결과 없이)</button></div></div>` : '';
+    return `<div class="panel"><h2>일시정지</h2><p class="dim">전투가 멈춰 있습니다.</p>${lab}
       <div class="row"><label>음량 <input type="range" id="vol" min="0" max="100" value="${Math.round(PA.Audio.volume * 100)}"></label><label><input type="checkbox" id="mute" ${PA.Audio.muted ? 'checked' : ''}> 음소거</label></div>
       <div class="row"><button class="primary" data-action="resume">계속 (Esc)</button><button data-action="show-controls">조작법</button><button class="danger" data-action="give-up">포기하고 거점으로 (패배 처리)</button></div></div>`;
   }
+  // ---------- 전투 시험실 ----------
+  function lab(G) {
+    const L = PA.Lab, cfg = G.lab.cfg, bd = L.describeBuild(cfg.build), ep = L.enemyPreset(cfg.enemy);
+    const presets = L.enemyPresets(); const groups = [];
+    for (const p of presets) { let g = groups.find(x => x.name === p.group); if (!g) { g = { name: p.group, items: [] }; groups.push(g); } g.items.push(p); }
+    const sel = (id, opts, cur) => `<select id="${id}" data-lab="${id}">${opts.map(o => `<option value="${esc(o.v)}" ${String(o.v) === String(cur) ? 'selected' : ''}>${esc(o.t)}</option>`).join('')}</select>`;
+    const hpOpts = PA.LAB.HP_MULTS.map(v => ({ v, t: '×' + v }));
+    const enemySel = `<select id="lab-enemy" data-lab="lab-enemy">${groups.map(g => `<optgroup label="${esc(g.name)}">${g.items.map(p => `<option value="${esc(p.id)}" ${p.id === cfg.enemy ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}</select>`;
+    const buildSel = sel('lab-build', Object.keys(PA.LAB.BUILDS).map(k => ({ v: k, t: `[${PA.LAB.BUILDS[k].stage}] ${PA.LAB.BUILDS[k].name}` })), cfg.build);
+    const notes = ep && ep.notes ? `<ul class="tips">${Object.entries({ intent: '의도한 판단', safe: '안전한 대응', builds: '강점 빌드', overlap: '과도한 겹침 조건', limit: '동시 실행 제한' }).filter(([k]) => ep.notes[k]).map(([k, t]) => `<li><b>${t}</b>: ${esc(ep.notes[k])}</li>`).join('')}</ul>` : '';
+    const waves = ep && ep.waves ? ep.waves.map((w, i) => `${i + 1}: ` + w.map(g => `${PA.ENEMIES[g.type] ? PA.ENEMIES[g.type].name : g.type}×${g.n}`).join(', ')).join(' / ') : (ep && ep.boss ? '보스' : '');
+    const results = (G.labResults || []).slice(-8).reverse();
+    const rrow = (r) => { const en = Object.values(r.enemies || {}); const killed = en.reduce((a, e) => a + e.killed, 0), dba = en.reduce((a, e) => a + e.diedBeforeAttack, 0); return `<tr><td>${esc(statusText(r.status))}</td><td>${r.elapsed}s</td><td>${r.damageTaken}${r.absorbed ? ` (+막음 ${r.absorbed})` : ''}</td><td>${killed}/${en.reduce((a, e) => a + e.spawned, 0)}</td><td>${killed ? Math.round(dba / killed * 100) : 0}%</td><td class="small dim">${esc(r.configText.replace(/;arena=auto|;deep=0|;layout=classic|;overlap=-1/g, ''))}</td><td><button class="mini" data-action="lab-load" data-arg="${esc(r.configText)}">불러오기</button></td></tr>`; };
+    return `<div class="screen"><div class="row between"><h2>전투 시험실 <span class="sub">정식 회차 저장과 분리 · v${PA.VERSION}</span></h2><button data-action="lab-exit">제목으로</button></div>
+      <p class="dim small">처음이라면: 아래 기본값 그대로 <b>시작</b>을 누르고, 결과 화면에서 <b>체력 배율만 바꿔 재시작</b>으로 ×1 → ×2 → ×3을 비교하세요. 체력 배율은 체력에만 적용됩니다(공격력·속도·예고·경험치·보상 불변).</p>
+      <div class="grid2"><div>
+        <div class="card"><div class="card-title">적·전장</div>
+          <div class="kv"><span>적 조합</span>${enemySel}</div>
+          <p class="small dim">${esc(ep ? ep.desc || '' : '')}</p><p class="small">웨이브: ${esc(waves)}${ep && ep.arena ? ` · 기본 지형: ${esc(PA.LAB.TERRAINS[ep.arena] || ep.arena)}` : ''}${ep && ep.overlapLimit ? ` · 동시 공격 제한 ${ep.overlapLimit}` : ''}</p>${notes}
+          <div class="kv"><span>지형</span>${sel('lab-arena', Object.keys(PA.LAB.TERRAINS).map(k => ({ v: k, t: PA.LAB.TERRAINS[k] })), cfg.arena)}</div>
+          <div class="kv"><span>체력 배율</span>일반 ${sel('lab-hp-normal', hpOpts, cfg.hp.normal)} 정예 ${sel('lab-hp-elite', hpOpts, cfg.hp.elite)} 보스 ${sel('lab-hp-boss', hpOpts, cfg.hp.boss)}</div>
+          <div class="kv"><span>시드</span><input id="lab-seed" data-lab="lab-seed" type="number" min="0" value="${cfg.seed}" style="width:110px"> <span class="dim small">같은 시드·같은 입력 = 같은 결과</span></div>
+          <div class="kv"><span>동시 공격 제한</span>${sel('lab-overlap', [{ v: -1, t: '프리셋 기본' }, { v: 0, t: '없음' }, { v: 1, t: '1마리' }, { v: 2, t: '2마리' }, { v: 3, t: '3마리' }], cfg.overlap)}</div>
+          <div class="kv"><span>시간 제한</span>${sel('lab-time', PA.LAB.TIME_LIMITS.map(v => ({ v, t: v + '초' })), cfg.time)} <label><input type="checkbox" id="lab-deep" data-lab="lab-deep" ${cfg.deep ? 'checked' : ''}> 더 깊이(지역 프리셋만: 적 +1, 정예)</label></div>
+        </div>
+        <div class="card"><div class="card-title">조작·성장</div>
+          <div class="kv"><span>조작</span><label><input type="radio" name="lab-control" data-lab="lab-control" value="human" ${cfg.control === 'human' ? 'checked' : ''}> 직접 조작</label> <label><input type="radio" name="lab-control" data-lab="lab-control" value="bot" ${cfg.control === 'bot' ? 'checked' : ''}> 봇 조작</label> ${sel('lab-bot', Object.keys(PA.Bot.POLICIES).map(k => ({ v: k, t: PA.Bot.POLICIES[k].name })), cfg.bot)}</div>
+          <p class="small dim">봇: ${esc(PA.Bot.POLICIES[cfg.bot].doc.reads)} · Q ${esc(PA.Bot.POLICIES[cfg.bot].doc.q)} · 포기 ${esc(PA.Bot.POLICIES[cfg.bot].doc.giveUp)}. 봇 결과는 정책 비교용이며 사람의 승률·재미를 뜻하지 않습니다.</p>
+          <div class="kv"><span>성장</span><label><input type="radio" name="lab-growth" data-lab="lab-growth" value="fixed" ${cfg.growth === 'fixed' ? 'checked' : ''}> 빌드 고정(경험치 없음, 화력 고정)</label> <label><input type="radio" name="lab-growth" data-lab="lab-growth" value="grow" ${cfg.growth === 'grow' ? 'checked' : ''}> 성장 모드(레벨업 선택 적용)</label></div>
+        </div>
+        <div class="row"><button class="primary big" data-action="lab-start" style="width:auto">시작</button></div>
+        <div class="card"><div class="card-title small">설정 복사 · 불러오기</div><textarea id="lab-config" rows="2" style="width:100%">${esc(L.encode(cfg))}</textarea><div class="row"><button class="mini" data-action="lab-apply">텍스트 적용</button><button class="mini" data-action="lab-reset">기본값</button></div><p class="dim small">주소로 열기: <code>index.html?lab=${esc(encodeURIComponent(L.encode(cfg)))}</code></p></div>
+      </div><div>
+        <div class="card"><div class="card-title">빌드 프리셋</div>
+          <div class="kv"><span>빌드</span>${buildSel}</div>
+          ${bd ? `<p><b>${esc(bd.name)}</b> <span class="kind">${esc(bd.stage)}</span> · 성장 선택 약 <b>${bd.picks}회</b> 상당(Lv ${bd.level}) ${bd.errors.length ? `<span class="bad">규칙 위반: ${esc(bd.errors.join(', '))}</span>` : '<span class="ok small">규칙 검사 통과</span>'}</p><p class="small">${esc(bd.purpose)}</p>
+          <ul class="gear"><li>무기: ${bd.weapons.map(esc).join(' · ')}</li><li>공통 증강: ${bd.commons.length ? bd.commons.map(esc).join(', ') : '없음'}</li><li>패시브: ${bd.passives.length ? bd.passives.map(esc).join(', ') : '없음'}</li><li>Q: ${esc(bd.q)} · E: ${esc(bd.e)}</li><li>장비: ${bd.gear.length ? bd.gear.map(esc).join(', ') : '없음'}</li></ul>
+          <p class="dim small">"초반/중간/후반"은 시험용 분류입니다. 실제 회차에서 이 조합을 얻을 확률을 보장하지 않으며, 강도 비교 시 선택 횟수와 장비 차이를 함께 보세요.</p>` : ''}
+        </div>
+        <div class="card"><div class="card-title">최근 결과 <span class="sub">${(G.labResults || []).length}건 · 브라우저에 보관</span></div>${results.length ? `<div style="overflow-x:auto"><table class="keys small"><tr><th>결과</th><th>시간</th><th>체력 피해</th><th>처치</th><th>공격 전 사망</th><th>설정</th><th></th></tr>${results.map(rrow).join('')}</table></div><div class="row"><button class="mini" data-action="lab-csv">CSV 보기</button><button class="mini" data-action="lab-clear-results">결과 지우기</button></div>${G.labCsv ? `<textarea rows="6" style="width:100%">${esc(G.labCsv)}</textarea>` : ''}` : '<p class="dim">아직 없음</p>'}</div>
+      </div></div></div>`;
+  }
+  function statusText(s) { return { won: '승리', lost: '패배', timeout: '시간 초과', aborted: '사용자 중단' }[s] || s; }
+  function labResult(G) {
+    const r = G.labResult, cfg = G.lab.cfg, L = PA.Lab;
+    const en = Object.keys(r.enemies).map(k => { const e = r.enemies[k]; const name = (PA.ENEMIES[k.split(':')[0]] || { name: k }).name + (k.includes(':summoned') ? '(소환)' : ''); return `<tr><td>${esc(name)}</td><td>${e.spawned}</td><td>${e.killed}</td><td>${e.prepared}</td><td>${e.executed}</td><td>${e.killed ? Math.round(e.diedBeforeAttack / e.killed * 100) + '%' : '—'} (${e.diedBeforeAttack})</td><td>${e.ttkAvg != null ? e.ttkAvg + 's' : '—'}</td><td>${e.ttkFromHitAvg != null ? e.ttkFromHitAvg + 's' : '—'}</td><td>${e.deathEffects || 0}</td></tr>`; }).join('');
+    const taken = Object.keys(r.taken).map(k => `<li>${esc(takenName(k))}: <b>${Math.round(r.taken[k])}</b> (${r.takenHits[k]}회)</li>`).join('') || '<li class="dim">없음</li>';
+    const dmg = Object.keys(r.dmg).sort((a, b) => r.dmg[b].amount - r.dmg[a].amount).map(k => `<li>${esc(dmgName(k))}: <b>${r.dmg[k].amount}</b> (${Math.round(r.dmg[k].share * 100)}%)</li>`).join('') || '<li class="dim">없음</li>';
+    const hpOpts = PA.LAB.HP_MULTS.map(v => `<option value="${v}" ${v === cfg.hp.normal ? 'selected' : ''}>×${v}</option>`).join('');
+    return `<div class="screen"><h2>시험 결과: <span class="${r.status === 'won' ? 'ok' : r.status === 'lost' ? 'bad' : 'gold'}">${esc(statusText(r.status))}</span> <span class="sub">${r.elapsed}초 · v${r.version} · 시드 ${r.seed}</span></h2>
+      <p class="small dim">${esc(r.configText)}</p>
+      <div class="grid2"><div>
+        <div class="card"><div class="card-title">요약</div><ul class="gear">
+          <li>체력 ${r.hp}/${r.hpMax} · 받은 체력 피해 <b>${r.damageTaken}</b> · 보호막 흡수 <b>${r.absorbed}</b></li>
+          <li>처치 ${r.kills} · 감속장(Q) ${r.specialUses}회 · E ${r.eUses}회 · 회피 ${r.dodges}회${r.levelUps ? ` · 레벨업 ${r.levelUps}회(경험치 ${r.xp})` : ''}</li>
+          <li>피해 기여 합계(실제 체력 감소, 과잉 피해 제외) ${r.dmgTotal}${r.heals ? ` · 적 치료 ${r.heals}회 ${r.healAmount}` : ''}${r.interrupts ? ` · 시전 방해 ${r.interrupts}회` : ''}${r.webs ? ` · 거미줄 ${r.webs}개` : ''}</li></ul>
+          <div class="card-title small">받은 피해 원인</div><ul class="augs">${taken}</ul>
+          <div class="card-title small">피해 기여도(무기·기술·지속·공통 효과)</div><ul class="augs">${dmg}</ul>
+        </div>
+        <div class="row"><button class="primary" data-action="lab-restart">같은 조건으로 재시작</button><span>체력 배율만 바꿔 재시작: 일반 <select id="lab-result-hp">${hpOpts}</select></span><button data-action="lab-restart-hp">재시작</button><button data-action="lab">설정 화면으로</button><button data-action="lab-exit">제목으로</button></div>
+      </div><div>
+        <div class="card"><div class="card-title">몬스터 종류별</div><div style="overflow-x:auto"><table class="keys small"><tr><th>종류</th><th>등장</th><th>처치</th><th>공격 준비</th><th>실행</th><th>공격 전 사망</th><th>등장→처치</th><th>첫 피격→처치</th><th>사망 효과</th></tr>${en}</table></div><p class="dim small">준비 = 예고 시작, 실행 = 판정 발생. 사망 효과(포자 구름 등)는 능동 공격과 따로 셉니다. 소환 몬스터는 별도 행.</p></div>
+        <div class="card"><div class="card-title small">JSON</div><textarea rows="5" style="width:100%">${esc(JSON.stringify(r))}</textarea><div class="card-title small">CSV 한 줄(머리글 포함)</div><textarea rows="3" style="width:100%">${esc(L.CSV_COLS.join(',') + '\n' + L.csvRow(r))}</textarea></div>
+      </div></div></div>`;
+  }
+  const TAKEN_NAMES = { wolf: '늑대 물기', arrow: '궁수 화살', zone: '바닥 지역(구름 등)', boss_sweep: '보스 휩쓸기', boss_dash: '보스 돌진', boss_pounce: '보스 덮쳐찍기', boar: '멧돼지 돌파', bash: '방패병 방패치기', hex: '주술사 저주', blast: '폭탄 폭발', emerge: '잠복충 출현', bite: '물기', frostzone: '서리 폭발', slash: '도적 베기' };
+  function takenName(k) { return TAKEN_NAMES[k] || k; }
+  function dmgName(k) { const [kind, id] = k.split(':'); if (kind === 'weapon') return '무기 ' + (PA.WEAPONS[id] ? PA.WEAPONS[id].name : id); if (kind === 'skill') return '기술 ' + (PA.SKILLS[id] ? PA.SKILLS[id].name : id); if (kind === 'dot') return { burn: '화상', bleed: '출혈' }[id] || id; if (kind === 'common') return '공통 ' + (PA.COMMONS[id] ? PA.COMMONS[id].name : id); if (kind === 'reward') return '보상 ' + (PA.BOSS_REWARDS[id] ? PA.BOSS_REWARDS[id].name : id); return k; }
   // 보스 초상(카드용 작은 캔버스): 렌더러의 보스 그리기를 재사용
   function paintPortraits() {
     for (const c of document.querySelectorAll('canvas.bossportrait')) {
@@ -318,5 +388,5 @@ PA.Screens = (function () {
       ctx.save(); ctx.scale(0.8, 0.8); PA.Render.drawBoss(ctx, fake, e); ctx.restore();
     }
   }
-  return { title, newrunConfirm, base, finalPrep, map, shop, reward, after, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard, pickStart, levelCards, migration };
+  return { title, newrunConfirm, base, finalPrep, map, shop, reward, after, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard, pickStart, levelCards, migration, lab, labResult, statusText };
 })();
