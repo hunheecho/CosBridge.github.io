@@ -19,6 +19,16 @@
 | Enter / 클릭 | 메뉴 확인 |
 | F3 | 디버그 오버레이 (개발용) |
 
+## 전투 시험실 (v0.6) — 이 버튼부터
+1. `index.html`(또는 `dist/prophecy_single.html`) → 제목 화면 **"전투 시험실"**.
+2. 기본값(근교 숲 · 체력 ×1 · 초반 기본 검 · 직접 조작) 그대로 **시작**. WASD 이동, Space 회피, Q 감속장, Esc 일시정지(설정 확인·중단).
+3. 결과 화면에서 **"체력 배율만 바꿔 재시작"**으로 ×2 → ×3을 같은 시드로 비교. 표에서 "공격 전 사망%"와 "실행/등장"이 적이 행동을 보여줬는지 알려준다.
+4. 적 조합을 "단독 시험 → 멧돼지"(기둥 숲), "조합 프리셋 → 방패병 + 궁수" 등으로 바꿔 신규 몬스터를 본다. 봇 조작을 켜면 정책 3종의 결과를 표로 비교할 수 있다(사람 결과가 아님).
+- 주소로 바로 열기: `index.html?lab=enemy%3Dsolo%3Aboar%3Bhp%3D2%2C1%2C1%3Bseed%3D3%3Bbuild%3Dmid_melee%3Bcontrol%3Dhuman` (설정 화면 하단에 현재 설정의 주소가 표시된다).
+- 시험실은 정식 회차 저장을 건드리지 않는다. 시험안 배치·난이도 후보는 "새 회차 → 검증 메뉴"에서 고른다(기본은 기존 배치·×1).
+- 시뮬레이션: `node tools/lab_sim.js A|B|C --seeds 10 --workers 4` → `node tools/lab_report.js A|B|C` (`docs/sim/report_*.md`), 회차: `node tools/run_sim.js --curve both`. 요약과 질문별 답: `docs/sim/SUMMARY.md`.
+- 브라우저 검증(실제 키·클릭): `NODE_PATH=<playwright> node tools/verify_lab.js`.
+
 ## 성장 시스템 (v0.5)
 - 새 회차 → **시작 무기 선택**(검·관통창·회전 칼날, 검증 메뉴에서 쌍검·추적궁·전투망치·번개 구체). 전투 중 레벨업 카드에서 무기 2개를 더 얻고, 공통 증강 3칸·E 기술·패시브 4칸을 채운다.
 - 조작: WASD 이동, Space 회피, Q 감속장, **E 선택 기술**, Esc.
@@ -56,6 +66,8 @@
 - v0.3 검수·조합 검증(실제 입력·재실행 포함): `NODE_PATH=<playwright 경로> node tools/verify_v03.js`
 - 일시정지 입력 검증(실제 키 이벤트): `NODE_PATH=<playwright 경로> node tools/verify_pause_input.js`
 - 단일 파일 빌드: `node tools/build_single.js`
+- 시험실 브라우저 검증: `NODE_PATH=<playwright 경로> node tools/verify_lab.js`
+- 대량 시뮬레이션·집계: `node tools/lab_sim.js A|B|C`, `node tools/lab_report.js A|B|C`, 회차 `node tools/run_sim.js`
 
 ## 문서
 - `docs/GAME_SPEC.md` 현재 규칙

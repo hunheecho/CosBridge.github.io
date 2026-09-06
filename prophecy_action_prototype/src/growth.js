@@ -17,7 +17,7 @@ PA.Growth = (function () {
   function ensure(run) { if (!run.growth) run.growth = migrateFromLegacy(run); return run.growth; }
 
   // ---------- 경험치 ----------
-  function xpNeed(level) { return G().XP.base + G().XP.step * (level - 1); }
+  function xpNeed(level) { const X = G().XP, k = level - 1; return Math.round(X.base + X.step * k + (X.quad || 0) * k * k); }
   function addXp(g, amount) {
     if (amount <= 0 || g.level >= G().XP.maxLevel) return 0;
     g.xp += amount; let gained = 0;
@@ -25,7 +25,7 @@ PA.Growth = (function () {
     g.pendingLevelUps += gained;
     return gained;
   }
-  function xpValue(e) { const v = G().XP_VALUE; if (e.summoned) return v.summoned; return v[e.type] != null ? v[e.type] : 5; }
+  function xpValue(e, regionId) { const v = G().XP_VALUE, mult = (regionId && G().REGION_XP_MULT && G().REGION_XP_MULT[regionId]) || 1; const base = e.summoned ? v.summoned : (v[e.type] != null ? v[e.type] : 5); return Math.round(base * mult); }
 
   // ---------- 조회 ----------
   const weaponOf = (g, id) => g.weapons.find(w => w.id === id);

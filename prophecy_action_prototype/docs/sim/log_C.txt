@@ -1,0 +1,17 @@
+suite C: 3150 fights, 2 workers, version 0.6.0
+  200/3150 (6s)
+  400/3150 (12s)
+  600/3150 (19s)
+  800/3150 (26s)
+  1000/3150 (32s)
+  1200/3150 (36s)
+  1400/3150 (40s)
+  1600/3150 (44s)
+  1800/3150 (47s)
+  2000/3150 (50s)
+  2200/3150 (53s)
+  2400/3150 (58s)
+  2600/3150 (62s)
+  2800/3150 (65s)
+  3000/3150 (75s)
+done 3150 fights, errors 0, 86s → /home/user/CosBridge.github.io/prophecy_action_prototype/docs/sim/raw_C.jsonl.gz

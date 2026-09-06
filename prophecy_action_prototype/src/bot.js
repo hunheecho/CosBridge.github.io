@@ -97,7 +97,8 @@ PA.Bot = (function () {
       const d = M.dist(target, p), toT = M.norm(target.x - p.x, target.y - p.y);
       const bz = target.boss ? target : null;
       const range = weaponRange(st);
-      let want = target.boss ? (PA.Boss.isExposed(target) ? target.r + 40 : target.r + range * 0.7) : Math.max(pol.keepDist, pol === POLICIES.survival ? range * 0.85 : 0);
+      const orbitOnly = (st.weapons || []).length > 0 && st.weapons.every(w => w.stats.kind === 'orbit' || w.stats.kind === 'mine'); // 공전 칼날만 있으면 궤도(반지름)에 적이 걸치도록 거리를 둔다
+      let want = target.boss ? (PA.Boss.isExposed(target) ? target.r + 40 : target.r + range * 0.7) : Math.max(pol.keepDist, pol === POLICIES.survival ? range * 0.85 : 0, orbitOnly ? range * 0.9 : 0);
       if (pol === POLICIES.survival && hpRatio < pol.retreatHp) want = 260;                     // 생존 우선: 체력이 낮으면 이탈
       if (pol === POLICIES.balanced && hpRatio < pol.retreatHp && alive.some(e => e.state !== 'approach' && e.state !== 'recover')) want = Math.max(want, 160);
       if (pol === POLICIES.survival && alive.some(e => (e.state !== 'approach' && e.state !== 'recover' && e.state !== 'stagger') && M.dist(e, p) < 60)) dodge = true; // 근접 위협에서 굴러 나감
@@ -118,11 +119,17 @@ PA.Bot = (function () {
   // 헤드리스 실행 보조: 5스텝마다 판단(40ms), 단발 입력은 그 프레임만
   function runCombat(st, policyId, opts) {
     opts = opts || {}; const dt = PA.CONFIG.STEP, maxN = Math.round((opts.maxSec || 180) / dt); let n = 0, last = { mx: 0, my: 0 }; const mem = {};
+    let farSteps = 0, aliveSteps = 0;
     while (st.status === 'running' && n < maxN) {
       const inp = n % 5 === 0 ? decide(policyId, st, mem) : Object.assign({}, last, { dodge: false, special: false, skillE: false }); last = inp;
       PA.Combat.step(st, inp, dt); n++;
+      if (n % 12 === 0) { // 길찾기 실패 진단: 적이 살아 있는데 모든 적과 300 이상 떨어진 시간 비율(시간 초과의 원인 구분용)
+        const p = st.player; let near = false, any = false; for (const e of st.enemies) { if (e.dead || e.hidden) continue; any = true; if (PA.m.dist(e, p) < 300) { near = true; break; } }
+        if (any) { aliveSteps++; if (!near) farSteps++; }
+      }
       if (opts.onLevelUp && st.levelUps > 0) { st.levelUps = 0; opts.onLevelUp(st); }
     }
+    if (st.metrics) st.metrics.farFrac = aliveSteps ? Math.round(farSteps / aliveSteps * 100) / 100 : 0;
     return st;
   }
   // 성장 모드에서 봇의 카드 선택: 새 무기 > E 습득 > 무기 방식 > 무기 레벨 > 나머지 순, 같은 순위면 시드 난수

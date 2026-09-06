@@ -24,9 +24,15 @@ PA.Enemies = (function () {
     const d = e.def, p = st.player, tf = K().timeFactor(st, e), sm = K().enemySpeedMult(st, e), adv = dt * tf, dist = m().dist(e, p);
     switch (e.state) {
       case 'approach':
+        if (dist < d.minDist) { e.state = 'backoff'; e.stateT = 0; break; } // 너무 가까우면 물러나서 거리를 벌린 뒤 돌파(밀어붙이기 금지)
         K().approach(st, e, p.x, p.y, d.speed * sm, dt);
         if (dist <= d.engageDist && dist >= d.minDist && !K().losBlocked(st, e, p) && PA.Boss.dashPath(st, e, Math.atan2(p.y - e.y, p.x - e.x), d.chargeDist).len >= d.minDist && K().mayAttack(st, e, dt)) { e.state = 'charge_aim'; e.stateT = 0; e.readyT = null; K().noteAttack(st, e, 'prepare'); } // 코앞이 막혀 있으면 돌파하지 않는다
         break;
+      case 'backoff': { // 최대 1.5초 뒤로 물러남(벽에 막히면 접선 방향). 거리가 벌어지면 접근 상태로
+        e.stateT += dt; K().approach(st, e, e.x * 2 - p.x, e.y * 2 - p.y, d.speed * sm, dt);
+        if (dist >= d.minDist + 40 || e.stateT >= 1.5) { e.state = 'approach'; e.stateT = 0; }
+        break;
+      }
       case 'charge_aim': {
         e.aimAngle = Math.atan2(p.y - e.y, p.x - e.x); e.stateT += adv;
         e.preview = PA.Boss.dashPath(st, e, e.aimAngle, d.chargeDist); // 예고와 실제가 같은 계산
@@ -148,7 +154,8 @@ PA.Enemies = (function () {
     if (e.webT == null) e.webT = 1.2;
     switch (e.state) {
       case 'approach': {
-        keepDistance(st, e, d, dt, sm); e.webT -= dt;
+        if (e.webT > 1.5) K().approach(st, e, p.x, p.y, d.speed * sm, dt); else keepDistance(st, e, d, dt, sm); // 거미줄 직전에만 거리를 두고, 그 외에는 물려고 다가온다
+        e.webT -= dt;
         if (dist <= d.biteRange + e.r && K().mayAttack(st, e, dt)) { e.state = 'bite_aim'; e.stateT = 0; e.readyT = null; K().noteAttack(st, e, 'prepare'); break; }
         if (e.webT <= 0 && dist <= d.keepMax + 60 && K().mayAttack(st, e, dt)) { // 플레이어 진행 방향 앞(70)에 예고. 예고 위치는 시작 때 확정
           const ahead = { x: p.x + Math.cos(p.face) * 70, y: p.y + Math.sin(p.face) * 70 };

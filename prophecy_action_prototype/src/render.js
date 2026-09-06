@@ -792,7 +792,9 @@ PA.Render = (function () {
     ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = `12px ${FONT}`; ctx.textAlign = 'right'; ctx.fillText(PA.KEYS_TEXT, W - 14, H - 18);
     if (st.labText) { // 시험실: 현재 설정과 남은 시간(봇 실행 중에도 확인 가능)
       const tl = st.timeLimit > 0 ? ` · 남은 ${Math.max(0, st.timeLimit - st.t).toFixed(0)}초` : '';
-      const ly = st.mode === 'boss' ? H - 118 : 10; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W / 2 - 300, ly, 600, 20); ctx.fillStyle = '#ffe9a8'; ctx.font = `11px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(st.labText + tl, W / 2, ly + 14);
+      const ly = st.mode === 'boss' ? H - 118 : 10, lx = 262, lw = W - 222 - lx; let txt = st.labText + tl; ctx.font = `11px ${FONT}`; // 체력 막대와 목적 상자 사이(겹치지 않게), 길면 줄임
+      while (txt.length > 8 && ctx.measureText(txt).width > lw - 12) txt = txt.slice(0, -4) + '…';
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(lx, ly, lw, 20); ctx.fillStyle = '#ffe9a8'; ctx.textAlign = 'center'; ctx.fillText(txt, lx + lw / 2, ly + 14);
     }
     if (st.status !== 'running') {
       ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);

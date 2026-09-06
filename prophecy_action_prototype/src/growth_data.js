@@ -4,8 +4,12 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 PA.GROWTH = {
   SLOTS: { weapons: 3, weaponMods: 2, weaponMax: 5, commons: 3, passives: 4, passiveMax: 3, skillMax: 3, skillVariants: 1 },
   LEVEL_MULT: [1.0, 1.2, 1.4, 1.6, 1.8],            // 무기 레벨 1~5 기본 피해 누적 배율(복리 아님)
-  XP: { base: 14, step: 4, maxLevel: 40 },              // 레벨 n→n+1 필요 경험치 = base + step*(n-1)
-  XP_VALUE: { wolf: 6, archer: 7, spore: 8, wolf_alpha: 30, boss: 0, summoned: 6 }, // 보스 처치 자체는 경험치 0(보스 보상은 별도)
+  // 경험치 곡선: 필요치 = base + step*(n-1) + quad*(n-1)^2. v0.5(14/4/0)는 1일차에 레벨업이 몰렸다(봇 기준 28회 중 10회).
+  // v0.6 임시값(16/6/0.4)은 초반 레벨 비용을 올리고, 대신 위험 지역의 처치 경험치를 REGION_XP_MULT로 올려 총량을 유지한다. 비교는 tools/run_sim.js.
+  XP: { base: 20, step: 5, quad: 0.1, maxLevel: 40 },
+  XP_CURVES: { v05: { base: 14, step: 4, quad: 0, regionMult: { forest: 1, ridge: 1, marsh: 1, den: 1, deep: 1, boss: 1 } }, v06: { base: 20, step: 5, quad: 0.1, regionMult: { forest: 1, ridge: 1.5, marsh: 2, den: 2.5, deep: 3, boss: 1 } } }, // 비교용(tools/run_sim.js). v06 채택 근거: 봇 기준 점진 전략 1일차 레벨업 10→8, 이후 날 4/4/4/3/4로 평탄, 총 레벨 유지
+  XP_VALUE: { wolf: 6, archer: 7, spore: 8, wolf_alpha: 30, boss: 0, summoned: 6, boar: 12, shieldbearer: 11, shaman: 10, bomber: 7, burrower: 9, spider: 8, frostcaller: 9, rogue: 9 }, // 보스 처치 자체는 경험치 0(보스 보상은 별도)
+  REGION_XP_MULT: { forest: 1, ridge: 1.5, marsh: 2, den: 2.5, deep: 3, boss: 1 },   // 처치 경험치 × 지역 배율(체력 배율과 무관, 임시값)
   REGION_BONUS_XP: { forest: 10, ridge: 16, marsh: 34, den: 50, deep: 90 },        // 조우 승리 시 추가 경험치(조우 3택 증강을 대체). 시간당 경험치가 쉬운 지역 반복보다 낮지 않도록 비용에 비례(임시값)
   DEEP_PICK: true,                                      // 더 깊이 탐험 승리 시 지역 태그 3택 1회(지역 보상)
   WEIGHTS: {

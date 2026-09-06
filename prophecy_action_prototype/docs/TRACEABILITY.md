@@ -18,9 +18,16 @@
 | R-ENEMY-02 | 궁수: 조준 예고, 우선 처치 이유 | 접근·엄폐·회피 | 3 | 🟡 | 테스트 "궁수", 시나리오 ridge | — |
 | R-ENEMY-03 | 포자 괴물: 지역 통제 | 안전 공간 변화 | 3 | 🟡 | 테스트 "포자", 시나리오 marsh | — |
 | R-ENEMY-04 | 정예(우두머리): 처치 목표 | 연속 돌진 대응 | 3 | 🟡 | 시나리오 den | — |
-| R-ENEMY-05 | 멧돼지: 장애물 충돌 경직 | 유도 플레이 | 후속 | ⏳ | — | 전장에 장애물이 없어 보류. 유도로 경직시키는 경험은 아직 없음 |
-| R-ENEMY-06 | 주술사: 강화·회복 | 무리를 뚫고 우선 처치 | 후속 | ⏳ | — | 첫 구현에 없음. "먼저 잡을 이유"는 궁수가 부분 대체 |
-| R-ENEMY-07 | 방패병: 정면 방어 | 측면 공략, 관통 이점 | 후속 | ⏳ | — | 첫 구현에 없음. 관통의 두 번째 용도가 아직 없음 |
+| R-ENEMY-05 | 멧돼지: 장애물 충돌 경직 | 유도 플레이 | v0.6 | 🟡 | enemies.js boar, 테스트 "멧돼지" 2개, 시험실 solo:boar·combo:boar_terrain, 캡처 m_boar_* | 봇 시뮬레이션 B에서 준비·돌파·충돌 확인. 재미는 사람 플레이 필요 |
+| R-ENEMY-06 | 주술사: 치료(우선 처치) | 무리를 뚫고 우선 처치 | v0.6 | 🟡 | enemies.js shaman, 테스트 2개, 시험실 solo:shaman(+늑대 2) | 보스 치료 제외(초기). 시뮬레이션 B 치료 354회/방해 283회 |
+| R-ENEMY-07 | 방패병: 정면 방어 | 측면 공략, 관통 이점 | v0.6 | 🟡 | enemies.js shieldbearer, 테스트 "방패병", 시험실 solo:shieldbearer·combo:shield_archer | 정면 30%·측면 정상·준비 중 열림·회전 제한 테스트 통과 |
+| R-ENEMY-10 | 폭탄 운반체: 접근 후 폭발 | 급한 위협 우선 | v0.6 | 🟡 | enemies.js bomber, 테스트 "폭탄 운반체" | 준비 중 처치 시 폭발 없음·표시 반지름 = 실제 검사 |
+| R-ENEMY-11 | 잠복충: 자리 옮기기 | 출현 원 밖으로 | v0.6 | 🟡 | enemies.js burrower, 테스트 "잠복충" | 지하 0.7초·재추적 없음·지형 밖 출현·재사용 6초 검사 |
+| R-ENEMY-12 | 거미: 이동 경로 제한 | 회피 통과·경로 관리 | v0.6 | 🟡 | enemies.js spider, 테스트 "거미" | 거미줄 최대 4·6초·걷기 50%·회피 정상 검사 |
+| R-ENEMY-13 | 서리술사: 순차 바닥 공격 | 순서 읽기·터진 자리로 | v0.6 | 🟡 | enemies.js frostcaller, 테스트 "서리술사" | 시전 시작 확정·1→2→3·터진 자리 안전 검사 |
+| R-ENEMY-14 | 쌍날 도적: 측면 접근·2연 베기 | 빈틈 활용 | v0.6 | 🟡 | enemies.js rogue, 테스트 "쌍날 도적" | 측면 경로·보정 ±35°·순간이동 없음 검사 |
+| R-ENEMY-15 | 조합 전투 12+·소개 순서 | 한 조우에 새 행동 하나 | v0.6 | 🟡 | lab_data.js LAB_COMBOS(14)·LAYOUTS.trial, 시뮬레이션 C | 시험안 배치는 정식 기본값 아님 |
+| R-ENEMY-16 | 동시 공격 제한 | 예고가 겹쳐도 대응 공간 | v0.6 | 🟡 | combat.js mayAttack/overlapLimit, 테스트 "동시 공격 제한" | 조합 프리셋별 권장값 메모. 사람 검증 필요 |
 | R-ENEMY-08 | 소개 전투와 조합 전투 | 지역별 구성 | 3 | ✅ | data.js REGIONS | — |
 | R-ENEMY-09 | 특정 증강 없이도 처리 가능 | 기본 조작 해법 존재 | 3 | 🟡 | 봇(증강 없음)이 근교 숲 승리 | — |
 | R-ENEMY-10 | 물량이 아닌 역할로 난도 | 웨이브당 정예 1, 일반 ≤ 5 | 3 | 🟡 | data.js | — |
@@ -101,6 +108,16 @@
 | R-GROW-36 | Q 변형 3·E 5종·변형 10·패시브 8 | 기술 조합 | 성장 | 🟡 | skills.js, 시나리오 | 낙뢰·중력핵·결계 변형은 실제 플레이 확인 필요 |
 | R-GROW-37 | 지역 성장 태그 | 목적지 선택 | 성장 | ✅ | growth.test.js 가중치 | — |
 | R-GROW-38 | 보스 희귀 보상 4종 | 큰 변형 | 성장 | 🟡 | weapons.js onHit/onKill/clone/volley | 보스 1종이라 정상 회차 미제시(R-BOSS-13) |
+| R-GROW-42 | 1일차 레벨업 집중 완화 | 날마다 성장이 이어짐 | v0.6 | 🟡 | growth_data.js XP 20+5k+0.1k²·REGION_XP_MULT, tools/run_sim.js | 봇 기준 1일차 10→8, 이후 4/4/4/3/4. 사람 기준 재측정 필요 |
+| R-LAB-01 | 전투 시험실 진입·설정·시작 | 화면에서 설정, 코드 수정 없음 | v0.6 | ✅ | lab.js/screens.js lab, verify_lab A·B | — |
+| R-LAB-02 | 체력 배율은 체력만 | 공격력·속도·예고·경험치 불변 | v0.6 | ✅ | combat.js spawnEnemy hpMult, 테스트 "체력 배율" | — |
+| R-LAB-03 | 빌드 프리셋 8+ 합법·표시 | 슬롯·개조 제한 준수 | v0.6 | ✅ | LAB.BUILDS(9), validateBuild, 테스트 | — |
+| R-LAB-04 | 측정 항목 | 결과·JSON/CSV | v0.6 | ✅ | Combat.summary/metrics, 테스트 "측정" | 첫 피격→처치 포함 |
+| R-LAB-05 | 재시작·배율만 변경·설정 복사·복귀 | 편의 | v0.6 | ✅ | verify_lab C·D | — |
+| R-LAB-06 | 시험실 저장 분리·잔류 없음 | 회차 보호 | v0.6 | ✅ | 테스트 "별도 키", verify_lab D4·H1·H2 | — |
+| R-LAB-07 | 봇 3정책 문서화 | 정책 비교 도구 | v0.6 | ✅ | bot.js POLICIES.doc, 테스트 "봇 정책 3종" | 사람 대체 아님 |
+| R-LAB-08 | 대량 시뮬레이션 A/B/C·회차 시뮬레이션 | 재현 가능한 비교 | v0.6 | ✅ | tools/lab_sim.js·lab_report.js·run_sim.js, docs/sim | 원시 결과 gz 보관 |
+| R-LAB-09 | 지역 배치안·난이도 후보 데이터 | 기존 배치 보존 | v0.6 | ✅ | LAYOUTS·DIFFICULTY·run.layout, 테스트, verify_lab H4·I | 시험안은 기본값 아님 |
 | R-GROW-39 | 저장 v3 이행(공통 초과 시 거점 선택) | 기존 저장 보존 | 성장 | ✅ | growth.test.js, verify_growth E | — |
 | R-GROW-40 | 조우 3택 → 지역 경험치·심층 지역 보상 통합 | 성장 속도 이중화 방지 | 성장 | ✅ | main.js onEncounterEnd | — |
 | R-GROW-41 | 회차 35~45분·레벨업 20~25회 | 측정 가설 | 성장 | 🟡 | tools/growth_sim.js | 봇 12분·25회. 사람 기준 재측정 필요 |

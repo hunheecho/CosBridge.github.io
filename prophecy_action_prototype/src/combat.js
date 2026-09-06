@@ -78,7 +78,7 @@ PA.Combat = (function () {
   function summary(st) {
     const M = st.metrics, en = {};
     const avg = (a) => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length * 100) / 100 : null;
-    for (const k in M.enemies) { const m = M.enemies[k]; en[k] = { spawned: m.spawned, killed: m.killed, prepared: m.prepared, executed: m.executed, diedBeforeAttack: m.diedBeforeAttack, diedBeforeAttackRate: m.killed ? Math.round(m.diedBeforeAttack / m.killed * 1000) / 1000 : null, ttkAvg: avg(m.ttk), ttkFromHitAvg: avg(m.ttkFromHit), deathEffects: m.deathEffects }; }
+    for (const k in M.enemies) { const m = M.enemies[k], ended = m.killed + (m.exploded || 0); en[k] = { spawned: m.spawned, killed: m.killed, exploded: m.exploded || 0, prepared: m.prepared, executed: m.executed, diedBeforeAttack: m.diedBeforeAttack, diedBeforeAttackRate: ended ? Math.round(m.diedBeforeAttack / ended * 1000) / 1000 : null, ttkAvg: avg(m.ttk), ttkFromHitAvg: avg(m.ttkFromHit), deathEffects: m.deathEffects }; } // 공격 전 사망률 분모 = 처치 + 자폭(폭탄 운반체)
     const dmgTotal = Object.values(M.dmg).reduce((a, b) => a + b, 0);
     const dmg = {}; for (const k in M.dmg) dmg[k] = { amount: Math.round(M.dmg[k] * 10) / 10, share: dmgTotal ? Math.round(M.dmg[k] / dmgTotal * 1000) / 1000 : 0 };
     return {
@@ -86,7 +86,7 @@ PA.Combat = (function () {
       status: st.status, elapsed: Math.round(st.t * 100) / 100, hp: Math.round(st.player.hp), hpMax: st.player.hpMax,
       damageTaken: Math.round(st.stats.damageTaken), absorbed: Math.round(M.absorbed), kills: st.stats.kills, specialUses: st.stats.specialUses, eUses: st.stats.eUses || 0, dodges: st.stats.dodges || 0,
       taken: M.taken, takenHits: M.takenHits, enemies: en, dmg, dmgTotal: Math.round(dmgTotal), interrupts: M.interrupts, heals: M.heals, healAmount: Math.round(M.healAmount), webs: M.webs,
-      xp: st.stats.xp, levelUps: st.stats.levelUps, build: st.build.growth ? { level: st.build.growth.level, weapons: st.build.growth.weapons.map(w => w.id + ':' + w.level + (w.mods.length ? ':' + w.mods.join('+') : '')), commons: st.build.growth.commons, passives: st.build.growth.passives, e: st.build.growth.skills.e, q: st.build.growth.skills.q } : null,
+      farFrac: M.farFrac != null ? M.farFrac : null, xp: st.stats.xp, levelUps: st.stats.levelUps, build: st.build.growth ? { level: st.build.growth.level, weapons: st.build.growth.weapons.map(w => w.id + ':' + w.level + (w.mods.length ? ':' + w.mods.join('+') : '')), commons: st.build.growth.commons, passives: st.build.growth.passives, e: st.build.growth.skills.e, q: st.build.growth.skills.q } : null,
     };
   }
 
@@ -329,7 +329,7 @@ PA.Combat = (function () {
     if (st.metrics) { const m = metricsFor(st, e); m.killed++; if (!e.acted) m.diedBeforeAttack++; m.ttk.push(Math.round((st.t - e.spawnT) * 100) / 100); if (e.firstHitT != null) m.ttkFromHit.push(Math.round((st.t - e.firstHitT) * 100) / 100); }
     ev(st, 'kill', { type: e.type });
     // 경험치: 처치 원인과 무관하게 즉시, 같은 적은 1회(dead 플래그)
-    const xp = PA.Growth.xpValue(e);
+    const xp = PA.Growth.xpValue(e, st.regionId);
     if (xp > 0 && st.build.growth && !st.fixedBuild) { st.stats.xp += xp; st.xpGained += xp; const gained = PA.Growth.addXp(st.build.growth, xp); if (gained) { st.levelUps += gained; st.stats.levelUps += gained; ev(st, 'levelup', { n: gained }); text(st, st.player.x, st.player.y - 62, '레벨 업!', '#ffe066'); } }
     if (e.boss) { e.state = 'dead'; e.airborne = false; st.bossDownT = 0; ev(st, 'boss_down'); }
     if (st.build.has('saving') && inField(st, e) && st.player.special.cd > 0) {

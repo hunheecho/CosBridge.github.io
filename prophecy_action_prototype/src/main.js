@@ -330,7 +330,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     window.addEventListener('blur', () => { PA.Input.clearAll(G.input); if (G.screen === 'combat' && !G.paused && G.combat && G.combat.status === 'running') pauseCombat(true); });
     document.addEventListener('visibilitychange', () => { if (document.hidden) { PA.Input.clearAll(G.input); if (G.screen === 'combat' && !G.paused && G.combat && G.combat.status === 'running') pauseCombat(true); } });
     document.addEventListener('click', (e) => { const b = e.target.closest('[data-action]'); if (b && !b.disabled) dispatch(b.dataset.action, b.dataset.arg); });
-    document.addEventListener('change', (e) => { if (G.screen === 'lab' && e.target.dataset && e.target.dataset.lab) { readLabForm(); show('lab'); } });
+    document.addEventListener('change', (e) => { if (G.screen === 'lab' && e.target.dataset && e.target.dataset.lab) { readLabForm(); setTimeout(() => { if (G.screen === 'lab') show('lab'); }, 0); } }); // 이벤트 처리 중 DOM 교체를 피한다(포커스 요소 제거 오류 방지)
     fitCanvas();
     G.saved = PA.Run.load();
     const sc = parseScenario();
