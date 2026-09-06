@@ -5,7 +5,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   const G = {
     screen: 'title', run: null, saved: null, sortie: null, combat: null, offers: null, lastReward: null, lastStats: null, lastResult: null,
     paused: false, debug: false, overlay: null, scenario: null,
-    keys: new Set(), pressed: new Set(), acc: 0, last: 0, endTimer: 0,
+    keys: new Set(), pressed: new Set(), acc: 0, last: 0, endTimer: 0, eventCounts: {},
   };
   window.PA_G = G; // 검증용 훅(사람용 UI 아님)
 
@@ -40,9 +40,11 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   // ---------- 회차 흐름 ----------
   function saveRun() { if (G.run && !G.scenario) PA.Run.save(G.run); }
   function goBase() { if (G.run.ended) { show('bossday'); return; } saveRun(); show('base'); }
-  function newRun() { G.run = PA.Run.newRun(); G.sortie = null; saveRun(); show('base'); }
+  function leaveScenario() { if (G.scenario) { G.scenario = null; try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
+  function newRun() { leaveScenario(); G.run = PA.Run.newRun(); G.sortie = null; G.combat = null; saveRun(); show('base'); }
   function startSortie(regionId) {
     G.sortie = PA.Run.startSortie(G.run, regionId);
+    saveRun(); // 출격 비용은 지불된 상태로 저장(전투 중 종료 시 복구 기준)
     startEncounter();
   }
   function startEncounter() {
@@ -51,7 +53,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       build: PA.Run.build(run), hp: run.hp, seed: s.seed + s.encounters * 1000 + (s.deep ? 7 : 0),
       waves: PA.Run.encounterWaves(s.regionId, s.deep), objective: PA.Run.encounterObjective(s.regionId, s.deep),
     });
-    G.endTimer = 0; G.acc = 0; G.paused = false; closeOverlay();
+    G.endTimer = 0; G.acc = 0; G.paused = false; G.eventCounts = {}; closeOverlay();
     show('combat');
   }
   function onEncounterEnd() {
@@ -76,10 +78,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 동작 처리 ----------
   const actions = {
-    'continue': () => { G.run = G.saved; G.sortie = null; goBase(); },
+    'continue': () => { leaveScenario(); G.run = G.saved; G.sortie = null; G.combat = null; goBase(); },
     'newrun': () => { if (G.saved) show('newrun_confirm'); else newRun(); },
     'newrun-confirm': () => newRun(),
-    'title': () => { G.saved = PA.Run.load(); show('title'); },
+    'title': () => { leaveScenario(); G.saved = PA.Run.load(); show('title'); },
     'controls': () => openOverlay('controls'),
     'show-controls': () => openOverlay('controls'),
     'close-overlay': () => { if (G.paused) openOverlay('pause'); else closeOverlay(); },
@@ -95,9 +97,9 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'target': (id) => { PA.Run.setTarget(G.run, id); saveRun(); show('shop'); },
     'sell': (id) => { PA.Run.sell(G.run, id, 1); saveRun(); show('shop'); },
     'toggle-weapon': () => { if (G.run.gear.weapon === 'pierce') PA.Run.unequipWeapon(G.run); else PA.Run.equip(G.run, 'pierce_sword'); saveRun(); show(G.screen); },
-    'pick': (id) => { PA.Run.takeAugment(G.run, id); G.offers = null; show('after'); },
-    'skip': () => { PA.Run.skipAugment(G.run); G.offers = null; show('after'); },
-    'deep': () => { PA.Run.deepExplore(G.run, G.sortie); startEncounter(); },
+    'pick': (id) => { PA.Run.takeAugment(G.run, id); G.offers = null; saveRun(); show('after'); },
+    'skip': () => { PA.Run.skipAugment(G.run); G.offers = null; saveRun(); show('after'); },
+    'deep': () => { PA.Run.deepExplore(G.run, G.sortie); saveRun(); startEncounter(); },
     'return': () => { PA.Run.returnToBase(G.run, G.sortie); G.sortie = null; goBase(); },
     'resume': () => pauseCombat(false),
     'give-up': () => { closeOverlay(); G.paused = false; if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
@@ -165,6 +167,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
         G.acc -= STEP;
       }
       if (guard >= 12) G.acc = 0;
+      for (const e of G.combat.events) G.eventCounts[e.name] = (G.eventCounts[e.name] || 0) + 1;
       for (const e of G.combat.events) PA.Audio.play(e.name === 'hit' ? (e.crit ? 'crit' : 'hit') : ({ kill: 'kill', hurt: 'hurt', lock: 'lock', dodge: 'dodge', perfect: 'perfect', special: 'special', chest: 'chest', win: 'win', lose: 'lose', wave: 'wave', shoot: 'shoot', spore: 'spore', explode: 'explode', shatter: 'shatter', burst: 'burst', bite: 'bite', swing: 'swing' }[e.name] || null));
       G.combat.events.length = 0;
       if (G.combat.status !== 'running') { G.endTimer += dt; if (G.endTimer >= 1.3) onEncounterEnd(); }

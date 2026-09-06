@@ -22,6 +22,14 @@
 ## 한 바퀴
 거점(시간·보스·목표 장비 확인) → 지역 선택(비용·위험·보상) → 실시간 전투 → 보상·증강 선택 → 더 깊이/귀환 → 상점·대장간에서 구매·제작·장착 → 다시 출격 → 하루 종료 → … → 7일차 보스 도래(보스전은 미구현, 정직하게 표시).
 
+## 조합 바로 시험하기
+| 조합 | 주소 |
+|---|---|
+| ① 감속장 + 회전 검격 | `index.html?scenario=forest&seed=11&aug=spin,wide` → 늑대가 모이면 Q |
+| ② 관통검 + 얼음 파편 | `index.html?scenario=forest&seed=11&weapon=pierce&aug=frost` |
+| ③ 잔불 걸음 + 불꽃 파열 | `index.html?scenario=forest&seed=11&aug=ember,flare` → Space로 불길을 남기고 그 위로 늑대를 유도 |
+| 시간 저축 + 정지된 칼날 | `index.html?scenario=den&seed=5&aug=saving,stasis,spin` |
+
 ## 시험 전투 바로 열기
 `index.html?scenario=<지역id>&seed=<숫자>&weapon=pierce&aug=spin,ember,mark:1&upgrade=2&deep=1`
 지역 id: `forest` `ridge` `marsh` `den` `deep`. 증강 id는 `src/data.js`의 AUGMENTS 참고.
@@ -31,6 +39,7 @@
 - 테스트: `node --test test/*.test.js` (Node 18+)
 - 화면 캡처: `NODE_PATH=<playwright 경로> node tools/shots.js`
 - 한 바퀴 자동 점검: `NODE_PATH=<playwright 경로> node tools/playthrough.js`
+- v0.3 검수·조합 검증(실제 입력·재실행 포함): `NODE_PATH=<playwright 경로> node tools/verify_v03.js`
 - 단일 파일 빌드: `node tools/build_single.js`
 
 ## 문서

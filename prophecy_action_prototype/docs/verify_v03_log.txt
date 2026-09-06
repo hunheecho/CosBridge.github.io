@@ -1,0 +1,17 @@
+PASS A0 출격 후 전투 화면·시간 4 — {"hours":4,"day":1,"gold":60,"augments":{}}
+PASS A1 새로고침 후 계속하기 버튼
+PASS A 전투 중 종료 → 복구 시 출격 비용 지불 상태(4시간) — screen=base hours=4
+PASS A2 일반 출격 종료 화면 — reward
+PASS A3 더 깊이 버튼
+PASS A4 심층 출격 중 종료 → 복구 시 추가 1시간도 차감됨 + 증강 선택 유지 — hours=2 augs={"saving":1}
+PASS 일시정지: 오버레이·음량 표시, 1.2초 동안 t 정지, 재개 후 진행 — t1=1.17 t2=1.17 t3=1.77
+PASS B0 시험 전투 종료 화면 — scenario_end
+PASS B1 제목에서 시험 모드 해제·URL 정리 — file:///home/user/CosBridge.github.io/prophecy_action_prototype/index.html
+PASS B2 새 회차 거점 — base
+PASS B3 새 회차의 출격이 저장됨(시험 모드 잔류로 저장 차단되지 않음) — hours=4
+PASS B4 일반 출격이 보상/패배 화면으로 감(시험 종료 화면 아님) — reward
+PASS ① 감속장 안에서 회전 검격 발생 — spin-in-field frames=1, max enemies in field=2
+PASS ② 관통으로 동시 냉기 2마리 이상 + 냉기 처치 파편 발생 — max chilled=2, shatter events=9
+PASS ③ 회피 사용 → 불길 → 불길 위 처치 폭발 발생 — explode=4, dodges=5
+PASS 시간 저축: 감속장 안 처치로 재사용 감소 이벤트(UI 경로) + 흔적 축적 관측 — saving events=2, savingKills=2, max stasis=1, perfect=0
+PASS 페이지 오류 없음

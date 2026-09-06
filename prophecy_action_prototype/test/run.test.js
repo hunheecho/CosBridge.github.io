@@ -132,3 +132,34 @@ test('시드가 같으면 전투가 동일하게 재현된다', () => {
   const play = () => { const st = PA.Combat.create({ build: R.build(run), seed: 42, waves: PA.REGIONS[1].waves, objective: 'clear' }); for (let i = 0; i < 120 * 30; i++) PA.Combat.step(st, { mx: i % 240 < 120 ? 1 : -1, my: 0, dodge: i % 90 === 0 }, PA.CONFIG.STEP); return [st.player.hp, st.stats.kills, st.stats.attacks, st.status]; };
   assert.deepEqual(j(play()), j(play()));
 });
+
+test('증강 미리보기 문구의 수치가 실제 파생값과 일치한다(넓은 검격 1→2단계 등)', () => {
+  const run = R.newRun(1); run.augments.wide = 1;
+  const wide = PA.AUGMENTS.find(a => a.id === 'wide');
+  const txt = PA.Build.connectionText(run, wide);
+  const actual = Math.round(PA.Build.preview(run, { augment: 'wide' }).range);
+  assert.ok(txt.includes(`${Math.round(R.build(run).range)} → ${actual}`), txt);
+  assert.equal(actual, 143);
+  run.gear.weapon = 'pierce';
+  const t2 = PA.Build.connectionText(run, wide); assert.ok(t2.includes('관통검') && t2.includes(String(Math.round(PA.Build.preview(run, { augment: 'wide' }).range))), t2);
+  const sharp = PA.AUGMENTS.find(a => a.id === 'sharp'); run.augments.sharp = 2;
+  const t3 = PA.Build.connectionText(run, sharp); assert.ok(t3.includes(`→ ${PA.fmt.num(PA.Build.preview(run, { augment: 'sharp' }).damage)}`), t3);
+  // 보유하지 않은 효과와 연결된 것처럼 말하지 않는다
+  const frost = PA.AUGMENTS.find(a => a.id === 'frost'); run.gear.weapon = 'sword'; run.augments = {};
+  assert.ok(!PA.Build.connectionText(run, frost).startsWith('관통검:'));
+});
+
+test('기존 저장의 시간 저축(saving)이 새 규칙으로 이어진다', () => {
+  const st = fakeStorage();
+  const old = R.newRun(1); old.augments.saving = 1; old.day = 2;
+  st.setItem(R.SAVE_KEY, JSON.stringify(old));
+  const back = R.load(st);
+  const b = R.build(back);
+  assert.equal(b.has('saving'), true);
+  assert.equal(PA.AUGMENTS.find(a => a.id === 'saving').desc.includes('처치'), true);
+  const c = PA.Combat.create({ build: b, seed: 1, waves: [], objective: 'none' }); c.waveIndex = 99;
+  PA.Combat.step(c, { special: true }, PA.CONFIG.STEP); const cd = c.player.special.cd;
+  const e = PA.Combat.spawnEnemy(c, 'wolf', c.player.x + 30, c.player.y); e.hp = 1; PA.Combat.damageEnemy(c, e, 5, {});
+  assert.ok(Math.abs(c.player.special.cd - (cd - 1)) < 1e-9);
+});
+

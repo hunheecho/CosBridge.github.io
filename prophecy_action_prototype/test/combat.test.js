@@ -28,17 +28,53 @@ test('피격 보호 0.6초 동안은 추가 피해가 없고, 지나면 다시 �
   assert.equal(p.hp, 76, '0.7초 뒤에는 다시 피해');
 });
 
-test('회피 중에는 무적이며 아슬아슬한 회피로 기록된다. 시간 저축은 감속장 재사용을 4초 줄인다', () => {
+test('회피 중에는 무적이다. 아슬아슬한 회피는 통계일 뿐 감속장 재사용을 줄이지 않는다', () => {
   const { st } = combat(PA, { augments: { saving: 1 } });
   const p = st.player;
   p.special.cd = 10;
-  PA.Combat.step(st, { dodge: true, mx: 0, my: 1 }, PA.CONFIG.STEP); // 아래로 회피
+  PA.Combat.step(st, { dodge: true, mx: 0, my: 1 }, PA.CONFIG.STEP);
   assert.equal(p.dodge.active, true);
   wolfDashAt(st, p.x - 31, p.y, 0);
   PA.Combat.step(st, {}, PA.CONFIG.STEP);
   assert.equal(p.hp, P.hp);
   assert.equal(st.stats.perfectDodges, 1);
-  assert.ok(Math.abs(p.special.cd - 6) < 0.02, `감속장 재사용 ${p.special.cd}`);
+  assert.ok(Math.abs(p.special.cd - (10 - 2 * PA.CONFIG.STEP)) < 1e-9, `회피로 재사용이 줄면 안 됨: ${p.special.cd}`);
+});
+
+test('시간 저축: 감속장 안 처치마다 정확히 1초, 밖 처치는 무효, 0 미만 불가, 자동 발동 없음', () => {
+  const { st } = combat(PA, { augments: { saving: 1 } });
+  const p = st.player;
+  PA.Combat.step(st, { special: true }, PA.CONFIG.STEP);
+  assert.ok(st.field); const cd0 = p.special.cd; assert.ok(cd0 > 10);
+  const inside = PA.Combat.spawnEnemy(st, 'wolf', p.x + 40, p.y); inside.hp = 1;
+  const outside = PA.Combat.spawnEnemy(st, 'wolf', p.x + 400, p.y); outside.hp = 1;
+  PA.Combat.damageEnemy(st, outside, 5, {});
+  assert.equal(outside.dead, true); assert.equal(p.special.cd, cd0, '감속장 밖 처치는 무효');
+  PA.Combat.damageEnemy(st, inside, 5, {});
+  assert.equal(inside.dead, true); assert.ok(Math.abs(p.special.cd - (cd0 - 1)) < 1e-9, '안 처치 -1초');
+  PA.Combat.damageEnemy(st, inside, 5, {}); // 같은 적 두 번 죽이기 시도
+  assert.ok(Math.abs(p.special.cd - (cd0 - 1)) < 1e-9, '같은 적으로 중복 발동 없음');
+  assert.equal(st.stats.savingKills, 1);
+  // 0 미만 불가
+  p.special.cd = 0.4; const e3 = PA.Combat.spawnEnemy(st, 'wolf', p.x - 40, p.y); e3.hp = 1; PA.Combat.damageEnemy(st, e3, 5, {});
+  assert.equal(p.special.cd, 0);
+  // 준비돼도 입력 없이는 재시전되지 않는다(필드는 하나뿐, 만료 후 null)
+  steps(PA, st, 3.5, {});
+  assert.equal(st.field, null); assert.equal(p.special.cd, 0);
+});
+
+test('감속장 활성 중 재시전 시 이전 감속장의 정지된 칼날 폭발이 누락되지 않는다', () => {
+  const { st } = combat(PA, { augments: { stasis: 1, saving: 1 } });
+  const p = st.player;
+  const e = PA.Combat.spawnEnemy(st, 'wolf', p.x + 50, p.y); e.state = 'recover'; e.def = Object.assign({}, e.def, { recover: 999 }); e.hp = 1e6;
+  PA.Combat.step(st, { special: true }, PA.CONFIG.STEP);
+  steps(PA, st, 1.2);
+  assert.ok(e.stasis >= 2);
+  const stacks = e.stasis, hp0 = e.hp; p.special.cd = 0; // 재사용이 감소로 0이 된 상황
+  PA.Combat.step(st, { special: true }, PA.CONFIG.STEP);
+  assert.ok(st.field && st.field.ttl > 2.9, '새 감속장');
+  assert.equal(e.stasis, 0, '이전 흔적은 터졌다');
+  assert.ok(hp0 - e.hp >= stacks * 10 * 1.5 - 1e-6, '폭발 피해 적용');
 });
 
 test('회피 거리와 재사용 시간이 dt 크기와 무관하다', () => {
@@ -187,9 +223,12 @@ test('파열 방벽: 보호막이 먼저 깎이고 파괴 시 주변 적을 밀�
   const e = PA.Combat.spawnEnemy(st, 'wolf', p.x + 60, p.y); e.state = 'recover'; e.def = Object.assign({}, e.def, { recover: 999 });
   PA.Combat.damagePlayer(st, 12, 'test');
   assert.equal(p.shield, 18); assert.equal(p.hp, 100);
+  const dasher = PA.Combat.spawnEnemy(st, 'wolf', p.x - 60, p.y); dasher.state = 'dash'; dasher.dir = 0; dasher.stateT = 0;
   p.hitProt = 0; PA.Combat.damagePlayer(st, 30, 'test');
   assert.equal(p.shield, 0); assert.equal(p.hp, 88);
   assert.ok(e.vx > 0, '넉백');
+  assert.equal(dasher.state, 'recover', '돌진 중단'); assert.ok(dasher.vx < 0, '돌진 중인 적도 밀쳐냄');
+  const dx0 = dasher.x; steps(PA, st, 0.3); assert.ok(dasher.x < dx0 - 5, '실제로 밀려남');
 });
 
 test('정지된 칼날: 감속장 안에서 맞은 적에 흔적이 쌓이고 감속장 종료 시 폭발한다. 감속장 안의 적은 40% 속도', () => {
@@ -257,3 +296,44 @@ test('일시정지·선택 화면: step을 호출하지 않으면 상태가 변�
   assert.equal(snap, JSON.stringify({ p: st.player, e: st.enemies.map(e => [e.x, e.y, e.state]) }));
   assert.equal(st.t, 0);
 });
+
+test('조합 ①: 감속장 안의 적을 회전 검격이 한 번에 처리한다(느려진 적, 회전 효과)', () => {
+  const { st } = combat(PA, { augments: { spin: 1 } });
+  const p = st.player;
+  const es = [[60, 0], [-60, 10], [0, 70], [0, -70]].map(([dx, dy]) => { const e = PA.Combat.spawnEnemy(st, 'wolf', p.x + dx, p.y + dy); e.state = 'recover'; e.def = Object.assign({}, e.def, { recover: 999 }); e.hp = 1e6; return e; });
+  const pins = es.map(e => [e, e.x, e.y]);
+  PA.Combat.step(st, { special: true }, PA.CONFIG.STEP);
+  assert.ok(es.every(e => PA.Combat.inField(st, e)));
+  steps(PA, st, 0.2 + st.build.interval * 2 + 0.1, {}, null, pins);
+  assert.equal(st.stats.attacks, 3);
+  assert.ok(st.effects.some(f => f.kind === 'spin'));
+  assert.ok(es.every(e => e.hp < 1e6), '회전 검격이 감속장 안 4방향 적을 모두 타격');
+});
+
+test('조합 ②: 관통검이 한 줄의 적 모두에게 냉기를 묻히고, 냉기 처치가 파편 연쇄를 만든다', () => {
+  const { st } = combat(PA, { gear: { weapon: 'pierce' }, augments: { frost: 1 } });
+  const p = st.player;
+  const es = [50, 110, 170].map(d => { const e = PA.Combat.spawnEnemy(st, 'wolf', p.x + d, p.y); e.state = 'recover'; e.def = Object.assign({}, e.def, { recover: 999 }); e.hp = 1e6; return e; });
+  steps(PA, st, 0.3, {}, null, es.map(e => [e, e.x, e.y]));
+  assert.ok(es.every(e => e.chill > 0), '관통 한 번에 3마리 모두 냉기');
+  es[0].hp = 1; steps(PA, st, st.build.interval, {}, null, es.slice(1).map(e => [e, e.x, e.y]));
+  assert.equal(es[0].dead, true);
+  const shards = st.projectiles.filter(x => x.kind === 'shard').length; assert.equal(shards, 6);
+  es[1].hp = 1; // 파편이 냉기 상태의 이웃을 죽이면 다시 파편
+  steps(PA, st, 0.2, {}, null, es.slice(1).map(e => [e, e.x, e.y]));
+  assert.equal(es[1].dead, true, '파편에 처치');
+  assert.ok(st.stats.kills >= 2 && st.effects.some(f => f.kind === 'text' && f.text === '파편!'), '연쇄 파편 발생');
+});
+
+test('조합 ③: 잔불 걸음 불길 위 처치 → 불꽃 파열 (회피 판정 성공과 무관하게 회피 사용만으로 불길)', () => {
+  const { st } = combat(PA, { augments: { ember: 1, flare: 1 } });
+  const p = st.player;
+  PA.Combat.step(st, { dodge: true, mx: 1, my: 0 }, PA.CONFIG.STEP); steps(PA, st, 0.3);
+  const fires = st.zones.filter(z => z.type === 'fire'); assert.equal(fires.length, 3);
+  const z = fires[2];
+  const victim = PA.Combat.spawnEnemy(st, 'wolf', z.x, z.y); victim.hp = 1;
+  const near = PA.Combat.spawnEnemy(st, 'wolf', z.x + 50, z.y); near.hp = 1e6; near.state = 'recover'; near.def = Object.assign({}, near.def, { recover: 999 });
+  PA.Combat.damageEnemy(st, victim, 5, {});
+  assert.ok(near.hp < 1e6, '폭발 피해'); assert.ok(st.effects.some(f => f.kind === 'flare'));
+});
+

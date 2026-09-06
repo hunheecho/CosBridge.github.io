@@ -156,7 +156,7 @@ PA.Screens = (function () {
     return `<div class="screen"><h2>조우 승리</h2>
       <div class="card"><div class="card-title">보상 (귀환 시 거점에 반영)</div>
         <p>금화 <b class="gold">+${rw.gold}</b>${rw.chestGold ? ` (보급 상자 +${rw.chestGold} 포함)` : ''}${matText ? ` · ${matText}` : ''}</p>
-        <p class="dim small">처치 ${G.lastStats.kills} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · 아슬아슬한 회피 ${G.lastStats.perfectDodges} · ${Math.round(G.lastStats.elapsed)}초</p></div>
+        <p class="dim small">처치 ${G.lastStats.kills}${G.lastStats.savingKills ? ` (감속장 안 ${G.lastStats.savingKills})` : ''} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · ${Math.round(G.lastStats.elapsed)}초</p></div>
       <h3>증강 선택 (회차 동안 유지)</h3>
       <div class="grid3">${cards.length ? cards : '<p class="dim">제시할 수 있는 증강이 없습니다.</p>'}</div>
       <div class="row"><button data-action="skip">건너뛰기 (금화 +${PA.CONFIG.SKIP_AUGMENT_GOLD})</button></div></div>`;
@@ -197,7 +197,7 @@ PA.Screens = (function () {
   function scenarioEnd(G) {
     const s = G.lastStats;
     return `<div class="screen center"><h2>시험 전투 종료: ${G.lastResult === 'won' ? '승리' : '패배'}</h2>
-      <p class="dim">처치 ${s.kills} · 받은 피해 ${Math.round(s.damageTaken)} · 아슬아슬한 회피 ${s.perfectDodges} · 공격 ${s.attacks}회 · ${Math.round(s.elapsed)}초</p>
+      <p class="dim">처치 ${s.kills}${s.savingKills ? ` (감속장 안 ${s.savingKills})` : ''} · 받은 피해 ${Math.round(s.damageTaken)} · 공격 ${s.attacks}회 · ${Math.round(s.elapsed)}초</p>
       <div class="row"><button class="primary" data-action="scenario-again">같은 시드로 다시</button><button data-action="title">제목으로</button></div></div>`;
   }
   function controls() {

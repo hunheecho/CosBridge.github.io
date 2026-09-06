@@ -58,23 +58,26 @@ PA.Build = {
     return true;
   },
 
-  // 증강이 현재 빌드에서 갖는 연결 설명 (선택 화면용)
+  // 증강이 현재 빌드에서 갖는 연결 설명 (선택 화면용). 모든 수치는 실제 파생 계산(preview)에서 온다.
   connectionText(run, def) {
-    const b = PA.Build.derive(run);
-    const lv = (run.augments || {})[def.id] || 0;
+    const b = PA.Build.derive(run), nb = PA.Build.preview(run, { augment: def.id });
+    const lv = (run.augments || {})[def.id] || 0, has = (id) => b.has(id), pierce = b.weaponId === 'pierce';
     const parts = [];
-    if (def.id === 'wide') parts.push(b.weaponId === 'pierce' ? `관통 길이 ${Math.round(b.range)} → ${Math.round(b.range * 1.25)}` : `검격 반지름 ${Math.round(b.range)} → ${Math.round(b.range * 1.25)}`);
-    if (def.id === 'sharp') { const nb = PA.Build.preview(run, { augment: 'sharp' }); parts.push(`피해 ${PA.fmt.num(b.damage)} → ${PA.fmt.num(nb.damage)} · 늑대 ${PA.Build.hitsToKill(b, 'wolf')}타 → ${PA.Build.hitsToKill(nb, 'wolf')}타`); }
-    if (def.id === 'quick') parts.push(`공격 주기 ${PA.fmt.num(b.interval)}초 → ${PA.fmt.num(b.interval * 0.85)}초`);
-    if (def.id === 'spin') parts.push(b.weaponId === 'pierce' ? '관통검과 함께: 3번째 공격만 회전' : '기본검과 함께: 3번째 검격이 회전');
-    if (def.id === 'frost') parts.push(b.has('spin') ? '회전 검격으로 다수 냉기 부여 가능' : '검격 적중마다 냉기');
-    if (def.id === 'ember') parts.push(b.has('flare') ? '불꽃 파열의 전제' : '회피 = 공격 기회. 이후 "불꽃 파열" 결합이 열림');
-    if (def.id === 'flare') parts.push('잔불 걸음 보유 → 연결됨');
-    if (def.id === 'stasis') parts.push('감속장(Q) 보유 → 연결됨');
-    if (def.id === 'saving') parts.push('감속장(Q) 재사용 ' + PA.fmt.num(b.specialCd) + '초. 회피 성공마다 -4초');
-    if (def.id === 'mark') parts.push('자동 공격 우선순위가 바뀝니다');
-    if (def.id === 'echo') parts.push(b.weaponId === 'pierce' ? '관통 검격 반복' : '검격 반복');
-    if (def.id === 'barrier') parts.push('체력과 별도의 보호막 게이지');
+    const wname = pierce ? '관통검' : '기본검';
+    switch (def.id) {
+      case 'wide': parts.push(pierce ? `현재 관통검의 길이 ${Math.round(b.range)} → ${Math.round(nb.range)}` : `현재 검격 반지름 ${Math.round(b.range)} → ${Math.round(nb.range)}`); if (has('spin')) parts.push(`회전 검격 반지름 ${Math.round(PA.CONFIG.SPIN.radius * b.rangeMult)} → ${Math.round(PA.CONFIG.SPIN.radius * nb.rangeMult)}`); break;
+      case 'sharp': parts.push(`피해 ${PA.fmt.num(b.damage)} → ${PA.fmt.num(nb.damage)} · 늑대 ${PA.Build.hitsToKill(b, 'wolf')}타 → ${PA.Build.hitsToKill(nb, 'wolf')}타`); break;
+      case 'quick': parts.push(`공격 주기 ${PA.fmt.num(b.interval)}초 → ${PA.fmt.num(nb.interval)}초`); if (has('spin')) parts.push('회전 검격도 더 자주'); break;
+      case 'spin': parts.push(`${wname}의 3번째 공격이 반지름 ${Math.round(PA.CONFIG.SPIN.radius * b.rangeMult)} 회전 검격이 됩니다`); parts.push('감속장(Q) 안에 모인 적을 한 번에 쓸어내는 조합'); if (has('frost')) parts.push('회전으로 여러 적에게 냉기'); if (has('stasis')) parts.push('회전 검격도 흔적을 쌓습니다'); break;
+      case 'ember': parts.push('회피(Space)할 때마다 경로에 불길 3개 (판정 성공과 무관)'); parts.push(has('flare') ? '불꽃 파열이 연결됩니다' : '이후 "불꽃 파열"이 제시됩니다'); break;
+      case 'frost': parts.push(pierce ? '관통검: 한 줄의 적 모두에게 냉기' : '검격 적중마다 냉기 (관통검을 만들면 한 줄 전체)'); if (has('spin')) parts.push('회전 검격으로 주변 전체 냉기'); parts.push('냉기 상태 처치 시 파편 6개가 다른 적을 때려 연쇄'); break;
+      case 'mark': parts.push('자동 공격 우선순위: 정예 > 궁수 > 포자 > 늑대. 표식 대상 피해 +30%'); break;
+      case 'echo': parts.push(pierce ? '4번째 관통 검격이 0.2초 뒤 반복' : '4번째 검격이 0.2초 뒤 반복'); if (has('spin')) parts.push('회전 검격이 4번째라면 회전이 반복'); break;
+      case 'barrier': parts.push('조우 시작 보호막 30 (체력과 별도). 파괴 시 돌진 중인 늑대도 밀쳐냅니다'); break;
+      case 'stasis': parts.push(`감속장(Q) 안에서 ${wname}${has('spin') ? '·회전' : ''} 적중마다 흔적 (최대 5). 종료 시 흔적×${Math.round(PA.CONFIG.STASIS.damagePerStack * b.damageMult)} 피해`); break;
+      case 'flare': parts.push(has('ember') ? '잔불 걸음의 불길 위에서 처치하면 반지름 80 폭발 ' + Math.round(PA.CONFIG.FLARE.damage * b.damageMult) + ' 피해' : '잔불 걸음이 필요합니다'); break;
+      case 'saving': parts.push(`감속장(Q) 재사용 ${PA.fmt.num(b.specialCd)}초. 감속장 안 처치 1마리당 -${PA.CONFIG.SAVING.cdPerKill}초`); if (has('spin')) parts.push('회전 검격으로 감속장 안 다수 처치 시 크게 단축'); break;
+    }
     if (lv > 0) parts.unshift(`현재 ${lv}단계 → ${lv + 1}단계`);
     return parts.join(' · ');
   },

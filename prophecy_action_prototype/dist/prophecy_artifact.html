@@ -70,7 +70,7 @@ input[type=range] { width: 160px; vertical-align: middle; }
 var PA = (typeof PA !== 'undefined') ? PA : {};
 if (typeof globalThis !== 'undefined') globalThis.PA = PA;
 
-PA.VERSION = '0.2.0';
+PA.VERSION = '0.3.0';
 
 // mulberry32: 시드 기반 결정적 난수
 PA.rng = {
@@ -173,7 +173,7 @@ PA.CONFIG = {
   BARRIER: { shield: 30, knockRadius: 120, knock: 140 },
   STASIS: { maxStacks: 5, damagePerStack: 10 },
   FLARE: { radius: 80, damage: 20 },
-  SAVING: { cdReduce: 4 },
+  SAVING: { cdPerKill: 1 },   // 감속장 안 처치 1마리당 재사용 -1초 (임시값)
   CHEST: { gold: [15, 25], wave: 1, r: 16 },
   WAVE_DELAY: 1.2,
   SPAWN_WARN: 0.6,
@@ -215,7 +215,7 @@ PA.AUGMENTS = [
   { id: 'barrier', name: '파열 방벽',   kind: '방어',     max: 1, desc: '조우 시작 시 보호막 30. 파괴 시 주변 넉백', long: '보호막이 깨지는 순간 주변 적을 밀쳐 탈출 기회를 만듭니다.' },
   { id: 'stasis',  name: '정지된 칼날', kind: '결합',     max: 1, requires: [], connect: '감속장 + 검격', desc: '감속장 안의 적을 치면 흔적이 쌓이고, 감속장 종료 시 폭발', long: '감속장 안에서 검격에 맞은 적은 흔적(최대 5)을 얻습니다. 감속장이 끝나면 흔적×10 피해로 터집니다.' },
   { id: 'flare',   name: '불꽃 파열',   kind: '결합',     max: 1, requires: ['ember'], connect: '잔불 걸음 + 처치', desc: '불길 위에서 적 처치 시 폭발', long: '불길 위에 서 있던 적이 죽으면 반지름 80 안의 적에게 20 피해. 잔불 걸음이 있어야 제시됩니다.' },
-  { id: 'saving',  name: '시간 저축',   kind: '조건부',   max: 1, desc: '아슬아슬한 회피마다 감속장 재사용 -4초', long: '회피 무적 중에 적의 공격이 실제로 닿았다면 "회피!"와 함께 감속장이 4초 빨리 돌아옵니다.' },
+  { id: 'saving',  name: '시간 저축',   kind: '결합',     max: 1, connect: '감속장 + 처치', desc: '감속장 안의 적을 처치할 때마다 감속장 재사용 -1초', long: '감속 효과를 받고 있는 적이 죽으면 감속장 재사용 시간이 1초 줄어듭니다(적 1마리당 1회). 감속장 안에서 많이 잡을수록 다음 감속장이 빨리 옵니다.' },
 ];
 
 PA.MATERIALS = {
@@ -325,23 +325,26 @@ PA.Build = {
     return true;
   },
 
-  // 증강이 현재 빌드에서 갖는 연결 설명 (선택 화면용)
+  // 증강이 현재 빌드에서 갖는 연결 설명 (선택 화면용). 모든 수치는 실제 파생 계산(preview)에서 온다.
   connectionText(run, def) {
-    const b = PA.Build.derive(run);
-    const lv = (run.augments || {})[def.id] || 0;
+    const b = PA.Build.derive(run), nb = PA.Build.preview(run, { augment: def.id });
+    const lv = (run.augments || {})[def.id] || 0, has = (id) => b.has(id), pierce = b.weaponId === 'pierce';
     const parts = [];
-    if (def.id === 'wide') parts.push(b.weaponId === 'pierce' ? `관통 길이 ${Math.round(b.range)} → ${Math.round(b.range * 1.25)}` : `검격 반지름 ${Math.round(b.range)} → ${Math.round(b.range * 1.25)}`);
-    if (def.id === 'sharp') { const nb = PA.Build.preview(run, { augment: 'sharp' }); parts.push(`피해 ${PA.fmt.num(b.damage)} → ${PA.fmt.num(nb.damage)} · 늑대 ${PA.Build.hitsToKill(b, 'wolf')}타 → ${PA.Build.hitsToKill(nb, 'wolf')}타`); }
-    if (def.id === 'quick') parts.push(`공격 주기 ${PA.fmt.num(b.interval)}초 → ${PA.fmt.num(b.interval * 0.85)}초`);
-    if (def.id === 'spin') parts.push(b.weaponId === 'pierce' ? '관통검과 함께: 3번째 공격만 회전' : '기본검과 함께: 3번째 검격이 회전');
-    if (def.id === 'frost') parts.push(b.has('spin') ? '회전 검격으로 다수 냉기 부여 가능' : '검격 적중마다 냉기');
-    if (def.id === 'ember') parts.push(b.has('flare') ? '불꽃 파열의 전제' : '회피 = 공격 기회. 이후 "불꽃 파열" 결합이 열림');
-    if (def.id === 'flare') parts.push('잔불 걸음 보유 → 연결됨');
-    if (def.id === 'stasis') parts.push('감속장(Q) 보유 → 연결됨');
-    if (def.id === 'saving') parts.push('감속장(Q) 재사용 ' + PA.fmt.num(b.specialCd) + '초. 회피 성공마다 -4초');
-    if (def.id === 'mark') parts.push('자동 공격 우선순위가 바뀝니다');
-    if (def.id === 'echo') parts.push(b.weaponId === 'pierce' ? '관통 검격 반복' : '검격 반복');
-    if (def.id === 'barrier') parts.push('체력과 별도의 보호막 게이지');
+    const wname = pierce ? '관통검' : '기본검';
+    switch (def.id) {
+      case 'wide': parts.push(pierce ? `현재 관통검의 길이 ${Math.round(b.range)} → ${Math.round(nb.range)}` : `현재 검격 반지름 ${Math.round(b.range)} → ${Math.round(nb.range)}`); if (has('spin')) parts.push(`회전 검격 반지름 ${Math.round(PA.CONFIG.SPIN.radius * b.rangeMult)} → ${Math.round(PA.CONFIG.SPIN.radius * nb.rangeMult)}`); break;
+      case 'sharp': parts.push(`피해 ${PA.fmt.num(b.damage)} → ${PA.fmt.num(nb.damage)} · 늑대 ${PA.Build.hitsToKill(b, 'wolf')}타 → ${PA.Build.hitsToKill(nb, 'wolf')}타`); break;
+      case 'quick': parts.push(`공격 주기 ${PA.fmt.num(b.interval)}초 → ${PA.fmt.num(nb.interval)}초`); if (has('spin')) parts.push('회전 검격도 더 자주'); break;
+      case 'spin': parts.push(`${wname}의 3번째 공격이 반지름 ${Math.round(PA.CONFIG.SPIN.radius * b.rangeMult)} 회전 검격이 됩니다`); parts.push('감속장(Q) 안에 모인 적을 한 번에 쓸어내는 조합'); if (has('frost')) parts.push('회전으로 여러 적에게 냉기'); if (has('stasis')) parts.push('회전 검격도 흔적을 쌓습니다'); break;
+      case 'ember': parts.push('회피(Space)할 때마다 경로에 불길 3개 (판정 성공과 무관)'); parts.push(has('flare') ? '불꽃 파열이 연결됩니다' : '이후 "불꽃 파열"이 제시됩니다'); break;
+      case 'frost': parts.push(pierce ? '관통검: 한 줄의 적 모두에게 냉기' : '검격 적중마다 냉기 (관통검을 만들면 한 줄 전체)'); if (has('spin')) parts.push('회전 검격으로 주변 전체 냉기'); parts.push('냉기 상태 처치 시 파편 6개가 다른 적을 때려 연쇄'); break;
+      case 'mark': parts.push('자동 공격 우선순위: 정예 > 궁수 > 포자 > 늑대. 표식 대상 피해 +30%'); break;
+      case 'echo': parts.push(pierce ? '4번째 관통 검격이 0.2초 뒤 반복' : '4번째 검격이 0.2초 뒤 반복'); if (has('spin')) parts.push('회전 검격이 4번째라면 회전이 반복'); break;
+      case 'barrier': parts.push('조우 시작 보호막 30 (체력과 별도). 파괴 시 돌진 중인 늑대도 밀쳐냅니다'); break;
+      case 'stasis': parts.push(`감속장(Q) 안에서 ${wname}${has('spin') ? '·회전' : ''} 적중마다 흔적 (최대 5). 종료 시 흔적×${Math.round(PA.CONFIG.STASIS.damagePerStack * b.damageMult)} 피해`); break;
+      case 'flare': parts.push(has('ember') ? '잔불 걸음의 불길 위에서 처치하면 반지름 80 폭발 ' + Math.round(PA.CONFIG.FLARE.damage * b.damageMult) + ' 피해' : '잔불 걸음이 필요합니다'); break;
+      case 'saving': parts.push(`감속장(Q) 재사용 ${PA.fmt.num(b.specialCd)}초. 감속장 안 처치 1마리당 -${PA.CONFIG.SAVING.cdPerKill}초`); if (has('spin')) parts.push('회전 검격으로 감속장 안 다수 처치 시 크게 단축'); break;
+    }
     if (lv > 0) parts.unshift(`현재 ${lv}단계 → ${lv + 1}단계`);
     return parts.join(' · ');
   },
@@ -446,10 +449,9 @@ PA.Combat = (function () {
     const p = st.player;
     if (p.dead || st.status !== 'running') return false;
     if (p.dodge.active) { // 아슬아슬한 회피
-      st.stats.perfectDodges++;
+      st.stats.perfectDodges++; // 내부 통계(성장 보상과 연결하지 않는다)
       text(st, p.x, p.y - 30, '회피!', '#7ef2ff');
       ev(st, 'perfect');
-      if (st.build.has('saving')) { p.special.cd = Math.max(0, p.special.cd - C().SAVING.cdReduce); text(st, p.x, p.y - 48, '감속장 -4초', '#a9d8ff'); }
       return false;
     }
     if (p.hitProt > 0) return false;
@@ -482,7 +484,7 @@ PA.Combat = (function () {
     for (const e of st.enemies) {
       if (e.dead) continue;
       const d = m().dist(e, p);
-      if (d <= cfg.knockRadius) { const n = m().norm(e.x - p.x, e.y - p.y); knockEnemy(e, n, cfg.knock); e.state === 'dash' && (e.state = 'recover', e.stateT = 0); }
+      if (d <= cfg.knockRadius) { const n = m().norm(e.x - p.x, e.y - p.y); if (e.state === 'dash' || e.state === 'lock' || e.state === 'crouch') { e.state = 'recover'; e.stateT = 0; e.biteT = 0; } knockEnemy(e, n, cfg.knock); }
     }
     fx(st, { kind: 'burst', x: p.x, y: p.y, r: cfg.knockRadius, ttl: 0.35, t: 0, color: '#7ef2ff' });
     text(st, p.x, p.y - 44, '방벽 파열!', '#7ef2ff');
@@ -513,6 +515,12 @@ PA.Combat = (function () {
   function killEnemy(st, e, opt) {
     e.dead = true; e.deathT = 0; st.stats.kills++;
     ev(st, 'kill', { type: e.type });
+    if (st.build.has('saving') && inField(st, e) && st.player.special.cd > 0) {
+      st.player.special.cd = Math.max(0, st.player.special.cd - C().SAVING.cdPerKill);
+      st.stats.savingKills = (st.stats.savingKills || 0) + 1;
+      text(st, e.x, e.y - e.r - 22, '감속장 -' + C().SAVING.cdPerKill + '초', '#a9d8ff');
+      ev(st, 'saving');
+    }
     fx(st, { kind: 'death', x: e.x, y: e.y, r: e.r, ttl: 0.4, t: 0, color: e.def.color });
     if (e.type === 'spore') addZone(st, 'spore', e.x, e.y, e.def.deathCloudR, e.def.deathCloudTtl, e.def.cloudDamage);
     if (st.build.has('frost') && e.chill > 0) {
@@ -526,7 +534,7 @@ PA.Combat = (function () {
     }
     if (st.build.has('flare') && st.zones.some(z => z.type === 'fire' && m().dist(z, e) <= z.r + e.r)) {
       const F = C().FLARE;
-      fx(st, { kind: 'burst', x: e.x, y: e.y, r: F.radius, ttl: 0.3, t: 0, color: '#ff9f43' });
+      fx(st, { kind: 'flare', x: e.x, y: e.y, r: F.radius, ttl: 0.35, t: 0 });
       for (const o of st.enemies) if (!o.dead && o !== e && m().dist(o, e) <= F.radius + o.r) damageEnemy(st, o, F.damage * st.build.damageMult, { dir: m().norm(o.x - e.x, o.y - e.y), knock: 40 });
       text(st, e.x, e.y - 34, '불꽃 파열!', '#ff9f43');
       ev(st, 'explode');
@@ -616,6 +624,7 @@ PA.Combat = (function () {
       p.x += mv.x * cfg.speed * dt; p.y += mv.y * cfg.speed * dt;
     }
     if (input.special && p.special.cd <= 0) {
+      if (st.field) endField(st); // 활성 감속장이 있으면 먼저 정상 종료(정지된 칼날 폭발 포함)
       st.field = { x: p.x, y: p.y, r: cfg.special.radius, ttl: cfg.special.duration, maxTtl: cfg.special.duration };
       p.special.cd = b.specialCd;
       ev(st, 'special');
@@ -783,14 +792,19 @@ PA.Combat = (function () {
     st.zones = st.zones.filter(z => z.ttl > 0);
     if (st.field) {
       st.field.ttl -= dt;
-      if (st.field.ttl <= 0) {
-        if (st.build.has('stasis')) {
-          for (const e of st.enemies) if (!e.dead && e.stasis > 0) { const dmg = e.stasis * C().STASIS.damagePerStack * st.build.damageMult; fx(st, { kind: 'burst', x: e.x, y: e.y, r: 30 + e.stasis * 8, ttl: 0.3, t: 0, color: '#a9d8ff' }); e.stasis = 0; damageEnemy(st, e, dmg, {}); }
-          ev(st, 'explode');
-        }
-        st.field = null;
-      }
+      if (st.field.ttl <= 0) endField(st);
     }
+  }
+  // 감속장 종료: 정지된 칼날 흔적을 터뜨리고 필드를 제거한다
+  function endField(st) {
+    const f = st.field; if (!f) return;
+    if (st.build.has('stasis')) {
+      let total = 0;
+      for (const e of st.enemies) if (!e.dead && e.stasis > 0) { const dmg = e.stasis * C().STASIS.damagePerStack * st.build.damageMult; fx(st, { kind: 'stasisburst', x: e.x, y: e.y, r: 34 + e.stasis * 10, ttl: 0.4, t: 0 }); e.stasis = 0; total += damageEnemy(st, e, dmg, {}); }
+      if (total > 0) { text(st, f.x, f.y - f.r - 26, '정지된 칼날 폭발 ' + Math.round(total), '#cfeaff'); ev(st, 'explode'); }
+    }
+    fx(st, { kind: 'fieldend', x: f.x, y: f.y, r: f.r, ttl: 0.35, t: 0 });
+    st.field = null;
   }
   function updateChest(st, dt) {
     const p = st.player;
@@ -845,7 +859,7 @@ PA.Combat = (function () {
     checkObjective(st);
   }
 
-  return { create, step, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave };
+  return { create, step, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField };
 })();
 
 </script>
@@ -1349,7 +1363,8 @@ PA.Render = (function () {
     if (e.chill > 0) { statusIcon(ctx, ix, iy, 'chill'); ix += 16; }
     if (inField) { statusIcon(ctx, ix, iy, 'slow'); ix += 16; }
     if (st.markTarget === e) statusIcon(ctx, e.x, e.y - e.r - 44, 'mark');
-    if (e.stasis > 0) for (let i = 0; i < e.stasis; i++) { ctx.fillStyle = '#a9d8ff'; ctx.fillRect(e.x - 12 + i * 6, e.y + e.r + 8, 4, 6); }
+    if (e.chill > 0) { ctx.strokeStyle = 'rgba(160,230,255,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 1.4 + 3, st.t * 1.5, st.t * 1.5 + TAU); ctx.stroke(); ctx.setLineDash([]); }
+    if (e.stasis > 0) { const w = e.stasis * 7; ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(e.x - w / 2 - 2, e.y + e.r + 8, w + 4, 10); for (let i = 0; i < e.stasis; i++) { ctx.fillStyle = i === e.stasis - 1 && (Math.floor(st.t * 8) % 2) ? '#ffffff' : '#a9d8ff'; ctx.fillRect(e.x - w / 2 + i * 7, e.y + e.r + 10, 5, 6); } ctx.fillStyle = '#cfeaff'; ctx.font = `bold 10px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText('흔적 ' + e.stasis, e.x + w / 2 + 4, e.y + e.r + 17); }
     if (e.elite) { ctx.fillStyle = '#ffe066'; ctx.font = `bold 12px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('정예 · ' + e.name, e.x, e.y + e.r + 22); }
   }
 
@@ -1461,6 +1476,9 @@ PA.Render = (function () {
       if (f.kind === 'burst') { ctx.strokeStyle = f.color; ctx.globalAlpha = k; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 - k * 0.6), 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
       if (f.kind === 'death') { ctx.globalAlpha = k * 0.8; ctx.fillStyle = '#6b6f78'; for (let i = 0; i < 7; i++) { const a = i * TAU / 7 + 0.3; const dd = f.r * (0.6 + 1.8 * (1 - k)); ctx.beginPath(); ctx.arc(f.x + Math.cos(a) * dd, f.y + Math.sin(a) * dd - 10 * (1 - k), 3 * k + 1, 0, TAU); ctx.fill(); } ctx.globalAlpha = 1; }
       if (f.kind === 'spark') { ctx.globalAlpha = k; ctx.strokeStyle = f.crit ? '#ffd166' : '#ffffff'; ctx.lineWidth = 2; for (let i = 0; i < 5; i++) { const a = f.angle + (i - 2) * 0.5; const r0 = 6 + 14 * (1 - k), r1 = r0 + 6; ctx.beginPath(); ctx.moveTo(f.x + Math.cos(a) * r0, f.y + Math.sin(a) * r0); ctx.lineTo(f.x + Math.cos(a) * r1, f.y + Math.sin(a) * r1); ctx.stroke(); } ctx.globalAlpha = 1; }
+      if (f.kind === 'flare') { ctx.globalAlpha = k * 0.6; ctx.fillStyle = '#ff9f43'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.5 + 0.5 * (1 - k)), 0, TAU); ctx.fill(); ctx.globalAlpha = k; ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 - k * 0.3), 0, TAU); ctx.stroke(); for (let i = 0; i < 8; i++) { const a = i * TAU / 8; ctx.fillStyle = '#ffcc55'; ctx.beginPath(); ctx.arc(f.x + Math.cos(a) * f.r * (1 - k) * 1.1, f.y + Math.sin(a) * f.r * (1 - k) * 1.1, 3, 0, TAU); ctx.fill(); } ctx.globalAlpha = 1; }
+      if (f.kind === 'stasisburst') { ctx.globalAlpha = k; ctx.fillStyle = 'rgba(160,210,255,0.35)'; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 - k * 0.4), 0, TAU); ctx.fill(); ctx.strokeStyle = '#e0f4ff'; ctx.lineWidth = 3; for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + 0.4; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x + Math.cos(a) * f.r * (1.2 - k * 0.5), f.y + Math.sin(a) * f.r * (1.2 - k * 0.5)); ctx.stroke(); } ctx.globalAlpha = 1; }
+      if (f.kind === 'fieldend') { ctx.globalAlpha = k * 0.7; ctx.strokeStyle = '#bfe6ff'; ctx.lineWidth = 6 * k; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 + 0.15 * (1 - k)), 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
       if (f.kind === 'hitflash') { ctx.globalAlpha = k * 0.5; ctx.strokeStyle = '#ff5050'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(f.x, f.y, 18 + 16 * (1 - k), 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
     }
     for (const f of st.effects) if (f.kind === 'text') { ctx.globalAlpha = Math.min(1, (1 - f.t / f.ttl) * 2); ctx.font = `bold 15px ${FONT}`; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.strokeText(f.text, f.x, f.y); ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y); ctx.globalAlpha = 1; }
@@ -1694,7 +1712,7 @@ PA.Screens = (function () {
     return `<div class="screen"><h2>조우 승리</h2>
       <div class="card"><div class="card-title">보상 (귀환 시 거점에 반영)</div>
         <p>금화 <b class="gold">+${rw.gold}</b>${rw.chestGold ? ` (보급 상자 +${rw.chestGold} 포함)` : ''}${matText ? ` · ${matText}` : ''}</p>
-        <p class="dim small">처치 ${G.lastStats.kills} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · 아슬아슬한 회피 ${G.lastStats.perfectDodges} · ${Math.round(G.lastStats.elapsed)}초</p></div>
+        <p class="dim small">처치 ${G.lastStats.kills}${G.lastStats.savingKills ? ` (감속장 안 ${G.lastStats.savingKills})` : ''} · 받은 피해 ${Math.round(G.lastStats.damageTaken)} · ${Math.round(G.lastStats.elapsed)}초</p></div>
       <h3>증강 선택 (회차 동안 유지)</h3>
       <div class="grid3">${cards.length ? cards : '<p class="dim">제시할 수 있는 증강이 없습니다.</p>'}</div>
       <div class="row"><button data-action="skip">건너뛰기 (금화 +${PA.CONFIG.SKIP_AUGMENT_GOLD})</button></div></div>`;
@@ -1735,7 +1753,7 @@ PA.Screens = (function () {
   function scenarioEnd(G) {
     const s = G.lastStats;
     return `<div class="screen center"><h2>시험 전투 종료: ${G.lastResult === 'won' ? '승리' : '패배'}</h2>
-      <p class="dim">처치 ${s.kills} · 받은 피해 ${Math.round(s.damageTaken)} · 아슬아슬한 회피 ${s.perfectDodges} · 공격 ${s.attacks}회 · ${Math.round(s.elapsed)}초</p>
+      <p class="dim">처치 ${s.kills}${s.savingKills ? ` (감속장 안 ${s.savingKills})` : ''} · 받은 피해 ${Math.round(s.damageTaken)} · 공격 ${s.attacks}회 · ${Math.round(s.elapsed)}초</p>
       <div class="row"><button class="primary" data-action="scenario-again">같은 시드로 다시</button><button data-action="title">제목으로</button></div></div>`;
   }
   function controls() {
@@ -1766,7 +1784,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   const G = {
     screen: 'title', run: null, saved: null, sortie: null, combat: null, offers: null, lastReward: null, lastStats: null, lastResult: null,
     paused: false, debug: false, overlay: null, scenario: null,
-    keys: new Set(), pressed: new Set(), acc: 0, last: 0, endTimer: 0,
+    keys: new Set(), pressed: new Set(), acc: 0, last: 0, endTimer: 0, eventCounts: {},
   };
   window.PA_G = G; // 검증용 훅(사람용 UI 아님)
 
@@ -1801,9 +1819,11 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   // ---------- 회차 흐름 ----------
   function saveRun() { if (G.run && !G.scenario) PA.Run.save(G.run); }
   function goBase() { if (G.run.ended) { show('bossday'); return; } saveRun(); show('base'); }
-  function newRun() { G.run = PA.Run.newRun(); G.sortie = null; saveRun(); show('base'); }
+  function leaveScenario() { if (G.scenario) { G.scenario = null; try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
+  function newRun() { leaveScenario(); G.run = PA.Run.newRun(); G.sortie = null; G.combat = null; saveRun(); show('base'); }
   function startSortie(regionId) {
     G.sortie = PA.Run.startSortie(G.run, regionId);
+    saveRun(); // 출격 비용은 지불된 상태로 저장(전투 중 종료 시 복구 기준)
     startEncounter();
   }
   function startEncounter() {
@@ -1812,7 +1832,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       build: PA.Run.build(run), hp: run.hp, seed: s.seed + s.encounters * 1000 + (s.deep ? 7 : 0),
       waves: PA.Run.encounterWaves(s.regionId, s.deep), objective: PA.Run.encounterObjective(s.regionId, s.deep),
     });
-    G.endTimer = 0; G.acc = 0; G.paused = false; closeOverlay();
+    G.endTimer = 0; G.acc = 0; G.paused = false; G.eventCounts = {}; closeOverlay();
     show('combat');
   }
   function onEncounterEnd() {
@@ -1837,10 +1857,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 동작 처리 ----------
   const actions = {
-    'continue': () => { G.run = G.saved; G.sortie = null; goBase(); },
+    'continue': () => { leaveScenario(); G.run = G.saved; G.sortie = null; G.combat = null; goBase(); },
     'newrun': () => { if (G.saved) show('newrun_confirm'); else newRun(); },
     'newrun-confirm': () => newRun(),
-    'title': () => { G.saved = PA.Run.load(); show('title'); },
+    'title': () => { leaveScenario(); G.saved = PA.Run.load(); show('title'); },
     'controls': () => openOverlay('controls'),
     'show-controls': () => openOverlay('controls'),
     'close-overlay': () => { if (G.paused) openOverlay('pause'); else closeOverlay(); },
@@ -1856,9 +1876,9 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'target': (id) => { PA.Run.setTarget(G.run, id); saveRun(); show('shop'); },
     'sell': (id) => { PA.Run.sell(G.run, id, 1); saveRun(); show('shop'); },
     'toggle-weapon': () => { if (G.run.gear.weapon === 'pierce') PA.Run.unequipWeapon(G.run); else PA.Run.equip(G.run, 'pierce_sword'); saveRun(); show(G.screen); },
-    'pick': (id) => { PA.Run.takeAugment(G.run, id); G.offers = null; show('after'); },
-    'skip': () => { PA.Run.skipAugment(G.run); G.offers = null; show('after'); },
-    'deep': () => { PA.Run.deepExplore(G.run, G.sortie); startEncounter(); },
+    'pick': (id) => { PA.Run.takeAugment(G.run, id); G.offers = null; saveRun(); show('after'); },
+    'skip': () => { PA.Run.skipAugment(G.run); G.offers = null; saveRun(); show('after'); },
+    'deep': () => { PA.Run.deepExplore(G.run, G.sortie); saveRun(); startEncounter(); },
     'return': () => { PA.Run.returnToBase(G.run, G.sortie); G.sortie = null; goBase(); },
     'resume': () => pauseCombat(false),
     'give-up': () => { closeOverlay(); G.paused = false; if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
@@ -1926,6 +1946,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
         G.acc -= STEP;
       }
       if (guard >= 12) G.acc = 0;
+      for (const e of G.combat.events) G.eventCounts[e.name] = (G.eventCounts[e.name] || 0) + 1;
       for (const e of G.combat.events) PA.Audio.play(e.name === 'hit' ? (e.crit ? 'crit' : 'hit') : ({ kill: 'kill', hurt: 'hurt', lock: 'lock', dodge: 'dodge', perfect: 'perfect', special: 'special', chest: 'chest', win: 'win', lose: 'lose', wave: 'wave', shoot: 'shoot', spore: 'spore', explode: 'explode', shatter: 'shatter', burst: 'burst', bite: 'bite', swing: 'swing' }[e.name] || null));
       G.combat.events.length = 0;
       if (G.combat.status !== 'running') { G.endTimer += dt; if (G.endTimer >= 1.3) onEncounterEnd(); }

@@ -95,10 +95,9 @@ PA.Combat = (function () {
     const p = st.player;
     if (p.dead || st.status !== 'running') return false;
     if (p.dodge.active) { // 아슬아슬한 회피
-      st.stats.perfectDodges++;
+      st.stats.perfectDodges++; // 내부 통계(성장 보상과 연결하지 않는다)
       text(st, p.x, p.y - 30, '회피!', '#7ef2ff');
       ev(st, 'perfect');
-      if (st.build.has('saving')) { p.special.cd = Math.max(0, p.special.cd - C().SAVING.cdReduce); text(st, p.x, p.y - 48, '감속장 -4초', '#a9d8ff'); }
       return false;
     }
     if (p.hitProt > 0) return false;
@@ -131,7 +130,7 @@ PA.Combat = (function () {
     for (const e of st.enemies) {
       if (e.dead) continue;
       const d = m().dist(e, p);
-      if (d <= cfg.knockRadius) { const n = m().norm(e.x - p.x, e.y - p.y); knockEnemy(e, n, cfg.knock); e.state === 'dash' && (e.state = 'recover', e.stateT = 0); }
+      if (d <= cfg.knockRadius) { const n = m().norm(e.x - p.x, e.y - p.y); if (e.state === 'dash' || e.state === 'lock' || e.state === 'crouch') { e.state = 'recover'; e.stateT = 0; e.biteT = 0; } knockEnemy(e, n, cfg.knock); }
     }
     fx(st, { kind: 'burst', x: p.x, y: p.y, r: cfg.knockRadius, ttl: 0.35, t: 0, color: '#7ef2ff' });
     text(st, p.x, p.y - 44, '방벽 파열!', '#7ef2ff');
@@ -162,6 +161,12 @@ PA.Combat = (function () {
   function killEnemy(st, e, opt) {
     e.dead = true; e.deathT = 0; st.stats.kills++;
     ev(st, 'kill', { type: e.type });
+    if (st.build.has('saving') && inField(st, e) && st.player.special.cd > 0) {
+      st.player.special.cd = Math.max(0, st.player.special.cd - C().SAVING.cdPerKill);
+      st.stats.savingKills = (st.stats.savingKills || 0) + 1;
+      text(st, e.x, e.y - e.r - 22, '감속장 -' + C().SAVING.cdPerKill + '초', '#a9d8ff');
+      ev(st, 'saving');
+    }
     fx(st, { kind: 'death', x: e.x, y: e.y, r: e.r, ttl: 0.4, t: 0, color: e.def.color });
     if (e.type === 'spore') addZone(st, 'spore', e.x, e.y, e.def.deathCloudR, e.def.deathCloudTtl, e.def.cloudDamage);
     if (st.build.has('frost') && e.chill > 0) {
@@ -175,7 +180,7 @@ PA.Combat = (function () {
     }
     if (st.build.has('flare') && st.zones.some(z => z.type === 'fire' && m().dist(z, e) <= z.r + e.r)) {
       const F = C().FLARE;
-      fx(st, { kind: 'burst', x: e.x, y: e.y, r: F.radius, ttl: 0.3, t: 0, color: '#ff9f43' });
+      fx(st, { kind: 'flare', x: e.x, y: e.y, r: F.radius, ttl: 0.35, t: 0 });
       for (const o of st.enemies) if (!o.dead && o !== e && m().dist(o, e) <= F.radius + o.r) damageEnemy(st, o, F.damage * st.build.damageMult, { dir: m().norm(o.x - e.x, o.y - e.y), knock: 40 });
       text(st, e.x, e.y - 34, '불꽃 파열!', '#ff9f43');
       ev(st, 'explode');
@@ -265,6 +270,7 @@ PA.Combat = (function () {
       p.x += mv.x * cfg.speed * dt; p.y += mv.y * cfg.speed * dt;
     }
     if (input.special && p.special.cd <= 0) {
+      if (st.field) endField(st); // 활성 감속장이 있으면 먼저 정상 종료(정지된 칼날 폭발 포함)
       st.field = { x: p.x, y: p.y, r: cfg.special.radius, ttl: cfg.special.duration, maxTtl: cfg.special.duration };
       p.special.cd = b.specialCd;
       ev(st, 'special');
@@ -432,14 +438,19 @@ PA.Combat = (function () {
     st.zones = st.zones.filter(z => z.ttl > 0);
     if (st.field) {
       st.field.ttl -= dt;
-      if (st.field.ttl <= 0) {
-        if (st.build.has('stasis')) {
-          for (const e of st.enemies) if (!e.dead && e.stasis > 0) { const dmg = e.stasis * C().STASIS.damagePerStack * st.build.damageMult; fx(st, { kind: 'burst', x: e.x, y: e.y, r: 30 + e.stasis * 8, ttl: 0.3, t: 0, color: '#a9d8ff' }); e.stasis = 0; damageEnemy(st, e, dmg, {}); }
-          ev(st, 'explode');
-        }
-        st.field = null;
-      }
+      if (st.field.ttl <= 0) endField(st);
     }
+  }
+  // 감속장 종료: 정지된 칼날 흔적을 터뜨리고 필드를 제거한다
+  function endField(st) {
+    const f = st.field; if (!f) return;
+    if (st.build.has('stasis')) {
+      let total = 0;
+      for (const e of st.enemies) if (!e.dead && e.stasis > 0) { const dmg = e.stasis * C().STASIS.damagePerStack * st.build.damageMult; fx(st, { kind: 'stasisburst', x: e.x, y: e.y, r: 34 + e.stasis * 10, ttl: 0.4, t: 0 }); e.stasis = 0; total += damageEnemy(st, e, dmg, {}); }
+      if (total > 0) { text(st, f.x, f.y - f.r - 26, '정지된 칼날 폭발 ' + Math.round(total), '#cfeaff'); ev(st, 'explode'); }
+    }
+    fx(st, { kind: 'fieldend', x: f.x, y: f.y, r: f.r, ttl: 0.35, t: 0 });
+    st.field = null;
   }
   function updateChest(st, dt) {
     const p = st.player;
@@ -494,5 +505,5 @@ PA.Combat = (function () {
     checkObjective(st);
   }
 
-  return { create, step, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave };
+  return { create, step, damagePlayer, damageEnemy, spawnEnemy, performAttack, chooseTarget, inField, addZone, queueWave, endField };
 })();

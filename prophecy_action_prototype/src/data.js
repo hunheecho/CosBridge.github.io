@@ -34,7 +34,7 @@ PA.CONFIG = {
   BARRIER: { shield: 30, knockRadius: 120, knock: 140 },
   STASIS: { maxStacks: 5, damagePerStack: 10 },
   FLARE: { radius: 80, damage: 20 },
-  SAVING: { cdReduce: 4 },
+  SAVING: { cdPerKill: 1 },   // 감속장 안 처치 1마리당 재사용 -1초 (임시값)
   CHEST: { gold: [15, 25], wave: 1, r: 16 },
   WAVE_DELAY: 1.2,
   SPAWN_WARN: 0.6,
@@ -76,7 +76,7 @@ PA.AUGMENTS = [
   { id: 'barrier', name: '파열 방벽',   kind: '방어',     max: 1, desc: '조우 시작 시 보호막 30. 파괴 시 주변 넉백', long: '보호막이 깨지는 순간 주변 적을 밀쳐 탈출 기회를 만듭니다.' },
   { id: 'stasis',  name: '정지된 칼날', kind: '결합',     max: 1, requires: [], connect: '감속장 + 검격', desc: '감속장 안의 적을 치면 흔적이 쌓이고, 감속장 종료 시 폭발', long: '감속장 안에서 검격에 맞은 적은 흔적(최대 5)을 얻습니다. 감속장이 끝나면 흔적×10 피해로 터집니다.' },
   { id: 'flare',   name: '불꽃 파열',   kind: '결합',     max: 1, requires: ['ember'], connect: '잔불 걸음 + 처치', desc: '불길 위에서 적 처치 시 폭발', long: '불길 위에 서 있던 적이 죽으면 반지름 80 안의 적에게 20 피해. 잔불 걸음이 있어야 제시됩니다.' },
-  { id: 'saving',  name: '시간 저축',   kind: '조건부',   max: 1, desc: '아슬아슬한 회피마다 감속장 재사용 -4초', long: '회피 무적 중에 적의 공격이 실제로 닿았다면 "회피!"와 함께 감속장이 4초 빨리 돌아옵니다.' },
+  { id: 'saving',  name: '시간 저축',   kind: '결합',     max: 1, connect: '감속장 + 처치', desc: '감속장 안의 적을 처치할 때마다 감속장 재사용 -1초', long: '감속 효과를 받고 있는 적이 죽으면 감속장 재사용 시간이 1초 줄어듭니다(적 1마리당 1회). 감속장 안에서 많이 잡을수록 다음 감속장이 빨리 옵니다.' },
 ];
 
 PA.MATERIALS = {
