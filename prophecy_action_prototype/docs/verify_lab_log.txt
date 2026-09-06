@@ -19,7 +19,7 @@ PASS F boar 단독 시나리오 예고 관측 — boar:charge_aim
 PASS F shieldbearer 단독 시나리오 예고 관측 — shieldbearer:approach
 PASS F shaman 단독 시나리오 예고 관측 — shaman:hex_aim,wolf:approach,wolf:crouch
 PASS F bomber 단독 시나리오 예고 관측 — bomber:fuse
-PASS F burrower 단독 시나리오 예고 관측 — burrower:warn
+PASS F burrower 단독 시나리오 예고 관측 — burrower:under
 PASS F spider 단독 시나리오 예고 관측 — spider:web_aim
 PASS F frostcaller 단독 시나리오 예고 관측 — frostcaller:cast
 PASS F rogue 단독 시나리오 예고 관측 — rogue:slash1_aim
@@ -28,10 +28,11 @@ PASS H1 제목으로 복귀(회차·시나리오·입력 차단 없음)
 PASS H2 정식 출격: 시험실 배율·표시가 새지 않음(회차 설정의 배율만, 기존 배치) — {"hp":1.5,"text":"밸런스: 시험 빌드 (경험치 ×0.3) · 난이도: 제안안(숲 1.5 + 후보 A: 1.5 / 1.5 / 2 / 2 / 3)"}
 PASS H3 정식 전투에서 실제 키 입력 동작
 PASS H4 배치 필드 없는 이전 저장도 거점 진행(기존 배치로)
-PASS H5 지도에 지역 카드·기존 배치 적 목록
-PASS I1 시험안 배치·난이도 후보가 상단에 표시
-PASS I2 지도 카드에 시험안 적 목록·체력 배율 표시
+PASS H5 거점에 오늘의 장소 카드(근교 숲)·시험안 표시 없음
+PASS I1 시험안 배치·난이도 후보가 회차에 기록되고 상단 설정에 표시
+PASS I2 장소 카드에 체력 배율 표시(능선 ×1.5)
 PASS I3 시험안 출격: 체력 배율 1.5, 전투 상단에 배치·난이도 표시
 PASS 오류 없음
 
 35/35 PASS
+LAB_DONE

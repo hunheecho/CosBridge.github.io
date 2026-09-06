@@ -53,17 +53,17 @@ const results = []; const ok = (name, cond, extra) => { results.push([cond ? 'PA
   await page.setViewportSize({ width: 1280, height: 900 });
   // H. 시험실 종료 → 정식 회차: 배율·입력·시나리오 플래그가 남지 않는다. 이전 저장(layout 없음)도 진행
   await click('[data-action=lab-exit]'); s = await st(); ok('H1 제목으로 복귀(회차·시나리오·입력 차단 없음)', s.screen === 'title' && !s.scenario && !s.blocked && s.keys === 0);
-  await click('[data-action=newrun]'); await click('[data-action=start-weapon][data-arg=sword]'); await click('[data-action=map]'); await click('[data-action=sortie][data-arg=forest]'); s = await waitFor(x => x.screen === 'combat', 3000);
+  await click('[data-action=newrun]'); await click('[data-action=start-weapon][data-arg=sword]'); await click('[data-action=mission][data-arg=d1c1]'); /* v0.8: 거점에 오늘의 장소 카드(숲) */ s = await waitFor(x => x.screen === 'combat', 3000);
   ok('H2 정식 출격: 시험실 배율·표시가 새지 않음(회차 설정의 배율만, 기존 배치)', (s.combat.hpMult.normal === 1 || s.combat.hpMult.normal === 1.5) && !/시험실/.test(s.combat.labText || '') && s.run.layout === 'classic' && !s.run.lab && s.save, JSON.stringify({ hp: s.combat.hpMult.normal, text: s.combat.labText }));
   await page.keyboard.down('KeyA'); await page.waitForTimeout(300); await page.keyboard.up('KeyA'); const s2 = await st(); ok('H3 정식 전투에서 실제 키 입력 동작', s2.combat.px < s.combat.px - 20);
   await page.evaluate(() => { const r = JSON.parse(localStorage.getItem('prophecy_action_save_v1')); delete r.layout; delete r.difficulty; localStorage.setItem('prophecy_action_save_v1', JSON.stringify(r)); });
   await page.reload(); await page.waitForTimeout(400); await click('[data-action=continue]'); s = await st(); ok('H4 배치 필드 없는 이전 저장도 거점 진행(기존 배치로)', s.screen === 'base' && s.run.layout === 'classic');
-  await click('[data-action=map]'); ok('H5 지도에 지역 카드·기존 배치 적 목록', await page.$eval('#ui', el => /근교 숲/.test(el.textContent) && !/시험안 배치/.test(el.textContent)));
+  ok('H5 거점에 오늘의 장소 카드(근교 숲)·시험안 표시 없음', await page.$eval('#ui', el => /근교 숲/.test(el.textContent) && !/시험안 배치/.test(el.textContent))); /* v0.8: 장소 카드는 거점에 */
   // I. 시험안 배치·난이도 후보 선택 → 화면 표시
-  await click('[data-action=base]'); await click('[data-action=save-quit]'); await click('[data-action=newrun]'); await click('[data-action=newrun-confirm]'); await page.selectOption('#start-layout', 'trial'); await page.selectOption('#start-difficulty', 'candA'); await click('[data-action=start-weapon][data-arg=spear]');
-  ok('I1 시험안 배치·난이도 후보가 상단에 표시', await page.$eval('#ui', el => /시험안 배치/.test(el.textContent) && /후보 A/.test(el.textContent)));
-  await click('[data-action=map]'); ok('I2 지도 카드에 시험안 적 목록·체력 배율 표시', await page.$eval('#ui', el => /멧돼지/.test(el.textContent) && /체력 ×1.5/.test(el.textContent)));
-  await click('[data-action=sortie][data-arg=ridge]'); s = await waitFor(x => x.screen === 'combat', 3000); ok('I3 시험안 출격: 체력 배율 1.5, 전투 상단에 배치·난이도 표시', s.combat.hpMult.normal === 1.5 && /시험안/.test(s.combat.labText));
+  await click('[data-action=save-quit]'); await click('[data-action=newrun]'); await click('[data-action=newrun-confirm]'); await page.selectOption('#start-balance', 'current'); await page.selectOption('#start-layout', 'trial'); await page.selectOption('#start-difficulty', 'candA'); await click('[data-action=start-weapon][data-arg=spear]');
+  ok('I1 시험안 배치·난이도 후보가 회차에 기록되고 상단 설정에 표시', await page.evaluate(() => PA_G.run.layout === 'trial' && PA_G.run.difficulty === 'candA' && /후보 A/.test(document.querySelector('.topbar .stat b.small').title))); /* v0.8: 헤더는 요약, 전체 설정은 툴팁 */
+  ok('I2 장소 카드에 체력 배율 표시(능선 ×1.5)', await page.$eval('#ui', el => /체력 ×1.5/.test(el.textContent)));
+  await click('[data-action=mission][data-arg=d1c2]'); s = await waitFor(x => x.screen === 'combat', 3000); ok('I3 시험안 출격: 체력 배율 1.5, 전투 상단에 배치·난이도 표시', s.combat.hpMult.normal === 1.5 && /시험안/.test(s.combat.labText));
   await page.screenshot({ path: path.join(OUT, 'vl_trial_combat.png') });
   ok('오류 없음', errors.length === 0, errors.join(' / '));
   fs.writeFileSync(path.join(OUT, 'verify_lab_log.txt'), results.map(r => r.join(' | ')).join('\n'));

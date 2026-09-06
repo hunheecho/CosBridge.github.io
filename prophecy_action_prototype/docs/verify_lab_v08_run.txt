@@ -2,7 +2,7 @@ PASS A1 제목 → 전투 시험실 화면
 PASS A2 화면에서 적·체력·시드·빌드 변경이 설정에 반영 — enemy=solo:boar;arena=auto;hp=3,1,1;seed=7;build=mid_melee;control=human;bot=balanced;growth=fixed;time=180;deep=0;layout=classic;overlap=-1
 PASS A3 빌드 설명에 실제 장착(검 Lv3 교차 검격·쌍검 출혈·넓어진 공격·숙련)과 선택 횟수 표시
 PASS B1 시작 → 전투(체력 배율 3, 기둥 숲, 시험실 표시)
-PASS B2 실제 키(D)로 이동 — 480 → 566
+PASS B2 실제 키(D)로 이동 — 480 → 568
 PASS B3 멧돼지 돌파 예고 관측 — boar:charge_aim
 PASS B4 Esc 일시정지에 시험실 설정 표시
 PASS B5 중단 → 결과 화면(사용자 중단)
@@ -15,3 +15,24 @@ PASS D2 최근 결과 표에 누적(4건)
 PASS D3 설정 텍스트 적용(체력 6·시드 99)
 PASS D4 새로고침 뒤 시험실 설정·결과 보존(별도 키), 정식 저장 없음
 PASS E1 같은 설정·시드·봇 → 같은 결과(브라우저)
+PASS F boar 단독 시나리오 예고 관측 — boar:charge_aim
+PASS F shieldbearer 단독 시나리오 예고 관측 — shieldbearer:approach
+PASS F shaman 단독 시나리오 예고 관측 — shaman:hex_aim,wolf:approach,wolf:crouch
+PASS F bomber 단독 시나리오 예고 관측 — bomber:fuse
+PASS F burrower 단독 시나리오 예고 관측 — burrower:under
+PASS F spider 단독 시나리오 예고 관측 — spider:web_aim
+PASS F frostcaller 단독 시나리오 예고 관측 — frostcaller:cast
+PASS F rogue 단독 시나리오 예고 관측 — rogue:slash1_aim
+PASS G1 작은 창(800×500)에서 조합 전투·결과 화면 표시
+PASS H1 제목으로 복귀(회차·시나리오·입력 차단 없음)
+PASS H2 정식 출격: 시험실 배율·표시가 새지 않음(회차 설정의 배율만, 기존 배치) — {"hp":1.5,"text":"밸런스: 시험 빌드 (경험치 ×0.3) · 난이도: 제안안(숲 1.5 + 후보 A: 1.5 / 1.5 / 2 / 2 / 3)"}
+PASS H3 정식 전투에서 실제 키 입력 동작
+PASS H4 배치 필드 없는 이전 저장도 거점 진행(기존 배치로)
+PASS H5 거점에 오늘의 장소 카드(근교 숲)·시험안 표시 없음
+PASS I1 시험안 배치·난이도 후보가 회차에 기록되고 상단 설정에 표시
+PASS I2 장소 카드에 체력 배율 표시(능선 ×1.5)
+PASS I3 시험안 출격: 체력 배율 1.5, 전투 상단에 배치·난이도 표시
+PASS 오류 없음
+
+35/35 PASS
+LAB_DONE
