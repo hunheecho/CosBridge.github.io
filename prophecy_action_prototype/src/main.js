@@ -130,7 +130,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 캔버스 ----------
   function fitCanvas() {
-    const W = PA.CONFIG.ARENA.w, H = PA.CONFIG.ARENA.h;
+    const W = PA.CONFIG.ARENA.w + PA.CONFIG.VIEW.pad * 2, H = PA.CONFIG.ARENA.h + PA.CONFIG.VIEW.pad * 2;
     const vw = window.innerWidth, vh = window.innerHeight;
     const scale = Math.min(vw / W, vh / H);
     const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -141,7 +141,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   function render() {
     if (G.screen !== 'combat' || !G.combat) return;
     PA.Render.draw(ctx, G.combat, { debug: G.debug });
-    if (G.paused) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, PA.CONFIG.ARENA.w, PA.CONFIG.ARENA.h); }
+    if (G.paused) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, PA.CONFIG.ARENA.w + PA.CONFIG.VIEW.pad * 2, PA.CONFIG.ARENA.h + PA.CONFIG.VIEW.pad * 2); }
   }
 
   // ---------- 루프 ----------
@@ -165,7 +165,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
         G.acc -= STEP;
       }
       if (guard >= 12) G.acc = 0;
-      for (const e of G.combat.events) PA.Audio.play({ hit: 'hit', kill: 'kill', hurt: 'hurt', lock: 'lock', dodge: 'dodge', perfect: 'perfect', special: 'special', chest: 'chest', win: 'win', lose: 'lose', wave: 'wave', shoot: 'shoot', spore: 'spore', explode: 'explode', shatter: 'shatter', burst: 'burst' }[e.name] || (e.name === 'hit' && e.crit ? 'crit' : null));
+      for (const e of G.combat.events) PA.Audio.play(e.name === 'hit' ? (e.crit ? 'crit' : 'hit') : ({ kill: 'kill', hurt: 'hurt', lock: 'lock', dodge: 'dodge', perfect: 'perfect', special: 'special', chest: 'chest', win: 'win', lose: 'lose', wave: 'wave', shoot: 'shoot', spore: 'spore', explode: 'explode', shatter: 'shatter', burst: 'burst', bite: 'bite', swing: 'swing' }[e.name] || null));
       G.combat.events.length = 0;
       if (G.combat.status !== 'running') { G.endTimer += dt; if (G.endTimer >= 1.3) onEncounterEnd(); }
     }

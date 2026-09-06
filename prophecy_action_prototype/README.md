@@ -27,6 +27,7 @@
 지역 id: `forest` `ridge` `marsh` `den` `deep`. 증강 id는 `src/data.js`의 AUGMENTS 참고.
 
 ## 개발
+- 자세 대조표: `NODE_PATH=<playwright 경로> node tools/posesheet.js`
 - 테스트: `node --test test/*.test.js` (Node 18+)
 - 화면 캡처: `NODE_PATH=<playwright 경로> node tools/shots.js`
 - 한 바퀴 자동 점검: `NODE_PATH=<playwright 경로> node tools/playthrough.js`
@@ -44,6 +45,11 @@
 - 소리: WebAudio로 합성. 외부 파일 없음.
 - 폰트: Noto Sans KR (SIL Open Font License) — Google Fonts 링크로 로드, 저장소에 포함하지 않음.
 - 참고 게임의 자산은 사용하지 않았다.
+
+## 영상·자세표
+- `docs/video/combat_forest.webm`: 봇이 근교 숲에서 싸우는 실제 녹화(21초). `combat_forest_clip.webm`은 8초 요약.
+- `docs/screenshots/pose_wolves.png`, `pose_swordsman.png`: 동작별 자세 대조표. `video_contact_sheet.png`: 영상 1초 간격 프레임.
+- 녹화 재생성: `NODE_PATH=<playwright> node tools/record.js "?scenario=forest&seed=11" 30`
 
 ## 실행 화면 (헤드리스 Chromium 캡처)
 `docs/screenshots/` — 거점, 상점 미리보기, 늑대 돌진 예고, 감속장, 관통검+보호막, 증강 선택, 보스 도래. 자동 한 바퀴 기록은 `docs/playthrough_log.txt`.

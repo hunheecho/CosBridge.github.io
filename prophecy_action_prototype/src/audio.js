@@ -49,6 +49,8 @@ PA.Audio = (function () {
     shatter: () => { tone(1500, 0.1, 'square', 0.1, 900); },
     burst: () => { tone(600, 0.3, 'sine', 0.2, 100); noise(0.15, 0.15); },
     buy: () => { [784, 1046].forEach((f, i) => setTimeout(() => ctx && tone(f, 0.12, 'triangle', 0.15), i * 80)); },
+    bite: () => { noise(0.05, 0.2, 400); tone(220, 0.08, 'square', 0.15, 90); },
+    swing: () => noise(0.07, 0.05, 2500),
     ui: () => tone(700, 0.04, 'square', 0.06),
   };
   function play(name) {

@@ -24,6 +24,7 @@ PA.Combat = (function () {
         dodge: { active: false, t: 0, dx: 0, dy: 0, cd: 0 },
         hitProt: 0, zoneTick: 0,
         attackTimer: 0.2, attackCount: 0, echo: null,
+        swingT: 9, swingForm: 'arc', swingAngle: 0, walkT: 0, hurtT: 9,
         special: { cd: 0 },
         dead: false, flash: 0,
       },
@@ -67,7 +68,7 @@ PA.Combat = (function () {
     const e = {
       id: nextId++, type, def: d, name: d.name, x, y, r: d.r, hp: d.hp, hpMax: d.hpMax || d.hp,
       state: 'approach', stateT: 0, dir: 0, aimAngle: 0, chill: 0, stasis: 0, flash: 0, dead: false, deathT: 0,
-      dashLeft: d.dashes || 1, vx: 0, vy: 0, animT: 0, elite: !!d.elite, hitBy: null,
+      dashLeft: d.dashes || 1, vx: 0, vy: 0, animT: 0, elite: !!d.elite, hitBy: null, biteT: 9, moveT: 0, lastX: x, lastY: y, faceX: 1,
     };
     st.enemies.push(e);
     if (st.build.has('mark')) assignMark(st);
@@ -114,7 +115,8 @@ PA.Combat = (function () {
       if (p.shield <= 0 && st.build.has('barrier')) barrierBurst(st);
     }
     if (rest > 0) { p.hp -= rest; st.stats.damageTaken += rest; }
-    p.flash = 0.2;
+    p.flash = 0.2; p.hurtT = 0;
+    fx(st, { kind: 'hitflash', x: p.x, y: p.y, ttl: 0.25, t: 0 });
     text(st, p.x, p.y - 28, '-' + Math.round(amount), '#ff6b6b');
     ev(st, 'hurt', { src });
     if (p.hp <= 0) { p.hp = 0; p.dead = true; st.status = 'lost'; ev(st, 'lose'); }
@@ -151,6 +153,7 @@ PA.Combat = (function () {
       if (st.build.has('frost')) e.chill = C().FROST.chill;
       if (st.build.has('stasis') && inField(st, e)) e.stasis = Math.min(C().STASIS.maxStacks, e.stasis + 1);
     }
+    fx(st, { kind: 'spark', x: e.x, y: e.y, ttl: 0.22, t: 0, angle: opt.dir ? Math.atan2(opt.dir.y, opt.dir.x) : st.rng.range(0, Math.PI * 2), crit: e.state === 'recover' });
     text(st, e.x + st.rng.range(-8, 8), e.y - e.r - 6, String(Math.round(dmg)), e.state === 'recover' ? '#ffd166' : '#fff');
     ev(st, 'hit', { crit: e.state === 'recover' });
     if (e.hp <= 0) killEnemy(st, e, opt);
@@ -193,6 +196,7 @@ PA.Combat = (function () {
   function performAttack(st, angle, form) {
     const p = st.player, b = st.build, hit = new Set();
     st.stats.attacks++;
+    p.swingT = 0; p.swingForm = form; p.swingAngle = angle;
     if (form === 'spin') {
       const S = C().SPIN, r = S.radius * b.rangeMult;
       fx(st, { kind: 'spin', x: p.x, y: p.y, r, ttl: 0.22, t: 0 });
@@ -229,12 +233,13 @@ PA.Combat = (function () {
   // ---------- 플레이어 이동/회피/특수기 ----------
   function updatePlayer(st, input, dt) {
     const p = st.player, cfg = C().PLAYER, a = st.arena, b = st.build;
-    p.animT += dt;
+    p.animT += dt; p.swingT += dt; p.hurtT += dt;
     if (p.hitProt > 0) p.hitProt -= dt;
     if (p.flash > 0) p.flash -= dt;
     if (p.special.cd > 0) p.special.cd = Math.max(0, p.special.cd - dt);
     const mv = m().norm(input.mx || 0, input.my || 0);
     p.moving = mv.x !== 0 || mv.y !== 0;
+    if (p.moving) p.walkT += dt;
     if (p.moving) p.face = Math.atan2(mv.y, mv.x);
 
     // 회피 입력은 같은 단계에서 즉시 시작한다(입력 반응성, dt 독립 거리)
@@ -300,11 +305,12 @@ PA.Combat = (function () {
         const step = d.dashSpeed * useDt;
         const nx = e.x + Math.cos(e.dir) * step, ny = e.y + Math.sin(e.dir) * step;
         // 스윕 판정: 이동 선분이 플레이어 원과 만나면 피해
-        if (!e.hitBy && m().segCircle(e.x, e.y, nx, ny, p, p.r + e.r)) { e.hitBy = 'player'; damagePlayer(st, d.damage, 'wolf'); }
+        if (!e.hitBy && m().segCircle(e.x, e.y, nx, ny, p, p.r + e.r)) { e.hitBy = 'player'; e.biteT = 0; ev(st, 'bite'); damagePlayer(st, d.damage, 'wolf'); }
         e.x = nx; e.y = ny;
         const a = st.arena;
         const hitWall = e.x < e.r || e.x > a.w - e.r || e.y < e.r || e.y > a.h - e.r;
         if (e.stateT >= d.dashTime || hitWall) {
+          if (!e.hitBy) e.biteT = 0; // 빗나간 물기도 같은 시점에 턱을 닫는다
           e.dashLeft--;
           if (e.dashLeft > 0) { e.state = 'crouch'; e.stateT = 0; }
           else { e.state = 'recover'; e.stateT = 0; }
@@ -368,7 +374,10 @@ PA.Combat = (function () {
     const a = st.arena;
     for (const e of st.enemies) {
       if (e.dead) { e.deathT += dt; continue; }
-      e.animT += dt;
+      e.animT += dt; e.biteT += dt;
+      const mdx = e.x - e.lastX, mdy = e.y - e.lastY; const mlen = Math.hypot(mdx, mdy);
+      if (mlen > 0.05) { e.moveT += mlen / 40; if (Math.abs(mdx) > 0.02) e.faceX = mdx > 0 ? 1 : -1; }
+      e.lastX = e.x; e.lastY = e.y;
       if (e.flash > 0) e.flash -= dt;
       if (e.chill > 0) e.chill -= dt;
       if (e.type === 'wolf' || e.type === 'wolf_alpha') updateWolf(st, e, dt);
@@ -386,7 +395,7 @@ PA.Combat = (function () {
       const dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy), min = A.r + B.r;
       if (d < min && d > 1e-6) { const push = (min - d) / 2 * C().SEPARATION; A.x -= dx / d * push; A.y -= dy / d * push; B.x += dx / d * push; B.y += dy / d * push; }
     }
-    st.enemies = st.enemies.filter(e => !e.dead || e.deathT < 0.5);
+    st.enemies = st.enemies.filter(e => !e.dead || e.deathT < 0.9);
   }
 
   // ---------- 투사체/지역/필드 ----------

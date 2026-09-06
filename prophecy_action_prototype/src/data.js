@@ -4,6 +4,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 PA.CONFIG = {
   STEP: 1 / 120,            // 고정 시뮬레이션 단계(초)
   ARENA: { w: 960, h: 600 },
+  VIEW: { pad: 44 },           // 전장 밖 나무 경계 여백(그리기 전용, 판정과 무관)
   HOURS_PER_DAY: 5,
   BOSS_DAY: 7,              // 이 날이 시작되면 보스 도래
   START_GOLD: 60,
