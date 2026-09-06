@@ -6,7 +6,7 @@ const args = process.argv.slice(2), suite = (args[0] || 'A').toUpperCase();
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const dir = path.join(__dirname, '..', 'docs', 'sim'), inPath = opt('in', path.join(dir, `raw_${suite}.jsonl.gz`));
 const rows = zlib.gunzipSync(fs.readFileSync(inPath)).toString('utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(r => !r.error);
-const NAMES = { early_sword: '초반 검', early_spear: '초반 창', early_blades: '초반 칼날', mid_melee: '중간 근접', mid_ranged: '중간 원거리', slowfield: '감속장', dot: '불길', late_multi: '후반 다중', late_hammer: '후반 망치', aggressive: '공격', balanced: '균형', survival: '생존' };
+const NAMES = { 'dummy:boss': '정지 보스', early_sword: '초반 검', early_spear: '초반 창', early_blades: '초반 칼날', mid_melee: '중간 근접', mid_ranged: '중간 원거리', slowfield: '감속장', dot: '불길', late_multi: '후반 다중', late_hammer: '후반 망치', aggressive: '공격', balanced: '균형', survival: '생존' };
 const nm = (k) => NAMES[k] || k.replace(/^(region|solo|combo):/, '');
 const pct = (a, b) => b ? Math.round(a / b * 100) : 0, r1 = (x) => Math.round(x * 10) / 10;
 function agg(list) {
@@ -67,11 +67,11 @@ if (suite === 'C') {
   q3.sort((x, y) => y[2] - x[2] || y[4] - x[4]); for (const row of q3) md += `| ${row.join(' | ')} |\n`;
   summary.byComboHp = Object.fromEntries([...byCombo].map(([c, l]) => [c, Object.fromEntries([...group(l, hpOf)].map(([k, x]) => [k, agg(x)]))])); summary.q3 = q3;
 }
-if (suite === 'D' || suite === 'D2' || suite === 'D3') {
+if (suite === 'D' || suite === 'D2' || suite === 'D3' || suite === 'E') {
   const VN = { cmp_sword: '검', cmp_blades: '회전 칼날', cmp_spear: '창 ×1.0', 'cmp_spear@0.85': '창 ×0.85', 'cmp_spear@0.75': '창 ×0.75', 'cmp_spear@sweet': '창 근접 약화(45% 안쪽 ×0.5)', 'cmp_spear@narrow': '창 폭 28', 'cmp_spear@pierce2': '창 관통 2명', 'cmp_spear@sweet+narrow': '창 근접 약화+폭 28', 'cmp_spear@int0.85': '창 주기 0.85', 'cmp_spear@dmg12': '창 피해 12', 'cmp_spear@sweet+int0.85': '창 근접 약화+주기 0.85', 'cmp_spear@sweet+dmg12': '창 근접 약화+피해 12' };
   const vn = (r) => VN[r.variant] || r.variant, order = ['cmp_sword', 'cmp_blades', 'cmp_spear', 'cmp_spear@0.85', 'cmp_spear@0.75', 'cmp_spear@sweet', 'cmp_spear@narrow', 'cmp_spear@pierce2', 'cmp_spear@sweet+narrow', 'cmp_spear@int0.85', 'cmp_spear@dmg12', 'cmp_spear@sweet+int0.85', 'cmp_spear@sweet+dmg12'];
   const sorted = (g) => new Map([...g.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])));
-  md += '\n## 무기별(전체: 지역 5 + 보스 3, 체력 ×1·×2, 봇 3)\n' + table('전체', sorted(group(rows, r => r.variant)), '무기').replace(/\| cmp_[^ |]+/g, (m) => '| ' + (VN[m.slice(2)] || m.slice(2)));
+  md += `\n## 무기별(전체: ${suite === 'E' ? '지역 5 + 조합 4 + 보스 3 + 정지 보스, 체력 ×1·×2, 봇 4(제자리 포함)' : '지역 5 + 보스 3, 체력 ×1·×2, 봇 3'})\n` + table('전체', sorted(group(rows, r => r.variant)), '무기').replace(/\| cmp_[^ |]+/g, (m) => '| ' + (VN[m.slice(2)] || m.slice(2)));
   md += '\n## 적별 × 무기\n';
   for (const [e, l] of group(rows, r => nm(r.enemy))) md += table(`${e}`, sorted(group(l, r => r.variant)), '무기').replace(/\| cmp_[^ |]+/g, (m) => '| ' + (VN[m.slice(2)] || m.slice(2)));
   // 보스 패턴: 무기별 × 보스 → 전투당 시작된 패턴 종류·횟수, 실행된 공격 수, 받은 피해

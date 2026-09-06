@@ -77,3 +77,4 @@ p.summary { margin: 6px 0 8px; } details { margin: 4px 0 10px; } details > summa
 details.card summary { cursor: pointer; font-weight: 700; } details.card.small summary { font-size: 14px; }
 .gear .lbl { display: inline-block; min-width: 56px; color: var(--dim); font-size: 13px; }
 .cost .lack { color: var(--bad); }
+table.stats td, table.stats th { padding: 2px 8px; font-size: 13px; text-align: right; } table.stats td:first-child, table.stats th:first-child, table.stats td:nth-child(2) { text-align: left; }

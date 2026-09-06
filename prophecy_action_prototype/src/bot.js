@@ -13,6 +13,8 @@ PA.Bot = (function () {
       doc: { period: '40ms(일반)·헤드리스 5스텝', reads: '준비 40% 이상 진행된 예고·확정·투사체·바닥 지역·구름 예고', target: '궁수·주술사·서리술사 같은 후열 우선, 없으면 가장 가까운 적', q: '200 안 적 3마리 이상 또는 보스 빈틈·돌진 확정', e: '200 안 적 2마리 이상', dodge: '확정 예고 안에 있을 때', terrain: 'Combat.steerDir 접선 우회', giveUp: '체력 25% 미만이면 예고가 없을 때만 접근' } },
     survival:   { name: '생존 우선', reactAt: 0.0, dodgeLocked: true, zoneMargin: 60, keepDist: 90, retreatHp: 0.5, qMinEnemies: 1, eMinEnemies: 1, eRange: 160, giveUp: 'hp<50%면 이탈, 위협 없을 때만 사거리까지 접근',
       doc: { period: '40ms(일반)·헤드리스 5스텝', reads: '모든 준비 단계 예고·투사체·바닥 지역(여유 60)', target: '가장 가까운 적을 사거리 끝에서', q: '위협이 확정된 적이 200 안에 1마리 이상', e: '160 안 적 1마리 이상(결계·돌풍은 방어용)', dodge: '확정 예고 안 또는 근접 적 60 안', terrain: 'Combat.steerDir 접선 우회', giveUp: '체력 50% 미만이면 모든 적에서 이탈(시간 초과 가능 — 성공으로 집계하지 않음)' } },
+    still:      { name: '제자리(Q/E만)', reactAt: 9, dodgeLocked: false, zoneMargin: 0, keepDist: 0, retreatHp: 0, qMinEnemies: 1, eMinEnemies: 1, eRange: 220, giveUp: '없음', noMove: true,
+      doc: { period: '40ms(일반)·헤드리스 5스텝', reads: '아무것도 읽지 않음', target: '없음(이동 없음)', q: '220 안 적 1마리 이상 또는 보스 빈틈', e: '220 안 적 1마리 이상', dodge: '없음', terrain: '없음', giveUp: '없음' } },
   };
 
   // ---------- 위협 도형 ----------
@@ -119,6 +121,7 @@ PA.Bot = (function () {
     }
     const es = st.build.skills && st.build.skills.e;
     if (es && p.eCd <= 0) { const nearE = alive.filter(e => M.dist(e, p) < pol.eRange).length; if (nearE >= pol.eMinEnemies) skillE = true; if (es.id === 'ward' && pol !== POLICIES.survival && !threatened && hpRatio > 0.7) skillE = false; }
+    if (pol.noMove) return { mx: 0, my: 0, dodge: false, special, skillE }; // 제자리 정책: 이동·회피 없음(보스 비교 기준선)
     return { mx: mv.x, my: mv.y, dodge, special, skillE };
   }
   // 판단 주기 양자화: 고정 시뮬레이션 단계 번호(st.stepN, 다음에 실행될 단계)가 DECIDE_STEPS의 배수일 때만 판단한다(120단계/초 → 5단계 = 40ms).

@@ -168,11 +168,13 @@ PA.Weapons = (function () {
   function updateOrbit(st, w, dt) {
     const s = w.stats, p = st.player;
     w.orbit += s.angular * dt;
-    const rings = s.mods.includes('dual') ? [[s.radius, 0], [s.radius * 0.58, Math.PI / s.count]] : [[s.radius, 0]];
+    // v0.8: 칼날 판정은 '중심 근처(반지름의 35%)부터 칼날 끝까지의 살(spoke)'이다. 이전 판정(칼날 끝 원 16)은 궤도 안쪽에 사각이 있어 붙은 적을 놓쳤다.
+    // 이중 궤도 개조는 안쪽 궤도 대신 같은 궤도에 칼날 +1(안쪽은 살이 덮으므로 안쪽 궤도가 무의미)
+    const count = s.count + (s.mods.includes('dual') ? 1 : 0), R = s.radius, inner = R * PA.BLADE_SPOKE.innerFrac;
     w.bladePos = [];
-    for (const [R, off] of rings) for (let i = 0; i < s.count; i++) { const a = w.orbit + off + i * TAU / s.count; w.bladePos.push({ x: p.x + Math.cos(a) * R, y: p.y + Math.sin(a) * R, a }); }
+    for (let i = 0; i < count; i++) { const a = w.orbit + i * TAU / count; w.bladePos.push({ x: p.x + Math.cos(a) * R, y: p.y + Math.sin(a) * R, a, ix: p.x + Math.cos(a) * inner, iy: p.y + Math.sin(a) * inner }); }
     for (const bp of w.bladePos) for (const e of alive(st)) {
-      if (m().dist(bp, e) > 16 + e.r) continue;
+      if (m().distSeg ? m().distSeg(e, bp.ix, bp.iy, bp.x, bp.y) > PA.BLADE_SPOKE.hitR + e.r : m().dist(bp, e) > 16 + e.r) continue;
       const last = w.lastHit.get(e.id) || -9; if (st.t - last < s.hitGap) continue;
       if (!reachable(st, p, e)) continue;
       w.lastHit.set(e.id, st.t); w.count++;

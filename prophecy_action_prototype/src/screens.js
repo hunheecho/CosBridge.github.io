@@ -59,6 +59,15 @@ PA.Screens = (function () {
       <div class="card-title small">수동 기술</div><ul class="gear">${sk('q')}${sk('e')}</ul>
       <p class="small">공용 증강 ${PA.Growth.commonCount(g)}/${S.commons}: ${commons || '<span class="dim">없음</span>'} · 패시브 ${PA.Growth.passiveCount(g)}/${S.passives}: ${passives || '<span class="dim">없음</span>'}${g.bossRewards.length ? ` · 희귀 보상: ${g.bossRewards.map(id => `<b>${esc(PA.BOSS_REWARDS[id].name)}</b>`).join(', ')}` : ''}</p></div>`;
   }
+  // 런 피해 통계(결과·거점): 기술별 유효 피해·비중·DPS, 분류별, 보스 전용(성공/실패 분리). 방어·회복·감속은 포함하지 않는다
+  function statsPanel(run, compact) {
+    if (!PA.Stats || !run.dmgStats || !run.dmgStats.combats.length) return '';
+    const V = PA.Stats.views(run), tbl = (a, title) => a.n ? `<div class="card-title small">${title} <span class="dim">전투 ${a.n}회 · 실제 전투 ${a.elapsed}초 · 총 유효 피해 ${a.total} · 전체 DPS ${a.dpsAll} · 받은 피해 ${a.taken}</span></div>
+      <table class="keys stats"><tr><th>출처</th><th>분류</th><th>유효 피해</th><th>비중</th><th>보유 시간</th><th>DPS</th></tr>${a.rows.map(r => `<tr><td>${esc(r.name)}</td><td class="dim">${esc(PA.Stats.CATS[r.cat] || r.cat)}</td><td>${r.amount}</td><td>${r.share}%</td><td>${r.active}초</td><td><b>${r.dps}</b></td></tr>`).join('')}</table>
+      <p class="dim small">분류별: ${Object.keys(a.cats).map(k => `${esc(PA.Stats.CATS[k] || k)} ${a.cats[k]}`).join(' · ')}</p>` : '';
+    const body = `${tbl(V.all, '전체')}${tbl(V.boss, '보스전(성공)')}${tbl(V.bossFailed, '보스전(실패한 도전)')}${compact ? '' : tbl(V.sortie, '일반 출격')}<p class="dim small">유효 피해 = 실제 체력 감소(과잉 피해 제외). DPS 분모 = 그 기술을 보유한 실제 전투 시간(메뉴·일시정지 제외). 감속장(Q)의 감속·방어·회복은 피해가 아니므로 표에 없음.</p>`;
+    return compact ? `<details class="card small"><summary>피해 통계 <span class="dim">· 전투 ${V.all.n}회 · 총 ${V.all.total}</span></summary>${body}</details>` : `<div class="card"><div class="card-title">피해 통계</div>${body}</div>`;
+  }
   function logCard(run, n) { const L = run.log.slice(0, n || 6); return `<details class="card small"><summary>최근 기록 ${L.length ? `<span class="dim">· ${esc(L[0])}</span>` : ''}</summary>${L.length ? `<ul class="log">${L.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '<p class="dim">아직 없음</p>'}</details>`; }
 
   // 시작 무기 선택
@@ -122,7 +131,7 @@ PA.Screens = (function () {
           <button class="big" data-action="shop">상점 · 대장간 · 장비</button>
           ${cleared ? '<button class="big" data-action="newrun-confirm">새 회차 시작</button>' : ''}
           <button data-action="save-quit">저장 후 종료</button></div></div>
-      </div><div>${equipPanel(run)}${buildPanel(run)}${logCard(run)}</div></div></div>`;
+      </div><div>${equipPanel(run)}${buildPanel(run)}${cleared ? statsPanel(run, false) : statsPanel(run, true)}${logCard(run)}</div></div></div>`;
   }
   // 오늘의 장소 카드: 이름·비용·목표·주요 적·위험·보상·지금 출발 시 변주. 상세는 접힘
   function placeCard(run, c) {
@@ -180,7 +189,7 @@ PA.Screens = (function () {
           ${Object.keys(run.services || {}).some(k => run.services[k] > 0) ? `<div class="card compact"><div class="card-title small">보유 이용권</div><p class="small">${Object.keys(run.services).filter(k => run.services[k] > 0).map(k => `<b>${esc(PA.SERVICES[k].name)}</b> ×${run.services[k]}`).join(' · ')} <span class="dim">(개조 교체권·할인권은 상점·대장간에서 사용)</span></p></div>` : ''}
           ${bossCard(run, false)}
         </div>
-        <div>${equipPanel(run)}${buildPanel(run)}${logCard(run)}</div>
+        <div>${equipPanel(run)}${buildPanel(run)}${statsPanel(run, true)}${logCard(run)}</div>
       </div></div>`;
   }
   function map(G) { return base(G); }
@@ -438,5 +447,5 @@ PA.Screens = (function () {
       ctx.save(); ctx.scale(0.8, 0.8); PA.Render.drawBoss(ctx, fake, e); ctx.restore();
     }
   }
-  return { title, newrunConfirm, base, finalPrep, map, shop, swap, equipPanel, reward, after, event, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard, pickStart, levelCards, migration, lab, labResult, statusText };
+  return { title, newrunConfirm, base, finalPrep, map, shop, swap, equipPanel, statsPanel, reward, after, event, defeat, bossDefeat, bossVictory, enddayConfirm, bossday, scenarioEnd, controls, pause, paintPortraits, bossCard, pickStart, levelCards, migration, lab, labResult, statusText };
 })();

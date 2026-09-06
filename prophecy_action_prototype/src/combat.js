@@ -41,7 +41,7 @@ PA.Combat = (function () {
       weapons: [], mines: [], delayed: [], levelUps: 0, xpGained: 0,
       // 시험실·측정(v0.6): 체력 배율은 체력에만 적용, 시간 제한, 빌드 고정, 동시 공격 제한, 지역
       hpMult: Object.assign({ normal: 1, elite: 1, boss: 1 }, opts.hpMult || {}), timeLimit: opts.timeLimit || 0, fixedBuild: !!opts.fixedBuild, overlapLimit: opts.overlapLimit || 0, regionId: opts.regionId || null,
-      metrics: newMetrics(), labText: opts.labText || null,
+      metrics: newMetrics(), activeT: {}, labText: opts.labText || null,
       objects: [], obj: null, mission: opts.mission || null, // v0.7 목표 구조물 외 객체(우리·봉인·출구·포로)와 목표 진행 상태
     };
     st.stats.xp = 0; st.stats.levelUps = 0; st.stats.eUses = 0; st.stats.absorbed = 0;
@@ -738,6 +738,7 @@ PA.Combat = (function () {
       return;
     }
     st.t += dt; st.stats.elapsed += dt;
+    { const A = st.activeT; for (const w of st.build.weapons) A['weapon:' + w.id] = (A['weapon:' + w.id] || 0) + dt; A['skill:q'] = (A['skill:q'] || 0) + dt; if (st.build.skills && st.build.skills.e) A['skill:' + st.build.skills.e.id] = (A['skill:' + st.build.skills.e.id] || 0) + dt; } // 기술별 보유 시간(획득~제거, 실제 전투 시간만): 피해 통계 DPS 분모
     if (st.timeLimit > 0 && st.t >= st.timeLimit) { st.status = 'timeout'; ev(st, 'timeout'); return; } // 시간 초과: 승패와 별도 상태
     updatePlayer(st, input || {}, dt);
     PA.Skills.update(st, dt);

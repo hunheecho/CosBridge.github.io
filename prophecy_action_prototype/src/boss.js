@@ -116,6 +116,7 @@ PA.Boss = (function () {
 
   // ---------- 갱신 ----------
   function update(st, e, dt) {
+    if (e.dummy) { e.animT += dt; return; } // 허수아비(시험실): 행동 없음
     if (e.bossId && e.bossId !== 'boss' && PA.Boss2) return PA.Boss2.update(st, e, dt);
     const cfg = B(), p = st.player, tf = K().timeFactor(st, e), sm = K().enemySpeedMult(st, e);
     const dist = m().dist(e, p);

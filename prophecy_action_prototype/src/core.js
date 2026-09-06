@@ -3,6 +3,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 if (typeof globalThis !== 'undefined') globalThis.PA = PA;
 
 PA.VERSION = '0.8.0';
+PA.BLADE_SPOKE = { innerFrac: 0.35, hitR: 14 }; // 회전 칼날 판정: 중심에서 반지름×0.35 지점부터 칼날 끝까지의 살, 두께 14 (v0.8 사각 수정)
 
 // mulberry32: 시드 기반 결정적 난수
 PA.rng = {
@@ -28,6 +29,7 @@ PA.m = {
   clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); },
   len(x, y) { return Math.hypot(x, y); },
   dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); },
+  distSeg(pt, x0, y0, x1, y1) { const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy; const t = L2 > 0 ? Math.max(0, Math.min(1, ((pt.x - x0) * dx + (pt.y - y0) * dy) / L2)) : 0; return Math.hypot(pt.x - (x0 + dx * t), pt.y - (y0 + dy * t)); }, // 점과 선분의 거리
   norm(x, y) { const l = Math.hypot(x, y); return l > 1e-9 ? { x: x / l, y: y / l } : { x: 0, y: 0 }; },
   lerp(a, b, t) { return a + (b - a) * t; },
   angDiff(a, b) { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; },
