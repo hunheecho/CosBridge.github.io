@@ -142,3 +142,5 @@
 | R-BOSS-20 | 봉인 수호자: 무거운 휩쓸기·직선 충격파·봉인 장치(파괴 시 패턴 제거, 경험치 0), 완전 무적 없음 | 2단계 보스 | v0.7 | ✅ | boss_data.js BOSS_GUARDIAN, boss2.js, render drawGuardian, 테스트 | 수치 임시 |
 | R-BOSS-21 | 예언을 먹는 자: 과거 위치 표식 지연 폭발·두 줄 순차 직선·광역 후 긴 빈틈·제한 소환, 숨기 없음, 무적·피해 상한 없음 | 최종 보스 | v0.7 | ✅ | boss_data.js BOSS_EATER, boss2.js, render drawEater, 테스트 | 표식은 0.5초 이상 지난 위치만 |
 | R-BOSS-22 | 희귀 보상 연결: 적용 가능한 것만·중복 없음·1보스 보상은 2단계에서 사용·저장된 제시·재굴림 없음·3개 미만 시 범용 채움 | 보스 보상이 회차에 의미 | v0.7 | ✅ | growth.js bossRewardApplies·generic, Flow.nextOffer(pendingBossPick), describe 예시 | 마지막 보스 뒤 없음 |
+| R-SIM-07 | 회차 시뮬레이션 7전략(쉬움 반복·점진·위험 임무 우선·일찍 휴식·더 깊이·빌드 맞춤·시작 무기 3종), 3보스/단일 구조 | 같은 예산으로 전략 비교 | v0.7 | ✅ | tools/run_sim.js --mode --strats --start, docs/sim/run_sim_trio*.md·run_sim_single.md, SUMMARY | 보스 전 성장·보상 수·휴식·실패·전리품·시간 계정 기록 |
+| R-VERIFY-07 | 브라우저 검증 25항목(카드→임무→3택→사건→귀환, 입력 차단, 새로고침 복구, 관문 패배 복구·승리·희귀·종료, 이전 저장) + 시험실 35항목 유지 | 실제 조작 검증 | v0.7 | ✅ | tools/verify_v07.js, docs/verify_v07_log.txt, tools/verify_lab.js | fps 비교·목표 우선순위·지형·사건 1회·더 깊이 1회는 node 테스트 |

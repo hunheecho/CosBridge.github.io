@@ -1,0 +1,11042 @@
+[
+ {
+  "curve": "v06",
+  "strategy": "easy",
+  "seed": 1,
+  "encounters": 30,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 24,
+  "cardsInCombat": 17,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 15,
+  "eventChoices": [
+   "merchant:leave",
+   "supply:loot",
+   "merchant:leave",
+   "scout:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "time_spring:buff",
+   "sealed_loot:leave",
+   "scout:swap",
+   "sealed_loot:leave",
+   "scout:leave",
+   "supply:loot",
+   "sealed_loot:leave",
+   "scout:leave",
+   "merchant:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   3,
+   2,
+   3,
+   2
+  ],
+  "weapon2": 77,
+  "weapon3": 96,
+  "eSkill": 31,
+  "events": [
+   {
+    "t": 17,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 31,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 77,
+    "kind": "level",
+    "key": "weapon_new:ember",
+    "where": "combat"
+   },
+   {
+    "t": 96,
+    "kind": "level",
+    "key": "weapon_new:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 147,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 195,
+    "kind": "level",
+    "key": "weapon_mod:daggers:bleed",
+    "where": "combat"
+   },
+   {
+    "t": 235,
+    "kind": "level",
+    "key": "weapon_mod:ember:reignite",
+    "where": "screen"
+   },
+   {
+    "t": 291,
+    "kind": "level",
+    "key": "weapon_mod:daggers:flank",
+    "where": "screen"
+   },
+   {
+    "t": 351,
+    "kind": "level",
+    "key": "weapon_mod:ember:trail",
+    "where": "screen"
+   },
+   {
+    "t": 401,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "combat"
+   },
+   {
+    "t": 455,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 510,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 578,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 623,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "screen"
+   },
+   {
+    "t": 690,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 772,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 871,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 967,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1101,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 1112,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1218,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 1311,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 1453,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 1575,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 18,
+    "hp": 100,
+    "bossHp": -3,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 30,
+    "hp": 100,
+    "bossHp": -3,
+    "level": 18,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 33,
+    "hp": 100,
+    "bossHp": -4,
+    "level": 23,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 81,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 23,
+  "gold": 1403,
+  "mats": {
+   "pelt": 50,
+   "iron": 0,
+   "spore": 0,
+   "fang": 0
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword3[cross+scar] ember2[reignite+trail] daggers4[bleed+flank] | 공통 frost1,ember1,stasis1 | E gust3 | 패시브 exploit1",
+  "boss": "boss:won@18s guardian:won@30s eater:won@33s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 470,
+   "cards": 144,
+   "screens": 870,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 81
+  },
+  "simulatedSec": 552,
+  "assumedSec": 1074,
+  "totalMin": 27.1,
+  "combatMin": 7.8,
+  "cardMin": 2.4,
+  "menuMin": 17.9,
+  "bossMin": 1.4
+ },
+ {
+  "curve": "v06",
+  "strategy": "easy",
+  "seed": 2,
+  "encounters": 30,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 24,
+  "cardsInCombat": 18,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 17,
+  "eventChoices": [
+   "supply:loot",
+   "time_spring:buff",
+   "merchant:leave",
+   "time_spring:buff",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "merchant:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "merchant:leave",
+   "scout:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "merchant:leave",
+   "time_spring:buff",
+   "scout:leave",
+   "merchant:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   3,
+   2,
+   3,
+   2
+  ],
+  "weapon2": 18,
+  "weapon3": 75,
+  "eSkill": 93,
+  "events": [
+   {
+    "t": 18,
+    "kind": "level",
+    "key": "weapon_new:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_mod:daggers:flank",
+    "where": "combat"
+   },
+   {
+    "t": 75,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "combat"
+   },
+   {
+    "t": 93,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 143,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 185,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 229,
+    "kind": "level",
+    "key": "weapon_mod:blades:serrated",
+    "where": "screen"
+   },
+   {
+    "t": 285,
+    "kind": "level",
+    "key": "weapon_mod:daggers:bleed",
+    "where": "screen"
+   },
+   {
+    "t": 342,
+    "kind": "level",
+    "key": "weapon_mod:blades:launch",
+    "where": "screen"
+   },
+   {
+    "t": 408,
+    "kind": "level",
+    "key": "skill_variant:gust:windpath",
+    "where": "combat"
+   },
+   {
+    "t": 462,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 527,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 601,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 650,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "screen"
+   },
+   {
+    "t": 726,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 806,
+    "kind": "level",
+    "key": "common:saving",
+    "where": "combat"
+   },
+   {
+    "t": 907,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 993,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 1137,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 1151,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 1247,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 1358,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1510,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "combat"
+   },
+   {
+    "t": 1609,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 24,
+    "hp": 100,
+    "bossHp": -6,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 44,
+    "hp": 71,
+    "bossHp": -1,
+    "level": 18,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 41,
+    "hp": 100,
+    "bossHp": -4,
+    "level": 23,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 109,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:clone",
+   "boss_reward:resonance"
+  ],
+  "levelAtBoss": [],
+  "level": 23,
+  "gold": 1337,
+  "mats": {
+   "pelt": 47,
+   "iron": 0,
+   "spore": 0,
+   "fang": 0
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword1[scar+cross] daggers5[flank+bleed] blades4[serrated+launch] | 공통 ember1,reach1,saving1 | E gust1 | 패시브 -",
+  "boss": "boss:won@24s guardian:won@44s eater:won@41s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 488,
+   "cards": 144,
+   "screens": 886,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 109
+  },
+  "simulatedSec": 597,
+  "assumedSec": 1090,
+  "totalMin": 28.1,
+  "combatMin": 8.1,
+  "cardMin": 2.4,
+  "menuMin": 18.2,
+  "bossMin": 1.8
+ },
+ {
+  "curve": "v06",
+  "strategy": "easy",
+  "seed": 3,
+  "encounters": 30,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 24,
+  "cardsInCombat": 18,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 13,
+  "eventChoices": [
+   "scout:leave",
+   "merchant:leave",
+   "scout:leave",
+   "weapon_altar:leave",
+   "sealed_loot:leave",
+   "time_spring:buff",
+   "sealed_loot:leave",
+   "merchant:leave",
+   "supply:loot",
+   "merchant:leave",
+   "time_spring:buff",
+   "sealed_loot:leave",
+   "supply:loot"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   3,
+   3,
+   2,
+   2
+  ],
+  "weapon2": 18,
+  "weapon3": 30,
+  "eSkill": 129,
+  "events": [
+   {
+    "t": 18,
+    "kind": "level",
+    "key": "weapon_new:bow",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "combat"
+   },
+   {
+    "t": 65,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 80,
+    "kind": "level",
+    "key": "weapon_mod:blades:dual",
+    "where": "combat"
+   },
+   {
+    "t": 129,
+    "kind": "level",
+    "key": "skill_new:ward",
+    "where": "combat"
+   },
+   {
+    "t": 175,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 217,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "screen"
+   },
+   {
+    "t": 268,
+    "kind": "level",
+    "key": "skill_variant:slowfield:split",
+    "where": "screen"
+   },
+   {
+    "t": 333,
+    "kind": "level",
+    "key": "weapon_mod:blades:launch",
+    "where": "screen"
+   },
+   {
+    "t": 388,
+    "kind": "level",
+    "key": "weapon_mod:bow:spread",
+    "where": "combat"
+   },
+   {
+    "t": 435,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 482,
+    "kind": "level",
+    "key": "weapon_mod:bow:ricochet",
+    "where": "combat"
+   },
+   {
+    "t": 550,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 593,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 644,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "combat"
+   },
+   {
+    "t": 731,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 788,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 870,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 947,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1042,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 1089,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 1168,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 1261,
+    "kind": "level",
+    "key": "passive:mobility",
+    "where": "combat"
+   },
+   {
+    "t": 1379,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 18,
+    "hp": 84,
+    "bossHp": -4,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 36,
+    "hp": 100,
+    "bossHp": -11,
+    "level": 19,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 29,
+    "hp": 100,
+    "bossHp": -37,
+    "level": 23,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 83,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:clone"
+  ],
+  "levelAtBoss": [],
+  "level": 23,
+  "gold": 1338,
+  "mats": {
+   "pelt": 49,
+   "iron": 0,
+   "spore": 0,
+   "fang": 0
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword4[cross+scar] bow2[spread+ricochet] blades4[dual+launch] | 공통 wide2,reach1,frost1 | E ward1 | 패시브 mobility1",
+  "boss": "boss:won@18s guardian:won@36s eater:won@29s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 360,
+   "cards": 144,
+   "screens": 854,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 83
+  },
+  "simulatedSec": 443,
+  "assumedSec": 1058,
+  "totalMin": 25,
+  "combatMin": 6,
+  "cardMin": 2.4,
+  "menuMin": 17.6,
+  "bossMin": 1.4
+ },
+ {
+  "curve": "v06",
+  "strategy": "easy",
+  "seed": 4,
+  "encounters": 30,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 24,
+  "cardsInCombat": 17,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 12,
+  "eventChoices": [
+   "supply:loot",
+   "time_spring:buff",
+   "merchant:leave",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "merchant:leave",
+   "time_spring:buff",
+   "sealed_loot:leave",
+   "scout:leave",
+   "time_spring:buff",
+   "merchant:leave",
+   "sealed_loot:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   3,
+   2,
+   3,
+   2
+  ],
+  "weapon2": 16,
+  "weapon3": 30,
+  "eSkill": 137,
+  "events": [
+   {
+    "t": 16,
+    "kind": "level",
+    "key": "weapon_new:mine",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_new:ember",
+    "where": "combat"
+   },
+   {
+    "t": 72,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 88,
+    "kind": "level",
+    "key": "weapon_mod:ember:reignite",
+    "where": "combat"
+   },
+   {
+    "t": 137,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 180,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 222,
+    "kind": "level",
+    "key": "weapon_mod:mine:chain",
+    "where": "screen"
+   },
+   {
+    "t": 275,
+    "kind": "level",
+    "key": "common:echo",
+    "where": "screen"
+   },
+   {
+    "t": 332,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "screen"
+   },
+   {
+    "t": 392,
+    "kind": "level",
+    "key": "weapon_mod:ember:trail",
+    "where": "combat"
+   },
+   {
+    "t": 450,
+    "kind": "level",
+    "key": "skill_variant:gust:windpath",
+    "where": "combat"
+   },
+   {
+    "t": 508,
+    "kind": "level",
+    "key": "weapon_mod:mine:lure",
+    "where": "combat"
+   },
+   {
+    "t": 573,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 619,
+    "kind": "level",
+    "key": "common:burn",
+    "where": "screen"
+   },
+   {
+    "t": 679,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 759,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 855,
+    "kind": "level",
+    "key": "skill_variant:slowfield:follow",
+    "where": "combat"
+   },
+   {
+    "t": 943,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 1068,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 1080,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1175,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 1264,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 1405,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 1521,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 21,
+    "hp": 80,
+    "bossHp": -3,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 29,
+    "hp": 100,
+    "bossHp": -3,
+    "level": 18,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 27,
+    "hp": 100,
+    "bossHp": -1,
+    "level": 23,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 77,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:seed",
+   "boss_reward:resonance"
+  ],
+  "levelAtBoss": [],
+  "level": 23,
+  "gold": 1218,
+  "mats": {
+   "pelt": 46,
+   "iron": 0,
+   "spore": 0,
+   "fang": 0
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword4[cross+scar] mine2[chain+lure] ember3[reignite+trail] | 공통 echo1,frost1,burn1 | E gust1 | 패시브 exploit1",
+  "boss": "boss:won@21s guardian:won@29s eater:won@27s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 432,
+   "cards": 144,
+   "screens": 846,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 76
+  },
+  "simulatedSec": 508,
+  "assumedSec": 1050,
+  "totalMin": 26,
+  "combatMin": 7.2,
+  "cardMin": 2.4,
+  "menuMin": 17.5,
+  "bossMin": 1.3
+ },
+ {
+  "curve": "v06",
+  "strategy": "easy",
+  "seed": 5,
+  "encounters": 30,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 24,
+  "cardsInCombat": 17,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 17,
+  "eventChoices": [
+   "merchant:leave",
+   "sealed_loot:leave",
+   "merchant:leave",
+   "scout:leave",
+   "supply:loot",
+   "sealed_loot:leave",
+   "merchant:leave",
+   "time_spring:buff",
+   "sealed_loot:leave",
+   "time_spring:buff",
+   "merchant:leave",
+   "scout:leave",
+   "sealed_loot:leave",
+   "merchant:leave",
+   "scout:leave",
+   "supply:loot",
+   "merchant:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   3,
+   2,
+   3,
+   2
+  ],
+  "weapon2": 17,
+  "weapon3": 30,
+  "eSkill": 66,
+  "events": [
+   {
+    "t": 17,
+    "kind": "level",
+    "key": "weapon_new:frost",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_new:spear",
+    "where": "combat"
+   },
+   {
+    "t": 66,
+    "kind": "level",
+    "key": "skill_new:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 81,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 129,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 176,
+    "kind": "level",
+    "key": "weapon_mod:frost:fan",
+    "where": "combat"
+   },
+   {
+    "t": 218,
+    "kind": "level",
+    "key": "weapon_mod:spear:split",
+    "where": "screen"
+   },
+   {
+    "t": 269,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "screen"
+   },
+   {
+    "t": 331,
+    "kind": "level",
+    "key": "weapon_mod:spear:brand",
+    "where": "screen"
+   },
+   {
+    "t": 383,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 430,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 486,
+    "kind": "level",
+    "key": "weapon_mod:frost:ground",
+    "where": "combat"
+   },
+   {
+    "t": 551,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 593,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "screen"
+   },
+   {
+    "t": 646,
+    "kind": "level",
+    "key": "skill_level:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 736,
+    "kind": "level",
+    "key": "skill_level:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 820,
+    "kind": "level",
+    "key": "skill_variant:slowfield:split",
+    "where": "combat"
+   },
+   {
+    "t": 914,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 1022,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 1032,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1114,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1201,
+    "kind": "level",
+    "key": "skill_variant:bladestorm:advancing",
+    "where": "combat"
+   },
+   {
+    "t": 1339,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1442,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 16,
+    "hp": 100,
+    "bossHp": -7,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 24,
+    "hp": 100,
+    "bossHp": -6,
+    "level": 18,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 28,
+    "hp": 100,
+    "bossHp": -3,
+    "level": 23,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 68,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:clone",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 23,
+  "gold": 1309,
+  "mats": {
+   "pelt": 47,
+   "iron": 0,
+   "spore": 0,
+   "fang": 0
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword4[crescent+cross] frost1[fan+ground] spear2[split+brand] | 공통 frost1,stasis1,reach1 | E bladestorm3 | 패시브 -",
+  "boss": "boss:won@16s guardian:won@24s eater:won@28s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 329,
+   "cards": 144,
+   "screens": 886,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 68
+  },
+  "simulatedSec": 398,
+  "assumedSec": 1090,
+  "totalMin": 24.8,
+  "combatMin": 5.5,
+  "cardMin": 2.4,
+  "menuMin": 18.2,
+  "bossMin": 1.1
+ },
+ {
+  "curve": "v06",
+  "strategy": "gradual",
+  "seed": 1,
+  "encounters": 22,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 29,
+  "cardsInCombat": 21,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 11,
+  "eventChoices": [
+   "merchant:leave",
+   "supply:loot",
+   "merchant:leave",
+   "scout:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "merchant:leave",
+   "scout:leave",
+   "merchant:leave",
+   "scout:leave",
+   "merchant:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   4,
+   4,
+   3,
+   4
+  ],
+  "weapon2": 77,
+  "weapon3": 96,
+  "eSkill": 31,
+  "events": [
+   {
+    "t": 17,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 31,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 77,
+    "kind": "level",
+    "key": "weapon_new:ember",
+    "where": "combat"
+   },
+   {
+    "t": 96,
+    "kind": "level",
+    "key": "weapon_new:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 147,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 195,
+    "kind": "level",
+    "key": "weapon_mod:daggers:bleed",
+    "where": "combat"
+   },
+   {
+    "t": 235,
+    "kind": "level",
+    "key": "weapon_mod:ember:reignite",
+    "where": "screen"
+   },
+   {
+    "t": 291,
+    "kind": "level",
+    "key": "weapon_mod:daggers:flank",
+    "where": "screen"
+   },
+   {
+    "t": 351,
+    "kind": "level",
+    "key": "weapon_mod:ember:trail",
+    "where": "screen"
+   },
+   {
+    "t": 401,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "combat"
+   },
+   {
+    "t": 455,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 510,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 578,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 593,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 633,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "screen"
+   },
+   {
+    "t": 655,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 709,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 770,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 813,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "screen"
+   },
+   {
+    "t": 838,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 887,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 952,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 974,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1020,
+    "kind": "level",
+    "key": "skill_variant:slowfield:split",
+    "where": "combat"
+   },
+   {
+    "t": 1060,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "screen"
+   },
+   {
+    "t": 1140,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 1160,
+    "kind": "level",
+    "key": "skill_variant:gust:windpath",
+    "where": "combat"
+   },
+   {
+    "t": 1216,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 1275,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 18,
+    "hp": 100,
+    "bossHp": -3,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 24,
+    "hp": 82,
+    "bossHp": -9,
+    "level": 21,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 26,
+    "hp": 120,
+    "bossHp": -1,
+    "level": 28,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 68,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:clone"
+  ],
+  "levelAtBoss": [],
+  "level": 28,
+  "gold": 1298,
+  "mats": {
+   "pelt": 25,
+   "iron": 6,
+   "spore": 9,
+   "fang": 4
+  },
+  "hpBeforeBoss": 120,
+  "build": "sword2[cross+crescent] ember4[reignite+trail] daggers5[bleed+flank] | 공통 frost1,ember1,stasis1 | E gust3 | 패시브 vitality1",
+  "boss": "boss:won@18s guardian:won@24s eater:won@26s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 396,
+   "cards": 174,
+   "screens": 638,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 69
+  },
+  "simulatedSec": 465,
+  "assumedSec": 872,
+  "totalMin": 22.3,
+  "combatMin": 6.6,
+  "cardMin": 2.9,
+  "menuMin": 14.5,
+  "bossMin": 1.2
+ },
+ {
+  "curve": "v06",
+  "strategy": "gradual",
+  "seed": 2,
+  "encounters": 22,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 29,
+  "cardsInCombat": 22,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 14,
+  "eventChoices": [
+   "supply:loot",
+   "time_spring:buff",
+   "merchant:leave",
+   "time_spring:buff",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "merchant:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "merchant:leave",
+   "time_spring:buff",
+   "scout:leave",
+   "sealed_loot:leave",
+   "scout:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   4,
+   4,
+   4,
+   3
+  ],
+  "weapon2": 18,
+  "weapon3": 75,
+  "eSkill": 93,
+  "events": [
+   {
+    "t": 18,
+    "kind": "level",
+    "key": "weapon_new:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_mod:daggers:flank",
+    "where": "combat"
+   },
+   {
+    "t": 75,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "combat"
+   },
+   {
+    "t": 93,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 143,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 185,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 229,
+    "kind": "level",
+    "key": "weapon_mod:blades:serrated",
+    "where": "screen"
+   },
+   {
+    "t": 285,
+    "kind": "level",
+    "key": "weapon_mod:daggers:bleed",
+    "where": "screen"
+   },
+   {
+    "t": 342,
+    "kind": "level",
+    "key": "weapon_mod:blades:launch",
+    "where": "screen"
+   },
+   {
+    "t": 408,
+    "kind": "level",
+    "key": "skill_variant:gust:windpath",
+    "where": "combat"
+   },
+   {
+    "t": 462,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 527,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 601,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 632,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "combat"
+   },
+   {
+    "t": 683,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "screen"
+   },
+   {
+    "t": 715,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 772,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 833,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 876,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 908,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "combat"
+   },
+   {
+    "t": 973,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1055,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 1072,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "combat"
+   },
+   {
+    "t": 1118,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 1139,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 1188,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1249,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 1299,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1351,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 24,
+    "hp": 100,
+    "bossHp": -6,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 41,
+    "hp": 100,
+    "bossHp": -2,
+    "level": 21,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 41,
+    "hp": 140,
+    "bossHp": -14,
+    "level": 28,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 106,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:clone",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 28,
+  "gold": 1269,
+  "mats": {
+   "pelt": 27,
+   "iron": 5,
+   "spore": 6,
+   "fang": 4
+  },
+  "hpBeforeBoss": 140,
+  "build": "sword4[scar+cross] daggers4[flank+bleed] blades3[serrated+launch] | 공통 ember1,frost1,reach2 | E gust1 | 패시브 vitality2",
+  "boss": "boss:won@24s guardian:won@41s eater:won@41s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 437,
+   "cards": 174,
+   "screens": 662,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 106
+  },
+  "simulatedSec": 543,
+  "assumedSec": 896,
+  "totalMin": 24,
+  "combatMin": 7.3,
+  "cardMin": 2.9,
+  "menuMin": 14.9,
+  "bossMin": 1.8
+ },
+ {
+  "curve": "v06",
+  "strategy": "gradual",
+  "seed": 3,
+  "encounters": 22,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 29,
+  "cardsInCombat": 22,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 11,
+  "eventChoices": [
+   "scout:leave",
+   "merchant:leave",
+   "scout:leave",
+   "weapon_altar:leave",
+   "sealed_loot:leave",
+   "time_spring:buff",
+   "scout:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "time_spring:buff",
+   "supply:loot"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   5,
+   3,
+   4,
+   3
+  ],
+  "weapon2": 18,
+  "weapon3": 30,
+  "eSkill": 129,
+  "events": [
+   {
+    "t": 18,
+    "kind": "level",
+    "key": "weapon_new:bow",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "combat"
+   },
+   {
+    "t": 65,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 80,
+    "kind": "level",
+    "key": "weapon_mod:blades:dual",
+    "where": "combat"
+   },
+   {
+    "t": 129,
+    "kind": "level",
+    "key": "skill_new:ward",
+    "where": "combat"
+   },
+   {
+    "t": 175,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 217,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "screen"
+   },
+   {
+    "t": 268,
+    "kind": "level",
+    "key": "skill_variant:slowfield:split",
+    "where": "screen"
+   },
+   {
+    "t": 333,
+    "kind": "level",
+    "key": "weapon_mod:blades:launch",
+    "where": "screen"
+   },
+   {
+    "t": 388,
+    "kind": "level",
+    "key": "weapon_mod:bow:spread",
+    "where": "combat"
+   },
+   {
+    "t": 435,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 482,
+    "kind": "level",
+    "key": "weapon_mod:bow:ricochet",
+    "where": "combat"
+   },
+   {
+    "t": 550,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 563,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 577,
+    "kind": "level",
+    "key": "common:burn",
+    "where": "combat"
+   },
+   {
+    "t": 615,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 628,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 672,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 730,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 779,
+    "kind": "level",
+    "key": "skill_level:ward",
+    "where": "combat"
+   },
+   {
+    "t": 818,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 912,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 920,
+    "kind": "level",
+    "key": "passive:mobility",
+    "where": "combat"
+   },
+   {
+    "t": 937,
+    "kind": "level",
+    "key": "skill_level:ward",
+    "where": "combat"
+   },
+   {
+    "t": 982,
+    "kind": "level",
+    "key": "skill_variant:ward:fortress",
+    "where": "combat"
+   },
+   {
+    "t": 1017,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "screen"
+   },
+   {
+    "t": 1076,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 1122,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 1137,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 18,
+    "hp": 84,
+    "bossHp": -4,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 33,
+    "hp": 100,
+    "bossHp": 0,
+    "level": 21,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 34,
+    "hp": 100,
+    "bossHp": -49,
+    "level": 28,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 85,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 28,
+  "gold": 1357,
+  "mats": {
+   "pelt": 27,
+   "iron": 6,
+   "spore": 5,
+   "fang": 4
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[cross+crescent] bow4[spread+ricochet] blades3[dual+launch] | 공통 wide2,reach1,burn1 | E ward3 | 패시브 mobility1",
+  "boss": "boss:won@18s guardian:won@33s eater:won@34s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 288,
+   "cards": 174,
+   "screens": 638,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 85
+  },
+  "simulatedSec": 373,
+  "assumedSec": 872,
+  "totalMin": 20.7,
+  "combatMin": 4.8,
+  "cardMin": 2.9,
+  "menuMin": 14.5,
+  "bossMin": 1.4
+ },
+ {
+  "curve": "v06",
+  "strategy": "gradual",
+  "seed": 4,
+  "encounters": 22,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 29,
+  "cardsInCombat": 22,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 10,
+  "eventChoices": [
+   "supply:loot",
+   "time_spring:buff",
+   "merchant:leave",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "merchant:leave",
+   "supply:loot",
+   "sealed_loot:leave",
+   "time_spring:buff",
+   "merchant:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   4,
+   4,
+   4,
+   3
+  ],
+  "weapon2": 16,
+  "weapon3": 30,
+  "eSkill": 137,
+  "events": [
+   {
+    "t": 16,
+    "kind": "level",
+    "key": "weapon_new:mine",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_new:ember",
+    "where": "combat"
+   },
+   {
+    "t": 72,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 88,
+    "kind": "level",
+    "key": "weapon_mod:ember:reignite",
+    "where": "combat"
+   },
+   {
+    "t": 137,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 180,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 222,
+    "kind": "level",
+    "key": "weapon_mod:mine:chain",
+    "where": "screen"
+   },
+   {
+    "t": 275,
+    "kind": "level",
+    "key": "common:echo",
+    "where": "screen"
+   },
+   {
+    "t": 332,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "screen"
+   },
+   {
+    "t": 392,
+    "kind": "level",
+    "key": "weapon_mod:ember:trail",
+    "where": "combat"
+   },
+   {
+    "t": 450,
+    "kind": "level",
+    "key": "skill_variant:gust:windpath",
+    "where": "combat"
+   },
+   {
+    "t": 508,
+    "kind": "level",
+    "key": "weapon_mod:mine:lure",
+    "where": "combat"
+   },
+   {
+    "t": 573,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 589,
+    "kind": "level",
+    "key": "common:burn",
+    "where": "combat"
+   },
+   {
+    "t": 632,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "screen"
+   },
+   {
+    "t": 653,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 699,
+    "kind": "level",
+    "key": "skill_variant:slowfield:follow",
+    "where": "combat"
+   },
+   {
+    "t": 757,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 799,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "screen"
+   },
+   {
+    "t": 821,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 882,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   },
+   {
+    "t": 952,
+    "kind": "boss",
+    "key": "boss_reward:tempo",
+    "where": "screen"
+   },
+   {
+    "t": 972,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1018,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 1038,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1087,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1145,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 1194,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 1244,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 21,
+    "hp": 80,
+    "bossHp": -3,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 29,
+    "hp": 120,
+    "bossHp": -4,
+    "level": 21,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 30,
+    "hp": 120,
+    "bossHp": -2,
+    "level": 28,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 80,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:seed",
+   "boss_reward:tempo"
+  ],
+  "levelAtBoss": [],
+  "level": 28,
+  "gold": 1294,
+  "mats": {
+   "pelt": 26,
+   "iron": 7,
+   "spore": 8,
+   "fang": 4
+  },
+  "hpBeforeBoss": 120,
+  "build": "sword3[cross+scar] mine5[chain+lure] ember2[reignite+trail] | 공통 echo1,frost1,burn1 | E gust3 | 패시브 vitality1,persistence2",
+  "boss": "boss:won@21s guardian:won@29s eater:won@30s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 384,
+   "cards": 174,
+   "screens": 630,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 79
+  },
+  "simulatedSec": 463,
+  "assumedSec": 864,
+  "totalMin": 22.1,
+  "combatMin": 6.4,
+  "cardMin": 2.9,
+  "menuMin": 14.4,
+  "bossMin": 1.3
+ },
+ {
+  "curve": "v06",
+  "strategy": "gradual",
+  "seed": 5,
+  "encounters": 22,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 29,
+  "cardsInCombat": 19,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 13,
+  "eventChoices": [
+   "merchant:leave",
+   "sealed_loot:leave",
+   "merchant:leave",
+   "scout:leave",
+   "supply:loot",
+   "sealed_loot:leave",
+   "merchant:leave",
+   "time_spring:buff",
+   "scout:leave",
+   "supply:loot",
+   "time_spring:buff",
+   "merchant:leave",
+   "scout:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   4,
+   4,
+   3,
+   3
+  ],
+  "weapon2": 17,
+  "weapon3": 30,
+  "eSkill": 66,
+  "events": [
+   {
+    "t": 17,
+    "kind": "level",
+    "key": "weapon_new:frost",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_new:spear",
+    "where": "combat"
+   },
+   {
+    "t": 66,
+    "kind": "level",
+    "key": "skill_new:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 81,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 129,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 176,
+    "kind": "level",
+    "key": "weapon_mod:frost:fan",
+    "where": "combat"
+   },
+   {
+    "t": 218,
+    "kind": "level",
+    "key": "weapon_mod:spear:split",
+    "where": "screen"
+   },
+   {
+    "t": 269,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "screen"
+   },
+   {
+    "t": 331,
+    "kind": "level",
+    "key": "weapon_mod:spear:brand",
+    "where": "screen"
+   },
+   {
+    "t": 383,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 430,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 486,
+    "kind": "level",
+    "key": "weapon_mod:frost:ground",
+    "where": "combat"
+   },
+   {
+    "t": 551,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 564,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 602,
+    "kind": "level",
+    "key": "skill_level:bladestorm",
+    "where": "screen"
+   },
+   {
+    "t": 620,
+    "kind": "level",
+    "key": "skill_level:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 661,
+    "kind": "level",
+    "key": "skill_variant:slowfield:follow",
+    "where": "combat"
+   },
+   {
+    "t": 722,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 761,
+    "kind": "level",
+    "key": "weapon_level:frost",
+    "where": "screen"
+   },
+   {
+    "t": 789,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 839,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 903,
+    "kind": "boss",
+    "key": "boss_reward:volley",
+    "where": "screen"
+   },
+   {
+    "t": 918,
+    "kind": "level",
+    "key": "weapon_level:frost",
+    "where": "combat"
+   },
+   {
+    "t": 961,
+    "kind": "level",
+    "key": "skill_variant:bladestorm:condensed",
+    "where": "combat"
+   },
+   {
+    "t": 1000,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "screen"
+   },
+   {
+    "t": 1061,
+    "kind": "level",
+    "key": "weapon_level:frost",
+    "where": "combat"
+   },
+   {
+    "t": 1099,
+    "kind": "level",
+    "key": "passive:haste",
+    "where": "screen"
+   },
+   {
+    "t": 1114,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1220,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 16,
+    "hp": 100,
+    "bossHp": -7,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 23,
+    "hp": 100,
+    "bossHp": -5,
+    "level": 21,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 23,
+    "hp": 100,
+    "bossHp": -2,
+    "level": 28,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 62,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:clone",
+   "boss_reward:volley"
+  ],
+  "levelAtBoss": [],
+  "level": 28,
+  "gold": 1250,
+  "mats": {
+   "pelt": 23,
+   "iron": 6,
+   "spore": 7,
+   "fang": 4
+  },
+  "hpBeforeBoss": 120,
+  "build": "sword4[crescent+cross] frost4[fan+ground] spear3[split+brand] | 공통 frost1,stasis1,reach2 | E bladestorm3 | 패시브 haste1,vitality1",
+  "boss": "boss:won@16s guardian:won@23s eater:won@23s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 271,
+   "cards": 174,
+   "screens": 654,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 61
+  },
+  "simulatedSec": 332,
+  "assumedSec": 888,
+  "totalMin": 20.3,
+  "combatMin": 4.5,
+  "cardMin": 2.9,
+  "menuMin": 14.8,
+  "bossMin": 1
+ },
+ {
+  "curve": "v06",
+  "strategy": "risky",
+  "seed": 1,
+  "encounters": 15,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 1,
+  "cards": 39,
+  "cardsInCombat": 31,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 10,
+  "eventChoices": [
+   "merchant:fight",
+   "supply:loot",
+   "time_spring:buff",
+   "supply:loot",
+   "time_spring:buff",
+   "scout:leave",
+   "merchant:fight",
+   "supply:loot",
+   "sealed_loot:fight",
+   "time_spring:buff"
+  ],
+  "eventFights": 2,
+  "levelUpsByDay": [
+   17,
+   4,
+   4,
+   3,
+   5,
+   4
+  ],
+  "weapon2": 14,
+  "weapon3": 42,
+  "eSkill": 27,
+  "events": [
+   {
+    "t": 14,
+    "kind": "level",
+    "key": "weapon_new:mine",
+    "where": "combat"
+   },
+   {
+    "t": 27,
+    "kind": "level",
+    "key": "skill_new:ward",
+    "where": "combat"
+   },
+   {
+    "t": 42,
+    "kind": "level",
+    "key": "weapon_new:orb",
+    "where": "combat"
+   },
+   {
+    "t": 52,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 60,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 71,
+    "kind": "level",
+    "key": "weapon_mod:orb:loop",
+    "where": "combat"
+   },
+   {
+    "t": 80,
+    "kind": "level",
+    "key": "weapon_level:orb",
+    "where": "combat"
+   },
+   {
+    "t": 111,
+    "kind": "level",
+    "key": "common:burn",
+    "where": "screen"
+   },
+   {
+    "t": 117,
+    "kind": "level",
+    "key": "weapon_mod:mine:lure",
+    "where": "screen"
+   },
+   {
+    "t": 137,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 148,
+    "kind": "level",
+    "key": "weapon_level:orb",
+    "where": "combat"
+   },
+   {
+    "t": 157,
+    "kind": "level",
+    "key": "weapon_mod:orb:fork",
+    "where": "combat"
+   },
+   {
+    "t": 169,
+    "kind": "level",
+    "key": "weapon_mod:mine:frosttrap",
+    "where": "combat"
+   },
+   {
+    "t": 177,
+    "kind": "level",
+    "key": "common:echo",
+    "where": "combat"
+   },
+   {
+    "t": 185,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "combat"
+   },
+   {
+    "t": 225,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 239,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 294,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 313,
+    "kind": "level",
+    "key": "skill_level:ward",
+    "where": "combat"
+   },
+   {
+    "t": 344,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "screen"
+   },
+   {
+    "t": 361,
+    "kind": "level",
+    "key": "weapon_level:orb",
+    "where": "combat"
+   },
+   {
+    "t": 428,
+    "kind": "boss",
+    "key": "boss_reward:volley",
+    "where": "screen"
+   },
+   {
+    "t": 439,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 454,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 488,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 515,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 564,
+    "kind": "level",
+    "key": "weapon_level:orb",
+    "where": "combat"
+   },
+   {
+    "t": 603,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 629,
+    "kind": "level",
+    "key": "skill_level:ward",
+    "where": "combat"
+   },
+   {
+    "t": 708,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 725,
+    "kind": "level",
+    "key": "skill_variant:ward:fortress",
+    "where": "combat"
+   },
+   {
+    "t": 737,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 783,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 797,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 839,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "combat"
+   },
+   {
+    "t": 896,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 936,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "screen"
+   },
+   {
+    "t": 966,
+    "kind": "level",
+    "key": "passive:toughness",
+    "where": "combat"
+   },
+   {
+    "t": 1006,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 18,
+    "hp": 100,
+    "bossHp": -10,
+    "level": 22,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 30,
+    "hp": 100,
+    "bossHp": 0,
+    "level": 29,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 30,
+    "hp": 100,
+    "bossHp": 0,
+    "level": 38,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 78,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:volley",
+   "boss_reward:resonance"
+  ],
+  "levelAtBoss": [],
+  "level": 38,
+  "gold": 1746,
+  "mats": {
+   "pelt": 14,
+   "iron": 16,
+   "spore": 22,
+   "fang": 12
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[cross+scar] mine5[lure+frosttrap] orb5[loop+fork] | 공통 burn1,wide2,echo1 | E ward3 | 패시브 exploit2,focus1,persistence2,toughness1",
+  "boss": "boss:won@18s guardian:won@30s eater:won@30s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 258,
+   "cards": 234,
+   "screens": 455,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 79
+  },
+  "simulatedSec": 337,
+  "assumedSec": 749,
+  "totalMin": 18.1,
+  "combatMin": 4.3,
+  "cardMin": 3.9,
+  "menuMin": 12.5,
+  "bossMin": 1.3
+ },
+ {
+  "curve": "v06",
+  "strategy": "risky",
+  "seed": 2,
+  "encounters": 14,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 38,
+  "cardsInCombat": 30,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 7,
+  "eventChoices": [
+   "supply:loot",
+   "merchant:fight",
+   "scout:leave",
+   "time_spring:buff",
+   "scout:leave",
+   "time_spring:buff",
+   "merchant:fight"
+  ],
+  "eventFights": 2,
+  "levelUpsByDay": [
+   15,
+   5,
+   5,
+   3,
+   5,
+   3
+  ],
+  "weapon2": 9,
+  "weapon3": 37,
+  "eSkill": 47,
+  "events": [
+   {
+    "t": 9,
+    "kind": "level",
+    "key": "weapon_new:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 17,
+    "kind": "level",
+    "key": "weapon_mod:daggers:pursuit",
+    "where": "combat"
+   },
+   {
+    "t": 37,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "combat"
+   },
+   {
+    "t": 47,
+    "kind": "level",
+    "key": "skill_new:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 55,
+    "kind": "level",
+    "key": "weapon_mod:blades:launch",
+    "where": "combat"
+   },
+   {
+    "t": 77,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 83,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 114,
+    "kind": "level",
+    "key": "weapon_mod:daggers:bleed",
+    "where": "screen"
+   },
+   {
+    "t": 130,
+    "kind": "level",
+    "key": "weapon_mod:blades:dual",
+    "where": "combat"
+   },
+   {
+    "t": 143,
+    "kind": "level",
+    "key": "skill_variant:bladestorm:advancing",
+    "where": "combat"
+   },
+   {
+    "t": 159,
+    "kind": "level",
+    "key": "common:echo",
+    "where": "combat"
+   },
+   {
+    "t": 190,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "screen"
+   },
+   {
+    "t": 213,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 223,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 234,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 280,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 293,
+    "kind": "level",
+    "key": "skill_level:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 305,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 339,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 357,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 421,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 434,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 448,
+    "kind": "level",
+    "key": "skill_variant:slowfield:split",
+    "where": "combat"
+   },
+   {
+    "t": 484,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 510,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "combat"
+   },
+   {
+    "t": 545,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 582,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 617,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "screen"
+   },
+   {
+    "t": 641,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   },
+   {
+    "t": 699,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 711,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 734,
+    "kind": "level",
+    "key": "skill_level:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 786,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 834,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 855,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   },
+   {
+    "t": 910,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 951,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 995,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 15,
+    "hp": 100,
+    "bossHp": -8,
+    "level": 21,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 17,
+    "hp": 100,
+    "bossHp": -6,
+    "level": 29,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 22,
+    "hp": 100,
+    "bossHp": -20,
+    "level": 37,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 54,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 37,
+  "gold": 1391,
+  "mats": {
+   "pelt": 14,
+   "iron": 12,
+   "spore": 17,
+   "fang": 12
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[cross+scar] daggers5[pursuit+bleed] blades5[launch+dual] | 공통 reach2,echo1,ember1 | E bladestorm3 | 패시브 focus1,exploit2,persistence1,mastery1",
+  "boss": "boss:won@15s guardian:won@17s eater:won@22s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 279,
+   "cards": 228,
+   "screens": 406,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 54
+  },
+  "simulatedSec": 332,
+  "assumedSec": 694,
+  "totalMin": 17.1,
+  "combatMin": 4.6,
+  "cardMin": 3.8,
+  "menuMin": 11.6,
+  "bossMin": 0.9
+ },
+ {
+  "curve": "v06",
+  "strategy": "risky",
+  "seed": 3,
+  "encounters": 15,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 1,
+  "cards": 42,
+  "cardsInCombat": 34,
+  "deepPicks": 1,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 6,
+  "eventChoices": [
+   "scout:leave",
+   "sealed_loot:fight",
+   "merchant:fight",
+   "supply:loot",
+   "merchant:fight",
+   "supply:loot"
+  ],
+  "eventFights": 2,
+  "levelUpsByDay": [
+   13,
+   8,
+   7,
+   3,
+   5,
+   3
+  ],
+  "weapon2": 11,
+  "weapon3": 26,
+  "eSkill": 50,
+  "events": [
+   {
+    "t": 11,
+    "kind": "level",
+    "key": "weapon_new:mine",
+    "where": "combat"
+   },
+   {
+    "t": 26,
+    "kind": "level",
+    "key": "weapon_new:orb",
+    "where": "combat"
+   },
+   {
+    "t": 34,
+    "kind": "level",
+    "key": "weapon_mod:orb:conduct",
+    "where": "combat"
+   },
+   {
+    "t": 43,
+    "kind": "level",
+    "key": "weapon_mod:mine:chain",
+    "where": "combat"
+   },
+   {
+    "t": 50,
+    "kind": "level",
+    "key": "skill_new:gravity",
+    "where": "combat"
+   },
+   {
+    "t": 58,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 69,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 77,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "combat"
+   },
+   {
+    "t": 83,
+    "kind": "level",
+    "key": "weapon_level:orb",
+    "where": "combat"
+   },
+   {
+    "t": 114,
+    "kind": "level",
+    "key": "weapon_mod:orb:fork",
+    "where": "screen"
+   },
+   {
+    "t": 128,
+    "kind": "level",
+    "key": "common:echo",
+    "where": "combat"
+   },
+   {
+    "t": 137,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 149,
+    "kind": "level",
+    "key": "skill_variant:gravity:orbit",
+    "where": "combat"
+   },
+   {
+    "t": 201,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 212,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 222,
+    "kind": "level",
+    "key": "weapon_mod:mine:lure",
+    "where": "combat"
+   },
+   {
+    "t": 234,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 243,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 276,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "combat"
+   },
+   {
+    "t": 290,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "combat"
+   },
+   {
+    "t": 325,
+    "kind": "level",
+    "key": "weapon_level:orb",
+    "where": "screen"
+   },
+   {
+    "t": 361,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 377,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 391,
+    "kind": "level",
+    "key": "weapon_level:orb",
+    "where": "combat"
+   },
+   {
+    "t": 435,
+    "kind": "level",
+    "key": "skill_level:gravity",
+    "where": "combat"
+   },
+   {
+    "t": 460,
+    "kind": "level",
+    "key": "weapon_level:orb",
+    "where": "combat"
+   },
+   {
+    "t": 496,
+    "kind": "level",
+    "key": "passive:toughness",
+    "where": "screen"
+   },
+   {
+    "t": 502,
+    "kind": "deep",
+    "key": "weapon_level:mine",
+    "where": "screen"
+   },
+   {
+    "t": 522,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 580,
+    "kind": "level",
+    "key": "passive:haste",
+    "where": "combat"
+   },
+   {
+    "t": 632,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   },
+   {
+    "t": 643,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 690,
+    "kind": "level",
+    "key": "skill_level:gravity",
+    "where": "combat"
+   },
+   {
+    "t": 764,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 774,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 791,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 839,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   },
+   {
+    "t": 853,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "combat"
+   },
+   {
+    "t": 889,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   },
+   {
+    "t": 945,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "combat"
+   },
+   {
+    "t": 989,
+    "kind": "level",
+    "key": "passive:toughness",
+    "where": "screen"
+   },
+   {
+    "t": 1039,
+    "kind": "level",
+    "key": "passive:toughness",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 20,
+    "hp": 100,
+    "bossHp": -10,
+    "level": 22,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 28,
+    "hp": 84,
+    "bossHp": -13,
+    "level": 32,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 32,
+    "hp": 100,
+    "bossHp": -18,
+    "level": 40,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 80,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:clone"
+  ],
+  "levelAtBoss": [],
+  "level": 40,
+  "gold": 1693,
+  "mats": {
+   "pelt": 13,
+   "iron": 17,
+   "spore": 22,
+   "fang": 12
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[cross+crescent] mine5[chain+lure] orb5[conduct+fork] | 공통 frost1,echo1,ember1 | E gravity3 | 패시브 focus3,toughness3,haste1,mastery3",
+  "boss": "boss:won@20s guardian:won@28s eater:won@32s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 266,
+   "cards": 252,
+   "screens": 423,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 81
+  },
+  "simulatedSec": 347,
+  "assumedSec": 735,
+  "totalMin": 18,
+  "combatMin": 4.4,
+  "cardMin": 4.2,
+  "menuMin": 12.3,
+  "bossMin": 1.3
+ },
+ {
+  "curve": "v06",
+  "strategy": "risky",
+  "seed": 4,
+  "encounters": 15,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 1,
+  "cards": 38,
+  "cardsInCombat": 31,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 7,
+  "eventChoices": [
+   "supply:loot",
+   "time_spring:buff",
+   "merchant:fight",
+   "supply:loot",
+   "merchant:fight",
+   "scout:leave",
+   "sealed_loot:fight"
+  ],
+  "eventFights": 2,
+  "levelUpsByDay": [
+   12,
+   6,
+   7,
+   5,
+   3,
+   3
+  ],
+  "weapon2": 10,
+  "weapon3": 19,
+  "eSkill": 65,
+  "events": [
+   {
+    "t": 10,
+    "kind": "level",
+    "key": "weapon_new:ember",
+    "where": "combat"
+   },
+   {
+    "t": 19,
+    "kind": "level",
+    "key": "weapon_new:mine",
+    "where": "combat"
+   },
+   {
+    "t": 29,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 39,
+    "kind": "level",
+    "key": "weapon_mod:mine:frosttrap",
+    "where": "combat"
+   },
+   {
+    "t": 45,
+    "kind": "level",
+    "key": "weapon_mod:ember:reignite",
+    "where": "combat"
+   },
+   {
+    "t": 54,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 65,
+    "kind": "level",
+    "key": "skill_new:strike",
+    "where": "combat"
+   },
+   {
+    "t": 71,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "combat"
+   },
+   {
+    "t": 102,
+    "kind": "level",
+    "key": "weapon_mod:mine:lure",
+    "where": "screen"
+   },
+   {
+    "t": 120,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 132,
+    "kind": "level",
+    "key": "skill_variant:strike:storm",
+    "where": "combat"
+   },
+   {
+    "t": 166,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "screen"
+   },
+   {
+    "t": 196,
+    "kind": "level",
+    "key": "common:flare",
+    "where": "combat"
+   },
+   {
+    "t": 208,
+    "kind": "level",
+    "key": "weapon_mod:ember:scatter",
+    "where": "combat"
+   },
+   {
+    "t": 221,
+    "kind": "level",
+    "key": "common:burn",
+    "where": "combat"
+   },
+   {
+    "t": 252,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 268,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "combat"
+   },
+   {
+    "t": 305,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 335,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 346,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 363,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   },
+   {
+    "t": 394,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 419,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 431,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 439,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 486,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 544,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 560,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 606,
+    "kind": "level",
+    "key": "passive:toughness",
+    "where": "combat"
+   },
+   {
+    "t": 624,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 662,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 742,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 751,
+    "kind": "level",
+    "key": "skill_level:strike",
+    "where": "combat"
+   },
+   {
+    "t": 769,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "combat"
+   },
+   {
+    "t": 814,
+    "kind": "level",
+    "key": "passive:haste",
+    "where": "combat"
+   },
+   {
+    "t": 868,
+    "kind": "level",
+    "key": "skill_level:strike",
+    "where": "combat"
+   },
+   {
+    "t": 917,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   },
+   {
+    "t": 936,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 13,
+    "hp": 100,
+    "bossHp": -1,
+    "level": 19,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 15,
+    "hp": 100,
+    "bossHp": -9,
+    "level": 31,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 18,
+    "hp": 100,
+    "bossHp": -15,
+    "level": 37,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 46,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:clone"
+  ],
+  "levelAtBoss": [],
+  "level": 37,
+  "gold": 1744,
+  "mats": {
+   "pelt": 16,
+   "iron": 17,
+   "spore": 20,
+   "fang": 12
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[crescent+scar] ember5[reignite+scatter] mine5[frosttrap+lure] | 공통 frost1,flare1,burn1 | E strike3 | 패시브 persistence3,toughness1,focus1,haste1",
+  "boss": "boss:won@13s guardian:won@15s eater:won@18s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 273,
+   "cards": 228,
+   "screens": 431,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 46
+  },
+  "simulatedSec": 319,
+  "assumedSec": 719,
+  "totalMin": 17.3,
+  "combatMin": 4.5,
+  "cardMin": 3.8,
+  "menuMin": 12,
+  "bossMin": 0.8
+ },
+ {
+  "curve": "v06",
+  "strategy": "risky",
+  "seed": 5,
+  "encounters": 14,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 36,
+  "cardsInCombat": 27,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 6,
+  "eventChoices": [
+   "merchant:fight",
+   "scout:swap",
+   "supply:loot",
+   "merchant:fight",
+   "supply:loot",
+   "scout:leave"
+  ],
+  "eventFights": 2,
+  "levelUpsByDay": [
+   15,
+   5,
+   4,
+   3,
+   5,
+   2
+  ],
+  "weapon2": 10,
+  "weapon3": 20,
+  "eSkill": 27,
+  "events": [
+   {
+    "t": 10,
+    "kind": "level",
+    "key": "weapon_new:ember",
+    "where": "combat"
+   },
+   {
+    "t": 20,
+    "kind": "level",
+    "key": "weapon_new:spear",
+    "where": "combat"
+   },
+   {
+    "t": 27,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 36,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 45,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 56,
+    "kind": "level",
+    "key": "weapon_mod:ember:scatter",
+    "where": "combat"
+   },
+   {
+    "t": 63,
+    "kind": "level",
+    "key": "weapon_mod:spear:split",
+    "where": "combat"
+   },
+   {
+    "t": 94,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "screen"
+   },
+   {
+    "t": 100,
+    "kind": "level",
+    "key": "weapon_mod:spear:brand",
+    "where": "screen"
+   },
+   {
+    "t": 112,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 124,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 155,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "screen"
+   },
+   {
+    "t": 173,
+    "kind": "level",
+    "key": "common:flare",
+    "where": "combat"
+   },
+   {
+    "t": 186,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 196,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 242,
+    "kind": "level",
+    "key": "weapon_mod:ember:trail",
+    "where": "combat"
+   },
+   {
+    "t": 252,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 265,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 296,
+    "kind": "level",
+    "key": "passive:haste",
+    "where": "screen"
+   },
+   {
+    "t": 313,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 360,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 372,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "combat"
+   },
+   {
+    "t": 386,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 418,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "screen"
+   },
+   {
+    "t": 442,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 498,
+    "kind": "level",
+    "key": "skill_variant:gust:windpath",
+    "where": "combat"
+   },
+   {
+    "t": 512,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   },
+   {
+    "t": 551,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "combat"
+   },
+   {
+    "t": 605,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 614,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 654,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "screen"
+   },
+   {
+    "t": 677,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 690,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 732,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 782,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   },
+   {
+    "t": 820,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 6,
+    "hp": 100,
+    "bossHp": -8,
+    "level": 21,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 10,
+    "hp": 100,
+    "bossHp": -1,
+    "level": 28,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 11,
+    "hp": 100,
+    "bossHp": -1,
+    "level": 35,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 27,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 35,
+  "gold": 1416,
+  "mats": {
+   "pelt": 16,
+   "iron": 12,
+   "spore": 18,
+   "fang": 12
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[scar+crescent] ember5[scatter+trail] spear5[split+brand] | 공통 frost1,stasis1,flare1 | E gust3 | 패시브 haste1,mastery2,persistence1,focus1",
+  "boss": "boss:won@6s guardian:won@10s eater:won@11s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 194,
+   "cards": 216,
+   "screens": 398,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 26
+  },
+  "simulatedSec": 220,
+  "assumedSec": 674,
+  "totalMin": 14.9,
+  "combatMin": 3.2,
+  "cardMin": 3.6,
+  "menuMin": 11.2,
+  "bossMin": 0.4
+ },
+ {
+  "curve": "v06",
+  "strategy": "cautious",
+  "seed": 1,
+  "encounters": 22,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 29,
+  "cardsInCombat": 21,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 11,
+  "eventChoices": [
+   "merchant:leave",
+   "supply:loot",
+   "merchant:leave",
+   "scout:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "merchant:leave",
+   "scout:leave",
+   "merchant:leave",
+   "scout:leave",
+   "merchant:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   4,
+   4,
+   3,
+   4
+  ],
+  "weapon2": 77,
+  "weapon3": 96,
+  "eSkill": 31,
+  "events": [
+   {
+    "t": 17,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 31,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 77,
+    "kind": "level",
+    "key": "weapon_new:ember",
+    "where": "combat"
+   },
+   {
+    "t": 96,
+    "kind": "level",
+    "key": "weapon_new:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 147,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 195,
+    "kind": "level",
+    "key": "weapon_mod:daggers:bleed",
+    "where": "combat"
+   },
+   {
+    "t": 235,
+    "kind": "level",
+    "key": "weapon_mod:ember:reignite",
+    "where": "screen"
+   },
+   {
+    "t": 291,
+    "kind": "level",
+    "key": "weapon_mod:daggers:flank",
+    "where": "screen"
+   },
+   {
+    "t": 351,
+    "kind": "level",
+    "key": "weapon_mod:ember:trail",
+    "where": "screen"
+   },
+   {
+    "t": 401,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "combat"
+   },
+   {
+    "t": 455,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 510,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 578,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 593,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 633,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "screen"
+   },
+   {
+    "t": 655,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 709,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 770,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 813,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "screen"
+   },
+   {
+    "t": 838,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 887,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 952,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 974,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1020,
+    "kind": "level",
+    "key": "skill_variant:slowfield:split",
+    "where": "combat"
+   },
+   {
+    "t": 1060,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "screen"
+   },
+   {
+    "t": 1140,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 1160,
+    "kind": "level",
+    "key": "skill_variant:gust:windpath",
+    "where": "combat"
+   },
+   {
+    "t": 1216,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 1275,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 18,
+    "hp": 100,
+    "bossHp": -3,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 24,
+    "hp": 82,
+    "bossHp": -9,
+    "level": 21,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 26,
+    "hp": 120,
+    "bossHp": -1,
+    "level": 28,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 68,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:clone"
+  ],
+  "levelAtBoss": [],
+  "level": 28,
+  "gold": 1298,
+  "mats": {
+   "pelt": 25,
+   "iron": 6,
+   "spore": 9,
+   "fang": 4
+  },
+  "hpBeforeBoss": 120,
+  "build": "sword2[cross+crescent] ember4[reignite+trail] daggers5[bleed+flank] | 공통 frost1,ember1,stasis1 | E gust3 | 패시브 vitality1",
+  "boss": "boss:won@18s guardian:won@24s eater:won@26s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 396,
+   "cards": 174,
+   "screens": 638,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 69
+  },
+  "simulatedSec": 465,
+  "assumedSec": 872,
+  "totalMin": 22.3,
+  "combatMin": 6.6,
+  "cardMin": 2.9,
+  "menuMin": 14.5,
+  "bossMin": 1.2
+ },
+ {
+  "curve": "v06",
+  "strategy": "cautious",
+  "seed": 2,
+  "encounters": 22,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 29,
+  "cardsInCombat": 22,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 14,
+  "eventChoices": [
+   "supply:loot",
+   "time_spring:buff",
+   "merchant:leave",
+   "time_spring:buff",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "merchant:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "merchant:leave",
+   "time_spring:buff",
+   "scout:leave",
+   "sealed_loot:leave",
+   "scout:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   4,
+   4,
+   4,
+   3
+  ],
+  "weapon2": 18,
+  "weapon3": 75,
+  "eSkill": 93,
+  "events": [
+   {
+    "t": 18,
+    "kind": "level",
+    "key": "weapon_new:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_mod:daggers:flank",
+    "where": "combat"
+   },
+   {
+    "t": 75,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "combat"
+   },
+   {
+    "t": 93,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 143,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 185,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 229,
+    "kind": "level",
+    "key": "weapon_mod:blades:serrated",
+    "where": "screen"
+   },
+   {
+    "t": 285,
+    "kind": "level",
+    "key": "weapon_mod:daggers:bleed",
+    "where": "screen"
+   },
+   {
+    "t": 342,
+    "kind": "level",
+    "key": "weapon_mod:blades:launch",
+    "where": "screen"
+   },
+   {
+    "t": 408,
+    "kind": "level",
+    "key": "skill_variant:gust:windpath",
+    "where": "combat"
+   },
+   {
+    "t": 462,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 527,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 601,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 632,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "combat"
+   },
+   {
+    "t": 683,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "screen"
+   },
+   {
+    "t": 715,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 772,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 833,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 876,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 908,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "combat"
+   },
+   {
+    "t": 973,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1055,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 1072,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "combat"
+   },
+   {
+    "t": 1118,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 1139,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 1188,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1249,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 1299,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1351,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 24,
+    "hp": 100,
+    "bossHp": -6,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 41,
+    "hp": 100,
+    "bossHp": -2,
+    "level": 21,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 41,
+    "hp": 140,
+    "bossHp": -14,
+    "level": 28,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 106,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:clone",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 28,
+  "gold": 1269,
+  "mats": {
+   "pelt": 27,
+   "iron": 5,
+   "spore": 6,
+   "fang": 4
+  },
+  "hpBeforeBoss": 140,
+  "build": "sword4[scar+cross] daggers4[flank+bleed] blades3[serrated+launch] | 공통 ember1,frost1,reach2 | E gust1 | 패시브 vitality2",
+  "boss": "boss:won@24s guardian:won@41s eater:won@41s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 437,
+   "cards": 174,
+   "screens": 662,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 106
+  },
+  "simulatedSec": 543,
+  "assumedSec": 896,
+  "totalMin": 24,
+  "combatMin": 7.3,
+  "cardMin": 2.9,
+  "menuMin": 14.9,
+  "bossMin": 1.8
+ },
+ {
+  "curve": "v06",
+  "strategy": "cautious",
+  "seed": 3,
+  "encounters": 22,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 29,
+  "cardsInCombat": 22,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 11,
+  "eventChoices": [
+   "scout:leave",
+   "merchant:leave",
+   "scout:leave",
+   "weapon_altar:leave",
+   "sealed_loot:leave",
+   "time_spring:buff",
+   "scout:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "time_spring:buff",
+   "supply:loot"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   5,
+   3,
+   4,
+   3
+  ],
+  "weapon2": 18,
+  "weapon3": 30,
+  "eSkill": 129,
+  "events": [
+   {
+    "t": 18,
+    "kind": "level",
+    "key": "weapon_new:bow",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "combat"
+   },
+   {
+    "t": 65,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 80,
+    "kind": "level",
+    "key": "weapon_mod:blades:dual",
+    "where": "combat"
+   },
+   {
+    "t": 129,
+    "kind": "level",
+    "key": "skill_new:ward",
+    "where": "combat"
+   },
+   {
+    "t": 175,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 217,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "screen"
+   },
+   {
+    "t": 268,
+    "kind": "level",
+    "key": "skill_variant:slowfield:split",
+    "where": "screen"
+   },
+   {
+    "t": 333,
+    "kind": "level",
+    "key": "weapon_mod:blades:launch",
+    "where": "screen"
+   },
+   {
+    "t": 388,
+    "kind": "level",
+    "key": "weapon_mod:bow:spread",
+    "where": "combat"
+   },
+   {
+    "t": 435,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 482,
+    "kind": "level",
+    "key": "weapon_mod:bow:ricochet",
+    "where": "combat"
+   },
+   {
+    "t": 550,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 563,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 577,
+    "kind": "level",
+    "key": "common:burn",
+    "where": "combat"
+   },
+   {
+    "t": 615,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 628,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 672,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 730,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 779,
+    "kind": "level",
+    "key": "skill_level:ward",
+    "where": "combat"
+   },
+   {
+    "t": 818,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 912,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 920,
+    "kind": "level",
+    "key": "passive:mobility",
+    "where": "combat"
+   },
+   {
+    "t": 937,
+    "kind": "level",
+    "key": "skill_level:ward",
+    "where": "combat"
+   },
+   {
+    "t": 982,
+    "kind": "level",
+    "key": "skill_variant:ward:fortress",
+    "where": "combat"
+   },
+   {
+    "t": 1017,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "screen"
+   },
+   {
+    "t": 1076,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 1122,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 1137,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 18,
+    "hp": 84,
+    "bossHp": -4,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 33,
+    "hp": 100,
+    "bossHp": 0,
+    "level": 21,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 34,
+    "hp": 100,
+    "bossHp": -49,
+    "level": 28,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 85,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 28,
+  "gold": 1357,
+  "mats": {
+   "pelt": 27,
+   "iron": 6,
+   "spore": 5,
+   "fang": 4
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[cross+crescent] bow4[spread+ricochet] blades3[dual+launch] | 공통 wide2,reach1,burn1 | E ward3 | 패시브 mobility1",
+  "boss": "boss:won@18s guardian:won@33s eater:won@34s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 288,
+   "cards": 174,
+   "screens": 638,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 85
+  },
+  "simulatedSec": 373,
+  "assumedSec": 872,
+  "totalMin": 20.7,
+  "combatMin": 4.8,
+  "cardMin": 2.9,
+  "menuMin": 14.5,
+  "bossMin": 1.4
+ },
+ {
+  "curve": "v06",
+  "strategy": "cautious",
+  "seed": 4,
+  "encounters": 22,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 29,
+  "cardsInCombat": 22,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 10,
+  "eventChoices": [
+   "supply:loot",
+   "time_spring:buff",
+   "merchant:leave",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "merchant:leave",
+   "supply:loot",
+   "sealed_loot:leave",
+   "time_spring:buff",
+   "merchant:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   4,
+   4,
+   4,
+   3
+  ],
+  "weapon2": 16,
+  "weapon3": 30,
+  "eSkill": 137,
+  "events": [
+   {
+    "t": 16,
+    "kind": "level",
+    "key": "weapon_new:mine",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_new:ember",
+    "where": "combat"
+   },
+   {
+    "t": 72,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 88,
+    "kind": "level",
+    "key": "weapon_mod:ember:reignite",
+    "where": "combat"
+   },
+   {
+    "t": 137,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 180,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 222,
+    "kind": "level",
+    "key": "weapon_mod:mine:chain",
+    "where": "screen"
+   },
+   {
+    "t": 275,
+    "kind": "level",
+    "key": "common:echo",
+    "where": "screen"
+   },
+   {
+    "t": 332,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "screen"
+   },
+   {
+    "t": 392,
+    "kind": "level",
+    "key": "weapon_mod:ember:trail",
+    "where": "combat"
+   },
+   {
+    "t": 450,
+    "kind": "level",
+    "key": "skill_variant:gust:windpath",
+    "where": "combat"
+   },
+   {
+    "t": 508,
+    "kind": "level",
+    "key": "weapon_mod:mine:lure",
+    "where": "combat"
+   },
+   {
+    "t": 573,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 589,
+    "kind": "level",
+    "key": "common:burn",
+    "where": "combat"
+   },
+   {
+    "t": 632,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "screen"
+   },
+   {
+    "t": 653,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 699,
+    "kind": "level",
+    "key": "skill_variant:slowfield:follow",
+    "where": "combat"
+   },
+   {
+    "t": 757,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 799,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "screen"
+   },
+   {
+    "t": 821,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 882,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   },
+   {
+    "t": 952,
+    "kind": "boss",
+    "key": "boss_reward:tempo",
+    "where": "screen"
+   },
+   {
+    "t": 972,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1018,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 1038,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1087,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1145,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 1194,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 1244,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 21,
+    "hp": 80,
+    "bossHp": -3,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 29,
+    "hp": 120,
+    "bossHp": -4,
+    "level": 21,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 30,
+    "hp": 120,
+    "bossHp": -2,
+    "level": 28,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 80,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:seed",
+   "boss_reward:tempo"
+  ],
+  "levelAtBoss": [],
+  "level": 28,
+  "gold": 1294,
+  "mats": {
+   "pelt": 26,
+   "iron": 7,
+   "spore": 8,
+   "fang": 4
+  },
+  "hpBeforeBoss": 120,
+  "build": "sword3[cross+scar] mine5[chain+lure] ember2[reignite+trail] | 공통 echo1,frost1,burn1 | E gust3 | 패시브 vitality1,persistence2",
+  "boss": "boss:won@21s guardian:won@29s eater:won@30s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 384,
+   "cards": 174,
+   "screens": 630,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 79
+  },
+  "simulatedSec": 463,
+  "assumedSec": 864,
+  "totalMin": 22.1,
+  "combatMin": 6.4,
+  "cardMin": 2.9,
+  "menuMin": 14.4,
+  "bossMin": 1.3
+ },
+ {
+  "curve": "v06",
+  "strategy": "cautious",
+  "seed": 5,
+  "encounters": 22,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 29,
+  "cardsInCombat": 19,
+  "deepPicks": 0,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 13,
+  "eventChoices": [
+   "merchant:leave",
+   "sealed_loot:leave",
+   "merchant:leave",
+   "scout:leave",
+   "supply:loot",
+   "sealed_loot:leave",
+   "merchant:leave",
+   "time_spring:buff",
+   "scout:leave",
+   "supply:loot",
+   "time_spring:buff",
+   "merchant:leave",
+   "scout:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   8,
+   4,
+   4,
+   4,
+   3,
+   3
+  ],
+  "weapon2": 17,
+  "weapon3": 30,
+  "eSkill": 66,
+  "events": [
+   {
+    "t": 17,
+    "kind": "level",
+    "key": "weapon_new:frost",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_new:spear",
+    "where": "combat"
+   },
+   {
+    "t": 66,
+    "kind": "level",
+    "key": "skill_new:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 81,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 129,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 176,
+    "kind": "level",
+    "key": "weapon_mod:frost:fan",
+    "where": "combat"
+   },
+   {
+    "t": 218,
+    "kind": "level",
+    "key": "weapon_mod:spear:split",
+    "where": "screen"
+   },
+   {
+    "t": 269,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "screen"
+   },
+   {
+    "t": 331,
+    "kind": "level",
+    "key": "weapon_mod:spear:brand",
+    "where": "screen"
+   },
+   {
+    "t": 383,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 430,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 486,
+    "kind": "level",
+    "key": "weapon_mod:frost:ground",
+    "where": "combat"
+   },
+   {
+    "t": 551,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 564,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 602,
+    "kind": "level",
+    "key": "skill_level:bladestorm",
+    "where": "screen"
+   },
+   {
+    "t": 620,
+    "kind": "level",
+    "key": "skill_level:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 661,
+    "kind": "level",
+    "key": "skill_variant:slowfield:follow",
+    "where": "combat"
+   },
+   {
+    "t": 722,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 761,
+    "kind": "level",
+    "key": "weapon_level:frost",
+    "where": "screen"
+   },
+   {
+    "t": 789,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 839,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 903,
+    "kind": "boss",
+    "key": "boss_reward:volley",
+    "where": "screen"
+   },
+   {
+    "t": 918,
+    "kind": "level",
+    "key": "weapon_level:frost",
+    "where": "combat"
+   },
+   {
+    "t": 961,
+    "kind": "level",
+    "key": "skill_variant:bladestorm:condensed",
+    "where": "combat"
+   },
+   {
+    "t": 1000,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "screen"
+   },
+   {
+    "t": 1061,
+    "kind": "level",
+    "key": "weapon_level:frost",
+    "where": "combat"
+   },
+   {
+    "t": 1099,
+    "kind": "level",
+    "key": "passive:haste",
+    "where": "screen"
+   },
+   {
+    "t": 1114,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1220,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 16,
+    "hp": 100,
+    "bossHp": -7,
+    "level": 13,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 23,
+    "hp": 100,
+    "bossHp": -5,
+    "level": 21,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 23,
+    "hp": 100,
+    "bossHp": -2,
+    "level": 28,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 62,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:clone",
+   "boss_reward:volley"
+  ],
+  "levelAtBoss": [],
+  "level": 28,
+  "gold": 1250,
+  "mats": {
+   "pelt": 23,
+   "iron": 6,
+   "spore": 7,
+   "fang": 4
+  },
+  "hpBeforeBoss": 120,
+  "build": "sword4[crescent+cross] frost4[fan+ground] spear3[split+brand] | 공통 frost1,stasis1,reach2 | E bladestorm3 | 패시브 haste1,vitality1",
+  "boss": "boss:won@16s guardian:won@23s eater:won@23s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 271,
+   "cards": 174,
+   "screens": 654,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 61
+  },
+  "simulatedSec": 332,
+  "assumedSec": 888,
+  "totalMin": 20.3,
+  "combatMin": 4.5,
+  "cardMin": 2.9,
+  "menuMin": 14.8,
+  "bossMin": 1
+ },
+ {
+  "curve": "v06",
+  "strategy": "deep",
+  "seed": 1,
+  "encounters": 25,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 8,
+  "cards": 40,
+  "cardsInCombat": 30,
+  "deepPicks": 5,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 11,
+  "eventChoices": [
+   "merchant:fight",
+   "supply:loot",
+   "time_spring:buff",
+   "sealed_loot:fight",
+   "time_spring:buff",
+   "merchant:fight",
+   "time_spring:buff",
+   "scout:swap",
+   "supply:loot",
+   "sealed_loot:fight",
+   "merchant:fight"
+  ],
+  "eventFights": 3,
+  "levelUpsByDay": [
+   10,
+   4,
+   6,
+   3,
+   4,
+   5
+  ],
+  "weapon2": 77,
+  "weapon3": 96,
+  "eSkill": 31,
+  "events": [
+   {
+    "t": 17,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 31,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 77,
+    "kind": "level",
+    "key": "weapon_new:ember",
+    "where": "combat"
+   },
+   {
+    "t": 96,
+    "kind": "level",
+    "key": "weapon_new:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 107,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 150,
+    "kind": "level",
+    "key": "weapon_mod:daggers:bleed",
+    "where": "combat"
+   },
+   {
+    "t": 167,
+    "kind": "level",
+    "key": "weapon_mod:ember:reignite",
+    "where": "combat"
+   },
+   {
+    "t": 198,
+    "kind": "deep",
+    "key": "weapon_mod:daggers:pursuit",
+    "where": "screen"
+   },
+   {
+    "t": 219,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "combat"
+   },
+   {
+    "t": 273,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 313,
+    "kind": "level",
+    "key": "weapon_mod:ember:scatter",
+    "where": "screen"
+   },
+   {
+    "t": 319,
+    "kind": "deep",
+    "key": "weapon_level:daggers",
+    "where": "screen"
+   },
+   {
+    "t": 386,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 446,
+    "kind": "level",
+    "key": "skill_variant:gust:whirl",
+    "where": "combat"
+   },
+   {
+    "t": 485,
+    "kind": "deep",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 503,
+    "kind": "level",
+    "key": "common:burn",
+    "where": "combat"
+   },
+   {
+    "t": 564,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 595,
+    "kind": "deep",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 664,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "screen"
+   },
+   {
+    "t": 670,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 691,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "combat"
+   },
+   {
+    "t": 744,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 760,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 803,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 821,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 852,
+    "kind": "deep",
+    "key": "weapon_level:ember",
+    "where": "screen"
+   },
+   {
+    "t": 872,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 933,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 987,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 1032,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1113,
+    "kind": "boss",
+    "key": "boss_reward:vigor",
+    "where": "screen"
+   },
+   {
+    "t": 1124,
+    "kind": "level",
+    "key": "passive:mobility",
+    "where": "combat"
+   },
+   {
+    "t": 1165,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "screen"
+   },
+   {
+    "t": 1187,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   },
+   {
+    "t": 1226,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1279,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "combat"
+   },
+   {
+    "t": 1334,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "combat"
+   },
+   {
+    "t": 1357,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "combat"
+   },
+   {
+    "t": 1408,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "combat"
+   },
+   {
+    "t": 1462,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 12,
+    "hp": 100,
+    "bossHp": -8,
+    "level": 16,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 18,
+    "hp": 100,
+    "bossHp": -6,
+    "level": 25,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 16,
+    "hp": 165,
+    "bossHp": -8,
+    "level": 34,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 46,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:seed",
+   "boss_reward:vigor"
+  ],
+  "levelAtBoss": [],
+  "level": 34,
+  "gold": 1760,
+  "mats": {
+   "pelt": 43,
+   "iron": 0,
+   "spore": 12,
+   "fang": 6
+  },
+  "hpBeforeBoss": 165,
+  "build": "sword5[cross+scar] ember5[reignite+scatter] daggers5[bleed+pursuit] | 공통 frost1,stasis1,burn1 | E gust3 | 패시브 focus3,mobility1,mastery2,vitality2",
+  "boss": "boss:won@12s guardian:won@18s eater:won@16s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 460,
+   "cards": 240,
+   "screens": 713,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 45
+  },
+  "simulatedSec": 506,
+  "assumedSec": 1013,
+  "totalMin": 25.3,
+  "combatMin": 7.7,
+  "cardMin": 4,
+  "menuMin": 16.9,
+  "bossMin": 0.8
+ },
+ {
+  "curve": "v06",
+  "strategy": "deep",
+  "seed": 2,
+  "encounters": 24,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 8,
+  "cards": 41,
+  "cardsInCombat": 25,
+  "deepPicks": 5,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 8,
+  "eventChoices": [
+   "supply:loot",
+   "time_spring:buff",
+   "scout:leave",
+   "merchant:fight",
+   "scout:leave",
+   "merchant:fight",
+   "scout:leave",
+   "supply:loot"
+  ],
+  "eventFights": 2,
+  "levelUpsByDay": [
+   9,
+   5,
+   9,
+   4,
+   3,
+   3
+  ],
+  "weapon2": 18,
+  "weapon3": 77,
+  "eSkill": 97,
+  "events": [
+   {
+    "t": 18,
+    "kind": "level",
+    "key": "weapon_new:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_mod:daggers:flank",
+    "where": "combat"
+   },
+   {
+    "t": 77,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "combat"
+   },
+   {
+    "t": 97,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 129,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 135,
+    "kind": "deep",
+    "key": "weapon_mod:sword:scar",
+    "where": "screen"
+   },
+   {
+    "t": 157,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 206,
+    "kind": "level",
+    "key": "weapon_mod:blades:serrated",
+    "where": "combat"
+   },
+   {
+    "t": 247,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "screen"
+   },
+   {
+    "t": 253,
+    "kind": "deep",
+    "key": "weapon_mod:blades:dual",
+    "where": "screen"
+   },
+   {
+    "t": 299,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "screen"
+   },
+   {
+    "t": 357,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 388,
+    "kind": "level",
+    "key": "weapon_mod:daggers:pursuit",
+    "where": "combat"
+   },
+   {
+    "t": 419,
+    "kind": "deep",
+    "key": "weapon_level:daggers",
+    "where": "screen"
+   },
+   {
+    "t": 468,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "screen"
+   },
+   {
+    "t": 491,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 522,
+    "kind": "deep",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 582,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 653,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 661,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "combat"
+   },
+   {
+    "t": 676,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 724,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 739,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   },
+   {
+    "t": 753,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 787,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 805,
+    "kind": "level",
+    "key": "passive:toughness",
+    "where": "combat"
+   },
+   {
+    "t": 851,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 871,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 927,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 968,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 983,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   },
+   {
+    "t": 1054,
+    "kind": "level",
+    "key": "skill_variant:gust:whirl",
+    "where": "screen"
+   },
+   {
+    "t": 1093,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 1137,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 1158,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 1189,
+    "kind": "deep",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 1201,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 1261,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1314,
+    "kind": "level",
+    "key": "passive:toughness",
+    "where": "combat"
+   },
+   {
+    "t": 1354,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "screen"
+   },
+   {
+    "t": 1432,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 18,
+    "hp": 100,
+    "bossHp": -15,
+    "level": 15,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 23,
+    "hp": 100,
+    "bossHp": -14,
+    "level": 28,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 24,
+    "hp": 81,
+    "bossHp": -17,
+    "level": 35,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 65,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 35,
+  "gold": 1557,
+  "mats": {
+   "pelt": 37,
+   "iron": 0,
+   "spore": 9,
+   "fang": 6
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[scar+cross] daggers5[flank+pursuit] blades5[serrated+dual] | 공통 ember1,wide2,reach2 | E gust3 | 패시브 mastery1,toughness2,exploit3,persistence1",
+  "boss": "boss:won@18s guardian:won@23s eater:won@24s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 397,
+   "cards": 246,
+   "screens": 664,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 65
+  },
+  "simulatedSec": 462,
+  "assumedSec": 970,
+  "totalMin": 23.9,
+  "combatMin": 6.6,
+  "cardMin": 4.1,
+  "menuMin": 16.2,
+  "bossMin": 1.1
+ },
+ {
+  "curve": "v06",
+  "strategy": "deep",
+  "seed": 3,
+  "encounters": 24,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 8,
+  "cards": 39,
+  "cardsInCombat": 30,
+  "deepPicks": 5,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 7,
+  "eventChoices": [
+   "scout:leave",
+   "merchant:fight",
+   "supply:loot",
+   "sealed_loot:fight",
+   "merchant:fight",
+   "supply:loot",
+   "time_spring:buff"
+  ],
+  "eventFights": 2,
+  "levelUpsByDay": [
+   10,
+   4,
+   5,
+   4,
+   6,
+   3
+  ],
+  "weapon2": 18,
+  "weapon3": 30,
+  "eSkill": 113,
+  "events": [
+   {
+    "t": 18,
+    "kind": "level",
+    "key": "weapon_new:bow",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "combat"
+   },
+   {
+    "t": 65,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 79,
+    "kind": "level",
+    "key": "weapon_mod:blades:dual",
+    "where": "combat"
+   },
+   {
+    "t": 113,
+    "kind": "level",
+    "key": "skill_new:ward",
+    "where": "screen"
+   },
+   {
+    "t": 119,
+    "kind": "deep",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 137,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 186,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 203,
+    "kind": "level",
+    "key": "weapon_mod:bow:spread",
+    "where": "combat"
+   },
+   {
+    "t": 234,
+    "kind": "deep",
+    "key": "weapon_mod:blades:serrated",
+    "where": "screen"
+   },
+   {
+    "t": 249,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 300,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 351,
+    "kind": "level",
+    "key": "common:burn",
+    "where": "combat"
+   },
+   {
+    "t": 398,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 432,
+    "kind": "deep",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 445,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "combat"
+   },
+   {
+    "t": 492,
+    "kind": "level",
+    "key": "skill_variant:ward:pulse",
+    "where": "combat"
+   },
+   {
+    "t": 523,
+    "kind": "deep",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 588,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 596,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 614,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 654,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 692,
+    "kind": "level",
+    "key": "weapon_mod:bow:ricochet",
+    "where": "screen"
+   },
+   {
+    "t": 708,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 767,
+    "kind": "level",
+    "key": "skill_level:ward",
+    "where": "combat"
+   },
+   {
+    "t": 815,
+    "kind": "level",
+    "key": "passive:toughness",
+    "where": "combat"
+   },
+   {
+    "t": 832,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 873,
+    "kind": "level",
+    "key": "skill_level:ward",
+    "where": "combat"
+   },
+   {
+    "t": 948,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 962,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 1001,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 1017,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   },
+   {
+    "t": 1048,
+    "kind": "deep",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 1062,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 1110,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   },
+   {
+    "t": 1127,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 1180,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   },
+   {
+    "t": 1232,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 1271,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 13,
+    "hp": 100,
+    "bossHp": -20,
+    "level": 15,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 31,
+    "hp": 84,
+    "bossHp": -5,
+    "level": 24,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 14,
+    "hp": 100,
+    "bossHp": -23,
+    "level": 33,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 58,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:seed",
+   "boss_reward:clone"
+  ],
+  "levelAtBoss": [],
+  "level": 33,
+  "gold": 1712,
+  "mats": {
+   "pelt": 35,
+   "iron": 0,
+   "spore": 11,
+   "fang": 6
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[scar+cross] bow5[spread+ricochet] blades5[dual+serrated] | 공통 wide2,ember1,burn1 | E ward3 | 패시브 toughness1,mastery3,exploit1,persistence1",
+  "boss": "boss:won@13s guardian:won@31s eater:won@14s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 325,
+   "cards": 234,
+   "screens": 656,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 58
+  },
+  "simulatedSec": 383,
+  "assumedSec": 950,
+  "totalMin": 22.2,
+  "combatMin": 5.4,
+  "cardMin": 3.9,
+  "menuMin": 15.8,
+  "bossMin": 1
+ },
+ {
+  "curve": "v06",
+  "strategy": "deep",
+  "seed": 4,
+  "encounters": 24,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 8,
+  "cards": 42,
+  "cardsInCombat": 30,
+  "deepPicks": 6,
+  "missions": 0,
+  "missionPicks": 1,
+  "eventCount": 9,
+  "eventChoices": [
+   "supply:loot",
+   "time_spring:buff",
+   "scout:leave",
+   "weapon_altar:pay",
+   "time_spring:buff",
+   "merchant:fight",
+   "scout:swap",
+   "merchant:fight",
+   "time_spring:buff"
+  ],
+  "eventFights": 2,
+  "levelUpsByDay": [
+   9,
+   5,
+   5,
+   5,
+   6,
+   3
+  ],
+  "weapon2": 16,
+  "weapon3": 30,
+  "eSkill": 98,
+  "events": [
+   {
+    "t": 16,
+    "kind": "level",
+    "key": "weapon_new:mine",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_new:ember",
+    "where": "combat"
+   },
+   {
+    "t": 72,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 87,
+    "kind": "level",
+    "key": "weapon_mod:ember:reignite",
+    "where": "combat"
+   },
+   {
+    "t": 98,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 129,
+    "kind": "deep",
+    "key": "weapon_mod:sword:scar",
+    "where": "screen"
+   },
+   {
+    "t": 143,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 192,
+    "kind": "level",
+    "key": "skill_variant:gust:whirl",
+    "where": "combat"
+   },
+   {
+    "t": 211,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 243,
+    "kind": "deep",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 256,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 313,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 363,
+    "kind": "level",
+    "key": "weapon_mod:ember:trail",
+    "where": "combat"
+   },
+   {
+    "t": 399,
+    "kind": "deep",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 410,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 468,
+    "kind": "level",
+    "key": "skill_variant:slowfield:split",
+    "where": "combat"
+   },
+   {
+    "t": 499,
+    "kind": "deep",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 543,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 557,
+    "kind": "mission",
+    "key": "weapon_mod:mine:lure",
+    "where": "screen"
+   },
+   {
+    "t": 586,
+    "kind": "boss",
+    "key": "boss_reward:volley",
+    "where": "screen"
+   },
+   {
+    "t": 605,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 642,
+    "kind": "level",
+    "key": "weapon_mod:mine:chain",
+    "where": "combat"
+   },
+   {
+    "t": 662,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 696,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "screen"
+   },
+   {
+    "t": 702,
+    "kind": "deep",
+    "key": "weapon_level:ember",
+    "where": "screen"
+   },
+   {
+    "t": 723,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 785,
+    "kind": "level",
+    "key": "passive:toughness",
+    "where": "combat"
+   },
+   {
+    "t": 839,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 859,
+    "kind": "level",
+    "key": "passive:haste",
+    "where": "combat"
+   },
+   {
+    "t": 905,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 939,
+    "kind": "deep",
+    "key": "weapon_level:mine",
+    "where": "screen"
+   },
+   {
+    "t": 953,
+    "kind": "level",
+    "key": "passive:mobility",
+    "where": "combat"
+   },
+   {
+    "t": 1025,
+    "kind": "boss",
+    "key": "boss_reward:tempo",
+    "where": "screen"
+   },
+   {
+    "t": 1040,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 1078,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 1096,
+    "kind": "level",
+    "key": "passive:haste",
+    "where": "combat"
+   },
+   {
+    "t": 1137,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 1185,
+    "kind": "level",
+    "key": "passive:mobility",
+    "where": "combat"
+   },
+   {
+    "t": 1198,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "combat"
+   },
+   {
+    "t": 1278,
+    "kind": "level",
+    "key": "passive:toughness",
+    "where": "screen"
+   },
+   {
+    "t": 1306,
+    "kind": "level",
+    "key": "passive:haste",
+    "where": "combat"
+   },
+   {
+    "t": 1349,
+    "kind": "level",
+    "key": "passive:mobility",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 13,
+    "hp": 100,
+    "bossHp": -9,
+    "level": 15,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 16,
+    "hp": 100,
+    "bossHp": -9,
+    "level": 25,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 13,
+    "hp": 100,
+    "bossHp": -5,
+    "level": 34,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 42,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:volley",
+   "boss_reward:tempo"
+  ],
+  "levelAtBoss": [],
+  "level": 34,
+  "gold": 1567,
+  "mats": {
+   "pelt": 37,
+   "iron": 0,
+   "spore": 9,
+   "fang": 6
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[cross+scar] mine5[lure+chain] ember5[reignite+trail] | 공통 wide2,ember1,stasis1 | E gust3 | 패시브 toughness2,haste3,mobility3,exploit1",
+  "boss": "boss:won@13s guardian:won@16s eater:won@13s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 371,
+   "cards": 252,
+   "screens": 672,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 42
+  },
+  "simulatedSec": 413,
+  "assumedSec": 984,
+  "totalMin": 23.3,
+  "combatMin": 6.2,
+  "cardMin": 4.2,
+  "menuMin": 16.4,
+  "bossMin": 0.7
+ },
+ {
+  "curve": "v06",
+  "strategy": "deep",
+  "seed": 5,
+  "encounters": 24,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 8,
+  "cards": 36,
+  "cardsInCombat": 26,
+  "deepPicks": 3,
+  "missions": 0,
+  "missionPicks": 0,
+  "eventCount": 6,
+  "eventChoices": [
+   "merchant:fight",
+   "time_spring:buff",
+   "merchant:fight",
+   "sealed_loot:fight",
+   "time_spring:buff",
+   "supply:loot"
+  ],
+  "eventFights": 2,
+  "levelUpsByDay": [
+   10,
+   5,
+   5,
+   3,
+   4,
+   4
+  ],
+  "weapon2": 17,
+  "weapon3": 30,
+  "eSkill": 65,
+  "events": [
+   {
+    "t": 17,
+    "kind": "level",
+    "key": "weapon_new:frost",
+    "where": "combat"
+   },
+   {
+    "t": 30,
+    "kind": "level",
+    "key": "weapon_new:spear",
+    "where": "combat"
+   },
+   {
+    "t": 65,
+    "kind": "level",
+    "key": "skill_new:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 81,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 114,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "screen"
+   },
+   {
+    "t": 120,
+    "kind": "deep",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 138,
+    "kind": "level",
+    "key": "weapon_mod:frost:shatter",
+    "where": "combat"
+   },
+   {
+    "t": 186,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 200,
+    "kind": "level",
+    "key": "weapon_mod:frost:fan",
+    "where": "combat"
+   },
+   {
+    "t": 245,
+    "kind": "level",
+    "key": "common:echo",
+    "where": "combat"
+   },
+   {
+    "t": 277,
+    "kind": "deep",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 292,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 357,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 402,
+    "kind": "level",
+    "key": "weapon_mod:spear:returning",
+    "where": "combat"
+   },
+   {
+    "t": 479,
+    "kind": "level",
+    "key": "weapon_mod:spear:brand",
+    "where": "combat"
+   },
+   {
+    "t": 524,
+    "kind": "level",
+    "key": "common:burn",
+    "where": "combat"
+   },
+   {
+    "t": 570,
+    "kind": "level",
+    "key": "skill_variant:slowfield:follow",
+    "where": "combat"
+   },
+   {
+    "t": 629,
+    "kind": "boss",
+    "key": "boss_reward:volley",
+    "where": "screen"
+   },
+   {
+    "t": 641,
+    "kind": "level",
+    "key": "weapon_level:frost",
+    "where": "combat"
+   },
+   {
+    "t": 690,
+    "kind": "level",
+    "key": "skill_level:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 704,
+    "kind": "level",
+    "key": "weapon_level:frost",
+    "where": "combat"
+   },
+   {
+    "t": 738,
+    "kind": "deep",
+    "key": "weapon_level:frost",
+    "where": "screen"
+   },
+   {
+    "t": 747,
+    "kind": "level",
+    "key": "weapon_level:frost",
+    "where": "combat"
+   },
+   {
+    "t": 791,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 845,
+    "kind": "level",
+    "key": "skill_variant:bladestorm:advancing",
+    "where": "screen"
+   },
+   {
+    "t": 860,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 901,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 965,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 978,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 1015,
+    "kind": "level",
+    "key": "passive:haste",
+    "where": "screen"
+   },
+   {
+    "t": 1033,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 1073,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   },
+   {
+    "t": 1130,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 1169,
+    "kind": "level",
+    "key": "skill_level:bladestorm",
+    "where": "screen"
+   },
+   {
+    "t": 1188,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "combat"
+   },
+   {
+    "t": 1229,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 12,
+    "hp": 100,
+    "bossHp": -6,
+    "level": 16,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 16,
+    "hp": 100,
+    "bossHp": -19,
+    "level": 24,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 13,
+    "hp": 84,
+    "bossHp": -4,
+    "level": 32,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 41,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:volley",
+   "boss_reward:clone"
+  ],
+  "levelAtBoss": [],
+  "level": 32,
+  "gold": 1617,
+  "mats": {
+   "pelt": 39,
+   "iron": 0,
+   "spore": 10,
+   "fang": 6
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[crescent+cross] frost5[shatter+fan] spear5[returning+brand] | 공통 echo1,stasis1,burn1 | E bladestorm3 | 패시브 haste1,persistence1,exploit1,focus1",
+  "boss": "boss:won@12s guardian:won@16s eater:won@13s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 320,
+   "cards": 216,
+   "screens": 648,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 40
+  },
+  "simulatedSec": 361,
+  "assumedSec": 924,
+  "totalMin": 21.4,
+  "combatMin": 5.3,
+  "cardMin": 3.6,
+  "menuMin": 15.4,
+  "bossMin": 0.7
+ },
+ {
+  "curve": "v06",
+  "strategy": "mission",
+  "seed": 1,
+  "encounters": 20,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 39,
+  "cardsInCombat": 15,
+  "deepPicks": 0,
+  "missions": 15,
+  "missionPicks": 15,
+  "eventCount": 11,
+  "eventChoices": [
+   "supply:loot",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "sealed_loot:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "scout:leave",
+   "time_spring:buff",
+   "merchant:leave",
+   "time_spring:buff",
+   "supply:loot"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   7,
+   3,
+   4,
+   2,
+   3,
+   2
+  ],
+  "weapon2": 157,
+  "weapon3": 194,
+  "eSkill": 206,
+  "events": [
+   {
+    "t": 53,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 59,
+    "kind": "mission",
+    "key": "weapon_mod:sword:cross",
+    "where": "screen"
+   },
+   {
+    "t": 157,
+    "kind": "level",
+    "key": "weapon_new:ember",
+    "where": "screen"
+   },
+   {
+    "t": 163,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   },
+   {
+    "t": 194,
+    "kind": "level",
+    "key": "weapon_new:mine",
+    "where": "combat"
+   },
+   {
+    "t": 206,
+    "kind": "level",
+    "key": "skill_new:strike",
+    "where": "combat"
+   },
+   {
+    "t": 243,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 263,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 314,
+    "kind": "level",
+    "key": "weapon_mod:ember:scatter",
+    "where": "combat"
+   },
+   {
+    "t": 355,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "screen"
+   },
+   {
+    "t": 377,
+    "kind": "level",
+    "key": "weapon_mod:mine:chain",
+    "where": "combat"
+   },
+   {
+    "t": 415,
+    "kind": "level",
+    "key": "weapon_mod:mine:lure",
+    "where": "screen"
+   },
+   {
+    "t": 421,
+    "kind": "mission",
+    "key": "weapon_mod:ember:trail",
+    "where": "screen"
+   },
+   {
+    "t": 470,
+    "kind": "mission",
+    "key": "skill_level:strike",
+    "where": "screen"
+   },
+   {
+    "t": 481,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 522,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   },
+   {
+    "t": 550,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "screen"
+   },
+   {
+    "t": 556,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 605,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 611,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 629,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 660,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 672,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 716,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "screen"
+   },
+   {
+    "t": 760,
+    "kind": "mission",
+    "key": "weapon_level:ember",
+    "where": "screen"
+   },
+   {
+    "t": 779,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 817,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   },
+   {
+    "t": 839,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 907,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 915,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   },
+   {
+    "t": 931,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 964,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   },
+   {
+    "t": 1010,
+    "kind": "mission",
+    "key": "common:wide",
+    "where": "screen"
+   },
+   {
+    "t": 1019,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 1091,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 1130,
+    "kind": "mission",
+    "key": "skill_level:strike",
+    "where": "screen"
+   },
+   {
+    "t": 1171,
+    "kind": "mission",
+    "key": "weapon_level:ember",
+    "where": "screen"
+   },
+   {
+    "t": 1180,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 1220,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 12,
+    "hp": 100,
+    "bossHp": -6,
+    "level": 12,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 18,
+    "hp": 100,
+    "bossHp": -1,
+    "level": 18,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 15,
+    "hp": 100,
+    "bossHp": -3,
+    "level": 23,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 45,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 23,
+  "gold": 1441,
+  "mats": {
+   "pelt": 6,
+   "iron": 4,
+   "spore": 1,
+   "fang": 0
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[cross+scar] ember5[scatter+trail] mine5[chain+lure] | 공통 stasis1,ember1,wide2 | E strike3 | 패시브 exploit1,mastery1",
+  "boss": "boss:won@12s guardian:won@18s eater:won@15s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 326,
+   "cards": 234,
+   "screens": 588,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 45
+  },
+  "simulatedSec": 370,
+  "assumedSec": 882,
+  "totalMin": 20.9,
+  "combatMin": 5.4,
+  "cardMin": 3.9,
+  "menuMin": 14.7,
+  "bossMin": 0.7
+ },
+ {
+  "curve": "v06",
+  "strategy": "mission",
+  "seed": 2,
+  "encounters": 23,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 38,
+  "cardsInCombat": 16,
+  "deepPicks": 0,
+  "missions": 17,
+  "missionPicks": 15,
+  "eventCount": 13,
+  "eventChoices": [
+   "supply:loot",
+   "time_spring:buff",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "weapon_altar:leave",
+   "merchant:leave",
+   "supply:loot",
+   "time_spring:buff",
+   "scout:leave",
+   "time_spring:buff",
+   "scout:leave",
+   "time_spring:buff",
+   "scout:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   7,
+   4,
+   3,
+   2,
+   3,
+   2
+  ],
+  "weapon2": 26,
+  "weapon3": 93,
+  "eSkill": 144,
+  "events": [
+   {
+    "t": 26,
+    "kind": "level",
+    "key": "weapon_new:spear",
+    "where": "combat"
+   },
+   {
+    "t": 59,
+    "kind": "level",
+    "key": "weapon_mod:spear:brand",
+    "where": "screen"
+   },
+   {
+    "t": 65,
+    "kind": "mission",
+    "key": "service:free_rest",
+    "where": "screen"
+   },
+   {
+    "t": 93,
+    "kind": "level",
+    "key": "weapon_new:bow",
+    "where": "combat"
+   },
+   {
+    "t": 128,
+    "kind": "mission",
+    "key": "weapon_mod:spear:split",
+    "where": "screen"
+   },
+   {
+    "t": 144,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "combat"
+   },
+   {
+    "t": 178,
+    "kind": "level",
+    "key": "weapon_mod:bow:spread",
+    "where": "screen"
+   },
+   {
+    "t": 184,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 200,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "combat"
+   },
+   {
+    "t": 249,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 295,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 342,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 386,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "screen"
+   },
+   {
+    "t": 392,
+    "kind": "mission",
+    "key": "weapon_mod:bow:pierce",
+    "where": "screen"
+   },
+   {
+    "t": 410,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 441,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 455,
+    "kind": "level",
+    "key": "common:saving",
+    "where": "combat"
+   },
+   {
+    "t": 515,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 549,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 565,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 600,
+    "kind": "mission",
+    "key": "weapon_mod:sword:cross",
+    "where": "screen"
+   },
+   {
+    "t": 650,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "screen"
+   },
+   {
+    "t": 656,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   },
+   {
+    "t": 672,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "combat"
+   },
+   {
+    "t": 759,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 775,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 810,
+    "kind": "mission",
+    "key": "common:wide",
+    "where": "screen"
+   },
+   {
+    "t": 827,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 895,
+    "kind": "boss",
+    "key": "boss_reward:volley",
+    "where": "screen"
+   },
+   {
+    "t": 903,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 911,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 954,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   },
+   {
+    "t": 970,
+    "kind": "level",
+    "key": "skill_variant:gust:whirl",
+    "where": "combat"
+   },
+   {
+    "t": 1001,
+    "kind": "mission",
+    "key": "weapon_level:spear",
+    "where": "screen"
+   },
+   {
+    "t": 1113,
+    "kind": "level",
+    "key": "skill_level:gust",
+    "where": "screen"
+   },
+   {
+    "t": 1119,
+    "kind": "mission",
+    "key": "skill_level:gust",
+    "where": "screen"
+   },
+   {
+    "t": 1212,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   },
+   {
+    "t": 1224,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 10,
+    "hp": 100,
+    "bossHp": -8,
+    "level": 12,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 17,
+    "hp": 100,
+    "bossHp": -7,
+    "level": 17,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 16,
+    "hp": 100,
+    "bossHp": -14,
+    "level": 22,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 43,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:volley"
+  ],
+  "levelAtBoss": [],
+  "level": 22,
+  "gold": 1508,
+  "mats": {
+   "pelt": 4,
+   "iron": 7,
+   "spore": 0,
+   "fang": 0
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[scar+cross] spear5[brand+split] bow4[spread+pierce] | 공통 wide2,saving1,stasis1 | E gust3 | 패시브 exploit2",
+  "boss": "boss:won@10s guardian:won@17s eater:won@16s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 273,
+   "cards": 228,
+   "screens": 679,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 43
+  },
+  "simulatedSec": 316,
+  "assumedSec": 967,
+  "totalMin": 21.4,
+  "combatMin": 4.5,
+  "cardMin": 3.8,
+  "menuMin": 16.1,
+  "bossMin": 0.7
+ },
+ {
+  "curve": "v06",
+  "strategy": "mission",
+  "seed": 3,
+  "encounters": 23,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 39,
+  "cardsInCombat": 15,
+  "deepPicks": 0,
+  "missions": 17,
+  "missionPicks": 16,
+  "eventCount": 10,
+  "eventChoices": [
+   "scout:leave",
+   "supply:loot",
+   "sealed_loot:leave",
+   "weapon_altar:leave",
+   "scout:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "scout:leave",
+   "time_spring:buff",
+   "supply:loot"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   7,
+   3,
+   2,
+   3,
+   3,
+   2
+  ],
+  "weapon2": 17,
+  "weapon3": 59,
+  "eSkill": 65,
+  "events": [
+   {
+    "t": 17,
+    "kind": "level",
+    "key": "weapon_new:bow",
+    "where": "combat"
+   },
+   {
+    "t": 59,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "screen"
+   },
+   {
+    "t": 65,
+    "kind": "mission",
+    "key": "skill_new:bladestorm",
+    "where": "screen"
+   },
+   {
+    "t": 110,
+    "kind": "level",
+    "key": "weapon_mod:blades:serrated",
+    "where": "screen"
+   },
+   {
+    "t": 116,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   },
+   {
+    "t": 134,
+    "kind": "level",
+    "key": "weapon_mod:bow:pierce",
+    "where": "combat"
+   },
+   {
+    "t": 165,
+    "kind": "mission",
+    "key": "weapon_level:bow",
+    "where": "screen"
+   },
+   {
+    "t": 183,
+    "kind": "level",
+    "key": "common:echo",
+    "where": "combat"
+   },
+   {
+    "t": 225,
+    "kind": "level",
+    "key": "weapon_mod:bow:spread",
+    "where": "screen"
+   },
+   {
+    "t": 251,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 303,
+    "kind": "level",
+    "key": "weapon_mod:blades:launch",
+    "where": "combat"
+   },
+   {
+    "t": 344,
+    "kind": "mission",
+    "key": "service:mod_swap",
+    "where": "screen"
+   },
+   {
+    "t": 392,
+    "kind": "mission",
+    "key": "skill_level:bladestorm",
+    "where": "screen"
+   },
+   {
+    "t": 408,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 444,
+    "kind": "mission",
+    "key": "weapon_mod:sword:cross",
+    "where": "screen"
+   },
+   {
+    "t": 487,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 562,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 568,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 603,
+    "kind": "mission",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 612,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 661,
+    "kind": "mission",
+    "key": "skill_level:bladestorm",
+    "where": "screen"
+   },
+   {
+    "t": 669,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 711,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   },
+   {
+    "t": 746,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 778,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   },
+   {
+    "t": 834,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 843,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 874,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 898,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 958,
+    "kind": "boss",
+    "key": "boss_reward:volley",
+    "where": "screen"
+   },
+   {
+    "t": 971,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 1014,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 1059,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   },
+   {
+    "t": 1092,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "screen"
+   },
+   {
+    "t": 1098,
+    "kind": "mission",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 1123,
+    "kind": "level",
+    "key": "skill_variant:slowfield:split",
+    "where": "combat"
+   },
+   {
+    "t": 1169,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "combat"
+   },
+   {
+    "t": 1201,
+    "kind": "mission",
+    "key": "common:reach",
+    "where": "screen"
+   },
+   {
+    "t": 1218,
+    "kind": "level",
+    "key": "skill_variant:bladestorm:advancing",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 15,
+    "hp": 100,
+    "bossHp": -3,
+    "level": 12,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 16,
+    "hp": 100,
+    "bossHp": -3,
+    "level": 17,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 18,
+    "hp": 100,
+    "bossHp": -3,
+    "level": 22,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 49,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:clone",
+   "boss_reward:volley"
+  ],
+  "levelAtBoss": [],
+  "level": 22,
+  "gold": 1576,
+  "mats": {
+   "pelt": 10,
+   "iron": 1,
+   "spore": 3,
+   "fang": 1
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[crescent+cross] bow5[pierce+spread] blades5[serrated+launch] | 공통 echo1,stasis1,reach2 | E bladestorm3 | 패시브 mastery1",
+  "boss": "boss:won@15s guardian:won@16s eater:won@18s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 279,
+   "cards": 234,
+   "screens": 655,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 49
+  },
+  "simulatedSec": 328,
+  "assumedSec": 949,
+  "totalMin": 21.3,
+  "combatMin": 4.7,
+  "cardMin": 3.9,
+  "menuMin": 15.8,
+  "bossMin": 0.8
+ },
+ {
+  "curve": "v06",
+  "strategy": "mission",
+  "seed": 4,
+  "encounters": 20,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 38,
+  "cardsInCombat": 16,
+  "deepPicks": 0,
+  "missions": 15,
+  "missionPicks": 15,
+  "eventCount": 11,
+  "eventChoices": [
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "merchant:leave",
+   "scout:leave",
+   "supply:loot",
+   "scout:leave",
+   "time_spring:buff",
+   "supply:loot"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   7,
+   3,
+   3,
+   3,
+   2,
+   2
+  ],
+  "weapon2": 18,
+  "weapon3": 44,
+  "eSkill": 101,
+  "events": [
+   {
+    "t": 18,
+    "kind": "level",
+    "key": "weapon_new:mine",
+    "where": "combat"
+   },
+   {
+    "t": 44,
+    "kind": "level",
+    "key": "weapon_new:frost",
+    "where": "combat"
+   },
+   {
+    "t": 101,
+    "kind": "mission",
+    "key": "skill_new:gravity",
+    "where": "screen"
+   },
+   {
+    "t": 120,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 153,
+    "kind": "level",
+    "key": "weapon_mod:frost:ground",
+    "where": "screen"
+   },
+   {
+    "t": 159,
+    "kind": "mission",
+    "key": "weapon_level:frost",
+    "where": "screen"
+   },
+   {
+    "t": 211,
+    "kind": "mission",
+    "key": "service:free_rest",
+    "where": "screen"
+   },
+   {
+    "t": 220,
+    "kind": "level",
+    "key": "weapon_mod:mine:frosttrap",
+    "where": "combat"
+   },
+   {
+    "t": 240,
+    "kind": "level",
+    "key": "weapon_mod:frost:fan",
+    "where": "combat"
+   },
+   {
+    "t": 293,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 340,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 371,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 393,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 433,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   },
+   {
+    "t": 472,
+    "kind": "level",
+    "key": "common:burn",
+    "where": "screen"
+   },
+   {
+    "t": 478,
+    "kind": "mission",
+    "key": "weapon_mod:mine:chain",
+    "where": "screen"
+   },
+   {
+    "t": 570,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "screen"
+   },
+   {
+    "t": 576,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 622,
+    "kind": "level",
+    "key": "common:wide",
+    "where": "screen"
+   },
+   {
+    "t": 628,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   },
+   {
+    "t": 643,
+    "kind": "level",
+    "key": "passive:haste",
+    "where": "combat"
+   },
+   {
+    "t": 683,
+    "kind": "mission",
+    "key": "skill_level:gravity",
+    "where": "screen"
+   },
+   {
+    "t": 697,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 752,
+    "kind": "level",
+    "key": "weapon_level:mine",
+    "where": "combat"
+   },
+   {
+    "t": 791,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   },
+   {
+    "t": 820,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "combat"
+   },
+   {
+    "t": 858,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 875,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 980,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 997,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "combat"
+   },
+   {
+    "t": 1036,
+    "kind": "mission",
+    "key": "skill_level:gravity",
+    "where": "screen"
+   },
+   {
+    "t": 1045,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 1076,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 1103,
+    "kind": "level",
+    "key": "skill_variant:slowfield:follow",
+    "where": "combat"
+   },
+   {
+    "t": 1134,
+    "kind": "mission",
+    "key": "weapon_level:frost",
+    "where": "screen"
+   },
+   {
+    "t": 1181,
+    "kind": "level",
+    "key": "passive:mobility",
+    "where": "screen"
+   },
+   {
+    "t": 1187,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   },
+   {
+    "t": 1234,
+    "kind": "mission",
+    "key": "common:wide",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 21,
+    "hp": 100,
+    "bossHp": -6,
+    "level": 12,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 48,
+    "hp": 100,
+    "bossHp": -2,
+    "level": 18,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 41,
+    "hp": 120,
+    "bossHp": -15,
+    "level": 22,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 110,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 22,
+  "gold": 1454,
+  "mats": {
+   "pelt": 6,
+   "iron": 5,
+   "spore": 0,
+   "fang": 0
+  },
+  "hpBeforeBoss": 120,
+  "build": "sword5[cross+crescent] mine5[frosttrap+chain] frost3[ground+fan] | 공통 burn1,wide2,frost1 | E gravity3 | 패시브 haste1,vitality1,mobility1",
+  "boss": "boss:won@21s guardian:won@48s eater:won@41s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 307,
+   "cards": 228,
+   "screens": 588,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 110
+  },
+  "simulatedSec": 418,
+  "assumedSec": 876,
+  "totalMin": 21.6,
+  "combatMin": 5.1,
+  "cardMin": 3.8,
+  "menuMin": 14.6,
+  "bossMin": 1.8
+ },
+ {
+  "curve": "v06",
+  "strategy": "mission",
+  "seed": 5,
+  "encounters": 21,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 36,
+  "cardsInCombat": 17,
+  "deepPicks": 0,
+  "missions": 16,
+  "missionPicks": 13,
+  "eventCount": 12,
+  "eventChoices": [
+   "supply:loot",
+   "time_spring:buff",
+   "merchant:leave",
+   "time_spring:buff",
+   "weapon_altar:leave",
+   "sealed_loot:leave",
+   "weapon_altar:leave",
+   "supply:loot",
+   "scout:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "time_spring:buff"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   7,
+   4,
+   3,
+   2,
+   2,
+   3
+  ],
+  "weapon2": 18,
+  "weapon3": 32,
+  "eSkill": 75,
+  "events": [
+   {
+    "t": 18,
+    "kind": "level",
+    "key": "weapon_new:frost",
+    "where": "combat"
+   },
+   {
+    "t": 32,
+    "kind": "level",
+    "key": "weapon_new:spear",
+    "where": "combat"
+   },
+   {
+    "t": 75,
+    "kind": "level",
+    "key": "skill_new:gust",
+    "where": "screen"
+   },
+   {
+    "t": 81,
+    "kind": "mission",
+    "key": "service:mod_swap",
+    "where": "screen"
+   },
+   {
+    "t": 93,
+    "kind": "level",
+    "key": "weapon_mod:spear:split",
+    "where": "combat"
+   },
+   {
+    "t": 124,
+    "kind": "mission",
+    "key": "weapon_level:spear",
+    "where": "screen"
+   },
+   {
+    "t": 142,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 186,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 205,
+    "kind": "level",
+    "key": "weapon_level:frost",
+    "where": "combat"
+   },
+   {
+    "t": 251,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 310,
+    "kind": "level",
+    "key": "common:saving",
+    "where": "combat"
+   },
+   {
+    "t": 358,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   },
+   {
+    "t": 366,
+    "kind": "level",
+    "key": "weapon_mod:frost:ground",
+    "where": "combat"
+   },
+   {
+    "t": 402,
+    "kind": "mission",
+    "key": "weapon_mod:sword:scar",
+    "where": "screen"
+   },
+   {
+    "t": 446,
+    "kind": "level",
+    "key": "weapon_mod:spear:returning",
+    "where": "screen"
+   },
+   {
+    "t": 452,
+    "kind": "mission",
+    "key": "weapon_level:frost",
+    "where": "screen"
+   },
+   {
+    "t": 502,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "combat"
+   },
+   {
+    "t": 571,
+    "kind": "boss",
+    "key": "boss_reward:volley",
+    "where": "screen"
+   },
+   {
+    "t": 580,
+    "kind": "level",
+    "key": "skill_variant:gust:windpath",
+    "where": "combat"
+   },
+   {
+    "t": 611,
+    "kind": "level",
+    "key": "weapon_mod:frost:shatter",
+    "where": "screen"
+   },
+   {
+    "t": 617,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 668,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "screen"
+   },
+   {
+    "t": 674,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 710,
+    "kind": "mission",
+    "key": "common:reach",
+    "where": "screen"
+   },
+   {
+    "t": 737,
+    "kind": "level",
+    "key": "skill_variant:slowfield:echo",
+    "where": "combat"
+   },
+   {
+    "t": 779,
+    "kind": "mission",
+    "key": "service:mod_swap",
+    "where": "screen"
+   },
+   {
+    "t": 796,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 864,
+    "kind": "mission",
+    "key": "weapon_level:spear",
+    "where": "screen"
+   },
+   {
+    "t": 904,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 911,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 956,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 997,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   },
+   {
+    "t": 1024,
+    "kind": "level",
+    "key": "weapon_level:frost",
+    "where": "combat"
+   },
+   {
+    "t": 1055,
+    "kind": "mission",
+    "key": "weapon_level:frost",
+    "where": "screen"
+   },
+   {
+    "t": 1098,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "combat"
+   },
+   {
+    "t": 1109,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 13,
+    "hp": 100,
+    "bossHp": -6,
+    "level": 12,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 23,
+    "hp": 100,
+    "bossHp": -27,
+    "level": 17,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 22,
+    "hp": 120,
+    "bossHp": -34,
+    "level": 22,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 58,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:volley",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 22,
+  "gold": 1723,
+  "mats": {
+   "pelt": 10,
+   "iron": 0,
+   "spore": 1,
+   "fang": 1
+  },
+  "hpBeforeBoss": 120,
+  "build": "sword5[crescent+scar] frost5[ground+shatter] spear3[split+returning] | 공통 saving1,reach2,frost1 | E gust1 | 패시브 exploit2,vitality1",
+  "boss": "boss:won@13s guardian:won@23s eater:won@22s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 210,
+   "cards": 216,
+   "screens": 621,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 58
+  },
+  "simulatedSec": 269,
+  "assumedSec": 897,
+  "totalMin": 19.4,
+  "combatMin": 3.5,
+  "cardMin": 3.6,
+  "menuMin": 15,
+  "bossMin": 1
+ },
+ {
+  "curve": "v06",
+  "strategy": "matched",
+  "seed": 1,
+  "encounters": 19,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 37,
+  "cardsInCombat": 14,
+  "deepPicks": 0,
+  "missions": 15,
+  "missionPicks": 14,
+  "eventCount": 11,
+  "eventChoices": [
+   "supply:loot",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "sealed_loot:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "scout:leave",
+   "time_spring:buff",
+   "scout:leave",
+   "time_spring:buff",
+   "supply:loot"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   7,
+   4,
+   3,
+   3,
+   2,
+   2
+  ],
+  "weapon2": 157,
+  "weapon3": 194,
+  "eSkill": 602,
+  "events": [
+   {
+    "t": 53,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 59,
+    "kind": "mission",
+    "key": "weapon_mod:sword:cross",
+    "where": "screen"
+   },
+   {
+    "t": 157,
+    "kind": "level",
+    "key": "weapon_new:ember",
+    "where": "screen"
+   },
+   {
+    "t": 163,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   },
+   {
+    "t": 194,
+    "kind": "level",
+    "key": "weapon_new:spear",
+    "where": "combat"
+   },
+   {
+    "t": 202,
+    "kind": "level",
+    "key": "weapon_mod:ember:trail",
+    "where": "combat"
+   },
+   {
+    "t": 245,
+    "kind": "mission",
+    "key": "skill_variant:slowfield:split",
+    "where": "screen"
+   },
+   {
+    "t": 264,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 303,
+    "kind": "level",
+    "key": "weapon_mod:ember:scatter",
+    "where": "screen"
+   },
+   {
+    "t": 331,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 378,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 412,
+    "kind": "level",
+    "key": "common:burn",
+    "where": "screen"
+   },
+   {
+    "t": 418,
+    "kind": "mission",
+    "key": "weapon_mod:spear:returning",
+    "where": "screen"
+   },
+   {
+    "t": 466,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 475,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 514,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "screen"
+   },
+   {
+    "t": 520,
+    "kind": "mission",
+    "key": "service:mod_swap",
+    "where": "screen"
+   },
+   {
+    "t": 543,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 553,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 584,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 602,
+    "kind": "level",
+    "key": "skill_new:strike",
+    "where": "combat"
+   },
+   {
+    "t": 635,
+    "kind": "mission",
+    "key": "weapon_mod:spear:brand",
+    "where": "screen"
+   },
+   {
+    "t": 650,
+    "kind": "level",
+    "key": "weapon_level:ember",
+    "where": "combat"
+   },
+   {
+    "t": 700,
+    "kind": "level",
+    "key": "skill_variant:strike:storm",
+    "where": "combat"
+   },
+   {
+    "t": 731,
+    "kind": "mission",
+    "key": "weapon_level:ember",
+    "where": "screen"
+   },
+   {
+    "t": 753,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 805,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "screen"
+   },
+   {
+    "t": 811,
+    "kind": "mission",
+    "key": "skill_level:strike",
+    "where": "screen"
+   },
+   {
+    "t": 846,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 858,
+    "kind": "level",
+    "key": "passive:haste",
+    "where": "combat"
+   },
+   {
+    "t": 909,
+    "kind": "mission",
+    "key": "skill_level:strike",
+    "where": "screen"
+   },
+   {
+    "t": 926,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "combat"
+   },
+   {
+    "t": 1020,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "combat"
+   },
+   {
+    "t": 1068,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 1109,
+    "kind": "level",
+    "key": "weapon_level:spear",
+    "where": "screen"
+   },
+   {
+    "t": 1115,
+    "kind": "mission",
+    "key": "weapon_level:spear",
+    "where": "screen"
+   },
+   {
+    "t": 1167,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 7,
+    "hp": 100,
+    "bossHp": -3,
+    "level": 12,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 11,
+    "hp": 100,
+    "bossHp": -5,
+    "level": 18,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 10,
+    "hp": 100,
+    "bossHp": -29,
+    "level": 22,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 28,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 22,
+  "gold": 1380,
+  "mats": {
+   "pelt": 3,
+   "iron": 5,
+   "spore": 1,
+   "fang": 0
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[cross+scar] ember4[trail+scatter] spear5[returning+brand] | 공통 stasis1,burn1,ember1 | E strike3 | 패시브 exploit2,haste1",
+  "boss": "boss:won@7s guardian:won@11s eater:won@10s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 314,
+   "cards": 222,
+   "screens": 563,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 29
+  },
+  "simulatedSec": 343,
+  "assumedSec": 845,
+  "totalMin": 19.8,
+  "combatMin": 5.2,
+  "cardMin": 3.7,
+  "menuMin": 14.1,
+  "bossMin": 0.5
+ },
+ {
+  "curve": "v06",
+  "strategy": "matched",
+  "seed": 2,
+  "encounters": 23,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 40,
+  "cardsInCombat": 19,
+  "deepPicks": 0,
+  "missions": 17,
+  "missionPicks": 14,
+  "eventCount": 13,
+  "eventChoices": [
+   "supply:loot",
+   "time_spring:buff",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "weapon_altar:leave",
+   "merchant:leave",
+   "supply:loot",
+   "time_spring:buff",
+   "scout:leave",
+   "time_spring:buff",
+   "scout:leave",
+   "time_spring:buff",
+   "scout:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   7,
+   4,
+   4,
+   3,
+   3,
+   3
+  ],
+  "weapon2": 14,
+  "weapon3": 311,
+  "eSkill": 687,
+  "events": [
+   {
+    "t": 14,
+    "kind": "level",
+    "key": "weapon_new:bow",
+    "where": "combat"
+   },
+   {
+    "t": 57,
+    "kind": "level",
+    "key": "weapon_mod:bow:pierce",
+    "where": "screen"
+   },
+   {
+    "t": 63,
+    "kind": "mission",
+    "key": "weapon_mod:sword:crescent",
+    "where": "screen"
+   },
+   {
+    "t": 87,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 118,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "screen"
+   },
+   {
+    "t": 124,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 150,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 189,
+    "kind": "mission",
+    "key": "service:free_rest",
+    "where": "screen"
+   },
+   {
+    "t": 202,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 251,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 311,
+    "kind": "level",
+    "key": "weapon_new:orb",
+    "where": "combat"
+   },
+   {
+    "t": 346,
+    "kind": "mission",
+    "key": "weapon_mod:bow:spread",
+    "where": "screen"
+   },
+   {
+    "t": 363,
+    "kind": "level",
+    "key": "weapon_mod:orb:loop",
+    "where": "combat"
+   },
+   {
+    "t": 394,
+    "kind": "mission",
+    "key": "weapon_level:orb",
+    "where": "screen"
+   },
+   {
+    "t": 413,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 458,
+    "kind": "mission",
+    "key": "skill_variant:slowfield:echo",
+    "where": "screen"
+   },
+   {
+    "t": 470,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 537,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 546,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "combat"
+   },
+   {
+    "t": 577,
+    "kind": "mission",
+    "key": "weapon_level:bow",
+    "where": "screen"
+   },
+   {
+    "t": 622,
+    "kind": "level",
+    "key": "weapon_mod:orb:conduct",
+    "where": "screen"
+   },
+   {
+    "t": 628,
+    "kind": "mission",
+    "key": "common:echo",
+    "where": "screen"
+   },
+   {
+    "t": 678,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   },
+   {
+    "t": 687,
+    "kind": "level",
+    "key": "skill_new:ward",
+    "where": "combat"
+   },
+   {
+    "t": 703,
+    "kind": "level",
+    "key": "weapon_level:orb",
+    "where": "combat"
+   },
+   {
+    "t": 760,
+    "kind": "level",
+    "key": "passive:toughness",
+    "where": "combat"
+   },
+   {
+    "t": 799,
+    "kind": "mission",
+    "key": "skill_level:ward",
+    "where": "screen"
+   },
+   {
+    "t": 843,
+    "kind": "level",
+    "key": "weapon_level:bow",
+    "where": "screen"
+   },
+   {
+    "t": 872,
+    "kind": "level",
+    "key": "skill_variant:ward:pulse",
+    "where": "combat"
+   },
+   {
+    "t": 936,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 970,
+    "kind": "mission",
+    "key": "weapon_level:orb",
+    "where": "screen"
+   },
+   {
+    "t": 986,
+    "kind": "level",
+    "key": "passive:persistence",
+    "where": "combat"
+   },
+   {
+    "t": 1021,
+    "kind": "level",
+    "key": "weapon_level:orb",
+    "where": "combat"
+   },
+   {
+    "t": 1039,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1071,
+    "kind": "mission",
+    "key": "service:mod_swap",
+    "where": "screen"
+   },
+   {
+    "t": 1105,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 1150,
+    "kind": "mission",
+    "key": "skill_level:ward",
+    "where": "screen"
+   },
+   {
+    "t": 1213,
+    "kind": "level",
+    "key": "passive:toughness",
+    "where": "combat"
+   },
+   {
+    "t": 1249,
+    "kind": "mission",
+    "key": "service:mod_swap",
+    "where": "screen"
+   },
+   {
+    "t": 1294,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 13,
+    "hp": 100,
+    "bossHp": -10,
+    "level": 12,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 22,
+    "hp": 100,
+    "bossHp": -23,
+    "level": 19,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 16,
+    "hp": 100,
+    "bossHp": -3,
+    "level": 25,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 51,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:clone"
+  ],
+  "levelAtBoss": [],
+  "level": 25,
+  "gold": 1670,
+  "mats": {
+   "pelt": 6,
+   "iron": 7,
+   "spore": 0,
+   "fang": 0
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[crescent+cross] bow5[pierce+spread] orb5[loop+conduct] | 공통 stasis1,ember1,echo1 | E ward3 | 패시브 toughness2,persistence1,exploit1",
+  "boss": "boss:won@13s guardian:won@22s eater:won@16s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 290,
+   "cards": 240,
+   "screens": 679,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 51
+  },
+  "simulatedSec": 341,
+  "assumedSec": 979,
+  "totalMin": 22,
+  "combatMin": 4.8,
+  "cardMin": 4,
+  "menuMin": 16.3,
+  "bossMin": 0.9
+ },
+ {
+  "curve": "v06",
+  "strategy": "matched",
+  "seed": 3,
+  "encounters": 24,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 39,
+  "cardsInCombat": 15,
+  "deepPicks": 0,
+  "missions": 17,
+  "missionPicks": 16,
+  "eventCount": 11,
+  "eventChoices": [
+   "scout:leave",
+   "supply:loot",
+   "sealed_loot:leave",
+   "weapon_altar:leave",
+   "scout:leave",
+   "merchant:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "scout:leave"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   7,
+   3,
+   2,
+   3,
+   3,
+   2
+  ],
+  "weapon2": 129,
+  "weapon3": 441,
+  "eSkill": 14,
+  "events": [
+   {
+    "t": 14,
+    "kind": "level",
+    "key": "skill_new:ward",
+    "where": "combat"
+   },
+   {
+    "t": 20,
+    "kind": "level",
+    "key": "skill_variant:ward:fortress",
+    "where": "combat"
+   },
+   {
+    "t": 51,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 64,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "combat"
+   },
+   {
+    "t": 107,
+    "kind": "mission",
+    "key": "skill_variant:slowfield:echo",
+    "where": "screen"
+   },
+   {
+    "t": 129,
+    "kind": "level",
+    "key": "weapon_new:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 171,
+    "kind": "mission",
+    "key": "service:mod_swap",
+    "where": "screen"
+   },
+   {
+    "t": 193,
+    "kind": "level",
+    "key": "weapon_mod:daggers:flank",
+    "where": "combat"
+   },
+   {
+    "t": 246,
+    "kind": "level",
+    "key": "common:echo",
+    "where": "combat"
+   },
+   {
+    "t": 292,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "screen"
+   },
+   {
+    "t": 353,
+    "kind": "mission",
+    "key": "weapon_mod:sword:scar",
+    "where": "screen"
+   },
+   {
+    "t": 379,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 412,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 441,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "combat"
+   },
+   {
+    "t": 475,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   },
+   {
+    "t": 523,
+    "kind": "level",
+    "key": "weapon_mod:daggers:pursuit",
+    "where": "screen"
+   },
+   {
+    "t": 605,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 611,
+    "kind": "boss",
+    "key": "boss_reward:volley",
+    "where": "screen"
+   },
+   {
+    "t": 664,
+    "kind": "mission",
+    "key": "skill_level:ward",
+    "where": "screen"
+   },
+   {
+    "t": 675,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 706,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 730,
+    "kind": "level",
+    "key": "weapon_level:daggers",
+    "where": "combat"
+   },
+   {
+    "t": 767,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   },
+   {
+    "t": 820,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 838,
+    "kind": "level",
+    "key": "weapon_mod:blades:serrated",
+    "where": "combat"
+   },
+   {
+    "t": 884,
+    "kind": "mission",
+    "key": "skill_level:ward",
+    "where": "screen"
+   },
+   {
+    "t": 931,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   },
+   {
+    "t": 952,
+    "kind": "level",
+    "key": "passive:haste",
+    "where": "combat"
+   },
+   {
+    "t": 997,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 1042,
+    "kind": "boss",
+    "key": "boss_reward:seed",
+    "where": "screen"
+   },
+   {
+    "t": 1096,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 1107,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 1138,
+    "kind": "mission",
+    "key": "weapon_level:daggers",
+    "where": "screen"
+   },
+   {
+    "t": 1193,
+    "kind": "mission",
+    "key": "service:shop_discount",
+    "where": "screen"
+   },
+   {
+    "t": 1215,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 1231,
+    "kind": "level",
+    "key": "weapon_mod:blades:dual",
+    "where": "combat"
+   },
+   {
+    "t": 1301,
+    "kind": "level",
+    "key": "passive:mastery",
+    "where": "screen"
+   },
+   {
+    "t": 1307,
+    "kind": "mission",
+    "key": "weapon_level:daggers",
+    "where": "screen"
+   },
+   {
+    "t": 1350,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 16,
+    "hp": 100,
+    "bossHp": -14,
+    "level": 12,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 29,
+    "hp": 100,
+    "bossHp": -16,
+    "level": 17,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 21,
+    "hp": 100,
+    "bossHp": -23,
+    "level": 22,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 66,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:volley",
+   "boss_reward:seed"
+  ],
+  "levelAtBoss": [],
+  "level": 22,
+  "gold": 1469,
+  "mats": {
+   "pelt": 9,
+   "iron": 3,
+   "spore": 1,
+   "fang": 1
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[cross+scar] daggers5[flank+pursuit] blades5[serrated+dual] | 공통 echo1,stasis1,ember1 | E ward3 | 패시브 haste1,mastery1",
+  "boss": "boss:won@16s guardian:won@29s eater:won@21s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 389,
+   "cards": 234,
+   "screens": 688,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 66
+  },
+  "simulatedSec": 455,
+  "assumedSec": 982,
+  "totalMin": 23.9,
+  "combatMin": 6.5,
+  "cardMin": 3.9,
+  "menuMin": 16.4,
+  "bossMin": 1.1
+ },
+ {
+  "curve": "v06",
+  "strategy": "matched",
+  "seed": 4,
+  "encounters": 20,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 37,
+  "cardsInCombat": 15,
+  "deepPicks": 0,
+  "missions": 15,
+  "missionPicks": 13,
+  "eventCount": 11,
+  "eventChoices": [
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "supply:loot",
+   "weapon_altar:leave",
+   "time_spring:buff",
+   "weapon_altar:leave",
+   "scout:leave",
+   "supply:loot",
+   "scout:leave",
+   "time_spring:buff",
+   "supply:loot"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   7,
+   4,
+   4,
+   3,
+   3,
+   1
+  ],
+  "weapon2": 17,
+  "weapon3": 214,
+  "eSkill": 196,
+  "events": [
+   {
+    "t": 17,
+    "kind": "level",
+    "key": "weapon_new:hammer",
+    "where": "combat"
+   },
+   {
+    "t": 48,
+    "kind": "level",
+    "key": "weapon_mod:sword:cross",
+    "where": "screen"
+   },
+   {
+    "t": 54,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 84,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "combat"
+   },
+   {
+    "t": 152,
+    "kind": "level",
+    "key": "weapon_mod:hammer:shockwave",
+    "where": "combat"
+   },
+   {
+    "t": 196,
+    "kind": "mission",
+    "key": "skill_new:ward",
+    "where": "screen"
+   },
+   {
+    "t": 214,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "combat"
+   },
+   {
+    "t": 254,
+    "kind": "mission",
+    "key": "service:free_rest",
+    "where": "screen"
+   },
+   {
+    "t": 267,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 319,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 372,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 403,
+    "kind": "mission",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 450,
+    "kind": "level",
+    "key": "weapon_mod:hammer:aftershock",
+    "where": "screen"
+   },
+   {
+    "t": 456,
+    "kind": "mission",
+    "key": "weapon_mod:blades:dual",
+    "where": "screen"
+   },
+   {
+    "t": 472,
+    "kind": "level",
+    "key": "common:stasis",
+    "where": "combat"
+   },
+   {
+    "t": 510,
+    "kind": "mission",
+    "key": "service:free_rest",
+    "where": "screen"
+   },
+   {
+    "t": 560,
+    "kind": "level",
+    "key": "weapon_level:hammer",
+    "where": "screen"
+   },
+   {
+    "t": 595,
+    "kind": "boss",
+    "key": "boss_reward:resonance",
+    "where": "screen"
+   },
+   {
+    "t": 647,
+    "kind": "level",
+    "key": "weapon_mod:blades:serrated",
+    "where": "screen"
+   },
+   {
+    "t": 653,
+    "kind": "mission",
+    "key": "skill_variant:ward:pulse",
+    "where": "screen"
+   },
+   {
+    "t": 663,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "combat"
+   },
+   {
+    "t": 694,
+    "kind": "mission",
+    "key": "weapon_level:hammer",
+    "where": "screen"
+   },
+   {
+    "t": 702,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 718,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 808,
+    "kind": "level",
+    "key": "skill_variant:slowfield:follow",
+    "where": "screen"
+   },
+   {
+    "t": 814,
+    "kind": "mission",
+    "key": "skill_level:ward",
+    "where": "screen"
+   },
+   {
+    "t": 833,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "combat"
+   },
+   {
+    "t": 864,
+    "kind": "mission",
+    "key": "weapon_level:hammer",
+    "where": "screen"
+   },
+   {
+    "t": 890,
+    "kind": "level",
+    "key": "common:ember",
+    "where": "combat"
+   },
+   {
+    "t": 959,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 968,
+    "kind": "level",
+    "key": "common:saving",
+    "where": "combat"
+   },
+   {
+    "t": 999,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 1015,
+    "kind": "level",
+    "key": "passive:focus",
+    "where": "combat"
+   },
+   {
+    "t": 1059,
+    "kind": "level",
+    "key": "weapon_level:hammer",
+    "where": "screen"
+   },
+   {
+    "t": 1065,
+    "kind": "mission",
+    "key": "skill_level:ward",
+    "where": "screen"
+   },
+   {
+    "t": 1158,
+    "kind": "level",
+    "key": "passive:exploit",
+    "where": "screen"
+   },
+   {
+    "t": 1164,
+    "kind": "mission",
+    "key": "service:mod_swap",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 10,
+    "hp": 100,
+    "bossHp": -7,
+    "level": 12,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 16,
+    "hp": 100,
+    "bossHp": -7,
+    "level": 19,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 15,
+    "hp": 100,
+    "bossHp": -74,
+    "level": 23,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 41,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:resonance",
+   "boss_reward:clone"
+  ],
+  "levelAtBoss": [],
+  "level": 23,
+  "gold": 1552,
+  "mats": {
+   "pelt": 7,
+   "iron": 5,
+   "spore": 0,
+   "fang": 0
+  },
+  "hpBeforeBoss": 100,
+  "build": "sword5[cross+crescent] hammer5[shockwave+aftershock] blades5[dual+serrated] | 공통 stasis1,ember1,saving1 | E ward3 | 패시브 focus2,exploit1",
+  "boss": "boss:won@10s guardian:won@16s eater:won@15s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 327,
+   "cards": 222,
+   "screens": 588,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 41
+  },
+  "simulatedSec": 368,
+  "assumedSec": 870,
+  "totalMin": 20.6,
+  "combatMin": 5.4,
+  "cardMin": 3.7,
+  "menuMin": 14.5,
+  "bossMin": 0.7
+ },
+ {
+  "curve": "v06",
+  "strategy": "matched",
+  "seed": 5,
+  "encounters": 21,
+  "losses": 0,
+  "timeouts": 0,
+  "rests": 0,
+  "deeps": 0,
+  "cards": 37,
+  "cardsInCombat": 13,
+  "deepPicks": 0,
+  "missions": 16,
+  "missionPicks": 15,
+  "eventCount": 12,
+  "eventChoices": [
+   "time_spring:buff",
+   "supply:loot",
+   "time_spring:buff",
+   "merchant:leave",
+   "time_spring:buff",
+   "sealed_loot:leave",
+   "merchant:leave",
+   "supply:loot",
+   "scout:swap",
+   "time_spring:buff",
+   "supply:loot",
+   "time_spring:buff"
+  ],
+  "eventFights": 0,
+  "levelUpsByDay": [
+   6,
+   5,
+   3,
+   1,
+   3,
+   2
+  ],
+  "weapon2": 149,
+  "weapon3": 309,
+  "eSkill": 203,
+  "events": [
+   {
+    "t": 20,
+    "kind": "level",
+    "key": "weapon_mod:sword:scar",
+    "where": "combat"
+   },
+   {
+    "t": 51,
+    "kind": "level",
+    "key": "weapon_mod:sword:crescent",
+    "where": "screen"
+   },
+   {
+    "t": 57,
+    "kind": "mission",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 108,
+    "kind": "level",
+    "key": "common:reach",
+    "where": "screen"
+   },
+   {
+    "t": 114,
+    "kind": "mission",
+    "key": "service:reroll",
+    "where": "screen"
+   },
+   {
+    "t": 149,
+    "kind": "level",
+    "key": "weapon_new:hammer",
+    "where": "combat"
+   },
+   {
+    "t": 182,
+    "kind": "mission",
+    "key": "skill_variant:slowfield:follow",
+    "where": "screen"
+   },
+   {
+    "t": 203,
+    "kind": "level",
+    "key": "skill_new:bladestorm",
+    "where": "combat"
+   },
+   {
+    "t": 251,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 309,
+    "kind": "level",
+    "key": "weapon_new:blades",
+    "where": "combat"
+   },
+   {
+    "t": 347,
+    "kind": "mission",
+    "key": "weapon_mod:hammer:pull",
+    "where": "screen"
+   },
+   {
+    "t": 357,
+    "kind": "level",
+    "key": "weapon_mod:blades:launch",
+    "where": "combat"
+   },
+   {
+    "t": 388,
+    "kind": "mission",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 414,
+    "kind": "level",
+    "key": "common:frost",
+    "where": "combat"
+   },
+   {
+    "t": 459,
+    "kind": "mission",
+    "key": "service:free_rest",
+    "where": "screen"
+   },
+   {
+    "t": 475,
+    "kind": "level",
+    "key": "weapon_mod:blades:serrated",
+    "where": "combat"
+   },
+   {
+    "t": 527,
+    "kind": "level",
+    "key": "weapon_mod:hammer:aftershock",
+    "where": "combat"
+   },
+   {
+    "t": 589,
+    "kind": "boss",
+    "key": "boss_reward:volley",
+    "where": "screen"
+   },
+   {
+    "t": 597,
+    "kind": "level",
+    "key": "passive:vitality",
+    "where": "combat"
+   },
+   {
+    "t": 628,
+    "kind": "mission",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 643,
+    "kind": "level",
+    "key": "weapon_level:blades",
+    "where": "combat"
+   },
+   {
+    "t": 689,
+    "kind": "mission",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 725,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "screen"
+   },
+   {
+    "t": 731,
+    "kind": "mission",
+    "key": "common:echo",
+    "where": "screen"
+   },
+   {
+    "t": 783,
+    "kind": "mission",
+    "key": "weapon_level:hammer",
+    "where": "screen"
+   },
+   {
+    "t": 827,
+    "kind": "level",
+    "key": "skill_variant:bladestorm:advancing",
+    "where": "screen"
+   },
+   {
+    "t": 833,
+    "kind": "mission",
+    "key": "common:reach",
+    "where": "screen"
+   },
+   {
+    "t": 884,
+    "kind": "mission",
+    "key": "service:mod_swap",
+    "where": "screen"
+   },
+   {
+    "t": 917,
+    "kind": "boss",
+    "key": "boss_reward:clone",
+    "where": "screen"
+   },
+   {
+    "t": 926,
+    "kind": "level",
+    "key": "weapon_level:sword",
+    "where": "combat"
+   },
+   {
+    "t": 957,
+    "kind": "mission",
+    "key": "weapon_level:blades",
+    "where": "screen"
+   },
+   {
+    "t": 1003,
+    "kind": "level",
+    "key": "skill_level:slowfield",
+    "where": "screen"
+   },
+   {
+    "t": 1031,
+    "kind": "level",
+    "key": "weapon_level:hammer",
+    "where": "combat"
+   },
+   {
+    "t": 1103,
+    "kind": "level",
+    "key": "weapon_level:hammer",
+    "where": "screen"
+   },
+   {
+    "t": 1109,
+    "kind": "mission",
+    "key": "weapon_level:hammer",
+    "where": "screen"
+   },
+   {
+    "t": 1159,
+    "kind": "level",
+    "key": "skill_level:bladestorm",
+    "where": "screen"
+   },
+   {
+    "t": 1165,
+    "kind": "mission",
+    "key": "skill_level:bladestorm",
+    "where": "screen"
+   }
+  ],
+  "bosses": [
+   {
+    "id": "boss",
+    "stage": 0,
+    "status": "won",
+    "sec": 13,
+    "hp": 100,
+    "bossHp": -17,
+    "level": 12,
+    "day": 3,
+    "retries": 0
+   },
+   {
+    "id": "guardian",
+    "stage": 1,
+    "status": "won",
+    "sec": 17,
+    "hp": 120,
+    "bossHp": -7,
+    "level": 16,
+    "day": 5,
+    "retries": 0
+   },
+   {
+    "id": "eater",
+    "stage": 2,
+    "status": "won",
+    "sec": 18,
+    "hp": 120,
+    "bossHp": -12,
+    "level": 21,
+    "day": 7,
+    "retries": 0
+   }
+  ],
+  "bossSec": 48,
+  "bossRetries": 0,
+  "rarePicks": [
+   "boss_reward:volley",
+   "boss_reward:clone"
+  ],
+  "levelAtBoss": [],
+  "level": 21,
+  "gold": 1576,
+  "mats": {
+   "pelt": 7,
+   "iron": 2,
+   "spore": 0,
+   "fang": 0
+  },
+  "hpBeforeBoss": 120,
+  "build": "sword5[scar+crescent] hammer5[pull+aftershock] blades5[launch+serrated] | 공통 reach2,frost1,echo1 | E bladestorm3 | 패시브 vitality1",
+  "boss": "boss:won@13s guardian:won@17s eater:won@18s",
+  "bossStatus": "won",
+  "cleared": true,
+  "time": {
+   "combat": 242,
+   "cards": 222,
+   "screens": 621,
+   "rest": 0,
+   "dayEnd": 60,
+   "boss": 48
+  },
+  "simulatedSec": 290,
+  "assumedSec": 903,
+  "totalMin": 19.9,
+  "combatMin": 4,
+  "cardMin": 3.7,
+  "menuMin": 15.1,
+  "bossMin": 0.8
+ }
+]

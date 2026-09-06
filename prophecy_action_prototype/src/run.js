@@ -9,7 +9,7 @@ PA.Run = (function () {
 
   function newRun(seed, startWeapon, mode) {
     const cfg = C();
-    return {
+    const run = {
       mode: mode && PA.RUN_MODES[mode] ? mode : 'trio', stage: 0, bossesDone: [], bossRecords: {}, // v0.7 회차 구조: 새 회차 기본은 3보스 시험안, 이전 저장은 single
       growth: PA.Growth.newGrowth(startWeapon || 'sword'),
       layout: 'classic', difficulty: 'base',   // v0.6: 지역 배치안·난이도 후보(기본은 기존 배치·×1)
@@ -26,6 +26,8 @@ PA.Run = (function () {
       services: {}, cards: null, missionsDone: {}, pendingSortie: null, buffs: {}, lastEvent: null, lastSupplyDay: null, eventsResolved: 0, // v0.7 거점 서비스·출격 카드·완료 수·전투 뒤 보류 출격·임시 강화·사건 기록
       ended: false,            // v1 호환 필드. v2에서는 phase를 사용
     };
+    if (PA.Sortie) PA.Sortie.cardsFor(run); // 1일차 출격 카드는 회차 시작에 확정·저장
+    return run;
   }
   // v1 저장 → v2: 7일차 ended=true 저장은 보스 준비 상태로 복구. 삭제하지 않는다.
   function migrate(r) {

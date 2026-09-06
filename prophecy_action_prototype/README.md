@@ -26,7 +26,9 @@
 4. 적 조합을 "단독 시험 → 멧돼지"(기둥 숲), "조합 프리셋 → 방패병 + 궁수" 등으로 바꿔 신규 몬스터를 본다. 봇 조작을 켜면 정책 3종의 결과를 표로 비교할 수 있다(사람 결과가 아님).
 - 주소로 바로 열기: `index.html?lab=enemy%3Dsolo%3Aboar%3Bhp%3D2%2C1%2C1%3Bseed%3D3%3Bbuild%3Dmid_melee%3Bcontrol%3Dhuman` (설정 화면 하단에 현재 설정의 주소가 표시된다).
 - 시험실은 정식 회차 저장을 건드리지 않는다. 시험안 배치·난이도 후보는 "새 회차 → 검증 메뉴"에서 고른다(기본은 기존 배치·×1).
-- 시뮬레이션: `node tools/lab_sim.js A|B|C --seeds 10 --workers 4` → `node tools/lab_report.js A|B|C` (`docs/sim/report_*.md`), 회차: `node tools/run_sim.js --curve both`. 요약과 질문별 답: `docs/sim/SUMMARY.md`.
+- 시뮬레이션: `node tools/lab_sim.js A|B|C --seeds 10 --workers 4` → `node tools/lab_report.js A|B|C` (`docs/sim/report_*.md`), 회차: `node tools/run_sim.js --mode trio|single --curve v06 --strats easy,gradual,risky,cautious,deep,mission,matched --start sword|spear|blades`. 요약과 질문별 답: `docs/sim/SUMMARY.md`.
+- v0.7 브라우저 검증: `NODE_PATH=<playwright> node tools/verify_v07.js` (25항목, `docs/verify_v07_log.txt`).
+- v0.7 회차 흐름: 거점 → 출격(오늘의 카드 3장: 지역+목표, 시간, 주요 적, 위험 조건, 보상 종류 / 일반 탐험) → 전투(목표 HUD) → 보상 → 3택(레벨업·임무·사건·더 깊이) → 사건(출격당 최대 1회) → 더 깊이/귀환. 보스 관문: 3일차·5일차·7일차 시작(새 회차 기본 3보스, 시작 화면에서 단일 보스 선택 가능). 제목 화면 검증 메뉴 "N단계 관문 직전"으로 관문을 바로 시험할 수 있다.
 - 브라우저 검증(실제 키·클릭): `NODE_PATH=<playwright> node tools/verify_lab.js`.
 
 ## 성장 시스템 (v0.5)

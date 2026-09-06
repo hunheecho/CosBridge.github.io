@@ -13,7 +13,16 @@ const STRATS = {
   risky:    { name: '위험 지역 우선', pick: () => ['deep', 'den'], restBelow: 0.3, deep: false },
   cautious: { name: '체력 낮으면 일찍 휴식', pick: (day) => day <= 2 ? ['forest', 'ridge'] : day <= 4 ? ['marsh', 'den'] : ['den', 'deep'], restBelow: 0.6, deep: false },
   deep:     { name: '더 깊이 탐험 적극', pick: (day) => day <= 2 ? ['forest', 'ridge'] : day <= 4 ? ['marsh', 'den'] : ['den', 'deep'], restBelow: 0.3, deep: true },
+  mission:  { name: '위험 임무 우선', pick: (day) => day <= 2 ? ['forest', 'ridge'] : day <= 4 ? ['marsh', 'den'] : ['den', 'deep'], restBelow: 0.3, deep: false, missions: 'risky' }, // 오늘 카드 중 위험 조건 있는 임무부터, 없으면 아무 임무, 임무가 끝나면 일반 탐험
+  matched:  { name: '빌드 맞춤 보상 선택', pick: (day) => day <= 2 ? ['forest', 'ridge'] : day <= 4 ? ['marsh', 'den'] : ['den', 'deep'], restBelow: 0.3, deep: false, missions: 'linked', matched: true }, // 빌드 연결 카드 우선 + 3택은 보유 무기·기술 강화 우선
 };
+// 빌드 맞춤 3택: 보유 무기 레벨/개조·기술 레벨·지역 태그 일치 우선, 없으면 기본 봇 선택
+function matchedPick(run, off) {
+  const g = run.growth, owned = new Set(g.weapons.map(w => w.id));
+  const score = (c) => (c.kind === 'weapon_level' && owned.has(c.id) ? 3 : 0) + (c.kind === 'weapon_mod' && owned.has(c.id) ? 3 : 0) + (c.kind === 'skill_level' || c.kind === 'skill_variant' ? 2 : 0) + (c.regionMatch ? 1 : 0);
+  const best = off.choices.slice().sort((a, b) => score(b) - score(a))[0];
+  return best && score(best) > 0 ? best : PA.Bot.pickChoice(off, run.seed);
+}
 // 시간 계정(수정 후): 전투(시뮬레이션 초) / 카드(레벨업·지역 3택, 실제 발생 시점에 기록·전투 중 포함) / 화면(조우 전후) / 휴식·하루 종료 / 보스. 합계는 마지막에 한 번만 더한다.
 // 시뮬레이션된 시간(전투·보스)과 가정한 메뉴 시간(카드·화면·휴식·하루)을 구분해 표기한다. 시간 초과(봇이 maxSec 안에 못 끝냄)는 패배와 별도로 센다.
 const startWeapon = opt('start', 'sword'), runMode = opt('mode', 'trio');
@@ -23,8 +32,8 @@ function simulate(seed, stratId) {
   const log = { encounters: 0, losses: 0, timeouts: 0, rests: 0, deeps: 0, cards: 0, cardsInCombat: 0, deepPicks: 0, missions: 0, missionPicks: 0, eventCount: 0, eventChoices: [], eventFights: 0, levelUpsByDay: [], weapon2: null, weapon3: null, eSkill: null, events: [] };
   let clock = 0; // 실제 경과 시점(초): 카드 획득 시점 기록용
   const mark = () => { const t = Math.round(clock); if (log.weapon2 == null && g.weapons.length >= 2) log.weapon2 = t; if (log.weapon3 == null && g.weapons.length >= 3) log.weapon3 = t; if (log.eSkill == null && g.skills.e) log.eSkill = t; };
-  const pick = (off) => PA.Bot.pickChoice(off, run.seed);
-  const onPick = (where) => (off, c) => { T.cards += MENU.card; clock += MENU.card; log.cards++; if (where === 'combat') log.cardsInCombat++; if (off.pool === 'deep') log.deepPicks++; log.events.push({ t: Math.round(clock), kind: off.pool, key: c ? c.key : 'skip', where }); mark(); };
+  const pick = (off) => S.matched ? matchedPick(run, off) : PA.Bot.pickChoice(off, run.seed);
+  const onPick = (where) => (off, c) => { T.cards += MENU.card; clock += MENU.card; log.cards++; if (where === 'combat') log.cardsInCombat++; if (off.pool === 'deep') log.deepPicks++; if (off.pool === 'mission') log.missionPicks++; log.events.push({ t: Math.round(clock), kind: off.pool, key: c ? c.key : 'skip', where }); mark(); };
   const fight = (s) => {
     const st = PA.Flow.makeEncounter(run, s); const t0 = clock; let cardSec = 0;
     PA.Bot.runCombat(st, botId, { maxSec: 240, onLevelUp: (st2) => { clock = t0 + st2.t + cardSec; const before = T.cards; PA.Flow.resolveAll(run, { regionId: s.regionId }, pick, onPick('combat')); cardSec += T.cards - before; PA.Combat.rebuild(st2, PA.Run.build(run)); } });
@@ -58,9 +67,15 @@ function simulate(seed, stratId) {
     while (guard++ < 20) {
       const hpMax = PA.Run.build(run).hpMax;
       if (run.hp < hpMax * S.restBelow && PA.Run.canRest(run)) { PA.Run.rest(run); log.rests++; T.rest += MENU.rest; clock += MENU.rest; continue; }
-      const want = [].concat(S.pick(day)); let rid = want.find(id => PA.Run.canSortie(run, id));
-      if (!rid) { const alt = PA.REGIONS.slice().reverse().find(r => PA.Run.canSortie(run, r.id) && want.some(w => PA.REGIONS.findIndex(x => x.id === w) >= PA.REGIONS.findIndex(x => x.id === r.id))) || PA.REGIONS.find(r => PA.Run.canSortie(run, r.id)); if (!alt) break; rid = alt.id; }
-      const s = PA.Run.startSortie(run, rid);
+      // 임무 카드(전략에 따라): risky = 위험 조건 카드 우선, linked = 빌드 연결 카드 우선. 시작 가능한 카드가 없으면 일반 탐험
+      let s = null;
+      if (S.missions) { const cards = PA.Sortie.cardsFor(run).filter(c => PA.Sortie.canStart(run, c)); const pref = cards.filter(c => S.missions === 'risky' ? !!c.risk : c.linked); const c = (pref[0] || cards[0]); if (c) { s = PA.Sortie.start(run, c.id); log.missions++; } }
+      if (!s) {
+        const want = [].concat(S.pick(day)); let rid = want.find(id => PA.Run.canSortie(run, id));
+        if (!rid) { const alt = PA.REGIONS.slice().reverse().find(r => PA.Run.canSortie(run, r.id) && want.some(w => PA.REGIONS.findIndex(x => x.id === w) >= PA.REGIONS.findIndex(x => x.id === r.id))) || PA.REGIONS.find(r => PA.Run.canSortie(run, r.id)); if (!alt) break; rid = alt.id; }
+        s = PA.Run.startSortie(run, rid);
+      }
+      const rid = s.regionId;
       let st = fight(s);
       if (st.status === 'won') {
         settleWin(s, st);
@@ -97,14 +112,15 @@ let md = `# 회차 시뮬레이션 (v${PA.VERSION}, 봇 ${botId}, 배치 ${layou
 const all = [];
 for (const curve of curves) {
   const C = PA.GROWTH.XP_CURVES[curve]; Object.assign(PA.GROWTH.XP, { base: C.base, step: C.step, quad: C.quad }); PA.GROWTH.REGION_XP_MULT = Object.assign({}, C.regionMult);
-  md += `\n## 경험치 곡선 ${curve} (필요치 ${PA.GROWTH.XP.base}+${PA.GROWTH.XP.step}k+${PA.GROWTH.XP.quad}k², 지역 처치 경험치 배율 ${Object.values(C.regionMult).slice(0, 5).join('/')})\n\n| 전략 | 시드 | 레벨 | 레벨업/일 | 조우(패배/초과) | 휴식 | 더깊이(3택) | 카드(전투중) | 전투분 | 카드분 | 메뉴분(가정) | 보스분 | 합계분 | 무기2/무기3/E 시점(초) | 금화 | 보스 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n`;
+  md += `\n## 경험치 곡선 ${curve} (필요치 ${PA.GROWTH.XP.base}+${PA.GROWTH.XP.step}k+${PA.GROWTH.XP.quad}k², 지역 처치 경험치 배율 ${Object.values(C.regionMult).slice(0, 5).join('/')})\n\n| 전략 | 시드 | 레벨 | 레벨업/일 | 조우(패배/초과) | 휴식 | 더깊이(3택) | 임무(3택) | 사건(전투) | 카드(전투중) | 전투분 | 카드분 | 메뉴분(가정) | 보스분 | 합계분 | 무기2/무기3/E 시점(초) | 금화 | 보스 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n`;
   for (const sid of Object.keys(STRATS)) for (const seed of seeds) {
     const L = simulate(seed, sid); all.push(Object.assign({ curve, strategy: sid, seed }, L));
-    md += `| ${STRATS[sid].name} | ${seed} | ${L.level} | ${L.levelUpsByDay.join('/')} | ${L.encounters}(${L.losses}/${L.timeouts}) | ${L.rests} | ${L.deeps}(${L.deepPicks}) | ${L.cards}(${L.cardsInCombat}) | ${L.combatMin} | ${L.cardMin} | ${L.menuMin} | ${L.bossMin} | ${L.totalMin} | ${L.weapon2}/${L.weapon3}/${L.eSkill} | ${L.gold} | ${L.boss} |\n`;
+    md += `| ${STRATS[sid].name} | ${seed} | ${L.level} | ${L.levelUpsByDay.join('/')} | ${L.encounters}(${L.losses}/${L.timeouts}) | ${L.rests} | ${L.deeps}(${L.deepPicks}) | ${L.missions}(${L.missionPicks}) | ${L.eventCount}(${L.eventFights}) | ${L.cards}(${L.cardsInCombat}) | ${L.combatMin} | ${L.cardMin} | ${L.menuMin} | ${L.bossMin} | ${L.totalMin} | ${L.weapon2}/${L.weapon3}/${L.eSkill} | ${L.gold} | ${L.boss} |\n`;
   }
-  md += `\n전략별 평균(곡선 ${curve}):\n\n| 전략 | 레벨 | 1일차 레벨업 | 1일차 비중% | 조우 | 패배 | 초과 | 휴식 | 더깊이 3택 | 전투분 | 메뉴분(가정) | 합계분 | 금화 | 보스 승리 | 보스 평균초 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n`;
-  for (const sid of Object.keys(STRATS)) { const rows = all.filter(r => r.curve === curve && r.strategy === sid); const avg = (f) => Math.round(rows.reduce((a, r) => a + f(r), 0) / rows.length * 10) / 10; const d1 = avg(r => r.levelUpsByDay[0]); md += `| ${STRATS[sid].name} | ${avg(r => r.level)} | ${d1} | ${Math.round(d1 / Math.max(1, avg(r => r.level - 1)) * 100)} | ${avg(r => r.encounters)} | ${avg(r => r.losses)} | ${avg(r => r.timeouts)} | ${avg(r => r.rests)} | ${avg(r => r.deepPicks)} | ${avg(r => r.combatMin)} | ${avg(r => r.menuMin)} | ${avg(r => r.totalMin)} | ${avg(r => r.gold)} | ${rows.filter(r => r.cleared).length}/${rows.length} | ${avg(r => r.bossSec)} |\n`; }
+  md += `\n전략별 평균(곡선 ${curve}):\n\n| 전략 | 레벨 | 1일차 레벨업 | 1일차 비중% | 조우 | 패배 | 초과 | 휴식 | 더깊이 3택 | 임무 | 사건 | 전투분 | 보스분 | 메뉴분(가정) | 합계분 | 금화 | 완주 | 보스 총초 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n`;
+  for (const sid of Object.keys(STRATS)) { const rows = all.filter(r => r.curve === curve && r.strategy === sid); const avg = (f) => Math.round(rows.reduce((a, r) => a + f(r), 0) / rows.length * 10) / 10; const d1 = avg(r => r.levelUpsByDay[0]); md += `| ${STRATS[sid].name} | ${avg(r => r.level)} | ${d1} | ${Math.round(d1 / Math.max(1, avg(r => r.level - 1)) * 100)} | ${avg(r => r.encounters)} | ${avg(r => r.losses)} | ${avg(r => r.timeouts)} | ${avg(r => r.rests)} | ${avg(r => r.deepPicks)} | ${avg(r => r.missions)} | ${avg(r => r.eventCount)} | ${avg(r => r.combatMin)} | ${avg(r => r.bossMin)} | ${avg(r => r.menuMin)} | ${avg(r => r.totalMin)} | ${avg(r => r.gold)} | ${rows.filter(r => r.cleared).length}/${rows.length} | ${avg(r => r.bossSec)} |\n`; }
 }
+md += `\n## 보스 관문 결과(전략 × 시드)\n\n| 전략 | 시드 | 보스 | 단계 | 결과 | 초 | 남은 체력 | 보스 남은 체력 | Lv | 재도전 |\n|---|---|---|---|---|---|---|---|---|---|\n` + all.filter(r => r.curve === curves[curves.length - 1]).flatMap(r => r.bosses.map(b => `| ${STRATS[r.strategy].name} | ${r.seed} | ${PA.BOSS_DEFS[b.id].name} | ${b.stage + 1} | ${b.status} | ${b.sec} | ${b.hp} | ${b.bossHp} | ${b.level} | ${b.retries} |`)).join('\n') + '\n';
 md += `\n## 6일차 빌드 예시(곡선 ${curves[curves.length - 1]}, 시드 ${seeds[0]})\n\n` + Object.keys(STRATS).map(sid => { const r = all.find(x => x.curve === curves[curves.length - 1] && x.strategy === sid && x.seed === seeds[0]); return `- ${STRATS[sid].name}: ${r.build}`; }).join('\n') + '\n';
 fs.mkdirSync(path.dirname(mdPath), { recursive: true }); fs.writeFileSync(mdPath, md); fs.writeFileSync(mdPath.replace(/\.md$/, '.json'), JSON.stringify(all, null, 1));
 console.log(md);

@@ -78,7 +78,7 @@ PA.Screens = (function () {
   function pickStart(G) {
     const list = (G.startAll ? PA.STARTABLE_ALL : PA.STARTABLE).map(id => { const d = PA.WEAPONS[id]; return `<div class="card"><div class="card-title">${esc(d.name)}</div><p>${esc(d.desc)}</p><p class="dim small">기본 피해 ${d.base.damage} · 주기 ${d.base.interval}초 · 전용 방식: ${Object.values(d.mods).map(m => esc(m.name)).join(', ')}</p><button class="primary" data-action="start-weapon" data-arg="${id}">이 무기로 시작</button></div>`; }).join('');
     const laySel = `<select id="start-layout">${Object.keys(PA.LAYOUTS).map(k => `<option value="${k}">${esc(PA.LAYOUTS[k].name)}</option>`).join('')}</select>`;
-    const modeSel = `<select id="start-mode">${Object.keys(PA.RUN_MODES).map(k => `<option value="${k}">${esc(PA.RUN_MODES[k].name)}</option>`).join('')}</select>`;
+    const modeSel = `<select id="start-mode">${Object.keys(PA.RUN_MODES).map(k => `<option value="${k}" ${k === 'trio' ? 'selected' : ''}>${esc(PA.RUN_MODES[k].name)}</option>`).join('')}</select>`;
     const difSel = `<select id="start-difficulty">${Object.keys(PA.DIFFICULTY.candidates).map(k => `<option value="${k}">${esc(PA.DIFFICULTY.candidates[k].name)}</option>`).join('')}</select>`;
     return `<div class="screen"><h2>시작 무기 선택</h2><p class="dim">시작 무기 1개로 출발하고, 전투 중 레벨업으로 무기를 최대 2개 더 얻습니다. 시작 무기와 추가 무기는 같은 규칙으로 성장합니다.</p>
       <div class="card"><div class="card-title small">검증 메뉴: 지역 배치안·난이도 후보 <span class="dim">(기본값은 기존 배치·×1. 시험안은 검증되지 않은 임시값이며 화면에 표시됩니다)</span></div><div class="kv"><span>회차 구조</span>${modeSel} <span class="dim small">3보스: 1~2일 준비 → 3일차 가시갈기 → 3~4일 → 5일차 봉인 수호자 → 5~6일 → 7일차 예언을 먹는 자</span></div><div class="kv"><span>배치</span>${laySel}</div><div class="kv"><span>난이도</span>${difSel}</div></div>
