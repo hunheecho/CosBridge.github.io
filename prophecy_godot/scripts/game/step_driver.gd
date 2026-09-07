@@ -13,6 +13,7 @@ var press_pending: bool = false
 var special_pending: bool = false
 var e_pending: bool = false
 var steps_last_frame: int = 0
+var recorder: PReplay = null # 선택: 입력 기록(검증 메뉴 '이번 전투 입력 기록'). null이면 아무 것도 하지 않는다
 
 func reset() -> void:
 	acc = 0.0
@@ -20,6 +21,8 @@ func reset() -> void:
 	special_pending = false
 	e_pending = false
 	steps_last_frame = 0
+	if recorder != null:
+		recorder.mark("reset")
 
 func note_dodge_press() -> void:
 	press_pending = true
@@ -43,6 +46,8 @@ func frame(st: CombatState, delta: float, mx: float, my: float, held: bool, bot:
 			press_pending = false
 			special_pending = false
 			e_pending = false
+		if recorder != null:
+			recorder.note(st, inp)
 		st.step(inp, STEP)
 		acc -= STEP
 		n += 1

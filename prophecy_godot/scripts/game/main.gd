@@ -27,6 +27,9 @@ var lab_run: Dictionary = {}        # 검증 메뉴 임시 회차(저장하지 �
 var lab_label := ""
 var fight_kind := "first"           # first(기준 전투) | lab(검증 빠른 전투) | run(회차)
 var use_bot := false
+var bot_profile := "legacy"         # 검증 메뉴 봇 선택: legacy(기존 PBot 정책 그대로) | novice | regular | skilled(PSkillBot, docs/BOT_FRAMEWORK.md)
+var record_inputs := false          # 검증 메뉴 '이번 전투 입력 기록'(사람 입력만, 로컬 user://recordings, 업로드 없음)
+static var _data_hash_cache := ""
 var seed_v := 7
 var choice: PChoiceOverlay
 var tips: PGlossaryTip
@@ -128,6 +131,7 @@ func show(name: String) -> void:
 func go_title() -> void:
 	fight_kind = "first"
 	view.running = false
+	view.driver.recorder = null # 끝나지 않은 입력 기록은 버린다(저장은 전투 종료 시에만)
 	view.set_paused(false)
 	choice.close()
 	tips.close_all()
@@ -480,6 +484,39 @@ func _view_start(st: CombatState, bot: PBot) -> void:
 		view.frame_count = 0
 		view.queue_redraw()
 
+## 검증 메뉴의 봇: legacy면 기존 PBot 정책(전달된 기본값) 그대로, 실력 프로필이면 PSkillBot(봇 seed = 화면의 시드)
+func make_bot(default_policy: String = "balanced") -> PBot:
+	if PCatalog.bot_profiles().has(bot_profile):
+		return PSkillBot.new(bot_profile, seed_v)
+	return PBot.new(default_policy)
+
+func set_bot_profile(id: String) -> void:
+	bot_profile = id if PCatalog.bot_profiles().has(id) else "legacy"
+
+## '이번 전투 입력 기록': 사람 입력(봇 아님)일 때만 PStepDriver에 기록기를 붙인다. 저장은 _on_finished에서 user://recordings/<시각>_<시나리오>.json (로컬만)
+func _attach_recording(scenario: String) -> void:
+	view.driver.recorder = null
+	if not record_inputs or view.bot != null or view.st == null:
+		return
+	if _data_hash_cache == "":
+		_data_hash_cache = PReplay.data_hash()
+	var rp := PReplay.new()
+	rp.begin(view.st, { "scenario": scenario, "build_fixture": fight_kind, "game_seed": view.st.seed_value, "engine": Engine.get_version_info().string, "os": OS.get_name() + "/" + Engine.get_architecture_name(), "data_hash": _data_hash_cache, "commit": "unknown", "profile": "human", "bot_version": "human" })
+	rp.attach_recorder(view.driver)
+
+func _finish_recording(st: CombatState) -> String:
+	var rp: PReplay = view.driver.recorder
+	if rp == null:
+		return ""
+	view.driver.recorder = null
+	rp.finish(st)
+	var stamp := Time.get_datetime_string_from_system(false, true).replace(":", "").replace(" ", "_").replace("-", "")
+	var path := "user://recordings/%s_%s.json" % [stamp, String(rp.header.get("scenario", "fight")).validate_filename()]
+	if rp.save(path):
+		print("INPUT_RECORDING ", ProjectSettings.globalize_path(path))
+		return path
+	return ""
+
 func start_encounter() -> void:
 	var st: CombatState
 	if String(sortie.regionId) == "boss":
@@ -488,17 +525,22 @@ func start_encounter() -> void:
 		st = PFlow.make_encounter(run, sortie)
 	fight_kind = "run"
 	save_run() # 전투 시작 체크포인트(F1): pendingSortie=null 상태로 저장 → 전투 중 종료 시 시간은 지불·성장 유지·미정산 전리품 상실·거점 복구(GAME_SPEC §전투 도중 종료)
-	_view_start(st, PBot.new("balanced") if use_bot else null)
+	_view_start(st, make_bot("balanced") if use_bot else null)
+	_attach_recording("run:%s:day%d" % [String(sortie.regionId), int(run.get("day", 1))])
 	choice.close()
 	tips.close_all()
 	show("combat")
 	_refresh_combat_texts()
 
-## 기준 전투(첫 전투, 0.3.1 D33): 검증 메뉴·캡처·영상·회피 시연이 쓰는 경로
+## 기준 전투(첫 전투, 0.3.1 D33): 검증 메뉴·캡처·영상·회피 시연이 쓰는 경로. 봇은 기존 PBot("active") 그대로, 실력 프로필을 고르면 같은 상태에 PSkillBot
 func start_fight(bot: bool) -> void:
 	use_bot = bot
 	fight_kind = "first"
-	view.start(seed_v, bot)
+	if bot and PCatalog.bot_profiles().has(bot_profile):
+		view.start_state(Game.new_combat(seed_v), make_bot("active"))
+	else:
+		view.start(seed_v, bot)
+	_attach_recording("first_fight:%s:%s%.1f:dash%d" % [Game.formation_id, Game.dodge_mode, Game.dodge_cooldown, Game.dash_max])
 	choice.close()
 	show("combat")
 	_refresh_combat_texts()
@@ -537,7 +579,8 @@ func quick_start_fight(weapon_id: String, bot: bool) -> void:
 	st.time_limit = float(PCatalog.lab().TIME_LIMITS[1])
 	fight_kind = "lab"
 	lab_label = "시작 기술 비교: %s · %s 1일차 첫 카드 · 시드 %d · 제한 %d초" % [String(PCatalog.weapon(weapon_id).name), String(PRun.region(String(card.regionId)).name), int(lab_run.seed), int(st.time_limit)]
-	_view_start(st, PBot.new("balanced") if bot else null)
+	_view_start(st, make_bot("balanced") if bot else null)
+	_attach_recording("lab_start:" + weapon_id)
 	show("combat")
 	_refresh_combat_texts()
 
@@ -550,7 +593,8 @@ func quick_boss_fight(build_key: String, bot: bool) -> void:
 	var st := PFlow.make_boss_encounter(lab_run, s)
 	fight_kind = "lab"
 	lab_label = "관문 빌드 보스전: %s → %s · 보스 체력 %d" % [String(PCatalog.lab().BUILDS[build_key].name), String(PCatalog.boss_def(String(s.bossId)).name), int(PRun.boss_hp(lab_run, String(s.bossId)))]
-	_view_start(st, PBot.new("balanced") if bot else null)
+	_view_start(st, make_bot("balanced") if bot else null)
+	_attach_recording("lab_boss:" + build_key)
 	show("combat")
 	_refresh_combat_texts()
 
@@ -633,6 +677,7 @@ func give_up() -> void:
 func _on_finished(summary: Dictionary) -> void:
 	last_summary = summary
 	var st: CombatState = view.st
+	_finish_recording(st) # 켜져 있었으면 사람 입력 기록을 로컬에 저장(HUD·통계 변화 없음)
 	if fight_kind != "run":
 		_show_lab_result(summary)
 		return

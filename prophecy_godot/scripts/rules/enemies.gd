@@ -152,6 +152,7 @@ static func update_wolf(st: CombatState, e: Dictionary, dt: float) -> void:
 				e.ready_t = -1.0
 				st.metrics_for(e).bites_prepared += 1
 				st.metrics_for(e).prepared += 1
+				e.attack_n = int(e.get("attack_n", 0)) + 1 # 공격 인스턴스 번호(관측·계측 전용, 규칙·난수 무관)
 				st.attack_log.append([snapped(st.t, 0.0001), e.id, "bite"])
 			elif bool(e.dash_granted) and (not boss_mode or st.wolf_may_attack(e, dt)):
 				e.dash_granted = false
@@ -163,6 +164,7 @@ static func update_wolf(st: CombatState, e: Dictionary, dt: float) -> void:
 				e.dash_left = int(D.get("dashes", 1))
 				st.metrics_for(e).dashes_prepared += 1
 				st.metrics_for(e).prepared += 1
+				e.attack_n = int(e.get("attack_n", 0)) + 1 # 공격 인스턴스 번호(관측·계측 전용, 규칙·난수 무관)
 				st.attack_log.append([snapped(st.t, 0.0001), e.id, "dash"])
 			elif dist > float(B.reach) - 4.0:
 				st.approach(e, p.x, p.y, float(d.speed) * sm * leash, dt)

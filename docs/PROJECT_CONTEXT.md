@@ -90,6 +90,7 @@
 | 현재 작업·막힌 것·바로 다음 작업 | `prophecy_action_prototype/docs/HANDOFF.md` 맨 위 절 | HTML·Godot 공용 인수인계. 아래로 갈수록 과거 버전 기록 |
 | 기술 선택·Godot 이식 준비 지침·전환 결정 | `prophecy_action_prototype/docs/TECH_DECISION.md` | |
 | 봇 측정·시뮬레이션 | Godot `prophecy_godot/docs/DENSITY_REPORT.md`, HTML `prophecy_action_prototype/docs/sim/` | 사람 조작감 판단 아님 |
+| 실력별 전투 봇·밸런스 측정 기반(봇 규칙·관측 경계·프로필 시험값·통계/태그 정의·입력 기록 형식·배치 사용법·보정 상태) | `prophecy_godot/docs/BOT_FRAMEWORK.md` (첫 비교 `prophecy_godot/docs/sim/BOT_COMPARE.md`) | 가상 조작 모델, **사람 보정 미완료**. 기존 봇 정책·D33 기준 전투는 그대로 |
 | 독립 검수 증거(HTML 7ec93cd, F1~F8) | `docs/archives/2026-09-07_codex_shared_context/evidence/V080_AUDIT.md` | 검수자 보고 원문. 저장소 안 다른 문서가 이를 대체하지 않는다 |
 | 실행·검증 명령 | `prophecy_godot/README.md`, `prophecy_action_prototype/README.md` | |
 | 과거 통합 초안(현재 규칙 아님) | `docs/archives/2026-09-07_codex_shared_context/` | `ARCHIVE_NOTE.md` 참조 |
