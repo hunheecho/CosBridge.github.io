@@ -189,14 +189,22 @@ static func replay(st: CombatState, rec: Dictionary, opts: Dictionary = {}) -> D
 	return { "ok": mism.is_empty() and not (bool(opts.get("require_result", true)) and rec.has("result") and not (rec.result as Dictionary).is_empty() and String(rec.result.status) != String(st.status)), "refused": false, "reason": "", "steps": n, "mismatches": mism, "status": String(st.status), "hash_checked": checked }
 
 ## data/*.json 전체의 SHA-256(파일 이름순 연결). 캐시 키·기록 머리말용
-## 판단·규칙에 영향을 주는 코드의 내용 해시(검수 지적 3): res://scripts, res://tools의 .gd + project.godot + .tscn(경로+내용, 정렬). .uid/.import 제외.
-## git 정보가 없는 프로젝트 ZIP에서도 같은 값. 파일을 못 읽으면 "unknown"(배치는 그 값으로 기존 결과 재개를 거부한다)
+## 판단·규칙에 영향을 주는 코드의 내용 해시(검수 지적 3): res://scripts, res://tools, res://scenes의 .gd/.tscn + 최상위 .tscn + project.godot(경로+내용, 정렬). .uid/.import 제외.
+## git 정보가 없는 프로젝트 ZIP에서도 같은 값. 필수 폴더를 열지 못하거나 파일을 하나라도 못 읽으면(잠금·권한) **부분 해시를 돌려주지 않고 "unknown"**을 돌려준다
+## (재검수 지적: 배치는 그 값으로 기존 결과 재개를 거부). 실패 경로는 code_hash_failed()에 남는다. 빈 폴더는 실패가 아니다(열렸으면 정상)
+const CODE_ROOTS := ["res://scripts", "res://tools", "res://scenes"]
+static var _code_hash_failed: Array = []
+
 static func code_hash() -> String:
 	var files := []
-	for root in ["res://scripts", "res://tools", "res://scenes"]:
-		_collect_code(root, files)
+	var failed := []
+	for root in CODE_ROOTS:
+		if not _collect_code(String(root), files):
+			failed.append(String(root) + " (폴더 열기 실패)")
 	var top := DirAccess.open("res://") # 최상위 장면 파일(main.tscn 등)만, 하위 폴더는 위 목록으로
-	if top != null:
+	if top == null:
+		failed.append("res:// (폴더 열기 실패)")
+	else:
 		top.list_dir_begin()
 		var tn := top.get_next()
 		while tn != "":
@@ -205,37 +213,60 @@ static func code_hash() -> String:
 			tn = top.get_next()
 		top.list_dir_end()
 	files.append("res://project.godot")
-	files.sort()
+	if not failed.is_empty():
+		_code_hash_failed = failed
+		return "unknown"
+	var d := code_hash_of(files)
+	_code_hash_failed = d.failed
+	return String(d.hash)
+
+## 주어진 파일 목록의 내용 해시. 하나라도 못 읽으면 { hash: "unknown", failed: [경로…] } — 부분 해시 없음
+static func code_hash_of(files: Array) -> Dictionary:
+	var sorted: Array = files.duplicate()
+	sorted.sort()
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
-	var n := 0
-	for path in files:
+	var failed := []
+	for path in sorted:
 		var f := FileAccess.open(String(path), FileAccess.READ)
 		if f == null:
+			failed.append("%s (%s)" % [String(path), error_string(FileAccess.get_open_error())])
+			continue
+		var buf := f.get_buffer(f.get_length())
+		if f.get_error() != OK:
+			failed.append("%s (%s)" % [String(path), error_string(f.get_error())])
+			f.close()
 			continue
 		ctx.update((String(path) + "\n").to_utf8_buffer())
-		ctx.update(f.get_buffer(f.get_length()))
+		ctx.update(buf)
 		f.close()
-		n += 1
-	if n == 0:
-		return "unknown"
-	return ctx.finish().hex_encode()
+	var h: PackedByteArray = ctx.finish()
+	if not failed.is_empty() or sorted.is_empty():
+		return { "hash": "unknown", "failed": failed if not failed.is_empty() else ["(파일 목록 비어 있음)"], "files": sorted.size() }
+	return { "hash": h.hex_encode(), "failed": [], "files": sorted.size() }
 
-static func _collect_code(root: String, out: Array) -> void:
+## 마지막 code_hash() 호출에서 읽지 못한 경로(없으면 [])
+static func code_hash_failed() -> Array:
+	return _code_hash_failed.duplicate()
+
+## 폴더를 재귀로 모아 out에 .gd/.tscn 경로를 넣는다. 폴더를 열지 못하면 false(빈 폴더는 true)
+static func _collect_code(root: String, out: Array) -> bool:
 	var dir := DirAccess.open(root)
 	if dir == null:
-		return
+		return false
+	var ok := true
 	dir.list_dir_begin()
 	var fn := dir.get_next()
 	while fn != "":
 		var full := root.path_join(fn)
 		if dir.current_is_dir():
-			if not fn.begins_with("."):
-				_collect_code(full, out)
+			if not fn.begins_with(".") and not _collect_code(full, out):
+				ok = false
 		elif fn.ends_with(".gd") or fn.ends_with(".tscn"):
 			out.append(full)
 		fn = dir.get_next()
 	dir.list_dir_end()
+	return ok
 
 static func data_hash() -> String:
 	var dir := DirAccess.open("res://data")

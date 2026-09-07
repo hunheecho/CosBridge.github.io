@@ -962,3 +962,12 @@ func audit2_tests() -> void:
 	ok("12i 코드 해시: SHA-256 64자, 두 번 호출 같음, 데이터 해시와 다름", h1.length() == 64 and h1 == PReplay.code_hash() and h1 != PReplay.data_hash(), h1.substr(0, 16))
 	var env := bx._env_info()
 	ok("12j 배치 환경 정보에 code_hash·rules_version·observe_version(observe-3)·bot_version(skillbot-0.2)", String(env.get("code_hash", "")) == h1 and String(env.observe_version) == "observe-3" and String(env.bot_version).begins_with("skillbot-0.2"))
+	# 재검수(godot-audit-427dae9): 소스 일부를 읽지 못하면 부분 해시가 아니라 명시적 실패(unknown) → 재개 거부, 정상이면 완전한 해시 복귀
+	var d_ok := PReplay.code_hash_of(["res://scripts/rules/replay.gd", "res://scripts/rules/observe.gd"])
+	var d_bad := PReplay.code_hash_of(["res://scripts/rules/replay.gd", "res://scripts/rules/observe.gd", "res://scripts/rules/__missing_locked__.gd"])
+	ok("12k 파일 하나를 못 읽으면 나머지로 만든 부분 해시가 아니라 unknown + 실패 경로, 정상 목록은 64자", String(d_bad.hash) == "unknown" and (d_bad.failed as Array).size() == 1 and String(d_bad.failed[0]).begins_with("res://scripts/rules/__missing_locked__.gd") and String(d_ok.hash).length() == 64 and (d_ok.failed as Array).is_empty(), str(d_bad.failed))
+	ok("12l unknown 해시로는 재개 불가, 빈 목록도 unknown", not PBotBatch.can_resume({ "code_hash": String(d_bad.hash) }) and String(PReplay.code_hash_of([]).hash) == "unknown")
+	var sink := []
+	ok("12m 필수 폴더 열기 실패는 누락(false)으로 구분, 정상 폴더는 true", not PReplay._collect_code("res://__no_such_dir__", sink) and PReplay._collect_code("res://tools", sink) and sink.size() > 0)
+	var h_again := PReplay.code_hash()
+	ok("12n 정상 복구: 전체 해시가 이전 값과 같고 실패 경로 없음", h_again == h1 and PReplay.code_hash_failed().is_empty())

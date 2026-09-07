@@ -98,7 +98,7 @@ func _env_info() -> Dictionary:
 	var head := _git(["rev-parse", "HEAD"])
 	var dirty := _git(["status", "--porcelain", "--", "prophecy_godot"])
 	return { "git_head": head if head != "" else "unknown", "dirty": (dirty != "") if head != "" else "unknown", "dirty_files": dirty.split("\n").size() if dirty != "" else 0,
-		"data_hash": PReplay.data_hash(), "code_hash": PReplay.code_hash(), "profile_hash": PSkillBot.profile_hash(), "engine": Engine.get_version_info().string, "os": OS.get_name() + "/" + Engine.get_architecture_name(),
+		"data_hash": PReplay.data_hash(), "code_hash": PReplay.code_hash(), "code_hash_failed": PReplay.code_hash_failed(), "profile_hash": PSkillBot.profile_hash(), "engine": Engine.get_version_info().string, "os": OS.get_name() + "/" + Engine.get_architecture_name(),
 		"game_version": PReplay.game_version(), "rules_version": PReplay.rules_version(), "bot_version": PSkillBot.BOT_VERSION + "/" + String(PCatalog.bots().get("version", "?")), "observe_version": PObserve.VERSION, "replay_format": PReplay.FORMAT }
 
 # ---------- 시나리오 ----------
@@ -703,7 +703,7 @@ func run(o: Dictionary = {}) -> Dictionary:
 		var old: Dictionary = meta.get("cache_key", {})
 		var diff := cache_diff(old, ck)
 		if not existing.is_empty() and not can_resume(ck):
-			diff.append("code_hash: 코드 식별 불가(unknown) — 기존 결과 재개 거부")
+			diff.append("code_hash: 코드 식별 불가(unknown: %s) — 기존 결과 재개 거부" % ", ".join(PReplay.code_hash_failed()))
 		if not diff.is_empty() and mode != "report":
 			_msg("CACHE_INVALID run_id=%s 캐시 키 불일치: %s" % [run_id, "; ".join(diff)])
 			if _env("PROPHECY_BOT_FORCE", "") == "1":

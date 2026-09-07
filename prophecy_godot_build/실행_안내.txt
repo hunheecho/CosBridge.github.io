@@ -1,4 +1,4 @@
-예언의 시간표(가칭) — Godot 이식 godot-0.6.0 (Windows 플레이 빌드)
+예언의 시간표(가칭) — Godot 이식 godot-0.6.1 (Windows 플레이 빌드)
 
 1. ZIP을 아무 폴더에 풀고 prophecy_godot.exe 를 실행합니다. Godot 설치가 필요 없습니다.
    (Windows SmartScreen 경고가 뜨면 "추가 정보 → 실행". 서명되지 않은 빌드입니다.)
@@ -19,6 +19,11 @@
    터치 화면이면 가로 터치 조작(왼쪽 스틱·오른쪽 회피/Q/E)이 켜집니다(PC에서는 PROPHECY_TOUCH=1로 시험). Android/iOS 실기 검증은 하지 않았습니다.
    자세한 규칙과 근거: 저장소 prophecy_godot/docs/ (RULES.md, ASSUMPTIONS.md, FORMATION_TABLE.md, PORT_NOTES.md §12).
 
+6. 사람 플레이 입력 기록(선택): 제목 화면 [검증 메뉴]에서 "이번 전투 입력 기록" 체크 → 기준 전투(사람) 또는 새 회차 전투를 직접 플레이 →
+   전투가 끝나면 사람 입력만 JSON으로 저장됩니다(봇 전투는 기록하지 않음, 업로드·전송 없음).
+   저장 위치: %APPDATA%\Godot\app_userdata\예언의 시간표 — Godot 첫 전투\recordings\<시각>_<시나리오>.json
+   (탐색기 주소창에 %APPDATA%\Godot\app_userdata 를 붙여 넣으면 됩니다.) 기록 5~10회가 봇 실력 보정의 다음 입력이며, 파일을 개발자에게 전달하면 됩니다.
+
 빌드 정보: Godot 4.7.2-stable 공식 Windows 내보내기 템플릿(x86_64, release, pck 내장)으로 Windows 10에서 내보냈습니다.
-실행 확인: 같은 PC에서 봇 자동 진행(PROPHECY_UI_SMOKE)으로 새 회차→10일차 완주→무한 1구간까지 실행 확인. 사람 키보드 플레이는 미확인. 신규 보스 6종·무한·정복자 수치는 전부 시험값.
+실행 확인: 같은 PC에서 봇 자동 진행(PROPHECY_UI_SMOKE)으로 새 회차→관문까지 실행 확인(0.6.0에서는 10일차 완주→무한 1구간까지). 사람 키보드 플레이는 미확인. 신규 보스 6종·무한·정복자 수치는 전부 시험값. 0.6.1 = 봇 관측·캐시 신뢰성 수정(게임 규칙 변경 없음).
 실행이 안 되면 prophecy_godot 폴더를 Godot 4.7.2 편집기로 열어 F5로 실행하세요.

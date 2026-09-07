@@ -153,7 +153,7 @@ godot --headless --path prophecy_godot -s tools/bot_batch.gd        # APPDATA �
 ```
 - 시나리오(첫 납품): `baseline_wolf25`(D33 기준 전투, 상한 240초) · `ranged_mix`(능선 3일차 기본 편성, uniform_x5, 검 Lv1 고정 `fixed_build`) · `zone_mix`(습지 4일차) · `boss_thornmane|boss_guardian|boss_eater`(실험실 stage1/2/3 프리셋, 상한 300초, boss_sim make_run과 같은 절차). 만들 수 없으면 `unimplemented` 행.
 - 시나리오(2차, 신규 보스 6종): `boss_warden|boss_matriarch`(1막, stage1 프리셋) · `boss_behemoth|boss_stalker`(2막, stage2) · `boss_hunt_king|boss_executor`(3막, stage3). 체력은 boss_sim과 같은 규칙(회차 모드에 없으면 `boss_hp_sets.hi[id].stage<막>` = 2400/5000/7000). `PROPHECY_BOT_SCENARIOS=boss3`가 6종으로 펼쳐지고, `PROPHECY_BOT_TITLE`로 보고서 제목을 준다. 보고서: `docs/sim/BOT_COMPARE_BOSS3.md`(run `boss3_compare1`).
-- 출력 `docs/sim/bot_runs/<run_id>/`: `results.jsonl`(행마다 즉시 flush), `meta.json`(캐시 키: git HEAD·prophecy_godot 미커밋 여부·**코드 내용 해시**(`PReplay.code_hash`: scripts/tools의 .gd + 장면 .tscn + project.godot, .uid/.import 제외 — 미커밋 코드 변경·git 없는 ZIP도 구분, 검수 2 지적 3)·규칙 버전·관측 버전·데이터 해시·프로필 해시·설정 해시·엔진·OS·게임/봇 버전·기록 형식), `summary.md`, `git_head.txt`, `replays/`(실패 전부 + 성공 표본 1/5).
+- 출력 `docs/sim/bot_runs/<run_id>/`: `results.jsonl`(행마다 즉시 flush), `meta.json`(캐시 키: git HEAD·prophecy_godot 미커밋 여부·**코드 내용 해시**(`PReplay.code_hash`: scripts/tools/scenes의 .gd·.tscn + 최상위 .tscn + project.godot, .uid/.import 제외 — 미커밋 코드 변경·git 없는 ZIP도 구분, 검수 2 지적 3. 필수 폴더를 못 열거나 파일을 하나라도 못 읽으면 부분 해시 대신 `unknown`을 돌려주고 실패 경로를 `code_hash_failed()`·meta `env.code_hash_failed`에 남긴다 — 재검수 지적)·규칙 버전·관측 버전·데이터 해시·프로필 해시·설정 해시·엔진·OS·게임/봇 버전·기록 형식), `summary.md`, `git_head.txt`, `replays/`(실패 전부 + 성공 표본 1/5).
 - 재개: 같은 run_id면 완료 행을 건너뛴다. 캐시 키가 다르면(옛 meta에 코드 해시가 없거나 코드 해시가 `unknown`이어서 식별할 수 없는 경우 포함) `CACHE_INVALID`를 찍고 종료 코드 2(재개 거부; `PROPHECY_BOT_FORCE=1`이면 기존 결과를 `results.invalidated_<시각>.jsonl`로 옮기고 새로). 벽시계 예산을 넘으면 현재 전투를 마친 뒤 `BUDGET_EXCEEDED`와 재개 방법을 찍고 종료 코드 3.
 - 처리량(`throughput`): 기준 전투 10회 + 가시갈기 5회(regular)로 전투/분·평균 벽시계·최장 시뮬·최대 메모리·결과 파일 크기를 재고 45전투·보스 27전투 예상 시간을 찍는다.
 - 병렬 실행은 run_id를 다르게(공유 폴더에 두 프로세스가 쓰지 않는다). 긴 프레임 로그는 run 폴더에만 두고 Git 문서에는 요약만.
@@ -186,3 +186,9 @@ godot --headless --path prophecy_godot -s tools/bot_batch.gd        # APPDATA �
 | 2 비행 중 투사체 식별자 변경 | 발사 시 `CombatState.stamp_projectile(e, pr)`(궁수·주술사·수호자 충격·신규 보스 fire), `PObserve._shooter_attack`은 찍힌 값만 사용(없으면 처음 본 순간 고정), 피격 기록은 `st.hit_attack_id`(발사 시점 공격) | bot_tests 12c~12f2 |
 | 3 미커밋 코드 변경을 구분 못 하는 캐시 키 | `PReplay.code_hash` + 규칙/관측 버전을 캐시 키에, `PBotBatch.can_resume`(unknown이면 재개 거부), `cache_diff` | bot_tests 12g~12j |
 수정 전후 같은 조건 비교: `docs/sim/BOT_COMPARE_AUDIT2.md`(run `audit2_before` = 8dfcbd1 worktree, `audit2_after` = 수정 커밋). 게임 수치·프로필 값 변경 없음. 기존 보고서 `BOT_COMPARE.md`·`BOT_COMPARE_BOSS3.md`는 수정 전(observe-1/2·skillbot-0.1) 결과이며 새 코드의 결과로 재사용하지 않는다. **사람 보정 미완료** 상태는 그대로다.
+
+### 9-1. 재검수(godot-audit-427dae9) 잔여 1건
+| 지적 | 수정 | 회귀 |
+|---|---|---|
+| 소스 일부 읽기 실패를 정상 코드 해시로 취급 | `code_hash_of`: 파일 하나라도 못 읽으면 `unknown` + 실패 경로(부분 해시 없음), `_collect_code`는 폴더 열기 실패를 false로 돌려주어 빈 폴더와 구분, 배치는 `CACHE_INVALID`에 실패 경로를 찍고 재개 거부 | bot_tests 12k~12n(누락 파일·빈 목록·폴더 열기 실패·정상 복귀), 잠금 파일 수동 확인(PORT_NOTES §20) |
+게임 수치·봇 프로필 변경 없음. 108×2 비교는 다시 돌리지 않았다(해시 예외 처리만 바뀜).
