@@ -118,20 +118,15 @@ func _init() -> void:
 	# ---------- 위험 임무 정예 +1 (2단계부터, 일부 전투만) ----------
 	var r7 := PRun.new_run(37, "sword")
 	r7.bossesDone = ["boss"]
-	var s7 := sortie_of(r7, "ridge", 3, { "mission": true, "objective": "hunt", "risk": "no_heal" })
-	var w1 := PRun.encounter_waves("ridge", false, r7, s7)
+	var s7 := sortie_of(r7, "ridge", 3, { "mission": true, "objective": "hunt", "risk": "reinforce" })
+	var e1: int = int(PFlow.make_encounter(r7, s7).elite_count().total)
 	r7.bossesDone = ["boss", "guardian"]
-	var w2 := PRun.encounter_waves("ridge", false, r7, s7)
-	var cnt := func(w: Array, t: String) -> int:
-		var n := 0
-		for wave in w:
-			for g in wave:
-				if String(g.type) == t:
-					n += int(g.n)
-		return n
-	ok("1차 위험 임무: 정예 추가 없음(능선 3일차 우두머리 0), 2차 위험 임무: 마지막 웨이브 우두머리 +1", cnt.call(w1, "wolf_alpha") == 0 and cnt.call(w2, "wolf_alpha") == 1, "%d/%d" % [cnt.call(w1, "wolf_alpha"), cnt.call(w2, "wolf_alpha")])
-	var s7n := sortie_of(r7, "ridge", 3)
-	ok("2차라도 일반 출격(임무 아님)은 정예 추가 없음", cnt.call(PRun.encounter_waves("ridge", false, r7, s7n), "wolf_alpha") == 0)
+	var e2: int = int(PFlow.make_encounter(r7, s7).elite_count().total)
+	ok("1차 위험 임무(정예 추적·지원병 증가): 정예 1, 2차: 정예 +1 = 2 (임무 편성은 목표 규칙이 만들므로 그 경로에 적용)", e1 == 1 and e2 == 2, "%d/%d" % [e1, e2])
+	var s7n := sortie_of(r7, "ridge", 3, { "mission": true, "objective": "hunt" })
+	ok("2차라도 위험 조건 없는 임무는 정예 추가 없음(1)", PFlow.make_encounter(r7, s7n).elite_count().total == 1)
+	var s7c := sortie_of(r7, "ridge", 3)
+	ok("2차 일반 출격(임무 아님)은 정예 추가 없음", PFlow.make_encounter(r7, s7c).elite_count().total == 0)
 	# ---------- 보스전·기준 전투에는 등급 없음 ----------
 	var r8 := PRun.new_run(38, "sword")
 	r8.bossesDone = ["boss", "guardian"]

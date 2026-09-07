@@ -201,6 +201,18 @@ static func setup(st: CombatState, opts: Dictionary) -> void:
 			w0.append({ "type": "wolf_alpha", "n": 1 })
 	if risk == "hazard":
 		o.terrain = { "timer": 6.0, "interval": 7.0, "warn": 1.2, "ttl": 1.6, "r": 60.0, "dmg": 10.0, "lanes": 3 }
+	var WS := PCatalog.world_stages() # 세계 변화 2단계부터 위험 조건이 붙은 임무에 정예 +1(잠정, 일부 위험 전투에만 — 모든 전투 2정예 아님)
+	if risk != "" and not waves.is_empty() and int(st.opts.get("world_stage", 0)) >= int(WS.get("risk_elite_from_stage", 99)):
+		var wl: Array = waves[0]
+		var gl: Dictionary = {}
+		for g in wl:
+			if String(g.type) == "wolf_alpha":
+				gl = g
+				break
+		if not gl.is_empty():
+			gl.n = int(gl.n) + int(WS.get("risk_elite_extra", 1))
+		else:
+			wl.append({ "type": "wolf_alpha", "n": int(WS.get("risk_elite_extra", 1)) })
 	# HTML 웨이브 → 밀도 편성(정예 호위 반영 뒤에 변환)
 	st.set_formation(PFormation.from_waves(waves, {}, st.region_id, st))
 	st.spawned_all = false

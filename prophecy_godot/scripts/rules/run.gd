@@ -376,17 +376,6 @@ static func encounter_waves(region_id: String, deep: bool, run: Dictionary, sort
 					break
 			if not found:
 				last.append({ "type": "wolf_alpha", "n": 1 })
-	var WS := PCatalog.world_stages()
-	if not WS.is_empty() and world_stage(run) >= int(WS.get("risk_elite_from_stage", 99)) and sortie.get("risk", null) != null and bool(sortie.get("mission", false)):
-		var lastw: Array = waves[waves.size() - 1] # 2단계부터 위험 임무: 정예 +1(잠정, 일부 위험 전투에만)
-		var added := false
-		for g in lastw:
-			if String(g.type) == "wolf_alpha":
-				g.n = int(g.n) + int(WS.get("risk_elite_extra", 1))
-				added = true
-				break
-		if not added:
-			lastw.append({ "type": "wolf_alpha", "n": int(WS.get("risk_elite_extra", 1)) })
 	if not deep:
 		return waves
 	for w in waves: # 더 깊이: 웨이브마다 +1, 마지막에 정예 추가(없다면)
