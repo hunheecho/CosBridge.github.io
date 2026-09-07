@@ -1,6 +1,7 @@
 # 인수인계 (현재 상태와 다음 작업만)
 
-## 현재 상태 (v0.8.0) — 시간대·장소 2곳·런 한정 장비·상점 교체·성장 예약·피해 통계·용어 사전
+## 현재 상태 (v0.8.0, 검증 2차 반영) — 시간대·장소 2곳·런 한정 장비·상점 교체·성장 예약·피해 통계·용어 사전
+- 검증 2차(직접 플레이 전 기계 검증) 결과는 `docs/sim/COMPARE_v08.md` 하단 절. 고친 것: 패배 출격 뒤늦은 정산 구멍, 보스 재도전 스냅샷 범위, 개조 변경 취소 순서, 시험실 진입 시 회차 상태 잔존. 회전 칼날 시험값 10/0.35(근거 기록). 제목 화면 검증 메뉴로 7개 테스트 묶음 바로 진입.
 - 규칙은 `docs/GAME_SPEC.md` §19 한 곳에, 시험값 근거는 `docs/ASSUMPTIONS.md` v0.8 절, 요구 추적은 `docs/TRACEABILITY.md` R-V08-01~14, 비교 결과는 `docs/sim/COMPARE_v08.md`(세부: `BOSS_v08.md`, `report_E.md`, `report_E2.md`, `cmp_v08_*.md`).
 - 저장 v4. v3 저장은 변환·기록되지만 규칙이 달라 **새 회차로 시험 권장**(제목 화면 계속하기 버튼에 "이전 버전 저장(변환됨)" 표시).
 - 검증: `node --test test/*.test.js` 155개, `tools/verify_v08.js` 30/30(스크린샷 `docs/screenshots/v08_*.png`, 영상 `docs/video/v08_verify.webm`), `tools/smoke_v08.js` 19/19, `tools/verify_lab.js`(시험실). `tools/verify_v07.js`는 v0.7 흐름(카드 3장·지역 선택 화면) 전용이라 v0.8에서는 A1부터 실패한다(대체: verify_v08).

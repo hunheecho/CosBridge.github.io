@@ -114,7 +114,7 @@ test('무기 레벨 배율은 누적(100/120/140/160/180%)이며 대장간 강�
   const b2 = R.build(run2);
   assert.equal(b2.weapons[1].damage, b.weapons[0].damage, '같은 무기·같은 레벨이면 시작/추가와 무관하게 같은 피해');
   assert.equal(b2.weapons[0].damage, b.weapons[1].damage);
-  assert.ok(Math.abs(b.weapons[1].damage - 8 * 1.0 * 1.1 * 1.1) < 1e-9, '추가 무기 피해에 시작 무기 레벨을 쓰지 않음');
+  assert.ok(Math.abs(b.weapons[1].damage - PA.WEAPONS.blades.base.damage * 1.0 * 1.1 * 1.1) < 1e-9, '추가 무기 피해에 시작 무기 레벨을 쓰지 않음');
 });
 
 test('보스 재도전은 입장 시점 성장으로 복구된다(소환 경험치 누적 악용 방지)', () => {

@@ -21,6 +21,7 @@ PA.Screens = (function () {
       <div class="stat"><span class="lbl">체력</span><b>${run.hp} / ${b.hpMax}</b></div>
       <div class="stat"><span class="lbl">금화</span><b class="gold">${run.gold}</b></div>
       <div class="stat"><span class="lbl">설정</span><b class="small dim" title="${esc(PA.Balance.text(run))}">${esc(settingsShort(run))}</b></div>
+      ${run.quick ? `<div class="stat"><span class="lbl">검증용 회차</span><b class="small warn" title="${esc(run.quickName || '')}">빠른 경로 · 기록 없음</b></div>` : ''}
     </div>`;
   }
   function matsRow(run) {
@@ -111,7 +112,12 @@ PA.Screens = (function () {
         <button class="big" data-action="controls">조작법</button>
         <button class="big" data-action="glossary">용어 사전</button>
         <button class="big" data-action="lab">전투 시험실 <span class="dim">(정식 회차와 분리 · 체력 배율·빌드·적 조합 비교)</span></button>
-        <div class="row"><span class="dim small">검증 메뉴 · 3보스 회차 빠른 경로(현재 저장을 덮어씀):</span>${[0, 1, 2].map(i => `<button class="mini" data-action="quick-run" data-arg="${i}">${i + 1}단계 관문 직전</button>`).join(' ')}</div>
+        <details class="card small" style="text-align:left"><summary>검증 메뉴 <span class="dim">(v${PA.VERSION} · 시험 빌드 test03 · 검증용 회차는 현재 저장을 덮어쓰고 기록에 남지 않음)</span></summary>
+          <p class="small"><b>시작 기술 3종 · 같은 첫 전투</b> (1일차 숲 편성, 체력 ×1.5, 시드 1, 직접 조작): ${['sword', 'spear', 'blades'].map(w => `<button class="mini" data-action="quick-lab" data-arg="enemy=day:forest:1;hp=1.5,1.5,1;seed=1;build=start_${w};control=human;growth=fixed;time=120;balance=test03">${PA.WEAPONS[w].name}</button>`).join(' ')}</p>
+          <p class="small"><b>같은 투자(7선택) · 굴 4일차 편성(체력 ×2)</b>: ${[['inv_direct', '직접 피해'], ['inv_dot', '지속·장판'], ['inv_def', '방어·회복']].map(([b, n]) => `<button class="mini" data-action="quick-lab" data-arg="enemy=day:den:4;hp=2,2.5,1;seed=1;build=${b};control=human;growth=fixed;time=150;balance=test03">${n}</button>`).join(' ')} · 정지 보스 화력: ${[['inv_direct', '직접'], ['inv_dot', '지속']].map(([b, n]) => `<button class="mini" data-action="quick-lab" data-arg="enemy=dummy:boss;hp=1,1,1;seed=1;build=${b};control=human;growth=fixed;time=120;balance=test03">${n}</button>`).join(' ')}</p>
+          <p class="small"><b>정상 성장 빌드의 보스전</b> (점진 전략 덤프 시드 1): ${[0, 1, 2].map(i => `<button class="mini" data-action="quick-run" data-arg="${i}">${i + 1}단계 관문 직전</button>`).join(' ')} · <b>3일차 성장 중단 최종 보스</b>: <button class="mini" data-action="quick-run" data-arg="3">7일차 입장</button></p>
+          <p class="small"><b>상점 구매·교체·장비 비교</b>: <button class="mini" data-action="quick-shop">1단계 빌드 · 금화 400</button> · <b>런 피해 통계 화면</b>: <button class="mini" data-action="quick-stats">봇이 최종 보스전 1회 실행 → 통계</button></p>
+          <p class="dim small">각 시험은 화면 상단에 버전·설정·빌드·목적을 표시한다. 시험실 프리셋은 정식 회차에 섞이지 않는다(별도 저장 키).</p></details>
       </div>
       <p class="dim small">${esc(PA.KEYS_TEXT)}</p><p class="dim small">기본 설정: ${esc(PA.Balance.text(null))}</p>${hasSave ? `<p class="dim small">저장된 회차 설정: ${esc(PA.Balance.text(G.saved))}</p>` : ''}</div>`;
   }
@@ -382,6 +388,7 @@ PA.Screens = (function () {
     const hpOpts = PA.LAB.HP_MULTS.map(v => ({ v, t: '×' + v }));
     const enemySel = `<select id="lab-enemy" data-lab="lab-enemy">${groups.map(g => `<optgroup label="${esc(g.name)}">${g.items.map(p => `<option value="${esc(p.id)}" ${p.id === cfg.enemy ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}</select>`;
     const buildSel = sel('lab-build', Object.keys(PA.LAB.BUILDS).map(k => ({ v: k, t: `[${PA.LAB.BUILDS[k].stage}] ${PA.LAB.BUILDS[k].name}` })), cfg.build);
+    const balSel = sel('lab-balance', Object.keys(PA.BALANCE_SETS).map(k => ({ v: k, t: PA.BALANCE_SETS[k].name })), cfg.balance || 'current');
     const notes = ep && ep.notes ? `<ul class="tips">${Object.entries({ intent: '의도한 판단', safe: '안전한 대응', builds: '강점 빌드', overlap: '과도한 겹침 조건', limit: '동시 실행 제한' }).filter(([k]) => ep.notes[k]).map(([k, t]) => `<li><b>${t}</b>: ${esc(ep.notes[k])}</li>`).join('')}</ul>` : '';
     const waves = ep && ep.waves ? ep.waves.map((w, i) => `${i + 1}: ` + w.map(g => `${PA.ENEMIES[g.type] ? PA.ENEMIES[g.type].name : g.type}×${g.n}`).join(', ')).join(' / ') : (ep && ep.boss ? '보스' : '');
     const results = (G.labResults || []).slice(-8).reverse();
@@ -399,6 +406,7 @@ PA.Screens = (function () {
           <div class="kv"><span>시간 제한</span>${sel('lab-time', PA.LAB.TIME_LIMITS.map(v => ({ v, t: v + '초' })), cfg.time)} <label><input type="checkbox" id="lab-deep" data-lab="lab-deep" ${cfg.deep ? 'checked' : ''}> 더 깊이(지역 프리셋만: 적 +1, 정예)</label></div>
         </div>
         <div class="card"><div class="card-title">조작·성장</div>
+          <div class="kv"><span>밸런스</span>${balSel} <span class="dim small">시험실에 적용할 세트(창 규칙·경험치 배율). 정식 회차 저장에는 영향 없음</span></div>
           <div class="kv"><span>조작</span><label><input type="radio" name="lab-control" data-lab="lab-control" value="human" ${cfg.control === 'human' ? 'checked' : ''}> 직접 조작</label> <label><input type="radio" name="lab-control" data-lab="lab-control" value="bot" ${cfg.control === 'bot' ? 'checked' : ''}> 봇 조작</label> ${sel('lab-bot', Object.keys(PA.Bot.POLICIES).map(k => ({ v: k, t: PA.Bot.POLICIES[k].name })), cfg.bot)}</div>
           <p class="small dim">봇: ${esc(PA.Bot.POLICIES[cfg.bot].doc.reads)} · Q ${esc(PA.Bot.POLICIES[cfg.bot].doc.q)} · 포기 ${esc(PA.Bot.POLICIES[cfg.bot].doc.giveUp)}. 봇 결과는 정책 비교용이며 사람의 승률·재미를 뜻하지 않습니다.</p>
           <div class="kv"><span>성장</span><label><input type="radio" name="lab-growth" data-lab="lab-growth" value="fixed" ${cfg.growth === 'fixed' ? 'checked' : ''}> 빌드 고정(경험치 없음, 화력 고정)</label> <label><input type="radio" name="lab-growth" data-lab="lab-growth" value="grow" ${cfg.growth === 'grow' ? 'checked' : ''}> 성장 모드(레벨업 선택 적용)</label></div>

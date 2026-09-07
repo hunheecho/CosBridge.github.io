@@ -13,6 +13,10 @@ PA.Bot = (function () {
       doc: { period: '40ms(일반)·헤드리스 5스텝', reads: '준비 40% 이상 진행된 예고·확정·투사체·바닥 지역·구름 예고', target: '궁수·주술사·서리술사 같은 후열 우선, 없으면 가장 가까운 적', q: '200 안 적 3마리 이상 또는 보스 빈틈·돌진 확정', e: '200 안 적 2마리 이상', dodge: '확정 예고 안에 있을 때', terrain: 'Combat.steerDir 접선 우회', giveUp: '체력 25% 미만이면 예고가 없을 때만 접근' } },
     survival:   { name: '생존 우선', reactAt: 0.0, dodgeLocked: true, zoneMargin: 60, keepDist: 90, retreatHp: 0.5, qMinEnemies: 1, eMinEnemies: 1, eRange: 160, giveUp: 'hp<50%면 이탈, 위협 없을 때만 사거리까지 접근',
       doc: { period: '40ms(일반)·헤드리스 5스텝', reads: '모든 준비 단계 예고·투사체·바닥 지역(여유 60)', target: '가장 가까운 적을 사거리 끝에서', q: '위협이 확정된 적이 200 안에 1마리 이상', e: '160 안 적 1마리 이상(결계·돌풍은 방어용)', dodge: '확정 예고 안 또는 근접 적 60 안', terrain: 'Combat.steerDir 접선 우회', giveUp: '체력 50% 미만이면 모든 적에서 이탈(시간 초과 가능 — 성공으로 집계하지 않음)' } },
+    idle:       { name: '제자리(자동 공격만)', reactAt: 9, dodgeLocked: false, zoneMargin: 0, keepDist: 0, retreatHp: 0, qMinEnemies: 99, eMinEnemies: 99, eRange: 0, giveUp: '없음', noMove: true, noSkills: true,
+      doc: { period: '—', reads: '아무것도 읽지 않음', target: '없음', q: '사용 안 함', e: '사용 안 함', dodge: '없음', terrain: '없음', giveUp: '없음' } },
+    aware:      { name: '기술 특성 이해(균형+거리)', reactAt: 0.4, dodgeLocked: true, zoneMargin: 30, keepDist: 55, retreatHp: 0.25, qMinEnemies: 3, eMinEnemies: 2, eRange: 200, giveUp: '균형과 동일', aware: true,
+      doc: { period: '40ms(일반)·헤드리스 5스텝', reads: '균형과 동일', target: '균형과 동일', q: '균형과 동일', e: '균형과 동일', dodge: '균형과 동일', terrain: '균형과 동일', giveUp: '균형과 동일. 차이: 회전 칼날만 있으면 살 중간(반지름 55%)에 적을 두고, 관통창은 근접 약화 구간(사거리 45%) 밖을 유지' } },
     still:      { name: '제자리(Q/E만)', reactAt: 9, dodgeLocked: false, zoneMargin: 0, keepDist: 0, retreatHp: 0, qMinEnemies: 1, eMinEnemies: 1, eRange: 220, giveUp: '없음', noMove: true,
       doc: { period: '40ms(일반)·헤드리스 5스텝', reads: '아무것도 읽지 않음', target: '없음(이동 없음)', q: '220 안 적 1마리 이상 또는 보스 빈틈', e: '220 안 적 1마리 이상', dodge: '없음', terrain: '없음', giveUp: '없음' } },
   };
@@ -70,7 +74,7 @@ PA.Bot = (function () {
     if (st.markTarget && !st.markTarget.dead) return st.markTarget;
     const bz = st.boss; if (bz && !bz.dead) return bz;
     if (PA.Objectives && st.obj) { const ot = PA.Objectives.botTarget(st); if (ot) return ot; } // 목표 우선 대상(제단·정예)
-    if (pol === POLICIES.balanced) { const back = alive.filter(e => BACKLINE.includes(e.type)).sort((a, b) => m().dist(a, p) - m().dist(b, p)); if (back.length) return back[0]; }
+    if (pol === POLICIES.balanced || pol.aware) { const back = alive.filter(e => BACKLINE.includes(e.type)).sort((a, b) => m().dist(a, p) - m().dist(b, p)); if (back.length) return back[0]; }
     return alive.slice().sort((a, b) => m().dist(a, p) - m().dist(b, p))[0];
   }
   function weaponRange(st) { let r = 0; for (const w of st.weapons || []) { const s = w.stats; const rr = s.kind === 'orbit' ? s.radius : (s.range || 60); if (rr > r) r = rr; } return r || 80; }
@@ -106,8 +110,9 @@ PA.Bot = (function () {
       const range = weaponRange(st);
       const orbitOnly = (st.weapons || []).length > 0 && st.weapons.every(w => w.stats.kind === 'orbit' || w.stats.kind === 'mine'); // 공전 칼날만 있으면 궤도(반지름)에 적이 걸치도록 거리를 둔다
       let want = target.boss ? (PA.Boss.isExposed(target) ? target.r + 40 : target.r + range * 0.7) : Math.max(pol.keepDist, pol === POLICIES.survival ? range * 0.85 : 0, orbitOnly ? range * 0.9 : 0);
+      if (pol.aware) { const beam = (st.weapons || []).find(w => w.stats.kind === 'beam'); if (orbitOnly) want = target.boss ? target.r + range * 0.55 : range * 0.55; else if (beam && !target.boss) want = Math.max(want, beam.stats.range * (beam.stats.sweetFrom || 0.45) + 20); } // 기술 특성 이해: 칼날 살 중간·창 근접 약화 구간 밖
       if (pol === POLICIES.survival && hpRatio < pol.retreatHp) want = 260;                     // 생존 우선: 체력이 낮으면 이탈
-      if (pol === POLICIES.balanced && hpRatio < pol.retreatHp && alive.some(e => e.state !== 'approach' && e.state !== 'recover')) want = Math.max(want, 160);
+      if ((pol === POLICIES.balanced || pol.aware) && hpRatio < pol.retreatHp && alive.some(e => e.state !== 'approach' && e.state !== 'recover')) want = Math.max(want, 160);
       if (pol === POLICIES.survival && alive.some(e => (e.state !== 'approach' && e.state !== 'recover' && e.state !== 'stagger') && M.dist(e, p) < 60)) dodge = true; // 근접 위협에서 굴러 나감
       if (d > want + 10) { const s = mem.steer; s.x = p.x; s.y = p.y; if (s.steerT > 0) s.steerT -= 0.04; mv = st.obstacles.length ? PA.Combat.steerDir(st, s, target.x, target.y) : toT; }
       else if (d < want - 30) mv = { x: -toT.x, y: -toT.y };
@@ -121,7 +126,7 @@ PA.Bot = (function () {
     }
     const es = st.build.skills && st.build.skills.e;
     if (es && p.eCd <= 0) { const nearE = alive.filter(e => M.dist(e, p) < pol.eRange).length; if (nearE >= pol.eMinEnemies) skillE = true; if (es.id === 'ward' && pol !== POLICIES.survival && !threatened && hpRatio > 0.7) skillE = false; }
-    if (pol.noMove) return { mx: 0, my: 0, dodge: false, special, skillE }; // 제자리 정책: 이동·회피 없음(보스 비교 기준선)
+    if (pol.noMove) return { mx: 0, my: 0, dodge: false, special: pol.noSkills ? false : special, skillE: pol.noSkills ? false : skillE }; // 제자리 정책: 이동·회피 없음(보스 비교 기준선)
     return { mx: mv.x, my: mv.y, dodge, special, skillE };
   }
   // 판단 주기 양자화: 고정 시뮬레이션 단계 번호(st.stepN, 다음에 실행될 단계)가 DECIDE_STEPS의 배수일 때만 판단한다(120단계/초 → 5단계 = 40ms).

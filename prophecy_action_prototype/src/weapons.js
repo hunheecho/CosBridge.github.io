@@ -31,7 +31,7 @@ PA.Weapons = (function () {
     for (const e of st.enemies) { if (!ok(e)) continue; const d = m().dist(p, e); if (d < bd) { bd = d; best = e; } }
     return best;
   }
-  function dmgTo(st, e, w, mult, opt) { return K().damageEnemy(st, e, w.stats.damage * mult, Object.assign({ src: src(w, opt) }, opt || {})); }
+  function dmgTo(st, e, w, mult, opt) { if (st.metrics && st.metrics.hits) st.metrics.hits[w.id] = (st.metrics.hits[w.id] || 0) + 1; return K().damageEnemy(st, e, w.stats.damage * mult, Object.assign({ src: src(w, opt) }, opt || {})); } // 명중 횟수(무기별): 실제 명중 빈도 측정
   // 원형 범위 직접 공격(가림 적용)
   function hitCircle(st, w, cx, cy, r, mult, opt) {
     let n = 0;

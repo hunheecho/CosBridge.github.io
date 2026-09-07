@@ -178,7 +178,7 @@ PA.Run = (function () {
   // 귀환: 전리품을 거점에 반영
   // 귀환 정산(정확히 1회): 금화·재료·장비(가방)·이용권·성장 예약이 여기서 확정된다. 원정대의 갑옷 회복도 정산당 1회
   function returnToBase(run, sortie) {
-    if (sortie.settled) return; sortie.settled = true;
+    if (sortie.settled || sortie.lost) return; sortie.settled = true;
     run.gold += sortie.loot.gold;
     for (const k in sortie.loot.mats) run.mats[k] = (run.mats[k] || 0) + sortie.loot.mats[k];
     const extras = [];
@@ -191,6 +191,7 @@ PA.Run = (function () {
   }
   // 일반 출격 패배: 미정산 전리품 상실(호출자가 sortie를 버림), 남은 하루 상실, 구조되어 다음 날 정상 체력으로 시작. 정산한 재산·성장은 보존
   function defeat(run, sortie) {
+    sortie.lost = true; sortie.settled = true; sortie.loot = { gold: 0, mats: {}, chestGold: 0 }; // 패배한 출격은 어떤 경로로도 정산되지 않는다
     addLog(run, `${region(sortie.regionId).name}에서 패배: 미정산 전리품 상실, 남은 하루 상실`);
     run.hours = 0; run.hp = build(run).hpMax; run.lastDefeatDay = run.day;
     if (run.phase === 'prep') endDay(run); // 구조: 하루 종료 → 다음 날(관문 날이면 관문)
@@ -216,13 +217,13 @@ PA.Run = (function () {
   function startBoss(run) {
     if (!canStartBoss(run)) throw new Error('보스 준비 상태가 아님');
     run.hp = build(run).hpMax; // 입장: 체력 완전 회복(회피·감속장·방벽은 전투 생성 시 초기화)
-    run.bossEntry = JSON.parse(JSON.stringify({ growth: run.growth, hp: run.hp, stage: run.stage, gold: run.gold })); // 재도전 복구 기준(소환 경험치 누적 악용 방지)
+    run.bossEntry = JSON.parse(JSON.stringify({ growth: run.growth, hp: run.hp, stage: run.stage, gold: run.gold, services: run.services, equipment: run.equipment, bag: run.bag, forge: run.forge })); // 재도전 복구 기준(소환 경험치 누적 악용 방지)
     const nb = nextBoss(run);
     return { regionId: 'boss', bossId: nb ? nb.id : 'boss', stage: run.stage || 0, seed: bossSeed(run), loot: { gold: 0, mats: {} }, encounters: 0 };
   }
   function bossDefeat(run) {
     run.bossRetries = (run.bossRetries || 0) + 1;
-    if (run.bossEntry) { run.growth = JSON.parse(JSON.stringify(run.bossEntry.growth)); if (run.bossEntry.gold != null) run.gold = run.bossEntry.gold; } // 입장 시 준비 상태로 복구(레벨·경험치·선택·금화: 전투 중 건너뛰기 금화 반복 악용 방지)
+    if (run.bossEntry) { const E = JSON.parse(JSON.stringify(run.bossEntry)); run.growth = E.growth; if (E.gold != null) run.gold = E.gold; if (E.services) run.services = E.services; if (E.equipment) run.equipment = E.equipment; if (E.bag) run.bag = E.bag; if (E.forge != null) run.forge = E.forge; } // 입장 시 준비 상태로 복구(레벨·경험치·선택·금화: 전투 중 건너뛰기 금화 반복 악용 방지)
     run.hp = build(run).hpMax; addLog(run, `보스전 패배 (재도전 ${run.bossRetries}회, 성장은 입장 시점으로 복구)`);
   }
   function bossVictory(run, stats) {

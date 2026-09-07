@@ -65,7 +65,7 @@ PA.Combat = (function () {
 
   // ---------- 측정(시험실·시뮬레이션 공용) ----------
   // 적 종류별 등장·처치·공격 준비·실행·공격 전 사망·처치 소요, 피해 출처별 실제 체력 감소(과잉 피해 제외), 받은 피해 원인별
-  function newMetrics() { return { enemies: {}, dmg: {}, taken: {}, takenHits: {}, absorbed: 0, deathEffects: {}, interrupts: 0, webs: 0, heals: 0, healAmount: 0 }; }
+  function newMetrics() { return { hits: {}, enemies: {}, dmg: {}, taken: {}, takenHits: {}, absorbed: 0, deathEffects: {}, interrupts: 0, webs: 0, heals: 0, healAmount: 0 }; }
   function enemyKey(e) { return e.type + (e.summoned ? ':summoned' : ''); }
   function metricsFor(st, e) { const k = enemyKey(e); return st.metrics.enemies[k] || (st.metrics.enemies[k] = { spawned: 0, killed: 0, prepared: 0, executed: 0, diedBeforeAttack: 0, ttk: [], ttkFromHit: [], deathEffects: 0 }); }
   // 공격 준비(예고 시작)·실행(피해 판정 발생 시점)을 구분해 센다. 죽으면서 생기는 효과(포자 사망 구름)는 deathEffect로 따로.
@@ -88,7 +88,7 @@ PA.Combat = (function () {
       version: PA.VERSION, seed: st.seed, arena: st.arenaId, regionId: st.regionId, hpMult: st.hpMult, timeLimit: st.timeLimit, fixedBuild: st.fixedBuild,
       status: st.status, elapsed: Math.round(st.t * 100) / 100, hp: Math.round(st.player.hp), hpMax: st.player.hpMax,
       damageTaken: Math.round(st.stats.damageTaken), absorbed: Math.round(M.absorbed), kills: st.stats.kills, specialUses: st.stats.specialUses, eUses: st.stats.eUses || 0, dodges: st.stats.dodges || 0,
-      taken: M.taken, takenHits: M.takenHits, enemies: en, dmg, dmgTotal: Math.round(dmgTotal), interrupts: M.interrupts, heals: M.heals, healAmount: Math.round(M.healAmount), webs: M.webs,
+      taken: M.taken, takenHits: M.takenHits, hits: Object.assign({}, M.hits || {}), enemies: en, dmg, dmgTotal: Math.round(dmgTotal), interrupts: M.interrupts, heals: M.heals, healAmount: Math.round(M.healAmount), webs: M.webs,
       farFrac: M.farFrac != null ? M.farFrac : null, patterns: M.patterns || {}, xp: st.stats.xp, levelUps: st.stats.levelUps, build: st.build.growth ? { level: st.build.growth.level, weapons: st.build.growth.weapons.map(w => w.id + ':' + w.level + (w.mods.length ? ':' + w.mods.join('+') : '')), commons: st.build.growth.commons, passives: st.build.growth.passives, e: st.build.growth.skills.e, q: st.build.growth.skills.q } : null,
     };
   }
@@ -667,7 +667,7 @@ PA.Combat = (function () {
       k.t += dt;
       if (!k.taken && m().dist(k, p) <= k.r + p.r) {
         k.taken = true;
-        const before = p.hp; p.hp = Math.min(p.hpMax, p.hp + k.amount);
+        const before = p.hp; p.hp = Math.min(p.hpMax, p.hp + k.amount); st.stats.healed = (st.stats.healed || 0) + (p.hp - before); // 플레이어 회복량(구슬)
         text(st, p.x, p.y - 34, '+' + Math.round(p.hp - before), '#9cffb0'); ev(st, 'orb');
       }
     }

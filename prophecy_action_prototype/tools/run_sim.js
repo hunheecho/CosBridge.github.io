@@ -28,11 +28,11 @@ function matchedPick(run, off) {
 const startWeapon = opt('start', 'sword'), runMode = opt('mode', 'trio');
 // 비교 후보 파라미터(기본 = 현재값): 처치 경험치 배율, 지역 경험치 배율, 보스 체력 세트, 성장 중단일(그 날 이후 출격 없음 = '3일차까지만 성장한 빌드' 시험)
 const killXp = Number(opt('killxp', '1')), bonusXp = Number(opt('bonusxp', '1')), bossHpSet = opt('bosshp', 'base'), stopDay = Number(opt('stopday', '0')), tag = opt('tag', '');
-const balanceId = opt('balance', ''); if (balanceId) PA.Balance.apply(balanceId); else { PA.GROWTH.XP_KILL_MULT = killXp; PA.GROWTH.BONUS_XP_MULT = bonusXp; PA.BOSS_HP_SET = bossHpSet; }
+const balanceId = opt('balance', ''), dumpPath = opt('dump', ''); if (balanceId) PA.Balance.apply(balanceId); else { PA.GROWTH.XP_KILL_MULT = killXp; PA.GROWTH.BONUS_XP_MULT = bonusXp; PA.BOSS_HP_SET = bossHpSet; }
 function simulate(seed, stratId) {
   const S = STRATS[stratId], run = PA.Run.newRun(seed, startWeapon, runMode, balanceId || 'current'); run.layout = layout; if (!balanceId) run.difficulty = difficulty; let g = run.growth; // 보스 패배 복구 뒤 run.growth 객체가 바뀌므로 관문 뒤에 다시 잡는다 // 밸런스 세트가 있으면 회차 필드(보스 체력 세트·난이도)도 세트를 따른다
   const T = { combat: 0, cards: 0, screens: 0, rest: 0, dayEnd: 0, boss: 0 }; // 초 단위 버킷
-  const log = { goldEarnedByDay: [], goldSpent: 0, equipBought: [], skillsBought: 0, swaps: 0, forge: 0, deepRewards: [], daysLostToDefeat: 0, steered: 0, encounters: 0, losses: 0, timeouts: 0, rests: 0, deeps: 0, cards: 0, cardsInCombat: 0, deepPicks: 0, missions: 0, missionPicks: 0, eventCount: 0, eventChoices: [], eventFights: 0, levelUpsByDay: [], weapon2: null, weapon3: null, eSkill: null, events: [], spawned: 0, executed: 0, dba: 0, killedN: 0, taken: 0, bossTaken: 0, bossPatterns: {}, stopDay };
+  const log = { takenByDay: [], combatSecByDay: [], restsByDay: [], powerByDay: [], spentByDay: [], firstBuy: {}, gateBuilds: [], goldEarnedByDay: [], goldSpent: 0, equipBought: [], skillsBought: 0, swaps: 0, forge: 0, deepRewards: [], daysLostToDefeat: 0, steered: 0, encounters: 0, losses: 0, timeouts: 0, rests: 0, deeps: 0, cards: 0, cardsInCombat: 0, deepPicks: 0, missions: 0, missionPicks: 0, eventCount: 0, eventChoices: [], eventFights: 0, levelUpsByDay: [], weapon2: null, weapon3: null, eSkill: null, events: [], spawned: 0, executed: 0, dba: 0, killedN: 0, taken: 0, bossTaken: 0, bossPatterns: {}, stopDay };
   let clock = 0; // 실제 경과 시점(초): 카드 획득 시점 기록용
   const mark = () => { const t = Math.round(clock); if (log.weapon2 == null && g.weapons.length >= 2) log.weapon2 = t; if (log.weapon3 == null && g.weapons.length >= 3) log.weapon3 = t; if (log.eSkill == null && g.skills.e) log.eSkill = t; };
   const pick = (off) => S.matched ? matchedPick(run, off) : PA.Bot.pickChoice(off, run.seed);
@@ -54,7 +54,7 @@ function simulate(seed, stratId) {
   log.bosses = []; log.bossSec = 0; log.bossRetries = 0; log.rarePicks = [];
   const bossGate = () => {
     while (PA.Run.canStartBoss(run) && run.phase === 'boss_prep') {
-      const bs = PA.Run.startBoss(run); const st = PA.Flow.makeBossEncounter(run, bs); PA.Bot.runCombat(st, botId, { maxSec: 300 });
+      const bs = PA.Run.startBoss(run); if (!run.bossRetries) log.gateBuilds.push({ stage: bs.stage, bossId: bs.bossId, day: run.day, level: g.level, growth: JSON.parse(JSON.stringify(g)), equipment: Object.assign({}, run.equipment), forge: run.forge, gold: run.gold, hpMax: PA.Run.build(run).hpMax }); const st = PA.Flow.makeBossEncounter(run, bs); PA.Bot.runCombat(st, botId, { maxSec: 300 });
       if (st.status === 'running') st.status = 'timeout';
       T.boss += st.t; clock += st.t; log.bossSec += Math.round(st.t);
       const sm = PA.Combat.summary(st); log.bossTaken += sm.damageTaken; for (const k in sm.patterns) log.bossPatterns[bs.bossId + ':' + k] = (log.bossPatterns[bs.bossId + ':' + k] || 0) + sm.patterns[k];
@@ -68,15 +68,17 @@ function simulate(seed, stratId) {
   };
   // 거점 경제 봇(v0.8): 예비 금화 40을 남기고 ① 빈 슬롯 새 기술 ② 공용 공격 강화(개방 시) ③ 오늘의 장비(같은 슬롯이 비어 있으면 우선). 교체는 하지 않는다(비교 기준 단순화)
   const RESERVE = 40;
+  const powerCount = () => { const P = g.picks || {}; return (P.steered || 0) + (P.service || 0) + (P.boss_reward || 0) + log.deepRewards.length; }; // 경험치 외 전투력 보상: 예약 소비·서비스·희귀·심층
+  const noteBuy = (k) => { if (log.firstBuy[k] == null) log.firstBuy[k] = run.day; };
   const shopBot = () => {
     if (S.noShop || stopDay && run.day > stopDay) return;
     let guard = 0;
     while (guard++ < 6) {
       const g0 = run.gold; let did = false;
-      if (PA.Run.canBuySkill(run) && run.gold - PA.Run.stock(run).skill.price >= RESERVE) { PA.Run.buySkill(run); log.skillsBought++; did = true; }
-      const F = PA.Run.forgeNext(run); if (F && F.open && run.gold - F.cost >= RESERVE) { PA.Run.forgeUpgrade(run); log.forge = run.forge; did = true; }
+      if (PA.Run.canBuySkill(run) && run.gold - PA.Run.stock(run).skill.price >= RESERVE) { PA.Run.buySkill(run); log.skillsBought++; noteBuy('skill'); did = true; }
+      const F = PA.Run.forgeNext(run); if (F && F.open && run.gold - F.cost >= RESERVE) { PA.Run.forgeUpgrade(run); log.forge = run.forge; noteBuy('forge'); did = true; }
       const st = PA.Run.stock(run); const cand = st.equipment.filter(id => PA.Run.canBuyEquipment(run, id) && run.gold - PA.Run.equipPriceFor(run, id) >= RESERVE).sort((a, b) => (run.equipment[PA.EQUIPMENT[a].slot] ? 1 : 0) - (run.equipment[PA.EQUIPMENT[b].slot] ? 1 : 0));
-      if (cand.length) { PA.Run.buyEquipment(run, cand[0], true); log.equipBought.push(cand[0]); did = true; }
+      if (cand.length) { PA.Run.buyEquipment(run, cand[0], true); log.equipBought.push(cand[0]); noteBuy('equipment'); did = true; }
       log.goldSpent += g0 - run.gold; if (!did) break;
     }
   };
@@ -84,7 +86,7 @@ function simulate(seed, stratId) {
   while (dayGuard++ < 20 && !run.ended && run.phase !== 'cleared') {
     if (run.phase === 'boss_prep') { shopBot(); if (!bossGate()) break; }
     if (run.phase === 'cleared' || run.ended) break;
-    const day = run.day, dayStart = run.day, goldStart = run.gold + log.goldSpent; const lvStart = g.level; let guard = 0;
+    const day = run.day, dayStart = run.day, goldStart = run.gold + log.goldSpent; const lvStart = g.level; let guard = 0; const takenStart = log.taken, combatStart = T.combat, restStart = log.rests, spentStart = log.goldSpent, powerStart = powerCount();
     shopBot();
     while (guard++ < 20 && run.day === dayStart && !(stopDay && day > stopDay)) { // 성장 중단일 이후는 출격 없이 하루 종료만(휴식으로 체력 회복)
       const hpMax = PA.Run.build(run).hpMax;
@@ -115,6 +117,7 @@ function simulate(seed, stratId) {
     }
     log.levelUpsByDay.push(g.level - lvStart); log.levelAtBoss = log.levelAtBoss || []; T.dayEnd += MENU.dayEnd; clock += MENU.dayEnd;
     log.goldEarnedByDay.push(run.gold + log.goldSpent - goldStart); log.steered = (g.picks && g.picks.steered) || 0;
+    log.takenByDay.push(Math.round(log.taken - takenStart)); log.combatSecByDay.push(Math.round(T.combat - combatStart)); log.restsByDay.push(log.rests - restStart); log.spentByDay.push(log.goldSpent - spentStart); log.powerByDay.push(powerCount() - powerStart);
     if (run.day !== dayStart) { log.daysLostToDefeat++; continue; } // 패배로 이미 다음 날(구조)
     if (day < PA.Run.modeDef(run).days) PA.Run.endDay(run); else if (run.phase === 'prep' && runMode === 'single') { run.day++; run.phase = 'boss_prep'; } else break;
   }
@@ -155,5 +158,8 @@ md += `\n## 6일차 빌드 예시(곡선 ${curves[curves.length - 1]}, 시드 ${
 md += `\n## 경제(v0.8): 하루 획득 금화(정산 기준, 사용분 포함)·구매·강화·교체·예약·패배로 잃은 날\n\n| 전략 | 시드 | 하루 금화(평균) | 일별 | 총 사용 | 장비 | 새 기술 | 강화 | 예약 소비 | 심층 보상 | 패배로 잃은 날 | 최종 금화 |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n`;
 for (const r of all) md += `| ${STRATS[r.strategy].name} | ${r.seed} | ${r.goldPerDay} | ${r.goldEarnedByDay.join('/')} | ${r.goldSpent} | ${r.equipBought.map(id => PA.EQUIPMENT[id].name).join(',') || '-'} | ${r.skillsBought} | ${r.forge} | ${r.steered} | ${r.deepRewardText || '-'} | ${r.daysLostToDefeat} | ${r.gold} |\n`;
 for (const sid of Object.keys(STRATS)) { const rows = all.filter(r => r.strategy === sid); if (!rows.length) continue; const avg = (f) => Math.round(rows.reduce((a, r) => a + f(r), 0) / rows.length * 10) / 10; md += `- ${STRATS[sid].name} 평균: 하루 금화 ${avg(r => r.goldPerDay)} · 사용 ${avg(r => r.goldSpent)} · 장비 ${avg(r => r.equipN)}개 · 강화 ${avg(r => r.forge)} · 예약 ${avg(r => r.steered)} · 패배로 잃은 날 ${avg(r => r.daysLostToDefeat)}\n`; }
+if (dumpPath) fs.writeFileSync(dumpPath, JSON.stringify(all.map(r => ({ strategy: r.strategy, seed: r.seed, start: startWeapon, stopDay, balance: balanceId, gateBuilds: r.gateBuilds })), null, 1));
+md += `\n## 날짜별(v0.8): 레벨업 / 전투력 보상(경험치 외) / 전투초 / 받은 피해 / 휴식 / 금화 수입 / 지출 · 첫 구매 시점 · 남은 금화\n\n| 전략 | 시드 | 레벨업/일 | 보상/일 | 전투초/일 | 피해/일 | 휴식/일 | 수입/일 | 지출/일 | 첫 장비·강화·기술(일차) | 남은 금화 |\n|---|---|---|---|---|---|---|---|---|---|---|\n`;
+for (const r of all) md += `| ${STRATS[r.strategy].name} | ${r.seed} | ${r.levelUpsByDay.join('/')} | ${r.powerByDay.join('/')} | ${r.combatSecByDay.join('/')} | ${r.takenByDay.join('/')} | ${r.restsByDay.join('/')} | ${r.goldEarnedByDay.join('/')} | ${r.spentByDay.join('/')} | ${r.firstBuy.equipment || '-'}·${r.firstBuy.forge || '-'}·${r.firstBuy.skill || '-'} | ${r.gold} |\n`;
 fs.mkdirSync(path.dirname(mdPath), { recursive: true }); fs.writeFileSync(mdPath, md); fs.writeFileSync(mdPath.replace(/\.md$/, '.json'), JSON.stringify(all, null, 1));
 console.log(md);

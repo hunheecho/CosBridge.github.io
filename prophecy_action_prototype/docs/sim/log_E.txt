@@ -1,11 +1,14 @@
-suite E: 1560 fights, 3 workers, version 0.8.0
-  200/1560 (3s)
-  400/1560 (7s)
-  600/1560 (15s)
-  800/1560 (21s)
-  1000/1560 (35s)
-  1200/1560 (37s)
-  1400/1560 (39s)
-done 1560 fights, errors 0, 43s → /home/user/CosBridge.github.io/prophecy_action_prototype/docs/sim/raw_E.jsonl.gz
-wrote /home/user/CosBridge.github.io/prophecy_action_prototype/docs/sim/report_E.md 1560 rows
-E_DONE
+suite E: 2340 fights, 3 workers, version 0.8.0
+  200/2340 (4s)
+  400/2340 (9s)
+  600/2340 (14s)
+  800/2340 (26s)
+  1000/2340 (34s)
+  1200/2340 (42s)
+  1400/2340 (54s)
+  1600/2340 (66s)
+  1800/2340 (69s)
+  2000/2340 (72s)
+  2200/2340 (77s)
+done 2340 fights, errors 0, 81s → /home/user/CosBridge.github.io/prophecy_action_prototype/docs/sim/raw_E.jsonl.gz
+wrote /home/user/CosBridge.github.io/prophecy_action_prototype/docs/sim/report_E.md 2340 rows

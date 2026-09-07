@@ -83,9 +83,9 @@ PA.Flow = (function () {
   // 거점 서비스: 개조 교체 — 개조 1개를 떼고 그 무기의 다른 개조 3택. 후보가 없으면 되돌리고 권 유지
   function modSwapOffer(run, weaponId, modId) {
     const g = run.growth, w = g.weapons.find(x => x.id === weaponId); if (!w || !w.mods.includes(modId) || !PA.Run.hasService(run, 'mod_swap') || g.pendingOffer) throw new Error('교체 불가');
-    w.mods = w.mods.filter(m => m !== modId);
+    const orig = w.mods.slice(); w.mods = w.mods.filter(m => m !== modId);
     const cands = PA.Growth.candidates(run, { pool: 'level' }).filter(c => c.kind === 'weapon_mod' && c.id === weaponId && c.mod !== modId);
-    if (!cands.length) { w.mods.push(modId); return null; }
+    if (!cands.length) { w.mods = orig; return null; }
     PA.Run.useService(run, 'mod_swap'); g.swappedOut = (g.swappedOut || []).concat([weaponId + ':' + modId]);
     const off = PA.Growth.generateOffer(run, { pool: 'mission', kinds: ['weapon_mod'], missionKind: 'weapon_mod', regionId: null, weaponOnly: weaponId, excludeMod: modId });
     if (!off.choices.length) { g.pendingOffer = null; w.mods.push(modId); run.services.mod_swap++; return null; }
@@ -95,12 +95,12 @@ PA.Flow = (function () {
   function modChange(run, weaponId, modId) {
     const g = run.growth, w = g.weapons.find(x => x.id === weaponId); if (!w || !w.mods.includes(modId) || g.pendingOffer) throw new Error('변경 불가');
     const cost = PA.Run.modChangeCost(run); if (!cost.voucher && run.gold < cost.gold) throw new Error('금화 부족');
-    w.mods = w.mods.filter(m => m !== modId);
+    const orig = w.mods.slice(); w.mods = w.mods.filter(m => m !== modId);
     const cands = PA.Growth.candidates(run, { pool: 'level' }).filter(c => c.kind === 'weapon_mod' && c.id === weaponId && c.mod !== modId);
-    if (!cands.length) { w.mods.push(modId); return null; }
+    if (!cands.length) { w.mods = orig; return null; }
     if (cost.voucher) PA.Run.useService(run, 'mod_swap'); else run.gold -= cost.gold;
     const off = PA.Growth.generateOffer(run, { pool: 'mission', kinds: ['weapon_mod'], missionKind: 'weapon_mod', regionId: null, weaponOnly: weaponId, excludeMod: modId });
-    off.paidChange = { kind: 'mod', weaponId, modId, cost }; g.picks.modChange = (g.picks.modChange || 0) + 1;
+    off.paidChange = { kind: 'mod', weaponId, modId, cost, orig }; g.picks.modChange = (g.picks.modChange || 0) + 1;
     return off;
   }
   function variantChange(run) {
@@ -117,7 +117,7 @@ PA.Flow = (function () {
   // 유료 변경 3택을 받지 않음: 원래 개조/변형 복구 + 비용 환불(교체권 포함)
   function cancelPaidChange(run, offer) {
     const pc = offer && offer.paidChange; if (!pc) return false; const g = run.growth;
-    if (pc.kind === 'mod') { const w = g.weapons.find(x => x.id === pc.weaponId); if (w && !w.mods.includes(pc.modId)) w.mods.push(pc.modId); }
+    if (pc.kind === 'mod') { const w = g.weapons.find(x => x.id === pc.weaponId); if (w && !w.mods.includes(pc.modId)) w.mods = pc.orig ? pc.orig.slice() : w.mods.concat([pc.modId]); } // 원래 순서 그대로 복구
     else if (pc.kind === 'variant' && g.skills.e && !g.skills.e.variant) g.skills.e.variant = pc.old;
     if (pc.cost.voucher) run.services.mod_swap = (run.services.mod_swap || 0) + 1; else run.gold += pc.cost.gold;
     g.pendingOffer = null; return true;

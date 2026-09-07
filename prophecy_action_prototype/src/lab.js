@@ -6,9 +6,9 @@ PA.Lab = (function () {
   const RESULTS_KEY = 'prophecy_action_lab_results_v1'; // 최근 결과(비교 표)
   const S = () => PA.GROWTH.SLOTS;
 
-  function defaultConfig() { return { enemy: 'region:forest', arena: 'auto', hp: { normal: 1, elite: 1, boss: 1 }, seed: 1, build: 'early_sword', control: 'human', bot: 'balanced', growth: 'fixed', time: PA.LAB.DEFAULT_TIME, deep: false, layout: 'classic', overlap: -1 }; }
+  function defaultConfig() { return { enemy: 'region:forest', arena: 'auto', hp: { normal: 1, elite: 1, boss: 1 }, seed: 1, build: 'early_sword', control: 'human', bot: 'balanced', growth: 'fixed', time: PA.LAB.DEFAULT_TIME, deep: false, layout: 'classic', overlap: -1, balance: 'current' }; } // balance: 시험실에 적용할 밸런스 세트(창 규칙·경험치 배율). 기본 현재값
   // ---------- 문자열 ----------
-  function encode(c) { return [`enemy=${c.enemy}`, `arena=${c.arena}`, `hp=${c.hp.normal},${c.hp.elite},${c.hp.boss}`, `seed=${c.seed}`, `build=${c.build}`, `control=${c.control}`, `bot=${c.bot}`, `growth=${c.growth}`, `time=${c.time}`, `deep=${c.deep ? 1 : 0}`, `layout=${c.layout || 'classic'}`, `overlap=${c.overlap == null ? -1 : c.overlap}`].join(';'); }
+  function encode(c) { return [`enemy=${c.enemy}`, `arena=${c.arena}`, `hp=${c.hp.normal},${c.hp.elite},${c.hp.boss}`, `seed=${c.seed}`, `build=${c.build}`, `control=${c.control}`, `bot=${c.bot}`, `growth=${c.growth}`, `time=${c.time}`, `deep=${c.deep ? 1 : 0}`, `layout=${c.layout || 'classic'}`, `balance=${c.balance || 'current'}`, `overlap=${c.overlap == null ? -1 : c.overlap}`].join(';'); }
   function decode(str) {
     const c = defaultConfig(); if (!str) return c;
     let src = String(str).trim();
@@ -33,6 +33,7 @@ PA.Lab = (function () {
     if (!c.hp) c.hp = d.hp; for (const k of ['normal', 'elite', 'boss']) if (!(c.hp[k] > 0)) c.hp[k] = 1;
     if (!(PA.LAYOUTS && PA.LAYOUTS[c.layout])) c.layout = 'classic';
     if (c.overlap == null || isNaN(c.overlap)) c.overlap = -1;
+    if (!(PA.BALANCE_SETS && PA.BALANCE_SETS[c.balance])) c.balance = 'current';
     return c;
   }
 
@@ -44,6 +45,7 @@ PA.Lab = (function () {
     if (PA.LAYOUTS && PA.LAYOUTS.trial) for (const r of PA.REGIONS) { const L = PA.LAYOUTS.trial.regions[r.id]; if (L) list.push({ id: 'trial:' + r.id, group: '지역(시험안 배치)', name: r.name + ' · 시험안', regionId: r.id, waves: L.waves, objective: L.objective || r.objective, arena: L.arena || 'forest', desc: L.desc || r.desc }); }
     for (const t of PA.LAB.ENEMY_ORDER) { const d = PA.ENEMIES[t]; if (!d || t === 'boss') continue; const n = t === 'wolf' ? 2 : 1; const ally = t === 'shaman' ? [{ type: 'wolf', n: 2 }] : []; list.push({ id: 'solo:' + t, group: '단독 시험', name: d.name + (n > 1 ? ` ×${n}` : '') + (ally.length ? ' (+늑대 2: 치료 대상)' : '') + (d.impl === false ? ' (미구현)' : ''), regionId: null, waves: [[{ type: t, n }].concat(ally), [{ type: t, n: n + 1 }].concat(ally)], objective: 'clear', arena: d.arena || 'forest', desc: d.readme, impl: d.impl !== false }); }
     list.push({ id: 'dummy:boss', group: '보스', name: '정지 보스(허수아비 · 행동 없음, 화력 측정용)', regionId: null, waves: [], objective: 'boss', arena: 'clearing', boss: true, bossId: 'boss', dummy: true, desc: '가시갈기 크기·체력의 정지 표적. 공격·이동 없음. 시간 안 준 피해로 무기 화력을 잰다' });
+    if (PA.DAY_WAVES) for (const rid of Object.keys(PA.DAY_WAVES)) for (const day of Object.keys(PA.DAY_WAVES[rid]).map(Number)) { const r = PA.REGIONS.find(x => x.id === rid); list.push({ id: `day:${rid}:${day}`, group: '날짜별 편성(v0.8)', name: `${r.name} · ${day}일차 편성`, regionId: rid, waves: PA.DAY_WAVES[rid][day], objective: r.objective, arena: 'forest', desc: `v0.8 ${day}일차 ${r.name} 편성(변주 없음). 정식 회차의 체력 배율은 지역·날짜 규칙을 따르지만 시험실은 입력한 배율만 쓴다` }); }
     for (const bid of ['guardian', 'eater']) { const B = PA.BOSS_DEFS[bid]; list.push({ id: 'boss:' + bid, group: '보스', name: `${B.name} — ${B.title}`, regionId: null, waves: [], objective: 'boss', arena: 'clearing', boss: true, bossId: bid, desc: B.info.join(' ') }); }
     for (const oid of PA.OBJECTIVE_IDS) for (const rid of ['forest', 'ridge', 'marsh']) { const O = PA.OBJECTIVES[oid], r = PA.REGIONS.find(x => x.id === rid); list.push({ id: `mission:${oid}:${rid}`, group: '전투 목표(임무)', name: `${O.name} · ${r.name}`, regionId: rid, waves: r.waves, objective: oid, arena: 'clearing', desc: O.desc, mission: true }); }
     for (const rk of PA.MISSIONS.risks) { const r = PA.REGIONS.find(x => x.id === 'ridge'); list.push({ id: `risk:${rk}`, group: '위험 조건(임무·능선 봉인 해제)', name: `${PA.MISSIONS.riskText[rk]} · 봉인 해제`, regionId: 'ridge', waves: r.waves, objective: 'seal', risk: rk, arena: 'clearing', desc: `위험 조건 ${PA.MISSIONS.riskText[rk]} 확인용`, mission: true }); }
@@ -54,12 +56,14 @@ PA.Lab = (function () {
   function enemyPreset(id) { return enemyPresets().find(p => p.id === id) || null; }
 
   // ---------- 빌드 프리셋 ----------
+  const presetEquip = (p) => Array.isArray(p.equipment) ? p.equipment : Object.values(p.equipment || {}).filter(Boolean); // 프리셋 장비: 배열 또는 {slot:id}
   function growthFromPreset(preset) {
     const g = PA.Growth.newGrowth(preset.growth.weapons[0].id), gp = preset.growth;
     g.weapons = gp.weapons.map(w => ({ id: w.id, level: w.level || 1, mods: (w.mods || []).slice() }));
     g.commons = Object.assign({}, gp.commons || {}); g.passives = Object.assign({}, gp.passives || {});
     if (gp.e) g.skills.e = { id: gp.e.id, level: gp.e.level || 1, variant: gp.e.variant || null };
     if (gp.q) g.skills.q = { id: 'slowfield', level: gp.q.level || 1, variant: gp.q.variant || null };
+    if (gp.bossRewards) g.bossRewards = gp.bossRewards.slice();
     g.level = 1 + pickCount(g); g.xp = 0;
     return g;
   }
@@ -85,7 +89,7 @@ PA.Lab = (function () {
     for (const k of pc) { const d = PA.PASSIVES[k]; if (!d) errs.push('패시브 없음 ' + k); else if (g.passives[k] > d.max) errs.push(`패시브 ${k} ${g.passives[k]}`); }
     if (g.skills.e) { const d = PA.SKILLS[g.skills.e.id]; if (!d || !PA.E_SKILLS.includes(g.skills.e.id)) errs.push('E 없음'); else { if (g.skills.e.level > s.skillMax) errs.push('E 레벨'); if (g.skills.e.variant && !d.variants[g.skills.e.variant]) errs.push('E 변형 없음'); } }
     if (g.skills.q.level > s.skillMax) errs.push('Q 레벨'); if (g.skills.q.variant && !PA.SKILLS.slowfield.variants[g.skills.q.variant]) errs.push('Q 변형 없음');
-    const gear = preset.gear || {}; if ((gear.upgrade || 0) > 3) errs.push('강화 단계'); for (const id of (preset.equipment || [])) if (!PA.EQUIPMENT[id]) errs.push('장비 없음 ' + id);
+    const gear = preset.gear || {}; if ((gear.upgrade || 0) > 3) errs.push('강화 단계'); for (const id of presetEquip(preset)) if (!PA.EQUIPMENT[id]) errs.push('장비 없음 ' + id);
     return errs;
   }
   function describeBuild(id) {
@@ -98,7 +102,7 @@ PA.Lab = (function () {
       passives: Object.keys(g.passives).filter(k => g.passives[k] > 0).map(k => PA.PASSIVES[k].name + ' ' + g.passives[k]),
       q: `감속장 Lv${g.skills.q.level}${g.skills.q.variant ? ' · ' + PA.SKILLS.slowfield.variants[g.skills.q.variant].name : ''}`,
       e: g.skills.e ? `${PA.SKILLS[g.skills.e.id].name} Lv${g.skills.e.level}${g.skills.e.variant ? ' · ' + PA.SKILLS[g.skills.e.id].variants[g.skills.e.variant].name : ''}` : '없음',
-      gear: [gear.upgrade ? `공용 공격 강화 ${gear.upgrade}단계` : null].concat((p.equipment || []).map(id => PA.EQUIPMENT[id] ? PA.EQUIPMENT[id].name : id)).filter(Boolean),
+      gear: [gear.upgrade ? `공용 공격 강화 ${gear.upgrade}단계` : null].concat(presetEquip(p).map(id => PA.EQUIPMENT[id] ? PA.EQUIPMENT[id].name : id)).filter(Boolean),
       errors: validateBuild(p),
     };
   }
@@ -108,7 +112,7 @@ PA.Lab = (function () {
     const preset = PA.LAB.BUILDS[cfg.build], run = PA.Run.newRun(cfg.seed, preset.growth.weapons[0].id);
     run.growth = growthFromPreset(preset);
     const gear = preset.gear || {};
-    run.forge = Math.min(3, gear.upgrade || 0); for (const id of (preset.equipment || [])) if (PA.EQUIPMENT[id]) { run.bag.push(id); PA.Run.equipItem(run, id); } /* v0.8: 프리셋 장비는 equipment 목록으로 */
+    run.forge = Math.min(3, gear.upgrade || 0); for (const id of presetEquip(preset)) if (PA.EQUIPMENT[id]) { run.bag.push(id); PA.Run.equipItem(run, id); } run.forge = Math.min(3, preset.forge != null ? preset.forge : (gear.upgrade || 0)); /* v0.8: 프리셋 장비는 equipment 목록으로 */
     run.layout = cfg.layout || 'classic';
     run.hp = PA.Run.build(run).hpMax; run.lab = true;
     return run;
@@ -122,7 +126,7 @@ PA.Lab = (function () {
     if (cfg.deep && ep.regionId && ep.regionId !== 'lab') { const r2 = Object.assign({}, run, { layout: cfg.enemy.startsWith('trial:') ? 'trial' : 'classic' }); waves = PA.Run.encounterWaves(ep.regionId, true, r2); }
     return PA.Combat.create(Object.assign(common, { waves, objective: cfg.deep && ep.regionId ? 'elite' : (ep.objective || 'clear'), risk: ep.risk || null, run, mission: ep.mission ? { objective: ep.objective, risk: ep.risk || null } : null }));
   }
-  function labText(cfg) { const ep = enemyPreset(cfg.enemy), b = PA.LAB.BUILDS[cfg.build]; return `시험실 · ${ep ? ep.name : cfg.enemy} · 체력 ×${cfg.hp.normal}/${cfg.hp.elite}/${cfg.hp.boss} · ${b ? b.name : cfg.build} · 시드 ${cfg.seed} · ${cfg.control === 'bot' ? '봇 ' + PA.Bot.POLICIES[cfg.bot].name : '직접 조작'} · ${cfg.growth === 'grow' ? '성장' : '빌드 고정'} · 제한 ${cfg.time}초`; }
+  function labText(cfg) { const ep = enemyPreset(cfg.enemy), b = PA.LAB.BUILDS[cfg.build]; return `시험실 v${PA.VERSION} · ${cfg.balance && cfg.balance !== 'current' && PA.BALANCE_SETS[cfg.balance] ? PA.BALANCE_SETS[cfg.balance].name + ' · ' : ''}${ep ? ep.name : cfg.enemy} · 체력 ×${cfg.hp.normal}/${cfg.hp.elite}/${cfg.hp.boss} · ${b ? b.name : cfg.build} · 시드 ${cfg.seed} · ${cfg.control === 'bot' ? '봇 ' + PA.Bot.POLICIES[cfg.bot].name : '직접 조작'} · ${cfg.growth === 'grow' ? '성장' : '빌드 고정'} · 제한 ${cfg.time}초`; }
 
   // ---------- 결과 ----------
   function result(cfg, st) { const s = PA.Combat.summary(st); s.config = Object.assign({}, cfg, { hp: Object.assign({}, cfg.hp) }); s.configText = encode(cfg); s.at = Date.now(); return s; }
@@ -143,10 +147,12 @@ PA.Lab = (function () {
   function loadResults(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(RESULTS_KEY); return s ? JSON.parse(s) : []; } catch (e) { return []; } }
 
   // 회차 구조 빠른 경로(검증용): 3보스 회차를 지정 단계의 보스 관문 직전 상태로 만든다(단계 빌드 프리셋, 저장 덮어쓰기 없음: 호출자가 결정)
+  // 검증용 빠른 경로: 0/1/2 = 관문 직전(점진 전략 run_sim 덤프의 정상 성장 빌드, 시드 1), 3 = 3일차 성장 중단 최종 보스(같은 시드·정책). run.quick 표시, 기록에 남기지 않음
   function quickRun(stage, seed) {
-    const buildId = ['stage1', 'stage2', 'stage3'][stage] || 'stage1', preset = PA.LAB.BUILDS[buildId];
-    const run = PA.Run.newRun(seed || 7, preset.growth.weapons[0].id, 'trio', PA.BALANCE_DEFAULT); run.growth = growthFromPreset(preset); run.stage = stage; run.bossesDone = PA.RUN_MODES.trio.bosses.slice(0, stage).map(b => b.id);
-    const nb = PA.Run.nextBoss(run); run.day = nb.day; run.hours = PA.CONFIG.HOURS_PER_DAY; run.phase = 'boss_prep'; run.hp = PA.Run.build(run).hpMax; run.gold = 200 + stage * 150; run.quick = true;
+    const buildId = ['stage1', 'stage2', 'stage3', 'stop3_final'][stage] || 'stage1', preset = PA.LAB.BUILDS[buildId]; const gate = stage === 3 ? 2 : stage;
+    const run = PA.Run.newRun(seed || 7, preset.growth.weapons[0].id, 'trio', PA.BALANCE_DEFAULT); run.growth = growthFromPreset(preset); run.stage = gate; run.bossesDone = PA.RUN_MODES.trio.bosses.slice(0, gate).map(b => b.id);
+    for (const sl of PA.EQUIP_SLOTS) { const id = preset.equipment && preset.equipment[sl]; if (id) { run.bag.push(id); PA.Run.equipItem(run, id); } } run.forge = preset.forge || 0;
+    const nb = PA.Run.nextBoss(run); run.day = nb.day; run.hours = PA.CONFIG.HOURS_PER_DAY; run.phase = 'boss_prep'; run.hp = PA.Run.build(run).hpMax; run.gold = preset.gold != null ? preset.gold : 200 + gate * 150; run.quick = true; run.quickName = preset.name;
     PA.Sortie.cardsFor(run); return run;
   }
   return { LAB_KEY, RESULTS_KEY, quickRun, defaultConfig, encode, decode, normalize, enemyPresets, enemyPreset, growthFromPreset, pickCount, validateBuild, describeBuild, makeRun, makeCombat, labText, result, csvRow, toCsv, CSV_COLS, saveConfig, loadConfig, saveResults, loadResults };

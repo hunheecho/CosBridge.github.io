@@ -1,0 +1,20 @@
+PASS | index 버전 v0.8.0·회전 칼날 시험값 10/0.35 | {"v":"0.8.0","blades":"10/0.35","title":"액션 프로토타입 · 마검사의 준비 기간 · v0.8.0"}
+PASS | index 검증 메뉴 → 시험실(회전 칼날 Lv1 · 1일차 숲 · test03) | ["lab","start_blades","day:forest:1","test03"]
+PASS | index 시험실 전투 시작(라벨에 버전·세트·빌드, test03 창 규칙 적용, 체력 ×1.5) | {"screen":"combat","label":"시험실 v0.8.0 · 시험 빌드 (경험치 ×0.3) · 근교 숲 · 1일차 편성 · 체력 ×1.5/1.5/1 · 시작: 회전 칼날(Lv1) · 시드 1 · 직접 조작 · 빌드 고정 · 제한 120초","spear":0.85,"waves":3,"hp":1.5}
+PASS | index 3일차 중단 최종 보스 입장 화면(검증용 표시) | {"screen":"base","day":7,"quick":true,"lv":11,"badge":true,"phase":"boss_prep"}
+PASS | index 최종 보스 전투 시작(예언을 먹는 자 7000) | {"screen":"combat","boss":"eater","hp":7000}
+PASS | index 상점 구매·교체·장비 비교 화면(금화 400, 비교 표시) | {"screen":"shop","gold":400,"cards":2,"cmp":true}
+PASS | index 런 피해 통계 화면(봇 보스전 1회 실제 기록, 합계 검증, 기록 파일 미생성) | {"screen":"base","combats":1,"kind":"boss","panel":true,"verify":true,"recorded":true}
+PASS | index 정상 새 회차(검증 플래그 없음) | {"day":1,"gold":60}
+PASS | index 첫 전투 승리 → 귀환 정산 → 저장·계속 | {"screen":"base","gold":90,"combats":1,"hours":4}
+PASS | index 페이지 오류 없음 | 
+PASS | dist 버전 v0.8.0·회전 칼날 시험값 10/0.35 | {"v":"0.8.0","blades":"10/0.35","title":"액션 프로토타입 · 마검사의 준비 기간 · v0.8.0"}
+PASS | dist 검증 메뉴 → 시험실(회전 칼날 Lv1 · 1일차 숲 · test03) | ["lab","start_blades","day:forest:1","test03"]
+PASS | dist 시험실 전투 시작(라벨에 버전·세트·빌드, test03 창 규칙 적용, 체력 ×1.5) | {"screen":"combat","label":"시험실 v0.8.0 · 시험 빌드 (경험치 ×0.3) · 근교 숲 · 1일차 편성 · 체력 ×1.5/1.5/1 · 시작: 회전 칼날(Lv1) · 시드 1 · 직접 조작 · 빌드 고정 · 제한 120초","spear":0.85,"waves":3,"hp":1.5}
+PASS | dist 3일차 중단 최종 보스 입장 화면(검증용 표시) | {"screen":"base","day":7,"quick":true,"lv":11,"badge":true,"phase":"boss_prep"}
+PASS | dist 최종 보스 전투 시작(예언을 먹는 자 7000) | {"screen":"combat","boss":"eater","hp":7000}
+PASS | dist 상점 구매·교체·장비 비교 화면(금화 400, 비교 표시) | {"screen":"shop","gold":400,"cards":2,"cmp":true}
+PASS | dist 런 피해 통계 화면(봇 보스전 1회 실제 기록, 합계 검증, 기록 파일 미생성) | {"screen":"base","combats":1,"kind":"boss","panel":true,"verify":true,"recorded":true}
+PASS | dist 정상 새 회차(검증 플래그 없음) | {"day":1,"gold":60}
+PASS | dist 첫 전투 승리 → 귀환 정산 → 저장·계속 | {"screen":"base","gold":89,"combats":1,"hours":4}
+PASS | dist 페이지 오류 없음 | 

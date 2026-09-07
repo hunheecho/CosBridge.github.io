@@ -113,7 +113,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       if (c.status === 'won') {
         const hadFirst = !!run.bossClear;
         const rec = PA.Flow.settleBossVictory(run, c); G.lastRecord = rec; // 정산 1회: 기록·다음 단계·희귀 보상 보류(마지막 보스는 없음)
-        const R = PA.Run.saveRecord(rec); G.firstClearNew = !hadFirst && R.firstClear && R.firstClear.at === rec.at;
+        if (!run.quick) { const R = PA.Run.saveRecord(rec); G.firstClearNew = !hadFirst && R.firstClear && R.firstClear.at === rec.at; } else G.firstClearNew = false; /* 검증용 빠른 경로는 기록에 남기지 않는다 */
         saveRun(); G.sortie = null; show('boss_victory');
       } else { PA.Flow.settleBossDefeat(run, c); saveRun(); G.sortie = null; show('boss_defeat'); }
       return;
@@ -132,14 +132,14 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 전투 시험실(정식 회차와 분리: 저장 키·입력·배율이 회차로 새지 않는다) ----------
   function enterLab(cfg) {
-    leaveScenario(); PA.Balance.apply('current'); // 시험실은 항상 현재값(밸런스 후보는 회차 전용) G.run = null; G.sortie = null; G.combat = null; G.saved = PA.Run.load();
-    G.lab.cfg = cfg || PA.Lab.loadConfig(); G.labResults = PA.Lab.loadResults(); G.labCsv = null;
+    leaveScenario(); G.run = null; G.sortie = null; G.combat = null; G.saved = PA.Run.load(); /* 시험실 진입: 회차 상태를 비운다(이전 버전은 주석이 이 줄을 삼켜 회차 상태가 남는 버그) */
+    G.lab.cfg = cfg || PA.Lab.loadConfig(); G.labResults = PA.Lab.loadResults(); G.labCsv = null; PA.Balance.apply(G.lab.cfg.balance || 'current'); /* 시험실 밸런스 세트는 설정값(기본 현재값) */
     show('lab');
   }
   // 화면의 입력 요소 → 설정
   function readLabForm() {
     const c = G.lab.cfg, v = (id) => { const el = $('#' + id); return el ? el.value : null; };
-    if (v('lab-enemy')) c.enemy = v('lab-enemy'); if (v('lab-arena')) c.arena = v('lab-arena'); if (v('lab-build')) c.build = v('lab-build'); if (v('lab-bot')) c.bot = v('lab-bot');
+    if (v('lab-enemy')) c.enemy = v('lab-enemy'); if (v('lab-arena')) c.arena = v('lab-arena'); if (v('lab-balance')) c.balance = v('lab-balance'); if (v('lab-build')) c.build = v('lab-build'); if (v('lab-bot')) c.bot = v('lab-bot');
     if (v('lab-hp-normal')) c.hp = { normal: parseFloat(v('lab-hp-normal')), elite: parseFloat(v('lab-hp-elite')), boss: parseFloat(v('lab-hp-boss')) };
     if (v('lab-seed') != null) c.seed = parseInt(v('lab-seed') || '0', 10); if (v('lab-time')) c.time = parseInt(v('lab-time'), 10); if (v('lab-overlap') != null) c.overlap = parseInt(v('lab-overlap'), 10);
     const deep = $('#lab-deep'); if (deep) c.deep = deep.checked;
@@ -149,7 +149,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   }
   function startLab(cfg) {
     G.lab.cfg = PA.Lab.normalize(cfg || G.lab.cfg); PA.Lab.saveConfig(G.lab.cfg);
-    const c = G.lab.cfg; G.scenario = { lab: true }; G.choice = null;
+    const c = G.lab.cfg; G.scenario = { lab: true }; G.choice = null; PA.Balance.apply(c.balance || 'current');
     G.run = PA.Lab.makeRun(c);
     const ep = PA.Lab.enemyPreset(c.enemy);
     G.sortie = { regionId: ep.regionId || 'lab', deep: c.deep, loot: { gold: 0, mats: {} }, encounters: 0, seed: c.seed, lab: true };
@@ -222,7 +222,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'give-up': () => { closeOverlay(); G.paused = false; PA.Input.setBlocked(G.input, false); if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
     'scenario-again': () => startScenario(G.scenario),
     'lab': () => { if (G.screen === 'lab_result') { G.combat = null; show('lab'); return; } enterLab(); },
-    'quick-run': (stage) => { leaveScenario(); G.run = PA.Lab.quickRun(Number(stage) || 0); PA.Balance.applyRun(G.run); G.sortie = null; G.combat = null; saveRun(); goBase(); }, // 검증 메뉴: 3보스 회차 관문 직전(현재 저장을 덮어씀)
+    'quick-run': (stage) => { leaveScenario(); G.run = PA.Lab.quickRun(Number(stage) || 0); PA.Balance.applyRun(G.run); G.sortie = null; G.combat = null; saveRun(); goBase(); },
+    'quick-shop': () => { leaveScenario(); G.run = PA.Lab.quickRun(0); G.run.gold = 400; PA.Balance.applyRun(G.run); G.sortie = null; G.combat = null; saveRun(); G.shopTab = 'stock'; show('shop'); }, // 검증: 상점 구매·교체·장비 비교(금화 400)
+    'quick-lab': (text) => { enterLab(PA.Lab.decode(text)); }, // 검증: 시험실 프리셋으로 바로 진입(설정 화면에서 시작 버튼)
+    'quick-stats': () => { leaveScenario(); G.run = PA.Lab.quickRun(2); PA.Balance.applyRun(G.run); G.sortie = null; G.combat = null; const bs = PA.Run.startBoss(G.run); const st = PA.Flow.makeBossEncounter(G.run, bs); PA.Bot.runCombat(st, 'balanced', { maxSec: 300 }); if (st.status === 'won') PA.Flow.settleBossVictory(G.run, st); else { st.status = 'lost'; PA.Flow.settleBossDefeat(G.run, st); } G.run.growth.pendingBossPick = null; G.run.growth.pendingOffer = null; saveRun(); goBase(); }, // 검증: 봇이 최종 보스전을 1회 실제로 치르고(헤드리스) 그 통계를 거점/결과 화면에 표시 // 검증 메뉴: 3보스 회차 관문 직전(현재 저장을 덮어씀)
     'lab-start': () => { readLabForm(); startLab(); },
     'lab-restart': () => startLab(G.lab.cfg),
     'lab-restart-hp': () => { const el = $('#lab-result-hp'); const c = Object.assign({}, G.lab.cfg, { hp: Object.assign({}, G.lab.cfg.hp) }); if (el) c.hp.normal = parseFloat(el.value); startLab(c); },

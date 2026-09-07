@@ -1,0 +1,7770 @@
+[
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "normal_s1",
+   "name": "관문 정상 성장(시드 1, Lv7)",
+   "growth": {
+    "level": 7,
+    "xp": 37.5,
+    "pendingLevelUps": 0,
+    "choiceSeq": 6,
+    "pendingOffer": null,
+    "lastKind": "weapon_mod",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "cross"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 1,
+     "weapon_mod": 3,
+     "common": 0,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 5
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual"
+    ]
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "expedition_armor",
+    "shield": null
+   },
+   "forge": 1,
+   "cat": "정상 성장"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 100,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 7,
+  "hitsOn": 6,
+  "q": 0,
+  "bd": 1917,
+  "pat": "dash 1, howl 1, sweep 5",
+  "src": "회전 칼날 39%, 검 36%, 불씨 정령 25%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "normal_s1",
+   "name": "관문 정상 성장(시드 1, Lv7)",
+   "growth": {
+    "level": 7,
+    "xp": 37.5,
+    "pendingLevelUps": 0,
+    "choiceSeq": 6,
+    "pendingOffer": null,
+    "lastKind": "weapon_mod",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "cross"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 1,
+     "weapon_mod": 3,
+     "common": 0,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 5
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual"
+    ]
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "expedition_armor",
+    "shield": null
+   },
+   "forge": 1,
+   "cat": "정상 성장"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 100,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 7,
+  "hitsOn": 6,
+  "q": 2,
+  "bd": 2343,
+  "pat": "dash 1, howl 1, sweep 5",
+  "src": "회전 칼날 37%, 검 35%, 불씨 정령 26%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "normal_s1",
+   "name": "관문 정상 성장(시드 1, Lv7)",
+   "growth": {
+    "level": 7,
+    "xp": 37.5,
+    "pendingLevelUps": 0,
+    "choiceSeq": 6,
+    "pendingOffer": null,
+    "lastKind": "weapon_mod",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "cross"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 1,
+     "weapon_mod": 3,
+     "common": 0,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 5
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual"
+    ]
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "expedition_armor",
+    "shield": null
+   },
+   "forge": 1,
+   "cat": "정상 성장"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 36,
+  "taken": 0,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 10,
+  "hitsOn": 0,
+  "q": 3,
+  "bd": 2400,
+  "pat": "dash 3.7, howl 1.7, sweep 3.7",
+  "src": "불씨 정령 39%, 검 32%, 회전 칼날 27%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "normal_s1",
+   "name": "관문 정상 성장(시드 1, Lv7)",
+   "growth": {
+    "level": 7,
+    "xp": 37.5,
+    "pendingLevelUps": 0,
+    "choiceSeq": 6,
+    "pendingOffer": null,
+    "lastKind": "weapon_mod",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "cross"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 1,
+     "weapon_mod": 3,
+     "common": 0,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 5
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual"
+    ]
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "expedition_armor",
+    "shield": null
+   },
+   "forge": 1,
+   "cat": "정상 성장"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 39,
+  "taken": 0,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 11,
+  "hitsOn": 0,
+  "q": 3,
+  "bd": 2400,
+  "pat": "dash 3.7, howl 1.7, sweep 4.3",
+  "src": "불씨 정령 38%, 검 33%, 회전 칼날 28%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "normal_s2",
+   "name": "관문 정상 성장(시드 2, Lv7)",
+   "growth": {
+    "level": 7,
+    "xp": 37.5,
+    "pendingLevelUps": 0,
+    "choiceSeq": 6,
+    "pendingOffer": null,
+    "lastKind": "weapon_mod",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 1,
+      "mods": [
+       "flank"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "frost": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 0,
+     "weapon_mod": 3,
+     "common": 1,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 7
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent"
+    ]
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "iron_shield"
+   },
+   "forge": 1,
+   "cat": "정상 성장"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 3,
+  "t": 18,
+  "taken": 63,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 5,
+  "hitsOn": 4,
+  "q": 0,
+  "bd": 2400,
+  "pat": "dash 1, howl 1, sweep 4",
+  "src": "검 40%, 쌍검 35%, 회전 칼날 24%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "normal_s2",
+   "name": "관문 정상 성장(시드 2, Lv7)",
+   "growth": {
+    "level": 7,
+    "xp": 37.5,
+    "pendingLevelUps": 0,
+    "choiceSeq": 6,
+    "pendingOffer": null,
+    "lastKind": "weapon_mod",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 1,
+      "mods": [
+       "flank"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "frost": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 0,
+     "weapon_mod": 3,
+     "common": 1,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 7
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent"
+    ]
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "iron_shield"
+   },
+   "forge": 1,
+   "cat": "정상 성장"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 3,
+  "t": 17,
+  "taken": 51,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 4,
+  "hitsOn": 3,
+  "q": 2,
+  "bd": 2400,
+  "pat": "dash 1, howl 1, sweep 3",
+  "src": "검 39%, 쌍검 33%, 회전 칼날 22%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "normal_s2",
+   "name": "관문 정상 성장(시드 2, Lv7)",
+   "growth": {
+    "level": 7,
+    "xp": 37.5,
+    "pendingLevelUps": 0,
+    "choiceSeq": 6,
+    "pendingOffer": null,
+    "lastKind": "weapon_mod",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 1,
+      "mods": [
+       "flank"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "frost": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 0,
+     "weapon_mod": 3,
+     "common": 1,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 7
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent"
+    ]
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "iron_shield"
+   },
+   "forge": 1,
+   "cat": "정상 성장"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 23,
+  "taken": 0,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 6,
+  "hitsOn": 0,
+  "q": 2,
+  "bd": 2400,
+  "pat": "dash 1, howl 1, sweep 4",
+  "src": "검 51%, 쌍검 24%, 회전 칼날 20%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "normal_s2",
+   "name": "관문 정상 성장(시드 2, Lv7)",
+   "growth": {
+    "level": 7,
+    "xp": 37.5,
+    "pendingLevelUps": 0,
+    "choiceSeq": 6,
+    "pendingOffer": null,
+    "lastKind": "weapon_mod",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 1,
+      "mods": [
+       "flank"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "frost": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 0,
+     "weapon_mod": 3,
+     "common": 1,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 7
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent"
+    ]
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "iron_shield"
+   },
+   "forge": 1,
+   "cat": "정상 성장"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 27,
+  "taken": 0,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 7,
+  "hitsOn": 0,
+  "q": 2,
+  "bd": 2400,
+  "pat": "dash 1, howl 1, sweep 5",
+  "src": "검 52%, 쌍검 24%, 회전 칼날 20%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "normal_s3",
+   "name": "관문 정상 성장(시드 3, Lv7)",
+   "growth": {
+    "level": 7,
+    "xp": 37.5,
+    "pendingLevelUps": 0,
+    "choiceSeq": 6,
+    "pendingOffer": null,
+    "lastKind": "weapon_mod",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "wide": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 1,
+     "weapon_mod": 2,
+     "common": 1,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 6
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross"
+    ]
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "caster_shield"
+   },
+   "forge": 1,
+   "cat": "정상 성장"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 100,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 7,
+  "hitsOn": 6,
+  "q": 0,
+  "bd": 2031,
+  "pat": "dash 1, howl 1, sweep 5",
+  "src": "검 42%, 회전 칼날 39%, 추적궁 19%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "normal_s3",
+   "name": "관문 정상 성장(시드 3, Lv7)",
+   "growth": {
+    "level": 7,
+    "xp": 37.5,
+    "pendingLevelUps": 0,
+    "choiceSeq": 6,
+    "pendingOffer": null,
+    "lastKind": "weapon_mod",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "wide": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 1,
+     "weapon_mod": 2,
+     "common": 1,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 6
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross"
+    ]
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "caster_shield"
+   },
+   "forge": 1,
+   "cat": "정상 성장"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 3,
+  "t": 25,
+  "taken": 68,
+  "absorbed": 16,
+  "heal": 0,
+  "attempts": 6,
+  "hitsOn": 5,
+  "q": 2,
+  "bd": 2400,
+  "pat": "dash 1, howl 1, sweep 5",
+  "src": "검 41%, 회전 칼날 39%, 추적궁 18%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "normal_s3",
+   "name": "관문 정상 성장(시드 3, Lv7)",
+   "growth": {
+    "level": 7,
+    "xp": 37.5,
+    "pendingLevelUps": 0,
+    "choiceSeq": 6,
+    "pendingOffer": null,
+    "lastKind": "weapon_mod",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "wide": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 1,
+     "weapon_mod": 2,
+     "common": 1,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 6
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross"
+    ]
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "caster_shield"
+   },
+   "forge": 1,
+   "cat": "정상 성장"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 38,
+  "taken": 0,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 11,
+  "hitsOn": 0,
+  "q": 3,
+  "bd": 2400,
+  "pat": "dash 5.3, howl 1.7, sweep 2",
+  "src": "검 43%, 추적궁 29%, 회전 칼날 28%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "normal_s3",
+   "name": "관문 정상 성장(시드 3, Lv7)",
+   "growth": {
+    "level": 7,
+    "xp": 37.5,
+    "pendingLevelUps": 0,
+    "choiceSeq": 6,
+    "pendingOffer": null,
+    "lastKind": "weapon_mod",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "wide": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 1,
+     "weapon_mod": 2,
+     "common": 1,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 6
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross"
+    ]
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "caster_shield"
+   },
+   "forge": 1,
+   "cat": "정상 성장"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 39,
+  "taken": 7,
+  "absorbed": 0,
+  "heal": 5,
+  "attempts": 10,
+  "hitsOn": 0,
+  "q": 3,
+  "bd": 2400,
+  "pat": "dash 6, howl 1.3, sweep 1.3",
+  "src": "검 43%, 추적궁 29%, 회전 칼날 28%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "inv_direct",
+   "name": "같은 투자(7선택): 직접 피해 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 4,
+      "mods": [
+       "cross"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "mastery": 2,
+     "haste": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 103,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 7,
+  "hitsOn": 6,
+  "q": 0,
+  "bd": 956,
+  "pat": "dash 1, howl 1, sweep 4.7",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "inv_direct",
+   "name": "같은 투자(7선택): 직접 피해 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 4,
+      "mods": [
+       "cross"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "mastery": 2,
+     "haste": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 101,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 6,
+  "hitsOn": 5,
+  "q": 2,
+  "bd": 1152,
+  "pat": "dash 1, howl 1, sweep 4.3",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "inv_direct",
+   "name": "같은 투자(7선택): 직접 피해 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 4,
+      "mods": [
+       "cross"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "mastery": 2,
+     "haste": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 53,
+  "taken": 16,
+  "absorbed": 0,
+  "heal": 5,
+  "attempts": 16,
+  "hitsOn": 1,
+  "q": 4,
+  "bd": 2400,
+  "pat": "dash 1, howl 3, sweep 11.7",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "inv_direct",
+   "name": "같은 투자(7선택): 직접 피해 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 4,
+      "mods": [
+       "cross"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "mastery": 2,
+     "haste": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 62,
+  "taken": 0,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 18,
+  "hitsOn": 0,
+  "q": 5,
+  "bd": 2400,
+  "pat": "dash 1, howl 3, sweep 14",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "inv_dot",
+   "name": "같은 투자(7선택): 지속 피해·장판 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "ember",
+      "level": 3,
+      "mods": [
+       "trail",
+       "reignite"
+      ]
+     }
+    ],
+    "commons": {
+     "burn": 1
+    },
+    "passives": {
+     "persistence": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 1,
+  "t": 20,
+  "taken": 99,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 7,
+  "hitsOn": 6,
+  "q": 0,
+  "bd": 2365,
+  "pat": "dash 1, howl 1, sweep 4.7",
+  "src": "불씨 정령 71%, 검 21%, 화상 7%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "inv_dot",
+   "name": "같은 투자(7선택): 지속 피해·장판 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "ember",
+      "level": 3,
+      "mods": [
+       "trail",
+       "reignite"
+      ]
+     }
+    ],
+    "commons": {
+     "burn": 1
+    },
+    "passives": {
+     "persistence": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 3,
+  "t": 22,
+  "taken": 79,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 6,
+  "hitsOn": 5,
+  "q": 2,
+  "bd": 2400,
+  "pat": "dash 1, howl 1, sweep 3.7",
+  "src": "불씨 정령 70%, 검 23%, 화상 7%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "inv_dot",
+   "name": "같은 투자(7선택): 지속 피해·장판 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "ember",
+      "level": 3,
+      "mods": [
+       "trail",
+       "reignite"
+      ]
+     }
+    ],
+    "commons": {
+     "burn": 1
+    },
+    "passives": {
+     "persistence": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 21,
+  "taken": 0,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 5,
+  "hitsOn": 0,
+  "q": 2,
+  "bd": 2400,
+  "pat": "dash 2, howl 1, sweep 2",
+  "src": "불씨 정령 81%, 검 14%, 화상 5%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "inv_dot",
+   "name": "같은 투자(7선택): 지속 피해·장판 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "ember",
+      "level": 3,
+      "mods": [
+       "trail",
+       "reignite"
+      ]
+     }
+    ],
+    "commons": {
+     "burn": 1
+    },
+    "passives": {
+     "persistence": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 22,
+  "taken": 0,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 6,
+  "hitsOn": 0,
+  "q": 2,
+  "bd": 2400,
+  "pat": "dash 3, howl 1, sweep 1",
+  "src": "불씨 정령 80%, 검 15%, 화상 5%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "inv_def",
+   "name": "같은 투자(7선택): 방어·회복 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "vitality": 2,
+     "toughness": 2
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "ward",
+      "level": 2,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 144,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 11,
+  "hitsOn": 9,
+  "q": 0,
+  "bd": 907,
+  "pat": "dash 1, howl 1.7, sweep 8",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "inv_def",
+   "name": "같은 투자(7선택): 방어·회복 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "vitality": 2,
+     "toughness": 2
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "ward",
+      "level": 2,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 148,
+  "absorbed": 84,
+  "heal": 0,
+  "attempts": 17,
+  "hitsOn": 14,
+  "q": 5,
+  "bd": 1783,
+  "pat": "dash 1, howl 3, sweep 13.3",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "inv_def",
+   "name": "같은 투자(7선택): 방어·회복 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "vitality": 2,
+     "toughness": 2
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "ward",
+      "level": 2,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 86,
+  "taken": 21,
+  "absorbed": 20,
+  "heal": 9,
+  "attempts": 26,
+  "hitsOn": 3,
+  "q": 6,
+  "bd": 2400,
+  "pat": "dash 1, howl 4.7, sweep 20.7",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "boss",
+  "build": {
+   "id": "inv_def",
+   "name": "같은 투자(7선택): 방어·회복 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "vitality": 2,
+     "toughness": 2
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "ward",
+      "level": 2,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 99,
+  "taken": 0,
+  "absorbed": 4,
+  "heal": 0,
+  "attempts": 30,
+  "hitsOn": 0,
+  "q": 7,
+  "bd": 2400,
+  "pat": "dash 1, howl 5.3, sweep 24",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "normal_s1",
+   "name": "관문 정상 성장(시드 1, Lv12)",
+   "growth": {
+    "level": 12,
+    "xp": 49.35,
+    "pendingLevelUps": 0,
+    "choiceSeq": 12,
+    "pendingOffer": null,
+    "lastKind": "skill_variant",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "cross",
+       "scar"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 1,
+      "mods": [
+       "scatter",
+       "trail"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": "windpath"
+     }
+    },
+    "bossRewards": [
+     "volley"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 1,
+     "weapon_mod": 6,
+     "common": 1,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 1,
+     "passive": 0,
+     "skip": 0,
+     "event": 6,
+     "boss_reward": 1
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual",
+     "boss_reward:volley",
+     "weapon_mod:ember:scatter",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:ember:trail",
+     "skill_variant:gust:windpath"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": "pioneer_spear",
+    "armor": "expedition_armor",
+    "shield": "time_shield"
+   },
+   "forge": 2,
+   "cat": "정상 성장"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 127,
+  "absorbed": 0,
+  "heal": 10,
+  "attempts": 8,
+  "hitsOn": 7,
+  "q": 0,
+  "bd": 3121,
+  "pat": "shock 5, sweep 2.7",
+  "src": "불씨 정령 84%, 검 14%, 회전 칼날 2%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "normal_s1",
+   "name": "관문 정상 성장(시드 1, Lv12)",
+   "growth": {
+    "level": 12,
+    "xp": 49.35,
+    "pendingLevelUps": 0,
+    "choiceSeq": 12,
+    "pendingOffer": null,
+    "lastKind": "skill_variant",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "cross",
+       "scar"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 1,
+      "mods": [
+       "scatter",
+       "trail"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": "windpath"
+     }
+    },
+    "bossRewards": [
+     "volley"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 1,
+     "weapon_mod": 6,
+     "common": 1,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 1,
+     "passive": 0,
+     "skip": 0,
+     "event": 6,
+     "boss_reward": 1
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual",
+     "boss_reward:volley",
+     "weapon_mod:ember:scatter",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:ember:trail",
+     "skill_variant:gust:windpath"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": "pioneer_spear",
+    "armor": "expedition_armor",
+    "shield": "time_shield"
+   },
+   "forge": 2,
+   "cat": "정상 성장"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 127,
+  "absorbed": 0,
+  "heal": 20,
+  "attempts": 8,
+  "hitsOn": 7,
+  "q": 2,
+  "bd": 3942,
+  "pat": "shock 5, sweep 2.7",
+  "src": "불씨 정령 86%, 검 12%, 회전 칼날 2%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "normal_s1",
+   "name": "관문 정상 성장(시드 1, Lv12)",
+   "growth": {
+    "level": 12,
+    "xp": 49.35,
+    "pendingLevelUps": 0,
+    "choiceSeq": 12,
+    "pendingOffer": null,
+    "lastKind": "skill_variant",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "cross",
+       "scar"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 1,
+      "mods": [
+       "scatter",
+       "trail"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": "windpath"
+     }
+    },
+    "bossRewards": [
+     "volley"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 1,
+     "weapon_mod": 6,
+     "common": 1,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 1,
+     "passive": 0,
+     "skip": 0,
+     "event": 6,
+     "boss_reward": 1
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual",
+     "boss_reward:volley",
+     "weapon_mod:ember:scatter",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:ember:trail",
+     "skill_variant:gust:windpath"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": "pioneer_spear",
+    "armor": "expedition_armor",
+    "shield": "time_shield"
+   },
+   "forge": 2,
+   "cat": "정상 성장"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 26,
+  "taken": 73,
+  "absorbed": 0,
+  "heal": 25,
+  "attempts": 7,
+  "hitsOn": 0,
+  "q": 2,
+  "bd": 5000,
+  "pat": "shock 4.7, sweep 2.3",
+  "src": "불씨 정령 72%, 검 19%, 회전 칼날 9%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "normal_s1",
+   "name": "관문 정상 성장(시드 1, Lv12)",
+   "growth": {
+    "level": 12,
+    "xp": 49.35,
+    "pendingLevelUps": 0,
+    "choiceSeq": 12,
+    "pendingOffer": null,
+    "lastKind": "skill_variant",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "cross",
+       "scar"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 1,
+      "mods": [
+       "scatter",
+       "trail"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": "windpath"
+     }
+    },
+    "bossRewards": [
+     "volley"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 1,
+     "weapon_mod": 6,
+     "common": 1,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 1,
+     "passive": 0,
+     "skip": 0,
+     "event": 6,
+     "boss_reward": 1
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual",
+     "boss_reward:volley",
+     "weapon_mod:ember:scatter",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:ember:trail",
+     "skill_variant:gust:windpath"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": "pioneer_spear",
+    "armor": "expedition_armor",
+    "shield": "time_shield"
+   },
+   "forge": 2,
+   "cat": "정상 성장"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 34,
+  "taken": 6,
+  "absorbed": 0,
+  "heal": 5,
+  "attempts": 9,
+  "hitsOn": 0,
+  "q": 3,
+  "bd": 5000,
+  "pat": "shock 5.7, sweep 3.3",
+  "src": "불씨 정령 71%, 검 18%, 회전 칼날 10%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "normal_s2",
+   "name": "관문 정상 성장(시드 2, Lv12)",
+   "growth": {
+    "level": 12,
+    "xp": 49.35,
+    "pendingLevelUps": 0,
+    "choiceSeq": 12,
+    "pendingOffer": null,
+    "lastKind": "common",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 1,
+      "mods": [
+       "flank",
+       "pursuit"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "serrated",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "stasis": 1,
+     "burn": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 0,
+     "weapon_mod": 6,
+     "common": 3,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 11,
+     "boss_reward": 1
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent",
+     "boss_reward:clone",
+     "weapon_mod:blades:serrated",
+     "common:stasis",
+     "weapon_mod:daggers:pursuit",
+     "weapon_mod:blades:dual",
+     "common:burn"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "guardian_armor",
+    "shield": "caster_shield"
+   },
+   "forge": 2,
+   "cat": "정상 성장"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 110,
+  "absorbed": 15,
+  "heal": 0,
+  "attempts": 8,
+  "hitsOn": 7,
+  "q": 0,
+  "bd": 196,
+  "pat": "shock 5.3, sweep 2.3",
+  "src": "검 72%, 화상 18%, 회전 칼날 6%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "normal_s2",
+   "name": "관문 정상 성장(시드 2, Lv12)",
+   "growth": {
+    "level": 12,
+    "xp": 49.35,
+    "pendingLevelUps": 0,
+    "choiceSeq": 12,
+    "pendingOffer": null,
+    "lastKind": "common",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 1,
+      "mods": [
+       "flank",
+       "pursuit"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "serrated",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "stasis": 1,
+     "burn": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 0,
+     "weapon_mod": 6,
+     "common": 3,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 11,
+     "boss_reward": 1
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent",
+     "boss_reward:clone",
+     "weapon_mod:blades:serrated",
+     "common:stasis",
+     "weapon_mod:daggers:pursuit",
+     "weapon_mod:blades:dual",
+     "common:burn"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "guardian_armor",
+    "shield": "caster_shield"
+   },
+   "forge": 2,
+   "cat": "정상 성장"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 111,
+  "absorbed": 23,
+  "heal": 0,
+  "attempts": 8,
+  "hitsOn": 7,
+  "q": 2,
+  "bd": 293,
+  "pat": "shock 5, sweep 3",
+  "src": "검 54%, 칼날 폭풍(E) 16%, 화상 16%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "normal_s2",
+   "name": "관문 정상 성장(시드 2, Lv12)",
+   "growth": {
+    "level": 12,
+    "xp": 49.35,
+    "pendingLevelUps": 0,
+    "choiceSeq": 12,
+    "pendingOffer": null,
+    "lastKind": "common",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 1,
+      "mods": [
+       "flank",
+       "pursuit"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "serrated",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "stasis": 1,
+     "burn": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 0,
+     "weapon_mod": 6,
+     "common": 3,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 11,
+     "boss_reward": 1
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent",
+     "boss_reward:clone",
+     "weapon_mod:blades:serrated",
+     "common:stasis",
+     "weapon_mod:daggers:pursuit",
+     "weapon_mod:blades:dual",
+     "common:burn"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "guardian_armor",
+    "shield": "caster_shield"
+   },
+   "forge": 2,
+   "cat": "정상 성장"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 32,
+  "taken": 56,
+  "absorbed": 28,
+  "heal": 10,
+  "attempts": 8,
+  "hitsOn": 0,
+  "q": 3,
+  "bd": 5000,
+  "pat": "shock 5, sweep 3.3",
+  "src": "검 41%, 회전 칼날 19%, 쌍검 19%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "normal_s2",
+   "name": "관문 정상 성장(시드 2, Lv12)",
+   "growth": {
+    "level": 12,
+    "xp": 49.35,
+    "pendingLevelUps": 0,
+    "choiceSeq": 12,
+    "pendingOffer": null,
+    "lastKind": "common",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 1,
+      "mods": [
+       "flank",
+       "pursuit"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "serrated",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "stasis": 1,
+     "burn": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 0,
+     "weapon_mod": 6,
+     "common": 3,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 11,
+     "boss_reward": 1
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent",
+     "boss_reward:clone",
+     "weapon_mod:blades:serrated",
+     "common:stasis",
+     "weapon_mod:daggers:pursuit",
+     "weapon_mod:blades:dual",
+     "common:burn"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "guardian_armor",
+    "shield": "caster_shield"
+   },
+   "forge": 2,
+   "cat": "정상 성장"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 42,
+  "taken": 16,
+  "absorbed": 15,
+  "heal": 0,
+  "attempts": 11,
+  "hitsOn": 2,
+  "q": 3,
+  "bd": 5000,
+  "pat": "shock 6, sweep 5.3",
+  "src": "검 45%, 회전 칼날 19%, 쌍검 16%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "normal_s3",
+   "name": "관문 정상 성장(시드 3, Lv12)",
+   "growth": {
+    "level": 12,
+    "xp": 49.35,
+    "pendingLevelUps": 0,
+    "choiceSeq": 12,
+    "pendingOffer": null,
+    "lastKind": "weapon_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 2,
+      "mods": [
+       "ricochet",
+       "pierce"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "wide": 1,
+     "echo": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 3,
+     "weapon_mod": 4,
+     "common": 2,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 8,
+     "boss_reward": 1
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross",
+     "boss_reward:clone",
+     "weapon_level:bow",
+     "weapon_mod:bow:ricochet",
+     "common:echo",
+     "weapon_mod:bow:pierce",
+     "weapon_level:sword"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "emergency_shield"
+   },
+   "forge": 2,
+   "cat": "정상 성장"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 113,
+  "absorbed": 20,
+  "heal": 0,
+  "attempts": 8,
+  "hitsOn": 7,
+  "q": 0,
+  "bd": 1212,
+  "pat": "shock 5.3, sweep 2.7",
+  "src": "추적궁 59%, 검 27%, 회전 칼날 14%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "normal_s3",
+   "name": "관문 정상 성장(시드 3, Lv12)",
+   "growth": {
+    "level": 12,
+    "xp": 49.35,
+    "pendingLevelUps": 0,
+    "choiceSeq": 12,
+    "pendingOffer": null,
+    "lastKind": "weapon_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 2,
+      "mods": [
+       "ricochet",
+       "pierce"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "wide": 1,
+     "echo": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 3,
+     "weapon_mod": 4,
+     "common": 2,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 8,
+     "boss_reward": 1
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross",
+     "boss_reward:clone",
+     "weapon_level:bow",
+     "weapon_mod:bow:ricochet",
+     "common:echo",
+     "weapon_mod:bow:pierce",
+     "weapon_level:sword"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "emergency_shield"
+   },
+   "forge": 2,
+   "cat": "정상 성장"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 113,
+  "absorbed": 20,
+  "heal": 0,
+  "attempts": 8,
+  "hitsOn": 7,
+  "q": 2,
+  "bd": 1360,
+  "pat": "shock 5.3, sweep 2.7",
+  "src": "추적궁 63%, 검 23%, 회전 칼날 14%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "normal_s3",
+   "name": "관문 정상 성장(시드 3, Lv12)",
+   "growth": {
+    "level": 12,
+    "xp": 49.35,
+    "pendingLevelUps": 0,
+    "choiceSeq": 12,
+    "pendingOffer": null,
+    "lastKind": "weapon_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 2,
+      "mods": [
+       "ricochet",
+       "pierce"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "wide": 1,
+     "echo": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 3,
+     "weapon_mod": 4,
+     "common": 2,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 8,
+     "boss_reward": 1
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross",
+     "boss_reward:clone",
+     "weapon_level:bow",
+     "weapon_mod:bow:ricochet",
+     "common:echo",
+     "weapon_mod:bow:pierce",
+     "weapon_level:sword"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "emergency_shield"
+   },
+   "forge": 2,
+   "cat": "정상 성장"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 1,
+  "t": 50,
+  "taken": 127,
+  "absorbed": 20,
+  "heal": 30,
+  "attempts": 12,
+  "hitsOn": 0,
+  "q": 3,
+  "bd": 4342,
+  "pat": "shock 7.7, sweep 4.7",
+  "src": "검 40%, 추적궁 39%, 회전 칼날 20%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "normal_s3",
+   "name": "관문 정상 성장(시드 3, Lv12)",
+   "growth": {
+    "level": 12,
+    "xp": 49.35,
+    "pendingLevelUps": 0,
+    "choiceSeq": 12,
+    "pendingOffer": null,
+    "lastKind": "weapon_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 2,
+      "mods": [
+       "ricochet",
+       "pierce"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "wide": 1,
+     "echo": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 3,
+     "weapon_mod": 4,
+     "common": 2,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 8,
+     "boss_reward": 1
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross",
+     "boss_reward:clone",
+     "weapon_level:bow",
+     "weapon_mod:bow:ricochet",
+     "common:echo",
+     "weapon_mod:bow:pierce",
+     "weapon_level:sword"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "emergency_shield"
+   },
+   "forge": 2,
+   "cat": "정상 성장"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 61,
+  "taken": 6,
+  "absorbed": 0,
+  "heal": 5,
+  "attempts": 17,
+  "hitsOn": 0,
+  "q": 5,
+  "bd": 5000,
+  "pat": "shock 10.7, sweep 6.3",
+  "src": "추적궁 44%, 검 38%, 회전 칼날 18%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "inv_direct",
+   "name": "같은 투자(7선택): 직접 피해 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 4,
+      "mods": [
+       "cross"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "mastery": 2,
+     "haste": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 115,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 7,
+  "hitsOn": 6,
+  "q": 0,
+  "bd": 188,
+  "pat": "shock 4.3, sweep 2.7",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "inv_direct",
+   "name": "같은 투자(7선택): 직접 피해 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 4,
+      "mods": [
+       "cross"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "mastery": 2,
+     "haste": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 115,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 7,
+  "hitsOn": 6,
+  "q": 1,
+  "bd": 188,
+  "pat": "shock 4.3, sweep 2.7",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "inv_direct",
+   "name": "같은 투자(7선택): 직접 피해 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 4,
+      "mods": [
+       "cross"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "mastery": 2,
+     "haste": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 115,
+  "absorbed": 0,
+  "heal": 10,
+  "attempts": 15,
+  "hitsOn": 1,
+  "q": 4,
+  "bd": 2942,
+  "pat": "shock 8, sweep 6.7",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "inv_direct",
+   "name": "같은 투자(7선택): 직접 피해 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 4,
+      "mods": [
+       "cross"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "mastery": 2,
+     "haste": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 112,
+  "taken": 59,
+  "absorbed": 0,
+  "heal": 20,
+  "attempts": 29,
+  "hitsOn": 3,
+  "q": 8,
+  "bd": 5000,
+  "pat": "shock 15.3, sweep 14.3",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "inv_dot",
+   "name": "같은 투자(7선택): 지속 피해·장판 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "ember",
+      "level": 3,
+      "mods": [
+       "trail",
+       "reignite"
+      ]
+     }
+    ],
+    "commons": {
+     "burn": 1
+    },
+    "passives": {
+     "persistence": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 112,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 7,
+  "hitsOn": 6,
+  "q": 0,
+  "bd": 1516,
+  "pat": "shock 5, sweep 2",
+  "src": "불씨 정령 92%, 검 6%, 화상 2%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "inv_dot",
+   "name": "같은 투자(7선택): 지속 피해·장판 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "ember",
+      "level": 3,
+      "mods": [
+       "trail",
+       "reignite"
+      ]
+     }
+    ],
+    "commons": {
+     "burn": 1
+    },
+    "passives": {
+     "persistence": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 112,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 7,
+  "hitsOn": 6,
+  "q": 1,
+  "bd": 1559,
+  "pat": "shock 5, sweep 2",
+  "src": "불씨 정령 92%, 검 6%, 화상 2%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "inv_dot",
+   "name": "같은 투자(7선택): 지속 피해·장판 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "ember",
+      "level": 3,
+      "mods": [
+       "trail",
+       "reignite"
+      ]
+     }
+    ],
+    "commons": {
+     "burn": 1
+    },
+    "passives": {
+     "persistence": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 2,
+  "t": 44,
+  "taken": 113,
+  "absorbed": 0,
+  "heal": 25,
+  "attempts": 10,
+  "hitsOn": 0,
+  "q": 3,
+  "bd": 4616,
+  "pat": "shock 5.3, sweep 5",
+  "src": "불씨 정령 82%, 검 13%, 화상 5%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "inv_dot",
+   "name": "같은 투자(7선택): 지속 피해·장판 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "ember",
+      "level": 3,
+      "mods": [
+       "trail",
+       "reignite"
+      ]
+     }
+    ],
+    "commons": {
+     "burn": 1
+    },
+    "passives": {
+     "persistence": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 42,
+  "taken": 6,
+  "absorbed": 0,
+  "heal": 5,
+  "attempts": 10,
+  "hitsOn": 0,
+  "q": 3,
+  "bd": 5000,
+  "pat": "shock 6, sweep 5",
+  "src": "불씨 정령 83%, 검 12%, 화상 5%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "inv_def",
+   "name": "같은 투자(7선택): 방어·회복 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "vitality": 2,
+     "toughness": 2
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "ward",
+      "level": 2,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 155,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 11,
+  "hitsOn": 10,
+  "q": 0,
+  "bd": 350,
+  "pat": "shock 6.7, sweep 4.3",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "inv_def",
+   "name": "같은 투자(7선택): 방어·회복 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "vitality": 2,
+     "toughness": 2
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "ward",
+      "level": 2,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 155,
+  "absorbed": 21,
+  "heal": 0,
+  "attempts": 12,
+  "hitsOn": 11,
+  "q": 3,
+  "bd": 451,
+  "pat": "shock 7.3, sweep 5",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "inv_def",
+   "name": "같은 투자(7선택): 방어·회복 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "vitality": 2,
+     "toughness": 2
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "ward",
+      "level": 2,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 153,
+  "absorbed": 97,
+  "heal": 7,
+  "attempts": 27,
+  "hitsOn": 1,
+  "q": 7,
+  "bd": 3223,
+  "pat": "shock 15, sweep 12.3",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "guardian",
+  "build": {
+   "id": "inv_def",
+   "name": "같은 투자(7선택): 방어·회복 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "vitality": 2,
+     "toughness": 2
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "ward",
+      "level": 2,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 193,
+  "taken": 64,
+  "absorbed": 0,
+  "heal": 29,
+  "attempts": 51,
+  "hitsOn": 4,
+  "q": 13,
+  "bd": 5000,
+  "pat": "shock 25, sweep 25.7",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "normal_s1",
+   "name": "관문 정상 성장(시드 1, Lv18)",
+   "growth": {
+    "level": 18,
+    "xp": 113.75,
+    "pendingLevelUps": 0,
+    "choiceSeq": 19,
+    "pendingOffer": null,
+    "lastKind": "weapon_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 3,
+      "mods": [
+       "cross",
+       "scar"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 2,
+      "mods": [
+       "scatter",
+       "trail"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "burn": 1,
+     "flare": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": "echo"
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": "windpath"
+     }
+    },
+    "bossRewards": [
+     "volley",
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 4,
+     "weapon_mod": 6,
+     "common": 3,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 2,
+     "passive": 0,
+     "skip": 0,
+     "event": 9,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual",
+     "boss_reward:volley",
+     "weapon_mod:ember:scatter",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:ember:trail",
+     "skill_variant:gust:windpath",
+     "boss_reward:clone",
+     "skill_variant:slowfield:echo",
+     "weapon_level:sword",
+     "common:burn",
+     "common:flare",
+     "weapon_level:blades",
+     "weapon_level:ember"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": "hunter_sword",
+    "armor": "expedition_armor",
+    "shield": "caster_shield"
+   },
+   "forge": 3,
+   "cat": "정상 성장"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 103,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 8,
+  "hitsOn": 6,
+  "q": 0,
+  "bd": 1484,
+  "pat": "lanes 2.7, mark 1.7, summon 0.7, wide 0.7",
+  "src": "불씨 정령 98%, 검 1%, 불꽃 파열 0%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "normal_s1",
+   "name": "관문 정상 성장(시드 1, Lv18)",
+   "growth": {
+    "level": 18,
+    "xp": 113.75,
+    "pendingLevelUps": 0,
+    "choiceSeq": 19,
+    "pendingOffer": null,
+    "lastKind": "weapon_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 3,
+      "mods": [
+       "cross",
+       "scar"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 2,
+      "mods": [
+       "scatter",
+       "trail"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "burn": 1,
+     "flare": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": "echo"
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": "windpath"
+     }
+    },
+    "bossRewards": [
+     "volley",
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 4,
+     "weapon_mod": 6,
+     "common": 3,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 2,
+     "passive": 0,
+     "skip": 0,
+     "event": 9,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual",
+     "boss_reward:volley",
+     "weapon_mod:ember:scatter",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:ember:trail",
+     "skill_variant:gust:windpath",
+     "boss_reward:clone",
+     "skill_variant:slowfield:echo",
+     "weapon_level:sword",
+     "common:burn",
+     "common:flare",
+     "weapon_level:blades",
+     "weapon_level:ember"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": "hunter_sword",
+    "armor": "expedition_armor",
+    "shield": "caster_shield"
+   },
+   "forge": 3,
+   "cat": "정상 성장"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 106,
+  "absorbed": 5,
+  "heal": 0,
+  "attempts": 9,
+  "hitsOn": 7,
+  "q": 2,
+  "bd": 2705,
+  "pat": "lanes 2.7, mark 2.3, summon 1, wide 0.7",
+  "src": "불씨 정령 99%, 불꽃 파열 1%, 검 0%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "normal_s1",
+   "name": "관문 정상 성장(시드 1, Lv18)",
+   "growth": {
+    "level": 18,
+    "xp": 113.75,
+    "pendingLevelUps": 0,
+    "choiceSeq": 19,
+    "pendingOffer": null,
+    "lastKind": "weapon_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 3,
+      "mods": [
+       "cross",
+       "scar"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 2,
+      "mods": [
+       "scatter",
+       "trail"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "burn": 1,
+     "flare": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": "echo"
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": "windpath"
+     }
+    },
+    "bossRewards": [
+     "volley",
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 4,
+     "weapon_mod": 6,
+     "common": 3,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 2,
+     "passive": 0,
+     "skip": 0,
+     "event": 9,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual",
+     "boss_reward:volley",
+     "weapon_mod:ember:scatter",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:ember:trail",
+     "skill_variant:gust:windpath",
+     "boss_reward:clone",
+     "skill_variant:slowfield:echo",
+     "weapon_level:sword",
+     "common:burn",
+     "common:flare",
+     "weapon_level:blades",
+     "weapon_level:ember"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": "hunter_sword",
+    "armor": "expedition_armor",
+    "shield": "caster_shield"
+   },
+   "forge": 3,
+   "cat": "정상 성장"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 32,
+  "taken": 5,
+  "absorbed": 0,
+  "heal": 5,
+  "attempts": 9,
+  "hitsOn": 0,
+  "q": 3,
+  "bd": 7000,
+  "pat": "lanes 2, mark 2.3, summon 1, wide 1.7",
+  "src": "불씨 정령 73%, 검 15%, 회전 칼날 9%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "normal_s1",
+   "name": "관문 정상 성장(시드 1, Lv18)",
+   "growth": {
+    "level": 18,
+    "xp": 113.75,
+    "pendingLevelUps": 0,
+    "choiceSeq": 19,
+    "pendingOffer": null,
+    "lastKind": "weapon_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 3,
+      "mods": [
+       "cross",
+       "scar"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 2,
+      "mods": [
+       "scatter",
+       "trail"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "burn": 1,
+     "flare": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": "echo"
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": "windpath"
+     }
+    },
+    "bossRewards": [
+     "volley",
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 4,
+     "weapon_mod": 6,
+     "common": 3,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 2,
+     "passive": 0,
+     "skip": 0,
+     "event": 9,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual",
+     "boss_reward:volley",
+     "weapon_mod:ember:scatter",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:ember:trail",
+     "skill_variant:gust:windpath",
+     "boss_reward:clone",
+     "skill_variant:slowfield:echo",
+     "weapon_level:sword",
+     "common:burn",
+     "common:flare",
+     "weapon_level:blades",
+     "weapon_level:ember"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": "hunter_sword",
+    "armor": "expedition_armor",
+    "shield": "caster_shield"
+   },
+   "forge": 3,
+   "cat": "정상 성장"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 37,
+  "taken": 0,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 11,
+  "hitsOn": 0,
+  "q": 3,
+  "bd": 7000,
+  "pat": "lanes 3.3, mark 2.3, summon 0.7, wide 1.3",
+  "src": "불씨 정령 69%, 검 17%, 회전 칼날 11%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "normal_s2",
+   "name": "관문 정상 성장(시드 2, Lv19)",
+   "growth": {
+    "level": 19,
+    "xp": 110.1,
+    "pendingLevelUps": 0,
+    "choiceSeq": 20,
+    "pendingOffer": null,
+    "lastKind": "skill_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 2,
+      "mods": [
+       "flank",
+       "pursuit"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "serrated",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "stasis": 1,
+     "burn": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 3,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 3,
+      "variant": "advancing"
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "resonance"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 2,
+     "weapon_mod": 6,
+     "common": 3,
+     "skill_new": 0,
+     "skill_level": 4,
+     "skill_variant": 1,
+     "passive": 0,
+     "skip": 0,
+     "event": 13,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent",
+     "boss_reward:clone",
+     "weapon_mod:blades:serrated",
+     "common:stasis",
+     "weapon_mod:daggers:pursuit",
+     "weapon_mod:blades:dual",
+     "common:burn",
+     "boss_reward:resonance",
+     "weapon_level:daggers",
+     "skill_level:slowfield",
+     "skill_variant:bladestorm:advancing",
+     "skill_level:bladestorm",
+     "skill_level:slowfield",
+     "weapon_level:sword",
+     "skill_level:bladestorm"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": "chrono_staff",
+    "armor": "guardian_armor",
+    "shield": "time_shield"
+   },
+   "forge": 3,
+   "cat": "정상 성장"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 108,
+  "absorbed": 15,
+  "heal": 0,
+  "attempts": 9,
+  "hitsOn": 6,
+  "q": 0,
+  "bd": 8,
+  "pat": "lanes 2.7, mark 1.3, summon 1, wide 1.7",
+  "src": "검 74%, 기타 21%, 화상 5%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "normal_s2",
+   "name": "관문 정상 성장(시드 2, Lv19)",
+   "growth": {
+    "level": 19,
+    "xp": 110.1,
+    "pendingLevelUps": 0,
+    "choiceSeq": 20,
+    "pendingOffer": null,
+    "lastKind": "skill_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 2,
+      "mods": [
+       "flank",
+       "pursuit"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "serrated",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "stasis": 1,
+     "burn": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 3,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 3,
+      "variant": "advancing"
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "resonance"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 2,
+     "weapon_mod": 6,
+     "common": 3,
+     "skill_new": 0,
+     "skill_level": 4,
+     "skill_variant": 1,
+     "passive": 0,
+     "skip": 0,
+     "event": 13,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent",
+     "boss_reward:clone",
+     "weapon_mod:blades:serrated",
+     "common:stasis",
+     "weapon_mod:daggers:pursuit",
+     "weapon_mod:blades:dual",
+     "common:burn",
+     "boss_reward:resonance",
+     "weapon_level:daggers",
+     "skill_level:slowfield",
+     "skill_variant:bladestorm:advancing",
+     "skill_level:bladestorm",
+     "skill_level:slowfield",
+     "weapon_level:sword",
+     "skill_level:bladestorm"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": "chrono_staff",
+    "armor": "guardian_armor",
+    "shield": "time_shield"
+   },
+   "forge": 3,
+   "cat": "정상 성장"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 108,
+  "absorbed": 15,
+  "heal": 0,
+  "attempts": 10,
+  "hitsOn": 7,
+  "q": 2,
+  "bd": 97,
+  "pat": "lanes 3, mark 1.3, summon 1.3, wide 1.7",
+  "src": "칼날 폭풍(E) 67%, 검 25%, 기타 6%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "normal_s2",
+   "name": "관문 정상 성장(시드 2, Lv19)",
+   "growth": {
+    "level": 19,
+    "xp": 110.1,
+    "pendingLevelUps": 0,
+    "choiceSeq": 20,
+    "pendingOffer": null,
+    "lastKind": "skill_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 2,
+      "mods": [
+       "flank",
+       "pursuit"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "serrated",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "stasis": 1,
+     "burn": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 3,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 3,
+      "variant": "advancing"
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "resonance"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 2,
+     "weapon_mod": 6,
+     "common": 3,
+     "skill_new": 0,
+     "skill_level": 4,
+     "skill_variant": 1,
+     "passive": 0,
+     "skip": 0,
+     "event": 13,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent",
+     "boss_reward:clone",
+     "weapon_mod:blades:serrated",
+     "common:stasis",
+     "weapon_mod:daggers:pursuit",
+     "weapon_mod:blades:dual",
+     "common:burn",
+     "boss_reward:resonance",
+     "weapon_level:daggers",
+     "skill_level:slowfield",
+     "skill_variant:bladestorm:advancing",
+     "skill_level:bladestorm",
+     "skill_level:slowfield",
+     "weapon_level:sword",
+     "skill_level:bladestorm"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": "chrono_staff",
+    "armor": "guardian_armor",
+    "shield": "time_shield"
+   },
+   "forge": 3,
+   "cat": "정상 성장"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 36,
+  "taken": 20,
+  "absorbed": 10,
+  "heal": 3,
+  "attempts": 9,
+  "hitsOn": 1,
+  "q": 3,
+  "bd": 7000,
+  "pat": "lanes 2.3, mark 2, summon 1, wide 2",
+  "src": "검 43%, 쌍검 17%, 회전 칼날 16%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "normal_s2",
+   "name": "관문 정상 성장(시드 2, Lv19)",
+   "growth": {
+    "level": 19,
+    "xp": 110.1,
+    "pendingLevelUps": 0,
+    "choiceSeq": 20,
+    "pendingOffer": null,
+    "lastKind": "skill_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 2,
+      "mods": [
+       "flank",
+       "pursuit"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "serrated",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "stasis": 1,
+     "burn": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 3,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 3,
+      "variant": "advancing"
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "resonance"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 2,
+     "weapon_mod": 6,
+     "common": 3,
+     "skill_new": 0,
+     "skill_level": 4,
+     "skill_variant": 1,
+     "passive": 0,
+     "skip": 0,
+     "event": 13,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent",
+     "boss_reward:clone",
+     "weapon_mod:blades:serrated",
+     "common:stasis",
+     "weapon_mod:daggers:pursuit",
+     "weapon_mod:blades:dual",
+     "common:burn",
+     "boss_reward:resonance",
+     "weapon_level:daggers",
+     "skill_level:slowfield",
+     "skill_variant:bladestorm:advancing",
+     "skill_level:bladestorm",
+     "skill_level:slowfield",
+     "weapon_level:sword",
+     "skill_level:bladestorm"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": "chrono_staff",
+    "armor": "guardian_armor",
+    "shield": "time_shield"
+   },
+   "forge": 3,
+   "cat": "정상 성장"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 38,
+  "taken": 0,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 9,
+  "hitsOn": 0,
+  "q": 4,
+  "bd": 7000,
+  "pat": "lanes 2.3, mark 2, summon 1, wide 2.3",
+  "src": "검 43%, 쌍검 19%, 회전 칼날 17%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "normal_s3",
+   "name": "관문 정상 성장(시드 3, Lv18)",
+   "growth": {
+    "level": 18,
+    "xp": 14.449999999999989,
+    "pendingLevelUps": 0,
+    "choiceSeq": 19,
+    "pendingOffer": null,
+    "lastKind": "skill_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 3,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 2,
+      "mods": [
+       "ricochet",
+       "pierce"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": [
+       "serrated"
+      ]
+     }
+    ],
+    "commons": {
+     "wide": 2,
+     "echo": 1,
+     "saving": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 2,
+      "variant": "follow"
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "vigor"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 4,
+     "weapon_mod": 5,
+     "common": 4,
+     "skill_new": 0,
+     "skill_level": 1,
+     "skill_variant": 1,
+     "passive": 0,
+     "skip": 0,
+     "event": 9,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross",
+     "boss_reward:clone",
+     "weapon_level:bow",
+     "weapon_mod:bow:ricochet",
+     "common:echo",
+     "weapon_mod:bow:pierce",
+     "weapon_level:sword",
+     "boss_reward:vigor",
+     "common:saving",
+     "weapon_mod:blades:serrated",
+     "weapon_level:sword",
+     "common:wide",
+     "skill_variant:slowfield:follow",
+     "skill_level:slowfield"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "traveler_armor",
+    "shield": "emergency_shield"
+   },
+   "forge": 3,
+   "cat": "정상 성장"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 143,
+  "absorbed": 20,
+  "heal": 0,
+  "attempts": 10,
+  "hitsOn": 9,
+  "q": 0,
+  "bd": 1792,
+  "pat": "lanes 1.7, mark 2.3, summon 1, wide 3.3",
+  "src": "추적궁 58%, 회전 칼날 20%, 검 17%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "normal_s3",
+   "name": "관문 정상 성장(시드 3, Lv18)",
+   "growth": {
+    "level": 18,
+    "xp": 14.449999999999989,
+    "pendingLevelUps": 0,
+    "choiceSeq": 19,
+    "pendingOffer": null,
+    "lastKind": "skill_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 3,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 2,
+      "mods": [
+       "ricochet",
+       "pierce"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": [
+       "serrated"
+      ]
+     }
+    ],
+    "commons": {
+     "wide": 2,
+     "echo": 1,
+     "saving": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 2,
+      "variant": "follow"
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "vigor"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 4,
+     "weapon_mod": 5,
+     "common": 4,
+     "skill_new": 0,
+     "skill_level": 1,
+     "skill_variant": 1,
+     "passive": 0,
+     "skip": 0,
+     "event": 9,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross",
+     "boss_reward:clone",
+     "weapon_level:bow",
+     "weapon_mod:bow:ricochet",
+     "common:echo",
+     "weapon_mod:bow:pierce",
+     "weapon_level:sword",
+     "boss_reward:vigor",
+     "common:saving",
+     "weapon_mod:blades:serrated",
+     "weapon_level:sword",
+     "common:wide",
+     "skill_variant:slowfield:follow",
+     "skill_level:slowfield"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "traveler_armor",
+    "shield": "emergency_shield"
+   },
+   "forge": 3,
+   "cat": "정상 성장"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 132,
+  "absorbed": 20,
+  "heal": 0,
+  "attempts": 12,
+  "hitsOn": 9,
+  "q": 2,
+  "bd": 2222,
+  "pat": "lanes 3, mark 2.7, summon 1.3, wide 2",
+  "src": "추적궁 60%, 회전 칼날 17%, 검 17%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "normal_s3",
+   "name": "관문 정상 성장(시드 3, Lv18)",
+   "growth": {
+    "level": 18,
+    "xp": 14.449999999999989,
+    "pendingLevelUps": 0,
+    "choiceSeq": 19,
+    "pendingOffer": null,
+    "lastKind": "skill_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 3,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 2,
+      "mods": [
+       "ricochet",
+       "pierce"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": [
+       "serrated"
+      ]
+     }
+    ],
+    "commons": {
+     "wide": 2,
+     "echo": 1,
+     "saving": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 2,
+      "variant": "follow"
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "vigor"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 4,
+     "weapon_mod": 5,
+     "common": 4,
+     "skill_new": 0,
+     "skill_level": 1,
+     "skill_variant": 1,
+     "passive": 0,
+     "skip": 0,
+     "event": 9,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross",
+     "boss_reward:clone",
+     "weapon_level:bow",
+     "weapon_mod:bow:ricochet",
+     "common:echo",
+     "weapon_mod:bow:pierce",
+     "weapon_level:sword",
+     "boss_reward:vigor",
+     "common:saving",
+     "weapon_mod:blades:serrated",
+     "weapon_level:sword",
+     "common:wide",
+     "skill_variant:slowfield:follow",
+     "skill_level:slowfield"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "traveler_armor",
+    "shield": "emergency_shield"
+   },
+   "forge": 3,
+   "cat": "정상 성장"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 60,
+  "taken": 2,
+  "absorbed": 0,
+  "heal": 2,
+  "attempts": 16,
+  "hitsOn": 0,
+  "q": 5,
+  "bd": 7000,
+  "pat": "lanes 3.7, mark 2.7, summon 2, wide 4",
+  "src": "검 40%, 추적궁 38%, 회전 칼날 18%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "normal_s3",
+   "name": "관문 정상 성장(시드 3, Lv18)",
+   "growth": {
+    "level": 18,
+    "xp": 14.449999999999989,
+    "pendingLevelUps": 0,
+    "choiceSeq": 19,
+    "pendingOffer": null,
+    "lastKind": "skill_level",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 3,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 2,
+      "mods": [
+       "ricochet",
+       "pierce"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": [
+       "serrated"
+      ]
+     }
+    ],
+    "commons": {
+     "wide": 2,
+     "echo": 1,
+     "saving": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 2,
+      "variant": "follow"
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "vigor"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 4,
+     "weapon_mod": 5,
+     "common": 4,
+     "skill_new": 0,
+     "skill_level": 1,
+     "skill_variant": 1,
+     "passive": 0,
+     "skip": 0,
+     "event": 9,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross",
+     "boss_reward:clone",
+     "weapon_level:bow",
+     "weapon_mod:bow:ricochet",
+     "common:echo",
+     "weapon_mod:bow:pierce",
+     "weapon_level:sword",
+     "boss_reward:vigor",
+     "common:saving",
+     "weapon_mod:blades:serrated",
+     "weapon_level:sword",
+     "common:wide",
+     "skill_variant:slowfield:follow",
+     "skill_level:slowfield"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "traveler_armor",
+    "shield": "emergency_shield"
+   },
+   "forge": 3,
+   "cat": "정상 성장"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 68,
+  "taken": 0,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 18,
+  "hitsOn": 0,
+  "q": 5,
+  "bd": 7000,
+  "pat": "lanes 3.7, mark 5.3, summon 2.3, wide 3",
+  "src": "추적궁 40%, 검 38%, 회전 칼날 17%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "stop3_s1",
+   "name": "3일차 성장 중단 최종(시드 1, Lv10)",
+   "growth": {
+    "level": 10,
+    "xp": 59.55,
+    "pendingLevelUps": 0,
+    "choiceSeq": 11,
+    "pendingOffer": null,
+    "lastKind": "boss_reward",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "cross",
+       "scar"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 1,
+      "mods": [
+       "scatter"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "volley",
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 1,
+     "weapon_mod": 5,
+     "common": 1,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 6,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual",
+     "boss_reward:volley",
+     "weapon_mod:ember:scatter",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "boss_reward:clone"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "expedition_armor",
+    "shield": null
+   },
+   "forge": 1,
+   "cat": "3일차 중단"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 108,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 9,
+  "hitsOn": 7,
+  "q": 0,
+  "bd": 915,
+  "pat": "lanes 2.3, mark 2.3, summon 0.7, wide 1",
+  "src": "불씨 정령 97%, 검 1%, 기타 1%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "stop3_s1",
+   "name": "3일차 성장 중단 최종(시드 1, Lv10)",
+   "growth": {
+    "level": 10,
+    "xp": 59.55,
+    "pendingLevelUps": 0,
+    "choiceSeq": 11,
+    "pendingOffer": null,
+    "lastKind": "boss_reward",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "cross",
+       "scar"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 1,
+      "mods": [
+       "scatter"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "volley",
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 1,
+     "weapon_mod": 5,
+     "common": 1,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 6,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual",
+     "boss_reward:volley",
+     "weapon_mod:ember:scatter",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "boss_reward:clone"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "expedition_armor",
+    "shield": null
+   },
+   "forge": 1,
+   "cat": "3일차 중단"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 117,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 8,
+  "hitsOn": 7,
+  "q": 1,
+  "bd": 992,
+  "pat": "lanes 2, mark 1.7, summon 1, wide 1.7",
+  "src": "불씨 정령 96%, 검 2%, 돌풍(E) 1%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "stop3_s1",
+   "name": "3일차 성장 중단 최종(시드 1, Lv10)",
+   "growth": {
+    "level": 10,
+    "xp": 59.55,
+    "pendingLevelUps": 0,
+    "choiceSeq": 11,
+    "pendingOffer": null,
+    "lastKind": "boss_reward",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "cross",
+       "scar"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 1,
+      "mods": [
+       "scatter"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "volley",
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 1,
+     "weapon_mod": 5,
+     "common": 1,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 6,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual",
+     "boss_reward:volley",
+     "weapon_mod:ember:scatter",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "boss_reward:clone"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "expedition_armor",
+    "shield": null
+   },
+   "forge": 1,
+   "cat": "3일차 중단"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 58,
+  "taken": 21,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 17,
+  "hitsOn": 1,
+  "q": 4,
+  "bd": 7000,
+  "pat": "lanes 4.3, mark 2.7, summon 1.7, wide 4.3",
+  "src": "불씨 정령 65%, 검 22%, 회전 칼날 11%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "stop3_s1",
+   "name": "3일차 성장 중단 최종(시드 1, Lv10)",
+   "growth": {
+    "level": 10,
+    "xp": 59.55,
+    "pendingLevelUps": 0,
+    "choiceSeq": 11,
+    "pendingOffer": null,
+    "lastKind": "boss_reward",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": [
+       "cross",
+       "scar"
+      ]
+     },
+     {
+      "id": "ember",
+      "level": 1,
+      "mods": [
+       "scatter"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "launch",
+       "dual"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "volley",
+     "clone"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 1,
+     "weapon_level": 1,
+     "weapon_mod": 5,
+     "common": 1,
+     "skill_new": 1,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 6,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_level:sword",
+     "skill_new:gust",
+     "weapon_new:ember",
+     "weapon_mod:blades:launch",
+     "weapon_mod:sword:cross",
+     "weapon_mod:blades:dual",
+     "boss_reward:volley",
+     "weapon_mod:ember:scatter",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "boss_reward:clone"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": "expedition_armor",
+    "shield": null
+   },
+   "forge": 1,
+   "cat": "3일차 중단"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 72,
+  "taken": 0,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 22,
+  "hitsOn": 0,
+  "q": 5,
+  "bd": 7000,
+  "pat": "lanes 6, mark 4, summon 2.3, wide 4",
+  "src": "불씨 정령 66%, 검 22%, 회전 칼날 12%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "stop3_s2",
+   "name": "3일차 성장 중단 최종(시드 2, Lv10)",
+   "growth": {
+    "level": 10,
+    "xp": 59.55,
+    "pendingLevelUps": 0,
+    "choiceSeq": 11,
+    "pendingOffer": null,
+    "lastKind": "boss_reward",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 1,
+      "mods": [
+       "flank",
+       "pursuit"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "serrated"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "stasis": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "resonance"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 0,
+     "weapon_mod": 5,
+     "common": 2,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 9,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent",
+     "boss_reward:clone",
+     "weapon_mod:blades:serrated",
+     "common:stasis",
+     "weapon_mod:daggers:pursuit",
+     "boss_reward:resonance"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "iron_shield"
+   },
+   "forge": 1,
+   "cat": "3일차 중단"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 104,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 9,
+  "hitsOn": 6,
+  "q": 0,
+  "bd": 3,
+  "pat": "lanes 3, mark 1.3, summon 1, wide 1.3",
+  "src": "검 81%, 회전 칼날 10%, 기타 9%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "stop3_s2",
+   "name": "3일차 성장 중단 최종(시드 2, Lv10)",
+   "growth": {
+    "level": 10,
+    "xp": 59.55,
+    "pendingLevelUps": 0,
+    "choiceSeq": 11,
+    "pendingOffer": null,
+    "lastKind": "boss_reward",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 1,
+      "mods": [
+       "flank",
+       "pursuit"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "serrated"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "stasis": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "resonance"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 0,
+     "weapon_mod": 5,
+     "common": 2,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 9,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent",
+     "boss_reward:clone",
+     "weapon_mod:blades:serrated",
+     "common:stasis",
+     "weapon_mod:daggers:pursuit",
+     "boss_reward:resonance"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "iron_shield"
+   },
+   "forge": 1,
+   "cat": "3일차 중단"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 105,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 9,
+  "hitsOn": 6,
+  "q": 1,
+  "bd": 3,
+  "pat": "lanes 3, mark 1.3, summon 1, wide 1.3",
+  "src": "검 92%, 기타 8%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "stop3_s2",
+   "name": "3일차 성장 중단 최종(시드 2, Lv10)",
+   "growth": {
+    "level": 10,
+    "xp": 59.55,
+    "pendingLevelUps": 0,
+    "choiceSeq": 11,
+    "pendingOffer": null,
+    "lastKind": "boss_reward",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 1,
+      "mods": [
+       "flank",
+       "pursuit"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "serrated"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "stasis": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "resonance"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 0,
+     "weapon_mod": 5,
+     "common": 2,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 9,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent",
+     "boss_reward:clone",
+     "weapon_mod:blades:serrated",
+     "common:stasis",
+     "weapon_mod:daggers:pursuit",
+     "boss_reward:resonance"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "iron_shield"
+   },
+   "forge": 1,
+   "cat": "3일차 중단"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 55,
+  "taken": 32,
+  "absorbed": 0,
+  "heal": 9,
+  "attempts": 15,
+  "hitsOn": 0,
+  "q": 4,
+  "bd": 7000,
+  "pat": "lanes 3.3, mark 3.7, summon 2.3, wide 2.7",
+  "src": "검 45%, 쌍검 19%, 회전 칼날 16%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "stop3_s2",
+   "name": "3일차 성장 중단 최종(시드 2, Lv10)",
+   "growth": {
+    "level": 10,
+    "xp": 59.55,
+    "pendingLevelUps": 0,
+    "choiceSeq": 11,
+    "pendingOffer": null,
+    "lastKind": "boss_reward",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "crescent"
+      ]
+     },
+     {
+      "id": "daggers",
+      "level": 1,
+      "mods": [
+       "flank",
+       "pursuit"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 1,
+      "mods": [
+       "serrated"
+      ]
+     }
+    ],
+    "commons": {
+     "frost": 1,
+     "stasis": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "bladestorm",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "resonance"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 0,
+     "weapon_mod": 5,
+     "common": 2,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 9,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:daggers",
+     "weapon_mod:daggers:flank",
+     "weapon_new:blades",
+     "common:frost",
+     "weapon_mod:sword:scar",
+     "weapon_mod:sword:crescent",
+     "boss_reward:clone",
+     "weapon_mod:blades:serrated",
+     "common:stasis",
+     "weapon_mod:daggers:pursuit",
+     "boss_reward:resonance"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "iron_shield"
+   },
+   "forge": 1,
+   "cat": "3일차 중단"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 66,
+  "taken": 5,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 20,
+  "hitsOn": 0,
+  "q": 5,
+  "bd": 7000,
+  "pat": "lanes 5.3, mark 4.3, summon 2, wide 2.7",
+  "src": "검 47%, 쌍검 19%, 회전 칼날 17%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "stop3_s3",
+   "name": "3일차 성장 중단 최종(시드 3, Lv10)",
+   "growth": {
+    "level": 10,
+    "xp": 59.55,
+    "pendingLevelUps": 0,
+    "choiceSeq": 11,
+    "pendingOffer": null,
+    "lastKind": "boss_reward",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 2,
+      "mods": [
+       "ricochet"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "wide": 1,
+     "echo": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "volley"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 2,
+     "weapon_mod": 3,
+     "common": 2,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 7,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross",
+     "boss_reward:clone",
+     "weapon_level:bow",
+     "weapon_mod:bow:ricochet",
+     "common:echo",
+     "boss_reward:volley"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "caster_shield"
+   },
+   "forge": 1,
+   "cat": "3일차 중단"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 106,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 8,
+  "hitsOn": 6,
+  "q": 0,
+  "bd": 637,
+  "pat": "lanes 2.7, mark 1.3, summon 0.7, wide 1.7",
+  "src": "추적궁 97%, 회전 칼날 2%, 검 1%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "stop3_s3",
+   "name": "3일차 성장 중단 최종(시드 3, Lv10)",
+   "growth": {
+    "level": 10,
+    "xp": 59.55,
+    "pendingLevelUps": 0,
+    "choiceSeq": 11,
+    "pendingOffer": null,
+    "lastKind": "boss_reward",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 2,
+      "mods": [
+       "ricochet"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "wide": 1,
+     "echo": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "volley"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 2,
+     "weapon_mod": 3,
+     "common": 2,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 7,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross",
+     "boss_reward:clone",
+     "weapon_level:bow",
+     "weapon_mod:bow:ricochet",
+     "common:echo",
+     "boss_reward:volley"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "caster_shield"
+   },
+   "forge": 1,
+   "cat": "3일차 중단"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 107,
+  "absorbed": 5,
+  "heal": 0,
+  "attempts": 8,
+  "hitsOn": 6,
+  "q": 1,
+  "bd": 785,
+  "pat": "lanes 2.3, mark 1, summon 0.7, wide 2.3",
+  "src": "추적궁 98%, 돌풍(E) 1%, 검 1%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "stop3_s3",
+   "name": "3일차 성장 중단 최종(시드 3, Lv10)",
+   "growth": {
+    "level": 10,
+    "xp": 59.55,
+    "pendingLevelUps": 0,
+    "choiceSeq": 11,
+    "pendingOffer": null,
+    "lastKind": "boss_reward",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 2,
+      "mods": [
+       "ricochet"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "wide": 1,
+     "echo": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "volley"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 2,
+     "weapon_mod": 3,
+     "common": 2,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 7,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross",
+     "boss_reward:clone",
+     "weapon_level:bow",
+     "weapon_mod:bow:ricochet",
+     "common:echo",
+     "boss_reward:volley"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "caster_shield"
+   },
+   "forge": 1,
+   "cat": "3일차 중단"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 94,
+  "taken": 14,
+  "absorbed": 0,
+  "heal": 10,
+  "attempts": 27,
+  "hitsOn": 0,
+  "q": 6,
+  "bd": 7000,
+  "pat": "lanes 6.7, mark 5.3, summon 2.7, wide 6",
+  "src": "추적궁 50%, 검 30%, 회전 칼날 18%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "stop3_s3",
+   "name": "3일차 성장 중단 최종(시드 3, Lv10)",
+   "growth": {
+    "level": 10,
+    "xp": 59.55,
+    "pendingLevelUps": 0,
+    "choiceSeq": 11,
+    "pendingOffer": null,
+    "lastKind": "boss_reward",
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": [
+       "scar",
+       "cross"
+      ]
+     },
+     {
+      "id": "bow",
+      "level": 2,
+      "mods": [
+       "ricochet"
+      ]
+     },
+     {
+      "id": "blades",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {
+     "wide": 1,
+     "echo": 1
+    },
+    "passives": {},
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "gust",
+      "level": 1,
+      "variant": null
+     }
+    },
+    "bossRewards": [
+     "clone",
+     "volley"
+    ],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 2,
+     "weapon_level": 2,
+     "weapon_mod": 3,
+     "common": 2,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0,
+     "event": 7,
+     "boss_reward": 2
+    },
+    "log": [
+     "weapon_new:bow",
+     "weapon_new:blades",
+     "common:wide",
+     "weapon_mod:sword:scar",
+     "weapon_level:blades",
+     "weapon_mod:sword:cross",
+     "boss_reward:clone",
+     "weapon_level:bow",
+     "weapon_mod:bow:ricochet",
+     "common:echo",
+     "boss_reward:volley"
+    ],
+    "pendingBossPick": null
+   },
+   "equipment": {
+    "weapon": null,
+    "armor": null,
+    "shield": "caster_shield"
+   },
+   "forge": 1,
+   "cat": "3일차 중단"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 103,
+  "taken": 21,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 30,
+  "hitsOn": 1,
+  "q": 7,
+  "bd": 7000,
+  "pat": "lanes 7.7, mark 5, summon 3, wide 7",
+  "src": "추적궁 51%, 검 30%, 회전 칼날 19%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "inv_direct",
+   "name": "같은 투자(7선택): 직접 피해 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 4,
+      "mods": [
+       "cross"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "mastery": 2,
+     "haste": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 105,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 8,
+  "hitsOn": 6,
+  "q": 0,
+  "bd": 0,
+  "pat": "lanes 3, mark 1, summon 0.7, wide 1.3",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "inv_direct",
+   "name": "같은 투자(7선택): 직접 피해 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 4,
+      "mods": [
+       "cross"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "mastery": 2,
+     "haste": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 107,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 8,
+  "hitsOn": 6,
+  "q": 1,
+  "bd": 0,
+  "pat": "lanes 3, mark 1, summon 0.7, wide 1.3",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "inv_direct",
+   "name": "같은 투자(7선택): 직접 피해 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 4,
+      "mods": [
+       "cross"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "mastery": 2,
+     "haste": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 1,
+  "t": 140,
+  "taken": 102,
+  "absorbed": 0,
+  "heal": 10,
+  "attempts": 26,
+  "hitsOn": 1,
+  "q": 8,
+  "bd": 5400,
+  "pat": "lanes 3.3, mark 9.3, summon 3.3, wide 6.3",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "inv_direct",
+   "name": "같은 투자(7선택): 직접 피해 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 4,
+      "mods": [
+       "cross"
+      ]
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "mastery": 2,
+     "haste": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 174,
+  "taken": 53,
+  "absorbed": 0,
+  "heal": 10,
+  "attempts": 39,
+  "hitsOn": 2,
+  "q": 11,
+  "bd": 7000,
+  "pat": "lanes 5, mark 14.7, summon 3.3, wide 11.3",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "inv_dot",
+   "name": "같은 투자(7선택): 지속 피해·장판 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "ember",
+      "level": 3,
+      "mods": [
+       "trail",
+       "reignite"
+      ]
+     }
+    ],
+    "commons": {
+     "burn": 1
+    },
+    "passives": {
+     "persistence": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 106,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 8,
+  "hitsOn": 6,
+  "q": 0,
+  "bd": 1147,
+  "pat": "lanes 2, mark 2.7, summon 1, wide 0.7",
+  "src": "불씨 정령 98%, 검 2%, 화상 0%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "inv_dot",
+   "name": "같은 투자(7선택): 지속 피해·장판 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "ember",
+      "level": 3,
+      "mods": [
+       "trail",
+       "reignite"
+      ]
+     }
+    ],
+    "commons": {
+     "burn": 1
+    },
+    "passives": {
+     "persistence": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 103,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 8,
+  "hitsOn": 6,
+  "q": 1,
+  "bd": 1175,
+  "pat": "lanes 3, mark 1.3, summon 1, wide 1",
+  "src": "불씨 정령 99%, 검 1%, 화상 0%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "inv_dot",
+   "name": "같은 투자(7선택): 지속 피해·장판 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "ember",
+      "level": 3,
+      "mods": [
+       "trail",
+       "reignite"
+      ]
+     }
+    ],
+    "commons": {
+     "burn": 1
+    },
+    "passives": {
+     "persistence": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 66,
+  "taken": 16,
+  "absorbed": 0,
+  "heal": 8,
+  "attempts": 17,
+  "hitsOn": 1,
+  "q": 4,
+  "bd": 7000,
+  "pat": "lanes 3.7, mark 5.7, summon 1.7, wide 3",
+  "src": "불씨 정령 83%, 검 12%, 화상 5%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "inv_dot",
+   "name": "같은 투자(7선택): 지속 피해·장판 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 1,
+      "mods": []
+     },
+     {
+      "id": "ember",
+      "level": 3,
+      "mods": [
+       "trail",
+       "reignite"
+      ]
+     }
+    ],
+    "commons": {
+     "burn": 1
+    },
+    "passives": {
+     "persistence": 1
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": null
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 3,
+  "t": 69,
+  "taken": 8,
+  "absorbed": 0,
+  "heal": 5,
+  "attempts": 19,
+  "hitsOn": 0,
+  "q": 5,
+  "bd": 7000,
+  "pat": "lanes 4.3, mark 4.3, summon 2.3, wide 3.3",
+  "src": "불씨 정령 85%, 검 11%, 화상 4%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "inv_def",
+   "name": "같은 투자(7선택): 방어·회복 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "vitality": 2,
+     "toughness": 2
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "ward",
+      "level": 2,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "idle",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 150,
+  "absorbed": 0,
+  "heal": 0,
+  "attempts": 12,
+  "hitsOn": 8,
+  "q": 0,
+  "bd": 0,
+  "pat": "lanes 3.7, mark 2, summon 1.3, wide 2",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "inv_def",
+   "name": "같은 투자(7선택): 방어·회복 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "vitality": 2,
+     "toughness": 2
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "ward",
+      "level": 2,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "still",
+  "n": 3,
+  "wins": 0,
+  "t": "-",
+  "taken": 148,
+  "absorbed": 71,
+  "heal": 0,
+  "attempts": 16,
+  "hitsOn": 11,
+  "q": 3,
+  "bd": 0,
+  "pat": "lanes 5, mark 2, summon 2, wide 2.7",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "inv_def",
+   "name": "같은 투자(7선택): 방어·회복 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "vitality": 2,
+     "toughness": 2
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "ward",
+      "level": 2,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "aggressive",
+  "n": 3,
+  "wins": 3,
+  "t": 256,
+  "taken": 105,
+  "absorbed": 48,
+  "heal": 35,
+  "attempts": 60,
+  "hitsOn": 5,
+  "q": 17,
+  "bd": 7000,
+  "pat": "lanes 11, mark 19, summon 3.3, wide 15.7",
+  "src": "검 100%"
+ },
+ {
+  "bossId": "eater",
+  "build": {
+   "id": "inv_def",
+   "name": "같은 투자(7선택): 방어·회복 중심",
+   "growth": {
+    "level": 8,
+    "xp": 0,
+    "pendingLevelUps": 0,
+    "choiceSeq": 0,
+    "pendingOffer": null,
+    "lastKind": null,
+    "weapons": [
+     {
+      "id": "sword",
+      "level": 2,
+      "mods": []
+     }
+    ],
+    "commons": {},
+    "passives": {
+     "vitality": 2,
+     "toughness": 2
+    },
+    "skills": {
+     "q": {
+      "id": "slowfield",
+      "level": 1,
+      "variant": null
+     },
+     "e": {
+      "id": "ward",
+      "level": 2,
+      "variant": null
+     }
+    },
+    "bossRewards": [],
+    "legacy": {},
+    "steer": null,
+    "migrationPending": null,
+    "picks": {
+     "weapon_new": 0,
+     "weapon_level": 0,
+     "weapon_mod": 0,
+     "common": 0,
+     "skill_new": 0,
+     "skill_level": 0,
+     "skill_variant": 0,
+     "passive": 0,
+     "skip": 0
+    },
+    "log": []
+   },
+   "cat": "같은 투자"
+  },
+  "beh": "balanced",
+  "n": 3,
+  "wins": 2,
+  "t": 274,
+  "taken": 87,
+  "absorbed": 0,
+  "heal": 27,
+  "attempts": 59,
+  "hitsOn": 4,
+  "q": 19,
+  "bd": 6771,
+  "pat": "lanes 5.7, mark 23, summon 3.3, wide 21.7",
+  "src": "검 100%"
+ }
+]

@@ -13,9 +13,9 @@ test('회전 칼날: 궤도 안쪽(반지름 35%~100%)에 붙은 적도 살 판�
   assert.ok(near.hp < h0, '반지름 78 궤도 안쪽 40 거리의 적도 맞는다(이전 판정은 사각)'); assert.equal(far.hp, far.hpMax || far.hp, '멀리 있는 적은 안 맞음');
   assert.equal(w.bladePos.length, 2); assert.ok(w.bladePos[0].ix != null, '살 시작점 표시(그리기와 판정 동일)');
   const { st: st2 } = combat(PA, { growth: { weapons: [{ id: 'blades', level: 1, mods: ['dual'] }] } }); steps(PA, st2, S); assert.equal(st2.weapons[0].bladePos.length, 3, '칼날 3개');
-  // 접촉 빈도: 같은 적은 hitGap(0.45초)마다 1회
+  // 접촉 빈도: 같은 적은 hitGap(시험값 0.35초)마다 1회
   const { st: st3 } = combat(PA, { growth: { weapons: [{ id: 'blades', level: 1 }] } }); const p3 = st3.player; const e3 = CB.spawnEnemy(st3, 'wolf_alpha', p3.x + 60, p3.y); e3.hp = 99999; e3.state = 'idle';
-  const n0 = st3.weapons[0].count; steps(PA, st3, 2.0, {}, S, [[e3, p3.x + 60, p3.y]]); const hits = st3.weapons[0].count - n0; assert.ok(hits >= 3 && hits <= 5, `2초 동안 접촉 ${hits}회(주기 0.45)`);
+  const n0 = st3.weapons[0].count; steps(PA, st3, 2.0, {}, S, [[e3, p3.x + 60, p3.y]]); const hits = st3.weapons[0].count - n0; const gap = PA.WEAPONS.blades.base.hitGap; assert.ok(hits >= Math.floor(2 / gap) - 1 && hits <= Math.ceil(2 / gap) + 1, `2초 동안 접촉 ${hits}회(주기 ${gap})`);
 });
 test('지속 피해 감사: 화상은 중첩 없이 시간만 갱신, 출혈은 높은 dps로 대체, 틱 0.5초, 60/120fps 총량 동일, 감속장 증폭 없음, 큰 보스도 한 틱에 한 번', () => {
   const mkb = () => combat(PA, { growth: { weapons: [{ id: 'sword', level: 1, mods: ['bleed'] }], commons: { burn: 1 } } });

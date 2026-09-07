@@ -471,8 +471,8 @@ PA.WEAPONS = {
   hammer:  { name: '전투망치', kind: 'heavy', startable: true, impl: true, base: { damage: 30, interval: 1.4, range: 110, radius: 70, knock: 120 }, reach: true, width: true, category: 'direct', tags: ['melee'],
     desc: '느리고 강한 범위 타격. 큰 한 방과 밀어내기.',
     mods: { shockwave: { name: '전방 충격파', desc: '타격 지점에서 앞으로 충격파(길이 160, 피해 60%)', impl: true, tags: ['melee'] }, aftershock: { name: '여진', desc: '타격한 바닥이 0.6초 뒤 다시 폭발(피해 50%)', impl: true, tags: ['zone'] }, pull: { name: '끌어당기는 망치', desc: '타격 직전 근처 작은 적을 타격점으로 조금 당김', impl: true, tags: ['melee'] } } },
-  blades:  { name: '회전 칼날', kind: 'orbit', startable: true, impl: true, base: { damage: 8, interval: 0.45, count: 2, radius: 78, angular: 3.2, hitGap: 0.45, knock: 20 }, reach: false, width: true, category: 'direct', tags: ['melee', 'combo'],
-    desc: '플레이어 주변을 도는 칼날. 칼날의 살(중심 근처~끝)에 닿는 적을 벤다. 같은 적은 0.45초마다 한 번.',
+  blades:  { name: '회전 칼날', kind: 'orbit', startable: true, impl: true, base: { damage: 10, interval: 0.35, count: 2, radius: 78, angular: 3.2, hitGap: 0.35, knock: 20 }, /* v0.8 시험값 변경: 피해 8→10, 접촉 주기 0.45→0.35 (근거: docs/sim/report_E2.md — 살 판정 뒤에도 승률 56% vs 검 64%·정지 보스 DPS 14 vs 25; 후보 '피해10+주기0.35'가 65%·17.5로 검과 같은 수준) */ reach: false, width: true, category: 'direct', tags: ['melee', 'combo'],
+    desc: '플레이어 주변을 도는 칼날. 칼날의 살(중심 근처~끝)에 닿는 적을 벤다. 같은 적은 0.35초마다 한 번.',
     mods: { dual: { name: '세 번째 칼날', desc: '칼날 +1 (같은 궤도, 접촉 빈도 증가)', impl: true, tags: ['melee'] }, launch: { name: '사출 칼날', desc: '3초마다 칼날 하나가 적에게 날아갔다 복귀(피해 120%)', impl: true, tags: ['projectile'] }, serrated: { name: '톱날', desc: '적중한 적에게 짧은 출혈', impl: true, tags: ['bleed'] } } },
   orb:     { name: '번개 구체', kind: 'chain', startable: true, impl: true, base: { damage: 9, interval: 0.9, range: 200, hop: 130, hops: 3 }, reach: true, width: false, category: 'direct', tags: ['chain'],
     desc: '주변 구체가 연쇄 번개를 쏜다. 가까운 적들을 연결. 한 연쇄에서 같은 적은 한 번만.',
@@ -1240,7 +1240,7 @@ PA.Combat = (function () {
 
   // ---------- 측정(시험실·시뮬레이션 공용) ----------
   // 적 종류별 등장·처치·공격 준비·실행·공격 전 사망·처치 소요, 피해 출처별 실제 체력 감소(과잉 피해 제외), 받은 피해 원인별
-  function newMetrics() { return { enemies: {}, dmg: {}, taken: {}, takenHits: {}, absorbed: 0, deathEffects: {}, interrupts: 0, webs: 0, heals: 0, healAmount: 0 }; }
+  function newMetrics() { return { hits: {}, enemies: {}, dmg: {}, taken: {}, takenHits: {}, absorbed: 0, deathEffects: {}, interrupts: 0, webs: 0, heals: 0, healAmount: 0 }; }
   function enemyKey(e) { return e.type + (e.summoned ? ':summoned' : ''); }
   function metricsFor(st, e) { const k = enemyKey(e); return st.metrics.enemies[k] || (st.metrics.enemies[k] = { spawned: 0, killed: 0, prepared: 0, executed: 0, diedBeforeAttack: 0, ttk: [], ttkFromHit: [], deathEffects: 0 }); }
   // 공격 준비(예고 시작)·실행(피해 판정 발생 시점)을 구분해 센다. 죽으면서 생기는 효과(포자 사망 구름)는 deathEffect로 따로.
@@ -1263,7 +1263,7 @@ PA.Combat = (function () {
       version: PA.VERSION, seed: st.seed, arena: st.arenaId, regionId: st.regionId, hpMult: st.hpMult, timeLimit: st.timeLimit, fixedBuild: st.fixedBuild,
       status: st.status, elapsed: Math.round(st.t * 100) / 100, hp: Math.round(st.player.hp), hpMax: st.player.hpMax,
       damageTaken: Math.round(st.stats.damageTaken), absorbed: Math.round(M.absorbed), kills: st.stats.kills, specialUses: st.stats.specialUses, eUses: st.stats.eUses || 0, dodges: st.stats.dodges || 0,
-      taken: M.taken, takenHits: M.takenHits, enemies: en, dmg, dmgTotal: Math.round(dmgTotal), interrupts: M.interrupts, heals: M.heals, healAmount: Math.round(M.healAmount), webs: M.webs,
+      taken: M.taken, takenHits: M.takenHits, hits: Object.assign({}, M.hits || {}), enemies: en, dmg, dmgTotal: Math.round(dmgTotal), interrupts: M.interrupts, heals: M.heals, healAmount: Math.round(M.healAmount), webs: M.webs,
       farFrac: M.farFrac != null ? M.farFrac : null, patterns: M.patterns || {}, xp: st.stats.xp, levelUps: st.stats.levelUps, build: st.build.growth ? { level: st.build.growth.level, weapons: st.build.growth.weapons.map(w => w.id + ':' + w.level + (w.mods.length ? ':' + w.mods.join('+') : '')), commons: st.build.growth.commons, passives: st.build.growth.passives, e: st.build.growth.skills.e, q: st.build.growth.skills.q } : null,
     };
   }
@@ -1842,7 +1842,7 @@ PA.Combat = (function () {
       k.t += dt;
       if (!k.taken && m().dist(k, p) <= k.r + p.r) {
         k.taken = true;
-        const before = p.hp; p.hp = Math.min(p.hpMax, p.hp + k.amount);
+        const before = p.hp; p.hp = Math.min(p.hpMax, p.hp + k.amount); st.stats.healed = (st.stats.healed || 0) + (p.hp - before); // 플레이어 회복량(구슬)
         text(st, p.x, p.y - 34, '+' + Math.round(p.hp - before), '#9cffb0'); ev(st, 'orb');
       }
     }
@@ -1975,7 +1975,7 @@ PA.Weapons = (function () {
     for (const e of st.enemies) { if (!ok(e)) continue; const d = m().dist(p, e); if (d < bd) { bd = d; best = e; } }
     return best;
   }
-  function dmgTo(st, e, w, mult, opt) { return K().damageEnemy(st, e, w.stats.damage * mult, Object.assign({ src: src(w, opt) }, opt || {})); }
+  function dmgTo(st, e, w, mult, opt) { if (st.metrics && st.metrics.hits) st.metrics.hits[w.id] = (st.metrics.hits[w.id] || 0) + 1; return K().damageEnemy(st, e, w.stats.damage * mult, Object.assign({ src: src(w, opt) }, opt || {})); } // 명중 횟수(무기별): 실제 명중 빈도 측정
   // 원형 범위 직접 공격(가림 적용)
   function hitCircle(st, w, cx, cy, r, mult, opt) {
     let n = 0;
@@ -3320,7 +3320,7 @@ PA.Run = (function () {
   // 귀환: 전리품을 거점에 반영
   // 귀환 정산(정확히 1회): 금화·재료·장비(가방)·이용권·성장 예약이 여기서 확정된다. 원정대의 갑옷 회복도 정산당 1회
   function returnToBase(run, sortie) {
-    if (sortie.settled) return; sortie.settled = true;
+    if (sortie.settled || sortie.lost) return; sortie.settled = true;
     run.gold += sortie.loot.gold;
     for (const k in sortie.loot.mats) run.mats[k] = (run.mats[k] || 0) + sortie.loot.mats[k];
     const extras = [];
@@ -3333,6 +3333,7 @@ PA.Run = (function () {
   }
   // 일반 출격 패배: 미정산 전리품 상실(호출자가 sortie를 버림), 남은 하루 상실, 구조되어 다음 날 정상 체력으로 시작. 정산한 재산·성장은 보존
   function defeat(run, sortie) {
+    sortie.lost = true; sortie.settled = true; sortie.loot = { gold: 0, mats: {}, chestGold: 0 }; // 패배한 출격은 어떤 경로로도 정산되지 않는다
     addLog(run, `${region(sortie.regionId).name}에서 패배: 미정산 전리품 상실, 남은 하루 상실`);
     run.hours = 0; run.hp = build(run).hpMax; run.lastDefeatDay = run.day;
     if (run.phase === 'prep') endDay(run); // 구조: 하루 종료 → 다음 날(관문 날이면 관문)
@@ -3358,13 +3359,13 @@ PA.Run = (function () {
   function startBoss(run) {
     if (!canStartBoss(run)) throw new Error('보스 준비 상태가 아님');
     run.hp = build(run).hpMax; // 입장: 체력 완전 회복(회피·감속장·방벽은 전투 생성 시 초기화)
-    run.bossEntry = JSON.parse(JSON.stringify({ growth: run.growth, hp: run.hp, stage: run.stage, gold: run.gold })); // 재도전 복구 기준(소환 경험치 누적 악용 방지)
+    run.bossEntry = JSON.parse(JSON.stringify({ growth: run.growth, hp: run.hp, stage: run.stage, gold: run.gold, services: run.services, equipment: run.equipment, bag: run.bag, forge: run.forge })); // 재도전 복구 기준(소환 경험치 누적 악용 방지)
     const nb = nextBoss(run);
     return { regionId: 'boss', bossId: nb ? nb.id : 'boss', stage: run.stage || 0, seed: bossSeed(run), loot: { gold: 0, mats: {} }, encounters: 0 };
   }
   function bossDefeat(run) {
     run.bossRetries = (run.bossRetries || 0) + 1;
-    if (run.bossEntry) { run.growth = JSON.parse(JSON.stringify(run.bossEntry.growth)); if (run.bossEntry.gold != null) run.gold = run.bossEntry.gold; } // 입장 시 준비 상태로 복구(레벨·경험치·선택·금화: 전투 중 건너뛰기 금화 반복 악용 방지)
+    if (run.bossEntry) { const E = JSON.parse(JSON.stringify(run.bossEntry)); run.growth = E.growth; if (E.gold != null) run.gold = E.gold; if (E.services) run.services = E.services; if (E.equipment) run.equipment = E.equipment; if (E.bag) run.bag = E.bag; if (E.forge != null) run.forge = E.forge; } // 입장 시 준비 상태로 복구(레벨·경험치·선택·금화: 전투 중 건너뛰기 금화 반복 악용 방지)
     run.hp = build(run).hpMax; addLog(run, `보스전 패배 (재도전 ${run.bossRetries}회, 성장은 입장 시점으로 복구)`);
   }
   function bossVictory(run, stats) {
@@ -3746,9 +3747,9 @@ PA.Flow = (function () {
   // 거점 서비스: 개조 교체 — 개조 1개를 떼고 그 무기의 다른 개조 3택. 후보가 없으면 되돌리고 권 유지
   function modSwapOffer(run, weaponId, modId) {
     const g = run.growth, w = g.weapons.find(x => x.id === weaponId); if (!w || !w.mods.includes(modId) || !PA.Run.hasService(run, 'mod_swap') || g.pendingOffer) throw new Error('교체 불가');
-    w.mods = w.mods.filter(m => m !== modId);
+    const orig = w.mods.slice(); w.mods = w.mods.filter(m => m !== modId);
     const cands = PA.Growth.candidates(run, { pool: 'level' }).filter(c => c.kind === 'weapon_mod' && c.id === weaponId && c.mod !== modId);
-    if (!cands.length) { w.mods.push(modId); return null; }
+    if (!cands.length) { w.mods = orig; return null; }
     PA.Run.useService(run, 'mod_swap'); g.swappedOut = (g.swappedOut || []).concat([weaponId + ':' + modId]);
     const off = PA.Growth.generateOffer(run, { pool: 'mission', kinds: ['weapon_mod'], missionKind: 'weapon_mod', regionId: null, weaponOnly: weaponId, excludeMod: modId });
     if (!off.choices.length) { g.pendingOffer = null; w.mods.push(modId); run.services.mod_swap++; return null; }
@@ -3758,12 +3759,12 @@ PA.Flow = (function () {
   function modChange(run, weaponId, modId) {
     const g = run.growth, w = g.weapons.find(x => x.id === weaponId); if (!w || !w.mods.includes(modId) || g.pendingOffer) throw new Error('변경 불가');
     const cost = PA.Run.modChangeCost(run); if (!cost.voucher && run.gold < cost.gold) throw new Error('금화 부족');
-    w.mods = w.mods.filter(m => m !== modId);
+    const orig = w.mods.slice(); w.mods = w.mods.filter(m => m !== modId);
     const cands = PA.Growth.candidates(run, { pool: 'level' }).filter(c => c.kind === 'weapon_mod' && c.id === weaponId && c.mod !== modId);
-    if (!cands.length) { w.mods.push(modId); return null; }
+    if (!cands.length) { w.mods = orig; return null; }
     if (cost.voucher) PA.Run.useService(run, 'mod_swap'); else run.gold -= cost.gold;
     const off = PA.Growth.generateOffer(run, { pool: 'mission', kinds: ['weapon_mod'], missionKind: 'weapon_mod', regionId: null, weaponOnly: weaponId, excludeMod: modId });
-    off.paidChange = { kind: 'mod', weaponId, modId, cost }; g.picks.modChange = (g.picks.modChange || 0) + 1;
+    off.paidChange = { kind: 'mod', weaponId, modId, cost, orig }; g.picks.modChange = (g.picks.modChange || 0) + 1;
     return off;
   }
   function variantChange(run) {
@@ -3780,7 +3781,7 @@ PA.Flow = (function () {
   // 유료 변경 3택을 받지 않음: 원래 개조/변형 복구 + 비용 환불(교체권 포함)
   function cancelPaidChange(run, offer) {
     const pc = offer && offer.paidChange; if (!pc) return false; const g = run.growth;
-    if (pc.kind === 'mod') { const w = g.weapons.find(x => x.id === pc.weaponId); if (w && !w.mods.includes(pc.modId)) w.mods.push(pc.modId); }
+    if (pc.kind === 'mod') { const w = g.weapons.find(x => x.id === pc.weaponId); if (w && !w.mods.includes(pc.modId)) w.mods = pc.orig ? pc.orig.slice() : w.mods.concat([pc.modId]); } // 원래 순서 그대로 복구
     else if (pc.kind === 'variant' && g.skills.e && !g.skills.e.variant) g.skills.e.variant = pc.old;
     if (pc.cost.voucher) run.services.mod_swap = (run.services.mod_swap || 0) + 1; else run.gold += pc.cost.gold;
     g.pendingOffer = null; return true;
@@ -3903,6 +3904,10 @@ PA.Bot = (function () {
       doc: { period: '40ms(일반)·헤드리스 5스텝', reads: '준비 40% 이상 진행된 예고·확정·투사체·바닥 지역·구름 예고', target: '궁수·주술사·서리술사 같은 후열 우선, 없으면 가장 가까운 적', q: '200 안 적 3마리 이상 또는 보스 빈틈·돌진 확정', e: '200 안 적 2마리 이상', dodge: '확정 예고 안에 있을 때', terrain: 'Combat.steerDir 접선 우회', giveUp: '체력 25% 미만이면 예고가 없을 때만 접근' } },
     survival:   { name: '생존 우선', reactAt: 0.0, dodgeLocked: true, zoneMargin: 60, keepDist: 90, retreatHp: 0.5, qMinEnemies: 1, eMinEnemies: 1, eRange: 160, giveUp: 'hp<50%면 이탈, 위협 없을 때만 사거리까지 접근',
       doc: { period: '40ms(일반)·헤드리스 5스텝', reads: '모든 준비 단계 예고·투사체·바닥 지역(여유 60)', target: '가장 가까운 적을 사거리 끝에서', q: '위협이 확정된 적이 200 안에 1마리 이상', e: '160 안 적 1마리 이상(결계·돌풍은 방어용)', dodge: '확정 예고 안 또는 근접 적 60 안', terrain: 'Combat.steerDir 접선 우회', giveUp: '체력 50% 미만이면 모든 적에서 이탈(시간 초과 가능 — 성공으로 집계하지 않음)' } },
+    idle:       { name: '제자리(자동 공격만)', reactAt: 9, dodgeLocked: false, zoneMargin: 0, keepDist: 0, retreatHp: 0, qMinEnemies: 99, eMinEnemies: 99, eRange: 0, giveUp: '없음', noMove: true, noSkills: true,
+      doc: { period: '—', reads: '아무것도 읽지 않음', target: '없음', q: '사용 안 함', e: '사용 안 함', dodge: '없음', terrain: '없음', giveUp: '없음' } },
+    aware:      { name: '기술 특성 이해(균형+거리)', reactAt: 0.4, dodgeLocked: true, zoneMargin: 30, keepDist: 55, retreatHp: 0.25, qMinEnemies: 3, eMinEnemies: 2, eRange: 200, giveUp: '균형과 동일', aware: true,
+      doc: { period: '40ms(일반)·헤드리스 5스텝', reads: '균형과 동일', target: '균형과 동일', q: '균형과 동일', e: '균형과 동일', dodge: '균형과 동일', terrain: '균형과 동일', giveUp: '균형과 동일. 차이: 회전 칼날만 있으면 살 중간(반지름 55%)에 적을 두고, 관통창은 근접 약화 구간(사거리 45%) 밖을 유지' } },
     still:      { name: '제자리(Q/E만)', reactAt: 9, dodgeLocked: false, zoneMargin: 0, keepDist: 0, retreatHp: 0, qMinEnemies: 1, eMinEnemies: 1, eRange: 220, giveUp: '없음', noMove: true,
       doc: { period: '40ms(일반)·헤드리스 5스텝', reads: '아무것도 읽지 않음', target: '없음(이동 없음)', q: '220 안 적 1마리 이상 또는 보스 빈틈', e: '220 안 적 1마리 이상', dodge: '없음', terrain: '없음', giveUp: '없음' } },
   };
@@ -3960,7 +3965,7 @@ PA.Bot = (function () {
     if (st.markTarget && !st.markTarget.dead) return st.markTarget;
     const bz = st.boss; if (bz && !bz.dead) return bz;
     if (PA.Objectives && st.obj) { const ot = PA.Objectives.botTarget(st); if (ot) return ot; } // 목표 우선 대상(제단·정예)
-    if (pol === POLICIES.balanced) { const back = alive.filter(e => BACKLINE.includes(e.type)).sort((a, b) => m().dist(a, p) - m().dist(b, p)); if (back.length) return back[0]; }
+    if (pol === POLICIES.balanced || pol.aware) { const back = alive.filter(e => BACKLINE.includes(e.type)).sort((a, b) => m().dist(a, p) - m().dist(b, p)); if (back.length) return back[0]; }
     return alive.slice().sort((a, b) => m().dist(a, p) - m().dist(b, p))[0];
   }
   function weaponRange(st) { let r = 0; for (const w of st.weapons || []) { const s = w.stats; const rr = s.kind === 'orbit' ? s.radius : (s.range || 60); if (rr > r) r = rr; } return r || 80; }
@@ -3996,8 +4001,9 @@ PA.Bot = (function () {
       const range = weaponRange(st);
       const orbitOnly = (st.weapons || []).length > 0 && st.weapons.every(w => w.stats.kind === 'orbit' || w.stats.kind === 'mine'); // 공전 칼날만 있으면 궤도(반지름)에 적이 걸치도록 거리를 둔다
       let want = target.boss ? (PA.Boss.isExposed(target) ? target.r + 40 : target.r + range * 0.7) : Math.max(pol.keepDist, pol === POLICIES.survival ? range * 0.85 : 0, orbitOnly ? range * 0.9 : 0);
+      if (pol.aware) { const beam = (st.weapons || []).find(w => w.stats.kind === 'beam'); if (orbitOnly) want = target.boss ? target.r + range * 0.55 : range * 0.55; else if (beam && !target.boss) want = Math.max(want, beam.stats.range * (beam.stats.sweetFrom || 0.45) + 20); } // 기술 특성 이해: 칼날 살 중간·창 근접 약화 구간 밖
       if (pol === POLICIES.survival && hpRatio < pol.retreatHp) want = 260;                     // 생존 우선: 체력이 낮으면 이탈
-      if (pol === POLICIES.balanced && hpRatio < pol.retreatHp && alive.some(e => e.state !== 'approach' && e.state !== 'recover')) want = Math.max(want, 160);
+      if ((pol === POLICIES.balanced || pol.aware) && hpRatio < pol.retreatHp && alive.some(e => e.state !== 'approach' && e.state !== 'recover')) want = Math.max(want, 160);
       if (pol === POLICIES.survival && alive.some(e => (e.state !== 'approach' && e.state !== 'recover' && e.state !== 'stagger') && M.dist(e, p) < 60)) dodge = true; // 근접 위협에서 굴러 나감
       if (d > want + 10) { const s = mem.steer; s.x = p.x; s.y = p.y; if (s.steerT > 0) s.steerT -= 0.04; mv = st.obstacles.length ? PA.Combat.steerDir(st, s, target.x, target.y) : toT; }
       else if (d < want - 30) mv = { x: -toT.x, y: -toT.y };
@@ -4011,7 +4017,7 @@ PA.Bot = (function () {
     }
     const es = st.build.skills && st.build.skills.e;
     if (es && p.eCd <= 0) { const nearE = alive.filter(e => M.dist(e, p) < pol.eRange).length; if (nearE >= pol.eMinEnemies) skillE = true; if (es.id === 'ward' && pol !== POLICIES.survival && !threatened && hpRatio > 0.7) skillE = false; }
-    if (pol.noMove) return { mx: 0, my: 0, dodge: false, special, skillE }; // 제자리 정책: 이동·회피 없음(보스 비교 기준선)
+    if (pol.noMove) return { mx: 0, my: 0, dodge: false, special: pol.noSkills ? false : special, skillE: pol.noSkills ? false : skillE }; // 제자리 정책: 이동·회피 없음(보스 비교 기준선)
     return { mx: mv.x, my: mv.y, dodge, special, skillE };
   }
   // 판단 주기 양자화: 고정 시뮬레이션 단계 번호(st.stepN, 다음에 실행될 단계)가 DECIDE_STEPS의 배수일 때만 판단한다(120단계/초 → 5단계 = 40ms).
@@ -4080,12 +4086,19 @@ PA.LAB = {
     slowfield:    { name: '감속장 중심 조합', stage: '중간', purpose: '감속장 Lv3 동행 + 정지된 칼날 + 시간 저축 + 회전 칼날 이중 궤도 + 집중. 감속장이 예고 읽기에 주는 여유를 비교', growth: { weapons: [{ id: 'sword', level: 2 }, { id: 'blades', level: 3, mods: ['dual'] }], commons: { stasis: 1, saving: 1, wide: 1 }, passives: { focus: 2 }, q: { level: 3, variant: 'follow' } }, gear: { upgrade: 1 } },
     dot:          { name: '불길·지속 피해 조합', stage: '중간', purpose: '불씨 정령(화염 띠·재점화) + 잔불 걸음 + 불꽃 파열 + 불붙은 공격 + 지속력. 바닥 유도형 빌드의 처치 시간 분포', growth: { weapons: [{ id: 'sword', level: 2 }, { id: 'ember', level: 3, mods: ['trail', 'reignite'] }], commons: { ember: 1, flare: 1, burn: 1 }, passives: { persistence: 2 } }, gear: { upgrade: 1 } },
     late_multi:   { name: '후반 다중 무기 조합', stage: '후반', purpose: '관통창 5(귀환·표식) + 회전 4(이중) + 구체 3(분기) + 숙련 3·가속 2 + 낙뢰 2 연쇄 + 강화 3·송곳니 목걸이·가죽 갑옷. 6일차 완성 빌드에 가까운 상한선', growth: { weapons: [{ id: 'spear', level: 5, mods: ['returning', 'brand'] }, { id: 'blades', level: 4, mods: ['dual'] }, { id: 'orb', level: 3, mods: ['fork'] }], commons: { stasis: 1, saving: 1, wide: 2 }, passives: { mastery: 3, haste: 2 }, e: { id: 'strike', level: 2, variant: 'chain' } }, gear: { upgrade: 3 } },
+    start_sword:  { name: '시작: 검격(Lv1, 개조·장비 없음)', stage: '시작 비교', purpose: '새 회차 첫 전투 상태 그대로. 시작 자동기술 3종 비교(같은 시드·정책)', growth: { weapons: [{ id: 'sword', level: 1 }] }, gear: {} },
+    start_spear:  { name: '시작: 관통창(Lv1)', stage: '시작 비교', purpose: '시작 자동기술 3종 비교', growth: { weapons: [{ id: 'spear', level: 1 }] }, gear: {} },
+    start_blades: { name: '시작: 회전 칼날(Lv1)', stage: '시작 비교', purpose: '시작 자동기술 3종 비교(살 판정, 개조 없이 공격 성립)', growth: { weapons: [{ id: 'blades', level: 1 }] }, gear: {} },
+    inv_direct: { name: '같은 투자(7선택): 직접 피해 중심', stage: '투자 비교', purpose: '검 Lv4 + 교차 + 숙련 2 + 가속 1. 직접 피해에 7선택', growth: { weapons: [{ id: 'sword', level: 4, mods: ['cross'] }], passives: { mastery: 2, haste: 1 } }, gear: {} },
+    inv_dot:    { name: '같은 투자(7선택): 지속 피해·장판 중심', stage: '투자 비교', purpose: '검 Lv1 + 불씨 정령 Lv3(화염 띠·재점화) + 불붙은 공격 + 지속력 1. 지속·장판에 7선택', growth: { weapons: [{ id: 'sword', level: 1 }, { id: 'ember', level: 3, mods: ['trail', 'reignite'] }], commons: { burn: 1 }, passives: { persistence: 1 } }, gear: {} },
+    inv_def:    { name: '같은 투자(7선택): 방어·회복 중심', stage: '투자 비교', purpose: '검 Lv2 + 수호 결계 Lv2 + 건강 2 + 강인함 2. 방어에 7선택', growth: { weapons: [{ id: 'sword', level: 2 }], passives: { vitality: 2, toughness: 2 }, e: { id: 'ward', level: 2 } }, gear: {} },
     cmp_sword:  { name: '비교: 검(7선택)', stage: '비교', purpose: '무기 비교 기준: 검 Lv3 + 개조 1 + 공통 냉기·넓어진 공격 + 패시브 강인함·숙련. 장비·E 없음', growth: { weapons: [{ id: 'sword', level: 3, mods: ['cross'] }], commons: { frost: 1, wide: 1 }, passives: { toughness: 1, mastery: 1 } }, gear: {} },
     cmp_spear:  { name: '비교: 창(7선택)', stage: '비교', purpose: '무기 비교: 관통창 Lv3 + 개조 1(귀환 검기), 나머지 동일', growth: { weapons: [{ id: 'spear', level: 3, mods: ['returning'] }], commons: { frost: 1, wide: 1 }, passives: { toughness: 1, mastery: 1 } }, gear: {} },
     cmp_blades: { name: '비교: 회전 칼날(7선택)', stage: '비교', purpose: '무기 비교: 회전 칼날 Lv3 + 개조 1, 나머지 동일', growth: { weapons: [{ id: 'blades', level: 3, mods: [Object.keys(PA.WEAPONS.blades.mods).find(k => PA.WEAPONS.blades.mods[k].impl)] }], commons: { frost: 1, wide: 1 }, passives: { toughness: 1, mastery: 1 } }, gear: {} },
-    stage1: { name: '1단계 빌드(3일차, Lv 9)', stage: '관문 1', purpose: '2일 준비 뒤 가시갈기(체력 후보 1500) 도전 시점의 평균 빌드: 검 3(십자) + 불씨 1 + 냉기 1, E 돌풍 1', growth: { weapons: [{ id: 'sword', level: 3, mods: ['cross'] }, { id: 'ember', level: 1 }], commons: { frost: 1 }, passives: { toughness: 1 }, e: { id: 'gust', level: 1 } }, gear: { upgrade: 0 } },
-    stage2: { name: '2단계 빌드(5일차, Lv 18)', stage: '관문 2', purpose: '4일 준비 뒤 봉인 수호자(3000) 도전 시점: 검 5(십자·초승달) + 불씨 3(재점화) + 단검 2, 공통 냉기·화상, E 돌풍 2', growth: { weapons: [{ id: 'sword', level: 5, mods: ['cross', 'crescent'] }, { id: 'ember', level: 3, mods: ['reignite'] }, { id: 'daggers', level: 2 }], commons: { frost: 1, burn: 1 }, passives: { toughness: 1, mastery: 1, focus: 1 }, e: { id: 'gust', level: 2 } }, gear: { upgrade: 1 } },
-    stage3: { name: '3단계 빌드(7일차, Lv 26)', stage: '관문 3', purpose: '6일 준비 뒤 예언을 먹는 자(3600) 도전 시점: 검 5(십자·초승달) + 불씨 5(재점화·흔적) + 단검 4(출혈·측면), 공통 냉기·화상·불꽃, E 돌풍 3 변형', growth: { weapons: [{ id: 'sword', level: 5, mods: ['cross', 'crescent'] }, { id: 'ember', level: 5, mods: ['reignite', 'trail'] }, { id: 'daggers', level: 4, mods: ['bleed', 'flank'] }], commons: { frost: 1, burn: 1, flare: 1 }, passives: { toughness: 2, mastery: 2, focus: 1, vitality: 1 }, e: { id: 'gust', level: 3 } }, gear: { upgrade: 2 } },
+    stage1: { name: '1단계 관문 빌드(3일차, Lv7 · 점진 전략 덤프 시드 1)', stage: '관문 1', purpose: 'v0.8 run_sim(점진·test03·시드 1)에서 3일차 관문 입장 시점 그대로: 검 2(교차) + 불씨 1 + 회전 칼날 1(사출·세 번째 칼날), E 돌풍, 원정대의 갑옷, 강화 1, 금화 122', growth: { weapons: [{ id: 'sword', level: 2, mods: ['cross'] }, { id: 'ember', level: 1 }, { id: 'blades', level: 1, mods: ['launch', 'dual'] }], e: { id: 'gust', level: 1 } }, gear: {}, equipment: { armor: 'expedition_armor' }, forge: 1, gold: 122 },
+    stage2: { name: '2단계 관문 빌드(5일차, Lv12 · 덤프 시드 1)', stage: '관문 2', purpose: '5일차 봉인 수호자 입장 시점: 검 2(교차·잔류) + 불씨 1(산개·화염 띠) + 칼날 1(사출·세 번째), 냉기, E 돌풍(바람길), 희귀 일제 공격, 개척자의 창·원정대의 갑옷·시간의 방패, 강화 2, 금화 59', growth: { weapons: [{ id: 'sword', level: 2, mods: ['cross', 'scar'] }, { id: 'ember', level: 1, mods: ['scatter', 'trail'] }, { id: 'blades', level: 1, mods: ['launch', 'dual'] }], commons: { frost: 1 }, e: { id: 'gust', level: 1, variant: 'windpath' }, bossRewards: ['volley'] }, gear: {}, equipment: { weapon: 'pioneer_spear', armor: 'expedition_armor', shield: 'time_shield' }, forge: 2, gold: 59 },
+    stage3: { name: '3단계 관문 빌드(7일차, Lv18 · 덤프 시드 1)', stage: '관문 3', purpose: '7일차 예언을 먹는 자 입장 시점: 검 3(교차·잔류) + 불씨 2(산개·화염 띠) + 칼날 2(사출·세 번째), 냉기·화상·불꽃 파열, Q 잔향, E 돌풍(바람길), 희귀 일제 공격·시간의 복제, 사냥꾼의 검·원정대의 갑옷·시전자의 방패, 강화 3, 금화 79', growth: { weapons: [{ id: 'sword', level: 3, mods: ['cross', 'scar'] }, { id: 'ember', level: 2, mods: ['scatter', 'trail'] }, { id: 'blades', level: 2, mods: ['launch', 'dual'] }], commons: { frost: 1, burn: 1, flare: 1 }, q: { level: 1, variant: 'echo' }, e: { id: 'gust', level: 1, variant: 'windpath' }, bossRewards: ['volley', 'clone'] }, gear: {}, equipment: { weapon: 'hunter_sword', armor: 'expedition_armor', shield: 'caster_shield' }, forge: 3, gold: 79 },
+    stop3_final: { name: '3일차 성장 중단 최종 보스 빌드(Lv10 · 덤프 시드 1)', stage: '관문 3', purpose: '같은 시드·정책으로 3일차까지만 성장하고 4일차부터 휴식만 한 빌드로 7일차 최종 보스 입장: 검 2(교차·잔류) + 불씨 1(산개) + 칼날 1(사출·세 번째), 냉기, E 돌풍, 희귀 일제 공격·복제, 원정대의 갑옷, 강화 1, 금화 364(쓰지 않음)', growth: { weapons: [{ id: 'sword', level: 2, mods: ['cross', 'scar'] }, { id: 'ember', level: 1, mods: ['scatter'] }, { id: 'blades', level: 1, mods: ['launch', 'dual'] }], commons: { frost: 1 }, e: { id: 'gust', level: 1 }, bossRewards: ['volley', 'clone'] }, gear: {}, equipment: { armor: 'expedition_armor' }, forge: 1, gold: 364 },
     late_hammer:  { name: '후반 망치·지뢰 조합', stage: '후반', purpose: '전투망치 4(충격파·여진) + 룬 지뢰 3(연결·서리 함정) + 불씨 2 + 넓어진 공격 2 + 강인함·건강. 느리고 큰 한 방 계열의 상한선', growth: { weapons: [{ id: 'hammer', level: 4, mods: ['shockwave', 'aftershock'] }, { id: 'mine', level: 3, mods: ['chain', 'frosttrap'] }, { id: 'ember', level: 2 }], commons: { wide: 2, flare: 1, burn: 1 }, passives: { toughness: 2, vitality: 2, mastery: 1 }, e: { id: 'gravity', level: 2, variant: 'collapse' } }, gear: { upgrade: 2 } },
   },
   // 지형 프리셋. auto = 조합 프리셋이 정한 기본 전장(일반 지역: 숲, 보스: 공터)
@@ -4160,9 +4173,9 @@ PA.Lab = (function () {
   const RESULTS_KEY = 'prophecy_action_lab_results_v1'; // 최근 결과(비교 표)
   const S = () => PA.GROWTH.SLOTS;
 
-  function defaultConfig() { return { enemy: 'region:forest', arena: 'auto', hp: { normal: 1, elite: 1, boss: 1 }, seed: 1, build: 'early_sword', control: 'human', bot: 'balanced', growth: 'fixed', time: PA.LAB.DEFAULT_TIME, deep: false, layout: 'classic', overlap: -1 }; }
+  function defaultConfig() { return { enemy: 'region:forest', arena: 'auto', hp: { normal: 1, elite: 1, boss: 1 }, seed: 1, build: 'early_sword', control: 'human', bot: 'balanced', growth: 'fixed', time: PA.LAB.DEFAULT_TIME, deep: false, layout: 'classic', overlap: -1, balance: 'current' }; } // balance: 시험실에 적용할 밸런스 세트(창 규칙·경험치 배율). 기본 현재값
   // ---------- 문자열 ----------
-  function encode(c) { return [`enemy=${c.enemy}`, `arena=${c.arena}`, `hp=${c.hp.normal},${c.hp.elite},${c.hp.boss}`, `seed=${c.seed}`, `build=${c.build}`, `control=${c.control}`, `bot=${c.bot}`, `growth=${c.growth}`, `time=${c.time}`, `deep=${c.deep ? 1 : 0}`, `layout=${c.layout || 'classic'}`, `overlap=${c.overlap == null ? -1 : c.overlap}`].join(';'); }
+  function encode(c) { return [`enemy=${c.enemy}`, `arena=${c.arena}`, `hp=${c.hp.normal},${c.hp.elite},${c.hp.boss}`, `seed=${c.seed}`, `build=${c.build}`, `control=${c.control}`, `bot=${c.bot}`, `growth=${c.growth}`, `time=${c.time}`, `deep=${c.deep ? 1 : 0}`, `layout=${c.layout || 'classic'}`, `balance=${c.balance || 'current'}`, `overlap=${c.overlap == null ? -1 : c.overlap}`].join(';'); }
   function decode(str) {
     const c = defaultConfig(); if (!str) return c;
     let src = String(str).trim();
@@ -4187,6 +4200,7 @@ PA.Lab = (function () {
     if (!c.hp) c.hp = d.hp; for (const k of ['normal', 'elite', 'boss']) if (!(c.hp[k] > 0)) c.hp[k] = 1;
     if (!(PA.LAYOUTS && PA.LAYOUTS[c.layout])) c.layout = 'classic';
     if (c.overlap == null || isNaN(c.overlap)) c.overlap = -1;
+    if (!(PA.BALANCE_SETS && PA.BALANCE_SETS[c.balance])) c.balance = 'current';
     return c;
   }
 
@@ -4198,6 +4212,7 @@ PA.Lab = (function () {
     if (PA.LAYOUTS && PA.LAYOUTS.trial) for (const r of PA.REGIONS) { const L = PA.LAYOUTS.trial.regions[r.id]; if (L) list.push({ id: 'trial:' + r.id, group: '지역(시험안 배치)', name: r.name + ' · 시험안', regionId: r.id, waves: L.waves, objective: L.objective || r.objective, arena: L.arena || 'forest', desc: L.desc || r.desc }); }
     for (const t of PA.LAB.ENEMY_ORDER) { const d = PA.ENEMIES[t]; if (!d || t === 'boss') continue; const n = t === 'wolf' ? 2 : 1; const ally = t === 'shaman' ? [{ type: 'wolf', n: 2 }] : []; list.push({ id: 'solo:' + t, group: '단독 시험', name: d.name + (n > 1 ? ` ×${n}` : '') + (ally.length ? ' (+늑대 2: 치료 대상)' : '') + (d.impl === false ? ' (미구현)' : ''), regionId: null, waves: [[{ type: t, n }].concat(ally), [{ type: t, n: n + 1 }].concat(ally)], objective: 'clear', arena: d.arena || 'forest', desc: d.readme, impl: d.impl !== false }); }
     list.push({ id: 'dummy:boss', group: '보스', name: '정지 보스(허수아비 · 행동 없음, 화력 측정용)', regionId: null, waves: [], objective: 'boss', arena: 'clearing', boss: true, bossId: 'boss', dummy: true, desc: '가시갈기 크기·체력의 정지 표적. 공격·이동 없음. 시간 안 준 피해로 무기 화력을 잰다' });
+    if (PA.DAY_WAVES) for (const rid of Object.keys(PA.DAY_WAVES)) for (const day of Object.keys(PA.DAY_WAVES[rid]).map(Number)) { const r = PA.REGIONS.find(x => x.id === rid); list.push({ id: `day:${rid}:${day}`, group: '날짜별 편성(v0.8)', name: `${r.name} · ${day}일차 편성`, regionId: rid, waves: PA.DAY_WAVES[rid][day], objective: r.objective, arena: 'forest', desc: `v0.8 ${day}일차 ${r.name} 편성(변주 없음). 정식 회차의 체력 배율은 지역·날짜 규칙을 따르지만 시험실은 입력한 배율만 쓴다` }); }
     for (const bid of ['guardian', 'eater']) { const B = PA.BOSS_DEFS[bid]; list.push({ id: 'boss:' + bid, group: '보스', name: `${B.name} — ${B.title}`, regionId: null, waves: [], objective: 'boss', arena: 'clearing', boss: true, bossId: bid, desc: B.info.join(' ') }); }
     for (const oid of PA.OBJECTIVE_IDS) for (const rid of ['forest', 'ridge', 'marsh']) { const O = PA.OBJECTIVES[oid], r = PA.REGIONS.find(x => x.id === rid); list.push({ id: `mission:${oid}:${rid}`, group: '전투 목표(임무)', name: `${O.name} · ${r.name}`, regionId: rid, waves: r.waves, objective: oid, arena: 'clearing', desc: O.desc, mission: true }); }
     for (const rk of PA.MISSIONS.risks) { const r = PA.REGIONS.find(x => x.id === 'ridge'); list.push({ id: `risk:${rk}`, group: '위험 조건(임무·능선 봉인 해제)', name: `${PA.MISSIONS.riskText[rk]} · 봉인 해제`, regionId: 'ridge', waves: r.waves, objective: 'seal', risk: rk, arena: 'clearing', desc: `위험 조건 ${PA.MISSIONS.riskText[rk]} 확인용`, mission: true }); }
@@ -4208,12 +4223,14 @@ PA.Lab = (function () {
   function enemyPreset(id) { return enemyPresets().find(p => p.id === id) || null; }
 
   // ---------- 빌드 프리셋 ----------
+  const presetEquip = (p) => Array.isArray(p.equipment) ? p.equipment : Object.values(p.equipment || {}).filter(Boolean); // 프리셋 장비: 배열 또는 {slot:id}
   function growthFromPreset(preset) {
     const g = PA.Growth.newGrowth(preset.growth.weapons[0].id), gp = preset.growth;
     g.weapons = gp.weapons.map(w => ({ id: w.id, level: w.level || 1, mods: (w.mods || []).slice() }));
     g.commons = Object.assign({}, gp.commons || {}); g.passives = Object.assign({}, gp.passives || {});
     if (gp.e) g.skills.e = { id: gp.e.id, level: gp.e.level || 1, variant: gp.e.variant || null };
     if (gp.q) g.skills.q = { id: 'slowfield', level: gp.q.level || 1, variant: gp.q.variant || null };
+    if (gp.bossRewards) g.bossRewards = gp.bossRewards.slice();
     g.level = 1 + pickCount(g); g.xp = 0;
     return g;
   }
@@ -4239,7 +4256,7 @@ PA.Lab = (function () {
     for (const k of pc) { const d = PA.PASSIVES[k]; if (!d) errs.push('패시브 없음 ' + k); else if (g.passives[k] > d.max) errs.push(`패시브 ${k} ${g.passives[k]}`); }
     if (g.skills.e) { const d = PA.SKILLS[g.skills.e.id]; if (!d || !PA.E_SKILLS.includes(g.skills.e.id)) errs.push('E 없음'); else { if (g.skills.e.level > s.skillMax) errs.push('E 레벨'); if (g.skills.e.variant && !d.variants[g.skills.e.variant]) errs.push('E 변형 없음'); } }
     if (g.skills.q.level > s.skillMax) errs.push('Q 레벨'); if (g.skills.q.variant && !PA.SKILLS.slowfield.variants[g.skills.q.variant]) errs.push('Q 변형 없음');
-    const gear = preset.gear || {}; if ((gear.upgrade || 0) > 3) errs.push('강화 단계'); for (const id of (preset.equipment || [])) if (!PA.EQUIPMENT[id]) errs.push('장비 없음 ' + id);
+    const gear = preset.gear || {}; if ((gear.upgrade || 0) > 3) errs.push('강화 단계'); for (const id of presetEquip(preset)) if (!PA.EQUIPMENT[id]) errs.push('장비 없음 ' + id);
     return errs;
   }
   function describeBuild(id) {
@@ -4252,7 +4269,7 @@ PA.Lab = (function () {
       passives: Object.keys(g.passives).filter(k => g.passives[k] > 0).map(k => PA.PASSIVES[k].name + ' ' + g.passives[k]),
       q: `감속장 Lv${g.skills.q.level}${g.skills.q.variant ? ' · ' + PA.SKILLS.slowfield.variants[g.skills.q.variant].name : ''}`,
       e: g.skills.e ? `${PA.SKILLS[g.skills.e.id].name} Lv${g.skills.e.level}${g.skills.e.variant ? ' · ' + PA.SKILLS[g.skills.e.id].variants[g.skills.e.variant].name : ''}` : '없음',
-      gear: [gear.upgrade ? `공용 공격 강화 ${gear.upgrade}단계` : null].concat((p.equipment || []).map(id => PA.EQUIPMENT[id] ? PA.EQUIPMENT[id].name : id)).filter(Boolean),
+      gear: [gear.upgrade ? `공용 공격 강화 ${gear.upgrade}단계` : null].concat(presetEquip(p).map(id => PA.EQUIPMENT[id] ? PA.EQUIPMENT[id].name : id)).filter(Boolean),
       errors: validateBuild(p),
     };
   }
@@ -4262,7 +4279,7 @@ PA.Lab = (function () {
     const preset = PA.LAB.BUILDS[cfg.build], run = PA.Run.newRun(cfg.seed, preset.growth.weapons[0].id);
     run.growth = growthFromPreset(preset);
     const gear = preset.gear || {};
-    run.forge = Math.min(3, gear.upgrade || 0); for (const id of (preset.equipment || [])) if (PA.EQUIPMENT[id]) { run.bag.push(id); PA.Run.equipItem(run, id); } /* v0.8: 프리셋 장비는 equipment 목록으로 */
+    run.forge = Math.min(3, gear.upgrade || 0); for (const id of presetEquip(preset)) if (PA.EQUIPMENT[id]) { run.bag.push(id); PA.Run.equipItem(run, id); } run.forge = Math.min(3, preset.forge != null ? preset.forge : (gear.upgrade || 0)); /* v0.8: 프리셋 장비는 equipment 목록으로 */
     run.layout = cfg.layout || 'classic';
     run.hp = PA.Run.build(run).hpMax; run.lab = true;
     return run;
@@ -4276,7 +4293,7 @@ PA.Lab = (function () {
     if (cfg.deep && ep.regionId && ep.regionId !== 'lab') { const r2 = Object.assign({}, run, { layout: cfg.enemy.startsWith('trial:') ? 'trial' : 'classic' }); waves = PA.Run.encounterWaves(ep.regionId, true, r2); }
     return PA.Combat.create(Object.assign(common, { waves, objective: cfg.deep && ep.regionId ? 'elite' : (ep.objective || 'clear'), risk: ep.risk || null, run, mission: ep.mission ? { objective: ep.objective, risk: ep.risk || null } : null }));
   }
-  function labText(cfg) { const ep = enemyPreset(cfg.enemy), b = PA.LAB.BUILDS[cfg.build]; return `시험실 · ${ep ? ep.name : cfg.enemy} · 체력 ×${cfg.hp.normal}/${cfg.hp.elite}/${cfg.hp.boss} · ${b ? b.name : cfg.build} · 시드 ${cfg.seed} · ${cfg.control === 'bot' ? '봇 ' + PA.Bot.POLICIES[cfg.bot].name : '직접 조작'} · ${cfg.growth === 'grow' ? '성장' : '빌드 고정'} · 제한 ${cfg.time}초`; }
+  function labText(cfg) { const ep = enemyPreset(cfg.enemy), b = PA.LAB.BUILDS[cfg.build]; return `시험실 v${PA.VERSION} · ${cfg.balance && cfg.balance !== 'current' && PA.BALANCE_SETS[cfg.balance] ? PA.BALANCE_SETS[cfg.balance].name + ' · ' : ''}${ep ? ep.name : cfg.enemy} · 체력 ×${cfg.hp.normal}/${cfg.hp.elite}/${cfg.hp.boss} · ${b ? b.name : cfg.build} · 시드 ${cfg.seed} · ${cfg.control === 'bot' ? '봇 ' + PA.Bot.POLICIES[cfg.bot].name : '직접 조작'} · ${cfg.growth === 'grow' ? '성장' : '빌드 고정'} · 제한 ${cfg.time}초`; }
 
   // ---------- 결과 ----------
   function result(cfg, st) { const s = PA.Combat.summary(st); s.config = Object.assign({}, cfg, { hp: Object.assign({}, cfg.hp) }); s.configText = encode(cfg); s.at = Date.now(); return s; }
@@ -4297,10 +4314,12 @@ PA.Lab = (function () {
   function loadResults(storage) { storage = storage || globalThis.localStorage; try { const s = storage.getItem(RESULTS_KEY); return s ? JSON.parse(s) : []; } catch (e) { return []; } }
 
   // 회차 구조 빠른 경로(검증용): 3보스 회차를 지정 단계의 보스 관문 직전 상태로 만든다(단계 빌드 프리셋, 저장 덮어쓰기 없음: 호출자가 결정)
+  // 검증용 빠른 경로: 0/1/2 = 관문 직전(점진 전략 run_sim 덤프의 정상 성장 빌드, 시드 1), 3 = 3일차 성장 중단 최종 보스(같은 시드·정책). run.quick 표시, 기록에 남기지 않음
   function quickRun(stage, seed) {
-    const buildId = ['stage1', 'stage2', 'stage3'][stage] || 'stage1', preset = PA.LAB.BUILDS[buildId];
-    const run = PA.Run.newRun(seed || 7, preset.growth.weapons[0].id, 'trio', PA.BALANCE_DEFAULT); run.growth = growthFromPreset(preset); run.stage = stage; run.bossesDone = PA.RUN_MODES.trio.bosses.slice(0, stage).map(b => b.id);
-    const nb = PA.Run.nextBoss(run); run.day = nb.day; run.hours = PA.CONFIG.HOURS_PER_DAY; run.phase = 'boss_prep'; run.hp = PA.Run.build(run).hpMax; run.gold = 200 + stage * 150; run.quick = true;
+    const buildId = ['stage1', 'stage2', 'stage3', 'stop3_final'][stage] || 'stage1', preset = PA.LAB.BUILDS[buildId]; const gate = stage === 3 ? 2 : stage;
+    const run = PA.Run.newRun(seed || 7, preset.growth.weapons[0].id, 'trio', PA.BALANCE_DEFAULT); run.growth = growthFromPreset(preset); run.stage = gate; run.bossesDone = PA.RUN_MODES.trio.bosses.slice(0, gate).map(b => b.id);
+    for (const sl of PA.EQUIP_SLOTS) { const id = preset.equipment && preset.equipment[sl]; if (id) { run.bag.push(id); PA.Run.equipItem(run, id); } } run.forge = preset.forge || 0;
+    const nb = PA.Run.nextBoss(run); run.day = nb.day; run.hours = PA.CONFIG.HOURS_PER_DAY; run.phase = 'boss_prep'; run.hp = PA.Run.build(run).hpMax; run.gold = preset.gold != null ? preset.gold : 200 + gate * 150; run.quick = true; run.quickName = preset.name;
     PA.Sortie.cardsFor(run); return run;
   }
   return { LAB_KEY, RESULTS_KEY, quickRun, defaultConfig, encode, decode, normalize, enemyPresets, enemyPreset, growthFromPreset, pickCount, validateBuild, describeBuild, makeRun, makeCombat, labText, result, csvRow, toCsv, CSV_COLS, saveConfig, loadConfig, saveResults, loadResults };
@@ -5353,6 +5372,7 @@ PA.Screens = (function () {
       <div class="stat"><span class="lbl">체력</span><b>${run.hp} / ${b.hpMax}</b></div>
       <div class="stat"><span class="lbl">금화</span><b class="gold">${run.gold}</b></div>
       <div class="stat"><span class="lbl">설정</span><b class="small dim" title="${esc(PA.Balance.text(run))}">${esc(settingsShort(run))}</b></div>
+      ${run.quick ? `<div class="stat"><span class="lbl">검증용 회차</span><b class="small warn" title="${esc(run.quickName || '')}">빠른 경로 · 기록 없음</b></div>` : ''}
     </div>`;
   }
   function matsRow(run) {
@@ -5443,7 +5463,12 @@ PA.Screens = (function () {
         <button class="big" data-action="controls">조작법</button>
         <button class="big" data-action="glossary">용어 사전</button>
         <button class="big" data-action="lab">전투 시험실 <span class="dim">(정식 회차와 분리 · 체력 배율·빌드·적 조합 비교)</span></button>
-        <div class="row"><span class="dim small">검증 메뉴 · 3보스 회차 빠른 경로(현재 저장을 덮어씀):</span>${[0, 1, 2].map(i => `<button class="mini" data-action="quick-run" data-arg="${i}">${i + 1}단계 관문 직전</button>`).join(' ')}</div>
+        <details class="card small" style="text-align:left"><summary>검증 메뉴 <span class="dim">(v${PA.VERSION} · 시험 빌드 test03 · 검증용 회차는 현재 저장을 덮어쓰고 기록에 남지 않음)</span></summary>
+          <p class="small"><b>시작 기술 3종 · 같은 첫 전투</b> (1일차 숲 편성, 체력 ×1.5, 시드 1, 직접 조작): ${['sword', 'spear', 'blades'].map(w => `<button class="mini" data-action="quick-lab" data-arg="enemy=day:forest:1;hp=1.5,1.5,1;seed=1;build=start_${w};control=human;growth=fixed;time=120;balance=test03">${PA.WEAPONS[w].name}</button>`).join(' ')}</p>
+          <p class="small"><b>같은 투자(7선택) · 굴 4일차 편성(체력 ×2)</b>: ${[['inv_direct', '직접 피해'], ['inv_dot', '지속·장판'], ['inv_def', '방어·회복']].map(([b, n]) => `<button class="mini" data-action="quick-lab" data-arg="enemy=day:den:4;hp=2,2.5,1;seed=1;build=${b};control=human;growth=fixed;time=150;balance=test03">${n}</button>`).join(' ')} · 정지 보스 화력: ${[['inv_direct', '직접'], ['inv_dot', '지속']].map(([b, n]) => `<button class="mini" data-action="quick-lab" data-arg="enemy=dummy:boss;hp=1,1,1;seed=1;build=${b};control=human;growth=fixed;time=120;balance=test03">${n}</button>`).join(' ')}</p>
+          <p class="small"><b>정상 성장 빌드의 보스전</b> (점진 전략 덤프 시드 1): ${[0, 1, 2].map(i => `<button class="mini" data-action="quick-run" data-arg="${i}">${i + 1}단계 관문 직전</button>`).join(' ')} · <b>3일차 성장 중단 최종 보스</b>: <button class="mini" data-action="quick-run" data-arg="3">7일차 입장</button></p>
+          <p class="small"><b>상점 구매·교체·장비 비교</b>: <button class="mini" data-action="quick-shop">1단계 빌드 · 금화 400</button> · <b>런 피해 통계 화면</b>: <button class="mini" data-action="quick-stats">봇이 최종 보스전 1회 실행 → 통계</button></p>
+          <p class="dim small">각 시험은 화면 상단에 버전·설정·빌드·목적을 표시한다. 시험실 프리셋은 정식 회차에 섞이지 않는다(별도 저장 키).</p></details>
       </div>
       <p class="dim small">${esc(PA.KEYS_TEXT)}</p><p class="dim small">기본 설정: ${esc(PA.Balance.text(null))}</p>${hasSave ? `<p class="dim small">저장된 회차 설정: ${esc(PA.Balance.text(G.saved))}</p>` : ''}</div>`;
   }
@@ -5714,6 +5739,7 @@ PA.Screens = (function () {
     const hpOpts = PA.LAB.HP_MULTS.map(v => ({ v, t: '×' + v }));
     const enemySel = `<select id="lab-enemy" data-lab="lab-enemy">${groups.map(g => `<optgroup label="${esc(g.name)}">${g.items.map(p => `<option value="${esc(p.id)}" ${p.id === cfg.enemy ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}</select>`;
     const buildSel = sel('lab-build', Object.keys(PA.LAB.BUILDS).map(k => ({ v: k, t: `[${PA.LAB.BUILDS[k].stage}] ${PA.LAB.BUILDS[k].name}` })), cfg.build);
+    const balSel = sel('lab-balance', Object.keys(PA.BALANCE_SETS).map(k => ({ v: k, t: PA.BALANCE_SETS[k].name })), cfg.balance || 'current');
     const notes = ep && ep.notes ? `<ul class="tips">${Object.entries({ intent: '의도한 판단', safe: '안전한 대응', builds: '강점 빌드', overlap: '과도한 겹침 조건', limit: '동시 실행 제한' }).filter(([k]) => ep.notes[k]).map(([k, t]) => `<li><b>${t}</b>: ${esc(ep.notes[k])}</li>`).join('')}</ul>` : '';
     const waves = ep && ep.waves ? ep.waves.map((w, i) => `${i + 1}: ` + w.map(g => `${PA.ENEMIES[g.type] ? PA.ENEMIES[g.type].name : g.type}×${g.n}`).join(', ')).join(' / ') : (ep && ep.boss ? '보스' : '');
     const results = (G.labResults || []).slice(-8).reverse();
@@ -5731,6 +5757,7 @@ PA.Screens = (function () {
           <div class="kv"><span>시간 제한</span>${sel('lab-time', PA.LAB.TIME_LIMITS.map(v => ({ v, t: v + '초' })), cfg.time)} <label><input type="checkbox" id="lab-deep" data-lab="lab-deep" ${cfg.deep ? 'checked' : ''}> 더 깊이(지역 프리셋만: 적 +1, 정예)</label></div>
         </div>
         <div class="card"><div class="card-title">조작·성장</div>
+          <div class="kv"><span>밸런스</span>${balSel} <span class="dim small">시험실에 적용할 세트(창 규칙·경험치 배율). 정식 회차 저장에는 영향 없음</span></div>
           <div class="kv"><span>조작</span><label><input type="radio" name="lab-control" data-lab="lab-control" value="human" ${cfg.control === 'human' ? 'checked' : ''}> 직접 조작</label> <label><input type="radio" name="lab-control" data-lab="lab-control" value="bot" ${cfg.control === 'bot' ? 'checked' : ''}> 봇 조작</label> ${sel('lab-bot', Object.keys(PA.Bot.POLICIES).map(k => ({ v: k, t: PA.Bot.POLICIES[k].name })), cfg.bot)}</div>
           <p class="small dim">봇: ${esc(PA.Bot.POLICIES[cfg.bot].doc.reads)} · Q ${esc(PA.Bot.POLICIES[cfg.bot].doc.q)} · 포기 ${esc(PA.Bot.POLICIES[cfg.bot].doc.giveUp)}. 봇 결과는 정책 비교용이며 사람의 승률·재미를 뜻하지 않습니다.</p>
           <div class="kv"><span>성장</span><label><input type="radio" name="lab-growth" data-lab="lab-growth" value="fixed" ${cfg.growth === 'fixed' ? 'checked' : ''}> 빌드 고정(경험치 없음, 화력 고정)</label> <label><input type="radio" name="lab-growth" data-lab="lab-growth" value="grow" ${cfg.growth === 'grow' ? 'checked' : ''}> 성장 모드(레벨업 선택 적용)</label></div>
@@ -5902,7 +5929,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
       if (c.status === 'won') {
         const hadFirst = !!run.bossClear;
         const rec = PA.Flow.settleBossVictory(run, c); G.lastRecord = rec; // 정산 1회: 기록·다음 단계·희귀 보상 보류(마지막 보스는 없음)
-        const R = PA.Run.saveRecord(rec); G.firstClearNew = !hadFirst && R.firstClear && R.firstClear.at === rec.at;
+        if (!run.quick) { const R = PA.Run.saveRecord(rec); G.firstClearNew = !hadFirst && R.firstClear && R.firstClear.at === rec.at; } else G.firstClearNew = false; /* 검증용 빠른 경로는 기록에 남기지 않는다 */
         saveRun(); G.sortie = null; show('boss_victory');
       } else { PA.Flow.settleBossDefeat(run, c); saveRun(); G.sortie = null; show('boss_defeat'); }
       return;
@@ -5921,14 +5948,14 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 
   // ---------- 전투 시험실(정식 회차와 분리: 저장 키·입력·배율이 회차로 새지 않는다) ----------
   function enterLab(cfg) {
-    leaveScenario(); PA.Balance.apply('current'); // 시험실은 항상 현재값(밸런스 후보는 회차 전용) G.run = null; G.sortie = null; G.combat = null; G.saved = PA.Run.load();
-    G.lab.cfg = cfg || PA.Lab.loadConfig(); G.labResults = PA.Lab.loadResults(); G.labCsv = null;
+    leaveScenario(); G.run = null; G.sortie = null; G.combat = null; G.saved = PA.Run.load(); /* 시험실 진입: 회차 상태를 비운다(이전 버전은 주석이 이 줄을 삼켜 회차 상태가 남는 버그) */
+    G.lab.cfg = cfg || PA.Lab.loadConfig(); G.labResults = PA.Lab.loadResults(); G.labCsv = null; PA.Balance.apply(G.lab.cfg.balance || 'current'); /* 시험실 밸런스 세트는 설정값(기본 현재값) */
     show('lab');
   }
   // 화면의 입력 요소 → 설정
   function readLabForm() {
     const c = G.lab.cfg, v = (id) => { const el = $('#' + id); return el ? el.value : null; };
-    if (v('lab-enemy')) c.enemy = v('lab-enemy'); if (v('lab-arena')) c.arena = v('lab-arena'); if (v('lab-build')) c.build = v('lab-build'); if (v('lab-bot')) c.bot = v('lab-bot');
+    if (v('lab-enemy')) c.enemy = v('lab-enemy'); if (v('lab-arena')) c.arena = v('lab-arena'); if (v('lab-balance')) c.balance = v('lab-balance'); if (v('lab-build')) c.build = v('lab-build'); if (v('lab-bot')) c.bot = v('lab-bot');
     if (v('lab-hp-normal')) c.hp = { normal: parseFloat(v('lab-hp-normal')), elite: parseFloat(v('lab-hp-elite')), boss: parseFloat(v('lab-hp-boss')) };
     if (v('lab-seed') != null) c.seed = parseInt(v('lab-seed') || '0', 10); if (v('lab-time')) c.time = parseInt(v('lab-time'), 10); if (v('lab-overlap') != null) c.overlap = parseInt(v('lab-overlap'), 10);
     const deep = $('#lab-deep'); if (deep) c.deep = deep.checked;
@@ -5938,7 +5965,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
   }
   function startLab(cfg) {
     G.lab.cfg = PA.Lab.normalize(cfg || G.lab.cfg); PA.Lab.saveConfig(G.lab.cfg);
-    const c = G.lab.cfg; G.scenario = { lab: true }; G.choice = null;
+    const c = G.lab.cfg; G.scenario = { lab: true }; G.choice = null; PA.Balance.apply(c.balance || 'current');
     G.run = PA.Lab.makeRun(c);
     const ep = PA.Lab.enemyPreset(c.enemy);
     G.sortie = { regionId: ep.regionId || 'lab', deep: c.deep, loot: { gold: 0, mats: {} }, encounters: 0, seed: c.seed, lab: true };
@@ -6011,7 +6038,10 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
     'give-up': () => { closeOverlay(); G.paused = false; PA.Input.setBlocked(G.input, false); if (G.combat) { G.combat.player.hp = 0; G.combat.player.dead = true; G.combat.status = 'lost'; G.endTimer = 10; } },
     'scenario-again': () => startScenario(G.scenario),
     'lab': () => { if (G.screen === 'lab_result') { G.combat = null; show('lab'); return; } enterLab(); },
-    'quick-run': (stage) => { leaveScenario(); G.run = PA.Lab.quickRun(Number(stage) || 0); PA.Balance.applyRun(G.run); G.sortie = null; G.combat = null; saveRun(); goBase(); }, // 검증 메뉴: 3보스 회차 관문 직전(현재 저장을 덮어씀)
+    'quick-run': (stage) => { leaveScenario(); G.run = PA.Lab.quickRun(Number(stage) || 0); PA.Balance.applyRun(G.run); G.sortie = null; G.combat = null; saveRun(); goBase(); },
+    'quick-shop': () => { leaveScenario(); G.run = PA.Lab.quickRun(0); G.run.gold = 400; PA.Balance.applyRun(G.run); G.sortie = null; G.combat = null; saveRun(); G.shopTab = 'stock'; show('shop'); }, // 검증: 상점 구매·교체·장비 비교(금화 400)
+    'quick-lab': (text) => { enterLab(PA.Lab.decode(text)); }, // 검증: 시험실 프리셋으로 바로 진입(설정 화면에서 시작 버튼)
+    'quick-stats': () => { leaveScenario(); G.run = PA.Lab.quickRun(2); PA.Balance.applyRun(G.run); G.sortie = null; G.combat = null; const bs = PA.Run.startBoss(G.run); const st = PA.Flow.makeBossEncounter(G.run, bs); PA.Bot.runCombat(st, 'balanced', { maxSec: 300 }); if (st.status === 'won') PA.Flow.settleBossVictory(G.run, st); else { st.status = 'lost'; PA.Flow.settleBossDefeat(G.run, st); } G.run.growth.pendingBossPick = null; G.run.growth.pendingOffer = null; saveRun(); goBase(); }, // 검증: 봇이 최종 보스전을 1회 실제로 치르고(헤드리스) 그 통계를 거점/결과 화면에 표시 // 검증 메뉴: 3보스 회차 관문 직전(현재 저장을 덮어씀)
     'lab-start': () => { readLabForm(); startLab(); },
     'lab-restart': () => startLab(G.lab.cfg),
     'lab-restart-hp': () => { const el = $('#lab-result-hp'); const c = Object.assign({}, G.lab.cfg, { hp: Object.assign({}, G.lab.cfg.hp) }); if (el) c.hp.normal = parseFloat(el.value); startLab(c); },
