@@ -36,8 +36,8 @@ for (const k in EN) { const d = EN[k]; if (d.engageDist != null && !d.godot_rule
 write('enemies.json', { enemies: EN, boss_defs: strip(PA.BOSS_DEFS), boss_hp_sets: strip(PA.BOSS_HP_SETS), boss_hp_set_default: 'hi', run_modes: strip(PA.RUN_MODES) });
 
 // ---------- world ----------
-// 밀도 모델(PORT_BASELINE C4, 잠정): 종류별 전체 수 = HTML 편성 합 × multiplier(숲 1일차 9마리 → 25), 동시 상한 12, 묶음 3·간격 1.0, 역할별 동시 상한(시험값)
-const density = { multiplier: 25 / 9, alive_cap: 12, group: 3, interval: 1.0, first_delay: FIRST.spawn.first_delay, warn: FIRST.spawn.warn, min_player_dist: FIRST.spawn.min_player_dist, group_spread: FIRST.spawn.group_spread, entry_points: FIRST.spawn.entry_points,
+// 밀도 모델(PORT_BASELINE C4, 잠정): 일반 적 전체 수 = HTML 편성 합 × 5(정예·구조물·보스 제외), 동시 상한 12, 묶음 3·간격 1.0, 역할별 동시 상한(시험값)
+const density = { multiplier: 5, /* D33 기준 전투 = 숲 1일차 새벽(늑대 2+3=5) × 5 = 25마리(0.3.0 'x5') */ alive_cap: 12, group: 3, interval: 1.0, first_delay: FIRST.spawn.first_delay, warn: FIRST.spawn.warn, min_player_dist: FIRST.spawn.min_player_dist, group_spread: FIRST.spawn.group_spread, entry_points: FIRST.spawn.entry_points,
   type_alive_cap: { archer: 3, shaman: 1, frostcaller: 2, spider: 2, bomber: 3, shieldbearer: 3, boar: 2, burrower: 2, rogue: 3, spore: 3, wolf_alpha: 2 },
   note: '잠정 규칙(C4/Q1). 경험치·금화 예산은 HTML 편성 기준으로 고정하고 개체 수에 비례하지 않는다' };
 write('world.json', { time_slots: PA.TIME_SLOTS, schedule: strip(PA.SCHEDULE), mission_steer: PA.MISSION_STEER, day_waves: strip(PA.DAY_WAVES), day_hp_sets: PA.DAY_HP_SETS, elite_day_mult: PA.ELITE_DAY_MULT, slot_variants: strip(PA.SLOT_VARIANTS), merchant_visits: PA.MERCHANT_VISITS, equipment: strip(PA.EQUIPMENT), equip_slots: PA.EQUIP_SLOTS, equip_slot_names: PA.EQUIP_SLOT_NAMES, shop: strip(PA.SHOP), regions: strip(PA.REGIONS), materials: strip(PA.MATERIALS), density, region_arena: { forest: 'clearing', ridge: 'pillars', marsh: 'forest', den: 'pillars', deep: 'clearing', boss: 'clearing' } });

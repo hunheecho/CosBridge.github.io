@@ -44,6 +44,15 @@ func steps(st: CombatState, seconds: float, input: Dictionary = {}, dt: float = 
 	for i in n:
 		st.step(input, dt)
 
+## 적을 제자리에 고정한 채 진행(HTML 테스트의 pins): 접근 이동을 무시하고 위치 규칙만 본다
+func steps_pinned(st: CombatState, seconds: float, pins: Array, input: Dictionary = {}) -> void:
+	var n := int(round(seconds / STEP))
+	for i in n:
+		st.step(input, STEP)
+		for pin in pins:
+			var e: Dictionary = pin[0]
+			e.x = float(pin[1]); e.y = float(pin[2]); e.vx = 0.0; e.vy = 0.0
+
 ## 공격하지 않는 표적(체력 큰 늑대)
 func dummy(st: CombatState, x: float, y: float, hp: float = 99999.0) -> Dictionary:
 	var e := st.spawn_enemy("wolf", x, y)
@@ -337,7 +346,7 @@ func _init() -> void:
 	st = mk({ "weapons": [{ "id": "bow" }], "arena": "clearing" })
 	st.player.x = 285.0; st.player.y = 220.0 + 42.0 + 14.0 + 30.0 # 바위A 바로 아래
 	var behind := dummy(st, 285.0, 220.0 - 42.0 - 60.0) # 바위 너머
-	steps(st, 3.0)
+	steps_pinned(st, 3.0, [[behind, 285.0, 118.0]])
 	var shot := false
 	for evn in st.events:
 		if evn == "shoot":
@@ -346,13 +355,13 @@ func _init() -> void:
 	st = mk({ "weapons": [{ "id": "sword" }], "arena": "clearing" })
 	st.player.x = 285.0; st.player.y = 220.0 + 42.0 + 14.0 + 20.0
 	var behind2 := dummy(st, 285.0, 220.0 - 42.0 - 20.0)
-	steps(st, 2.0)
+	steps_pinned(st, 2.0, [[behind2, 285.0, 158.0]])
 	ok("직접 공격(검격)은 장애물 뒤의 적을 때리지 않는다", float(behind2.hp) == float(behind2.hp_max) and st.stats.attacks == 0, "attacks %d" % st.stats.attacks)
 	st = mk({ "weapons": [{ "id": "spear" }], "arena": "clearing" })
 	st.player.x = 285.0; st.player.y = 220.0 + 42.0 + 14.0 + 20.0
 	var near_ := dummy(st, 285.0, st.player.y - 40.0) # 바위 앞(사이)
 	var behind3 := dummy(st, 285.0, 220.0 - 42.0 - 30.0)
-	steps(st, 1.0)
+	steps_pinned(st, 1.0, [[near_, 285.0, st.player.y - 40.0], [behind3, 285.0, 148.0]])
 	ok("관통 검광은 장애물에서 멈춘다(앞의 적만 피해)", float(near_.hp) < float(near_.hp_max) and float(behind3.hp) == float(behind3.hp_max))
 	st = mk({ "commons": { "ember": 1 }, "arena": "clearing" })
 	st.player.x = 285.0 - 42.0 - 14.0 - 2.0; st.player.y = 220.0
@@ -371,7 +380,7 @@ func _init() -> void:
 	for u in f.units:
 		if String(u) == "wolf_alpha":
 			alpha_n += 1
-	ok("정예는 배율을 적용하지 않고(1마리) 순서상 마지막, 경험치는 굴 배율 2.5 반영(늑대 6×2.5×0.3/5=0.9, 우두머리 30×2.5×0.3=22.5)", alpha_n == 1 and String(f.units[(f.units as Array).size() - 1]) == "wolf_alpha" and is_equal_approx(float(f.xp_map.wolf), 0.9) and is_equal_approx(float(f.xp_map.wolf_alpha), 22.5), str(f.xp_map))
+	ok("정예는 배율을 적용하지 않고(1마리) 웨이브 순서를 지킨다(늑대 15 뒤 16번째), 경험치는 굴 배율 2.5 반영(늑대 6×2.5×0.3/5=0.9, 우두머리 30×2.5×0.3=22.5)", alpha_n == 1 and (f.units as Array).size() == 26 and String(f.units[15]) == "wolf_alpha" and is_equal_approx(float(f.xp_map.wolf), 0.9) and is_equal_approx(float(f.xp_map.wolf_alpha), 22.5), "%s idx15=%s" % [str(f.xp_map), String(f.units[15])])
 	# ---------- 밀도 모델 스폰: 종류별 동시 상한(궁수 3)을 지키며 순서를 보존한다 ----------
 	var run4 := PBuild.empty_run_like(PGrowth.new_growth("sword"))
 	var b4 := PBuild.derive(run4)

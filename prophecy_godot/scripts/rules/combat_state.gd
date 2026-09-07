@@ -575,9 +575,8 @@ func update_spawner(dt: float) -> void:
 	for sp in pending:
 		sp.t -= dt
 		if sp.t <= 0.0:
-			var e := spawn_enemy(String(sp.type), float(sp.x), float(sp.y))
+			var e := spawn_enemy(String(sp.type), float(sp.x), float(sp.y), bool(sp.get("summoned", false)))
 			if bool(sp.get("summoned", false)):
-				e.summoned = true
 				e.grace = float(PCatalog.boss_defs().boss.overlap.summonGrace)
 	var keep := []
 	for sp in pending:
@@ -622,7 +621,7 @@ func update_spawner(dt: float) -> void:
 		var pos := edge_pos()
 		chest = { "x": pos[0], "y": pos[1], "r": float(cfg.chest.r), "opened": false, "t": 0.0 }
 
-func spawn_enemy(type: String, x: float, y: float) -> Dictionary:
+func spawn_enemy(type: String, x: float, y: float, summoned: bool = false) -> Dictionary:
 	var d: Dictionary = cfg.enemies[type] if cfg.enemies.has(type) else PCatalog.enemy(type)
 	var e := {
 		"id": _next_id, "type": type, "def": d, "name": String(d.name), "x": x, "y": y, "r": float(d.r), "hp": float(d.hp), "hp_max": float(d.get("hpMax", d.hp)),
@@ -630,7 +629,7 @@ func spawn_enemy(type: String, x: float, y: float) -> Dictionary:
 		"chill": 0.0, "burn": {}, "bleed": {}, "stasis": 0, "conduct": 0.0, "flash": 0.0, "dead": false, "death_t": 0.0,
 		"vx": 0.0, "vy": 0.0, "hit_by": false, "steer_side": 0, "steer_t": 0.0, "face_x": 1.0, "last_x": x, "last_y": y, "bite_t": 9.0, "move_t": 0.0, "anim_t": 0.0,
 		"elite": bool(d.get("elite", false)), "boss": bool(d.get("boss", false)), "structure": bool(d.get("structure", false)), "hidden": false, "airborne": false,
-		"summoned": false, "grace": 0.0, "ready_t": -1.0, "recover_dur": 0.0, "blocked_t": 0.0, "resonance": {}, "resonance_t": -999.0, "brand": 0, "leash": 0.0, "leash_boost": 1.0,
+		"summoned": summoned, "grace": 0.0, "ready_t": -1.0, "recover_dur": 0.0, "blocked_t": 0.0, "resonance": {}, "resonance_t": -999.0, "brand": 0, "leash": 0.0, "leash_boost": 1.0,
 	}
 	if PEnemies.is_wolf(d):
 		# 늑대·우두머리(0.3.1 규칙): 생성 시 시드로 1회 정한 초기 편차. dash_ready_at은 시뮬레이션 시간(배율 없음), 재사용 대기(cd)는 적 시간 배율을 따른다
@@ -1426,8 +1425,8 @@ func update_effects(dt: float) -> void:
 	effects = keep
 
 func check_objective() -> void:
-	if status != "running":
-		return
+	if status != "running" or spawn_hold:
+		return # spawn_hold: 테스트·시연용 소환 정지 — 승리 판정도 나지 않는다(0.3.1 의미 유지)
 	if PObjectives.is_objective(objective):
 		if PObjectives.check(self):
 			status = "won"

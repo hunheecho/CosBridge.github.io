@@ -1226,7 +1226,7 @@
   }
  },
  "density": {
-  "multiplier": 2.7777777777777777,
+  "multiplier": 5,
   "alive_cap": 12,
   "group": 3,
   "interval": 1,
