@@ -1120,6 +1120,8 @@ func update_player(input: Dictionary, dt: float) -> void:
 				wind = 1.4
 			elif z.type == "web" and PGeom.dist(z.x, z.y, p.x, p.y) <= z.r + p.r * 0.5:
 				web = 0.5
+			elif z.type == "ice" and PGeom.dist(z.x, z.y, p.x, p.y) <= z.r + p.r * 0.5:
+				web = minf(web, float(z.get("slow", 0.6))) # 빙판(서리 추적자): 걷기 속도만, 겹쳐도 곱하지 않고 더 강한 쪽
 		var spd2 := float(P.speed) * float(build.speed_mult) * wind * web
 		move_swept(p, mv[0] * spd2 * dt, mv[1] * spd2 * dt, true)
 	if bool(input.get("special", false)) and p.special_cd <= 0.0:

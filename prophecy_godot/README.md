@@ -30,6 +30,7 @@ godot --headless --path prophecy_godot --import                       # class_na
 godot --headless --path prophecy_godot -s tests/run_tests.gd          # 기준 전투 규칙 72
 godot --headless --path prophecy_godot -s tests/port_tests.gd         # 전투 콘텐츠(자동기술·개조·범용·특성·Q/E·장비·지형·편성·철벽 경계·상태 공급원) 76
 godot --headless --path prophecy_godot -s tests/boss_tests.gd         # 보스 3·전투 목표 34
+godot --headless --path prophecy_godot -s tests/boss3_tests.gd        # 신규 관문 보스 6종(패턴 기하·단계·감속장·무적 없음·소환 상한·필수 판정) 111
 PROPHECY_LEGACY_PLACES=1 godot --headless --path prophecy_godot -s tests/run_layer_tests.gd   # 회차 계층 64 — 옛 지역 일정(테마 없음)에 대한 회귀 스위트: run_layer·content·world·ui_flow·meta·meta_ui는 이 환경 변수로 실행
 godot --headless --path prophecy_godot -s tests/world_tests.gd        # 세계 변화(붉은 달) 30
 godot --headless --path prophecy_godot -s tests/acts_tests.gd         # 10일·3막 본편 구조(관문 4/7/10·막·장소·영구 기록 2/3·봇 완주)
@@ -47,7 +48,7 @@ PROPHECY_SHOTS=<폴더> [PROPHECY_TOUCH=1] godot --path prophecy_godot --resolut
 godot --headless --path prophecy_godot -s tools/density_report.gd     # 기준 전투 밀도 비교(0.3.1과 같은 36행) → docs/DENSITY_REPORT.md
 godot --headless --path prophecy_godot -s tools/compare_scenario.gd   # HTML 대조 측정(COMPARE_JSON)
 PROPHECY_SIM_SEEDS=1,2 godot --headless --path prophecy_godot -s tools/run_sim.gd        # 회차 봇 전략 7종 → docs/sim/RUN_SIM.md
-PROPHECY_SIM_SEEDS=11,18 godot --headless --path prophecy_godot -s tools/boss_sim.gd     # 관문 빌드 × 보스 × 정책 → docs/sim/BOSS_SIM.md
+PROPHECY_SIM_SEEDS=11,18 godot --headless --path prophecy_godot -s tools/boss_sim.gd     # 막별 관문 빌드 × 보스 9종 × 정책 → docs/sim/BOSS_SIM.md (PROPHECY_BOSS_IDS/BUILDS/HP_SET로 좁힘)
 PROPHECY_SIM_SEEDS=100,101 godot --headless --path prophecy_godot -s tools/start_compare.gd  # 시작 기술 비교 → docs/sim/START_COMPARE.md
 PROPHECY_UI_SMOKE=<폴더> [PROPHECY_UI_FULL=1 PROPHECY_UI_SPEED=5] godot --path prophecy_godot  # 실제 창에서 새 회차→…→관문(→최종 보스→회차 결과→새 회차) 자동 진행, PNG 저장
 PROPHECY_CAPTURE=<폴더> godot --path prophecy_godot                   # 기준 전투 봇 캡처 7장
@@ -58,6 +59,6 @@ godot --headless --path prophecy_godot --export-release "Windows Desktop" <출�
 
 ## 폴더
 - `data/*.json` 카탈로그(HTML에서 내보냄: config·weapons·growth·enemies·world·missions·balance·glossary) + `first_fight.json`(0.3.1 기준 전투) + `meta.json`(손으로 작성: 영구 레벨·해금 일정·특성 12·제작 6 — Codex 초안 시험값, 사용자 승인 아님). 규칙 코드는 숫자를 갖지 않는다.
-- `scripts/rules/` 순수 규칙(Node·Vector2·입력·그리기 없음, 고정 단계 1/120초): `combat_state.gd`(전투) · `weapons.gd`·`skills.gd`(자동기술·Q/E) · `enemies.gd`·`enemies_new.gd`·`boss.gd`·`boss2.gd`·`objectives.gd` · `growth.gd`·`build.gd`·`formation.gd` · `run.gd`·`sortie.gd`·`events.gd`·`flow.gd`(행동 목록 `PFlow.actions(run)`, UI·봇 공용) · `stats.gd`·`save.gd`(`user://prophecy_save_v1.json`) · `profile.gd`(영구 프로필 `user://prophecy_profile_v1.json`, legacy/trial 공존; 시험·봇 데모는 `prophecy_profile_test_v1.json`) · `bot.gd`·`run_bot.gd`(기존 봇, 변경 없음) · `observe.gd`·`skill_bot.gd`·`hit_recorder.gd`·`replay.gd`(실력 프로필 봇·관측 경계·계측·입력 기록 — `docs/BOT_FRAMEWORK.md`, 프로필 값 `data/bots.json` 시험값·사람 보정 미완료) · `catalog.gd`·`geom.gd`·`rng.gd`.
+- `scripts/rules/` 순수 규칙(Node·Vector2·입력·그리기 없음, 고정 단계 1/120초): `combat_state.gd`(전투) · `weapons.gd`·`skills.gd`(자동기술·Q/E) · `enemies.gd`·`enemies_new.gd`·`boss.gd`·`boss2.gd`·`boss3.gd`(신규 관문 보스 6종: 성문 파수장·포자 어미·굴착 거수·서리 추적자·핏빛 사냥왕·종말의 집행관 — `data/bosses_new.json` 시험값, 정본 `docs/BOSSES.md`)·`objectives.gd` · `growth.gd`·`build.gd`·`formation.gd` · `run.gd`·`sortie.gd`·`events.gd`·`flow.gd`(행동 목록 `PFlow.actions(run)`, UI·봇 공용) · `stats.gd`·`save.gd`(`user://prophecy_save_v1.json`) · `profile.gd`(영구 프로필 `user://prophecy_profile_v1.json`, legacy/trial 공존; 시험·봇 데모는 `prophecy_profile_test_v1.json`) · `bot.gd`·`run_bot.gd`(기존 봇) · `observe.gd`·`skill_bot.gd`·`hit_recorder.gd`·`replay.gd`(실력 프로필 봇·관측 경계·계측·입력 기록 — `docs/BOT_FRAMEWORK.md`, 프로필 값 `data/bots.json` 시험값·사람 보정 미완료) · `endless.gd`(무한 모드, D43) · `catalog.gd`·`geom.gd`·`rng.gd`.
 - `scripts/game/` 표시·연결부: `step_driver.gd`(프레임→단계) · `combat_view.gd`(입력·`_draw`) · `render.gd`(도형 그리기) · `audio.gd`(합성음, 자동 로드 `Audio`) · `main.gd`(화면 전환·HUD·자동 진행) · `screens/`·`ui/`(화면·위젯·3택·용어 툴팁·설정 · `input_router.gd` 장치→행동 · `touch_controls.gd` 터치 오버레이 · `layout.gd` 안전 영역·비율 · `village_map.gd` 거점 마을 그림) · `game.gd`(자동 로드·버전).
 - `scenes/main.tscn` 단일 씬. `tests/`, `tools/` 검증용. `docs/` 기록·보고서·캡처(`.gdignore`).

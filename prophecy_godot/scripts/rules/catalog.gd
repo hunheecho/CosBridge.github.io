@@ -28,7 +28,16 @@ static func reset() -> void:
 static func config() -> Dictionary: return _load("config").config
 static func arenas() -> Dictionary: return _load("config").arenas
 static func blade_spoke() -> Dictionary: return _load("config").blade_spoke
-static func boss_action_text() -> Dictionary: return _load("config").boss_action_text
+## 보스 행동 문구: config.json(기존 3종) + bosses_new.json(신규 6종 상태명)을 합친 사전(1회 캐시)
+static func boss_action_text() -> Dictionary:
+	if _cache.has("boss_action_text_merged"):
+		return _cache["boss_action_text_merged"]
+	var out: Dictionary = (_load("config").boss_action_text as Dictionary).duplicate()
+	for k in bosses_new().get("boss_action_text", {}):
+		if not out.has(k):
+			out[k] = bosses_new().boss_action_text[k]
+	_cache["boss_action_text_merged"] = out
+	return out
 static func keys_text() -> String: return String(_load("config").keys_text)
 static func weapons() -> Dictionary: return _load("weapons").weapons
 static func startable() -> Array: return _load("weapons").startable
@@ -41,9 +50,43 @@ static func e_skills() -> Array: return _load("growth").e_skills
 static func boss_rewards() -> Dictionary: return _load("growth").boss_rewards
 static func region_tags() -> Dictionary: return _load("growth").region_tags
 static func region_tag_text() -> Dictionary: return _load("growth").region_tag_text
-static func enemies() -> Dictionary: return _load("enemies").enemies
-static func boss_defs() -> Dictionary: return _load("enemies").boss_defs
-static func boss_hp_sets() -> Dictionary: return _load("enemies").boss_hp_sets
+## 적 정의: enemies.json + 신규 보스 6종의 몸체(boss:true, spawn_enemy가 읽는 name·r·hp·speed·color). 기존 3종 보스도 같은 방식으로 enemies에 있다
+static func enemies() -> Dictionary:
+	if _cache.has("enemies_merged"):
+		return _cache["enemies_merged"]
+	var out: Dictionary = (_load("enemies").enemies as Dictionary).duplicate()
+	for k in bosses_new().get("bosses", {}):
+		if not out.has(k):
+			var b: Dictionary = bosses_new().bosses[k]
+			out[k] = { "name": String(b.name), "role": String(b.title), "r": float(b.r), "hp": float(b.hp), "speed": float(b.speed), "color": String(b.color), "boss": true, "readme": "신규 관문 보스(bosses_new.json, 시험값)" }
+	_cache["enemies_merged"] = out
+	return out
+## 신규 보스 6종(bosses_new.json, 손으로 작성 — 시험값). enemies.json의 기존 3종 정의는 그대로 두고 아래 boss_defs/boss_hp_sets가 합친다
+static func bosses_new() -> Dictionary: return _load("bosses_new")
+static func boss_defs() -> Dictionary:
+	if _cache.has("boss_defs_merged"):
+		return _cache["boss_defs_merged"]
+	var out: Dictionary = (_load("enemies").boss_defs as Dictionary).duplicate()
+	for k in bosses_new().get("bosses", {}):
+		if not out.has(k):
+			out[k] = bosses_new().bosses[k]
+	_cache["boss_defs_merged"] = out
+	return out
+static func boss_hp_sets() -> Dictionary:
+	if _cache.has("boss_hp_sets_merged"):
+		return _cache["boss_hp_sets_merged"]
+	var out := {}
+	var base: Dictionary = _load("enemies").boss_hp_sets
+	for s in base:
+		out[s] = (base[s] as Dictionary).duplicate()
+	for s in bosses_new().get("boss_hp_sets", {}):
+		if not out.has(s):
+			out[s] = {}
+		for b in bosses_new().boss_hp_sets[s]:
+			if not (out[s] as Dictionary).has(b):
+				out[s][b] = bosses_new().boss_hp_sets[s][b]
+	_cache["boss_hp_sets_merged"] = out
+	return out
 static func run_modes() -> Dictionary: return _load("enemies").run_modes
 static func world() -> Dictionary: return _load("world")
 static func equipment() -> Dictionary: return _load("world").equipment

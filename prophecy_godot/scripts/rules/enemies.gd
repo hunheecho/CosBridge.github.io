@@ -26,6 +26,8 @@ static func is_committed(e: Dictionary) -> bool:
 	return PEnemiesNew.is_committed(e)
 
 static func shield_mult(st: CombatState, e: Dictionary, opt: Dictionary) -> float:
+	if bool(e.get("boss", false)): # 신규 보스의 예고된 방패·방어 자세(정면 부분 경감). 기존 보스 3종은 1.0
+		return PBoss3.shield_mult(st, e, opt)
 	return PEnemiesNew.shield_mult(st, e, opt)
 
 static func on_damaged(st: CombatState, e: Dictionary, dmg: float, opt: Dictionary) -> void:
