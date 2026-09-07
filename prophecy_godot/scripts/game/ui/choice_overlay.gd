@@ -23,14 +23,25 @@ func _ready() -> void:
 	_panel = PanelContainer.new()
 	_panel.add_theme_stylebox_override("panel", PUi.stylebox(Color(0.1, 0.12, 0.15, 0.98), 8, 12, Color(0.5, 0.6, 0.75, 0.9)))
 	_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_panel.offset_left = 24.0
-	_panel.offset_top = 40.0
-	_panel.offset_right = -24.0
-	_panel.offset_bottom = -40.0
 	add_child(_panel)
 	_box = PUi.vbox(8)
 	_panel.add_child(_box)
 	visible = false
+	_apply_safe()
+
+## 패널 = 안전 영역 안쪽 24·40 여백(PLayout). 창 크기가 바뀌면 다시 맞춘다
+func _apply_safe() -> void:
+	if not is_inside_tree():
+		return
+	var m := PLayout.margins(get_viewport(), 24, 40)
+	_panel.offset_left = float(m.left)
+	_panel.offset_top = float(m.top)
+	_panel.offset_right = -float(m.right)
+	_panel.offset_bottom = -float(m.bottom)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED and _panel != null:
+		_apply_safe()
 
 func is_open() -> bool:
 	return visible
@@ -83,6 +94,7 @@ func open(run: Dictionary, off: Dictionary) -> void:
 		b.add_child(sc)
 		var key := String(ch.key)
 		var btn := PUi.button("선택", func(): picked.emit(key), true, 15)
+		btn.custom_minimum_size = Vector2(0, PLayout.primary_button_height()) # 터치 대상 크기
 		b.add_child(btn)
 		row.add_child(p)
 	var bottom := PUi.hbox(10)
