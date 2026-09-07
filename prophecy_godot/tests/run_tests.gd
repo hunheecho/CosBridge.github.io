@@ -670,7 +670,46 @@ func _init() -> void:
 	var taken_sum := 0.0
 	for k in s18.metrics.taken:
 		taken_sum += s18.metrics.taken[k]
-	ok("E18 받은 피해 출처 합(%s) = 체력 감소 %.0f" % [str(s18.metrics.taken), 100.0 - maxf(0.0, s18.player.hp)], absf(taken_sum - (100.0 - maxf(0.0, s18.player.hp))) < 1e-6 or (s18.player.hp <= 0.0 and taken_sum >= 100.0))
+	var lost18: float = 100.0 - s18.player.hp
+	ok("E18 받은 피해 출처 합(%s) = 총 유효 피해 %.1f = 체력 감소 %.0f (%s, 명목 %.0f; 사망 시 우회 없음)" % [str(s18.metrics.taken), s18.stats.damage_taken, lost18, s18.status, s18.stats.damage_taken_nominal], absf(taken_sum - lost18) < 1e-6 and absf(s18.stats.damage_taken - lost18) < 1e-6 and s18.player.hp >= 0.0)
+	# E20. 체력 100에서 피해 12를 피격 보호가 끝난 뒤 9번: 체력 0·패배, 유효 피해 합 100(마지막 타격 4), 명목 108. 사망 뒤 추가 피해 집계 없음
+	st = mk(); no_enemies(st)
+	var applied20 := 0
+	for i in 9:
+		st.player.hit_prot = 0.0
+		if st.damage_player(12.0, "wolf:bite"):
+			applied20 += 1
+	var after_death_taken: float = st.stats.damage_taken
+	st.player.hit_prot = 0.0
+	var extra20 := st.damage_player(12.0, "wolf:dash")
+	ok("E20 12 피해 ×9: 체력 0·패배, 유효 100(출처 %s), 명목 108, 사망 뒤 추가 집계 없음" % str(st.metrics.taken), applied20 == 9 and st.status == "lost" and st.player.hp == 0.0 and st.stats.damage_taken == 100.0 and st.stats.damage_taken_nominal == 108.0 and float(st.metrics.taken.get("wolf:bite", 0.0)) == 100.0 and not extra20 and st.stats.damage_taken == after_death_taken and not st.metrics.taken.has("wolf:dash"), "hp %.0f taken %.1f nominal %.1f" % [st.player.hp, st.stats.damage_taken, st.stats.damage_taken_nominal])
+	# E21. 마지막 타격 직전 체력 4에서 피해 12: 해당 출처의 유효 피해 증가량 4
+	st = mk(); no_enemies(st)
+	st.player.hp = 4.0
+	st.damage_player(12.0, "wolf:dash")
+	ok("E21 체력 4에서 피해 12: 출처 wolf:dash 유효 4, 총 4, 명목 12", float(st.metrics.taken.get("wolf:dash", 0.0)) == 4.0 and st.stats.damage_taken == 4.0 and st.stats.damage_taken_nominal == 12.0 and st.player.hp == 0.0 and st.status == "lost", str(st.metrics.taken))
+	# E22. 물기·돌진이 섞여도 출처별 합 = 총 유효 피해 = 체력 감소 (물기 7회 84 → 돌진 12 → 물기 12는 유효 4)
+	st = mk(); no_enemies(st)
+	for i in 7:
+		st.player.hit_prot = 0.0
+		st.damage_player(12.0, "wolf:bite")
+	st.player.hit_prot = 0.0
+	st.damage_player(12.0, "wolf:dash")
+	st.player.hit_prot = 0.0
+	st.damage_player(12.0, "wolf:bite")
+	var sum22 := 0.0
+	for k in st.metrics.taken:
+		sum22 += st.metrics.taken[k]
+	ok("E22 물기·돌진 혼합: 출처별 %s 합 %.0f = 총 %.0f = 체력 감소 %.0f" % [str(st.metrics.taken), sum22, st.stats.damage_taken, 100.0 - st.player.hp], sum22 == 100.0 and st.stats.damage_taken == 100.0 and st.player.hp == 0.0 and float(st.metrics.taken.get("wolf:bite", 0.0)) == 88.0 and float(st.metrics.taken.get("wolf:dash", 0.0)) == 12.0 and st.stats.damage_taken_nominal == 108.0)
+	# E23. 회피 무적·피격 보호로 거부된 공격은 유효·명목 어느 집계에도 남지 않는다
+	st = mk(); no_enemies(st)
+	st.step({ "dodge_press": true, "dodge_held": true }, STEP)
+	var rej_dodge := st.damage_player(12.0, "wolf:bite")
+	for i in 40:
+		st.step({}, STEP)
+	st.damage_player(12.0, "wolf:bite") # 유효 1회(피격 보호 시작)
+	var rej_prot := st.damage_player(12.0, "wolf:dash")
+	ok("E23 회피 무적·피격 보호 거부 시 집계 없음: 유효 12, 명목 12, 출처 물기만", not rej_dodge and not rej_prot and st.stats.damage_taken == 12.0 and st.stats.damage_taken_nominal == 12.0 and not st.metrics.taken.has("wolf:dash") and st.stats.perfect_dodges == 1, "taken %s nominal %.0f hp %.0f" % [str(st.metrics.taken), st.stats.damage_taken_nominal, st.player.hp])
 	# E19. 경험치 예산: 5/25/50마리 모두 전멸 시 합계 9.0(소수 누적, 손실 없음), 마리당 1.8/0.36/0.18
 	var xp_ok := true
 	var xp_detail := []

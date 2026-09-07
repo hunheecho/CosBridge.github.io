@@ -12,14 +12,16 @@ HTML 프로토타입(`../prophecy_action_prototype`, v0.8.0, 커밋 ee10fc7)의 
 2. 프로젝트 관리자에서 **가져오기(Import)** → 이 폴더의 `project.godot` 선택 → **가져오기 및 편집**.
 3. 편집기 우상단 ▶(F5) 실행. 시작 화면에서 **Enter** 또는 `전투 시작`.
 
-Godot 없이 플레이하려면 `../prophecy_godot_build/`의 Windows 빌드 ZIP(`prophecy_first_fight.exe`)을 사용합니다. Windows 실기 실행은 이 세션(Linux)에서 확인하지 못했습니다.
+Godot 없이 플레이하려면 `../prophecy_godot_build/`의 Windows 빌드 ZIP(`prophecy_first_fight.exe`, godot-0.3.0)을 사용합니다. 프로젝트를 Windows 10 로컬 Godot 4.7.2에서 가져오기·테스트·실행한 것은 godot-0.3.1에서 확인했습니다(`docs/PORT_NOTES.md` §11). 사람이 키보드로 플레이한 확인은 아직 없습니다.
+
+새 세션에서 읽을 문서 순서는 `../prophecy_action_prototype/docs/HANDOFF.md` 맨 위 "구현자 진입 순서" 한 곳에만 둡니다.
 
 ## 조작
 WASD/방향키 이동 · Space 회피(짧게/길게 눌러 거리 70~150 조절, 재사용 1.5초) · Q 감속장 · 자동 공격(검격 Lv1) · Esc 일시정지/재개 · F3 검증 패널(회피 방식·재사용, 편성 5/25/50, 동시 돌진 2/3 비교 설정, 다음 재시작에 적용) · Enter 시작/재시작. 규칙: `docs/RULES.md`, 근거: `docs/ASSUMPTIONS.md`, 봇 밀도 비교: `docs/DENSITY_REPORT.md`.
 
 ## 검증 명령(터미널, Godot 실행 파일 경로를 `godot`라고 할 때)
 ```
-godot --headless --path prophecy_godot -s tests/run_tests.gd        # 규칙 테스트 68개
+godot --headless --path prophecy_godot -s tests/run_tests.gd        # 규칙 테스트 72개
 godot --headless --path prophecy_godot -s tools/density_report.gd   # 밀도 비교(편성 × 봇 정책 × 시드) → docs/DENSITY_REPORT.md
 godot --headless --path prophecy_godot -s tools/compare_scenario.gd  # HTML 대조용 측정(COMPARE_JSON)
 PROPHECY_CAPTURE=<폴더> godot --path prophecy_godot                  # 봇 전투를 돌리며 화면 7장 저장 후 종료

@@ -1,11 +1,20 @@
 # 인수인계 (현재 상태와 다음 작업만)
 
+## 구현자 진입 순서 (새 세션은 이 순서로 읽는다, 2026-09-07)
+1. 이 문서(HANDOFF) 맨 위 절 — 현재 브랜치·버전·마지막 커밋·미해결 지적.
+2. `../prophecy_godot/README.md` — 실행·검증 명령. 3. `../prophecy_godot/docs/RULES.md` — 현재 규칙·시험값·변경 이력(규칙의 기준). 4. `../prophecy_godot/docs/ASSUMPTIONS.md` — 시험값 근거. 5. `../prophecy_godot/docs/PORT_NOTES.md` — 세션별 검증 기록·환경 제한·다음 이식 순서(§7). 6. `../prophecy_godot/docs/DENSITY_REPORT.md` — 봇 측정(사람 조작감 아님).
+7. HTML 쪽은 비교 기준선으로만: `docs/GAME_SPEC.md` §19, `docs/ASSUMPTIONS.md`, `docs/TRACEABILITY.md`, `docs/TECH_DECISION.md`(Godot 이식 준비 지침·전환 결정). HTML에 있는 기능을 Godot에 있다고 간주하지 않는다.
+- 별도의 PROJECT_CONTEXT·DESIGN_DECISIONS 문서는 없다(설계 결정은 RULES 변경 이력·PORT_NOTES·이 문서에 분산). 독립 검수자(Codex)의 규칙 문서도 이 저장소에는 없으며 지적 사항만 TRACEABILITY R-CODEX-*·PORT_NOTES §6·§11에 기록돼 있다.
+- 시작 시 확인: 브랜치 `claude/prophecy-action-prototype-hehbeo`, `git status`로 미커밋 변경(편집기가 `project.godot`·`*.import`를 다시 쓸 수 있음), 원격 변경은 로컬 수정이 있으면 강제 덮어쓰기·reset 없이 확인만.
+
 ## Godot 전환 시작 (2026-09-07) — 첫 전투를 `../prophecy_godot`로 이식
 - 개발 방향은 Godot 4.7.2-stable(GDScript, 2D, Compatibility)로 전환. HTML 프로젝트는 **비교 기준선**으로 유지하고 새 HTML 콘텐츠는 추가하지 않는다. 이식 기준 커밋 ee10fc7.
 - 옮긴 범위: 시작 화면·검격 Lv1·이동·회피·Q·늑대(접근→준비→고정→돌진→빈틈)·바위/나무·HUD·예고/판정 표시·승패·재시작·일시정지·조작법. 그 외(칼날·창·E·성장·상점·날짜·보스·저장)는 이식하지 않음.
 - 검증: 규칙 테스트 25/25(headless), HTML 대조 14개 측정 전부 일치(`prophecy_godot/tools/compare_scenario.gd` ↔ `tools/port_compare_html.js`), Xvfb 실제 렌더 캡처 7장·영상 33초, Windows 내보내기 완료(실기 실행 미확인). 기록·다음 순서·독립 검토 A~G 상태: `../prophecy_godot/docs/PORT_NOTES.md`.
 - (godot-0.2.0) 회피 시험 설계: 누르는 시간에 따른 거리 70~150, 재사용 1.5초(출발 기준), F3에서 방식 × 0.9/1.2/1.5/1.8 비교. 이유: 사용자가 회피 거리 조절을 제안했고 0.9초가 너무 짧을 가능성. 규칙·검증: `../prophecy_godot/docs/RULES.md`. 늑대 체력 30은 별도 비교 항목.
 - (godot-0.3.0) 늑대 근접 물기·돌진 8초 재사용·동시 돌진 2·첫 돌진 2~5초, 접촉 피해 없음, 편성 5/25/50(기본 25, 동시 상한 12/20) + 경험치 예산 9.0 고정(성장 미구현). 봇 비교: 제자리 정책은 25·50마리에서 전패, 이동·회피·Q 정책은 전승(사람 조작감 아님). 관찰: 검격 넉백 40이 물기 준비 중 늑대를 사거리 밖으로 밀어 정면 물기가 자주 빗나감. 문서 `../prophecy_godot/docs/RULES.md`·`ASSUMPTIONS.md`·`DENSITY_REPORT.md`.
+- (godot-0.3.1, Windows 로컬 세션) Codex 지적 피해 통계 오류 수정: 받은 피해 총합·출처별이 명목 피해(과잉 포함)를 더해 사망 시 100이 아니라 108로 집계되던 것을 유효 피해로 고치고 명목값은 `damage_taken_nominal`로 분리, E18 우회 조건 제거·회귀 E20~E23 추가(72/72). 난이도 수치 변경 없음. 밀도 보고서를 Windows에서 재측정(같은 OS에서 수정 전후 승패·시간·처치 동일). Windows 실기 실행(테스트·게임 창·편집기·봇 캡처)은 이번에 처음 확인, **사람 키보드 플레이는 아직 없음**. 관찰: 같은 코드·시드라도 Linux↔Windows에서 긴 전투 결과가 갈라짐(미확정). 기록 `../prophecy_godot/docs/PORT_NOTES.md` §11, 규칙 `RULES.md` §공통·변경 이력. 배포물 ZIP은 0.3.0 그대로.
+- 다음 작업 후보(사용자 제기, 이번에 구현하지 않음): 임시 그래픽, 짧은 전투 시간, 다른 역할의 몬스터 추가. 그 밖에 제목 부제 "늑대 2 → 3" 문구 갱신, OS 간 결정성 확인, 0.3.1 Windows 빌드 ZIP. 게임명은 가칭 유지(채택된 새 이름 없음).
 - HTML v0.8.0 독립 검토 지적 A~G는 ee10fc7에 **모두 남아 있음**(봇/UI 출격 경로 불일치, 습지·굴·심층 저녁 변주 도달 불가, 개조 예약 카드 1장, 지속 피해 출처, 심층 장비 편향, 시작 화면 창 주기 표시, 원정대의 갑옷 문구/시점). HTML에서 고치지 않고 Godot 이식 시 주의 사항으로 기록했다(PORT_NOTES §6).
 
 ## 현재 상태 (v0.8.0, 검증 2차 반영) — 시간대·장소 2곳·런 한정 장비·상점 교체·성장 예약·피해 통계·용어 사전

@@ -27,8 +27,8 @@ var arena_w: float
 var arena_h: float
 var effects: Array = []   # 표시용 이벤트(화면이 읽기만 한다): {kind, x, y, ttl, t, ...}
 var events: Array = []    # 소리·통계용 이벤트 이름
-var stats: Dictionary = { "kills": 0, "damage_taken": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "max_alive": 0, "max_dash_states": 0, "max_bite_states": 0 }
-var metrics: Dictionary = { "dmg": {}, "taken": {}, "enemies": {} } # 피해 출처별 유효 피해(과잉 제외), 받은 피해 원인별
+var stats: Dictionary = { "kills": 0, "damage_taken": 0.0, "damage_taken_nominal": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "max_alive": 0, "max_dash_states": 0, "max_bite_states": 0 }
+var metrics: Dictionary = { "dmg": {}, "taken": {}, "enemies": {} } # 피해 출처별 유효 피해(과잉 제외), 받은 피해 원인별(유효 피해, 합 = stats.damage_taken = 실제 체력 감소)
 var settled: bool = false
 var _next_id: int = 1
 
@@ -354,9 +354,12 @@ func damage_player(amount: float, src: String) -> bool:
 		return false
 	if p.hit_prot > 0.0:
 		return false
-	p.hp -= amount
-	stats.damage_taken += amount
-	metrics.taken[src] = float(metrics.taken.get(src, 0.0)) + amount
+	# 유효 피해 = 타격 직전 남은 체력을 넘지 않는 양(과잉 제외). 총합·출처별에 같은 값을 기록한다. 명목 피해는 damage_taken_nominal에만 남긴다
+	var effective: float = minf(amount, maxf(0.0, p.hp))
+	p.hp -= effective
+	stats.damage_taken += effective
+	stats.damage_taken_nominal += amount
+	metrics.taken[src] = float(metrics.taken.get(src, 0.0)) + effective
 	p.flash = 0.2
 	p.hurt_t = 0.0
 	p.hit_prot = float(cfg.player.hit_protect)
@@ -841,4 +844,4 @@ func summary() -> Dictionary:
 	var total := 0.0
 	for k in metrics.dmg:
 		total += metrics.dmg[k]
-	return { "status": status, "elapsed": snapped(t, 0.01), "hp": player.hp, "hp_max": player.hp_max, "kills": stats.kills, "damage_taken": stats.damage_taken, "attacks": stats.attacks, "hits": stats.hits, "dodges": stats.dodges, "special_uses": stats.special_uses, "dmg": metrics.dmg.duplicate(), "dmg_total": snapped(total, 0.1), "taken": metrics.taken.duplicate(), "enemies": metrics.enemies.duplicate(true), "steps": step_n, "seed": seed_value, "dodge_mode": String(cfg.player.dodge.mode), "dodge_cooldown": float(cfg.player.dodge.cooldown), "dodge_dists": stats.dodge_dists.duplicate(), "perfect_dodges": stats.perfect_dodges, "formation": String(cfg.formation_id) if cfg.has("formation_id") else "?", "spawn_total": spawn_total, "spawned": spawn_count, "xp": snapped(stats.xp, 0.0001), "max_alive": stats.max_alive, "max_dash_states": stats.max_dash_states, "max_bite_states": stats.max_bite_states, "dash_max": int(cfg.enemies.wolf.dash.max_concurrent), "wolf_hp": float(cfg.enemies.wolf.hp) }
+	return { "status": status, "elapsed": snapped(t, 0.01), "hp": player.hp, "hp_max": player.hp_max, "kills": stats.kills, "damage_taken": stats.damage_taken, "damage_taken_nominal": stats.damage_taken_nominal, "attacks": stats.attacks, "hits": stats.hits, "dodges": stats.dodges, "special_uses": stats.special_uses, "dmg": metrics.dmg.duplicate(), "dmg_total": snapped(total, 0.1), "taken": metrics.taken.duplicate(), "enemies": metrics.enemies.duplicate(true), "steps": step_n, "seed": seed_value, "dodge_mode": String(cfg.player.dodge.mode), "dodge_cooldown": float(cfg.player.dodge.cooldown), "dodge_dists": stats.dodge_dists.duplicate(), "perfect_dodges": stats.perfect_dodges, "formation": String(cfg.formation_id) if cfg.has("formation_id") else "?", "spawn_total": spawn_total, "spawned": spawn_count, "xp": snapped(stats.xp, 0.0001), "max_alive": stats.max_alive, "max_dash_states": stats.max_dash_states, "max_bite_states": stats.max_bite_states, "dash_max": int(cfg.enemies.wolf.dash.max_concurrent), "wolf_hp": float(cfg.enemies.wolf.hp) }
