@@ -1,0 +1,133 @@
+# Godot 이식 기록 — 첫 전투 (2026-09-07)
+
+## 1. 기준 커밋·버전
+| 항목 | 값 |
+|---|---|
+| 이식 기준 HTML | `prophecy_action_prototype` v0.8.0, 커밋 **ee10fc7** (작업 시작 시 최신, 작업 트리 깨끗함 확인) |
+| Godot 프로젝트 커밋 | 아래 "커밋 기록" 절 |
+| Godot 프로젝트 버전 | `godot-0.1.0` (`project.godot` `config/version`, 시작 화면·HUD 하단에 표시) |
+| 엔진 | **Godot 4.7.2-stable** 공식 배포본 (`4.7.2.stable.official.ed1daf0bf`), GDScript만, 2D, Compatibility 렌더러 |
+| 내보내기 템플릿 | 공식 `Godot_v4.7.2-stable_export_templates.tpz` → `windows_release_x86_64.exe` (템플릿 버전 = 엔진 버전 4.7.2.stable) |
+| HTML 프로젝트 | 손대지 않음(비교 기준). 추가한 것은 대조 스크립트 `tools/port_compare_html.js` 하나 |
+
+## 2. 작업 환경에서 확인한 것 / 못 한 것
+| 항목 | 결과 |
+|---|---|
+| OS·도구 | Ubuntu 24.04 (Linux x86_64), Godot 편집기 없이 명령줄 실행. `xvfb-run`으로 화면 렌더, ffmpeg(정적 바이너리)로 영상 인코딩 |
+| Godot 확보 | GitHub 공식 릴리스에서 Linux 편집기 바이너리·내보내기 템플릿 다운로드. godotengine.org·tuxfamily는 차단, GitHub 릴리스 다운로드만 가능 |
+| headless 실행 | `--headless -s` 스크립트 실행 가능 → 규칙 테스트·대조 측정에 사용 |
+| 실제 렌더 | Xvfb + OpenGL3(Compatibility)로 `main.tscn` 실행, `get_viewport().get_texture().get_image()`로 화면 저장 → `docs/captures/*.png` 7장(가짜 캡처 아님) |
+| 영상 | Godot Movie Maker(`--write-movie … --fixed-fps 30`) PNG 시퀀스 1003장 → `docs/captures/fight_seed7_bot.mp4` 33초(제목→봇 전투→일시정지 1.5초→결과→같은 조건 재시작→결과) |
+| Windows 내보내기 | `--export-release "Windows Desktop"` 성공, `prophecy_first_fight.exe` 109MB(pck 내장). **Windows 실기 실행 미확인**(이 환경에 Windows·wine 없음) |
+| 미확인 | 실제 키보드 조작(봇·스크립트 입력만 검증), Windows에서의 실행·글꼴 표시(한글은 Godot 기본 글꼴로 Linux에서 정상 표시됨), 편집기 GUI에서의 프로젝트 가져오기(명령줄 가져오기만 확인) |
+
+## 3. 구조 (규칙 ↔ 표시, 데이터 ↔ 코드)
+```
+data/first_fight.json          첫 전투 숫자 전부(플레이어·검격·늑대·장애물·웨이브·상수). 코드에 숫자 없음
+scripts/rules/rng.gd           PRng: HTML PA.rng(mulberry32)와 같은 알고리즘(uint32 마스크 연산)
+scripts/rules/geom.gd          PGeom: 거리·각도·선분-원 교차(정적 함수)
+scripts/rules/combat_state.gd  CombatState(RefCounted): 순수 규칙. step(input, dt) 하나로 진행. Node·Vector2·Input·그리기 없음
+scripts/rules/bot.gd           PBot: 사람 입력과 같은 형식 {mx,my,dodge,special}을 만든다(5스텝마다 판단)
+scripts/game/game.gd           자동 로드 Game: JSON 로드, 버전·설정 문자열
+scripts/game/combat_view.gd    Node2D: 고정 단계 1/120초 누적기(프레임당 최대 12스텝), 입력→행동 변환, _draw()는 읽기만
+scripts/game/main.gd           화면 전환(제목·HUD·일시정지·결과·조작법·F3 검증 패널), 캡처/영상 모드(환경 변수로만 켜짐)
+scenes/main.tscn               단일 씬
+tests/run_tests.gd             규칙 테스트 25개(headless)
+tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
+```
+- **입력은 행동으로**: 키(WASD/방향키/Space/Q)는 `combat_view.gd`에서 `{mx,my,dodge,special}`로 바뀌고 규칙은 키를 모른다. 회피·Q 같은 1회성 입력은 프레임의 첫 스텝에서만 소비된다.
+- **사람·봇 같은 규칙**: `PBot.step_input`이 같은 dict를 만들어 같은 `CombatState.step`에 넣는다. 시작 화면 "봇 조작으로 보기"가 그 경로.
+- **시간·난수 통제**: `dt`는 항상 1/120 고정, 난수는 `PRng(seed)` 하나. 종료 뒤에는 `t`가 멈추고 효과만 진행.
+- **그리기는 상태를 바꾸지 않는다**: `_draw()`는 `st`를 읽기만 하고, HUD 갱신도 `_process`에서 읽기만.
+- **피해 출처 보존**: `damage_enemy(e, amount, src_key, …)`에 `"weapon:sword"` 같은 출처 키를 처음부터 넘기고 `metrics.dmg[src]`, `metrics.taken[type]`에 과잉 피해를 뺀 실효 피해만 기록. 결과 화면 "피해 출처"가 이 값.
+- **Godot 물리 미사용**: 이동·회피·돌진·장애물은 HTML과 같은 스윕 원 충돌(`move_swept`, `push_out`)을 규칙 안에서 직접 계산한다. CharacterBody2D 등을 쓰지 않았으므로 Godot 물리 때문에 생기는 거리·주기 차이가 없다(§5 대조 결과가 그 증거). 나중에 Godot 물리로 바꾸면 §5 측정을 다시 해야 한다.
+- **저장**: 첫 전투에는 저장이 없다. 설계만: `{"schema": "prophecy_save/N", …}` 형태로 JSON 한 파일, 로드 시 schema 번호로 변환(HTML `Run.migrate` v3→v4와 같은 방식). 저장 위치는 `user://`.
+
+### HTML 의존 관계 확인(첫 전투가 실제로 쓰는 것)
+| HTML 모듈 | 첫 전투에서 쓴 부분 | Godot 처리 |
+|---|---|---|
+| `data.js` PLAYER·wolf·ARENAS.clearing·CONFIG(STEP·WAVE_DELAY·SPAWN_WARN·SEPARATION·EXPOSED) | 전부 | `first_fight.json`으로 숫자만 옮김 |
+| `growth_data.js` sword base(12/0.55/95/110°/넉백 40) | 검격 Lv1 | JSON `weapon` |
+| `world_data.js` forest 1일차 웨이브 `[[wolf2],[wolf3],[wolf4]]`, 새벽 변주(마지막 웨이브 없음) | 새벽 변주 적용: `[[wolf2],[wolf3]]` | JSON `waves` (변주 계산 자체는 안 옮김) |
+| `combat.js` updatePlayer·moveSwept·pushOut·steerDir·losBlocked·queueWave/edgePos/updateWaves·damagePlayer·damageEnemy·updateWolf·separation·checkObjective | 전부 | `combat_state.gd`에 규칙만 다시 씀(복사 아님) |
+| `weapons.js` FIRE.arc·hitArc·pickTarget·init(첫 공격 0.25초·음수 잔여 이월·대상 없으면 0.05초) | 검격만 | `update_attack`·`pick_target` |
+| `skills.js` castQ | 감속장 Lv1 | `cast_slowfield`·`update_field`·`time_factor` |
+| `bot.js` | 판단 로직은 옮기지 않음 | `PBot`은 첫 전투용 단순 봇(코리도 회피·접근·Q). HTML 봇과 행동이 같지 않다 |
+| `render.js`·`screens.js`·`main.js`·`input.js` | 표시·입력 | Godot `_draw`·Control 노드로 새로 작성 |
+| 함수가 든 JS 데이터(개조 `apply`, 사건 `choices`, 보스 패턴) | 첫 전투 미사용 | 옮기지 않음. 옮길 때는 JSON이 아니라 GDScript 데이터 또는 Resource로 재작성 필요 |
+
+## 4. 첫 전투 범위 구현 상태
+| 요구 | 상태 |
+|---|---|
+| 시작 화면 | 제목·전투 시작·봇 조작·조작법·시드·종료·버전 한 줄. 설정·검증 정보는 F3 패널로 분리 |
+| 검격 자동기술 Lv1 | 사거리 안 가장 가까운 적(시야 차단 제외) 방향으로 110° 부채꼴, 0.55초 주기, 피해 12(빈틈 ×1.5=18), 넉백 40 |
+| 이동·Space 회피·Q 감속장 | 220/s(대각선 정규화), 회피 150/0.26초 무적/재사용 0.9초, 감속장 반지름 150·3초·재사용 14초·적 속도 40% |
+| 늑대 접근→준비→방향 확정→돌진→빈틈 | 접근(170 안까지)→준비 0.6초(붉은 통로가 플레이어를 따라감)→고정 0.15초(통로 굵어지고 "!")→돌진 800×0.32초=256→빈틈 0.9초(노란색). 고정 뒤에는 플레이어를 따라가지 않음(테스트) |
+| 숲 전투·장애물 | 960×600, 바위 2·나무 2. 테두리가 충돌 경계. 이동·돌진 모두 막힘 |
+| HUD | 체력 막대·숫자, 회피 재사용 막대·상태, Q 막대·남은 시간(전개 중 남은 초), 목적(남은 적·웨이브·시간) |
+| 예고·실제 범위 | 통로 폭 = 2×(늑대 r + 플레이어 r) = 실제 물기 판정 폭(테스트: 옆으로 20 → 맞음, 40 → 안 맞음). 검격 부채꼴 = 실제 판정 범위. 감속장 원 = 실제 감속 범위 |
+| 승리·패배·재시작 | 예정 웨이브 모두 소환 + 생존 적 0 → 승리(1회 확정). 체력 0 → 패배(1회, 시간 정지). 결과 화면 Enter → 같은 시드로 재시작 |
+| Esc 일시정지·재개 | 전투 시간·회피/Q 재사용이 멈춤, 일시정지 중 눌린 회피/Q는 재개 시 버림(실제 씬에서 확인: `PAUSE_CHECK` 3항목 true) |
+| 조작법 화면 | 제목·일시정지 양쪽에서 열림. 읽는 법(통로·부채꼴·빈틈·감속장·테두리) 포함 |
+| 하지 않은 것 | 회전 칼날·창·E 기술·성장·상점·날짜·보스·저장(요구대로 제외, 빈 화면도 없음). 마우스 조준·수동 공격 없음. 수치 변경 없음 |
+
+## 5. 검증 결과
+### 5-1. 규칙 테스트(`tests/run_tests.gd`, headless) — **25/25 통과**
+데이터 로드 / 이동 220·1초 / 회피 150·무적·재사용 0.9 / 재사용 중 회피 거부·0.9초 뒤 허용 / 늑대 상태 순서 / 고정 뒤 방향 불변 / 돌진 256 / 옆으로 비키면 안 맞고 빈틈 진입 / 통로 폭(20 맞음·40 안 맞음) / 바위가 이동·돌진을 막음 / 감속장 안 0.4·밖 1.0·3초 뒤 해제 / 적 0이어도 웨이브 남으면 승리 아님 / 전멸 시 승리 1회 / 체력 0 패배 1회·시간 정지 / 피격 보호 0.6초 / 과잉 피해 집계 제외 / 공격 횟수·빈틈 피해 18 / 같은 시드·같은 봇 → 같은 결과 / 기록 입력 재실행 일치 / 받은 피해 합 = 잃은 체력.
+
+### 5-2. HTML 대조(`tools/compare_scenario.gd` ↔ `prophecy_action_prototype/tools/port_compare_html.js`, 같은 고정 배치·같은 입력)
+| 측정 | Godot | HTML |
+|---|---|---|
+| 1초 이동(직선/대각) | 220.0 / 219.3 | 같음 |
+| 회피 거리·무적 스텝·직후 재사용 | 150.0 · 32스텝(0.267) · 0.8933 | 같음 |
+| 늑대 준비/고정/돌진/빈틈 스텝 | 72 / 18 / 39 / 109 | 같음 |
+| 돌진 거리 | 256.0 | 같음 |
+| 검격 시각(9회) | 0.2583, 0.8, 1.35 … 4.65 | 같음 |
+| 단타 피해 보통/빈틈 | 14.0 / 18.0 (측정 배치는 데이터의 12 대신 14로 넘긴 값) | 같음 |
+| 감속장 안/밖 0.5초 늑대 이동 | 30.0 / 75.0 | 같음 |
+| 물기 피해·피격 보호 | 12.0 · 0.6 | 같음 |
+
+처음엔 검격 시각이 달랐다(Godot 0.2083 시작, 주기마다 1/120 누적 지연). 원인: HTML `weapons.js`가 첫 공격 대기 0.25초, 주기 갱신 시 음수 잔여 이월(`max(-interval/2, timer)+interval`), 대상 없으면 0.05초 재시도를 쓰는데 첫 구현이 이를 단순화했었다. 규칙으로 타당한 쪽(누적 오차 없는 이월)을 택해 JSON `first_attack_delay` 0.25와 이월 규칙으로 맞췄다.
+
+**같은 시드 = 같은 전투가 아니다**: RNG 알고리즘은 같지만 호출 순서(소환 위치·봇 판단)가 HTML과 다르므로 시드가 같아도 HTML의 전투를 재현하지 않는다. 그래서 대조는 위처럼 고정 배치·고정 입력 시나리오로 했고, 결정성(같은 시드·같은 입력 → 같은 결과)은 Godot 안에서만 검증했다.
+
+### 5-3. 실제 렌더·흐름(Xvfb, OpenGL3)
+`docs/captures/01_title` 제목 → `02_combat_wave1` 1웨이브(늑대 통로·고정 "!"·HUD) → `03_pause` 일시정지 → `04_debug_panel` F3 → `05_controls` 조작법 → `06_combat_later` 2웨이브(감속장·회피) → `07_result` 결과. 봇 전투(시드 7) 요약: 승리, 11.97초, 처치 5, 공격 14(명중 14), 받은 피해 12, 회피 5, 감속장 1, 피해 출처 `weapon:sword 150.0`. 영상 `fight_seed7_bot.mp4`.
+
+### 5-4. 프레임 속도 독립
+규칙은 고정 1/120 스텝만 받으므로 프레임 속도와 무관. 영상은 30fps 고정(Movie Maker), 캡처 실행은 Xvfb 가변 프레임 — 둘 다 같은 시드로 같은 경과를 보였다(요약 수치 동일). 프레임이 1/10초보다 길면 스텝을 최대 12개로 잘라 게임 시간이 느려진다(멈춤 방지 의도, HTML과 같은 방식).
+
+## 6. HTML v0.8.0 독립 검토 지적 사항 — 최신 코드(ee10fc7) 확인 결과와 이식 주의
+| 항목 | 최신 HTML 상태 | 이식 주의(첫 전투 범위 밖, 구현 안 함) |
+|---|---|---|
+| A. 봇 출격 경로 ≠ UI 경로 | **남아 있음**. UI는 `Sortie.canStart/start`(카드)만 쓰고, `tools/run_sim.js`의 임무 없는 전략은 `Run.startSortie(run, rid)`를 직접 호출한다(제단 임무 장소를 일반 소탕으로, 완료 장소 재출격) | 성장·경제·관문 빌드 덤프는 검증된 기준선으로 쓰지 않는다. Godot에서는 "선택 가능한 행동 목록" 함수 하나를 사람 UI와 봇이 같이 쓰게 설계(첫 전투는 봇·사람이 같은 `step` 입력으로 이미 통일) |
+| B. 저녁 사건 도달 불가 | **남아 있음**. `canSortie`는 `hours >= cost`, 저녁은 남은 칸 1인데 습지·굴·심층 비용 2 → 이 세 곳의 저녁 변주(`SLOT_VARIANTS[*][4]`)는 도달 불가. 숲·능선(비용 1)만 가능 | 시간대 변주를 옮길 때 "도달 가능한 (장소, 시간대) 조합"을 데이터 검사로 강제 |
+| C. 개조 예약인데 카드 1장 | **남아 있음**. `growth.js generateOffer`가 레벨 풀에서 `kind+id`가 같은 후보를 하나로 줄인다(검 개조 3개 → 1장) | 기술 ID와 선택지 ID를 구분(`keyOf`처럼 kind:id:mod). 중복 제거 기준은 선택지 ID |
+| D. 지속 피해 출처·DPS | **남아 있음**. `srcKey`가 `dot:bleed`로만 기록해 쌍검 출혈이 일반 출혈로 집계됨. 획득 시각과 무관한 전체 시간 분모 문제도 그대로 | 지속 효과는 붙일 때 원인 기술 키를 함께 저장(`{src:"weapon:daggers", kind:"bleed"}`). DPS 분모는 획득 시각부터 |
+| E. 심층 장비 보상 편향 | **남아 있음**. `run.js deepPreview`가 같은 시드로 RNG를 다시 만들고 첫 난수를 종류 선택과 아이템 선택에 재사용 → 종류가 equipment이면 항상 같은 색인(개척자의 창) | 보상은 재현성(같은 시드 → 같은 결과)과 다양성(시드마다 다른 결과)을 **둘 다** 테스트. RNG는 한 스트림을 이어서 쓴다 |
+| F. 표시값 ≠ 실제값 | **남아 있음**. `screens.js pickStart`가 `d.base.interval`(창 0.70)을 그대로 보여주고 시험 빌드의 0.85를 반영하지 않음. 검증 메뉴가 일반 시작 화면에 있음 | Godot 시작 화면은 실제 설정(`Game.settings_text()`)에서 파생한 값만 표시(검격 12/0.55, 늑대 30). 검증 정보는 F3 패널로 분리했다 |
+| G. 원정대의 갑옷 회복 시점 | **불일치 남아 있음**. 코드·`GAME_SPEC` §장비: 귀환 정산당 1회. 데이터 `short`는 "전투 승리 시 체력 8 회복"(승리마다로 읽힘). 합의가 "전투 승리마다 +8"이면 코드가 틀리고, "정산당 1회"면 짧은 문구가 틀리다 | 규칙 시점(전투 승리 시 / 정산 시)을 먼저 정하고 데이터·문구·코드 셋을 같은 값에서 파생. 첫 전투에는 장비가 없다 |
+
+## 7. 다음 이식 순서(첫 전투 확인 뒤)
+전제: 사용자가 Windows에서 첫 전투를 실제로 플레이하고 "규칙 감이 HTML과 같다/다르다"를 확인한 뒤 시작한다. 전체 이식이 아니라 아래 순서로 한 덩어리씩.
+
+| 순서 | 내용 | 의존 | 가져올 것(데이터) / 다시 쓸 것(코드) |
+|---|---|---|---|
+| 1 | 사람 조작 확인 반영: 입력 반응·표시 가독성(통로·부채꼴·HUD) 수정, 키 재배치 필요 여부 | 첫 전투 플레이 | 코드만 |
+| 2 | 적 추가: 궁수·도적(능선), 늑대 우두머리(정예) → 웨이브 편성 데이터 확장 | 1 | `data.js` 적 수치·`world_data.js` 편성은 JSON으로. 행동은 `combat_state.gd`에 상태기계로 재작성 |
+| 3 | 자동기술 나머지: 관통창·회전 칼날(기본 Lv1) + 자동기술 3개 슬롯 | 2 | `growth_data.js` base 숫자는 JSON. `weapons.js` FIRE.*는 재작성(개조 `apply` 함수는 코드) |
+| 4 | Q 변형·E 기술(돌풍 등) | 3 | `skills.js` 재작성, 수치 JSON |
+| 5 | 전투 목표 4종·시간대 변주·장애물 배치안(지역별 아레나) | 2 | `ARENAS`·`SLOT_VARIANTS`·`OBJECTIVES` 데이터 JSON(§6 B 도달 가능성 검사 포함) |
+| 6 | 회차 껍데기: 날짜·시간대·장소 2곳·출격 카드·귀환 정산·패배 | 5 | `run.js`·`sortie.js`·`flow.js` 재작성. 사람 UI와 봇이 같은 "행동 목록" 사용(§6 A) |
+| 7 | 성장: 경험치·레벨업 3택·개조·공용 증강·예약(§6 C) | 3, 6 | `growth_data.js`는 함수가 섞여 있어 JSON 불가 → GDScript 데이터 파일(또는 Resource)로 재작성 |
+| 8 | 상점·장비 12종·대장간·경제(§6 G 시점 확정) | 6, 7 | `world_data.js` 장비 효과 수치 JSON, 효과 적용은 코드 |
+| 9 | 저장 v1(Godot) + 마이그레이션 틀 | 6~8 | 새로 설계(HTML 저장 v4와 호환하지 않음) |
+| 10 | 보스 3종·관문·최종 보스 | 2~8 | `boss_data.js` 수치 JSON, 패턴 코드 재작성 |
+| 11 | 시험실·시뮬레이션 도구(headless 대량 실행) | 규칙 완성 | `tools/*.js` 대응물을 GDScript headless로 |
+| 12 | 그래픽·소리 교체 | 규칙 확정 뒤 | 표시 계층만 |
+
+**의도적으로 미룬 것**: HTML 봇(`bot.js`) 정책 이식(첫 전투는 단순 봇), Godot 물리(CharacterBody2D) 사용 여부 결정(현재 자체 충돌; 바꾸면 §5 재측정), 해상도·전체화면 설정, 게임패드, 사운드, 저장, 용어 사전/툴팁, 밸런스 후보 비교 메뉴, 검증 메뉴의 본편 노출.
+
+## 8. 커밋 기록
+- HTML 이식 기준: `ee10fc7`
+- Godot 프로젝트(코드·데이터·테스트·캡처·문서): 이 파일의 다음 갱신에서 기록

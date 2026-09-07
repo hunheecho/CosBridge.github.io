@@ -1,0 +1,29 @@
+{
+  "schema": "prophecy_first_fight/1",
+  "source": { "html_version": "0.8.0", "html_commit": "ee10fc7", "files": ["src/data.js", "src/growth_data.js", "src/world_data.js", "src/combat.js", "src/weapons.js", "src/skills.js"] },
+  "step": 0.008333333333333333,
+  "arena": { "w": 960, "h": 600 },
+  "constants": { "wave_delay": 1.2, "spawn_warn": 0.6, "separation": 1.0, "first_wave_timer": 0.4, "exposed_mult": 1.5, "death_linger": 0.9 },
+  "player": {
+    "hp": 100, "speed": 220, "r": 14, "hit_protect": 0.6,
+    "dodge": { "duration": 0.26, "distance": 150, "cooldown": 0.9 },
+    "slowfield": { "radius": 150, "duration": 3.0, "cooldown": 14, "slow": 0.4 },
+    "start": { "x": 480, "y": 500 }
+  },
+  "weapon": { "id": "sword", "name": "검격", "level": 1, "damage": 12, "interval": 0.55, "range": 95, "arc_deg": 110, "knock": 40, "first_attack_delay": 0.25 },
+  "enemies": {
+    "wolf": { "name": "늑대", "r": 14, "hp": 30, "speed": 150, "engage_dist": 170, "crouch": 0.6, "lock": 0.15, "dash_time": 0.32, "dash_speed": 800, "recover": 0.9, "damage": 12, "dashes": 1 }
+  },
+  "obstacles": [
+    { "id": "rockA", "type": "rock", "x": 285, "y": 220, "r": 42 },
+    { "id": "rockB", "type": "rock", "x": 675, "y": 380, "r": 42 },
+    { "id": "treeA", "type": "tree", "x": 300, "y": 420, "r": 26 },
+    { "id": "treeB", "type": "tree", "x": 660, "y": 180, "r": 26 }
+  ],
+  "waves": [[{ "type": "wolf", "n": 2 }], [{ "type": "wolf", "n": 3 }]],
+  "notes": [
+    "waves = HTML 1일차 근교 숲 새벽 변주(소규모 순찰: 마지막 웨이브 없음) = 늑대 2 → 늑대 3",
+    "obstacles = HTML 공터(clearing) 전장. 첫 전투에 '바위·나무 소수' 요구를 맞추기 위해 숲 전장(장애물 없음) 대신 사용",
+    "수치 의미: 거리 단위 = 픽셀(전장 960×600), 시간 = 초. 늑대 돌진 길이 = dash_speed × dash_time = 256"
+  ]
+}

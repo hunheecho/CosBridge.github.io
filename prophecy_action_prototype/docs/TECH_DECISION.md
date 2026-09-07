@@ -41,3 +41,11 @@
 | 대표 전투의 입력·설정·결과 | `docs/port/fixtures_v08.json` + `FIXTURES.md`(`tools/port_fixtures.js`, `--verify`로 입력 열만 재실행). 규칙이 바뀌면 `test/port_fixtures.test.js`가 깨지고 다시 기록한다 |
 
 남은 결합(이식 시 정리 대상, 지금은 두는 것): screens.js가 규칙 함수(Run.*, Sortie.*)를 직접 호출해 문자열을 만든다(표시 전용이라 허용). main.js의 게임 루프가 Combat.step과 Bot을 직접 묶는다(연결부 역할). Combat.summary/metrics는 규칙 모듈 안에 있으나 표시와 무관한 순수 집계다.
+
+## Godot 전환 결정 (2026-09-07)
+- 엔진 **Godot 4.7.2-stable** 공식 배포본(표준, non-.NET), GDScript만, 2D, Compatibility(OpenGL3) 렌더러 우선, 내보내기 템플릿 버전 = 엔진 버전으로 고정. 플러그인·시스템 변경 없음.
+- 프로젝트는 `../prophecy_godot`(별도 폴더). HTML은 삭제·덮어쓰기 없이 비교 기준선으로 보존. 이식 기준 커밋 ee10fc7.
+- 구조 원칙은 위 "이식 준비 지침"을 Godot에서도 그대로: 규칙(`scripts/rules`, RefCounted·dict·double, Node/입력/그리기 없음) ↔ 표시(`scripts/game`), 데이터(`data/*.json`) ↔ 코드, 입력은 행동 dict, 사람·봇 같은 `step`, 고정 1/120 스텝·시드 RNG(HTML과 같은 mulberry32), `_draw` 읽기 전용, 피해 출처 키 보존. Godot 물리는 쓰지 않고 자체 스윕 원 충돌(바꾸면 대조 측정 재실행).
+- 함수가 섞인 JS 데이터(개조 apply·사건 선택지·보스 패턴)는 JSON으로 옮기지 않고 GDScript 데이터/Resource로 재작성한다. 변환 프레임워크는 만들지 않는다.
+- 검증 방식: headless 규칙 테스트(`tests/run_tests.gd`) + 고정 배치·고정 입력 대조(`tools/compare_scenario.gd` ↔ HTML `tools/port_compare_html.js`) + Xvfb 실제 렌더 캡처/영상(`PROPHECY_CAPTURE`, `PROPHECY_MOVIE`). "같은 시드 = 같은 전투"는 가정하지 않는다.
+

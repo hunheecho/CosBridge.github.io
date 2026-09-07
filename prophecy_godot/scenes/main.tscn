@@ -1,0 +1,344 @@
+[gd_scene load_steps=3 format=3 uid="uid://c0prophecymain"]
+
+[ext_resource type="Script" path="res://scripts/game/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/game/combat_view.gd" id="2_view"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1_main")
+
+[node name="CombatView" type="Node2D" parent="."]
+position = Vector2(0, 40)
+script = ExtResource("2_view")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Title" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="BG" type="ColorRect" parent="UI/Title"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.078, 0.094, 0.114, 1)
+
+[node name="VBox" type="VBoxContainer" parent="UI/Title"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -190.0
+offset_right = 220.0
+offset_bottom = 190.0
+theme_override_constants/separation = 10
+
+[node name="Heading" type="Label" parent="UI/Title/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = "예언의 시간표"
+horizontal_alignment = 1
+
+[node name="Sub" type="Label" parent="UI/Title/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "Godot 첫 전투 — 근교 숲 · 검격 Lv1 · 늑대 2 → 3"
+horizontal_alignment = 1
+
+[node name="StartBtn" type="Button" parent="UI/Title/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "전투 시작 (Enter)"
+
+[node name="BotBtn" type="Button" parent="UI/Title/VBox"]
+layout_mode = 2
+text = "봇 조작으로 보기 (같은 규칙·같은 행동 형식)"
+
+[node name="ControlsBtn" type="Button" parent="UI/Title/VBox"]
+layout_mode = 2
+text = "조작법"
+
+[node name="SeedRow" type="HBoxContainer" parent="UI/Title/VBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="SeedLabel" type="Label" parent="UI/Title/VBox/SeedRow"]
+layout_mode = 2
+text = "시드"
+
+[node name="SeedSpin" type="SpinBox" parent="UI/Title/VBox"]
+layout_mode = 2
+min_value = 1.0
+max_value = 99999.0
+value = 7.0
+
+[node name="QuitBtn" type="Button" parent="UI/Title/VBox"]
+layout_mode = 2
+text = "종료"
+
+[node name="Version" type="Label" parent="UI/Title/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.65, 0.7, 1)
+theme_override_font_sizes/font_size = 12
+text = "version"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="HUD" type="Control" parent="UI"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Bar" type="ColorRect" parent="UI/HUD"]
+layout_mode = 0
+offset_right = 960.0
+offset_bottom = 40.0
+color = Color(0.05, 0.06, 0.08, 1)
+
+[node name="HP" type="ProgressBar" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 6.0
+offset_right = 212.0
+offset_bottom = 34.0
+show_percentage = false
+
+[node name="HPText" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 18.0
+offset_top = 10.0
+offset_right = 210.0
+offset_bottom = 32.0
+text = "체력"
+
+[node name="Dodge" type="ProgressBar" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 230.0
+offset_top = 6.0
+offset_right = 380.0
+offset_bottom = 34.0
+show_percentage = false
+
+[node name="DodgeText" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 236.0
+offset_top = 10.0
+offset_right = 380.0
+offset_bottom = 32.0
+theme_override_font_sizes/font_size = 13
+text = "Space 회피"
+
+[node name="Q" type="ProgressBar" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 396.0
+offset_top = 6.0
+offset_right = 600.0
+offset_bottom = 34.0
+show_percentage = false
+
+[node name="QText" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 402.0
+offset_top = 10.0
+offset_right = 600.0
+offset_bottom = 32.0
+theme_override_font_sizes/font_size = 13
+text = "Q 감속장"
+
+[node name="Objective" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 616.0
+offset_top = 10.0
+offset_right = 956.0
+offset_bottom = 32.0
+theme_override_font_sizes/font_size = 13
+text = "목적"
+
+[node name="Settings" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 622.0
+offset_right = 956.0
+offset_bottom = 640.0
+theme_override_colors/font_color = Color(0.55, 0.6, 0.65, 1)
+theme_override_font_sizes/font_size = 11
+text = "settings"
+
+[node name="Pause" type="Control" parent="UI"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="BG" type="ColorRect" parent="UI/Pause"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.55)
+
+[node name="VBox" type="VBoxContainer" parent="UI/Pause"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -90.0
+offset_right = 160.0
+offset_bottom = 90.0
+theme_override_constants/separation = 10
+
+[node name="Heading" type="Label" parent="UI/Pause/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "일시정지 — 전투 시간이 멈춰 있습니다"
+horizontal_alignment = 1
+
+[node name="ResumeBtn" type="Button" parent="UI/Pause/VBox"]
+layout_mode = 2
+text = "계속 (Esc)"
+
+[node name="ControlsBtn" type="Button" parent="UI/Pause/VBox"]
+layout_mode = 2
+text = "조작법"
+
+[node name="TitleBtn" type="Button" parent="UI/Pause/VBox"]
+layout_mode = 2
+text = "제목으로 (전투 포기)"
+
+[node name="Result" type="Control" parent="UI"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="BG" type="ColorRect" parent="UI/Result"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.6)
+
+[node name="VBox" type="VBoxContainer" parent="UI/Result"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -120.0
+offset_right = 300.0
+offset_bottom = 120.0
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="UI/Result/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "결과"
+horizontal_alignment = 1
+
+[node name="Body" type="Label" parent="UI/Result/VBox"]
+layout_mode = 2
+text = "..."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="RetryBtn" type="Button" parent="UI/Result/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "같은 조건으로 다시 (Enter)"
+
+[node name="TitleBtn" type="Button" parent="UI/Result/VBox"]
+layout_mode = 2
+text = "제목으로"
+
+[node name="Controls" type="Control" parent="UI"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="BG" type="ColorRect" parent="UI/Controls"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.7)
+
+[node name="VBox" type="VBoxContainer" parent="UI/Controls"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -170.0
+offset_right = 300.0
+offset_bottom = 170.0
+theme_override_constants/separation = 10
+
+[node name="Heading" type="Label" parent="UI/Controls/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "조작법"
+horizontal_alignment = 1
+
+[node name="Body" type="Label" parent="UI/Controls/VBox"]
+layout_mode = 2
+text = "WASD / 방향키: 이동
+Space: 회피 (0.26초 무적, 이동 방향으로 150 굴림, 재사용 0.9초)
+Q: 감속장 (반지름 150, 3초, 안의 적 속도·준비 40%, 재사용 14초)
+자동 공격: 사거리 안의 가장 가까운 적을 향해 검격 (0.55초마다)
+Esc: 일시정지 / 재개 · F3: 검증 패널
+
+읽어야 할 것
+붉은 통로: 늑대가 돌진할 길. 굵어지며 '!'가 뜨면 방향이 고정됨 — 옆으로 피하세요.
+통로의 폭 = 실제 물기 판정 폭. 흰 부채꼴 = 검격의 실제 판정 범위.
+노란 늑대 = 빈틈 (피해 1.5배). 파란 원 = 감속장 범위.
+바위·나무의 테두리 = 충돌 경계. 돌진도 막힙니다."
+autowrap_mode = 3
+
+[node name="CloseBtn" type="Button" parent="UI/Controls/VBox"]
+layout_mode = 2
+text = "닫기 (Esc)"
+
+[node name="Debug" type="Control" parent="UI"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="BG" type="ColorRect" parent="UI/Debug"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 48.0
+offset_right = 640.0
+offset_bottom = 200.0
+color = Color(0, 0, 0, 0.6)
+
+[node name="Text" type="Label" parent="UI/Debug"]
+layout_mode = 0
+offset_left = 14.0
+offset_top = 52.0
+offset_right = 636.0
+offset_bottom = 198.0
+theme_override_font_sizes/font_size = 12
+text = "debug"
+autowrap_mode = 3
