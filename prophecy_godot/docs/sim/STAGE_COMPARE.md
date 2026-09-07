@@ -1,4 +1,4 @@
-# 세계 변화 단계 × 밀도 세트 비교 (godot-0.4.3, 봇 balanced, 시드 [1, 2, 3])
+# 세계 변화 단계 × 밀도 세트 비교 (godot-0.5.0, 봇 balanced, 시드 [1, 2, 3])
 
 생성: `tools/stage_compare.gd`. 빌드는 단계별 실험실 프리셋(변화 전 stage1 / 1차 stage2 / 2차 stage3)으로 고정해 편성 차이만 본다. 등급 {"apex":{"dmg":1.2,"hp":1.6,"mark":"apex","name":"상위 변이","prefix":"변이 ","tint":"#8a3fc9"},"normal":{"dmg":1.0,"hp":1.0,"name":"일반"},"red":{"dmg":1.1,"hp":1.25,"mark":"red","name":"붉은 개체","prefix":"붉은 ","tint":"#d24a3a"}}. 봇 결과는 규칙·계측 비교용이며 사람 난이도·재미 승인이 아니다. `max_proj/max_zones/max_webs` = 적 투사체·장판(포자·서리·제단)·거미줄의 최대 동시 수(동시 생존 상한이 제한하지 않는 것, 사용자 관찰 항목).
 

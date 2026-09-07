@@ -1,4 +1,4 @@
-# 밀도 적용 현황 (godot-godot-0.4.1, PORT_BASELINE C4/Q1 잠정 규칙)
+# 밀도 적용 현황 (godot-godot-0.5.0, PORT_BASELINE C4/Q1 잠정 규칙)
 
 생성: `tools/formation_table.gd`. 공통 규칙: 일반 적 전체 수 = HTML 웨이브 합 × 배율(정예 `elite`·구조물·보스 소환은 ×1), 동시 생존 상한 12, 묶음 3마리·간격 1.0초, 종류별 동시 상한 {"archer":3.0,"boar":2.0,"bomber":3.0,"burrower":2.0,"frostcaller":2.0,"rogue":3.0,"shaman":1.0,"shieldbearer":3.0,"spider":2.0,"spore":3.0,"wolf_alpha":2.0} (없는 종류는 전체 상한만). 경험치는 **종류별로** HTML 예산(단위값 × HTML 수)을 그 종류의 Godot 개체 수로 나눠 지급하므로 배율이 달라도 전투 전체 예산이 같다(정예는 ×1이라 단위값 그대로). 금화는 지역 범위 × 시간대 배율(전투 승리 시 굴림). 적 체력 배율은 지역 ×1, 4일차부터 정예 ×1.25.
 

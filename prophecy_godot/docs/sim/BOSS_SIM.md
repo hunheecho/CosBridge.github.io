@@ -1,4 +1,4 @@
-# 보스전 헤드리스 측정 (godot-0.4.0, Godot 4.7.2-stable (official), Windows, 밸런스 test03, 보스 체력 세트 hi = 가시갈기 2400 / 봉인 수호자 5000 / 예언을 먹는 자 7000, 상한 300초, 시드 [11, 18])
+# 보스전 헤드리스 측정 (godot-0.5.0, Godot 4.7.2-stable (official), Windows, 밸런스 test03, 보스 체력 세트 hi = 가시갈기 2400 / 봉인 수호자 5000 / 예언을 먹는 자 7000, 상한 300초, 시드 [11, 18])
 
 생성: `tools/boss_sim.gd`. 빌드는 PCatalog.lab().BUILDS 프리셋(성장·장비·강화)을 회차 dict에 넣고 PRun.build로 파생. 정책: still=제자리(Q/E만) · balanced=균형 · survival=생존 우선. 봇 결과는 사람 승률이 아니다. 받은 피해 = 유효 피해(실제 체력 감소).
 
