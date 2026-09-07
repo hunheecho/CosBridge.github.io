@@ -1474,6 +1474,7 @@ func step(input: Dictionary, dt: float) -> void:
 	if time_limit > 0.0 and t >= time_limit:
 		status = "timeout"
 		ev("timeout")
+		delayed = []
 		_in_step = false
 		return
 	update_player(input, dt)
@@ -1493,6 +1494,8 @@ func step(input: Dictionary, dt: float) -> void:
 		ev("lose")
 	if status == "won":
 		pending_loss = false
+	if status != "running":
+		delayed = [] # 종료 뒤에는 지연 효과를 실행하지 않는다(람다가 st를 참조해 순환 참조 → 해제)
 	_in_step = false
 
 ## 레벨업 선택 적용 뒤: 파생 수치 재계산·무기 목록 갱신(타이머 유지)
