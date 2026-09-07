@@ -393,3 +393,13 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 4. **관문 뒤 붉은 달·상위 변이** — 3일차 관문 승리 뒤 2~4일차 재방문(붉은 표식·피해 체감), 5일차 관문 뒤 옛 지역 재방문(일반 퇴장). 후반 심층의 장판 겹침 가독성.
 5. **영구 성장 trial 프로필로 새 회차** — 제목 > 영구 성장 > trial: 시작 3종·해금 카드 폭·특성 1행, 대장간 제작(재료 도달 가능성).
 (터치: PC에서 `PROPHECY_TOUCH=1`로 오버레이 확인 가능. Android/iOS 실기는 미검증.)
+
+### 16-5. 최종 커밋·빌드·해시 (Codex 독립 검수 기준)
+| 항목 | 값 |
+|---|---|
+| **최종 코드 커밋** | **d5cb11c** (브랜치 `claude/prophecy-action-prototype-hehbeo`, 로컬, push 안 함). 이 뒤의 커밋은 ZIP·해시 기록만 |
+| Windows 빌드 | `prophecy_godot_build/prophecy_godot_windows_godot-0.5.0_d5cb11c.zip` (안: `prophecy_godot/prophecy_godot.exe` 110,014,800 B + `실행_안내.txt`). exe SHA-256 `a53389c9762b51c7c6a125fb860cb81a7e6db328f942980eac0c5ba96982591b`, ZIP SHA-256 `4d5167eb685061e136d5423a8b901e006c86e747483904feb8c565bcd58e4eef` |
+| 프로젝트 ZIP | `prophecy_godot_build/prophecy_godot_project_godot-0.5.0_d5cb11c.zip` = `git archive HEAD prophecy_godot` (233 파일). SHA-256 `c40cb23ff9502085abcc3047489d4ad03273ef0e212647e62647bd94aa42c9fc` |
+| 빌드 실행 확인 | 같은 PC, APPDATA 격리, 패키지 exe로 `PROPHECY_UI_SMOKE`(새 회차→…→관문→저장→계속하기→검증 메뉴 빠른 전투): **종료 코드 0, 스크립트 오류 0, PNG 25장**. 실제 사람 플레이 없음 |
+| 미커밋(의도) | 루트 `index.html`·`CNAME`·`wash.jpg` 삭제(Codex 정리, 복원·커밋 모두 안 함), `icon.svg.import` 편집기 재작성. `project.godot`의 stretch aspect는 UI 준비에서 `expand`로 바뀌어 커밋됨 |
+| 재현 순서(Codex) | ① d5cb11c(또는 프로젝트 ZIP) 체크아웃 ② `--headless --path prophecy_godot --import` ③ §16-1의 10개 스위트(`tests/*.gd`, APPDATA 격리) + `tools/density_report.gd`(결과 열 비교) + `tools/compare_scenario.gd` ④ `PROPHECY_SIM_SEEDS=1,2 tools/run_sim.gd` 등 `docs/sim/*.md`와 대조(같은 OS에서만 완전 재현) ⑤ 창: `PROPHECY_UI_SMOKE=<폴더> [PROPHECY_UI_FULL=1 PROPHECY_UI_SPEED=5] --path prophecy_godot` ⑥ ZIP 해시 대조. 검수 폴더의 `audit_probes.gd`는 `tests/tmp/`에 복사해 실행하면 6항목 모두 기대값 |
