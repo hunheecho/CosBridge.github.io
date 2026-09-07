@@ -187,6 +187,6 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 - 별개 관찰: `실행 전 사망%` 1/22(4.545…)이 Linux 4, Windows 5로 출력됨 — 값은 같고 `%.0f` 반올림(반올림 규칙) 차이.
 
 ### 11-4. 커밋·미작성
-- 프로젝트 커밋: 아래 "커밋 기록"(이 절의 커밋 해시는 커밋 뒤 HANDOFF에 기록).
+- 프로젝트 커밋(godot-0.3.1): **2cb7ae6** (브랜치 `claude/prophecy-action-prototype-hehbeo`, 로컬 커밋. 원격 push 여부는 HANDOFF 참조).
 - 배포물 ZIP(`prophecy_godot_build/`)은 0.3.0 그대로(272608f). 0.3.1 Windows 빌드는 내보내기 템플릿이 이 PC에 설치돼 있지 않아 만들지 않았다. 필요하면 `Godot_v4.7.2-stable_export_templates.tpz` 설치 뒤 `--export-release "Windows Desktop"`.
 - 제목 화면 부제 "늑대 2 → 3"(`scenes/main.tscn`)은 0.1.0 웨이브 문구가 남은 것(현재 편성은 25마리). 규칙과 무관한 표시 오류라 이번 수정에 섞지 않았다(다음 작업 1번에 포함).
