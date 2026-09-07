@@ -42,7 +42,7 @@
 |---|---|
 | 개발 방향 | Godot 4.7.2-stable(GDScript, 2D, Compatibility)로 전환(D29). HTML v0.8.0(ee10fc7)은 비교 기준선, 새 HTML 콘텐츠는 추가하지 않는다 |
 | Godot 구현 범위 | **합의된 게임 전체**(godot-0.4.0, D37): 자동기술 10+개조 30·Q/E·범용·특성·희귀 보상, 적 12+정예+보스 3, 임무·심층·사건, 7일·5칸 일정, 상점·장비·대장간·교체, 저장/계속하기, 피해 통계, 봇·시뮬. 0.3.1 첫 전투는 "기준 전투"(검증 메뉴·`CombatState.first_fight`)로 보존. 잠정값 Q1~Q5는 사용자 확인 대기(`PORT_BASELINE.md` §6) |
-| Godot 버전 | godot-0.4.0(전체 이식). 최종 커밋·빌드 해시는 `prophecy_godot/docs/PORT_NOTES.md` §12-7. 배포물 ZIP `prophecy_godot_build/`(0.4.0 Windows 빌드 + 프로젝트 ZIP) |
+| Godot 버전 | godot-0.4.0(전체 이식). 최종 커밋·빌드 해시는 `prophecy_godot/docs/PORT_NOTES.md` §12-8. 배포물 ZIP `prophecy_godot_build/`(0.4.0 Windows 빌드 + 프로젝트 ZIP) |
 | 사용자 플레이 | 0.3.1 기본 설정(x5 25마리)을 직접 플레이하고 긍정 평가 → 이후 변경의 **비교 기준**(D33). 50마리·다른 기술·다른 적·보스·회차 전체로 확대하지 않는다 |
 | 독립 검수 | HTML 7ec93cd 검수 F1~F8은 ee10fc7에 모두 남아 있음(HTML에서 고치지 않고 Godot 이식 주의사항으로 보존, `PORT_NOTES.md` §6 A~G). Godot 피해 통계 오류(Codex 지적)는 0.3.1에서 수정·구현자 검증, 독립 재확인은 아직 없음 |
 | 다음 작업 후보 | 사용자 판단 Q1~Q5(밀도 배율·역할별 상한, 보스 체력 세트, 창 약화, 저녁 변주 이동, 우두머리 물기 규칙), 사람 키보드 플레이 검증(전투 시간·가독성), Codex 독립 검수, OS 간 결정성 확인, 게임명. 우선순위는 `HANDOFF.md` |

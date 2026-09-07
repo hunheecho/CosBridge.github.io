@@ -220,7 +220,9 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 | abf311e | 전투 표시(render.gd)·합성음(audio.gd), active 봇 늑대 외 적 보호 |
 | f3b79f2 | 회차 봇(run_bot.gd)·run_sim/boss_sim/start_compare + docs/sim |
 | f906b6d | godot-0.4.0: 회차 UI 화면 14종·3택·툴팁·설정, E 키, Audio 자동 로드, 전체 회차 자동 진행, FORMATION_TABLE |
-| (아래 §12-7) | 문서 마무리·시뮬 보고서 재생성·빌드 ZIP·해시 기록 |
+| 09b3123 | 밀도 세트(uniform_x5/roles, Q1 답변)·문서·시뮬 보고서·캡처·내보내기 프리셋 |
+| 7f36cd9 | 내보낸 빌드 종료 시 오디오 정리(접근 위반 수정)·밀도 세트 비교 기록 — **최종 코드 커밋** |
+| (아래 §12-8) | 빌드 ZIP·해시·최종 검증 기록 커밋(문서·ZIP만) |
 
 ### 12-3. 검증 결과 (모두 이 PC에서 직접 실행)
 | 구분 | 결과 |
@@ -236,7 +238,7 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 | 시작 기술 비교 `tools/start_compare.gd` (시드 100·101) | 첫 전투(균형 봇): 검 2승, 회전 칼날 2승, 관통창 0승 2패(test03 근접 약화 적용 상태, Q3 참고). `docs/sim/START_COMPARE.md` |
 | 실제 창 자동 진행 `PROPHECY_UI_SMOKE` (시드 1, 봇 balanced) | 새 회차→거점→툴팁→전투(일시정지·조작법·설정·F3)→보상→사건→귀환→상점·대장간·장비·통계→하루 종료→관문→보스전(레벨업 3택)→관문 결과→저장 후 종료→계속하기→거점. 스크립트 오류 0, PNG 24장 |
 | 실제 창 전체 회차 `PROPHECY_UI_FULL=1 PROPHECY_UI_SPEED=5` | 위 흐름을 이어 패배 1회(2일차, 패배 화면)→관문 3(가시갈기·봉인 수호자·예언을 먹는 자 모두 처치)→7일차 회차 결과→새 회차 시작 기술 화면까지. 최종 레벨 13, 금화 780, 재도전 0. PNG 26장 |
-| Windows 빌드 exe에서 `PROPHECY_UI_SMOKE` | §12-7 |
+| Windows 빌드 exe에서 `PROPHECY_UI_SMOKE` | §12-8 |
 | **사람이 키보드로 플레이한 확인** | **하지 않음**. 전투 시간·가독성·E 기술 조작감·밀도 체감은 미검증 |
 
 ### 12-4. UI 스모크에서 무엇이 "실제 UI 경로"이고 무엇이 "상태 직접 설정"인가
@@ -277,3 +279,16 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 | 빌드 맞춤 보상 선택 | 7.3 → 5.7 | 1.5 → 1.0 | 16.5 → 17.5 | 20.0 → 18.3 |
 - 위협·반복감은 봇 수치로 판단하지 않는다(D33 원칙). 사람 플레이 비교가 다음 과제. 잔류 투사체·거미줄·서리 장판·포자 구름의 겹침(동시 상한이 제한하지 않는 것)은 아직 측정하지 않았다(관찰 항목, `FORMATION_TABLE.md` 머리말).
 - 첫날 새벽 늑대 25마리(D33)는 두 세트에서 동일(늑대 ×5).
+
+### 12-8. 최종 커밋·빌드·해시 (Codex 독립 검수 기준)
+| 항목 | 값 |
+|---|---|
+| **최종 코드 커밋** | **7f36cd9** (브랜치 `claude/prophecy-action-prototype-hehbeo`, 로컬. push 안 함). 이 뒤의 커밋은 문서·ZIP·해시 기록만 |
+| Windows 빌드 | `prophecy_godot_build/prophecy_godot_windows_godot-0.4.0_7f36cd9.zip` (안: `prophecy_godot/prophecy_godot.exe` 109,889,552 B + `실행_안내.txt`). exe SHA-256 `ec5325807381511b2c7c8680cd09a662e205a8223467834655400b8ee6258f9e`, ZIP SHA-256 `ea38807ae9419c2d456b6629c97c35eea9ae132a21d889a914e7f25c876470e2` |
+| 프로젝트 ZIP | `prophecy_godot_build/prophecy_godot_project_godot-0.4.0_7f36cd9.zip` = `git archive HEAD prophecy_godot` (203 파일). SHA-256 `bec571a17b4abc918e6996f75ce21eb71bfd5c28b39516c30877d02cbe07fe78` |
+| 빌드 명령 | `godot --headless --path prophecy_godot --export-release "Windows Desktop" prophecy_godot_build/windows/prophecy_godot.exe` (프리셋 `export_presets.cfg`, 템플릿 4.7.2.stable 공식, PCK 내장, 서명 없음) |
+| 빌드 실행 확인 | 같은 PC에서 `PROPHECY_UI_SMOKE`(새 회차→…→관문→저장→계속하기→검증 메뉴 빠른 전투) **종료 코드 0, 스크립트 오류 0, PNG 25장**. `PROPHECY_CAPTURE` 기준 전투도 0 |
+| 종료 시 접근 위반(수정됨) | 7f36cd9 이전 빌드(f906b6d·09b3123 코드)는 같은 자동 진행 뒤 종료에서 3/3회 접근 위반(bash 종료 코드 139), `--audio-driver Dummy`에서는 0/1회, `--verbose`에서는 0/1회(경쟁 조건). 원인 = AudioStreamGenerator 재생 중 AudioServer 정리. `PAudio._exit_tree`에서 재생 중지·playback 해제 뒤 2/2회 정상 종료. 편집기 실행(`--path`)에서는 재현되지 않았다 |
+| 최종 headless 검증(7f36cd9) | run_tests 72/72 · port_tests 69/69 · boss_tests 34/34 · run_layer_tests 54/54 · 밀도 보고서 36행 결과 열 동일(µs/단계 열만 다름) · HTML 대조 14개 0.3.1 기록과 동일(`dodge_cd_after` 0.6333, `hit_damage_normal` 12 포함) |
+| 미커밋으로 남긴 것(의도) | 루트 `index.html`·`CNAME`·`wash.jpg` 삭제(Codex 정리, 홈페이지 파일 — 복원하지 않았고 커밋도 하지 않음), `project.godot`의 편집기 기본값 줄(`window/stretch/aspect`) 제거, `icon.svg.import` 편집기 재작성 |
+| 재현 순서(Codex) | ① 7f36cd9(또는 프로젝트 ZIP) 체크아웃 ② Godot 4.7.2 콘솔 실행 파일로 `--headless --path prophecy_godot --import` ③ §12-1 테스트 4종·`tools/density_report.gd`(결과 열을 `docs/DENSITY_REPORT.md`와 비교, µs 열 제외)·`tools/compare_scenario.gd` ④ `PROPHECY_SIM_SEEDS=1,2 -s tools/run_sim.gd`(약 4~5분, `docs/sim/RUN_SIM.md`와 비교; 같은 OS에서만 완전 재현) ⑤ 창: `PROPHECY_UI_SMOKE=<폴더> --path prophecy_godot`(약 5분) ⑥ 빌드 ZIP 해시 대조 |
