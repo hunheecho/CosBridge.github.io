@@ -135,6 +135,25 @@ func _verify_panel() -> Control:
 			main.new_run_opts = { "seed": int(_seed_spin.value), "density_set": ("" if k == String(D.get("set_default", "uniform_x5")) else k) }
 			main.new_run_flow(), true, 12))
 	box.add_child(row3)
+	box.add_child(PUi.rich("[color=#9ea8b8]경로 지정 회차[/color] (막마다 테마를 직접 골라 새 회차 — 검증용, 일반 저장·영구 기록과 분리되지 않으므로 검증 회차임을 유의)", 12))
+	var row4 := PUi.hbox(6)
+	var pickers := []
+	for act in [1, 2, 3]:
+		var ob := OptionButton.new()
+		ob.add_theme_font_size_override("font_size", 12)
+		for tid in PRun.themes_for_act(act, false):
+			var t := PCatalog.theme(String(tid))
+			ob.add_item("%d막 %s%s" % [act, String(t.name), ("" if PRun.theme_implemented(String(tid)) else " (보스 미구현)")])
+			ob.set_item_metadata(ob.item_count - 1, String(tid))
+		row4.add_child(ob)
+		pickers.append(ob)
+	row4.add_child(PUi.button("이 경로로 새 회차", func():
+		var route := []
+		for ob in pickers:
+			route.append(String((ob as OptionButton).get_item_metadata((ob as OptionButton).selected)))
+		main.new_run_opts = { "seed": int(_seed_spin.value), "route": route }
+		main.new_run_flow(), true, 12))
+	box.add_child(row4)
 	box.add_child(PUi.button("봇 회차 데모 (선택: 봇이 새 회차를 첫 관문까지 진행)", func(): main.bot_demo(), true, 12))
 	box.add_child(PUi.rich("[color=#6a7078]검증 정보·비교 설정은 전투 중 F3 패널.[/color]", 11))
 	return c.panel

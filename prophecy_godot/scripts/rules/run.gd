@@ -48,7 +48,8 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 		"services": {}, "cards": null, "missionsDone": {}, "pendingSortie": null, "buffs": {}, "lastEvent": null, "lastSupplyDay": null, "eventsResolved": 0,
 		"ended": false, "bossEntry": null,
 		"worldStages": bool(opts.get("world_stages", true)), "densitySet": String(opts.get("density_set", "")),
-		"worldFeature": pick_world_feature(s), "bossPlan": pick_boss_plan(s), "lastFormation": {}, # 반복 콘텐츠(시드 확정, 재접속 재추첨 없음)
+		"worldFeature": pick_world_feature(s), "lastFormation": {}, # 반복 콘텐츠(시드 확정, 재접속 재추첨 없음)
+		"route": pick_route(s, opts), # 10일·3막: 막마다 테마 1개(독립 경로 난수, 저장·재추첨 없음). trio는 []
 		"profileEligible": bool(opts.get("eligible", false)), "traits": [], "startWeapon": (start_weapon if start_weapon != "" else "sword"),
 		"storedShield": 0.0, "crafted": [],
 	}
@@ -58,6 +59,7 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 		run.traits = PProfile.selected_traits(profile) # 출발 시 고정
 		run.profileKind = String(profile.get("kind", "trial"))
 		run.profileLevel = int(PProfile.level(profile))
+	run.bossPlan = pick_boss_plan(s, run) # 경로의 테마 보스(또는 boss_gates 후보)
 	PSortie.cards_for(run) # 1일차 장소·목적 확정
 	refresh_stock(run)
 	return run
@@ -80,8 +82,14 @@ static func world_feature(run: Dictionary) -> Dictionary:
 			return f
 	return {}
 
-## 관문별 보스 계획: 관문마다 후보 중 하나를 시드로 확정(후보 1개면 그대로). 거점에 미리 표시한다
-static func pick_boss_plan(seed_v: int) -> Array:
+## 관문별 보스 계획: 경로(테마)가 있으면 테마의 보스, 없으면 boss_gates 후보 중 시드로 확정(후보 1개면 그대로). 거점에 미리 표시한다
+static func pick_boss_plan(seed_v: int, run: Dictionary = {}) -> Array:
+	var route: Array = run.get("route", [])
+	if not route.is_empty():
+		var out_r := []
+		for tid in route:
+			out_r.append(String(PCatalog.theme(String(tid)).boss))
+		return out_r
 	var G: Array = W().get("boss_gates", {}).get("gates", [])
 	var rng := PRng.new((seed_v * 53 + 9) & 0xFFFFFFFF)
 	var out := []
@@ -89,6 +97,106 @@ static func pick_boss_plan(seed_v: int) -> Array:
 		var cands: Array = g.candidates
 		out.append(String(cands[rng.int_range(0, cands.size() - 1)]) if cands.size() > 1 else String(cands[0]))
 	return out
+
+# ---------- 테마 경로(10일·3막, 계획서 §4) ----------
+## 구현된 테마 = 보스가 실제 구현된 테마(보스 정의 존재). 기본 3 → 6 → 9 단계로 늘어난다
+static func theme_implemented(tid: String) -> bool:
+	var t := PCatalog.theme(tid)
+	if t.is_empty():
+		return false
+	return PCatalog.boss_defs().has(String(t.boss))
+
+static func themes_for_act(act: int, implemented_only: bool = true) -> Array:
+	var out := []
+	for tid in PCatalog.themes():
+		var t: Dictionary = PCatalog.themes()[tid]
+		if int(t.act) == act and (not implemented_only or theme_implemented(String(tid))):
+			out.append(String(tid))
+	out.sort()
+	return out
+
+## 경로: 막마다 후보 중 균등 추첨(첫 시험값), 막별 독립 난수(seed×(211+act)+act). opts.route가 있으면(검증 메뉴) 그대로(합법성만 검사)
+static func pick_route(seed_v: int, opts: Dictionary = {}) -> Array:
+	var RM := PCatalog.run_modes()
+	var mode := String(opts.get("mode", PCatalog.run_mode_default()))
+	var A: Array = (RM[mode] as Dictionary).get("acts", []) if RM.has(mode) else []
+	if A.is_empty():
+		return []
+	if bool(opts.get("legacy_places", false)) or OS.get_environment("PROPHECY_LEGACY_PLACES") != "": # 테마 없이 기존 지역 일정(비교·회귀 테스트용: 옛 지역 규칙 스위트는 이 환경 변수로 실행)
+		return []
+	var forced: Array = opts.get("route", [])
+	var out := []
+	for a in A:
+		var act := int(a.id)
+		var cands := themes_for_act(act)
+		if cands.is_empty():
+			cands = [PCatalog.act_default_theme(act)]
+		var pick := ""
+		if forced.size() >= act and cands.has(String(forced[act - 1])):
+			pick = String(forced[act - 1])
+		else:
+			var rng := PRng.new((seed_v * (211 + act) + act) & 0xFFFFFFFF)
+			pick = String(cands[rng.int_range(0, cands.size() - 1)])
+		out.append(pick)
+	return out
+
+static func route_theme(run: Dictionary, act: int) -> Dictionary:
+	var route: Array = run.get("route", [])
+	if act >= 1 and act <= route.size():
+		return PCatalog.theme(String(route[act - 1]))
+	return {}
+
+static func current_theme(run: Dictionary, day: int = 0) -> Dictionary:
+	var a := act_of(run, day)
+	return route_theme(run, int(a.get("id", 0))) if not a.is_empty() else {}
+
+## 테마 장소인가
+static func is_theme_place(region_id: String) -> bool:
+	return PCatalog.theme_places().has(region_id)
+
+## 템플릿 → 웨이브(최종 수 명시 + 경험치 기준 ref). 장소 규모(p1/p2)로 정수 배정, 나머지는 첫 주력에. 정예는 마지막
+static func template_waves(tpl: Dictionary, place_key: String) -> Array:
+	var sz: Dictionary = tpl.sizes[place_key]
+	var total: int = int(sz.total)
+	var xp_ref: float = float(sz.xp_ref)
+	var wave := []
+	var assigned := 0
+	var first := true
+	var comp: Array = tpl.comp
+	for c in comp:
+		var n: int = int(round(total * float(c.share)))
+		wave.append({ "type": String(c.type), "n": n, "ref": xp_ref * float(c.share) })
+		assigned += n
+	if not wave.is_empty():
+		wave[0].n = int(wave[0].n) + (total - assigned)
+	if int(tpl.get("elites", 0)) > 0:
+		wave.append({ "type": "wolf_alpha", "n": int(tpl.elites), "ref": float(tpl.elites) })
+	return [wave]
+
+static func theme_place_key(region_id: String) -> String:
+	var t := PCatalog.theme(PCatalog.theme_of_place(region_id))
+	if t.is_empty():
+		return "p1"
+	return "p1" if String((t.places as Array)[0].id) == region_id else "p2"
+
+static func theme_template(region_id: String, formation_id: String) -> Dictionary:
+	var t := PCatalog.theme(PCatalog.theme_of_place(region_id))
+	if t.is_empty():
+		return {}
+	if t.has("first_day") and String((t.first_day as Dictionary).id) == formation_id:
+		return t.first_day
+	for f in (t.formations.normal as Array) + (t.formations.risk as Array):
+		if String(f.id) == formation_id:
+			return f
+	return {}
+
+## 템플릿의 동시 상한·묶음·간격·종류별 상한(밀도 세트 배율은 적용하지 않는다)
+static func theme_density_override(region_id: String, formation_id: String) -> Dictionary:
+	var tpl := theme_template(region_id, formation_id)
+	if tpl.is_empty():
+		return {}
+	var pk := theme_place_key(region_id)
+	return { "alive_cap": int(tpl.sizes[pk].alive_cap), "group": int(tpl.get("group", 3)), "interval": float(tpl.get("interval", 1.0)), "type_alive_cap": (tpl.get("type_caps", {}) as Dictionary).duplicate(), "multiplier": 1.0, "multiplier_by_type": {}, "set_name": "template" }
 
 ## 방문 상인이 오는 날짜(회차 특징으로 바뀔 수 있음)
 static func merchant_days(run: Dictionary) -> Array:
@@ -120,8 +228,17 @@ static func event_weight(run: Dictionary, event_id: String) -> float:
 		return float((f.get("event_weights", {}) as Dictionary).get(event_id, 1.0))
 	return 1.0
 
-## 지역×날짜의 편성 대안(기본 "base" + formation_sets). 첫날 숲은 고정(D33)
-static func formation_options(region_id: String, day: int) -> Array:
+## 지역×날짜의 편성 대안(기본 "base" + formation_sets). 첫날 숲은 고정(D33). 테마 장소는 템플릿(일반 3, 위험 전투는 risk)
+static func formation_options(region_id: String, day: int, risk: bool = false) -> Array:
+	if is_theme_place(region_id):
+		var t := PCatalog.theme(PCatalog.theme_of_place(region_id))
+		if day <= 1 and not risk and t.has("first_day") and String((t.first_day as Dictionary).place) == region_id: # 승인된 첫 전투(D33 늑대 25) 고정
+			var fd: Dictionary = t.first_day
+			return [{ "id": String(fd.id), "name": String(fd.name), "desc": String(fd.get("desc", "")) }]
+		var outt := []
+		for f in (t.formations.risk if risk else t.formations.normal):
+			outt.append({ "id": String(f.id), "name": String(f.name), "desc": String(f.get("desc", "")) })
+		return outt
 	var out := [{ "id": "base", "name": "기본", "desc": "" }]
 	if region_id == "forest" and day <= 1:
 		return out
@@ -134,6 +251,12 @@ static func formation_options(region_id: String, day: int) -> Array:
 	return out
 
 static func formation_waves(region_id: String, day: int, formation_id: String) -> Array:
+	if is_theme_place(region_id):
+		var tpl := theme_template(region_id, formation_id)
+		if tpl.is_empty():
+			var t := PCatalog.theme(PCatalog.theme_of_place(region_id))
+			tpl = (t.formations.normal as Array)[0]
+		return template_waves(tpl, theme_place_key(region_id))
 	if formation_id == "" or formation_id == "base":
 		return day_waves(region_id, day)
 	var FS: Dictionary = W().get("formation_sets", {})
@@ -172,7 +295,10 @@ static func bonus_xp_mult(run: Dictionary) -> float:
 	return float(balance_set(run).get("bonusXp", 1.0))
 
 static func region_bonus_xp(run: Dictionary, region_id: String, deep: bool) -> float:
-	var v: float = float(PCatalog.growth().REGION_BONUS_XP.get(region_id, 0.0)) * bonus_xp_mult(run)
+	var base_bonus: float = float(PCatalog.growth().REGION_BONUS_XP.get(region_id, 0.0))
+	if is_theme_place(region_id):
+		base_bonus = float(PCatalog.theme_places()[region_id].get("bonus_xp", 0.0))
+	var v: float = base_bonus * bonus_xp_mult(run)
 	return round((v * 1.5 if deep else v) * 100.0) / 100.0
 
 # ---------- 회차 구조(trio) ----------
@@ -203,7 +329,10 @@ static func act_of(run: Dictionary, day: int = 0) -> Dictionary:
 
 static func act_label(run: Dictionary, day: int = 0) -> String:
 	var a := act_of(run, day)
-	return String(a.get("name", "")) if not a.is_empty() else ""
+	if a.is_empty():
+		return ""
+	var th := route_theme(run, int(a.id))
+	return String(a.name) + ((" · " + String(th.name)) if not th.is_empty() else "")
 
 ## 관문 준비 화면용 다음 막 미리보기(계획서 §4: 다음 막의 장소·대표 적·위협 한 줄·보스 이름). 없으면 {}
 static func act_preview(run: Dictionary) -> Dictionary:
@@ -227,15 +356,28 @@ static func act_preview(run: Dictionary) -> Dictionary:
 	var days: Array = next_act.days
 	var places := []
 	var enemies := []
-	for d in days:
-		for id in places_for(run, int(d)):
-			var rid := String(id)
-			if not places.has(rid):
-				places.append(rid)
-			for wave in day_waves(rid, int(d)):
-				for g in wave:
-					if not enemies.has(String(g.type)) and not bool(PCatalog.enemy(String(g.type)).get("elite", false)):
-						enemies.append(String(g.type))
+	var nth0 := route_theme(run, int(next_act.id)) # 다음 막 테마가 있으면 그 장소·대표 적(현재 막 장소와 섞지 않음)
+	if not nth0.is_empty():
+		for p in nth0.places:
+			places.append(String(p.id))
+		for wave in day_waves(String((nth0.places as Array)[0].id), int(days[0])):
+			for g in wave:
+				if not enemies.has(String(g.type)) and not bool(PCatalog.enemy(String(g.type)).get("elite", false)):
+					enemies.append(String(g.type))
+		for wave in day_waves(String((nth0.places as Array)[1].id), int(days[0])):
+			for g in wave:
+				if not enemies.has(String(g.type)) and not bool(PCatalog.enemy(String(g.type)).get("elite", false)):
+					enemies.append(String(g.type))
+	else:
+		for d in days:
+			for id in places_for(run, int(d)):
+				var rid := String(id)
+				if not places.has(rid):
+					places.append(rid)
+				for wave in day_waves(rid, int(d)):
+					for g in wave:
+						if not enemies.has(String(g.type)) and not bool(PCatalog.enemy(String(g.type)).get("elite", false)):
+							enemies.append(String(g.type))
 	var next_gate: Dictionary = {}
 	var bosses: Array = mode_def(run).bosses
 	var st: int = int(run.get("stage", 0)) + 1
@@ -244,7 +386,8 @@ static func act_preview(run: Dictionary) -> Dictionary:
 		var plan: Array = run.get("bossPlan", [])
 		if st < plan.size():
 			next_gate.id = String(plan[st])
-	return { "act": next_act, "places": places, "enemies": enemies.slice(0, 4), "gate": next_gate }
+	var nth := route_theme(run, int(next_act.id))
+	return { "act": next_act, "places": places, "enemies": enemies.slice(0, 4), "gate": next_gate, "theme": nth }
 
 ## 다음 보스 정의 {id, day, hpKey, rare}. 완주 후에는 {}. 회차의 보스 계획(bossPlan, 관문별 후보에서 시드로 확정)이 있으면 그 id를 쓴다
 static func next_boss(run: Dictionary) -> Dictionary:
@@ -314,6 +457,11 @@ static func places_for(run: Dictionary, day: int = 0) -> Array:
 	if by_mode.has(mode):
 		places = by_mode[mode]
 	var base: Array = (places[key] as Array).duplicate() if places.has(key) else []
+	var th := current_theme(run, d) # 테마 경로가 있으면 그 막의 테마 장소 2곳(1칸·2칸). 10일차는 없음
+	if not th.is_empty():
+		var A := acts(run)
+		var last_gate: int = int(A[A.size() - 1].gate_day) if A.size() > 0 else 99
+		base = [] if d >= last_gate else [String((th.places as Array)[0].id), String((th.places as Array)[1].id)]
 	if base.has(null): # 재방문: 이전 방문 지역 중 1칸 장소 우선(마지막 칸에도 실제 행동이 남게)
 		var visited := []
 		for id in run.get("visited", {}):
@@ -408,6 +556,8 @@ static func region_arena(region_id: String, run: Dictionary = {}) -> String:
 		var lr := layout_region(region_id, run)
 		if lr.has("arena"):
 			return String(lr.arena)
+	if is_theme_place(region_id):
+		return String(PCatalog.theme_places()[region_id].get("arena", "clearing"))
 	return String(W().region_arena.get(region_id, "forest"))
 
 ## 날짜별 편성 키: 그 날짜 이하에서 가장 가까운 정의
@@ -429,6 +579,9 @@ static func day_key(region_id: String, day: int) -> String:
 
 ## 날짜별 편성: 그 날짜 이하에서 가장 가까운 정의
 static func day_waves(region_id: String, day: int) -> Array:
+	if is_theme_place(region_id): # 테마 장소: 첫 일반 템플릿(대표 편성)
+		var t := PCatalog.theme(PCatalog.theme_of_place(region_id))
+		return template_waves((t.formations.normal as Array)[0], theme_place_key(region_id))
 	var T: Dictionary = W().day_waves
 	if not T.has(region_id):
 		return region(region_id).waves
@@ -439,7 +592,10 @@ static func _copy_waves(src: Array) -> Array:
 	for w in src:
 		var wave := []
 		for g in w:
-			wave.append({ "type": String(g.type), "n": int(g.n) })
+			var e := { "type": String(g.type), "n": int(g.n) }
+			if g.has("ref"):
+				e.ref = float(g.ref) # 테마 템플릿의 경험치 기준(최종 수 명시 표시)
+			wave.append(e)
 		out.append(wave)
 	return out
 

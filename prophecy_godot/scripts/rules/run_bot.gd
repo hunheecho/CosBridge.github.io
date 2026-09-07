@@ -379,6 +379,14 @@ func _want(day: int) -> Array:
 		"easy": return ["forest"]
 		"risky": return ["deep", "den"]
 	var a := PRun.act_of(run, day) # 10일 본편: 막 기준(1막 근교, 2막 습지·굴, 3막 굴·심층). 옛 trio는 날짜 기준
+	var th := PRun.current_theme(run, day)
+	if not th.is_empty(): # 테마 경로: 1칸 장소(외곽) 우선, 위험/후반 전략은 2칸(핵심)
+		var p1 := String((th.places as Array)[0].id)
+		var p2 := String((th.places as Array)[1].id)
+		match String(S.pick):
+			"easy": return [p1]
+			"risky": return [p2, p1]
+		return [p1, p2] if int(a.get("id", 1)) == 1 else [p2, p1]
 	if not a.is_empty():
 		match int(a.id):
 			1: return LATER
@@ -396,6 +404,8 @@ func _region_index(id: String) -> int:
 		if String(r.id) == id:
 			return i
 		i += 1
+	if PRun.is_theme_place(id): # 테마 장소: 1칸 < 2칸 순서(막 안에서의 위험도)
+		return 50 + PRun.place_cost(id)
 	return -1
 
 func _choose_sortie(acts: Array) -> Dictionary:
@@ -452,7 +462,7 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 	max_days = int(o.get("max_days", 0))
 	verbose = bool(o.get("verbose", false))
 	var start := String(o.get("start", "sword"))
-	run = PRun.new_run(seed, start, String(o.get("balance", "")))
+	run = PRun.new_run(seed, start, String(o.get("balance", "")), { "route": o.get("route", []), "mode": String(o.get("mode", PCatalog.run_mode_default())) })
 	if String(o.get("density_set", "")) != "":
 		run.densitySet = String(o.density_set) # 밀도 세트(Q1 비교 후보)
 	T = { "combat": 0.0, "cards": 0.0, "screens": 0.0, "rest": 0.0, "dayEnd": 0.0, "boss": 0.0 }
@@ -620,6 +630,23 @@ func _finish(seed: int, start: String) -> Dictionary:
 	L.equipN = (L.equipBought as Array).size()
 	L.deepRewardText = ",".join(L.deepRewards)
 	L.mats = (run.mats as Dictionary).duplicate()
+	var craftable := []
+	var partial := []
+	for co in PRun.craft_options(run): # 제작 재료 접근성(정산된 재료·보유 장비 기준): 즉시 제작 가능 / 재료 일부
+		var have_all := true
+		var have_any := false
+		for ing in co.get("ingredients", []):
+			if int(ing.get("have", 0)) >= int(ing.get("n", 1)):
+				have_any = true
+			else:
+				have_all = false
+		if have_all:
+			craftable.append(String(co.id))
+		elif have_any:
+			partial.append(String(co.id))
+	L.craftable = craftable
+	L.craftPartial = partial
+	L.route = (run.get("route", []) as Array).duplicate()
 	L.hpBeforeBoss = float(run.hp)
 	L.build = build_text(g)
 	var last_b: Dictionary = L.bosses[(L.bosses as Array).size() - 1] if (L.bosses as Array).size() > 0 else { "status": "none", "sec": 0, "hp": 0, "bossHp": 0 }

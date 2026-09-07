@@ -40,6 +40,9 @@ static func add_xp(g: Dictionary, amount: float) -> int:
 static func xp_value_unit(type: String, summoned: bool, region_id: String, kill_mult: float) -> float:
 	var v: Dictionary = G().XP_VALUE
 	var mult: float = float(G().REGION_XP_MULT.get(region_id, 1.0)) if region_id != "" else 1.0
+	var tp := PCatalog.theme_places()
+	if tp.has(region_id):
+		mult = float(tp[region_id].get("xp_mult", 1.0))
 	var base: float = float(v.summoned) if summoned else float(v.get(type, 5.0))
 	return round(base * mult * kill_mult * 100.0) / 100.0
 
@@ -148,6 +151,9 @@ static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 	var out := []
 	var region := String(ctx.get("region_id", ""))
 	var tags: Array = PCatalog.region_tags().get(region, [])
+	var tp := PCatalog.theme_places()
+	if tp.has(region): # 테마 장소: 장소 태그(계획서 §8 약한 성향)
+		tags = tp[region].get("tags", [])
 	var push := func(c: Dictionary):
 		if not c.has("tags"):
 			c.tags = []
@@ -156,6 +162,7 @@ static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 			if tags.has(tg):
 				rm = true
 		c.regionMatch = rm
+		c.themeMatch = tp.has(region)
 		out.append(c)
 	var pool := String(ctx.get("pool", "level"))
 	if pool == "boss":
@@ -262,7 +269,7 @@ static func weight_of(g: Dictionary, c: Dictionary) -> float:
 	if int(g.level) <= int(Wt.early.untilLevel) and Wt.early.has(c.kind):
 		w *= float(Wt.early[c.kind])
 	if bool(c.get("regionMatch", false)):
-		w *= float(Wt.regionTag)
+		w *= float(Wt.regionTag) if not bool(c.get("themeMatch", false)) else PCatalog.theme_reward_weight() # 테마 장소는 1.15(§8)로 통합, 이중 곱 없음
 	if bool(c.get("generic", false)):
 		w *= 0.5
 	if g.get("lastKind") != null and String(g.lastKind) == String(c.kind) and (String(c.kind) == "weapon_level" or String(c.kind) == "passive"):

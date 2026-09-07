@@ -25,7 +25,7 @@ static func encounter_opts(run: Dictionary, sortie: Dictionary, extra: Dictionar
 		"hp_mult": PRun.hp_mult_for(run, region, deep), "region_id": region, "risk": risk,
 		"mission": ({ "cardId": String(sortie.get("cardId", "")), "objective": String(sortie.objective), "risk": risk } if mission else {}),
 		"pool": pool, "chest": true, "xp_kill_mult": PRun.kill_xp_mult(run), "lab_text": PRun.layout_text(run), "run": run,
-		"density": PCatalog.density_set(String(run.get("densitySet", ""))), # 밀도 세트(Q1 비교 후보). 기본 ""=일괄 ×5
+		"density": (PRun.theme_density_override(region, String(sortie.get("formationId", ""))) if PRun.is_theme_place(region) else PCatalog.density_set(String(run.get("densitySet", "")))), # 테마 장소는 템플릿 상한(배율 이중 적용 없음), 그 외 밀도 세트
 		"tier_mix": PRun.tier_mix(run), "world_stage": PRun.world_stage(run), # 세계 변화 등급 비율(관문 완료에서 도출)
 	}
 	if sortie.get("eventFight", null) != null:

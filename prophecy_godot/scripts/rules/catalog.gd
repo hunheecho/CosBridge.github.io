@@ -160,11 +160,40 @@ static func weapon(id: String) -> Dictionary:
 	push_error("알 수 없는 자동기술: " + id)
 	return {}
 
+## 테마(10일·3막): data/themes.json. 장소(place)는 지역 사전과 같은 모양이라 지역 규칙(비용·보상·태그·재료·전장)을 그대로 쓴다
+static func themes() -> Dictionary: return _load("themes").get("themes", {})
+static func theme(id: String) -> Dictionary:
+	var T := themes()
+	return T[id] if T.has(id) else {}
+static func theme_places() -> Dictionary:
+	var out := {}
+	for tid in themes():
+		for p in (themes()[tid] as Dictionary).places:
+			var d: Dictionary = (p as Dictionary).duplicate()
+			d.theme = String(tid)
+			out[String(d.id)] = d
+	return out
+static func theme_of_place(place_id: String) -> String:
+	var P := theme_places()
+	return String(P[place_id].theme) if P.has(place_id) else ""
+static func theme_arenas() -> Dictionary: return _load("themes").get("arenas", {})
+static func theme_reward_weight() -> float: return float(_load("themes").get("reward_weight", 1.15))
+static func act_default_theme(act: int) -> String: return String((_load("themes").get("act_default", {}) as Dictionary).get(str(act), ""))
+
 static func region(id: String) -> Dictionary:
 	for r in regions():
 		if String(r.id) == id:
 			return r
-	return {}
+	var P := theme_places()
+	return P[id] if P.has(id) else {}
+
+## 전장(기존 config.arenas + 테마 전장)
+static func arena(id: String) -> Dictionary:
+	var A := arenas()
+	if A.has(id):
+		return A[id]
+	var TA := theme_arenas()
+	return TA[id] if TA.has(id) else {}
 
 static func boss_def(id: String) -> Dictionary:
 	var B := boss_defs()

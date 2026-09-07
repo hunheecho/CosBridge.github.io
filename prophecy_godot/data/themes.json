@@ -1,0 +1,2693 @@
+{
+ "schema": "prophecy_theme/1",
+ "note": "10일·3막·테마 9종(계획서 prophecy-act-themes-plan-20260907 §5·§6·§8). 구조는 사용자 결정, 장소 이름·편성 수·전장·보상 성향·경험치 기준은 구현자 시험값(사용자 승인 아님). 편성 템플릿은 최종 수를 명시하며 밀도 배율(uniform_x5/roles)을 다시 곱하지 않는다. 등급(붉은/상위)은 세계 단계에서 배정.",
+ "route_rule": "막마다 해당 막 후보 3개 중 균등 추첨(시험값), 회차 시작 시 독립 경로 난수로 확정·저장. 보스가 구현되지 않은 테마는 후보에서 제외(구현 진행 단계: 기본 3 → 6 → 9)",
+ "act_default": {
+  "1": "act1_hunt_forest",
+  "2": "act2_crimson_ritual",
+  "3": "act3_temporal_abyss"
+ },
+ "themes": {
+  "act1_hunt_forest": {
+   "id": "act1_hunt_forest",
+   "act": 1,
+   "name": "사냥 숲",
+   "line": "포위망 사이로 빠져나가면서 돌진 방향을 빼고 사격선을 끊는다",
+   "boss": "boss",
+   "places": [
+    {
+     "id": "t1a_path",
+     "name": "숲길",
+     "cost": 1,
+     "arena": "clearing",
+     "reward": {
+      "gold": [
+       30,
+       45
+      ],
+      "mats": {
+       "pelt": [
+        1,
+        2
+       ]
+      }
+     },
+     "xp_mult": 1.0,
+     "bonus_xp": 10,
+     "tags": [
+      "melee",
+      "combo",
+      "bleed"
+     ],
+     "risk": 1,
+     "objective": "clear",
+     "desc": "포위망 사이로 빠져나가면서 돌진 방향을 빼고 사격선을 끊는다"
+    },
+    {
+     "id": "t1a_core",
+     "name": "사냥터 안쪽",
+     "cost": 2,
+     "arena": "forest",
+     "reward": {
+      "gold": [
+       50,
+       70
+      ],
+      "mats": {
+       "pelt": [
+        2,
+        3
+       ],
+       "fang": [
+        0,
+        1
+       ]
+      }
+     },
+     "xp_mult": 1.5,
+     "bonus_xp": 16,
+     "tags": [
+      "melee",
+      "combo",
+      "bleed"
+     ],
+     "risk": 1,
+     "objective": "clear",
+     "desc": "포위망 사이로 빠져나가면서 돌진 방향을 빼고 사격선을 끊는다"
+    }
+   ],
+   "reward_tags": [
+    "melee",
+    "combo",
+    "bleed"
+   ],
+   "mats": [
+    "pelt",
+    "fang"
+   ],
+   "formations": {
+    "normal": [
+     {
+      "id": "t1a_wolves",
+      "name": "늑대 무리 + 궁수",
+      "desc": "늑대가 조여 오고 뒤에서 궁수가 쏜다",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 0.8,
+        "role": "주력"
+       },
+       {
+        "type": "archer",
+        "share": 0.2,
+        "role": "지원"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "archer": 3
+      }
+     },
+     {
+      "id": "t1a_boar",
+      "name": "늑대 + 멧돼지",
+      "desc": "돌파하는 멧돼지 사이로 늑대가 문다",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 0.7,
+        "role": "주력"
+       },
+       {
+        "type": "boar",
+        "share": 0.3,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "boar": 2
+      }
+     },
+     {
+      "id": "t1a_mixed",
+      "name": "늑대·궁수·멧돼지",
+      "desc": "세 역할이 한 번에",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 0.6,
+        "role": "주력"
+       },
+       {
+        "type": "archer",
+        "share": 0.2,
+        "role": "지원"
+       },
+       {
+        "type": "boar",
+        "share": 0.2,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "archer": 3,
+       "boar": 2
+      }
+     }
+    ],
+    "risk": [
+     {
+      "id": "t1a_risk",
+      "name": "우두머리 + 소수 늑대",
+      "desc": "우두머리가 이끄는 작은 무리(위험 전투)",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 1.0,
+        "role": "주력"
+       }
+      ],
+      "elites": 1,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {}
+     }
+    ]
+   },
+   "preview": {
+    "threat": "늑대 돌진·물기, 궁수 사격선, 멧돼지 직선 돌파"
+   },
+   "note": "",
+   "first_day": {
+    "id": "t1a_first",
+    "name": "새벽 늑대 무리(기준 전투)",
+    "desc": "승인된 첫 전투(D33): 늑대 25·동시 12 리듬 그대로",
+    "place": "t1a_path",
+    "comp": [
+     {
+      "type": "wolf",
+      "share": 1.0,
+      "role": "주력"
+     }
+    ],
+    "elites": 0,
+    "sizes": {
+     "p1": {
+      "total": 25,
+      "alive_cap": 12,
+      "xp_ref": 5
+     },
+     "p2": {
+      "total": 25,
+      "alive_cap": 12,
+      "xp_ref": 5
+     }
+    },
+    "group": 3,
+    "interval": 1.0,
+    "type_caps": {}
+   }
+  },
+  "act1_abandoned_fort": {
+   "id": "act1_abandoned_fort",
+   "act": 1,
+   "name": "버려진 요새",
+   "line": "정면을 버티는 적을 우회하고 뒤의 사격을 끊는다",
+   "boss": "gate_warden",
+   "places": [
+    {
+     "id": "t1b_wall",
+     "name": "무너진 외벽",
+     "cost": 1,
+     "arena": "fort_wall",
+     "reward": {
+      "gold": [
+       30,
+       45
+      ],
+      "mats": {
+       "iron": [
+        1,
+        2
+       ]
+      }
+     },
+     "xp_mult": 1.0,
+     "bonus_xp": 10,
+     "tags": [
+      "pierce",
+      "projectile",
+      "mod"
+     ],
+     "risk": 1,
+     "objective": "clear",
+     "desc": "정면을 버티는 적을 우회하고 뒤의 사격을 끊는다"
+    },
+    {
+     "id": "t1b_yard",
+     "name": "안뜰",
+     "cost": 2,
+     "arena": "fort_yard",
+     "reward": {
+      "gold": [
+       50,
+       70
+      ],
+      "mats": {
+       "iron": [
+        2,
+        3
+       ]
+      }
+     },
+     "xp_mult": 1.5,
+     "bonus_xp": 16,
+     "tags": [
+      "pierce",
+      "projectile",
+      "mod"
+     ],
+     "risk": 1,
+     "objective": "clear",
+     "desc": "정면을 버티는 적을 우회하고 뒤의 사격을 끊는다"
+    }
+   ],
+   "reward_tags": [
+    "pierce",
+    "projectile",
+    "mod"
+   ],
+   "mats": [
+    "iron"
+   ],
+   "formations": {
+    "normal": [
+     {
+      "id": "t1b_shield_archer",
+      "name": "방패병 1줄 + 궁수",
+      "desc": "방패병이 앞을 막고 궁수가 쏜다",
+      "comp": [
+       {
+        "type": "shieldbearer",
+        "share": 0.3,
+        "role": "주력"
+       },
+       {
+        "type": "archer",
+        "share": 0.4,
+        "role": "지원"
+       },
+       {
+        "type": "rogue",
+        "share": 0.3,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "shieldbearer": 3,
+       "archer": 3,
+       "rogue": 3
+      }
+     },
+     {
+      "id": "t1b_archers",
+      "name": "궁수 중심 + 도적",
+      "desc": "사격선이 여러 갈래, 도적이 측면에서",
+      "comp": [
+       {
+        "type": "archer",
+        "share": 0.5,
+        "role": "주력"
+       },
+       {
+        "type": "rogue",
+        "share": 0.5,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "archer": 3,
+       "rogue": 3
+      }
+     },
+     {
+      "id": "t1b_wall",
+      "name": "방패병 2줄 + 소수 궁수",
+      "desc": "두 겹 방진",
+      "comp": [
+       {
+        "type": "shieldbearer",
+        "share": 0.6,
+        "role": "주력"
+       },
+       {
+        "type": "archer",
+        "share": 0.4,
+        "role": "지원"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "shieldbearer": 3,
+       "archer": 3
+      }
+     }
+    ],
+    "risk": [
+     {
+      "id": "t1b_risk",
+      "name": "방진 + 우두머리",
+      "desc": "방진 뒤에서 우두머리가 돌진(위험 전투)",
+      "comp": [
+       {
+        "type": "shieldbearer",
+        "share": 0.5,
+        "role": "주력"
+       },
+       {
+        "type": "archer",
+        "share": 0.5,
+        "role": "지원"
+       }
+      ],
+      "elites": 1,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "shieldbearer": 3,
+       "archer": 3
+      }
+     }
+    ]
+   },
+   "preview": {
+    "threat": "방패병 정면 방어·밀치기, 궁수 사격, 도적 측면 베기"
+   },
+   "note": "두 번째 구현"
+  },
+  "act1_spore_garden": {
+   "id": "act1_spore_garden",
+   "act": 1,
+   "name": "포자 정원",
+   "line": "죽인 적 뒤에 남는 위험과 이동 경로를 관리한다",
+   "boss": "spore_matriarch",
+   "places": [
+    {
+     "id": "t1c_greenhouse",
+     "name": "외곽 온실",
+     "cost": 1,
+     "arena": "garden_edge",
+     "reward": {
+      "gold": [
+       30,
+       45
+      ],
+      "mats": {
+       "spore": [
+        1,
+        2
+       ]
+      }
+     },
+     "xp_mult": 1.0,
+     "bonus_xp": 10,
+     "tags": [
+      "dot",
+      "zone",
+      "chain"
+     ],
+     "risk": 1,
+     "objective": "clear",
+     "desc": "죽인 적 뒤에 남는 위험과 이동 경로를 관리한다"
+    },
+    {
+     "id": "t1c_colony",
+     "name": "버섯 군락",
+     "cost": 2,
+     "arena": "garden_open",
+     "reward": {
+      "gold": [
+       50,
+       70
+      ],
+      "mats": {
+       "spore": [
+        2,
+        3
+       ],
+       "pelt": [
+        0,
+        1
+       ]
+      }
+     },
+     "xp_mult": 1.5,
+     "bonus_xp": 16,
+     "tags": [
+      "dot",
+      "zone",
+      "chain"
+     ],
+     "risk": 1,
+     "objective": "clear",
+     "desc": "죽인 적 뒤에 남는 위험과 이동 경로를 관리한다"
+    }
+   ],
+   "reward_tags": [
+    "dot",
+    "zone",
+    "chain"
+   ],
+   "mats": [
+    "spore",
+    "pelt"
+   ],
+   "formations": {
+    "normal": [
+     {
+      "id": "t1c_spore_wolf",
+      "name": "소수 포자 + 늑대",
+      "desc": "늑대를 잡으면 포자 구름이 남는 자리를 피한다",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 0.7,
+        "role": "주력"
+       },
+       {
+        "type": "spore",
+        "share": 0.3,
+        "role": "지원"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "spore": 3
+      }
+     },
+     {
+      "id": "t1c_spider_wolf",
+      "name": "거미 1 + 늑대",
+      "desc": "거미줄이 길을 막는다",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 0.85,
+        "role": "주력"
+       },
+       {
+        "type": "spider",
+        "share": 0.15,
+        "role": "지원"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "spider": 2
+      }
+     },
+     {
+      "id": "t1c_spore_spider",
+      "name": "포자 + 거미",
+      "desc": "잔류 지대와 거미줄",
+      "comp": [
+       {
+        "type": "spore",
+        "share": 0.6,
+        "role": "주력"
+       },
+       {
+        "type": "spider",
+        "share": 0.15,
+        "role": "지원"
+       },
+       {
+        "type": "wolf",
+        "share": 0.25,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "spore": 3,
+       "spider": 2
+      }
+     }
+    ],
+    "risk": [
+     {
+      "id": "t1c_risk",
+      "name": "포자 무리 + 우두머리",
+      "desc": "구름 사이의 우두머리(위험 전투)",
+      "comp": [
+       {
+        "type": "spore",
+        "share": 0.5,
+        "role": "주력"
+       },
+       {
+        "type": "wolf",
+        "share": 0.5,
+        "role": "돌파"
+       }
+      ],
+      "elites": 1,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "spore": 3
+      }
+     }
+    ]
+   },
+   "preview": {
+    "threat": "포자 구름(사망 잔류), 거미줄 감속, 늑대 물기"
+   },
+   "note": "세 번째 구현"
+  },
+  "act2_crimson_ritual": {
+   "id": "act2_crimson_ritual",
+   "act": 2,
+   "name": "붉은 의식터",
+   "line": "지원 적·제단 처리 순서와 일반 병력 정리 사이 선택",
+   "boss": "guardian",
+   "places": [
+    {
+     "id": "t2a_pilgrim",
+     "name": "순례길",
+     "cost": 1,
+     "arena": "pillars",
+     "reward": {
+      "gold": [
+       50,
+       70
+      ],
+      "mats": {
+       "spore": [
+        1,
+        2
+       ]
+      }
+     },
+     "xp_mult": 2.0,
+     "bonus_xp": 34,
+     "tags": [
+      "skill",
+      "combo",
+      "zone"
+     ],
+     "risk": 2,
+     "objective": "clear",
+     "desc": "지원 적·제단 처리 순서와 일반 병력 정리 사이 선택"
+    },
+    {
+     "id": "t2a_altar",
+     "name": "의식 중심부",
+     "cost": 2,
+     "arena": "ritual_center",
+     "reward": {
+      "gold": [
+       70,
+       100
+      ],
+      "mats": {
+       "spore": [
+        2,
+        3
+       ],
+       "iron": [
+        1,
+        2
+       ]
+      }
+     },
+     "xp_mult": 2.5,
+     "bonus_xp": 50,
+     "tags": [
+      "skill",
+      "combo",
+      "zone"
+     ],
+     "risk": 2,
+     "objective": "clear",
+     "desc": "지원 적·제단 처리 순서와 일반 병력 정리 사이 선택"
+    }
+   ],
+   "reward_tags": [
+    "skill",
+    "combo",
+    "zone"
+   ],
+   "mats": [
+    "spore",
+    "iron"
+   ],
+   "formations": {
+    "normal": [
+     {
+      "id": "t2a_shield_shaman",
+      "name": "방패병 + 주술사 1",
+      "desc": "치료하는 주술사를 먼저",
+      "comp": [
+       {
+        "type": "shieldbearer",
+        "share": 0.4,
+        "role": "주력"
+       },
+       {
+        "type": "wolf",
+        "share": 0.5,
+        "role": "돌파"
+       },
+       {
+        "type": "shaman",
+        "share": 0.1,
+        "role": "지원"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "shieldbearer": 3,
+       "shaman": 1
+      }
+     },
+     {
+      "id": "t2a_red_wolves",
+      "name": "붉은 늑대 + 포자",
+      "desc": "늑대 무리 뒤에 포자",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 0.7,
+        "role": "주력"
+       },
+       {
+        "type": "spore",
+        "share": 0.3,
+        "role": "지원"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "spore": 3
+      }
+     },
+     {
+      "id": "t2a_elite_support",
+      "name": "소수 정예 + 지원병",
+      "desc": "주술사·방패병이 정예를 지킨다",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 0.55,
+        "role": "주력"
+       },
+       {
+        "type": "shieldbearer",
+        "share": 0.3,
+        "role": "돌파"
+       },
+       {
+        "type": "shaman",
+        "share": 0.15,
+        "role": "지원"
+       }
+      ],
+      "elites": 1,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "shieldbearer": 3,
+       "shaman": 1
+      }
+     }
+    ],
+    "risk": [
+     {
+      "id": "t2a_risk",
+      "name": "의식 호위대",
+      "desc": "주술사 2 + 방진(위험 전투)",
+      "comp": [
+       {
+        "type": "shieldbearer",
+        "share": 0.5,
+        "role": "주력"
+       },
+       {
+        "type": "shaman",
+        "share": 0.15,
+        "role": "지원"
+       },
+       {
+        "type": "wolf",
+        "share": 0.35,
+        "role": "돌파"
+       }
+      ],
+      "elites": 1,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "shieldbearer": 3,
+       "shaman": 1
+      }
+     }
+    ]
+   },
+   "preview": {
+    "threat": "주술사 치료·저주, 방패병 밀치기, 붉은 늑대"
+   },
+   "note": ""
+  },
+  "act2_collapsing_mine": {
+   "id": "act2_collapsing_mine",
+   "act": 2,
+   "name": "무너지는 광산",
+   "line": "폭발할 위치를 유도하고 뒤쪽 기습에 대응한다",
+   "boss": "excavation_behemoth",
+   "places": [
+    {
+     "id": "t2b_tunnel",
+     "name": "운반 갱도",
+     "cost": 1,
+     "arena": "mine_tunnel",
+     "reward": {
+      "gold": [
+       50,
+       70
+      ],
+      "mats": {
+       "iron": [
+        1,
+        2
+       ]
+      }
+     },
+     "xp_mult": 2.0,
+     "bonus_xp": 34,
+     "tags": [
+      "zone",
+      "chain",
+      "mobility"
+     ],
+     "risk": 2,
+     "objective": "clear",
+     "desc": "폭발할 위치를 유도하고 뒤쪽 기습에 대응한다"
+    },
+    {
+     "id": "t2b_pit",
+     "name": "굴착장",
+     "cost": 2,
+     "arena": "mine_pit",
+     "reward": {
+      "gold": [
+       70,
+       100
+      ],
+      "mats": {
+       "iron": [
+        2,
+        3
+       ],
+       "spore": [
+        0,
+        1
+       ]
+      }
+     },
+     "xp_mult": 2.5,
+     "bonus_xp": 50,
+     "tags": [
+      "zone",
+      "chain",
+      "mobility"
+     ],
+     "risk": 2,
+     "objective": "clear",
+     "desc": "폭발할 위치를 유도하고 뒤쪽 기습에 대응한다"
+    }
+   ],
+   "reward_tags": [
+    "zone",
+    "chain",
+    "mobility"
+   ],
+   "mats": [
+    "iron",
+    "spore"
+   ],
+   "formations": {
+    "normal": [
+     {
+      "id": "t2b_bomb_rogue",
+      "name": "폭탄 + 도적",
+      "desc": "폭탄이 다가오는 사이 도적이 측면에서",
+      "comp": [
+       {
+        "type": "rogue",
+        "share": 0.6,
+        "role": "주력"
+       },
+       {
+        "type": "bomber",
+        "share": 0.4,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "rogue": 3,
+       "bomber": 3
+      }
+     },
+     {
+      "id": "t2b_burrow_shield",
+      "name": "잠복충 + 방패병",
+      "desc": "발밑 기습과 정면 방어",
+      "comp": [
+       {
+        "type": "shieldbearer",
+        "share": 0.5,
+        "role": "주력"
+       },
+       {
+        "type": "burrower",
+        "share": 0.5,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "shieldbearer": 3,
+       "burrower": 2
+      }
+     },
+     {
+      "id": "t2b_bomb_burrow",
+      "name": "폭탄 + 소수 잠복충",
+      "desc": "폭발 위치 유도",
+      "comp": [
+       {
+        "type": "bomber",
+        "share": 0.55,
+        "role": "주력"
+       },
+       {
+        "type": "burrower",
+        "share": 0.25,
+        "role": "돌파"
+       },
+       {
+        "type": "rogue",
+        "share": 0.2,
+        "role": "지원"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "bomber": 3,
+       "burrower": 2,
+       "rogue": 3
+      }
+     }
+    ],
+    "risk": [
+     {
+      "id": "t2b_risk",
+      "name": "붕괴 구역",
+      "desc": "폭탄·잠복충 + 우두머리(위험 전투)",
+      "comp": [
+       {
+        "type": "bomber",
+        "share": 0.5,
+        "role": "주력"
+       },
+       {
+        "type": "burrower",
+        "share": 0.5,
+        "role": "돌파"
+       }
+      ],
+      "elites": 1,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "bomber": 3,
+       "burrower": 2
+      }
+     }
+    ]
+   },
+   "preview": {
+    "threat": "폭탄 운반체 폭발, 잠복충 발밑 기습, 도적 측면"
+   },
+   "note": "두 번째 구현"
+  },
+  "act2_frozen_pass": {
+   "id": "act2_frozen_pass",
+   "act": 2,
+   "name": "얼어붙은 협곡",
+   "line": "감속되는 공간을 피하면서 돌파 공격을 유도한다",
+   "boss": "frost_stalker",
+   "places": [
+    {
+     "id": "t2c_snow",
+     "name": "눈길",
+     "cost": 1,
+     "arena": "frozen_road",
+     "reward": {
+      "gold": [
+       50,
+       70
+      ],
+      "mats": {
+       "iron": [
+        1,
+        2
+       ]
+      }
+     },
+     "xp_mult": 2.0,
+     "bonus_xp": 34,
+     "tags": [
+      "frost",
+      "projectile",
+      "mobility"
+     ],
+     "risk": 2,
+     "objective": "clear",
+     "desc": "감속되는 공간을 피하면서 돌파 공격을 유도한다"
+    },
+    {
+     "id": "t2c_basin",
+     "name": "얼음 분지",
+     "cost": 2,
+     "arena": "frozen_basin",
+     "reward": {
+      "gold": [
+       70,
+       100
+      ],
+      "mats": {
+       "iron": [
+        1,
+        2
+       ],
+       "pelt": [
+        1,
+        2
+       ]
+      }
+     },
+     "xp_mult": 2.5,
+     "bonus_xp": 50,
+     "tags": [
+      "frost",
+      "projectile",
+      "mobility"
+     ],
+     "risk": 2,
+     "objective": "clear",
+     "desc": "감속되는 공간을 피하면서 돌파 공격을 유도한다"
+    }
+   ],
+   "reward_tags": [
+    "frost",
+    "projectile",
+    "mobility"
+   ],
+   "mats": [
+    "iron",
+    "pelt"
+   ],
+   "formations": {
+    "normal": [
+     {
+      "id": "t2c_frost_wolf",
+      "name": "서리술사 1 + 늑대",
+      "desc": "장판을 피하며 늑대를 정리",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 0.85,
+        "role": "주력"
+       },
+       {
+        "type": "frostcaller",
+        "share": 0.15,
+        "role": "지원"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "frostcaller": 2
+      }
+     },
+     {
+      "id": "t2c_boar_archer",
+      "name": "멧돼지 + 궁수",
+      "desc": "돌파 유도와 사격선",
+      "comp": [
+       {
+        "type": "boar",
+        "share": 0.5,
+        "role": "주력"
+       },
+       {
+        "type": "archer",
+        "share": 0.5,
+        "role": "지원"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "boar": 2,
+       "archer": 3
+      }
+     },
+     {
+      "id": "t2c_frost_boar",
+      "name": "소수 서리술사 + 멧돼지",
+      "desc": "얼음 위의 돌파",
+      "comp": [
+       {
+        "type": "boar",
+        "share": 0.6,
+        "role": "주력"
+       },
+       {
+        "type": "frostcaller",
+        "share": 0.2,
+        "role": "지원"
+       },
+       {
+        "type": "wolf",
+        "share": 0.2,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "boar": 2,
+       "frostcaller": 2
+      }
+     }
+    ],
+    "risk": [
+     {
+      "id": "t2c_risk",
+      "name": "얼음 사냥",
+      "desc": "서리술사·멧돼지 + 우두머리(위험 전투)",
+      "comp": [
+       {
+        "type": "boar",
+        "share": 0.5,
+        "role": "주력"
+       },
+       {
+        "type": "frostcaller",
+        "share": 0.2,
+        "role": "지원"
+       },
+       {
+        "type": "wolf",
+        "share": 0.3,
+        "role": "돌파"
+       }
+      ],
+      "elites": 1,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "boar": 2,
+       "frostcaller": 2
+      }
+     }
+    ]
+   },
+   "preview": {
+    "threat": "서리 장판 감속, 멧돼지 직선 돌파, 궁수"
+   },
+   "note": "세 번째 구현"
+  },
+  "act3_temporal_abyss": {
+   "id": "act3_temporal_abyss",
+   "act": 3,
+   "name": "시간의 심연",
+   "line": "지연 공격과 잔류 영역 사이의 안전 공간을 읽는다",
+   "boss": "eater",
+   "places": [
+    {
+     "id": "t3a_rim",
+     "name": "균열 가장자리",
+     "cost": 1,
+     "arena": "clearing",
+     "reward": {
+      "gold": [
+       70,
+       100
+      ],
+      "mats": {
+       "spore": [
+        2,
+        3
+       ]
+      }
+     },
+     "xp_mult": 3.0,
+     "bonus_xp": 90,
+     "tags": [
+      "skill",
+      "dot",
+      "combo"
+     ],
+     "risk": 3,
+     "objective": "clear",
+     "desc": "지연 공격과 잔류 영역 사이의 안전 공간을 읽는다"
+    },
+    {
+     "id": "t3a_center",
+     "name": "심연 중심부",
+     "cost": 2,
+     "arena": "abyss_center",
+     "reward": {
+      "gold": [
+       100,
+       140
+      ],
+      "mats": {
+       "spore": [
+        2,
+        3
+       ],
+       "iron": [
+        2,
+        2
+       ]
+      }
+     },
+     "xp_mult": 3.0,
+     "bonus_xp": 90,
+     "tags": [
+      "skill",
+      "dot",
+      "combo"
+     ],
+     "risk": 3,
+     "objective": "clear",
+     "desc": "지연 공격과 잔류 영역 사이의 안전 공간을 읽는다"
+    }
+   ],
+   "reward_tags": [
+    "skill",
+    "dot",
+    "combo"
+   ],
+   "mats": [
+    "spore",
+    "iron"
+   ],
+   "formations": {
+    "normal": [
+     {
+      "id": "t3a_archer_burrow",
+      "name": "붉은 궁수 + 잠복충",
+      "desc": "사격선과 발밑 기습",
+      "comp": [
+       {
+        "type": "archer",
+        "share": 0.5,
+        "role": "주력"
+       },
+       {
+        "type": "burrower",
+        "share": 0.5,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "archer": 3,
+       "burrower": 2
+      }
+     },
+     {
+      "id": "t3a_spore_shaman",
+      "name": "상위 포자 + 주술사 1",
+      "desc": "잔류 구름 사이 치료사",
+      "comp": [
+       {
+        "type": "spore",
+        "share": 0.75,
+        "role": "주력"
+       },
+       {
+        "type": "shaman",
+        "share": 0.1,
+        "role": "지원"
+       },
+       {
+        "type": "rogue",
+        "share": 0.15,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "spore": 3,
+       "shaman": 1,
+       "rogue": 3
+      }
+     },
+     {
+      "id": "t3a_mixed",
+      "name": "잠복충·포자·소수 궁수",
+      "desc": "지연 공격과 잔류 영역",
+      "comp": [
+       {
+        "type": "burrower",
+        "share": 0.4,
+        "role": "주력"
+       },
+       {
+        "type": "spore",
+        "share": 0.4,
+        "role": "지원"
+       },
+       {
+        "type": "archer",
+        "share": 0.2,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "burrower": 2,
+       "spore": 3,
+       "archer": 3
+      }
+     }
+    ],
+    "risk": [
+     {
+      "id": "t3a_risk",
+      "name": "심연의 파수",
+      "desc": "잔류 영역 + 우두머리 2(위험 전투)",
+      "comp": [
+       {
+        "type": "spore",
+        "share": 0.5,
+        "role": "주력"
+       },
+       {
+        "type": "archer",
+        "share": 0.5,
+        "role": "지원"
+       }
+      ],
+      "elites": 2,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "spore": 3,
+       "archer": 3
+      }
+     }
+    ]
+   },
+   "preview": {
+    "threat": "잠복충 지연 기습, 포자 구름, 주술사·궁수"
+   },
+   "note": ""
+  },
+  "act3_blood_hunt": {
+   "id": "act3_blood_hunt",
+   "act": 3,
+   "name": "피의 사냥터",
+   "line": "여러 방향에서 접근하는 적을 정리하고 연속 압박 사이 빈틈을 잡는다",
+   "boss": "blood_hunt_king",
+   "places": [
+    {
+     "id": "t3b_redpath",
+     "name": "붉은 숲길",
+     "cost": 1,
+     "arena": "blood_path",
+     "reward": {
+      "gold": [
+       70,
+       100
+      ],
+      "mats": {
+       "pelt": [
+        2,
+        3
+       ]
+      }
+     },
+     "xp_mult": 3.0,
+     "bonus_xp": 90,
+     "tags": [
+      "melee",
+      "bleed",
+      "heal"
+     ],
+     "risk": 3,
+     "objective": "clear",
+     "desc": "여러 방향에서 접근하는 적을 정리하고 연속 압박 사이 빈틈을 잡는다"
+    },
+    {
+     "id": "t3b_domain",
+     "name": "사냥왕의 영역",
+     "cost": 2,
+     "arena": "blood_domain",
+     "reward": {
+      "gold": [
+       100,
+       140
+      ],
+      "mats": {
+       "pelt": [
+        2,
+        3
+       ],
+       "fang": [
+        1,
+        1
+       ]
+      }
+     },
+     "xp_mult": 3.0,
+     "bonus_xp": 90,
+     "tags": [
+      "melee",
+      "bleed",
+      "heal"
+     ],
+     "risk": 3,
+     "objective": "clear",
+     "desc": "여러 방향에서 접근하는 적을 정리하고 연속 압박 사이 빈틈을 잡는다"
+    }
+   ],
+   "reward_tags": [
+    "melee",
+    "bleed",
+    "heal"
+   ],
+   "mats": [
+    "pelt",
+    "fang"
+   ],
+   "formations": {
+    "normal": [
+     {
+      "id": "t3b_wolf_boar",
+      "name": "붉은 늑대 + 상위 멧돼지",
+      "desc": "사방 접근과 직선 돌파",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 0.7,
+        "role": "주력"
+       },
+       {
+        "type": "boar",
+        "share": 0.3,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "boar": 2
+      }
+     },
+     {
+      "id": "t3b_rogue_alpha",
+      "name": "도적 + 우두머리",
+      "desc": "측면과 정예",
+      "comp": [
+       {
+        "type": "rogue",
+        "share": 0.6,
+        "role": "주력"
+       },
+       {
+        "type": "wolf",
+        "share": 0.4,
+        "role": "돌파"
+       }
+      ],
+      "elites": 1,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "rogue": 3
+      }
+     },
+     {
+      "id": "t3b_wolf_archer",
+      "name": "늑대·궁수·소수 정예",
+      "desc": "연속 압박",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 0.7,
+        "role": "주력"
+       },
+       {
+        "type": "archer",
+        "share": 0.3,
+        "role": "지원"
+       }
+      ],
+      "elites": 1,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "archer": 3
+      }
+     }
+    ],
+    "risk": [
+     {
+      "id": "t3b_risk",
+      "name": "사냥왕의 전위",
+      "desc": "야수 + 우두머리 2(위험 전투)",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 0.6,
+        "role": "주력"
+       },
+       {
+        "type": "boar",
+        "share": 0.4,
+        "role": "돌파"
+       }
+      ],
+      "elites": 2,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "boar": 2
+      }
+     }
+    ]
+   },
+   "preview": {
+    "threat": "늑대 물기·돌진, 멧돼지 돌파, 도적 측면, 우두머리"
+   },
+   "note": "두 번째 구현"
+  },
+  "act3_twisted_citadel": {
+   "id": "act3_twisted_citadel",
+   "act": 3,
+   "name": "뒤틀린 성채",
+   "line": "방어 진형과 지원을 깨면서 큰 공격의 방향을 읽는다",
+   "boss": "doom_executor",
+   "places": [
+    {
+     "id": "t3c_corridor",
+     "name": "외성 회랑",
+     "cost": 1,
+     "arena": "citadel_corridor",
+     "reward": {
+      "gold": [
+       70,
+       100
+      ],
+      "mats": {
+       "iron": [
+        2,
+        3
+       ]
+      }
+     },
+     "xp_mult": 3.0,
+     "bonus_xp": 90,
+     "tags": [
+      "pierce",
+      "defense",
+      "skill"
+     ],
+     "risk": 3,
+     "objective": "clear",
+     "desc": "방어 진형과 지원을 깨면서 큰 공격의 방향을 읽는다"
+    },
+    {
+     "id": "t3c_plaza",
+     "name": "집행 광장",
+     "cost": 2,
+     "arena": "citadel_plaza",
+     "reward": {
+      "gold": [
+       100,
+       140
+      ],
+      "mats": {
+       "iron": [
+        2,
+        3
+       ],
+       "spore": [
+        1,
+        2
+       ]
+      }
+     },
+     "xp_mult": 3.0,
+     "bonus_xp": 90,
+     "tags": [
+      "pierce",
+      "defense",
+      "skill"
+     ],
+     "risk": 3,
+     "objective": "clear",
+     "desc": "방어 진형과 지원을 깨면서 큰 공격의 방향을 읽는다"
+    }
+   ],
+   "reward_tags": [
+    "pierce",
+    "defense",
+    "skill"
+   ],
+   "mats": [
+    "iron",
+    "spore"
+   ],
+   "formations": {
+    "normal": [
+     {
+      "id": "t3c_shield_archer",
+      "name": "붉은 방패병 + 상위 궁수",
+      "desc": "방진 뒤 사격",
+      "comp": [
+       {
+        "type": "shieldbearer",
+        "share": 0.5,
+        "role": "주력"
+       },
+       {
+        "type": "archer",
+        "share": 0.5,
+        "role": "지원"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "shieldbearer": 3,
+       "archer": 3
+      }
+     },
+     {
+      "id": "t3c_shield_shaman",
+      "name": "방패병 + 주술사 1",
+      "desc": "방진과 치료",
+      "comp": [
+       {
+        "type": "shieldbearer",
+        "share": 0.55,
+        "role": "주력"
+       },
+       {
+        "type": "shaman",
+        "share": 0.1,
+        "role": "지원"
+       },
+       {
+        "type": "rogue",
+        "share": 0.35,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "shieldbearer": 3,
+       "shaman": 1,
+       "rogue": 3
+      }
+     },
+     {
+      "id": "t3c_frost_archer",
+      "name": "서리술사 + 궁수 + 소수 방패병",
+      "desc": "장판·사격·방진",
+      "comp": [
+       {
+        "type": "archer",
+        "share": 0.45,
+        "role": "주력"
+       },
+       {
+        "type": "frostcaller",
+        "share": 0.2,
+        "role": "지원"
+       },
+       {
+        "type": "shieldbearer",
+        "share": 0.35,
+        "role": "돌파"
+       }
+      ],
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "archer": 3,
+       "frostcaller": 2,
+       "shieldbearer": 3
+      }
+     }
+    ],
+    "risk": [
+     {
+      "id": "t3c_risk",
+      "name": "집행관의 근위",
+      "desc": "방진 + 우두머리 2(위험 전투)",
+      "comp": [
+       {
+        "type": "shieldbearer",
+        "share": 0.5,
+        "role": "주력"
+       },
+       {
+        "type": "archer",
+        "share": 0.5,
+        "role": "지원"
+       }
+      ],
+      "elites": 2,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "shieldbearer": 3,
+       "archer": 3
+      }
+     }
+    ]
+   },
+   "preview": {
+    "threat": "방패병 방진, 궁수·서리술사 사격·장판, 주술사"
+   },
+   "note": "세 번째 구현"
+  }
+ },
+ "arenas": {
+  "fort_wall": {
+   "name": "무너진 외벽",
+   "obstacles": [
+    {
+     "id": "r1",
+     "type": "rock",
+     "x": 200,
+     "y": 160,
+     "r": 34
+    },
+    {
+     "id": "r2",
+     "type": "rock",
+     "x": 760,
+     "y": 160,
+     "r": 34
+    },
+    {
+     "id": "r3",
+     "type": "rock",
+     "x": 200,
+     "y": 440,
+     "r": 34
+    },
+    {
+     "id": "r4",
+     "type": "rock",
+     "x": 760,
+     "y": 440,
+     "r": 34
+    },
+    {
+     "id": "r5",
+     "type": "rock",
+     "x": 480,
+     "y": 300,
+     "r": 30
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 470
+   }
+  },
+  "fort_yard": {
+   "name": "안뜰",
+   "obstacles": [
+    {
+     "id": "r1",
+     "type": "rock",
+     "x": 300,
+     "y": 200,
+     "r": 36
+    },
+    {
+     "id": "r2",
+     "type": "rock",
+     "x": 660,
+     "y": 200,
+     "r": 36
+    },
+    {
+     "id": "r3",
+     "type": "rock",
+     "x": 300,
+     "y": 400,
+     "r": 36
+    },
+    {
+     "id": "r4",
+     "type": "rock",
+     "x": 660,
+     "y": 400,
+     "r": 36
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 300
+   }
+  },
+  "garden_edge": {
+   "name": "외곽 온실",
+   "obstacles": [
+    {
+     "id": "t1",
+     "type": "tree",
+     "x": 120,
+     "y": 120,
+     "r": 26,
+     "canopy": 60
+    },
+    {
+     "id": "t2",
+     "type": "tree",
+     "x": 840,
+     "y": 120,
+     "r": 26,
+     "canopy": 60
+    },
+    {
+     "id": "t3",
+     "type": "tree",
+     "x": 120,
+     "y": 480,
+     "r": 26,
+     "canopy": 60
+    },
+    {
+     "id": "t4",
+     "type": "tree",
+     "x": 840,
+     "y": 480,
+     "r": 26,
+     "canopy": 60
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 300
+   }
+  },
+  "garden_open": {
+   "name": "버섯 군락",
+   "obstacles": [
+    {
+     "id": "t1",
+     "type": "tree",
+     "x": 160,
+     "y": 300,
+     "r": 28,
+     "canopy": 70
+    },
+    {
+     "id": "t2",
+     "type": "tree",
+     "x": 800,
+     "y": 300,
+     "r": 28,
+     "canopy": 70
+    },
+    {
+     "id": "r3",
+     "type": "rock",
+     "x": 480,
+     "y": 120,
+     "r": 30
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 300
+   }
+  },
+  "ritual_center": {
+   "name": "의식 중심부",
+   "obstacles": [
+    {
+     "id": "r1",
+     "type": "rock",
+     "x": 340,
+     "y": 220,
+     "r": 30
+    },
+    {
+     "id": "r2",
+     "type": "rock",
+     "x": 620,
+     "y": 220,
+     "r": 30
+    },
+    {
+     "id": "r3",
+     "type": "rock",
+     "x": 340,
+     "y": 380,
+     "r": 30
+    },
+    {
+     "id": "r4",
+     "type": "rock",
+     "x": 620,
+     "y": 380,
+     "r": 30
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 480
+   }
+  },
+  "mine_tunnel": {
+   "name": "운반 갱도",
+   "obstacles": [
+    {
+     "id": "r1",
+     "type": "rock",
+     "x": 240,
+     "y": 200,
+     "r": 44
+    },
+    {
+     "id": "r2",
+     "type": "rock",
+     "x": 720,
+     "y": 200,
+     "r": 44
+    },
+    {
+     "id": "r3",
+     "type": "rock",
+     "x": 240,
+     "y": 400,
+     "r": 44
+    },
+    {
+     "id": "r4",
+     "type": "rock",
+     "x": 720,
+     "y": 400,
+     "r": 44
+    },
+    {
+     "id": "r5",
+     "type": "rock",
+     "x": 480,
+     "y": 300,
+     "r": 40
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 500
+   }
+  },
+  "mine_pit": {
+   "name": "굴착장",
+   "obstacles": [
+    {
+     "id": "r1",
+     "type": "rock",
+     "x": 180,
+     "y": 300,
+     "r": 46
+    },
+    {
+     "id": "r2",
+     "type": "rock",
+     "x": 780,
+     "y": 300,
+     "r": 46
+    },
+    {
+     "id": "r3",
+     "type": "rock",
+     "x": 480,
+     "y": 150,
+     "r": 40
+    },
+    {
+     "id": "r4",
+     "type": "rock",
+     "x": 480,
+     "y": 450,
+     "r": 40
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 300
+   }
+  },
+  "frozen_road": {
+   "name": "눈길",
+   "obstacles": [
+    {
+     "id": "r1",
+     "type": "rock",
+     "x": 200,
+     "y": 240,
+     "r": 50
+    },
+    {
+     "id": "r2",
+     "type": "rock",
+     "x": 760,
+     "y": 360,
+     "r": 50
+    },
+    {
+     "id": "r3",
+     "type": "rock",
+     "x": 480,
+     "y": 100,
+     "r": 34
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 300
+   }
+  },
+  "frozen_basin": {
+   "name": "얼음 분지",
+   "obstacles": [
+    {
+     "id": "r1",
+     "type": "rock",
+     "x": 300,
+     "y": 300,
+     "r": 40
+    },
+    {
+     "id": "r2",
+     "type": "rock",
+     "x": 660,
+     "y": 300,
+     "r": 40
+    },
+    {
+     "id": "t3",
+     "type": "tree",
+     "x": 480,
+     "y": 480,
+     "r": 26,
+     "canopy": 60
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 300
+   }
+  },
+  "abyss_center": {
+   "name": "심연 중심부",
+   "obstacles": [
+    {
+     "id": "r1",
+     "type": "rock",
+     "x": 480,
+     "y": 300,
+     "r": 42
+    },
+    {
+     "id": "r2",
+     "type": "rock",
+     "x": 160,
+     "y": 160,
+     "r": 30
+    },
+    {
+     "id": "r3",
+     "type": "rock",
+     "x": 800,
+     "y": 440,
+     "r": 30
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 470
+   }
+  },
+  "blood_path": {
+   "name": "붉은 숲길",
+   "obstacles": [
+    {
+     "id": "t1",
+     "type": "tree",
+     "x": 220,
+     "y": 200,
+     "r": 30,
+     "canopy": 74
+    },
+    {
+     "id": "t2",
+     "type": "tree",
+     "x": 740,
+     "y": 400,
+     "r": 30,
+     "canopy": 74
+    },
+    {
+     "id": "r3",
+     "type": "rock",
+     "x": 480,
+     "y": 300,
+     "r": 38
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 470
+   }
+  },
+  "blood_domain": {
+   "name": "사냥왕의 영역",
+   "obstacles": [
+    {
+     "id": "r1",
+     "type": "rock",
+     "x": 260,
+     "y": 300,
+     "r": 52
+    },
+    {
+     "id": "r2",
+     "type": "rock",
+     "x": 700,
+     "y": 300,
+     "r": 52
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 300
+   }
+  },
+  "citadel_corridor": {
+   "name": "외성 회랑",
+   "obstacles": [
+    {
+     "id": "r1",
+     "type": "rock",
+     "x": 320,
+     "y": 200,
+     "r": 32
+    },
+    {
+     "id": "r2",
+     "type": "rock",
+     "x": 640,
+     "y": 200,
+     "r": 32
+    },
+    {
+     "id": "r3",
+     "type": "rock",
+     "x": 320,
+     "y": 400,
+     "r": 32
+    },
+    {
+     "id": "r4",
+     "type": "rock",
+     "x": 640,
+     "y": 400,
+     "r": 32
+    },
+    {
+     "id": "r5",
+     "type": "rock",
+     "x": 480,
+     "y": 300,
+     "r": 32
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 480
+   }
+  },
+  "citadel_plaza": {
+   "name": "집행 광장",
+   "obstacles": [
+    {
+     "id": "r1",
+     "type": "rock",
+     "x": 240,
+     "y": 240,
+     "r": 34
+    },
+    {
+     "id": "r2",
+     "type": "rock",
+     "x": 720,
+     "y": 240,
+     "r": 34
+    },
+    {
+     "id": "r3",
+     "type": "rock",
+     "x": 240,
+     "y": 360,
+     "r": 34
+    },
+    {
+     "id": "r4",
+     "type": "rock",
+     "x": 720,
+     "y": 360,
+     "r": 34
+    },
+    {
+     "id": "r5",
+     "type": "rock",
+     "x": 480,
+     "y": 140,
+     "r": 34
+    },
+    {
+     "id": "r6",
+     "type": "rock",
+     "x": 480,
+     "y": 460,
+     "r": 34
+    }
+   ],
+   "player": {
+    "x": 480,
+    "y": 300
+   }
+  }
+ },
+ "reward_weight": 1.15,
+ "reward_weight_note": "테마 태그와 맞는 후보 가중치(계획서 §8 첫 시험 1.15). 기존 지역 태그 보정(WEIGHTS.regionTag)과 이중 곱하지 않고 이 값으로 통합"
+}

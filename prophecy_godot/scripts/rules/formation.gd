@@ -18,10 +18,10 @@ static func from_waves(waves: Array, override: Dictionary, region_id: String, st
 			var type := String(g.type)
 			var d := PCatalog.enemy(type)
 			var n: int = int(g.n)
-			var scaled: bool = not bool(d.get("elite", false)) and not bool(d.get("boss", false)) and not bool(d.get("structure", false))
+			var scaled: bool = not bool(d.get("elite", false)) and not bool(d.get("boss", false)) and not bool(d.get("structure", false)) and not g.has("ref")
 			var m_t: float = float(by_type.get(type, mult))
-			var total: int = int(round(float(n) * m_t)) if scaled else n
-			html_counts[type] = int(html_counts.get(type, 0)) + n
+			var total: int = int(round(float(n) * m_t)) if scaled else n # 테마 템플릿(ref 있음)은 최종 수를 명시: 배율 이중 적용 없음
+			html_counts[type] = float(html_counts.get(type, 0.0)) + (float(g.ref) if g.has("ref") else float(n)) # ref = 경험치 예산의 HTML 상당 수
 			godot_counts[type] = int(godot_counts.get(type, 0)) + total
 			for i in total:
 				units.append(type)
@@ -31,6 +31,8 @@ static func from_waves(waves: Array, override: Dictionary, region_id: String, st
 	for type in html_counts:
 		var unit := PGrowth.xp_value_unit(type, false, region_id, kill_mult)
 		xp_map[type] = round(unit * float(html_counts[type]) / float(maxi(1, int(godot_counts[type]))) * 10000.0) / 10000.0
+	if not (override.get("alive_cap", null) == null): # 템플릿이 준 동시 상한·종류별 상한
+		D.alive_cap = int(override.alive_cap)
 	return { "units": units, "tiers": tiers, "alive_cap": int(D.alive_cap), "group": int(D.group), "interval": float(D.interval), "type_caps": D.get("type_alive_cap", {}).duplicate(), "xp_map": xp_map, "html_counts": html_counts, "godot_counts": godot_counts, "multiplier": mult, "xp_default_scale": 1.0 / mult, "tier_counts": tier_counts(tiers) }
 
 ## 등급 배정(세계 변화, 사용자 합의 2026-09-07): 종류별로 정수 편성. mix 비율 순서(normal→red→apex)로 등장 순서의 앞쪽이 낮은 등급, 뒤쪽이 높은 등급.

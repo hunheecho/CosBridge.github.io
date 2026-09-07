@@ -99,19 +99,19 @@ static func generate(run: Dictionary, day: int) -> Array:
 		if variant.is_empty(): variant = PRun.slot_variant(rid, 3)
 		if variant.is_empty(): variant = PRun.slot_variant(rid, 4)
 		out.append({ "id": "d%dc%d" % [day, i + 1], "day": day, "regionId": rid, "objective": obj, "risk": risk, "rewardKind": kind,
-			"rewardTarget": (reward_target(run, String(kind)) if kind != null else ""), "fallbackGold": int(M().goldFallback.get(rid, 0)), "timeCost": PRun.place_cost(rid),
+			"rewardTarget": (reward_target(run, String(kind)) if kind != null else ""), "fallbackGold": int(M().goldFallback.get(rid, int(PRun.region(rid).reward.gold[0]))), "timeCost": PRun.place_cost(rid),
 			"enemies": main_enemies(run, rid, obj, (String(risk) if risk != null else "")), "first": obj != "clear" and int(run.get("missionsDone", {}).get(obj, 0)) == 0,
 			"done": false, "attempts": 0, "linked": (build_linked(run, String(kind)) if kind != null else false),
 			"variantSlot": (int(variant.slot) if not variant.is_empty() else null), "variantName": (String(variant.name) if not variant.is_empty() else null) })
-		var fm := pick_formation(run, rid, day, rng) # 사전 편성(역할 조합): 카드마다 정수 1개 소비, 같은 지역의 직전 편성 회피
+		var fm := pick_formation(run, rid, day, rng, risk != null) # 사전 편성(역할 조합): 카드마다 정수 1개 소비, 같은 지역의 직전 편성 회피(테마 장소: 위험 조건이면 위험 템플릿)
 		out[out.size() - 1].formationId = String(fm.id)
 		out[out.size() - 1].formationName = String(fm.name)
 		out[out.size() - 1].formationDesc = String(fm.get("desc", ""))
 	return out
 
 ## 편성 대안 선택: 대안이 1개(기본뿐)면 rng를 소비하지 않는다(첫날 숲 카드는 0.4.2와 동일). 직전에 같은 지역에서 쓴 편성은 제외
-static func pick_formation(run: Dictionary, region_id: String, day: int, rng: PRng) -> Dictionary:
-	var opts := PRun.formation_options(region_id, day)
+static func pick_formation(run: Dictionary, region_id: String, day: int, rng: PRng, risk: bool = false) -> Dictionary:
+	var opts := PRun.formation_options(region_id, day, risk)
 	if opts.size() <= 1:
 		return opts[0]
 	var last := String((run.get("lastFormation", {}) as Dictionary).get(region_id, ""))

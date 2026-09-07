@@ -56,6 +56,9 @@ func refresh() -> void:
 	var wf := PRun.world_feature(r)
 	if not wf.is_empty(): # 회차 특징 한 줄(시드 확정, 재접속 재추첨 없음)
 		top.add_child(PUi.rich("[color=#9ea8b8]이번 회차[/color] [b]%s[/b] [color=#9ea8b8]— %s[/color]" % [PGlossaryTip.esc(String(wf.name)), PGlossaryTip.esc(String(wf.line))], 12))
+	var cth := PRun.current_theme(r)
+	if not cth.is_empty(): # 현재 막 테마 한 줄(계획서 §4: 1막은 거점에서 공개, 다음 막은 관문 준비에서)
+		top.add_child(PUi.rich("[color=#9ea8b8]%s[/color] [b]%s[/b] [color=#9ea8b8]— %s · 보스: %s[/color]" % [PGlossaryTip.esc(PRun.act_label(r).split(" · ")[0]), PGlossaryTip.esc(String(cth.name)), PGlossaryTip.esc(String(cth.line)), PGlossaryTip.esc(String(PCatalog.boss_def(String(cth.boss)).name))], 12))
 	if String(r.phase) != "prep":
 		_final_prep(r)
 		return

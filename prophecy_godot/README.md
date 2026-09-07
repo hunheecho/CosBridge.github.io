@@ -30,9 +30,11 @@ godot --headless --path prophecy_godot --import                       # class_na
 godot --headless --path prophecy_godot -s tests/run_tests.gd          # 기준 전투 규칙 72
 godot --headless --path prophecy_godot -s tests/port_tests.gd         # 전투 콘텐츠(자동기술·개조·범용·특성·Q/E·장비·지형·편성·철벽 경계·상태 공급원) 76
 godot --headless --path prophecy_godot -s tests/boss_tests.gd         # 보스 3·전투 목표 34
-godot --headless --path prophecy_godot -s tests/run_layer_tests.gd    # 회차 계층(상점·교체·대장간·정산·관문·저장·통계·밀도 세트·정산 1회·DPS 분모) 62
+PROPHECY_LEGACY_PLACES=1 godot --headless --path prophecy_godot -s tests/run_layer_tests.gd   # 회차 계층 64 — 옛 지역 일정(테마 없음)에 대한 회귀 스위트: run_layer·content·world·ui_flow·meta·meta_ui는 이 환경 변수로 실행
 godot --headless --path prophecy_godot -s tests/world_tests.gd        # 세계 변화(붉은 달) 30
 godot --headless --path prophecy_godot -s tests/acts_tests.gd         # 10일·3막 본편 구조(관문 4/7/10·막·장소·영구 기록 2/3·봇 완주)
+godot --headless --path prophecy_godot -s tests/theme_tests.gd        # 테마 경로(카탈로그 정합·추첨·템플릿·전장·태그·봇 완주)
+PROPHECY_SIM_SEEDS=1 godot --headless --path prophecy_godot -s tools/route_smoke.gd   # 구현된 경로 × 시작 기술 봇 완주 스모크 → docs/sim/ROUTE_SMOKE.md
 godot --headless --path prophecy_godot -s tests/content_tests.gd      # 반복 콘텐츠(회차 특징·사전 편성·강적의 흔적·보스 계획·밀도 비교 회차) 28
 godot --headless --path prophecy_godot -s tests/ui_flow_tests.gd      # 화면 계층(실제 main.tscn: 전투 중 종료 체크포인트·HUD 보호막) 14 — user:// 저장을 쓰므로 APPDATA를 별도 폴더로 두고 실행
 godot --headless --path prophecy_godot -s tests/meta_tests.gd         # 영구 성장·해금·제작(레벨·해금 집합·후보 필터·카드 희석 수치·특성 12·기록 1회·제작·제작 6종 전투 효과) 78 — user:// 프로필을 쓰므로 APPDATA 격리

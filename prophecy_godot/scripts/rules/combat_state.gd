@@ -118,7 +118,7 @@ func _init(o: Dictionary) -> void:
 	arena_w = float(cfg.arena.w)
 	arena_h = float(cfg.arena.h)
 	arena_id = String(o.get("arena", "clearing"))
-	var arena_def: Dictionary = PCatalog.arenas().get(arena_id, {}) if not ff else {}
+	var arena_def: Dictionary = PCatalog.arena(arena_id) if not ff else {}
 	var obs: Array = o.obstacles if o.has("obstacles") else arena_def.get("obstacles", [])
 	for ob in obs:
 		obstacles.append({ "id": String(ob.id), "type": String(ob.type), "x": float(ob.x), "y": float(ob.y), "r": float(ob.r) })

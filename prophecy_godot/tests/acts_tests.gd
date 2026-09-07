@@ -12,10 +12,10 @@ func ok(name: String, cond: bool, extra: String = "") -> void:
 
 func _init() -> void:
 	# ---------- 모드·관문·막 ----------
-	var run := PRun.new_run(51, "sword")
+	var run := PRun.new_run(51, "sword", "", { "legacy_places": true }) # 일정 검사는 기존 지역 일정(테마 장소는 theme_tests)
 	ok("새 회차 기본 모드 acts: 10일, 관문 4/7/10 (boss·guardian·eater)", String(run.mode) == "acts" and int(PRun.mode_def(run).days) == 10 and PRun.mode_def(run).bosses.map(func(b): return int(b.day)) == [4, 7, 10] and PRun.stage_count(run) == 3)
 	ok("막 판정: 1~3일 1막, 4~6일 2막, 7~9일 3막, 관문일(4·7·10)은 그 관문을 여는 막에 속함", PRun.act_of(run, 1).id == 1 and PRun.act_of(run, 3).id == 1 and PRun.act_of(run, 4).id == 1 and PRun.act_of(run, 5).id == 2 and PRun.act_of(run, 7).id == 2 and PRun.act_of(run, 8).id == 3 and PRun.act_of(run, 10).id == 3, "%d/%d/%d" % [int(PRun.act_of(run, 4).id), int(PRun.act_of(run, 7).id), int(PRun.act_of(run, 10).id)])
-	ok("상단 표시용 막 이름: 1일차 '1막', 5일차 '2막', 9일차 '3막'", PRun.act_label(run, 1) == "1막" and PRun.act_label(run, 5) == "2막" and PRun.act_label(run, 9) == "3막")
+	ok("상단 표시용 막 이름: 1일차 '1막', 5일차 '2막', 9일차 '3막'(테마가 있으면 ' · 테마명' 덧붙임)", PRun.act_label(run, 1).begins_with("1막") and PRun.act_label(run, 5).begins_with("2막") and PRun.act_label(run, 9).begins_with("3막"))
 	# 장소 일정: 1~9일 모두 2곳, 매일 1칸 장소 1곳 이상, 10일차는 없음
 	var bad := []
 	for d in range(1, 10):
@@ -33,7 +33,7 @@ func _init() -> void:
 	ok("6일차 재방문 칸은 이전 방문 1칸 지역에서 시드로(굴 제외)", PRun.place_cost(String(p6[0])) <= 1 and String(p6[0]) in ["forest", "ridge"], str(p6))
 	ok("방문 상인(acts): 2·5·8일차(막마다 1회), 떠돌이 상인의 해: 1·4·7", PRun.merchant_days(run).map(func(d): return int(d)) == [2, 5, 8] and PRun.merchant_days(run.merged({ "worldFeature": "wandering_merchant" }, true)).map(func(d): return int(d)) == [1, 4, 7])
 	# ---------- 하루 종료 → 관문 ----------
-	var r2 := PRun.new_run(52, "sword")
+	var r2 := PRun.new_run(52, "sword", "", { "legacy_places": true })
 	for i in 3:
 		PRun.end_day(r2)
 	ok("3일차 종료 → 4일차 = 관문 준비(boss_prep), 출격 불가, 미리보기에 보스", int(r2.day) == 4 and String(r2.phase) == "boss_prep" and not PRun.can_sortie(r2, "forest") and PFlow.actions(r2).any(func(a): return String(a.id) == "boss_start"))

@@ -169,7 +169,7 @@ var new_run_opts := {} # 검증 메뉴에서 정한 새 회차 옵션 { seed, de
 func start_run(weapon_id: String) -> void:
 	fight_kind = "run"
 	var seed_use: int = int(new_run_opts.get("seed", _auto_seed if _auto else 0))
-	run = PRun.new_run(seed_use, weapon_id, "", { "density_set": String(new_run_opts.get("density_set", "")), "profile": profile, "eligible": true })
+	run = PRun.new_run(seed_use, weapon_id, "", { "density_set": String(new_run_opts.get("density_set", "")), "route": new_run_opts.get("route", []), "profile": profile, "eligible": true })
 	new_run_opts = {}
 	sortie = {}
 	last_profile_award = {}
