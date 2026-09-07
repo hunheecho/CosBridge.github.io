@@ -528,3 +528,24 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 ### 19-3. 하지 않은 것
 - 정복자 0/50 비교, 무한 시간당 보상, 전체 경로 전수 재실행(검수 지시대로 관련 시나리오·대표 보스만).
 - `unclassified` 피격 태그가 장판 시나리오에서 늘었다(수정 후 skilled 32). 태그 분류 규칙(장판 안 피격의 원인 구분)은 다음 측정 항목.
+
+## 20. 재검수(godot-audit-427dae9) 잔여 1건 수정 + godot-0.6.1 배포물 (2026-09-08, Windows 로컬)
+재검수 보고: `C:\Users\Public\Documents\ESTsoft\CreatorTemp\godot-audit-427dae9-20260907\RECHECK.md`. 핵심 수정 3건은 확인됨. 잔여 = 소스 일부를 못 읽어도 나머지로 만든 부분 해시를 정상 코드 해시로 취급.
+
+### 20-1. 수정·회귀
+| 항목 | 내용 |
+|---|---|
+| 수정(86dadce) | `PReplay.code_hash` → 필수 폴더(scripts/tools/scenes) 열기 실패 또는 파일 하나라도 읽기 실패면 **부분 해시 없이 `unknown`**, 실패 경로는 `code_hash_failed()`·배치 meta `env.code_hash_failed`·`CACHE_INVALID` 메시지에. `_collect_code`는 폴더 열기 실패(false)와 빈 폴더(true)를 구분 |
+| 회귀 | `tests/bot_tests.gd` **60/60**(12k 누락 파일 → unknown+경로 · 12l unknown/빈 목록 재개 거부 · 12m 폴더 열기 실패 구분 · 12n 정상 복귀 = 이전 전체 해시) |
+| 잠금 파일 수동 확인(검수 절차 재현) | `tools/start_compare.gd`를 PowerShell FileShare.None 읽기 핸들로 잠근 채 검수 `hash_probe.gd` 실행: 정상 `330fce50…`/can_resume true → 잠금 **`unknown`/can_resume false** → 해제 뒤 같은 `330fce50…`/true. (잠금·해제 실행 2회는 결과 출력 뒤 엔진 종료 단계에서 segfault가 찍혔다 — 헤드리스 종료 시 간헐적으로 보이는 현상으로 결과값·종료 전 출력에는 영향 없음, 같은 프로브의 정상 실행과 bot_tests·패키지 exe는 종료 0) |
+| 변경하지 않은 것 | 게임 수치·봇 프로필·관측 규칙. 108×2 비교는 재실행하지 않음(해시 예외 처리만 바뀜, 검수 지시) |
+
+### 20-2. godot-0.6.1 배포물 (Codex 독립 검수 기준)
+| 항목 | 값 |
+|---|---|
+| **최종 코드 커밋** | **86dadce** (5afb3d7 검수 2 수정 → 427dae9 버전 문자열 → 86dadce 잔여 1건). 이 뒤의 커밋은 ZIP·해시 기록만 |
+| Windows 빌드 | `prophecy_godot_build/prophecy_godot_windows_godot-0.6.1_86dadce.zip` (안: `prophecy_godot/prophecy_godot.exe` 110,252,464 B + `실행_안내.txt`). exe SHA-256 `b31506ffc7ef099338e75b38dee5a2a98ec620b7f1770c4a4d3b1a700d0ffbfc`, ZIP SHA-256 `ef44907d5d47b1a7dcb2901b9271dbb8cfd4f14c6b806643676cf982b2341cc2` |
+| 프로젝트 ZIP | `prophecy_godot_build/prophecy_godot_project_godot-0.6.1_86dadce.zip` = `git archive HEAD prophecy_godot` (310 파일). SHA-256 `ba61e4abed154831c8e4dd202f57fca360ed0379206b9fced600ddd13aaf0e6b` |
+| 빌드 실행 확인 | 같은 PC, APPDATA 격리, 패키지 exe로 `PROPHECY_UI_SMOKE`(새 회차→…→4일차 성문 파수장 승리→저장→계속하기→검증 메뉴 빠른 전투): **종료 코드 0, 스크립트 오류 0, PNG 23장**. 저장 파일 경로 `%APPDATA%\Godot\app_userdata\예언의 시간표 — Godot 첫 전투\prophecy_save_v1.json` 확인(입력 기록도 같은 폴더의 `recordings\`). 사람 플레이 없음 |
+| 사람 입력 기록 | 제목 → [검증 메뉴] → "이번 전투 입력 기록" 체크 → 사람이 직접 전투(기준 전투 또는 회차) → 종료 시 `recordings\<시각>_<시나리오>.json`(사람 입력만, 봇 전투 제외, 업로드 없음). `실행_안내.txt` 6항 |
+| 미커밋(의도) | 루트 `index.html`·`CNAME`·`wash.jpg` 삭제, `icon.svg.import`, `.claude/`, `tests/tmp/` |
