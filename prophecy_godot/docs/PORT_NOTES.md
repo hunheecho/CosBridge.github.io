@@ -130,4 +130,5 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 
 ## 8. 커밋 기록
 - HTML 이식 기준: `ee10fc7`
-- Godot 프로젝트(코드·데이터·테스트·캡처·문서): 이 파일의 다음 갱신에서 기록
+- Godot 프로젝트(코드·데이터·테스트·캡처·문서): **56d600f** (브랜치 `claude/prophecy-action-prototype-hehbeo`)
+- 배포물(같은 브랜치 `prophecy_godot_build/`): `prophecy_godot_project_56d600f.zip`(프로젝트 전체, `git archive`로 만들어 캐시·절대 경로 없음, 0.97MB) · `prophecy_first_fight_windows_godot-0.1.0_56d600f.zip`(Windows 빌드: exe + 실행 안내, 38MB, Windows 실기 실행 미확인)
