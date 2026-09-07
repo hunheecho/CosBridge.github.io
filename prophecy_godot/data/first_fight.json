@@ -6,7 +6,7 @@
   "constants": { "wave_delay": 1.2, "spawn_warn": 0.6, "separation": 1.0, "first_wave_timer": 0.4, "exposed_mult": 1.5, "death_linger": 0.9 },
   "player": {
     "hp": 100, "speed": 220, "r": 14, "hit_protect": 0.6,
-    "dodge": { "duration": 0.26, "distance": 150, "cooldown": 0.9 },
+    "dodge": { "mode": "hold", "min_distance": 70, "distance": 150, "duration": 0.26, "cooldown": 1.5, "modes": ["fixed", "hold"], "cooldown_options": [0.9, 1.2, 1.5, 1.8], "note": "mode hold=누르는 시간에 따라 70~150(기본), fixed=항상 150(기존 HTML). 속도 150/0.26 일정, 무적은 회피 이동 중에만(최대 duration). cooldown은 시작 순간부터. 0.9는 과거 비교용, 1.2·1.8은 후보. 시험값(2026-09-07), 최종 아님" },
     "slowfield": { "radius": 150, "duration": 3.0, "cooldown": 14, "slow": 0.4 },
     "start": { "x": 480, "y": 500 }
   },

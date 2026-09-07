@@ -121,46 +121,56 @@ text = "체력"
 
 [node name="Dodge" type="ProgressBar" parent="UI/HUD"]
 layout_mode = 0
-offset_left = 230.0
+offset_left = 224.0
 offset_top = 6.0
-offset_right = 380.0
+offset_right = 486.0
 offset_bottom = 34.0
 show_percentage = false
 
 [node name="DodgeText" type="Label" parent="UI/HUD"]
 layout_mode = 0
-offset_left = 236.0
+offset_left = 230.0
 offset_top = 10.0
-offset_right = 380.0
+offset_right = 486.0
 offset_bottom = 32.0
 theme_override_font_sizes/font_size = 13
 text = "Space 회피"
 
 [node name="Q" type="ProgressBar" parent="UI/HUD"]
 layout_mode = 0
-offset_left = 396.0
+offset_left = 498.0
 offset_top = 6.0
-offset_right = 600.0
+offset_right = 660.0
 offset_bottom = 34.0
 show_percentage = false
 
 [node name="QText" type="Label" parent="UI/HUD"]
 layout_mode = 0
-offset_left = 402.0
+offset_left = 504.0
 offset_top = 10.0
-offset_right = 600.0
+offset_right = 660.0
 offset_bottom = 32.0
 theme_override_font_sizes/font_size = 13
 text = "Q 감속장"
 
 [node name="Objective" type="Label" parent="UI/HUD"]
 layout_mode = 0
-offset_left = 616.0
+offset_left = 672.0
 offset_top = 10.0
 offset_right = 956.0
 offset_bottom = 32.0
 theme_override_font_sizes/font_size = 13
 text = "목적"
+
+[node name="Demo" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 44.0
+offset_right = 956.0
+offset_bottom = 66.0
+theme_override_colors/font_color = Color(1, 0.9, 0.5, 1)
+theme_override_font_sizes/font_size = 14
+text = ""
 
 [node name="Settings" type="Label" parent="UI/HUD"]
 layout_mode = 0
@@ -329,16 +339,57 @@ mouse_filter = 2
 layout_mode = 0
 offset_left = 8.0
 offset_top = 48.0
-offset_right = 640.0
-offset_bottom = 200.0
-color = Color(0, 0, 0, 0.6)
+offset_right = 952.0
+offset_bottom = 230.0
+color = Color(0, 0, 0, 0.7)
 
 [node name="Text" type="Label" parent="UI/Debug"]
 layout_mode = 0
 offset_left = 14.0
 offset_top = 52.0
-offset_right = 636.0
-offset_bottom = 198.0
+offset_right = 640.0
+offset_bottom = 228.0
 theme_override_font_sizes/font_size = 12
 text = "debug"
+autowrap_mode = 3
+
+[node name="Opts" type="VBoxContainer" parent="UI/Debug"]
+layout_mode = 0
+offset_left = 652.0
+offset_top = 52.0
+offset_right = 946.0
+offset_bottom = 228.0
+
+[node name="Heading" type="Label" parent="UI/Debug/Opts"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "비교 설정 (다음 재시작에 적용)"
+
+[node name="ModeLabel" type="Label" parent="UI/Debug/Opts"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "회피 방식"
+
+[node name="ModeOpt" type="OptionButton" parent="UI/Debug/Opts"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+
+[node name="CdLabel" type="Label" parent="UI/Debug/Opts"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "재사용 대기 (0.9 = 과거 비교용, 1.2·1.8 = 후보)"
+
+[node name="CdOpt" type="OptionButton" parent="UI/Debug/Opts"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+
+[node name="ApplyBtn" type="Button" parent="UI/Debug/Opts"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "이 설정으로 같은 시드 다시 시작"
+
+[node name="Note" type="Label" parent="UI/Debug/Opts"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = ""
 autowrap_mode = 3

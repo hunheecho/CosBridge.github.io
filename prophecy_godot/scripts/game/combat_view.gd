@@ -6,17 +6,13 @@ signal finished(summary: Dictionary)
 
 var st: CombatState
 var bot: PBot = null
-var acc: float = 0.0
+var driver := PStepDriver.new()
 var paused: bool = false
 var running: bool = false
-var pending_dodge: bool = false
-var pending_special: bool = false
-var steps_this_frame: int = 0
 var frame_count: int = 0
 var end_timer: float = 0.0
-var fps_cap: int = 0
 
-const STEP := 1.0 / 120.0
+const STEP := PStepDriver.STEP
 const COL_BG := Color("1b2418")
 const COL_PLAYER := Color("7ef2ff")
 const COL_WOLF := Color("9aa0a8")
@@ -26,66 +22,50 @@ const COL_TREE := Color("3f7a3f")
 func start(seed_v: int, use_bot: bool = false) -> void:
 	st = Game.new_combat(seed_v)
 	bot = PBot.new() if use_bot else null
-	acc = 0.0
+	driver.reset() # 재시작 뒤 대기 입력 없음
 	paused = false
 	running = true
-	pending_dodge = false
-	pending_special = false
 	end_timer = 0.0
 	frame_count = 0
 	queue_redraw()
 
 func set_paused(v: bool) -> void:
 	paused = v
-	pending_dodge = false
-	pending_special = false
-	acc = 0.0
+	driver.reset() # 일시정지 중 생긴 입력은 재개 시 폐기. 재개 후 회피는 새 누름이 필요하다
+
+func steps_this_frame() -> int:
+	return driver.steps_last_frame
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		driver.reset() # 포커스 상실: 대기 입력 폐기(눌린 키 상태는 엔진이 해제한다)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not running or paused or bot != null:
 		return
-	if event.is_action_pressed("dodge"):
-		pending_dodge = true
-	if event.is_action_pressed("slowfield"):
-		pending_special = true
-
-func _read_input() -> Dictionary:
-	var mx := 0.0
-	var my := 0.0
-	if Input.is_action_pressed("move_left"):
-		mx -= 1.0
-	if Input.is_action_pressed("move_right"):
-		mx += 1.0
-	if Input.is_action_pressed("move_up"):
-		my -= 1.0
-	if Input.is_action_pressed("move_down"):
-		my += 1.0
-	var inp := { "mx": mx, "my": my, "dodge": pending_dodge, "special": pending_special }
-	pending_dodge = false
-	pending_special = false
-	return inp
+	if event.is_action_pressed("dodge") and not event.is_echo():
+		driver.note_dodge_press() # 프레임 사이의 짧은 탭도 기록된다(다음 단계에서 1번 소비)
+	if event.is_action_pressed("slowfield") and not event.is_echo():
+		driver.note_special_press()
 
 func _process(delta: float) -> void:
 	if not running or st == null or paused:
 		return
 	frame_count += 1
-	acc += minf(delta, 0.1)
-	steps_this_frame = 0
-	var inp: Dictionary = {}
-	var first := true
-	while acc >= STEP and steps_this_frame < 12:
-		if bot != null:
-			inp = bot.step_input(st)
-		elif first:
-			inp = _read_input() # 단발 입력(회피·Q)은 프레임의 첫 단계에서만 소비
-			first = false
-		else:
-			inp = { "mx": inp.mx, "my": inp.my, "dodge": false, "special": false }
-		st.step(inp, STEP)
-		acc -= STEP
-		steps_this_frame += 1
-	if steps_this_frame >= 12:
-		acc = 0.0
+	var mx := 0.0
+	var my := 0.0
+	var held := false
+	if bot == null:
+		if Input.is_action_pressed("move_left"):
+			mx -= 1.0
+		if Input.is_action_pressed("move_right"):
+			mx += 1.0
+		if Input.is_action_pressed("move_up"):
+			my -= 1.0
+		if Input.is_action_pressed("move_down"):
+			my += 1.0
+		held = Input.is_action_pressed("dodge")
+	driver.frame(st, delta, mx, my, held, bot)
 	if st.status != "running":
 		end_timer += delta
 		if end_timer >= 1.3:

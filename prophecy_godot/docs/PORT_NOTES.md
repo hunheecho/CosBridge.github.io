@@ -5,7 +5,7 @@
 |---|---|
 | 이식 기준 HTML | `prophecy_action_prototype` v0.8.0, 커밋 **ee10fc7** (작업 시작 시 최신, 작업 트리 깨끗함 확인) |
 | Godot 프로젝트 커밋 | 아래 "커밋 기록" 절 |
-| Godot 프로젝트 버전 | `godot-0.1.0` (`project.godot` `config/version`, 시작 화면·HUD 하단에 표시) |
+| Godot 프로젝트 버전 | `godot-0.2.0` (`project.godot` `config/version`, 시작 화면·HUD 하단에 표시). 0.1.0 = 이식 그대로, 0.2.0 = 회피 시험 설계(docs/RULES.md) |
 | 엔진 | **Godot 4.7.2-stable** 공식 배포본 (`4.7.2.stable.official.ed1daf0bf`), GDScript만, 2D, Compatibility 렌더러 |
 | 내보내기 템플릿 | 공식 `Godot_v4.7.2-stable_export_templates.tpz` → `windows_release_x86_64.exe` (템플릿 버전 = 엔진 버전 4.7.2.stable) |
 | HTML 프로젝트 | 손대지 않음(비교 기준). 추가한 것은 대조 스크립트 `tools/port_compare_html.js` 하나 |
@@ -132,3 +132,16 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 - HTML 이식 기준: `ee10fc7`
 - Godot 프로젝트(코드·데이터·테스트·캡처·문서): **56d600f** (브랜치 `claude/prophecy-action-prototype-hehbeo`)
 - 배포물(같은 브랜치 `prophecy_godot_build/`): `prophecy_godot_project_56d600f.zip`(프로젝트 전체, `git archive`로 만들어 캐시·절대 경로 없음, 0.97MB) · `prophecy_first_fight_windows_godot-0.1.0_56d600f.zip`(Windows 빌드: exe + 실행 안내, 38MB, Windows 실기 실행 미확인)
+
+## 9. 회피 시험 설계 (godot-0.2.0, 2026-09-07)
+규칙·수치·검증 상태는 `docs/RULES.md` §회피가 기준. 여기에는 결과 기록만.
+- 변경 이유: 사용자가 회피 거리 조절을 제안했고, 기존 0.9초 쿨다운이 너무 짧을 가능성이 있어 기본 1.5초로 시험한다.
+- 이번에 바꾸지 않은 것: 적 체력·공격력·검격·Q·성장 수치. 늑대 체력 30 문제는 별도 비교 항목. 게임명·파일명 변경 없음.
+- 규칙 테스트 42/42. HTML 대조 14개 중 13개 동일, `dodge_cd_after`만 규칙 변경으로 다름(재사용 시작 시점 출발 기준).
+- 실제 씬 시연(`PROPHECY_DODGE_DEMO`, 스크립트 입력, 사람 키보드 아님) 결과 — 탭 / 0.15초 / 0.6초 누름 / 대기 중 누름 / 2.5초 계속 누름:
+  - hold·1.5: 회피 4회(대기 중 누름은 발동 없음), 거리 [70.0, 91.3, 150.0, 150.0] (가변 fps) / 영상(30fps 고정) [70.0, 76.9, 150.0, 150.0] — 중간 해제 값의 차이는 해제 시각의 프레임 양자화, 마지막 회피 뒤 남은 대기 0, 뗀 뒤 누름 상태 false
+  - fixed·1.5: [150.0, 150.0, 150.0, 150.0], 4회(탭도 150)
+  - fixed·0.9: [150.0 ×4] / hold·0.9: [70.0, 86.5, 150.0, 150.0]
+- 봇 전투(시드 7, hold·1.5): 승리 11.69초, 처치 5, 공격 14(명중 14), 받은 피해 12, 회피 4회 거리 [150, 150, 88, 150](88은 장애물에 막힘), 회피! 0, 감속장 1. 일시정지 검사 3항목 true(시간·회피/Q 대기 정지, 재개 시 대기 입력 폐기)
+- 봇 정책 변경: 입력 형식만 바꿈(press 1회 + 회피가 끝날 때까지 held → 항상 최대 거리 시도). 판단 논리(통로 안이면 옆으로 회피·접근·Q)는 그대로. 봇은 거리를 고르지 않는다.
+- 미결(사용자 판단): 막힌 채 누르면 거리 0으로 끝나며 대기 시간을 소모한다 / 0.9 비교 설정은 과거(종료 기준)와 재사용 시작 시점이 다르다 / 회피 중 이동 입력 무시(HTML과 같음)를 유지할지.

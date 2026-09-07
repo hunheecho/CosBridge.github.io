@@ -1,13 +1,13 @@
 class_name PBot
 extends RefCounted
-## 봇 입력(시험·영상용). 사람 입력과 같은 {mx,my,dodge,special}를 만든다. HTML 'aggressive' 정책의 축약: 확정된 돌진 통로 안이면 옆으로 회피, 아니면 가장 가까운 적에게 접근, 200 안에 2마리 이상이면 Q
+## 봇 입력(시험·영상용). 사람 입력과 같은 {mx,my,dodge_press,dodge_held,special}를 만든다. 회피 정책: 확정 통로 안이면 새로 누르고(press), 회피가 끝날 때까지 계속 누른다(held → 항상 최대 거리). 규칙 우회·즉시 종료 처리 없음. HTML 'aggressive' 정책의 축약: 확정된 돌진 통로 안이면 옆으로 회피, 아니면 가장 가까운 적에게 접근, 200 안에 2마리 이상이면 Q
 ## 판단 주기 5스텝(HTML DECIDE_STEPS와 동일)
 
-var last: Dictionary = { "mx": 0.0, "my": 0.0, "dodge": false, "special": false }
+var last: Dictionary = { "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": false, "special": false }
 
 func step_input(st: CombatState) -> Dictionary:
 	if st.step_n % 5 != 0:
-		return { "mx": last.mx, "my": last.my, "dodge": false, "special": false }
+		return { "mx": last.mx, "my": last.my, "dodge_press": false, "dodge_held": bool(last.dodge_held) or st.player.dodge_active, "special": false }
 	last = decide(st)
 	return last
 
@@ -52,4 +52,4 @@ func decide(st: CombatState) -> Dictionary:
 	if near >= 2 and p.special_cd <= 0.0:
 		special = true
 	var n2 := PGeom.norm(mx, my)
-	return { "mx": n2[0], "my": n2[1], "dodge": dodge, "special": special }
+	return { "mx": n2[0], "my": n2[1], "dodge_press": dodge, "dodge_held": dodge or p.dodge_active, "special": special }

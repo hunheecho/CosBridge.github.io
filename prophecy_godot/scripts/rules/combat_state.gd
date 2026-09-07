@@ -1,7 +1,8 @@
 class_name CombatState
 extends RefCounted
 ## 첫 전투 규칙(순수 시뮬레이션). 화면·입력 장치·저장소를 모르며, 고정 단계 step(input, dt)로만 진행한다.
-## 입력 = {mx, my, dodge, special} (게임 행동). 사람 입력과 봇 입력이 같은 함수를 쓴다.
+## 입력 = {mx, my, dodge_press, dodge_held, special} (게임 행동). dodge_press = 이 단계에서 새로 누름(1회성), dodge_held = 지금 누르고 있음(상태).
+## 사람 입력과 봇 입력이 같은 함수를 쓴다. 회피 규칙은 docs/RULES.md §회피.
 ## 이식 원본: prophecy_action_prototype/src/combat.js·weapons.js·skills.js (v0.8.0, ee10fc7). 차이는 docs/PORT_NOTES.md에 적는다.
 
 var cfg: Dictionary
@@ -23,7 +24,7 @@ var arena_w: float
 var arena_h: float
 var effects: Array = []   # 표시용 이벤트(화면이 읽기만 한다): {kind, x, y, ttl, t, ...}
 var events: Array = []    # 소리·통계용 이벤트 이름
-var stats: Dictionary = { "kills": 0, "damage_taken": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "perfect_dodges": 0, "elapsed": 0.0 }
+var stats: Dictionary = { "kills": 0, "damage_taken": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [] }
 var metrics: Dictionary = { "dmg": {}, "taken": {}, "enemies": {} } # 피해 출처별 유효 피해(과잉 제외), 받은 피해 원인별
 var settled: bool = false
 var _next_id: int = 1
@@ -43,6 +44,7 @@ func _init(config: Dictionary, seed_v: int = 1) -> void:
 		"x": float(P.start.x), "y": float(P.start.y), "r": float(P.r), "hp": float(P.hp), "hp_max": float(P.hp),
 		"face": 0.0, "moving": false,
 		"dodge_active": false, "dodge_t": 0.0, "dodge_dx": 0.0, "dodge_dy": 0.0, "dodge_cd": 0.0,
+		"dodge_dist": 0.0, "dodge_released": false, "dodge_end": "",
 		"hit_prot": 0.0, "attack_timer": float(cfg.weapon.first_attack_delay), "swing_t": 9.0, "swing_angle": 0.0,
 		"special_cd": 0.0, "dead": false, "flash": 0.0, "hurt_t": 9.0,
 	}
@@ -384,27 +386,48 @@ func update_player(input: Dictionary, dt: float) -> void:
 	p.moving = mv[0] != 0.0 or mv[1] != 0.0
 	if p.moving:
 		p.face = atan2(mv[1], mv[0])
-	# 회피: 같은 단계에서 즉시 시작(입력 반응성, dt 독립 거리)
-	if not p.dodge_active and bool(input.get("dodge", false)) and p.dodge_cd <= 0.0:
+	# 회피(docs/RULES.md §회피): 누르는 순간(dodge_press) 같은 단계에서 즉시 출발. 방향은 시작 순간 고정
+	# (이동 입력이 있으면 그 방향, 없으면 마지막 바라보는 방향 face). 재사용 대기는 시작 순간부터 센다.
+	var D: Dictionary = P.dodge
+	if not p.dodge_active and bool(input.get("dodge_press", false)) and p.dodge_cd <= 0.0:
 		var d := mv if p.moving else [cos(p.face), sin(p.face)]
 		p.dodge_active = true
 		p.dodge_t = 0.0
+		p.dodge_dist = 0.0
+		p.dodge_released = false
+		p.dodge_end = ""
 		p.dodge_dx = d[0]
 		p.dodge_dy = d[1]
+		p.dodge_cd = float(D.cooldown)
 		stats.dodges += 1
 		_ev("dodge")
-	var D: Dictionary = P.dodge
+	if p.dodge_cd > 0.0:
+		p.dodge_cd = maxf(0.0, p.dodge_cd - dt)
+		if p.dodge_cd < 1e-6:
+			p.dodge_cd = 0.0 # 고정 단계 누적 오차로 0이 안 되는 것 방지(정확히 cooldown/STEP 단계 뒤 재사용 가능)
 	if p.dodge_active:
-		var use_dt := minf(dt, maxf(0.0, float(D.duration) - p.dodge_t))
+		# 누름 상태: 떼면(hold 방식) 최소 거리를 채운 시점에 끝난다. fixed 방식은 떼도 최대 거리까지 간다.
+		if not bool(input.get("dodge_held", false)):
+			p.dodge_released = true
+		var spd := float(D.distance) / float(D.duration) # 회피 속도는 일정(150/0.26)
+		var target := float(D.distance)
+		if String(D.mode) == "hold" and p.dodge_released:
+			target = maxf(float(D.min_distance), p.dodge_dist)
+		var remain := maxf(0.0, target - p.dodge_dist)
+		var want := minf(spd * dt, remain) # 마지막 이동량은 남은 거리로 제한(초과 이동 없음)
+		var x0: float = p.x
+		var y0: float = p.y
+		var blocked := false
+		if want > 0.0:
+			var res := move_swept(p, p.dodge_dx * want, p.dodge_dy * want)
+			blocked = String(res.hit) != "" # 바위·나무·경계에 막히면 그 자리에서 종료(붙어서 무적 유지 없음)
+		p.dodge_dist += PGeom.dist(x0, y0, p.x, p.y)
 		p.dodge_t += dt
-		var spd := float(D.distance) / float(D.duration)
-		move_swept(p, p.dodge_dx * spd * use_dt, p.dodge_dy * spd * use_dt)
-		if p.dodge_t >= float(D.duration):
-			p.dodge_active = false
-			p.dodge_cd = float(D.cooldown) - (p.dodge_t - float(D.duration))
+		if blocked or p.dodge_dist >= target - 1e-6 or p.dodge_t >= float(D.duration) - 1e-9:
+			p.dodge_active = false # 무적(dodge_active)은 회피 이동과 함께 끝난다
+			p.dodge_end = "blocked" if blocked else ("max" if p.dodge_dist >= float(D.distance) - 1e-6 else "release")
+			stats.dodge_dists.append(snapped(p.dodge_dist, 0.1))
 	else:
-		if p.dodge_cd > 0.0:
-			p.dodge_cd -= dt
 		move_swept(p, mv[0] * float(P.speed) * dt, mv[1] * float(P.speed) * dt, true)
 	if bool(input.get("special", false)) and p.special_cd <= 0.0:
 		cast_slowfield()
@@ -628,4 +651,4 @@ func summary() -> Dictionary:
 	var total := 0.0
 	for k in metrics.dmg:
 		total += metrics.dmg[k]
-	return { "status": status, "elapsed": snapped(t, 0.01), "hp": player.hp, "hp_max": player.hp_max, "kills": stats.kills, "damage_taken": stats.damage_taken, "attacks": stats.attacks, "hits": stats.hits, "dodges": stats.dodges, "special_uses": stats.special_uses, "dmg": metrics.dmg.duplicate(), "dmg_total": snapped(total, 0.1), "taken": metrics.taken.duplicate(), "enemies": metrics.enemies.duplicate(true), "steps": step_n, "seed": seed_value }
+	return { "status": status, "elapsed": snapped(t, 0.01), "hp": player.hp, "hp_max": player.hp_max, "kills": stats.kills, "damage_taken": stats.damage_taken, "attacks": stats.attacks, "hits": stats.hits, "dodges": stats.dodges, "special_uses": stats.special_uses, "dmg": metrics.dmg.duplicate(), "dmg_total": snapped(total, 0.1), "taken": metrics.taken.duplicate(), "enemies": metrics.enemies.duplicate(true), "steps": step_n, "seed": seed_value, "dodge_mode": String(cfg.player.dodge.mode), "dodge_cooldown": float(cfg.player.dodge.cooldown), "dodge_dists": stats.dodge_dists.duplicate(), "perfect_dodges": stats.perfect_dodges }

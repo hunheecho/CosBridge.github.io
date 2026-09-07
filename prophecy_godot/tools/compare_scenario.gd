@@ -5,7 +5,8 @@ extends SceneTree
 const STEP := 1.0 / 120.0
 
 func _init() -> void:
-	var cfg: Dictionary = preload("res://scripts/game/game.gd").load_config()
+	# HTML 대조는 옛 회피 규칙(고정 150·재사용 0.9)으로 잰다. 재사용 시작 시점은 Godot이 '출발 순간', HTML은 '종료 시점'이라 dodge_cd_after만 다른 것이 정상(RULES.md §회피)
+	var cfg: Dictionary = preload("res://scripts/game/game.gd").config_with_dodge(preload("res://scripts/game/game.gd").load_config(), "fixed", 0.9)
 	var out := {}
 	# 이동 1초
 	var st := CombatState.new(cfg, 1); st.waves = [[{ "type": "wolf", "n": 1 }]]; st.wave_timer = 1.0e9
@@ -23,10 +24,10 @@ func _init() -> void:
 	# 회피 거리·무적 시간·재사용
 	st = CombatState.new(cfg, 1); st.waves = [[{ "type": "wolf", "n": 1 }]]; st.wave_timer = 1.0e9
 	y0 = st.player.y
-	st.step({ "my": -1.0, "dodge": true }, STEP)
+	st.step({ "my": -1.0, "dodge_press": true, "dodge_held": true }, STEP)
 	var inv_steps := 0
 	while st.player.dodge_active and inv_steps < 200:
-		st.step({}, STEP)
+		st.step({ "dodge_held": true }, STEP)
 		inv_steps += 1
 	out["dodge_dist"] = snapped(y0 - st.player.y, 0.001)
 	out["dodge_invuln_steps"] = inv_steps + 1
