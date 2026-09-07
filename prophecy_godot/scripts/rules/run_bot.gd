@@ -229,7 +229,7 @@ func _fight(sortie: Dictionary, pre: CombatState = null) -> CombatState:
 	var st: CombatState = pre if pre != null else PFlow.make_encounter(run, sortie)
 	_t0 = clock
 	_card_sec = 0.0
-	PBot.run_combat(st, bot_policy, { "max_sec": ENCOUNTER_MAX_SEC, "on_level_up": Callable(self, "_on_level_up").bind(sortie) })
+	PBot.run_combat(st, bot_policy, _bot_opts({ "max_sec": ENCOUNTER_MAX_SEC, "on_level_up": Callable(self, "_on_level_up").bind(sortie) }))
 	T.combat = float(T.combat) + st.t
 	clock = _t0 + st.t + _card_sec
 	L.encounters = int(L.encounters) + 1
@@ -249,6 +249,15 @@ func _fight(sortie: Dictionary, pre: CombatState = null) -> CombatState:
 		st.delayed.clear() # 전투 밖 정리: 남은 지연 람다의 순환 참조 해제(규칙 아님)
 	_log("fight %s%s: %s t=%.1f hp=%.0f kills=%d lv=%d" % [String(sortie.regionId), " deep" if bool(sortie.get("deep", false)) else "", st.status, st.t, float(st.player.hp), int(st.stats.kills), int(run.growth.level)])
 	return st
+
+## 전투 봇: 기존 정책(문자열)이면 PBot.run_combat이 만들고, 실력 프로필(novice/regular/skilled, docs/BOT_FRAMEWORK.md)이면 전투마다 PSkillBot을 만든다.
+## 봇 난수는 회차 시드·전투 순번에서만(게임 난수와 분리). 사람 보정 미완료
+var _bot_n: int = 0
+func _bot_opts(o: Dictionary) -> Dictionary:
+	if PSkillBot.profile_ids().has(bot_policy):
+		_bot_n += 1
+		o.bot = PSkillBot.new(bot_policy, int(run.seed) * 101 + _bot_n * 7)
+	return o
 
 func _settle_win(sortie: Dictionary, st: CombatState) -> void:
 	PFlow.settle_victory(run, sortie, st)
@@ -304,7 +313,7 @@ func _boss_gate() -> bool:
 		if int(run.get("bossRetries", 0)) == 0:
 			(L.gateBuilds as Array).append({ "stage": int(bs.stage), "bossId": String(bs.bossId), "day": int(run.day), "level": int(g.level), "growth": g.duplicate(true), "equipment": (run.equipment as Dictionary).duplicate(), "forge": int(run.forge), "gold": int(run.gold), "hpMax": float(PRun.build(run).hp_max) })
 		var st := PFlow.make_boss_encounter(run, bs)
-		PBot.run_combat(st, bot_policy, { "max_sec": BOSS_MAX_SEC })
+		PBot.run_combat(st, bot_policy, _bot_opts({ "max_sec": BOSS_MAX_SEC }))
 		if st.status == "running":
 			st.status = "timeout"
 			st.delayed.clear()
@@ -447,7 +456,7 @@ func _choose_sortie(acts: Array) -> Dictionary:
 
 # ---------- 회차 전체 ----------
 func _new_log() -> Dictionary:
-	return { "takenByDay": [], "combatSecByDay": [], "restsByDay": [], "powerByDay": [], "spentByDay": [], "firstBuy": {}, "gateBuilds": [], "goldEarnedByDay": [], "goldSpent": 0,
+	return { "takenByDay": [], "matsByDay": [], "combatSecByDay": [], "restsByDay": [], "powerByDay": [], "spentByDay": [], "firstBuy": {}, "gateBuilds": [], "goldEarnedByDay": [], "goldSpent": 0,
 		"equipBought": [], "skillsBought": 0, "swaps": 0, "forge": 0, "deepRewards": [], "daysLostToDefeat": 0, "steered": 0, "encounters": 0, "losses": 0, "timeouts": 0, "rests": 0,
 		"deeps": 0, "cards": 0, "cardsInCombat": 0, "deepPicks": 0, "missions": 0, "missionPicks": 0, "eventCount": 0, "eventChoices": [], "eventFights": 0, "levelUpsByDay": [],
 		"weapon2": null, "weapon3": null, "eSkill": null, "events": [], "spawned": 0, "executed": 0, "dba": 0, "killedN": 0, "taken": 0.0, "bossTaken": 0.0, "bossPatterns": {},
@@ -462,7 +471,7 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 	strat_id = strat if STRATS.has(strat) else "gradual"
 	S = STRATS[strat_id]
 	bot_policy = String(o.get("bot_policy", "balanced"))
-	if not PBot.policies().has(bot_policy) and bot_policy != "stand" and bot_policy != "active":
+	if not PBot.policies().has(bot_policy) and bot_policy != "stand" and bot_policy != "active" and not PSkillBot.profile_ids().has(bot_policy):
 		bot_policy = "balanced"
 	max_retries = int(o.get("max_retries", 3))
 	stop_day = int(o.get("stop_day", 0))
@@ -571,6 +580,7 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 		(L.goldEarnedByDay as Array).append(int(run.gold) + int(L.goldSpent) - gold_start)
 		L.steered = int(run.growth.get("picks", {}).get("steered", 0))
 		(L.takenByDay as Array).append(int(round(float(L.taken) - taken_start)))
+		(L.matsByDay as Array).append({ "day": day_start, "mats": (run.mats as Dictionary).duplicate(), "gold": int(run.gold), "equipment": (run.equipment as Dictionary).duplicate(), "bag": (run.bag as Array).duplicate() }) # 제작 재료 도달 시점 측정(craft_economy)
 		(L.combatSecByDay as Array).append(int(round(float(T.combat) - combat_start)))
 		(L.restsByDay as Array).append(int(L.rests) - rest_start)
 		(L.spentByDay as Array).append(int(L.goldSpent) - spent_start)
@@ -590,7 +600,7 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 		else:
 			L.stopReason = "days"
 			break
-	if String(run.phase) == "boss_prep" and not (max_days > 0 and int(run.day) > max_days):
+	if String(run.phase) == "boss_prep" and String(L.stopReason) != "boss_failed" and not (max_days > 0 and int(run.day) > max_days): # 재도전 소진 뒤 추가 시도 없음(이전 보고서의 4번째 행은 이 중복 호출)
 		_boss_gate()
 	if endless_segments > 0 and String(run.phase) == "cleared":
 		_endless_loop()
@@ -613,7 +623,7 @@ func _endless_loop() -> void:
 				break
 			var bs: Dictionary = bs_v
 			var st := PFlow.make_boss_encounter(run, bs)
-			PBot.run_combat(st, bot_policy, { "max_sec": BOSS_MAX_SEC })
+			PBot.run_combat(st, bot_policy, _bot_opts({ "max_sec": BOSS_MAX_SEC }))
 			if st.status == "running":
 				st.status = "timeout"
 				st.delayed.clear()

@@ -173,7 +173,10 @@ var new_run_opts := {} # 검증 메뉴에서 정한 새 회차 옵션 { seed, de
 func start_run(weapon_id: String) -> void:
 	fight_kind = "run"
 	var seed_use: int = int(new_run_opts.get("seed", _auto_seed if _auto else 0))
-	run = PRun.new_run(seed_use, weapon_id, "", { "density_set": String(new_run_opts.get("density_set", "")), "route": new_run_opts.get("route", []), "profile": profile, "eligible": true })
+	var route_v: Array = new_run_opts.get("route", [])
+	if route_v.is_empty() and _auto and OS.get_environment("PROPHECY_UI_ROUTE") != "": # 자동 진행 스모크의 경로 고정(예: 기존 보스 3종 경로)
+		route_v = Array(OS.get_environment("PROPHECY_UI_ROUTE").split(",")).map(func(t): return String(t))
+	run = PRun.new_run(seed_use, weapon_id, "", { "density_set": String(new_run_opts.get("density_set", "")), "route": route_v, "profile": profile, "eligible": true })
 	new_run_opts = {}
 	sortie = {}
 	last_profile_award = {}
@@ -1289,6 +1292,21 @@ func _auto_tick() -> void:
 					start_boss()
 					_auto_state = "boss"
 					_auto_wait = 2
+				"endless": # 무한 모드(전체 진행 모드): 무한 거점 → 전투 1회(봇) → 정산 → 마치기 → 결과
+					_auto_shot("34_endless_home")
+					if String(run.phase) == "endless":
+						use_bot = true
+						endless_fight()
+						_auto_state = "endless_combat"
+						_auto_wait = 2
+					else:
+						_auto_state = "endless_after"
+				"endless_after":
+					_auto_shot("35_endless_after_fight")
+					print("UI_SMOKE endless=", JSON.stringify(PEndless.summary(run)))
+					endless_quit()
+					_auto_state = "endless_done"
+					_auto_wait = 4
 				_:
 					_auto_finish()
 		"combat":
@@ -1316,12 +1334,12 @@ func _auto_tick() -> void:
 		"after":
 			_auto_shot("12b_after")
 			return_home()
-			_auto_state = "days" if _auto_done.has("17_stats") else "tour"
+			_auto_state = "endless_after" if _auto_state.begins_with("endless") else ("days" if _auto_done.has("17_stats") else "tour")
 			_auto_wait = 4
 		"defeat":
 			_auto_shot("12d_defeat")
 			after_defeat()
-			_auto_state = "days" if _auto_done.has("17_stats") else "tour"
+			_auto_state = "endless_done" if _auto_state.begins_with("endless") else ("days" if _auto_done.has("17_stats") else "tour")
 			_auto_wait = 4
 		"shop":
 			_auto_shot("14_shop")
@@ -1342,13 +1360,22 @@ func _auto_tick() -> void:
 			_auto_wait = 4
 		"boss_result":
 			_auto_shot("19_bossresult")
+			if int(run.get("bossRetries", 0)) >= 4: # 같은 관문에서 봇이 계속 지면 무한 재도전 대신 종료(관찰 기록)
+				print("UI_SMOKE boss_stuck boss=", String(PRun.next_boss(run).get("id", "?")), " retries=", int(run.bossRetries), " day=", int(run.day), " level=", int(run.growth.level))
+				_auto_finish()
+				return
 			if _auto_step("c1", func(): go_base(); save_run(); go_title(); _auto_state = "continue"):
 				return
 			go_base() # 2·3번째 관문(전체 진행 모드): 거점으로 돌아가 다음 날 계속
 			_auto_state = "days"
 			_auto_wait = 4
 		"run_result":
+			if _auto_state == "endless_done":
+				_auto_shot("36_endless_result")
 			_auto_shot("32_run_result")
+			if _auto_full and _auto_state != "endless_done" and PEndless.can_start(run):
+				if _auto_step("e1", func(): start_endless(); _auto_state = "endless"):
+					return
 			if _auto_step("r1", func(): new_run_flow(); _auto_state = "newrun"):
 				return
 		"result": # 검증 메뉴 빠른 전투(시작 기술 비교 → 관문 빌드 보스전)의 결과 패널

@@ -111,7 +111,7 @@ func _init() -> void:
 	ok("1~9일 첫 승리 기록 합계 6.0(2/3 × 9), 같은 날 반복 지급 없음", is_equal_approx(snapped(total, 0.001), 6.0) and is_equal_approx(snapped(float(prof.records), 0.001), 6.0), "%.3f" % total)
 	ok("레벨 계산이 소수 기록을 받는다: 6.0 → Lv2(문턱 4), 3.999 → Lv1", PProfile.level_of(6.0) == 2 and PProfile.level_of(3.999) == 1)
 	# ---------- 봇 완주(기존 적·보스, 10일) ----------
-	var rec := PRunBot.simulate(1, "gradual", { "start": "sword", "bot_policy": "balanced", "max_retries": 3 })
+	var rec := PRunBot.simulate(1, "gradual", { "start": "sword", "bot_policy": "balanced", "max_retries": 3, "legacy_places": true }) # 10일 구조 검증은 기존 적·보스(옛 지역 일정). 테마 경로 완주는 theme_tests·route_smoke
 	ok("회차 봇 gradual 시드 1: 10일 구조 완주(cleared), 관문 3 처치, 마지막 날 10", bool(rec.get("cleared", false)) and int(rec.get("day", 0)) == 10 and (rec.get("bosses", []) as Array).size() >= 3 or bool(rec.get("cleared", false)), JSON.stringify({ "cleared": rec.get("cleared"), "day": rec.get("day"), "level": rec.get("level"), "bosses": rec.get("boss", rec.get("bosses", "")) }))
 	var pass_n := 0
 	for r in results:

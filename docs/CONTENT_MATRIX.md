@@ -201,6 +201,9 @@ E는 1개, 차 있으면 습득 카드 없음(교체는 상점). 일제 공격(�
 | stats:hits | 선택 계측: 공격 관측(시작/고정/활성/종료·결과 4종)·피격 사건(명목/경감/흡수/유효/과잉·전후 상태·당시 인식 위협)·거절 이유·HP 검산·보호막 부여/흡수/만료·피격 태그 9종(당시 조건). PStats 재사용(보유시간 DPS) | 없음(신규) | 구현(hit_recorder.gd + combat_state 훅; bot_tests 6·7) | 포함 — 게임 결과·난수 불변(켜짐/꺼짐 동일) |
 | bot:replay | 입력 기록·재생 `prophecy_replay/1`: 머리말(버전·커밋·데이터 해시·시나리오·seed), 변경 항목만, 일시정지 표식, 120단계 상태 해시 대조, 버전 불일치 거부. 검증 메뉴 '이번 전투 입력 기록'(사람 입력, 로컬) | 없음(신규) | 구현(replay.gd·step_driver 훅·main/title; bot_tests 5d·8·10b) | 포함 |
 | bot:batch | 배치 실행기: 시나리오(기준 늑대25·능선 3일차·습지 4일차·보스 3) × 프로필 × seed, results.jsonl 증분·meta 캐시 키·재개·벽시계 예산·처리량 측정·Wilson CI 보고서 | 없음(신규) | 구현(tools/bot_batch.gd·bot_batch_core.gd; bot_tests 9) | 포함 — 첫 비교 `prophecy_godot/docs/sim/BOT_COMPARE.md` |
+| sim:stop3_skill | 3일차 성장 중단 vs 정상 성장 × 봇(balanced·novice·regular·skilled) 회차 비교(받은 피해·휴식·보스 패턴·완주) | 사용자 지시(4단계) | 없음(신규) | 구현(tools/stop3_skill.gd → docs/sim/STOP3_SKILL.md·STOP3_SKILL_BASE.md) | 포함 | 사람 보정 미완료 |
+| sim:craft_economy | 제작 재료 접근성·기회비용(실제 경로 9개, 봇, 날짜별 재료 스냅샷 matsByDay) | 사용자 지시(4단계)·초안 §7 | 없음(신규) | 구현(tools/craft_economy.gd → docs/sim/CRAFT_ECONOMY.md, run_bot matsByDay) | 포함 | 봇은 제작하지 않음 |
+| sim:route_smoke | 27경로 × 시작 기술 × 시드 봇 완주 스모크 | 계획서 §12 | 없음(신규) | 구현(tools/route_smoke.gd → docs/sim/ROUTE_SMOKE.md) | 포함 | 기술 스모크 |
 
 ## M. 영구 성장·해금·제작 (godot-0.4.3, `prophecy_godot/data/meta.json` — 손으로 작성한 시험값) — 방향 사용자 합의(D39), 수치 Codex 초안(사용자 승인 아님)
 | ID | 내용 | 설계 | HTML | Godot | 포함 | 검증 |

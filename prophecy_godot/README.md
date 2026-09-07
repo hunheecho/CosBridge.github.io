@@ -36,6 +36,8 @@ godot --headless --path prophecy_godot -s tests/world_tests.gd        # 세계 �
 godot --headless --path prophecy_godot -s tests/acts_tests.gd         # 10일·3막 본편 구조(관문 4/7/10·막·장소·영구 기록 2/3·봇 완주)
 godot --headless --path prophecy_godot -s tests/endless_tests.gd      # 무한 모드·정복자(APPDATA 격리 필요: 프로필·저장 파일 사용)
 godot --headless --path prophecy_godot -s tests/theme_tests.gd        # 테마 경로(카탈로그 정합·추첨·템플릿·전장·태그·봇 완주)
+PROPHECY_SIM_SEEDS=1,2,3 godot --headless --path prophecy_godot -s tools/stop3_skill.gd   # 3일차 성장 중단 vs 정상 성장 × 봇(balanced·novice·regular·skilled) → docs/sim/STOP3_SKILL.md (사람 보정 미완료)
+PROPHECY_SIM_SEEDS=1,2 godot --headless --path prophecy_godot -s tools/craft_economy.gd  # 제작 재료 접근성·기회비용(실제 경로 9개, 봇) → docs/sim/CRAFT_ECONOMY.md
 PROPHECY_SIM_SEEDS=1 godot --headless --path prophecy_godot -s tools/route_smoke.gd   # 구현된 경로 × 시작 기술 봇 완주 스모크 → docs/sim/ROUTE_SMOKE.md
 godot --headless --path prophecy_godot -s tests/content_tests.gd      # 반복 콘텐츠(회차 특징·사전 편성·강적의 흔적·보스 계획·밀도 비교 회차) 28
 godot --headless --path prophecy_godot -s tests/ui_flow_tests.gd      # 화면 계층(실제 main.tscn: 전투 중 종료 체크포인트·HUD 보호막) 14 — user:// 저장을 쓰므로 APPDATA를 별도 폴더로 두고 실행
