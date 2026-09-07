@@ -31,6 +31,26 @@ static func in_arc(cx: float, cy: float, r: float, ang: float, half: float, px: 
 	var extra := asin(minf(1.0, pr / maxf(d, 1e-6)))
 	return dd <= half + extra
 
+## 원(p, pr)이 시작 s에서 각도 ang 방향 길이 L, 폭 W인 직사각형과 겹치는가(HTML inBeam)
+static func in_beam(sx: float, sy: float, ang: float, L: float, W: float, px: float, py: float, pr: float) -> bool:
+	var dx := px - sx
+	var dy := py - sy
+	var ca := cos(ang)
+	var sa := sin(ang)
+	var along := dx * ca + dy * sa
+	var side := -dx * sa + dy * ca
+	return along >= -pr and along <= L + pr and absf(side) <= W / 2.0 + pr
+
+## 점과 선분의 거리(회전 칼날 살 판정)
+static func dist_seg(px: float, py: float, x0: float, y0: float, x1: float, y1: float) -> float:
+	var dx := x1 - x0
+	var dy := y1 - y0
+	var l2 := dx * dx + dy * dy
+	var t := 0.0
+	if l2 > 0.0:
+		t = clampf(((px - x0) * dx + (py - y0) * dy) / l2, 0.0, 1.0)
+	return dist(px, py, x0 + dx * t, y0 + dy * t)
+
 ## 선분 (x0,y0)->(x1,y1)이 원(cx,cy,r)에 처음 닿는 t(0..1). 시작점이 안이면 0. 안 닿으면 -1
 static func seg_circle_t(x0: float, y0: float, x1: float, y1: float, cx: float, cy: float, r: float) -> float:
 	var fx := x0 - cx
@@ -63,3 +83,6 @@ static func seg_circle(x0: float, y0: float, x1: float, y1: float, cx: float, cy
 	var px := x0 + dx * t
 	var py := y0 + dy * t
 	return dist(cx, cy, px, py) <= r
+
+static func deg(d: float) -> float:
+	return d * PI / 180.0

@@ -12,7 +12,7 @@ const MAX_SEC := 240.0
 func run_one(fid: String, pol: String, seed_v: int) -> Dictionary:
 	var G := preload("res://scripts/game/game.gd")
 	var cfg: Dictionary = G.config_with(G.load_config(), "hold", 1.5, fid, 2)
-	var st := CombatState.new(cfg, seed_v)
+	var st := CombatState.first_fight(cfg, seed_v)
 	var bot := PBot.new(pol)
 	var n := 0
 	var us0 := Time.get_ticks_usec()

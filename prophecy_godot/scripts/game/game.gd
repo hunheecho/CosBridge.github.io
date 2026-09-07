@@ -51,7 +51,7 @@ func current_config() -> Dictionary:
 
 func new_combat(seed_v: int) -> CombatState:
 	last_seed = seed_v
-	return CombatState.new(current_config(), seed_v)
+	return CombatState.first_fight(current_config(), seed_v)
 
 static func dodge_mode_name(mode: String) -> String:
 	return "누르는 시간에 따른 거리 조절" if mode == "hold" else "고정 거리(기존)"

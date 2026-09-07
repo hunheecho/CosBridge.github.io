@@ -13,11 +13,11 @@ func cfg() -> Dictionary:
 	return preload("res://scripts/game/game.gd").load_config()
 
 func mk(seed_v: int = 1) -> CombatState:
-	return CombatState.new(cfg(), seed_v)
+	return CombatState.first_fight(cfg(), seed_v)
 
 ## 회피 비교 설정을 적용한 상태(게임과 같은 경로: Game.config_with_dodge)
 func mk_dodge(mode: String, cooldown: float, seed_v: int = 1) -> CombatState:
-	return CombatState.new(preload("res://scripts/game/game.gd").config_with_dodge(cfg(), mode, cooldown), seed_v)
+	return CombatState.first_fight(preload("res://scripts/game/game.gd").config_with_dodge(cfg(), mode, cooldown), seed_v)
 
 const PRESS := { "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": true }
 const HOLD := { "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": true } # 이동 입력 없이 누르고 있음(걸어서 벽에 닿지 않게)
@@ -62,7 +62,7 @@ func no_sword(st: CombatState) -> void:
 
 func mk_formation(fid: String, seed_v: int = 1, dmax: int = 2) -> CombatState:
 	var G := preload("res://scripts/game/game.gd")
-	return CombatState.new(G.config_with(cfg(), "hold", 1.5, fid, dmax), seed_v)
+	return CombatState.first_fight(G.config_with(cfg(), "hold", 1.5, fid, dmax), seed_v)
 
 func _init() -> void:
 	var c := cfg()
