@@ -1,0 +1,31 @@
+PASS A1 제목 화면에 버전·기본 설정 — 액션 프로토타입 · 마검사의 준비 기간 · v0.8.0
+PASS A2 용어 사전 패널(제목) — {"overlay":"glossary","items":59}
+PASS B0 시작 화면 용어: 자동기술 — 시작 자동기술 선택
+PASS B1 새 회차: 1일차 새벽, 체력 100, 금화 60, 회전 칼날 Lv1 개조 0, Q Lv1, E 없음, 장비·강화·공용 없음, 장소 숲/능선(전멸) — {"screen":"base","day":1,"hours":5,"hp":100,"gold":60,"w":"blades1:0","q":1,"e":null,"eq":0,"forge":0,"commons":0,"places":"forest:clear,ridge:clear","slot":"새벽"}
+PASS C1 호버 툴팁 — {"hover":true,"pinned":0}
+PASS C2 클릭 고정 + 중첩 용어 존재 — {"pinned":1,"nested":3}
+PASS C3 중첩 툴팁 고정, 화면 안 배치 — {"pinned":2,"inView":true}
+PASS C4 Esc로 하나씩 닫힘 — 0
+PASS D1 구매 후 장착/보관, 중복 구매 불가 — {"eq":["chrono_staff"],"bag":["guardian_armor"],"gold":340,"again":false}
+PASS D2 가방 장비 판매 — {"gold":370,"bag":0}
+PASS D3 교체 확인 단계: 비용·변경 표시
+PASS D4 교체 취소 시 상태 불변
+PASS D5 대장간 1단계 개방, 2단계는 보스 전 잠김 — {"forge":1,"next":true}
+PASS E1 레벨업: 정지·입력 차단·후보 3 — {"overlay":"choice","paused":true,"blocked":true,"choices":3}
+PASS E2 승리 → 보상 화면 — reward
+PASS E3 더 깊이 미리보기 표시 — {"screen":"after","can":true,"pv":"equipment","hours":4}
+PASS E4 심층 전투: 시간 +1, 정예 포함 — {"screen":"combat","deep":true,"hours":3,"elite":true}
+PASS E5 심층 승리 뒤 귀환만, 표시된 보상이 전리품에 — {"screen":"after","deepBtn":false,"rewarded":true,"kind":"equipment","loot":{"gold":82,"mats":{"pelt":5},"chestGold":0,"items":["pioneer_spear"]}}
+PASS E6 귀환 정산: 금화·심층 보상 반영 — {"screen":"base","gold":362,"bag":1,"sv":0,"steer":false,"log":"1일차 · 근교 숲 귀환: 금화 +82, 늑대 가죽 5, 개척자의 창"}
+PASS F1 저장·계속(v4, 피해 통계 유지) — {"screen":"base","combats":2,"v":4}
+PASS F2 패배 → 남은 하루 상실 → 3일차 관문, 정상 체력 — {"screen":"defeat","day":3,"hp":100,"hpMax":100,"phase":"boss_prep"}
+PASS G1 보스 패배 → 입장 스냅샷 복구(레벨·금화), 재도전 카운트, 실패 통계 분리 — {"screen":"boss_defeat","snap":"[7,362]","retries":1,"failed":1}
+PASS G2 보스 승리 → 1단계 돌파, 그날 시간 시작 — {"screen":"boss_victory","stage":1,"hours":5}
+PASS G3 거점 피해 통계 패널·합계 검증, 대장간 2단계 개방 — {"stats":true,"verify":true,"forgeOpen":true}
+PASS H1 전투 중 마우스 이동만으로는 정지 없음 — {"paused":false}
+PASS H2 일시정지 메뉴에서 용어 사전 → 정지 유지 — {"overlay":"glossary","paused":true}
+PASS H3 사전 닫으면 일시정지 메뉴로 복귀 — {"overlay":"pause","paused":true}
+PASS H4 재개 — false
+PASS I1 v3 저장 → v4 변환: 옛 장비 환급·강화 단계 변환이 기록·표시됨 — {"btn":"계속하기 (2일차 · 금화 120 · 이전 버전 저장(변환됨))","v":4,"forge":2,"notes":["옛 장비 2개 → 금화 +60","대장간 강화 +2 → 공용 공격 강화 2단계"],"log":"2일차 · v0.8 규칙으로 변환: 옛 장비 2개 → 금화 +60, 대장간 강화 +2 → 공용 공격 강화 2단계","gold":120}
+PASS Z 페이지 오류 없음
+30/30 PASS

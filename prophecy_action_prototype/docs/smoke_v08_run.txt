@@ -1,0 +1,19 @@
+PASS S1 새 회차 거점 — {"screen":"base","hours":5,"cards":["forest:clear","ridge:clear"],"gold":60,"stock":2}
+PASS S2 출격(새벽 변주: 마지막 웨이브 없음) — {"screen":"combat","slot":0,"variant":"소규모 순찰","waves":2}
+PASS S3 승리 → 보상 화면 — {"screen":"reward"}
+PASS S4 다음 행동 화면(더 깊이 미리보기) — {"screen":"after","ev":null}
+PASS S5 더 깊이 카드: 시간·적 변화·보상·걸린 전리품 표시 — 더 깊이 (1회) 시간 +1칸 → 점심 적 변화웨이브마다 적 +1, 마지막에 정예(가시갈기) · 체력 ×1.5 보상장비 1개: 개척자의 창 (승리 시 전리품에 추가, 귀환 때 정산) 걸린 전리품금화 25, 늑대 가죽 1 패배하면 모두 잃고 남은 하루도 잃습니다 더 깊이 들어간다
+PASS S6 귀환 정산 — {"screen":"base","gold":85,"log":"1일차 · 근교 숲 귀환: 금화 +25, 늑대 가죽 1"}
+PASS S7 구매 후 장착 — {"eq":["guardian_armor"],"bag":0,"gold":380}
+PASS S8 구매 후 보관 — {"bag":["time_shield"],"gold":260}
+PASS S9 새 기술 구매 — {"w":2,"e":false}
+PASS S10 교체 화면 진행(확인 단계)
+PASS S11 교체 취소: 상태 불변 — [[{"id":"sword","level":1,"mods":[]},{"id":"orb","level":1,"mods":[]}],500]
+PASS S12 대장간 1단계 — {"forge":1,"gold":410}
+PASS S13 휴식(가득 찬 체력에서도 다음 칸) — {"hours":3,"slot":"점심"}
+PASS S14 하루 종료 전 내일 미리보기 — 하루를 마칠까요?남은 3칸을 버리고 2일차 새벽으로 넘어갑니다. 체력이 완전히 회복됩니다. 내일의 장소근교 숲 늑대·멧돼지·궁수포자 습지 포자 괴물·늑대·궁수상인 점심부터 방문 상인다음 보스까지 1일 하루 종료돌아가
+PASS S15 2일차: 숲(임무)/습지, 상인 예정 — {"day":2,"cards":["forest:rescue","marsh:hunt"],"merchant":true}
+PASS S16 패배 → 남은 하루 상실 → 3일차(관문) 정상 체력 — {"screen":"defeat","day":3,"hours":5,"hp":100,"hpMax":100,"gold":410}
+PASS S17 관문 화면 — {"screen":"base","phase":"boss_prep"}
+PASS S18 저장 복구(v4) — {"screen":"base","day":3,"forge":1,"bag":1,"v":4}
+PASS S19 페이지 오류 없음
