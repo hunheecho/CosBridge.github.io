@@ -49,6 +49,13 @@ var caster_cd: float = 0.0
 var caster_shield: Dictionary = {}
 var low_shield_used: bool = false
 var temp_buff: String = ""
+# 제작 전용 장비·영구 특성 상태(시험값 meta.json). 해당 장비/특성이 없으면 0·{}로 남아 기준 전투 경로에 영향이 없다
+var moon_shield: float = 0.0        # 월광 갑옷: 이 장비 몫의 보호막(감속장 안에서만 재생, 0이 되면 재생 없음)
+var reprisal_cd: float = 0.0        # 반격 방패 내부 재사용
+var relay_window: float = 0.0       # 연계 방패: Q 뒤 E까지 허용 창
+var relay_cd: float = 0.0
+var relay_shield: Dictionary = {}   # {amt, t} 연계 방패 보호막(만료 시 잔량 제거)
+var link_t: float = 0.0             # 특성 '연계 준비': E 사용 뒤 남은 창(연타로 갱신만)
 var level_ups: int = 0
 var xp_gained: float = 0.0
 var formation: Dictionary = {} # {units[], alive_cap, group, interval, type_caps{}, total}
@@ -75,7 +82,7 @@ var _in_step: bool = false
 var _next_id: int = 1
 
 static func _new_stats() -> Dictionary:
-	return { "kills": 0, "damage_taken": 0.0, "damage_taken_nominal": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "e_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "level_ups": 0, "max_alive": 0, "max_dash_states": 0, "max_bite_states": 0, "chest_gold": 0, "boss_damage": 0.0, "absorbed": 0.0, "healed": 0.0, "elite_kills": 0, "saving_kills": 0, "equip_procs": {}, "tier_spawned": {}, "tier_kills": {}, "max_enemy_projectiles": 0, "max_enemy_zones": 0, "max_webs": 0 }
+	return { "kills": 0, "damage_taken": 0.0, "damage_taken_nominal": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "e_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "level_ups": 0, "max_alive": 0, "max_dash_states": 0, "max_bite_states": 0, "chest_gold": 0, "boss_damage": 0.0, "absorbed": 0.0, "healed": 0.0, "elite_kills": 0, "saving_kills": 0, "equip_procs": {}, "tier_spawned": {}, "tier_kills": {}, "max_enemy_projectiles": 0, "max_enemy_zones": 0, "max_webs": 0, "field_hits": 0 }
 
 static func _new_metrics() -> Dictionary:
 	return { "dmg": {}, "taken": {}, "taken_hits": {}, "enemies": {}, "hits": {}, "patterns": {}, "absorbed": 0.0, "interrupts": 0, "webs": 0, "heals": 0, "heal_amount": 0.0, "far_frac": -1.0 }
@@ -142,6 +149,9 @@ func _init(o: Dictionary) -> void:
 		"hit_prot": 0.0, "zone_tick": 0.0, "swing_t": 9.0, "swing_form": "arc", "swing_angle": 0.0,
 		"special_cd": 0.0, "e_cd": 0.0, "dead": false, "flash": 0.0, "hurt_t": 9.0,
 	}
+	var EQ0: Dictionary = build.get("equip", {})
+	if EQ0.has("fieldRegen"): # 월광 갑옷: 시작 보호막 중 이 장비 몫(재생 상한)
+		moon_shield = minf(float(EQ0.get("startShield", 0.0)), float(EQ0.fieldRegen.max))
 	weapons = PWeapons.init(self)
 	PSkills.init(self)
 	# 편성(밀도 모델). 목표 전투는 PObjectives가 웨이브를 정하고 여기서 편성으로 바꾼다
@@ -743,8 +753,10 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 		nominal = amount
 	if direct_hit and float(build.toughness) > 0.0:
 		amount = round(amount * (1.0 - float(build.toughness)) * 10.0) / 10.0
+	var big_hit := false
 	if direct_hit and EQ.has("bigHit") and nominal >= p.hp_max * float(EQ.bigHit.frac): # 자격 판정은 경감 전 피해(world.json "경감 전 직접 피해 1회가 최대 체력의 20% 이상", F3)
 		amount = round(amount * (1.0 - float(EQ.bigHit.reduce)) * 10.0) / 10.0
+		big_hit = true
 		stats.equip_procs.iron_shield = int(stats.equip_procs.get("iron_shield", 0)) + 1
 	if direct_hit and EQ.has("fieldTaken") and attacker != null and in_field(attacker):
 		amount = round(amount * (1.0 - float(EQ.fieldTaken)) * 10.0) / 10.0
@@ -756,6 +768,10 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 		rest -= used
 		if not caster_shield.is_empty():
 			caster_shield.amt = maxf(0.0, float(caster_shield.amt) - used)
+		if moon_shield > 0.0:
+			moon_shield = maxf(0.0, moon_shield - used) # 월광 갑옷 몫도 같은 규칙으로 줄어든다(다른 출처와 같은 분리 방식)
+		if not relay_shield.is_empty():
+			relay_shield.amt = maxf(0.0, float(relay_shield.amt) - used)
 		PSkills.on_shield_damaged(self, used)
 		metrics.absorbed += used
 		stats.absorbed += used
@@ -763,6 +779,11 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 	if rest > 0.0:
 		p.hp -= effective
 		stats.damage_taken += effective
+	if big_hit and EQ.has("reprisal") and p.hp > 0.0 and reprisal_cd <= 0.0: # 반격 방패: 버틴 큰 타격 뒤 Q/E 남은 재사용 -1초(내부 재사용)
+		reprisal_cd = float(EQ.reprisal.cd)
+		p.special_cd = maxf(0.0, float(p.special_cd) - float(EQ.reprisal.cdReduce))
+		p.e_cd = maxf(0.0, float(p.get("e_cd", 0.0)) - float(EQ.reprisal.cdReduce))
+		stats.equip_procs.reprisal_shield = int(stats.equip_procs.get("reprisal_shield", 0)) + 1
 	stats.damage_taken_nominal += nominal
 	metrics.taken[src] = float(metrics.taken.get(src, 0.0)) + effective
 	metrics.taken_hits[src] = int(metrics.taken_hits.get(src, 0)) + 1
@@ -839,6 +860,16 @@ func damage_enemy(e: Dictionary, amount: float, opt = {}, knock_c: float = 0.0, 
 		dmg *= 1.0 + float(EQ.eliteDirect)
 	if direct and EQ.has("fieldDirect") and in_field(e):
 		dmg *= 1.0 + float(EQ.fieldDirect)
+	if direct and sr.has("weapon_id"): # 제작 전용 장비·영구 특성(시험값): 자동기술 직접 피해에만
+		if build.has("trait_dmg"):
+			dmg *= _trait_direct_mult(e, String(sr.weapon_id))
+		if EQ.has("statusDirect") and ((not e.burn.is_empty() and float(e.burn.t) > 0.0) or (not e.bleed.is_empty() and float(e.bleed.t) > 0.0)):
+			dmg *= 1.0 + float(EQ.statusDirect) # 혈월검: 출혈·화상 상태인 적에게만
+		if EQ.has("fieldMark"):
+			if float(e.get("echo_mark", -1.0)) > t:
+				dmg *= 1.0 + float(EQ.fieldMark.bonus) # 잔향의 지팡이: 표식 대상(감속장 밖에서도 남은 시간 동안)
+			if in_field(e):
+				e.echo_mark = t + float(EQ.fieldMark.dur) # 감속장 안 적중 → 표식(재적중은 시간만 갱신)
 	var sm := PEnemies.shield_mult(self, e, o)
 	if sm != 1.0:
 		dmg *= sm
@@ -849,6 +880,8 @@ func damage_enemy(e: Dictionary, amount: float, opt = {}, knock_c: float = 0.0, 
 		stats.boss_damage += effective
 	var k := src_key(o)
 	metrics.dmg[k] = float(metrics.dmg.get(k, 0.0)) + effective
+	if effective > 0.0 and not field.is_empty() and in_field(e):
+		stats.field_hits += 1 # 감속장 안(감속된) 적에게 유효 피해(영구 도전 판정용)
 	if float(e.first_hit_t) < 0.0:
 		e.first_hit_t = t
 	e.hp -= dmg
@@ -861,25 +894,26 @@ func damage_enemy(e: Dictionary, amount: float, opt = {}, knock_c: float = 0.0, 
 		knock_enemy(e, dir, knock)
 	PEnemies.on_damaged(self, e, dmg, o)
 	var dm := float(build.duration_mult)
+	var tdd: float = float(build.get("trait_dot_dur", 1.0)) # 특성 '지속 전문화': 내가 부여한 해로운 지속 효과 지속시간(없으면 ×1.0)
 	if direct:
 		if PBuild.has_common(build, "frost"):
-			e.chill = maxf(float(e.chill), float(cfg.frost.chill) * dm)
+			e.chill = maxf(float(e.chill), float(cfg.frost.chill) * dm * tdd)
 		if PBuild.has_common(build, "burn"):
 			var BV: Dictionary = PCatalog.growth().COMMON_VALUES.burn
 			var dd := 1.0 + float(EQ.get("dotDur", 0.0))
 			if e.burn.is_empty() or float(e.burn.dps) <= float(BV.dps):
 				var prev_t: float = float(e.burn.t) if not e.burn.is_empty() else 0.0
-				e.burn = { "t": maxf(prev_t, float(BV.dur) * dm * dd), "dps": float(BV.dps), "tick": float(e.burn.get("tick", 0.0)) if not e.burn.is_empty() else 0.0, "src": String(sr.get("weapon_id", "common")) }
+				e.burn = { "t": maxf(prev_t, float(BV.dur) * dm * dd * tdd), "dps": float(BV.dps), "tick": float(e.burn.get("tick", 0.0)) if not e.burn.is_empty() else 0.0, "src": String(sr.get("weapon_id", "common")) }
 		if PBuild.has_common(build, "stasis") and in_field(e):
 			e.stasis = mini(int(cfg.stasis.maxStacks), int(e.stasis) + 1)
 	if o.has("chill"):
-		e.chill = maxf(float(e.chill), float(o.chill) * dm)
+		e.chill = maxf(float(e.chill), float(o.chill) * dm * tdd)
 	if o.has("bleed") and sr.has("weapon"):
 		var dps := float(sr.weapon.damage) * 0.3
 		var dd2 := 1.0 + float(EQ.get("dotDur", 0.0))
 		if e.bleed.is_empty() or float(e.bleed.dps) <= dps:
 			var prev_b: float = float(e.bleed.t) if not e.bleed.is_empty() else 0.0
-			e.bleed = { "t": maxf(prev_b, float(o.bleed) * dd2), "dps": dps, "tick": float(e.bleed.get("tick", 0.0)) if not e.bleed.is_empty() else 0.0, "src": String(sr.get("weapon_id", "weapon")) }
+			e.bleed = { "t": maxf(prev_b, float(o.bleed) * dd2 * tdd), "dps": dps, "tick": float(e.bleed.get("tick", 0.0)) if not e.bleed.is_empty() else 0.0, "src": String(sr.get("weapon_id", "weapon")) }
 	PWeapons.on_hit(self, e, o, dmg)
 	fx({ "kind": "spark", "x": e.x, "y": e.y, "ttl": 0.22, "crit": crit, "angle": (atan2(dir[1], dir[0]) if not dir.is_empty() else 0.0) })
 	fx({ "kind": "text", "x": e.x + rng.range_f(-8.0, 8.0), "y": e.y - e.r - 6.0, "ttl": 0.8, "text": str(int(round(dmg))), "color": "#ffd166" if crit else "#ffffff" })
@@ -887,6 +921,24 @@ func damage_enemy(e: Dictionary, amount: float, opt = {}, knock_c: float = 0.0, 
 	if e.hp <= 0.0:
 		kill_enemy(e, o)
 	return dmg
+
+## 영구 특성(build.trait_dmg)의 자동기술 직접 피해 배율: 거리 조건(근/원거리 훈련)·단일 집중(시작 기술 ID 귀속)·연계 준비 창·지속 전문화 감소
+func _trait_direct_mult(e: Dictionary, weapon_id: String) -> float:
+	var T: Dictionary = build.trait_dmg
+	var m := 1.0
+	if T.has("near_dist") or T.has("far_dist"):
+		var d := PGeom.dist(player.x, player.y, e.x, e.y)
+		if T.has("near_dist") and d <= float(T.near_dist):
+			m *= float(T.near_mult)
+		if T.has("far_dist") and d >= float(T.far_dist):
+			m *= float(T.far_mult)
+	if T.has("focus_id"):
+		m *= float(T.focus_up) if weapon_id == String(T.focus_id) else float(T.focus_down)
+	if T.has("link_mult") and link_t > 0.0:
+		m *= float(T.link_mult)
+	if T.has("direct_mult"):
+		m *= float(T.direct_mult)
+	return m
 
 func _kill_enemy(e: Dictionary) -> void:
 	kill_enemy(e, {})
@@ -971,7 +1023,7 @@ func add_fire_at(x: float, y: float) -> bool:
 	var E: Dictionary = cfg.ember
 	if not valid_pos(x, y, 0.0):
 		return false
-	add_zone("fire", x, y, float(E.radius) * float(build.width_mult), float(E.ttl) * float(build.duration_mult), float(E.damage))
+	add_zone("fire", x, y, float(E.radius) * float(build.width_mult), float(E.ttl) * float(build.duration_mult) * float(build.get("trait_dot_dur", 1.0)), float(E.damage))
 	return true
 
 # ---------- 플레이어 ----------
@@ -1150,7 +1202,7 @@ func update_enemies(dt: float) -> void:
 				d.tick = float(d.get("tick", 0.0)) - dt
 				if float(d.tick) <= 0.0:
 					d.tick = 0.5
-					damage_enemy(e, float(d.dps) * 0.5, { "src": { "extra": true, "direct": false }, "dot": key, "dot_src": String(d.get("src", "common")) })
+					damage_enemy(e, float(d.dps) * 0.5 * float(build.get("trait_dot_mult", 1.0)), { "src": { "extra": true, "direct": false }, "dot": key, "dot_src": String(d.get("src", "common")) })
 					if e.dead:
 						break
 			elif not d.is_empty():
@@ -1348,12 +1400,13 @@ func update_zones(dt: float) -> void:
 			z.tick -= dt
 			if z.tick <= 0.0:
 				z.tick = float(cfg.ember.tick)
+				var tdm: float = float(build.get("trait_dot_mult", 1.0)) # 특성 '지속 전투': 지면 지속 피해(불길)에도
 				for e in enemies:
 					if not e.dead and PGeom.dist(z.x, z.y, e.x, e.y) <= z.r + e.r:
 						if z.get("weapon") != null:
-							damage_enemy(e, float(z.dmg), { "src": { "weapon": z.weapon.stats, "weapon_id": z.weapon.id, "direct": false, "extra": true } })
+							damage_enemy(e, float(z.dmg) * tdm, { "src": { "weapon": z.weapon.stats, "weapon_id": z.weapon.id, "direct": false, "extra": true } })
 						else:
-							damage_enemy(e, float(z.dmg) * float(build.mastery_mult), { "src": { "extra": true, "direct": false, "tag": "common:ember" } })
+							damage_enemy(e, float(z.dmg) * float(build.mastery_mult) * tdm, { "src": { "extra": true, "direct": false, "tag": "common:ember" } })
 		if z.type == "coldground":
 			z.tick -= dt
 			if z.tick <= 0.0:
@@ -1390,6 +1443,27 @@ func update_zones(dt: float) -> void:
 		if float(caster_shield.t) <= 0.0:
 			player.shield = maxf(0.0, player.shield - float(caster_shield.amt))
 			caster_shield = {}
+	# 제작 전용 장비·특성 타이머(없으면 0·{}라 아무 일도 없다)
+	if reprisal_cd > 0.0:
+		reprisal_cd -= dt
+	if relay_cd > 0.0:
+		relay_cd -= dt
+	if relay_window > 0.0:
+		relay_window -= dt
+	if link_t > 0.0:
+		link_t -= dt
+	if not relay_shield.is_empty():
+		relay_shield.t = float(relay_shield.t) - dt
+		if float(relay_shield.t) <= 0.0:
+			player.shield = maxf(0.0, player.shield - float(relay_shield.amt))
+			relay_shield = {}
+	if moon_shield > 0.0 and not field.is_empty() and (build.equip as Dictionary).has("fieldRegen") and in_field(player):
+		var FR: Dictionary = build.equip.fieldRegen # 월광 갑옷: 감속장 안에서 이 장비 몫만 재생(상한), 다른 출처 보호막은 그대로
+		var add := minf(float(FR.rate) * dt, float(FR.max) - moon_shield)
+		if add > 0.0:
+			moon_shield += add
+			player.shield += add
+			player.shield_max = maxf(player.shield_max, player.shield)
 	if not field.is_empty():
 		field.ttl -= dt
 		if field.ttl <= 0.0:
@@ -1425,7 +1499,7 @@ func update_pickups(dt: float) -> void:
 		if not bool(k.taken) and PGeom.dist(k.x, k.y, p.x, p.y) <= k.r + p.r:
 			k.taken = true
 			var before: float = p.hp
-			p.hp = minf(p.hp_max, p.hp + float(k.amount))
+			p.hp = minf(p.hp_max, p.hp + float(k.amount) * float(build.get("heal_mult", 1.0))) # 특성 '회복 준비'(없으면 ×1.0)
 			stats.healed += p.hp - before
 			text(p.x, p.y - 34.0, "+%d" % int(round(p.hp - before)), "#9cffb0")
 			ev("orb")

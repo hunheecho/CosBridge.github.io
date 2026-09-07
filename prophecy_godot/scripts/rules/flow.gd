@@ -41,8 +41,14 @@ static func make_encounter(run: Dictionary, sortie: Dictionary, extra: Dictionar
 	var st := CombatState.new(encounter_opts(run, sortie, extra))
 	if (run.get("buffs", {}) as Dictionary).has("skillCd"):
 		st.temp_buff = "skillCd"
+	consume_stored_shield(run)
 	run.pendingSortie = null
 	return st
+
+## 재생의 여행복이 저장한 초과 회복분(run.storedShield)은 전투 시작 빌드에 들어간 뒤 소비된다(다음 전투 1회)
+static func consume_stored_shield(run: Dictionary) -> void:
+	if float(run.get("storedShield", 0.0)) > 0.0:
+		run.storedShield = 0.0
 
 static func consume_buff(run: Dictionary, st: CombatState) -> void:
 	if st != null and st.temp_buff == "skillCd" and run.has("buffs") and (run.buffs as Dictionary).has("skillCd"):
@@ -122,6 +128,7 @@ static func make_boss_encounter(run: Dictionary, sortie: Dictionary) -> CombatSt
 		"arena": "clearing", "region_id": "boss", "xp_kill_mult": PRun.kill_xp_mult(run), "run": run })
 	if (run.get("buffs", {}) as Dictionary).has("skillCd"):
 		st.temp_buff = "skillCd"
+	consume_stored_shield(run)
 	run.pendingSortie = null
 	return st
 
@@ -414,14 +421,14 @@ static func actions(run: Dictionary) -> Array:
 		var ok := PRun.can_buy_equipment(run, eid, "stock")
 		var price := PRun.equip_price_for(run, eid, "stock")
 		var reason := "" if ok else (("판매됨" if (st.sold as Array).has(eid) else ("보유 중" if PRun.owns_equip(run, eid) else "금화 부족(%d)" % price)))
-		out.append(_act("buy_equipment:" + eid, "buy_equipment", "%s 구매 (%d)" % [String(PCatalog.equipment()[eid].name), price], ok, reason, { "id": eid, "from": "stock", "price": price }))
+		out.append(_act("buy_equipment:" + eid, "buy_equipment", "%s 구매 (%d)" % [PRun.equip_name(eid), price], ok, reason, { "id": eid, "from": "stock", "price": price }))
 	if PRun.merchant_open(run):
 		var m: Dictionary = run.merchant
 		if m.get("equipment", null) != null:
 			var eid := String(m.equipment)
 			var ok := PRun.can_buy_equipment(run, eid, "merchant")
 			var price := PRun.equip_price_for(run, eid, "merchant")
-			out.append(_act("buy_equipment:" + eid + ":merchant", "buy_equipment", "%s 구매 (%d, 상인 할인)" % [String(PCatalog.equipment()[eid].name), price], ok, "" if ok else "판매됨/보유/금화 부족", { "id": eid, "from": "merchant", "price": price }))
+			out.append(_act("buy_equipment:" + eid + ":merchant", "buy_equipment", "%s 구매 (%d, 상인 할인)" % [PRun.equip_name(eid), price], ok, "" if ok else "판매됨/보유/금화 부족", { "id": eid, "from": "merchant", "price": price }))
 		out.append(_act("buy_merchant_service", "buy_merchant_service", "%s 구매 (%d)" % [String(PCatalog.services()[String(m.service)].name), int(m.servicePrice)], PRun.can_buy_merchant_service(run), "", { "service": String(m.service), "price": int(m.servicePrice) }))
 	if st.get("skill", null) != null:
 		var sk: Dictionary = st.skill
@@ -430,12 +437,12 @@ static func actions(run: Dictionary) -> Array:
 	for slot in run.equipment:
 		if run.equipment[slot] != null:
 			var eid := String(run.equipment[slot])
-			out.append(_act("unequip:" + String(slot), "unequip", "%s 해제" % String(PCatalog.equipment()[eid].name), true, "", { "slot": String(slot), "id": eid }))
-			out.append(_act("sell:" + eid, "sell", "%s 판매 (+%d)" % [String(PCatalog.equipment()[eid].name), PRun.sell_price(eid)], true, "", { "id": eid, "price": PRun.sell_price(eid) }))
+			out.append(_act("unequip:" + String(slot), "unequip", "%s 해제" % PRun.equip_name(eid), true, "", { "slot": String(slot), "id": eid }))
+			out.append(_act("sell:" + eid, "sell", "%s 판매 (+%d)" % [PRun.equip_name(eid), PRun.sell_price(eid)], true, "", { "id": eid, "price": PRun.sell_price(eid) }))
 	for id in run.bag:
 		var eid := String(id)
-		out.append(_act("equip:" + eid, "equip", "%s 장착" % String(PCatalog.equipment()[eid].name), true, "", { "id": eid, "slot": String(PCatalog.equipment()[eid].slot) }))
-		out.append(_act("sell:" + eid, "sell", "%s 판매 (+%d)" % [String(PCatalog.equipment()[eid].name), PRun.sell_price(eid)], true, "", { "id": eid, "price": PRun.sell_price(eid) }))
+		out.append(_act("equip:" + eid, "equip", "%s 장착" % PRun.equip_name(eid), true, "", { "id": eid, "slot": String(PCatalog.equipment_def(eid).slot) }))
+		out.append(_act("sell:" + eid, "sell", "%s 판매 (+%d)" % [PRun.equip_name(eid), PRun.sell_price(eid)], true, "", { "id": eid, "price": PRun.sell_price(eid) }))
 	for mid in run.mats:
 		if int(run.mats[mid]) > 0:
 			out.append(_act("sell_mat:" + String(mid), "sell_mat", "%s 판매 (+%d)" % [String(PCatalog.materials()[String(mid)].name), int(PCatalog.materials()[String(mid)].sell)], true, "", { "mat_id": String(mid), "n": int(run.mats[mid]) }))

@@ -14,8 +14,10 @@ static func W() -> Dictionary: return PCatalog.world()
 static func SH() -> Dictionary: return PCatalog.shop()
 
 # ---------- 새 회차 ----------
-## seed_v 0 = 현재 시각에서 고른다(HTML: PA.clock.now() % 100000). balance ""면 balance_default. mode는 trio 고정
-static func new_run(seed_v: int, start_weapon: String, balance: String = "") -> Dictionary:
+## seed_v 0 = 현재 시각에서 고른다(HTML: PA.clock.now() % 100000). balance ""면 balance_default. mode는 trio 고정.
+## opts(영구 성장, 시험값): { profile: 프로필 dict(있으면 run.unlocks 스냅샷·run.traits 고정·run.profileKind), eligible: bool(실제 플레이 회차만 true → 영구 기록 대상) }.
+## opts가 없으면(봇·시험실·도구·테스트) unlocks 키 없음 = 전부 열림, profileEligible=false — 기존 동작 그대로
+static func new_run(seed_v: int, start_weapon: String, balance: String = "", opts: Dictionary = {}) -> Dictionary:
 	var cfg := C()
 	var BS := PCatalog.balance_sets()
 	var bal := balance if (balance != "" and BS.has(balance)) else String(PCatalog.balance().balance_default)
@@ -44,7 +46,15 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "") -> 
 		"dmgStats": { "combats": [], "byKey": {} },
 		"services": {}, "cards": null, "missionsDone": {}, "pendingSortie": null, "buffs": {}, "lastEvent": null, "lastSupplyDay": null, "eventsResolved": 0,
 		"ended": false, "bossEntry": null,
+		"profileEligible": bool(opts.get("eligible", false)), "traits": [], "startWeapon": (start_weapon if start_weapon != "" else "sword"),
+		"storedShield": 0.0, "crafted": [],
 	}
+	var profile = opts.get("profile", null)
+	if profile != null and typeof(profile) == TYPE_DICTIONARY and not (profile as Dictionary).is_empty():
+		run.unlocks = PProfile.unlocked(profile) # 해금 스냅샷: 회차 중 프로필이 바뀌어도 이 회차의 후보는 그대로
+		run.traits = PProfile.selected_traits(profile) # 출발 시 고정
+		run.profileKind = String(profile.get("kind", "trial"))
+		run.profileLevel = int(PProfile.level(profile))
 	PSortie.cards_for(run) # 1일차 장소·목적 확정
 	refresh_stock(run)
 	return run
@@ -356,8 +366,8 @@ static func deep_preview(run: Dictionary, sortie: Dictionary) -> Dictionary:
 	var kind := String(DEEP_KINDS[rng.int_range(0, DEEP_KINDS.size() - 1)])
 	var pool := []
 	var items: Array = sortie.loot.get("items", [])
-	for id in PCatalog.equipment():
-		if not owns_equip(run, String(id)) and not items.has(id):
+	for id in PCatalog.equipment(): # 일반 장비만(제작 전용은 후보 아님) + 해금 스냅샷
+		if not owns_equip(run, String(id)) and not items.has(id) and PProfile.run_unlock_ok(run, "equipment", String(id)):
 			pool.append(String(id))
 	if kind == "equipment" and pool.is_empty():
 		kind = "gold_big"
@@ -456,15 +466,14 @@ static func return_to_base(run: Dictionary, sortie: Dictionary) -> void:
 	for k in loot.mats:
 		run.mats[k] = int(run.mats.get(k, 0)) + int(loot.mats[k])
 	var extras := []
-	var EQ := PCatalog.equipment()
 	for id in loot.get("items", []):
 		var iid := String(id)
 		if owns_equip(run, iid):
 			run.gold = int(run.gold) + sell_price(iid)
-			extras.append("%s(중복→금화 +%d)" % [String(EQ[iid].name), sell_price(iid)])
+			extras.append("%s(중복→금화 +%d)" % [equip_name(iid), sell_price(iid)])
 		else:
 			(run.bag as Array).append(iid)
-			extras.append(String(EQ[iid].name))
+			extras.append(equip_name(iid))
 	for sv in loot.get("services", []):
 		run.services[String(sv)] = int(run.services.get(sv, 0)) + 1
 		extras.append(String(PCatalog.services()[String(sv)].name))
@@ -653,14 +662,15 @@ static func stock_seed(run: Dictionary, day: int = 0) -> int:
 	var d: int = day if day > 0 else int(run.day)
 	return (int(run.seed) * 17 + d * 401 + 9) & 0xFFFFFFFF
 
-## 오늘의 재고: 장비 2(미보유) + 자동기술 또는 E 1. 다시 열거나 불러와도 같다(저장). 방문 상인은 예정된 날 점심부터
+## 오늘의 재고: 장비 2(미보유) + 자동기술 또는 E 1. 다시 열거나 불러와도 같다(저장). 방문 상인은 예정된 날 점심부터.
+## 재고 후보는 해금 스냅샷(run.unlocks)을 따르고 제작 전용 장비는 넣지 않는다
 static func refresh_stock(run: Dictionary) -> Dictionary:
 	var rng := PRng.new(stock_seed(run))
 	var g: Dictionary = run.growth
 	var EQ := PCatalog.equipment()
 	var pool := []
 	for id in EQ:
-		if not owns_equip(run, String(id)):
+		if not owns_equip(run, String(id)) and PProfile.run_unlock_ok(run, "equipment", String(id)):
 			pool.append(String(id))
 	var eq := []
 	while eq.size() < int(SH().stock.equipment) and pool.size() > 0:
@@ -671,15 +681,15 @@ static func refresh_stock(run: Dictionary) -> Dictionary:
 	var W_ := PCatalog.weapons()
 	var wpool := []
 	for id in W_:
-		if bool(W_[id].impl) and PGrowth.weapon_of(g, String(id)).is_empty():
+		if bool(W_[id].impl) and PGrowth.weapon_of(g, String(id)).is_empty() and PProfile.run_unlock_ok(run, "weapons", String(id)):
 			wpool.append(String(id))
+	var es := []
+	for id in PCatalog.e_skills():
+		if bool(PCatalog.skills()[id].impl) and PProfile.run_unlock_ok(run, "e_skills", String(id)):
+			es.append(String(id))
 	if (g.weapons as Array).size() < int(PCatalog.growth().SLOTS.weapons) and wpool.size() > 0:
 		skill = { "kind": "weapon", "id": wpool[rng.int_range(0, wpool.size() - 1)], "price": int(SH().newSkill) }
-	elif g.skills.get("e", null) == null:
-		var es := []
-		for id in PCatalog.e_skills():
-			if bool(PCatalog.skills()[id].impl):
-				es.append(String(id))
+	elif g.skills.get("e", null) == null and es.size() > 0:
 		skill = { "kind": "e", "id": es[rng.int_range(0, es.size() - 1)], "price": int(SH().newE) }
 	run.stock = { "day": int(run.day), "equipment": eq, "skill": skill, "sold": [] }
 	var MV: Dictionary = W().merchant_visits
@@ -690,7 +700,7 @@ static func refresh_stock(run: Dictionary) -> Dictionary:
 	if visit:
 		var p2 := []
 		for id in EQ:
-			if not owns_equip(run, String(id)) and not eq.has(String(id)):
+			if not owns_equip(run, String(id)) and not eq.has(String(id)) and PProfile.run_unlock_ok(run, "equipment", String(id)):
 				p2.append(String(id))
 		run.merchant = { "day": int(run.day), "fromSlot": int(MV.slot), "equipment": (p2[rng.int_range(0, p2.size() - 1)] if p2.size() > 0 else null), "service": "free_rest", "servicePrice": 40, "sold": [] }
 	else:
@@ -706,8 +716,10 @@ static func merchant_open(run: Dictionary) -> bool:
 	var m = run.get("merchant", null)
 	return m != null and int(m.day) == int(run.day) and slot_index(run) >= int(m.fromSlot)
 
-static func equip_price(id: String) -> int: return int(SH().price[String(PCatalog.equipment()[id].slot)])
-static func sell_price(id: String) -> int: return int(SH().sellPrice[String(PCatalog.equipment()[id].slot)])
+static func equip_price(id: String) -> int: return int(SH().price[String(PCatalog.equipment_def(id).slot)])
+## 판매가: 같은 부위 기존 장비 판매가(35/30/30). 제작 전용도 동일(재료→완성품→판매 차익 방지, 시험값)
+static func sell_price(id: String) -> int: return int(SH().sellPrice[String(PCatalog.equipment_def(id).slot)])
+static func equip_name(id: String) -> String: return String(PCatalog.equipment_def(id).get("name", id))
 
 static func equip_price_for(run: Dictionary, id: String, from: String = "stock") -> int:
 	var p := equip_price(id)
@@ -747,7 +759,7 @@ static func buy_equipment(run: Dictionary, id: String, equip: bool, from: String
 	(run.bag as Array).append(id)
 	if equip:
 		equip_item(run, id)
-	add_log(run, "%s 구매%s" % [String(PCatalog.equipment()[id].name), "·장착" if equip else "·보관"])
+	add_log(run, "%s 구매%s" % [equip_name(id), "·장착" if equip else "·보관"])
 	return true
 
 ## 방문 상인 서비스(무료 휴식권) 구매 — HTML main.js 'buy-merchant-service'
@@ -767,8 +779,8 @@ static func buy_merchant_service(run: Dictionary) -> bool:
 	return true
 
 static func equip_item(run: Dictionary, id: String) -> bool:
-	var d: Dictionary = PCatalog.equipment()[id]
-	if not (run.bag as Array).has(id):
+	var d: Dictionary = PCatalog.equipment_def(id)
+	if d.is_empty() or not (run.bag as Array).has(id):
 		push_error("가방에 없음: " + id)
 		return false
 	var slot := String(d.slot)
@@ -802,7 +814,7 @@ static func sell_equipment(run: Dictionary, id: String) -> bool:
 			clamp_hp(run)
 	(run.bag as Array).erase(id)
 	run.gold = int(run.gold) + sell_price(id)
-	add_log(run, "%s 판매 +%d" % [String(PCatalog.equipment()[id].name), sell_price(id)])
+	add_log(run, "%s 판매 +%d" % [equip_name(id), sell_price(id)])
 	return true
 
 ## 빈 슬롯 획득: 새 자동기술 / 새 E (Lv1, 개조·변형 없음)
@@ -851,12 +863,12 @@ static func swap_quote(run: Dictionary, slot: String, index: int = 0) -> Diction
 	var options := []
 	if slot == "e":
 		for id in PCatalog.e_skills():
-			if bool(PCatalog.skills()[id].impl) and String(id) != String(cur.id):
+			if bool(PCatalog.skills()[id].impl) and String(id) != String(cur.id) and PProfile.run_unlock_ok(run, "e_skills", String(id)):
 				options.append(String(id))
 	else:
 		var W_ := PCatalog.weapons()
 		for id in W_:
-			if bool(W_[id].impl) and PGrowth.weapon_of(g, String(id)).is_empty():
+			if bool(W_[id].impl) and PGrowth.weapon_of(g, String(id)).is_empty() and PProfile.run_unlock_ok(run, "weapons", String(id)):
 				options.append(String(id))
 	return { "slot": slot, "index": index, "current": cur, "level": int(cur.level), "modCount": mods, "price": price, "options": options, "affordable": int(run.gold) >= price }
 
@@ -875,7 +887,7 @@ static func apply_swap(run: Dictionary, slot: String, index: int, new_id: String
 	if slot == "e":
 		var d: Dictionary = PCatalog.skills()[new_id]
 		var v = nm[0] if nm.size() > 0 else null
-		if v != null and not (d.has("variants") and (d.variants as Dictionary).has(String(v)) and bool(d.variants[String(v)].impl)):
+		if v != null and not (d.has("variants") and (d.variants as Dictionary).has(String(v)) and bool(d.variants[String(v)].impl) and PProfile.run_unlock_ok(run, "e_variants", new_id, String(v))):
 			push_error("변형 불가")
 			return -1
 		g.skills.e = { "id": new_id, "level": int(q.level), "variant": (String(v) if v != null else null) }
@@ -884,7 +896,7 @@ static func apply_swap(run: Dictionary, slot: String, index: int, new_id: String
 		var d: Dictionary = PCatalog.weapons()[new_id]
 		var seen := {}
 		for m in nm:
-			if not ((d.mods as Dictionary).has(String(m)) and bool(d.mods[String(m)].impl)):
+			if not ((d.mods as Dictionary).has(String(m)) and bool(d.mods[String(m)].impl) and PProfile.run_unlock_ok(run, "mods", new_id, String(m))):
 				push_error("개조 불가")
 				return -1
 			if seen.has(String(m)):
@@ -961,11 +973,110 @@ static func sell(run: Dictionary, mat_id: String, n: int = 1) -> bool:
 	run.gold = int(run.gold) + int(PCatalog.materials()[mat_id].sell) * n
 	return true
 
-## 승리 정산 시 장비 효과(원정대의 갑옷 winHeal): 승리마다 1회(C7). 회복량을 돌려준다
+## 승리 정산 시 장비 효과(원정대의 갑옷·재생의 여행복 winHeal): 승리마다 1회(C7). 회복량을 돌려준다.
+## 특성 '회복 준비'(heal_mult)는 회복량에만 적용. 재생의 여행복(overflowShield)은 최대 체력을 넘는 초과분을 run.storedShield에 저장(상한, 다음 전투 시작 시 소비)
 static func on_victory_heal(run: Dictionary) -> float:
 	var b := build(run)
 	if (b.equip as Dictionary).has("winHeal"):
 		var before: float = float(run.hp)
-		run.hp = minf(float(b.hp_max), float(run.hp) + float(b.equip.winHeal))
-		return float(run.hp) - before
+		var amount: float = float(b.equip.winHeal) * float(b.get("heal_mult", 1.0))
+		run.hp = minf(float(b.hp_max), float(run.hp) + amount)
+		var healed: float = float(run.hp) - before
+		if (b.equip as Dictionary).has("overflowShield") and amount - healed > 0.0:
+			run.storedShield = minf(float(b.equip.overflowShield.max), float(run.get("storedShield", 0.0)) + (amount - healed))
+		return healed
 	return 0.0
+
+# ---------- 제작(대장간, 시험값 meta.json crafted_equipment) ----------
+## 제작 후보(해금된 제작법만): [{ id, def, recipe, fee, affordable, ingredients[{kind:"equipment"|"mat", id, name, n, have, where}], missing[], can, owned, preview{before,after} }]
+## 재료 장비는 장착 중(where "equipped")이거나 가방(where "bag")의 인스턴스, 재료는 귀환 정산된 run.mats만. 미리보기는 복제 회차에 실제 제작·장착해 PBuild.derive로 계산한다
+static func craft_options(run: Dictionary) -> Array:
+	var out := []
+	var CE := PCatalog.crafted_equipment()
+	for id in CE:
+		var cid := String(id)
+		if not PProfile.run_unlock_ok(run, "recipes", cid):
+			continue
+		out.append(craft_option(run, cid))
+	return out
+
+static func craft_option(run: Dictionary, id: String, with_preview: bool = true) -> Dictionary:
+	var d: Dictionary = PCatalog.crafted_equipment()[id]
+	var rc: Dictionary = d.recipe
+	var ings := []
+	var missing := []
+	for eid in rc.get("equipment", []):
+		var e := String(eid)
+		var where := ""
+		if (run.bag as Array).has(e):
+			where = "bag"
+		else:
+			for slot in run.equipment:
+				if run.equipment[slot] != null and String(run.equipment[slot]) == e:
+					where = "equipped"
+		var nm := equip_name(e)
+		ings.append({ "kind": "equipment", "id": e, "name": nm, "n": 1, "have": 1 if where != "" else 0, "where": where })
+		if where == "":
+			missing.append(nm)
+	var M := PCatalog.materials()
+	for mid in rc.get("mats", {}):
+		var m := String(mid)
+		var n := int(rc.mats[mid])
+		var have := int(run.mats.get(m, 0))
+		ings.append({ "kind": "mat", "id": m, "name": String(M[m].name), "n": n, "have": have, "where": "" })
+		if have < n:
+			missing.append("%s %d/%d" % [String(M[m].name), have, n])
+	var fee := int(rc.get("fee", 0))
+	var affordable: bool = int(run.gold) >= fee
+	if not affordable:
+		missing.append("금화 %d/%d" % [int(run.gold), fee])
+	var owned := owns_equip(run, id)
+	if owned:
+		missing.append("이미 보유")
+	var opt := { "id": id, "def": d, "recipe": rc, "fee": fee, "affordable": affordable, "ingredients": ings, "missing": missing, "can": missing.is_empty(), "owned": owned, "preview": {} }
+	if bool(opt.can) and with_preview:
+		var dup: Dictionary = run.duplicate(true)
+		var before := PBuild.derive(dup)
+		craft(dup, id, true, true)
+		opt.preview = { "before": before, "after": PBuild.derive(dup) }
+	return opt
+
+static func can_craft(run: Dictionary, id: String, use_equipped: bool = true) -> bool:
+	if not PCatalog.crafted_equipment().has(id) or not PProfile.run_unlock_ok(run, "recipes", id):
+		return false
+	var o := craft_option(run, id, false)
+	if not bool(o.can):
+		return false
+	if not use_equipped:
+		for ing in o.ingredients:
+			if String(ing.kind) == "equipment" and String(ing.where) == "equipped":
+				return false
+	return true
+
+## 제작 확정(원자적: 검증 → 소비 → 생성 → 가방/장착). 저장은 호출자가 1회. use_equipped=false면 장착 중인 재료 장비는 쓰지 않는다(실패).
+## 회차 강화(forge)는 장비 인스턴스와 무관하므로 그대로. 분해·환급 없음. 실패 시 아무것도 바꾸지 않는다
+static func craft(run: Dictionary, id: String, use_equipped: bool = true, equip_after: bool = false) -> bool:
+	if not can_craft(run, id, use_equipped):
+		push_error("제작 불가: " + id)
+		return false
+	var rc := PCatalog.recipe(id)
+	for eid in rc.get("equipment", []):
+		var e := String(eid)
+		if (run.bag as Array).has(e):
+			(run.bag as Array).erase(e)
+		else:
+			for slot in run.equipment:
+				if run.equipment[slot] != null and String(run.equipment[slot]) == e:
+					run.equipment[slot] = null
+	for mid in rc.get("mats", {}):
+		run.mats[String(mid)] = int(run.mats.get(String(mid), 0)) - int(rc.mats[mid])
+	run.gold = int(run.gold) - int(rc.get("fee", 0))
+	(run.bag as Array).append(id)
+	if not run.has("crafted"):
+		run.crafted = []
+	(run.crafted as Array).append(id)
+	clamp_hp(run)
+	if equip_after:
+		equip_item(run, id)
+	add_log(run, "%s 제작 (-%d금)%s" % [equip_name(id), int(rc.get("fee", 0)), "·장착" if equip_after else "·보관"])
+	return true

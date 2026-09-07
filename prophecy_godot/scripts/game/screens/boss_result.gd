@@ -30,7 +30,10 @@ func refresh() -> void:
 	top.add_child(PUi.rich("[color=#9ea8b8]%s · 보스 최대 체력 %d[/color]" % [PGlossaryTip.esc(PUi.settings_short(r)), int(PRun.boss_hp(r, String(B2.id)))], 11))
 	var c := PUi.card("기록")
 	(c.box as VBoxContainer).add_child(PUi.rich("전투 시간 [b]%s초[/b] · 재도전 [b]%d회[/b] · Lv %d" % [str(rec.get("time", 0.0)), int(rec.get("retries", 0)), int(r.growth.level)], 13))
-	(c.box as VBoxContainer).add_child(PUi.rich("감속장 사용 [b]%d[/b]회 · 보스에게 준 총피해 [b]%d[/b]%s" % [int(sm.get("special_uses", 0)), int(float(sm.get("boss_damage", 0.0))), (" · 원정대의 갑옷 체력 +%d" % int(float(rec.heal))) if rec.has("heal") else ""], 13))
+	(c.box as VBoxContainer).add_child(PUi.rich("감속장 사용 [b]%d[/b]회 · 보스에게 준 총피해 [b]%d[/b]%s" % [int(sm.get("special_uses", 0)), int(float(sm.get("boss_damage", 0.0))), (" · 승리 회복(장비) 체력 +%d" % int(float(rec.heal))) if rec.has("heal") else ""], 13))
+	var award_txt := PProfile.award_text(main.last_profile_award)
+	if award_txt != "":
+		(c.box as VBoxContainer).add_child(PUi.rich("[color=#ffe066]%s[/color]" % PGlossaryTip.esc(award_txt), 12))
 	body.add_child(c.panel)
 	var nb := PRun.next_boss(r)
 	var g: Dictionary = r.growth

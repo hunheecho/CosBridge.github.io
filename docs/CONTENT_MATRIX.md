@@ -176,3 +176,21 @@ E는 1개, 차 있으면 습득 카드 없음(교체는 상점). 일제 공격(�
 | sim:tools | run_sim(전략×시드, 시간 계정), boss_sim/matrix, start_compare, density_report(유지), compare_scenario(유지) | 구현 | 구현(tools/run_sim·boss_sim·start_compare·formation_table; docs/sim) | 포함 |
 | test | 규칙 72(유지) + HTML 170 재작성 + 통합·저장·완주 | 170 | 72 | 포함 |
 | tools:capture | 캡처·영상·회피 시연 | — | 0.3.1 구현 | 유지·확장 |
+
+## M. 영구 성장·해금·제작 (godot-0.4.3, `prophecy_godot/data/meta.json` — 손으로 작성한 시험값) — 방향 사용자 합의(D39), 수치 Codex 초안(사용자 승인 아님)
+| ID | 내용 | 설계 | HTML | Godot | 포함 | 검증 |
+|---|---|---|---|---|---|---|
+| meta:profile | 프로필 종류 legacy(0.4.x 공개분 전부)·trial(초안 초기 범위), 한 파일 공존·전환 시 삭제 없음, 회차 저장과 분리, 시험·봇 데모는 별도 파일 | 합의 방향 + 구현자 | 없음(신규) | 구현(profile.gd·main.gd·screens/meta.gd) | 포함 | meta_tests·meta_ui_tests |
+| meta:records | 탐험 기록(1~6일차 첫 정상 전투 +1, 관문 최초 +2, 완주 +2, 최대 14) → 영구 Lv15(140), 이벤트 ID로 1회, 봇/시험실/즉시 관문 제외 | Codex 시험값 | 없음 | 구현(profile.gd award_from_run·level_of; main.gd _award_profile) | 포함 | meta_tests(1회·재도전·재로드·심층·제외) |
+| meta:unlocks | 해금 일정(레벨 OR 도전) 전수 배정: 자동기술·시작 선택·개조(2+도전 1)·공용·Q/E·장비·제작법. 회차 시작 스냅샷(run.unlocks) → 후보·상점·심층·교체 필터, 옛 저장은 전부 열림 | Codex 시험값 | 없음 | 구현(profile.gd unlocked/run_unlock_ok·growth.gd candidates·run.gd refresh_stock/deep_preview/swap) | 포함 | meta_tests(집합 Lv1/5/10/15·필터·40시드 상점/심층) |
+| meta:offer_norm | 3택 유형 가중치 ÷ 유형 후보 수(희석 방지) | 사용자 지시 §5, 구현자 | 없음 | 구현(growth.gd generate_offer, meta.json offer) | 포함 | meta_tests(300시드 빈도 0.139/0.140·0.216/0.216) |
+| trait:* | 특성 12(near/far/dot_plus · heal/guard/move · q_ops/e_ops/auto_ops · focus/link/dot_spec), 행당 1·최대 4, 출발 전 재선택·회차 고정, 기준 전투 불변 | Codex 시험값 | 없음 | 구현(build.gd derive·combat_state.gd _trait_direct_mult/dot·skills.gd) | 포함 | meta_tests(12종 수치·고정·기준 불변), run_tests 72 |
+| craft:rules | 대장간 제작: 해금 제작법·재료 장비 인스턴스(장착/가방)·정산 재료·수수료, 미리보기 무소비, 확정 원자적, 완성품 가방/장착, 판매 35/30/30, 분해 없음, 상점·심층 후보 제외 | 합의 방향 + Codex 시험값 | 없음 | 구현(run.gd craft_options/craft·catalog.gd crafted_equipment/equipment_def·screens/forge.gd) | 포함 | meta_tests(검증·소비·중복·장착 재료·판매·잠김), meta_ui_tests |
+| craft:bloodmoon_sword | 혈월검: 출혈/화상 상태 적 직접 +20% | Codex 시험값 | 없음 | 구현(combat_state.gd statusDirect) | 포함 | meta_tests |
+| craft:echo_staff | 잔향의 지팡이: 감속장 안 적중 표식 2초, 표식 대상 +15%(밖에서도 잔여) | Codex 시험값 | 없음 | 구현(combat_state.gd fieldMark) | 포함 | meta_tests |
+| craft:renewal_coat | 재생의 여행복: 승리 회복 8, 초과분 다음 전투 보호막(최대 16) | Codex 시험값 | 없음 | 구현(run.gd on_victory_heal·build.gd·flow.gd consume_stored_shield) | 포함 | meta_tests |
+| craft:moon_armor | 월광 갑옷: 시작 보호막 20, 감속장 안 자기 몫만 초당 2 재생(상한 20, 깨지면 없음) | Codex 시험값 | 없음 | 구현(combat_state.gd moon_shield) | 포함 | meta_tests |
+| craft:reprisal_shield | 반격 방패: 큰 타격 −25% + 버티면 Q/E −1초(내부 5초) | Codex 시험값 | 없음 | 구현(combat_state.gd reprisal) | 포함 | meta_tests |
+| craft:relay_shield | 연계 방패: Q 뒤 4초 안 E → 보호막 18/3초(내부 10초) | Codex 시험값 | 없음 | 구현(skills.gd relay·combat_state.gd) | 포함 | meta_tests |
+| ui:meta | 제목 → 영구 성장 화면(프로필 전환 확인·레벨/기록/다음 해금 한 줄·특성 4행·도감 "획득 7/10 · 시작 가능 3/7"·잠긴 항목 클릭 상세), 시작 선택에 특성 요약·해금 시작 기술, 결과 화면 "이번 회차 탐험 기록: +N (다음 회차부터 반영)"·새로 열림, 대장간 제작 칸 | 합의 방향(초안 §11) | 없음 | 구현(screens/meta.gd·pick_start.gd·forge.gd·reward.gd·boss_result.gd·run_result.gd·title.gd) | 포함 | meta_ui_tests 11 |
+| meta:deferred | 10일·3막 일정의 9일 기록 예산(2/3), 정복자 성장(상한 50), 무한 모드 | 추가 계획(사용자) | 없음 | 미구현(일정 도입 시 `records` 데이터 교체) | 보류 | — |

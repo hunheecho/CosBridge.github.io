@@ -9,7 +9,7 @@ static func loot_text(s: Dictionary) -> String:
 	if mats != "":
 		t += ", " + mats
 	for id in loot.get("items", []):
-		t += ", " + String(PCatalog.equipment()[String(id)].name)
+		t += ", " + PRun.equip_name(String(id))
 	for k in loot.get("services", []):
 		t += ", " + String(PCatalog.services()[String(k)].name)
 	if loot.get("steer", null) != null:

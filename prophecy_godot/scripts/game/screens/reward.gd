@@ -39,7 +39,10 @@ func refresh() -> void:
 	if rw.get("deep", null) != null:
 		box.add_child(PUi.rich("%s 보상: [b]%s[/b] [color=#9ea8b8](전리품에 추가됨, 귀환 때 정산)[/color]" % [PGlossaryTip.term("deep", "더 깊이"), PGlossaryTip.esc(String(rw.deep.text))], 13))
 	if float(rw.get("heal", 0.0)) > 0.0:
-		box.add_child(PUi.rich("[color=#9fe89f]원정대의 갑옷: 체력 +%d[/color]" % int(float(rw.heal)), 12))
+		box.add_child(PUi.rich("[color=#9fe89f]승리 회복(장비): 체력 +%d[/color]" % int(float(rw.heal)), 12))
+	var award_txt := PProfile.award_text(main.last_profile_award)
+	if award_txt != "":
+		box.add_child(PUi.rich("[color=#ffe066]%s[/color]" % PGlossaryTip.esc(award_txt), 12))
 	box.add_child(PUi.rich("[color=#9ea8b8]처치 %d%s · 받은 피해 %d · %d초 · 전투 중 경험치 %s · 레벨업 %d회 (Lv %d) · 체력 %d / %d[/color]" % [int(sm.get("kills", 0)), (" (감속장 안 %d)" % int(sm.get("saving_kills", 0))) if int(sm.get("saving_kills", 0)) > 0 else "", int(float(sm.get("damage_taken", 0.0))), int(round(float(sm.get("elapsed", 0.0)))), str(sm.get("xp", 0.0)), int(sm.get("level_ups", 0)), int(g.level), int(float(r.hp)), int(float(PBuild.derive(r).hp_max))], 12))
 	body.add_child(c.panel)
 	# 피해 출처 상위 5
