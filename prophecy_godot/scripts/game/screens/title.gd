@@ -47,6 +47,12 @@ func refresh() -> void:
 	var newb := PUi.button("새 회차", _on_new, true, 18)
 	_menu.add_child(newb)
 	default_button = cont if not saved.is_empty() else newb
+	var p: Dictionary = main.profile
+	var meta_txt := "영구 성장"
+	if not p.is_empty():
+		var PK := PCatalog.meta_profiles()
+		meta_txt = "영구 성장  (%s · Lv %d · 특성 %d개)" % [String(PK[String(p.kind)].name), PProfile.level(p), PProfile.selected_traits(p).size()]
+	_menu.add_child(PUi.button(meta_txt, func(): main.show_meta(), true, 15))
 	_menu.add_child(PUi.button("검증 메뉴 " + ("▾" if _verify_open else "▸"), _toggle_verify, true, 15))
 	if _verify_open:
 		_menu.add_child(_verify_panel())

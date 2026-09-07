@@ -58,7 +58,7 @@ func refresh() -> void:
 		any = true
 		var bid := String(id)
 		var brow := PUi.hbox(8)
-		brow.add_child(PUi.rich("[color=#9ea8b8]가방 · %s[/color] %s" % [PUi.slot_name(String(PCatalog.equipment()[bid].slot)), PUi.equip_line(bid)], 12))
+		brow.add_child(PUi.rich("[color=#9ea8b8]가방 · %s[/color] %s" % [PUi.slot_name(String(PCatalog.equipment_def(bid).slot)), PUi.equip_line(bid)], 12))
 		brow.add_child(PUi.button("판매 +%d" % PRun.sell_price(bid), func(): main.sell_equipment(bid), true, 12))
 		sbox.add_child(brow)
 	if not any:
@@ -86,7 +86,7 @@ func refresh() -> void:
 	default_button = back
 
 func _equip_card(r: Dictionary, id: String, from: String) -> Control:
-	var d: Dictionary = PCatalog.equipment()[id]
+	var d: Dictionary = PCatalog.equipment_def(id)
 	var target: Dictionary = r.merchant if from == "merchant" else PRun.stock(r)
 	var sold: bool = (target.sold as Array).has(id) or PRun.owns_equip(r, id)
 	var price := PRun.equip_price_for(r, id, from)

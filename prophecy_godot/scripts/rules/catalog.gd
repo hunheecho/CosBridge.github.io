@@ -81,8 +81,55 @@ static func difficulty() -> Dictionary: return _load("balance").difficulty
 static func layouts() -> Dictionary: return _load("balance").layouts
 static func lab() -> Dictionary: return _load("balance").lab
 static func lab_combos() -> Array: return _load("balance").lab_combos
-static func glossary() -> Dictionary: return _load("glossary").glossary
+## 용어 사전: 내보낸 glossary.json + 손으로 쓴 meta.json glossary(영구 성장·특성·제작 전용 장비)를 합친 사전(1회 캐시)
+static func glossary() -> Dictionary:
+	if _cache.has("glossary_merged"):
+		return _cache["glossary_merged"]
+	var out: Dictionary = (_load("glossary").glossary as Dictionary).duplicate()
+	for k in meta().get("glossary", {}):
+		if not out.has(k):
+			out[k] = meta().glossary[k]
+	_cache["glossary_merged"] = out
+	return out
 static func first_fight() -> Dictionary: return _load("first_fight")
+
+# ---------- 영구 성장·해금·제작(meta.json, 손으로 작성 — 시험값) ----------
+static func meta() -> Dictionary: return _load("meta")
+static func meta_levels() -> Dictionary: return meta().levels
+static func meta_records() -> Dictionary: return meta().records
+static func meta_unlocks() -> Dictionary: return meta().unlocks
+static func meta_profiles() -> Dictionary: return meta().profiles
+static func challenges() -> Dictionary: return meta().challenges
+static func traits() -> Dictionary: return meta().traits
+static func trait_defs() -> Dictionary: return meta().traits.defs
+static func trait_rows() -> Array: return meta().traits.rows
+## 제작 전용 장비 6종(world.json equipment에는 넣지 않는다 — 상점·심층 후보에서 제외)
+static func crafted_equipment() -> Dictionary:
+	if _cache.has("crafted_equipment"):
+		return _cache["crafted_equipment"]
+	var out := {}
+	var CE: Dictionary = meta().get("crafted_equipment", {})
+	for k in CE:
+		if String(k) != "note":
+			out[String(k)] = CE[k]
+	_cache["crafted_equipment"] = out
+	return out
+## 제작법: id → {equipment[], mats{}, fee}
+static func recipe(id: String) -> Dictionary:
+	var CE := crafted_equipment()
+	return CE[id].recipe if CE.has(id) else {}
+## 장비 정의(일반 12 + 제작 6). 없으면 {}
+static func equipment_def(id: String) -> Dictionary:
+	var EQ := equipment()
+	if EQ.has(id):
+		return EQ[id]
+	var CE := crafted_equipment()
+	if CE.has(id):
+		return CE[id]
+	push_error("알 수 없는 장비: " + id)
+	return {}
+static func is_crafted(id: String) -> bool:
+	return crafted_equipment().has(id)
 
 static func enemy(type: String) -> Dictionary:
 	var E := enemies()

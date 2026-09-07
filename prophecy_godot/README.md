@@ -19,6 +19,7 @@ Godot 없이 플레이하려면 `../prophecy_godot_build/`의 Windows 빌드 ZIP
 ## 조작
 WASD/방향키 이동 · Space 회피(짧게/길게 눌러 거리 70~150, 재사용 1.5초) · Q 감속장 · **E 수동 기술**(습득 후) · 자동 공격(보유 자동기술이 사거리 안의 적에게 자동 발동) · Esc 일시정지/메뉴 닫기 · Enter 기본 버튼 · F3 검증 패널. 밑줄 친 용어는 마우스를 올리면 설명, 클릭하면 고정(전투 중 고정 시 일시정지).
 제목 화면 **검증 메뉴**: 기준 전투(0.3.1 D33, 사람/봇) · 시작 기술 첫 전투 비교 · 관문 빌드 보스전 · 봇 회차 데모. 전투 규칙: `docs/RULES.md`.
+제목 화면 **영구 성장**(godot-0.4.3, 별도 시험 프로필): 프로필 종류(기존 시험 사용자 = 0.4.x 콘텐츠 전부 / 새 시험 프로필 = 초안 초기 범위) · 탐험 기록 → 영구 레벨(최대 15) · 특성 4행(행마다 1개, 출발 전 재선택, 새 회차부터 적용) · 도감(잠긴 항목 클릭 → 조건) · 대장간 **제작**(해금 제작법 + 장비/재료/금화). 방향은 사용자 합의, 수치는 시험값(`../docs/DESIGN_DECISIONS.md` D39, `docs/ASSUMPTIONS.md` §영구 성장).
 
 ## 검증 명령(터미널, Godot 콘솔 실행 파일 경로를 `godot`라고 할 때)
 ```
@@ -30,6 +31,8 @@ godot --headless --path prophecy_godot -s tests/run_layer_tests.gd    # 회차 �
 godot --headless --path prophecy_godot -s tests/world_tests.gd        # 세계 변화(붉은 달) 30
 godot --headless --path prophecy_godot -s tests/content_tests.gd      # 반복 콘텐츠(회차 특징·사전 편성·강적의 흔적·보스 계획·밀도 비교 회차) 28
 godot --headless --path prophecy_godot -s tests/ui_flow_tests.gd      # 화면 계층(실제 main.tscn: 전투 중 종료 체크포인트·HUD 보호막) 14 — user:// 저장을 쓰므로 APPDATA를 별도 폴더로 두고 실행
+godot --headless --path prophecy_godot -s tests/meta_tests.gd         # 영구 성장·해금·제작(레벨·해금 집합·후보 필터·카드 희석 수치·특성 12·기록 1회·제작·제작 6종 전투 효과) 78 — user:// 프로필을 쓰므로 APPDATA 격리
+godot --headless --path prophecy_godot -s tests/meta_ui_tests.gd      # 영구 성장 화면 계층(실제 main.tscn: 영구 성장·특성·프로필 전환·시작 선택·제작 미리보기/확정·보상 줄) 11 — APPDATA 격리
 godot --headless --path prophecy_godot -s tools/density_report.gd     # 기준 전투 밀도 비교(0.3.1과 같은 36행) → docs/DENSITY_REPORT.md
 godot --headless --path prophecy_godot -s tools/compare_scenario.gd   # HTML 대조 측정(COMPARE_JSON)
 PROPHECY_SIM_SEEDS=1,2 godot --headless --path prophecy_godot -s tools/run_sim.gd        # 회차 봇 전략 7종 → docs/sim/RUN_SIM.md
@@ -43,7 +46,7 @@ godot --headless --path prophecy_godot --export-release "Windows Desktop" <출�
 데이터 재생성(HTML 카탈로그 → JSON): `node prophecy_action_prototype/tools/port_export_data.js` (HTML 원본은 수정하지 않음).
 
 ## 폴더
-- `data/*.json` 카탈로그(HTML에서 내보냄: config·weapons·growth·enemies·world·missions·balance·glossary) + `first_fight.json`(0.3.1 기준 전투). 규칙 코드는 숫자를 갖지 않는다.
-- `scripts/rules/` 순수 규칙(Node·Vector2·입력·그리기 없음, 고정 단계 1/120초): `combat_state.gd`(전투) · `weapons.gd`·`skills.gd`(자동기술·Q/E) · `enemies.gd`·`enemies_new.gd`·`boss.gd`·`boss2.gd`·`objectives.gd` · `growth.gd`·`build.gd`·`formation.gd` · `run.gd`·`sortie.gd`·`events.gd`·`flow.gd`(행동 목록 `PFlow.actions(run)`, UI·봇 공용) · `stats.gd`·`save.gd`(`user://prophecy_save_v1.json`) · `bot.gd`·`run_bot.gd` · `catalog.gd`·`geom.gd`·`rng.gd`.
+- `data/*.json` 카탈로그(HTML에서 내보냄: config·weapons·growth·enemies·world·missions·balance·glossary) + `first_fight.json`(0.3.1 기준 전투) + `meta.json`(손으로 작성: 영구 레벨·해금 일정·특성 12·제작 6 — Codex 초안 시험값, 사용자 승인 아님). 규칙 코드는 숫자를 갖지 않는다.
+- `scripts/rules/` 순수 규칙(Node·Vector2·입력·그리기 없음, 고정 단계 1/120초): `combat_state.gd`(전투) · `weapons.gd`·`skills.gd`(자동기술·Q/E) · `enemies.gd`·`enemies_new.gd`·`boss.gd`·`boss2.gd`·`objectives.gd` · `growth.gd`·`build.gd`·`formation.gd` · `run.gd`·`sortie.gd`·`events.gd`·`flow.gd`(행동 목록 `PFlow.actions(run)`, UI·봇 공용) · `stats.gd`·`save.gd`(`user://prophecy_save_v1.json`) · `profile.gd`(영구 프로필 `user://prophecy_profile_v1.json`, legacy/trial 공존; 시험·봇 데모는 `prophecy_profile_test_v1.json`) · `bot.gd`·`run_bot.gd` · `catalog.gd`·`geom.gd`·`rng.gd`.
 - `scripts/game/` 표시·연결부: `step_driver.gd`(프레임→단계) · `combat_view.gd`(입력·`_draw`) · `render.gd`(도형 그리기) · `audio.gd`(합성음, 자동 로드 `Audio`) · `main.gd`(화면 전환·HUD·자동 진행) · `screens/`·`ui/`(화면·위젯·3택·용어 툴팁·설정) · `game.gd`(자동 로드·버전).
 - `scenes/main.tscn` 단일 씬. `tests/`, `tools/` 검증용. `docs/` 기록·보고서·캡처(`.gdignore`).

@@ -23,7 +23,7 @@ func refresh() -> void:
 	for sl in PCatalog.world().equip_slots:
 		var id = r.equipment.get(String(sl), null)
 		if id != null:
-			eq.append(String(PCatalog.equipment()[String(id)].name))
+			eq.append(PRun.equip_name(String(id)))
 	box.add_child(PUi.rich("장비: [b]%s[/b]%s · 금화 %d" % [(", ".join(eq) if eq.size() > 0 else "없음"), (" · 공용 공격 강화 %d단계" % int(r.forge)) if int(r.forge) > 0 else "", int(r.gold)], 13))
 	var recs: Dictionary = r.get("bossRecords", {})
 	for k in recs:
@@ -31,6 +31,15 @@ func refresh() -> void:
 		box.add_child(PUi.rich("[b]%s[/b]: %s초 · 재도전 %d회 · Lv %d · 보스에게 준 피해 %d · %d일차" % [PGlossaryTip.esc(String(PCatalog.boss_def(String(rec.get("bossId", "boss"))).name)), str(rec.get("time", 0.0)), int(rec.get("retries", 0)), int(rec.get("level", 0)), int(float(rec.get("bossDamage", 0.0))), int(rec.get("day", 0))], 13))
 	if recs.is_empty():
 		box.add_child(PUi.rich("[color=#9ea8b8]보스 처치 기록 없음[/color]", 13))
+	var award_txt := PProfile.award_text(main.last_profile_award)
+	if award_txt != "":
+		box.add_child(PUi.rich("[color=#ffe066]%s[/color]" % PGlossaryTip.esc(award_txt), 12))
+	var crafted: Array = r.get("crafted", [])
+	if not crafted.is_empty():
+		var cn := []
+		for id in crafted:
+			cn.append(PRun.equip_name(String(id)))
+		box.add_child(PUi.rich("[color=#9ea8b8]이번 회차 제작: %s (완성품·재료는 회차와 함께 소멸)[/color]" % PGlossaryTip.esc(", ".join(cn)), 12))
 	var R := PSave.load_records()
 	var fc = R.get("first_clear", null)
 	if fc != null:

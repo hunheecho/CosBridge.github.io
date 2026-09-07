@@ -140,6 +140,8 @@ static func _applies_ok(g: Dictionary, d: Dictionary) -> bool:
 
 # ---------- 후보 생성 ----------
 ## ctx: { pool: "level"|"deep"|"boss"|"mission", region_id, kinds[], weapon_only, exclude_mod }
+## 해금 순서(사용자 지시 §5): 해금 자격(run.unlocks 스냅샷, PProfile.run_unlock_ok) → 보유·호환·상한·전제 → 유형 가중치(generate_offer) → 유형 안 추첨.
+## unlocks 키가 없는 회차(봇·시험실·옛 저장)는 전부 열린 것으로 본다. 보유 기술의 개조는 그 기술 안에서만 추첨한다(미보유 기술의 개조는 후보가 아님)
 static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 	var g: Dictionary = run.growth
 	var S: Dictionary = G().SLOTS
@@ -177,6 +179,8 @@ static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 			var d: Dictionary = W[id]
 			if not bool(d.impl) or not weapon_of(g, String(id)).is_empty():
 				continue
+			if not PProfile.run_unlock_ok(run, "weapons", String(id)):
+				continue
 			push.call({ "kind": "weapon_new", "id": String(id), "tags": d.get("tags", []) })
 	for w in g.weapons:
 		var d: Dictionary = W[String(w.id)]
@@ -187,11 +191,15 @@ static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 				var md: Dictionary = d.mods[mid]
 				if not bool(md.impl) or (w.mods as Array).has(mid):
 					continue
+				if not PProfile.run_unlock_ok(run, "mods", String(w.id), String(mid)):
+					continue
 				push.call({ "kind": "weapon_mod", "id": String(w.id), "mod": String(mid), "tags": md.get("tags", []) })
 	var CM := PCatalog.commons()
 	for id in CM:
 		var d: Dictionary = CM[id]
 		if not bool(d.impl):
+			continue
+		if not PProfile.run_unlock_ok(run, "commons", String(id)):
 			continue
 		var lv: int = int(g.commons.get(id, 0))
 		if lv >= int(d.max):
@@ -206,7 +214,7 @@ static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 	var SK := PCatalog.skills()
 	if g.skills.get("e") == null:
 		for id in PCatalog.e_skills():
-			if bool(SK[id].impl):
+			if bool(SK[id].impl) and PProfile.run_unlock_ok(run, "e_skills", String(id)):
 				push.call({ "kind": "skill_new", "id": String(id), "tags": [] })
 	for slot in ["q", "e"]:
 		var sk = g.skills.get(slot)
@@ -217,8 +225,13 @@ static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 			push.call({ "kind": "skill_level", "id": String(sk.id), "slot": slot, "tags": [] })
 		if sk.get("variant") == null:
 			for vid in d.get("variants", {}):
-				if bool(d.variants[vid].impl):
-					push.call({ "kind": "skill_variant", "id": String(sk.id), "slot": slot, "variant": String(vid), "tags": [] })
+				if not bool(d.variants[vid].impl):
+					continue
+				if slot == "q" and not PProfile.run_unlock_ok(run, "q_variants", String(vid)):
+					continue
+				if slot == "e" and not PProfile.run_unlock_ok(run, "e_variants", String(sk.id), String(vid)):
+					continue
+				push.call({ "kind": "skill_variant", "id": String(sk.id), "slot": slot, "variant": String(vid), "tags": [] })
 	var PS := PCatalog.passives()
 	for id in PS:
 		var d: Dictionary = PS[id]
@@ -283,11 +296,20 @@ static func generate_offer(run: Dictionary, ctx: Dictionary = {}) -> Dictionary:
 	var rng := PRng.new((int(run.seed) * 7919 + int(g.choiceSeq) * 104729 + int(g.level) * 31) & 0xFFFFFFFF)
 	var picked := []
 	var remaining := pool.duplicate()
+	# 유형 가중치와 유형 안 후보 분리(meta.json offer.kind_normalized, 사용자 지시 §5): 후보 가중치 = 유형 가중치 × 후보 보정 ÷ 그 유형의 남은 후보 수.
+	# 해금으로 새 기술 후보가 늘어도 '새 기술' 유형의 총 출현 확률은 그대로이고, 보유 기술의 개조 확률도 희석되지 않는다
+	var normalize: bool = bool((PCatalog.meta().get("offer", {}) as Dictionary).get("kind_normalized", false))
 	while picked.size() < 3 and remaining.size() > 0:
 		var sum := 0.0
 		var ws := []
+		var kind_n := {}
+		if normalize:
+			for c in remaining:
+				kind_n[c.kind] = int(kind_n.get(c.kind, 0)) + 1
 		for c in remaining:
 			var w := weight_of(g, c)
+			if normalize:
+				w /= float(kind_n[c.kind])
 			ws.append(w)
 			sum += w
 		var r := rng.next() * sum

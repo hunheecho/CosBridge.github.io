@@ -12,7 +12,16 @@ static func cd_of(st: CombatState, slot: String) -> float:
 	if sk == null:
 		return 0.0
 	var d: Dictionary = PCatalog.skills()[String(sk.id)]
-	return float(d.cooldown[mini(3, int(sk.level)) - 1]) * float(st.build.skill_cd_mult)
+	var mult: float = float(st.build.skill_cd_mult)
+	if slot == "e":
+		mult *= float(st.build.get("e_cd_mult", 1.0)) # 특성 '수동기술 운용'(없으면 ×1.0)
+	return float(d.cooldown[mini(3, int(sk.level)) - 1]) * mult
+
+## 특성 '연계 준비'의 E 피해·흡수 감소(없으면 1.0)
+static func link_skill_mult(st: CombatState) -> float:
+	if st.build.has("trait_dmg") and (st.build.trait_dmg as Dictionary).has("link_skill_mult"):
+		return float(st.build.trait_dmg.link_skill_mult)
+	return 1.0
 
 static func sdmg(st: CombatState, slot: String) -> float:
 	var sk = st.build.skills.get(slot)
@@ -25,7 +34,7 @@ static func hit(st: CombatState, e: Dictionary, dmg: float, opt: Dictionary = {}
 	var o := opt.duplicate()
 	var eid := String(st.build.skills.e.id) if st.build.skills.get("e") != null else "e"
 	o.src = { "skill": true, "direct": false, "skill_id": eid }
-	return st.damage_enemy(e, dmg, o)
+	return st.damage_enemy(e, dmg * link_skill_mult(st), o)
 
 # ---------- Q 감속장 ----------
 static func cast_q(st: CombatState) -> void:
@@ -51,6 +60,8 @@ static func cast_q(st: CombatState) -> void:
 		st.field = { "x": p.x, "y": p.y, "r": float(S.radius), "ttl": dur, "max_ttl": dur, "follow": variant == "follow" }
 	p.special_cd = maxf(1.0, float(b.special_cd))
 	st.stats.special_uses += 1
+	if (b.equip as Dictionary).has("relay"):
+		st.relay_window = float(b.equip.relay.window) # 연계 방패: Q 뒤 E까지 허용 창
 	st.ev("special")
 	st.text(p.x, p.y - 50.0, "감속장", "#a9d8ff")
 
@@ -169,7 +180,7 @@ static func cast_e(st: CombatState) -> bool:
 				return false
 			S.gravity = { "x": c.x, "y": c.y, "t": 1.2, "hold": 1.0 if v == "orbit" else 0.0, "r": 140.0, "pull": 90.0 * float(d.pull[lv - 1]), "dps": dmg, "tick": 0.0, "collapse": v == "collapse", "dmg": dmg }
 		"ward":
-			var amt := float(d.shield[lv - 1])
+			var amt := float(d.shield[lv - 1]) * link_skill_mult(st)
 			S.ward = { "t": 4.0, "amt": amt, "fortress": v == "fortress", "pulse": v == "pulse", "pulse_t": 0.0 }
 			p.ward_shield = float(p.ward_shield) + amt
 			p.shield += amt
@@ -177,6 +188,8 @@ static func cast_e(st: CombatState) -> bool:
 			st.fx({ "kind": "burst", "x": p.x, "y": p.y, "r": 40.0, "ttl": 0.3, "color": "#7ef2ff" })
 	p.e_cd = cd_of(st, "e")
 	st.stats.e_uses += 1
+	if b.has("trait_dmg") and (b.trait_dmg as Dictionary).has("link_window"):
+		st.link_t = float(b.trait_dmg.link_window) # 특성 '연계 준비': 중첩 없이 시간만 갱신(피해 없는 E도 발동)
 	var EQ: Dictionary = b.equip
 	if EQ.has("eShield") and st.caster_cd <= 0.0:
 		st.caster_cd = float(EQ.eShield.cd)
@@ -185,6 +198,14 @@ static func cast_e(st: CombatState) -> bool:
 		st.caster_shield = { "amt": float(EQ.eShield.shield), "t": float(EQ.eShield.dur) }
 		p.shield_max = maxf(p.shield_max, p.shield)
 		st.stats.equip_procs.caster_shield = int(st.stats.equip_procs.get("caster_shield", 0)) + 1
+	if EQ.has("relay") and st.relay_window > 0.0 and st.relay_cd <= 0.0: # 연계 방패: Q 뒤 창 안의 E → 보호막(잔량은 새 보호막으로 대체)
+		st.relay_cd = float(EQ.relay.cd)
+		st.relay_window = 0.0
+		var prev_r: float = float(st.relay_shield.amt) if not st.relay_shield.is_empty() else 0.0
+		p.shield = p.shield - prev_r + float(EQ.relay.shield)
+		st.relay_shield = { "amt": float(EQ.relay.shield), "t": float(EQ.relay.dur) }
+		p.shield_max = maxf(p.shield_max, p.shield)
+		st.stats.equip_procs.relay_shield = int(st.stats.equip_procs.get("relay_shield", 0)) + 1
 	st.ev("skill_e", { "id": String(sk.id) })
 	st.text(p.x, p.y - 62.0, String(d.name), "#ffe9a8")
 	if (b.boss_rewards as Array).has("volley"):

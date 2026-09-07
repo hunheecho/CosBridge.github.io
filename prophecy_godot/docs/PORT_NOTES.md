@@ -310,7 +310,7 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 - 실제 사람 키보드·마우스 플레이는 여전히 없음.
 
 ## 14. 세계 변화·반복 콘텐츠 (godot-0.4.2~0.4.3, 2026-09-07)
-지시문(`godot-audit-ca027fc-20260907/NEXT_CLAUDE_INSTRUCTIONS.md`) §3·§4 구현. 방향은 사용자 합의(D38·D39), 배율·비율·내용은 시험값(Codex 제안 또는 구현자). 규칙 정본: 세계 변화 = `world.json` world_stages + `RULES.md` 변경 이력, 반복 콘텐츠 = `world.json` world_features/formation_sets/boss_gates + `missions.json` events.challenge. 표: `FORMATION_TABLE.md`(등급 열), `docs/sim/STAGE_COMPARE.md`.
+지시문(`godot-audit-ca027fc-20260907/NEXT_CLAUDE_INSTRUCTIONS.md`) §3·§4 구현. 방향은 사용자 합의(D38·D40), 배율·비율·내용은 시험값(Codex 제안 또는 구현자). 규칙 정본: 세계 변화 = `world.json` world_stages + `RULES.md` 변경 이력, 반복 콘텐츠 = `world.json` world_features/formation_sets/boss_gates + `missions.json` events.challenge. 표: `FORMATION_TABLE.md`(등급 열), `docs/sim/STAGE_COMPARE.md`.
 
 ### 14-1. 검증 결과(헤드리스, 봇 — 사람 난이도 승인 아님)
 | 항목 | 결과 |

@@ -178,7 +178,7 @@ static func header(run: Dictionary) -> Control:
 
 ## 장비 한 줄(이름은 용어 링크)
 static func equip_line(id: String) -> String:
-	var d: Dictionary = PCatalog.equipment()[id]
+	var d: Dictionary = PCatalog.equipment_def(id)
 	return "[b]%s[/b] [color=#9ea8b8]%s[/color]" % [PGlossaryTip.term("eq:" + id, String(d.name)), PGlossaryTip.esc(String(d.short))]
 
 static func slot_name(slot: String) -> String:

@@ -1,19 +1,22 @@
 class_name PForgeScreen
 extends PScreen
-## 대장간(HTML shop 'forge'·'skills' 탭 + swap 화면): 공용 공격 강화 · 개조 변경 · E 변형 변경 · 기술 교체(3단계: 새 기술 → 개조 선택 → 확인).
-## 견적·경고·비용은 PRun.swap_quote / swap_warnings / forge_next / mod_change_cost 가 준다. 취소는 아무것도 바꾸지 않는다.
+## 대장간(HTML shop 'forge'·'skills' 탭 + swap 화면): 공용 공격 강화 · 개조 변경 · E 변형 변경 · 기술 교체(3단계: 새 기술 → 개조 선택 → 확인) · 제작(시험값).
+## 견적·경고·비용은 PRun.swap_quote / swap_warnings / forge_next / mod_change_cost / craft_options 가 준다. 취소는 아무것도 바꾸지 않는다.
 
 var _swap: Dictionary = {}   # {slot, index, new_id, mods[]} — 비어 있으면 교체 중 아님
+var _craft := ""             # 미리보기 중인 제작법 id("" = 없음)
 
 func on_escape() -> bool:
-	if not _swap.is_empty():
+	if not _swap.is_empty() or _craft != "":
 		_swap = {}
+		_craft = ""
 		refresh()
 		return true
 	return false
 
 func on_enter() -> void:
 	_swap = {}
+	_craft = ""
 	super.on_enter()
 
 func refresh() -> void:
@@ -103,12 +106,89 @@ func refresh() -> void:
 		sbox.add_child(PUi.rich("[color=#6a7078]E 없음[/color]", 12))
 	sbox.add_child(PUi.rich("[color=#9ea8b8]교체하면 옛 기술은 남지 않습니다. 확정 전까지 금화는 차감되지 않습니다.[/color]", 11))
 	right.add_child(sc.panel)
+	right.add_child(_craft_card(r))
 	right.add_child(PUi.build_panel(r))
 	var back := PUi.button("거점으로 (Esc)", func(): main.go_base(), true, 14)
 	bottom.add_child(back)
 	bottom.add_child(PUi.button("상점", func(): main.show("shop"), true, 14))
 	bottom.add_child(PUi.button("장비", func(): main.show("equip"), true, 14))
 	default_button = back
+
+# ---------- 제작(시험값 meta.json): 해금된 제작법 목록 → 미리보기(소비 장비·재료·금화, 효과 차이) → 확정/취소. 확정 전에는 아무것도 소비하지 않는다 ----------
+func _craft_card(r: Dictionary) -> Control:
+	var opts := PRun.craft_options(r)
+	var CE := PCatalog.crafted_equipment()
+	var known := opts.size()
+	var c := PUi.card("%s [color=#9ea8b8]제작법 %d/%d 해금 · 재료·완성품은 이번 회차 한정 · 시간 소모 없음 · 분해 없음[/color]" % [PGlossaryTip.term("craft", "제작"), known, CE.size()])
+	var box: VBoxContainer = c.box
+	if opts.is_empty():
+		box.add_child(PUi.rich("[color=#6a7078]해금된 제작법 없음 (영구 성장 화면의 도감에서 조건 확인)[/color]", 12))
+	for o in opts:
+		var opt: Dictionary = o
+		var id := String(opt.id)
+		var d: Dictionary = opt.def
+		var row := PUi.hbox(8)
+		var ings := []
+		for ing in opt.ingredients:
+			var have_txt := ""
+			if String(ing.kind) == "equipment":
+				have_txt = "[color=#9fe89f]장착[/color]" if String(ing.where) == "equipped" else ("[color=#9fe89f]가방[/color]" if String(ing.where) == "bag" else "[color=#ff8c73]없음[/color]")
+			else:
+				have_txt = "[color=%s]%d/%d[/color]" % ["#9fe89f" if int(ing.have) >= int(ing.n) else "#ff8c73", int(ing.have), int(ing.n)]
+			ings.append("%s %s" % [PGlossaryTip.esc(String(ing.name)), have_txt])
+		row.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s[/color]\n[color=#9ea8b8]%s[/color] · %s · 수수료 [color=%s]%d[/color]" % [PGlossaryTip.term("eq:" + id, String(d.name)), PUi.slot_name(String(d.slot)), PGlossaryTip.esc(String(d.short)), " + ".join(ings), "#ffd966" if bool(opt.affordable) else "#ff8c73", int(opt.fee)], 12))
+		var can: bool = bool(opt.can)
+		row.add_child(PUi.button("미리보기" if can else ("보유 중" if bool(opt.owned) else "재료 부족"), func(): _craft = id; refresh(), can, 12))
+		box.add_child(row)
+	if _craft != "" and PCatalog.crafted_equipment().has(_craft):
+		var opt := PRun.craft_option(r, _craft)
+		if bool(opt.can):
+			box.add_child(_craft_preview(r, opt))
+		else:
+			_craft = ""
+	# 잠긴 제작법: 이름·짧은 효과·조건(발견 경로 안내 없음)
+	var locked := []
+	for id in CE:
+		if not PProfile.run_unlock_ok(r, "recipes", String(id)):
+			locked.append("[b]%s[/b](%s) — %s" % [PGlossaryTip.esc(String(CE[id].name)), PGlossaryTip.esc(String(CE[id].short)), PGlossaryTip.esc(PProfile.unlock_text("recipes", String(id)))])
+	if locked.size() > 0:
+		box.add_child(PUi.rich("[color=#6a7078]잠김: %s[/color]" % " · ".join(locked), 11))
+	return c.panel
+
+func _craft_preview(r: Dictionary, opt: Dictionary) -> Control:
+	var id := String(opt.id)
+	var d: Dictionary = opt.def
+	var pv: Dictionary = opt.preview
+	var c := PUi.card("%s 미리보기 [color=#9ea8b8](확정 전 소비 없음)[/color]" % PGlossaryTip.esc(String(d.name)), PUi.CARD_ON, 13)
+	var box: VBoxContainer = c.box
+	var consume := []
+	var uses_equipped := false
+	for ing in opt.ingredients:
+		if String(ing.kind) == "equipment":
+			consume.append("%s(%s)" % [String(ing.name), "장착 중" if String(ing.where) == "equipped" else "가방"])
+			if String(ing.where) == "equipped":
+				uses_equipped = true
+		else:
+			consume.append("%s %d" % [String(ing.name), int(ing.n)])
+	consume.append("금화 %d" % int(opt.fee))
+	PUi.kv(box, "소비", PGlossaryTip.esc(", ".join(consume)), 12)
+	PUi.kv(box, "효과", PGlossaryTip.esc(String(d.desc)), 12)
+	var cur = r.equipment.get(String(d.slot), null)
+	PUi.kv(box, "현재 %s" % PUi.slot_name(String(d.slot)), PUi.equip_line(String(cur)) if cur != null else "[color=#6a7078]없음[/color]", 12)
+	if not pv.is_empty():
+		var b0: Dictionary = pv.before
+		var b1: Dictionary = pv.after
+		PUi.kv(box, "제작·장착 시 수치", "최대 체력 %d → %d · 이동 ×%s → ×%s · 시작 보호막 %d → %d · 사거리 ×%s → ×%s" % [int(float(b0.hp_max)), int(float(b1.hp_max)), PUi.fmt(float(b0.speed_mult)), PUi.fmt(float(b1.speed_mult)), int(float(b0.shield)), int(float(b1.shield)), PUi.fmt(float(b0.range_mult)), PUi.fmt(float(b1.range_mult))], 12)
+	if uses_equipped:
+		box.add_child(PUi.rich("[color=#ff8c73]장착 중인 장비가 재료로 소비됩니다(그 슬롯은 비거나 완성품으로 교체).[/color]", 11))
+	var row := PUi.hbox(8)
+	var confirm := PUi.button("확정 후 장착", func(): _craft = ""; main.craft(id, true, true), true, 13)
+	row.add_child(confirm)
+	row.add_child(PUi.button("확정 후 보관", func(): _craft = ""; main.craft(id, true, false), true, 13))
+	row.add_child(PUi.button("취소 (Esc)", func(): _craft = ""; refresh(), true, 13))
+	box.add_child(row)
+	default_button = confirm
+	return c.panel
 
 # ---------- 기술 교체 흐름 ----------
 func _swap_open(slot: String, index: int) -> void:

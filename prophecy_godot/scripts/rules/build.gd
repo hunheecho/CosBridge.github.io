@@ -3,6 +3,8 @@ extends RefCounted
 ## 회차 상태(성장·장비·강화·임시 강화) → 전투에서 쓰는 실제 수치(HTML build.js + growth.js derive 이식). 중복 적용을 막기 위해 항상 여기서만 계산한다.
 ## 빌드 dict: { hp_max, shield, speed_mult, toughness, exposed_mult, skill_cd_mult, special_cd, damage_mult, mastery_mult, interval_mult, range_mult, width_mult, duration_mult,
 ##   forge, forge_mult, equip{eff 합산}, equip_ids[], weapons[파생 stats], commons{}, passives{}, skills{q,e}, boss_rewards[], growth(참조), level, has(id) 대신 has_common(b,id) }
+## 영구 특성(run.traits가 있을 때만 키 추가): traits[], trait_shield, q_cd_mult, e_cd_mult, heal_mult, trait_dot_mult, trait_dot_dur,
+##   trait_dmg{near_dist,near_mult,far_dist,far_mult,focus_id,focus_up,focus_down,link_window,link_mult,link_skill_mult,direct_mult}
 
 static func has_common(b: Dictionary, id: String) -> bool:
 	return int(b.commons.get(id, 0)) > 0
@@ -59,15 +61,17 @@ static func derive(run: Dictionary) -> Dictionary:
 	var CV: Dictionary = G.COMMON_VALUES
 	var p: Dictionary = g.get("passives", {})
 	var eq: Dictionary = run.get("equipment", { "weapon": null, "armor": null, "shield": null })
-	var EQ := PCatalog.equipment()
 	var equip := {}
 	var equip_ids := []
 	for slot in ["weapon", "armor", "shield"]:
 		var id = eq.get(slot, null)
-		if id != null and EQ.has(String(id)):
+		if id == null:
+			continue
+		var ed := PCatalog.equipment_def(String(id)) # 일반 12 + 제작 6(제작품은 재료 장비 효과를 이어받지 않고 자기 eff만)
+		if not ed.is_empty():
 			equip_ids.append(String(id))
-			for k in EQ[String(id)].eff:
-				equip[k] = EQ[String(id)].eff[k]
+			for k in ed.eff:
+				equip[k] = ed.eff[k]
 	var forge: int = mini(3, int(run.get("forge", 0)))
 	var forge_mults: Array = PCatalog.shop().forgeMult
 	var b := {
@@ -109,6 +113,49 @@ static func derive(run: Dictionary) -> Dictionary:
 	if equip.has("reach"):
 		b.range_mult *= 1.0 + float(equip.reach)
 		b.width_mult *= 1.0 + float(equip.reach)
+	if equip.has("overflowShield") and float(run.get("storedShield", 0.0)) > 0.0:
+		b.shield += minf(float(equip.overflowShield.max), float(run.storedShield)) # 재생의 여행복: 저장된 초과 회복분(전투 시작 시 소비, PFlow.make_encounter)
+	# 영구 특성(run.traits, 새 회차에서 고정 — 시험값 meta.json). 특성이 없으면 어떤 키도 추가하지 않아 기준 전투(D33)와 같은 빌드가 된다
+	var traits: Array = run.get("traits", [])
+	if not traits.is_empty():
+		var TE := PProfile.trait_effects(traits)
+		b.traits = traits.duplicate()
+		if TE.has("startShield"):
+			b.shield += float(TE.startShield) # 별도 출처(방호 준비)
+			b.trait_shield = float(TE.startShield)
+		if TE.has("speed"):
+			b.speed_mult *= 1.0 + float(TE.speed)
+		if TE.has("interval"):
+			b.interval_mult *= 1.0 - float(TE.interval)
+		if TE.has("qCd"):
+			b.q_cd_mult = 1.0 - float(TE.qCd)
+		if TE.has("eCd"):
+			b.e_cd_mult = 1.0 - float(TE.eCd)
+		if TE.has("healMult"):
+			b.heal_mult = 1.0 + float(TE.healMult)
+		if TE.has("dotMult"):
+			b.trait_dot_mult = 1.0 + float(TE.dotMult)
+		if TE.has("dotDur"):
+			b.trait_dot_dur = 1.0 + float(TE.dotDur)
+		var td := {}
+		if TE.has("nearMult"):
+			td.near_dist = float(TE.nearDist)
+			td.near_mult = 1.0 + float(TE.nearMult)
+		if TE.has("farMult"):
+			td.far_dist = float(TE.farDist)
+			td.far_mult = 1.0 + float(TE.farMult)
+		if TE.has("focusUp"):
+			td.focus_id = String(run.get("startWeapon", String(g.weapons[0].id) if (g.weapons as Array).size() > 0 else ""))
+			td.focus_up = 1.0 + float(TE.focusUp)
+			td.focus_down = 1.0 - float(TE.focusDown)
+		if TE.has("linkMult"):
+			td.link_window = float(TE.linkWindow)
+			td.link_mult = 1.0 + float(TE.linkMult)
+			td.link_skill_mult = 1.0 - float(TE.linkSkillDown)
+		if TE.has("directDown"):
+			td.direct_mult = 1.0 - float(TE.directDown)
+		if not td.is_empty():
+			b.trait_dmg = td
 	b.weapons = []
 	for w in g.weapons:
 		b.weapons.append(weapon_stats(b, w))
@@ -119,7 +166,7 @@ static func derive(run: Dictionary) -> Dictionary:
 	var q = g.skills.get("q")
 	var qlv: int = mini(3, int(q.level)) if q != null else 1
 	var qcd: float = float(PCatalog.skills().slowfield.cooldown[qlv - 1])
-	b.special_cd = maxf(1.0, qcd * float(b.skill_cd_mult))
+	b.special_cd = maxf(1.0, qcd * float(b.skill_cd_mult) * float(b.get("q_cd_mult", 1.0)))
 	return b
 
 ## 카드 미리보기: 선택을 적용한 뒤의 파생 수치

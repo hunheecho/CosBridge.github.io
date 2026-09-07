@@ -25,7 +25,7 @@ func refresh() -> void:
 			var eid := String(id)
 			var v := PUi.vbox(2)
 			v.add_child(PUi.rich("[color=#9ea8b8]%s[/color]  %s" % [PUi.slot_name(slot), PUi.equip_line(eid)], 13))
-			v.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(PCatalog.equipment()[eid].desc)), 11))
+			v.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(PCatalog.equipment_def(eid).desc)), 11))
 			v.add_child(PUi.rich("[color=#9ea8b8]해제하면: %s[/color]" % _compare_unequip(r, slot), 11))
 			row.add_child(v)
 			var bcol := PUi.vbox(4)
@@ -41,7 +41,7 @@ func refresh() -> void:
 		bbox.add_child(PUi.rich("[color=#6a7078]가방 비어 있음 (상점에서 구매 후 보관하면 여기에 옵니다)[/color]", 12))
 	for id in r.bag:
 		var bid := String(id)
-		var d: Dictionary = PCatalog.equipment()[bid]
+		var d: Dictionary = PCatalog.equipment_def(bid)
 		var row := PUi.hbox(8)
 		var v := PUi.vbox(2)
 		v.add_child(PUi.rich("%s [color=#9ea8b8](%s)[/color]" % [PUi.equip_line(bid), PUi.slot_name(String(d.slot))], 13))
@@ -79,9 +79,9 @@ func _compare_equip(r: Dictionary, id: String) -> String:
 	var dup: Dictionary = r.duplicate(true)
 	PRun.equip_item(dup, id)
 	var after := PBuild.derive(dup)
-	var d: Dictionary = PCatalog.equipment()[id]
+	var d: Dictionary = PCatalog.equipment_def(id)
 	var cur = r.equipment.get(String(d.slot), null)
-	var swap := (" · %s은(는) 가방으로" % String(PCatalog.equipment()[String(cur)].name)) if cur != null else ""
+	var swap := (" · %s은(는) 가방으로" % PRun.equip_name(String(cur))) if cur != null else ""
 	return _diff_text(before, after) + swap
 
 func _compare_unequip(r: Dictionary, slot: String) -> String:

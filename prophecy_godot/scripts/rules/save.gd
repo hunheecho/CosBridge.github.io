@@ -18,6 +18,7 @@ const INT_KEYS := {
 	"fallbackGold": true, "attempts": true, "timeCost": true, "variantSlot": true, "slot": true, "remappedFrom": true, "chestGold": true, "n": true, "count": true,
 	"fromSlot": true, "servicePrice": true, "price": true, "index": true, "modCount": true, "lv": true, "cost": true, "afterBoss": true,
 	"retries": true, "specialUses": true, "extraTime": true, "heal": true, "hpCost": true,
+	"profileLevel": true, # 영구 성장(run.unlocks.level은 "level"로 이미 정수)
 }
 ## 값 전체가 정수인 사전
 const INT_MAPS := { "mats": true, "picks": true, "commons": true, "passives": true, "services": true, "visited": true, "missionsDone": true }

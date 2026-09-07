@@ -32,8 +32,15 @@ var choice: PChoiceOverlay
 var tips: PGlossaryTip
 var settings_panel: PSettingsPanel
 var glossary_paused := false
+var profile: Dictionary = {}        # 영구 프로필(PProfile, 회차 저장과 별도 파일). 시험값
+var last_profile_award: Dictionary = {} # 마지막 정산의 영구 기록·해금(결과 화면 한 줄)
+
+const TEST_PROFILE_PATH := "user://prophecy_profile_test_v1.json" # PROPHECY_UI_SMOKE·봇 데모는 실제 프로필을 건드리지 않는다
 
 func _ready() -> void:
+	if OS.get_environment("PROPHECY_UI_SMOKE") != "":
+		PProfile.use_path(TEST_PROFILE_PATH)
+	profile = PProfile.load()
 	view.finished.connect(_on_finished)
 	tips = PGlossaryTip.new()
 	tips_layer.add_child(tips)
@@ -82,7 +89,7 @@ func _make_screens() -> void:
 	var defs := {
 		"title": PTitleScreen, "pick_start": PPickStartScreen, "base": PBaseScreen, "shop": PShopScreen, "equip": PEquipScreen, "forge": PForgeScreen,
 		"stats": PStatsScreen, "log": PLogScreen, "reward": PRewardScreen, "after": PAfterScreen, "event": PEventScreen, "defeat": PDefeatScreen,
-		"boss_result": PBossResultScreen, "run_result": PRunResultScreen,
+		"boss_result": PBossResultScreen, "run_result": PRunResultScreen, "meta": PMetaScreen,
 	}
 	for name in defs:
 		var s: PScreen = (defs[name] as GDScript).new()
@@ -148,14 +155,55 @@ func new_run_flow() -> void:
 
 var new_run_opts := {} # 검증 메뉴에서 정한 새 회차 옵션 { seed, density_set } — 새 회차 1회에만 쓰고 비운다
 
+## 새 회차: 프로필의 해금 스냅샷·특성을 고정하고 영구 기록 대상(profileEligible)으로 만든다. 봇으로 진행한 전투가 있으면 _on_finished가 대상에서 뺀다.
+## 검증 메뉴의 밀도 비교 회차(new_run_opts)는 시드·세트만 정하고 프로필 규칙은 같다
 func start_run(weapon_id: String) -> void:
 	fight_kind = "run"
 	var seed_use: int = int(new_run_opts.get("seed", _auto_seed if _auto else 0))
-	run = PRun.new_run(seed_use, weapon_id, "", { "density_set": String(new_run_opts.get("density_set", "")) })
+	run = PRun.new_run(seed_use, weapon_id, "", { "density_set": String(new_run_opts.get("density_set", "")), "profile": profile, "eligible": true })
 	new_run_opts = {}
 	sortie = {}
+	last_profile_award = {}
+	profile.runs = int(profile.get("runs", 0)) + 1
+	PProfile.save(profile)
 	save_run()
 	go_base()
+
+# ---------- 영구 성장(프로필) ----------
+func show_meta() -> void:
+	profile = PProfile.load()
+	show("meta")
+
+## 프로필 종류 전환(다른 종류는 삭제하지 않음). 진행 중 회차는 시작 시점 스냅샷 그대로
+func set_profile_kind(kind: String) -> void:
+	profile = PProfile.set_active(kind)
+	show("meta")
+
+## 특성 선택(출발 전 무료 재선택). 다음 새 회차부터 반영
+func set_trait(level_key: int, id: String) -> void:
+	if PProfile.set_trait(profile, level_key, id):
+		PProfile.save(profile)
+	show("meta")
+
+## 회차 결과를 프로필에 반영·저장(정확히 1회는 PProfile의 이벤트 ID가 보장). kind: victory | boss | return
+func _award_profile(kind: String, ctx: Dictionary) -> Dictionary:
+	if run.is_empty() or fight_kind != "run":
+		return {}
+	var a := PProfile.award_from_run(profile, run, kind, ctx)
+	if bool(a.get("eligible", false)) and (int(a.get("records", 0)) > 0 or not (a.get("challenges", []) as Array).is_empty()):
+		PProfile.save(profile)
+		var txt := PProfile.award_text(a)
+		if txt != "":
+			PRun.add_log(run, txt)
+	return a
+
+## 제작 확정(대장간): 검증 → 소비 → 생성 → 가방/장착을 한 번에, 저장 1회
+func craft(recipe_id: String, use_equipped: bool, equip_after: bool) -> void:
+	if PRun.craft(run, recipe_id, use_equipped, equip_after):
+		save_run()
+	else:
+		message("제작할 수 없습니다(재료·금화·보유 상태를 확인)")
+	show("forge")
 
 func continue_run() -> void:
 	var r := PSave.load()
@@ -368,6 +416,7 @@ func deep_explore() -> void:
 
 func return_home() -> void:
 	PFlow.return_home(run, sortie)
+	_award_profile("return", { "sortie": sortie }) # 생환·정산 도전(원정대의 갑옷·재생의 여행복 제작법)
 	sortie = {}
 	go_base()
 
@@ -518,6 +567,8 @@ static func _lab_build_run(key: String) -> Dictionary:
 
 ## 검증 메뉴: 봇 회차 데모 — 새 회차를 봇이 첫 관문 결과까지 자동 진행(현재 저장을 덮어쓴다)
 func bot_demo() -> void:
+	PProfile.use_path(TEST_PROFILE_PATH) # 봇 데모는 시험 프로필 파일로(실제 프로필 보호). 이후 이 세션의 프로필은 시험 파일
+	profile = PProfile.load()
 	_auto = true
 	_auto_snap = false
 	_auto_quit = false
@@ -543,11 +594,14 @@ func _on_finished(summary: Dictionary) -> void:
 	if fight_kind != "run":
 		_show_lab_result(summary)
 		return
+	if view.bot != null and bool(run.get("profileEligible", false)):
+		run.profileEligible = false # 봇이 진행한 전투가 있는 회차는 영구 기록 대상에서 제외(사용자 지시 §5)
 	if st.mode == "boss":
 		if st.status == "won":
 			last_record = PFlow.settle_boss_victory(run, st)
 			if not bool(run.get("quick", false)):
 				PSave.save_record(last_record)
+			last_profile_award = _award_profile("boss", { "st": st })
 			save_run()
 			sortie = {}
 			show("run_result" if String(run.phase) == "cleared" else "boss_result")
@@ -559,6 +613,7 @@ func _on_finished(summary: Dictionary) -> void:
 		return
 	if st.status == "won":
 		last_reward = PFlow.settle_victory(run, sortie, st)
+		last_profile_award = _award_profile("victory", { "sortie": sortie, "st": st })
 		save_run()
 		show("reward")
 		if int(run.growth.pendingLevelUps) > 0:

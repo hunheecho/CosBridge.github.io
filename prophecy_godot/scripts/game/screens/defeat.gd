@@ -16,7 +16,7 @@ func refresh() -> void:
 	if mats != "":
 		lost_txt += ", " + mats
 	for id in lost.get("items", []):
-		lost_txt += ", " + String(PCatalog.equipment()[String(id)].name)
+		lost_txt += ", " + PRun.equip_name(String(id))
 	var now := ("%d일차 보스 관문" % int(r.day)) if String(r.phase) == "boss_prep" else ("%d일차 %s" % [int(r.day), String(PRun.time_slots()[0])])
 	heading("[color=#ff8c73]패배[/color]")
 	body.add_child(PUi.rich("%s에서 쓰러졌습니다. 이번 출격의 미정산 전리품([b]%s[/b])과 남은 하루를 잃었습니다." % [PGlossaryTip.esc(String(reg.name)), PGlossaryTip.esc(lost_txt)], 14))

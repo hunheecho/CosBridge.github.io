@@ -336,7 +336,7 @@ static func fire_ember(st: CombatState, w: Dictionary, target: Dictionary, _echo
 		for i in [1, 2]:
 			zones_l.append([tx - cos(ang) * 40.0 * float(i), ty - sin(ang) * 40.0 * float(i), float(s.radius) * 0.8])
 	st.fx({ "kind": "emberthrow", "x0": st.player.x, "y0": st.player.y, "x": tx, "y": ty, "ttl": 0.3 })
-	var dm := float(st.build.duration_mult)
+	var dm: float = float(st.build.duration_mult) * float(st.build.get("trait_dot_dur", 1.0)) # 특성 '지속 전문화': 불길 지속시간(없으면 ×1.0)
 	later(st, 0.3, func():
 		for zz in zones_l:
 			var pos := st.nearest_valid_pos(zz[0], zz[1], 0.0, 60.0)
