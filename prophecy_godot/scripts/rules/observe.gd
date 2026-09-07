@@ -7,11 +7,13 @@ extends RefCounted
 ##   등장 예고(화면의 spawnwarn/pawwarn 효과), 조작 규칙(회피 거리·시간·재사용, 이동 속도, 자동기술 사거리 = 기술 설명상 성능).
 ## 담지 않는 것: 다음 공격의 난수 결과, 아직 예고되지 않은 착탄 지점·방향, 숨은 적(hidden), 미등장 대기열(pending) 좌표, 예고에 표시되지 않는 내부 타이머(재사용·ready_t·dash_ready_at 등),
 ##   최종 충돌 결과, 규칙 엔진을 미리 실행해 얻은 정답. 화면에 없는 정확한 발동 시각도 주지 않는다(예고 진행률 prog와 화면에 글자로 표시되는 남은 초 shown_left만).
-## 위협 = {attack_id, enemy_id, type, kind: "sector"|"corridor"|"circle"|"lane", phase: "warn"|"lock"|"active", prog, x, y, ang, r, half, len, w, harm: "damage"|"slow", shown_left, rev, label}.
+## 위협 = {attack_id, enemy_id, type, kind: "sector"|"corridor"|"circle"|"lane"|"band", phase: "warn"|"lock"|"active", prog, x, y, ang, r, half, len, w, harm: "damage"|"slow", shown_left, rev, label}.
+##   band(띠) = 포자 어미의 확산 중인 고리(render draw_arc 폭 w): 바깥 반지름 r, 안쪽 r−w, 빈 구간을 뺀 각 범위 ang±half. 다른 도형에 맞지 않아 observe-2에서 추가.
 ## attack_id = "e<적 id>#<attack_n>"(공격 시작마다 combat_state/enemies가 올리는 번호) + 부분 접미사(:lane0 등), 지역은 "zone:<종류>:<x>:<y>", 투사체는 추적기가 준 "proj:<n>".
 ## rev(수정 번호)는 take()를 쓰는 추적 인스턴스가 붙이며, 그려지는 기하(각도 0.5°·위치 1px·단계)가 바뀔 때만 오른다.
+## observe-2: 신규 관문 보스 6종(PBoss3)의 예고(render.gd draw_boss3_telegraphs와 같은 수치)·빙판(ice, 걷기 감속만)·잔해(rubble)·보스 볼트/얼음 탄 투사체·방패/방어 자세 부채꼴(boss.guard, 위협 아님)을 담는다.
 
-const VERSION := "observe-1"
+const VERSION := "observe-2"
 const LANE_W := 40.0        # 화면의 선 예고(궁수·주술사 조준선)에는 폭이 없으므로 봇은 화살 반지름+플레이어 반지름 기준 폭 40을 가정한다(PBot과 같은 값)
 const PROJ_LOOK := 220.0    # 날아가는 투사체의 진행 방향 외삽 길이(공개 정보의 제한적 외삽)
 const ARCHER_LANE_LEN := 2000.0
@@ -115,7 +117,7 @@ static func snapshot(st: CombatState, full: bool = true) -> Dictionary:
 			"boss": bool(e.get("boss", false)), "elite": bool(e.get("elite", false)), "structure": bool(e.get("structure", false)), "exposed": String(e.state) == "recover" or String(e.state) == "stagger" })
 	for z in st.zones:
 		out.zones.append({ "type": String(z.type), "x": float(z.x), "y": float(z.y), "r": float(z.r), "life": (float(z.ttl) / float(z.max_ttl)) if float(z.max_ttl) > 0.0 else 0.0,
-			"order": int(z.get("order", 0)), "armed": bool(z.get("armed", true)), "tag": String(z.get("tag", "")), "shown_left": shown_zone_left(z) })
+			"order": int(z.get("order", 0)), "armed": bool(z.get("armed", true)), "tag": String(z.get("tag", "")), "shown_left": shown_zone_left(z), "slow": zone_slow(z) })
 	for o in st.objects:
 		out.objects.append({ "kind": String(o.get("kind", "")), "x": float(o.x), "y": float(o.y), "r": float(o.get("r", 0.0)), "done": bool(o.get("freed", false)) or bool(o.get("done", false)) })
 	for k in st.pickups:
@@ -129,8 +131,21 @@ static func snapshot(st: CombatState, full: bool = true) -> Dictionary:
 		out.field = { "x": float(st.field.x), "y": float(st.field.y), "r": float(st.field.r), "ttl": float(st.field.ttl) }
 	if not st.boss.is_empty():
 		var bz: Dictionary = st.boss
-		out.boss = { "id": int(bz.id), "boss_id": String(bz.get("boss_id", "boss")), "hp_frac": (float(bz.hp) / float(bz.hp_max)) if float(bz.hp_max) > 0.0 else 0.0, "phase": int(bz.get("phase", 1)), "state": String(bz.state), "dead": bool(bz.dead), "x": float(bz.x), "y": float(bz.y), "r": float(bz.r) }
+		out.boss = { "id": int(bz.id), "boss_id": String(bz.get("boss_id", "boss")), "hp_frac": (float(bz.hp) / float(bz.hp_max)) if float(bz.hp_max) > 0.0 else 0.0, "phase": int(bz.get("phase", 1)), "state": String(bz.state), "dead": bool(bz.dead), "x": float(bz.x), "y": float(bz.y), "r": float(bz.r),
+			"guard": guard_of(bz) }
 	return out
+
+## 화면에 그려지는 방패/방어 자세 부채꼴(render _boss3_guard_arc: 파수장 guard_aim/lock = 반지름 radius+40, 집행관 guard = strike.radius; 정면 frontDeg). 위협이 아니라 '정면 직접 피해 경감' 표시.
+## left = 집행관 자세의 글자로 표시되는 남은 초("회전 방어 자세 %.1f초"), 파수장은 표시가 없어 -1. 그려지지 않으면(자세 아님·실시간 상한 뒤) {}
+static func guard_of(bz: Dictionary) -> Dictionary:
+	if not PBoss3.has(String(bz.get("boss_id", ""))) or not PBoss3.guard_active(bz):
+		return {}
+	var cfg := PBoss3.cfg_of(bz)
+	var G: Dictionary = cfg.guard
+	var s := String(bz.state)
+	if s == "guard":
+		return { "ang": float(bz.get("face", 0.0)), "half": PGeom.deg(float(G.frontDeg)) / 2.0, "r": float(G.strike.radius), "reduce": float(G.reduce), "left": maxf(0.0, float(G.dur) - float(bz.get("guard_t", 0.0))) }
+	return { "ang": PBoss3.facing(bz), "half": PGeom.deg(float(G.frontDeg)) / 2.0, "r": float(G.radius) + 40.0, "reduce": float(G.reduce), "left": -1.0 }
 
 ## 조작 규칙(조작법 화면·HUD에 표시되는 값): 회피·이동 속도·자동기술 사거리
 static func rules_of(st: CombatState) -> Dictionary:
@@ -155,6 +170,15 @@ static func rules_of(st: CombatState) -> Dictionary:
 ## 바닥 지역에 글자로 표시되는 남은 시간(거미줄 진행 호·서리 순번·제단 예고 진행). 숫자 초가 표시되는 것은 없으므로 -1
 static func shown_zone_left(_z: Dictionary) -> float:
 	return -1.0
+
+## 바닥 지역의 걷기 감속 배율(화면 문구 "거미줄(걷기 50%)"·"빙판(걷기 60%)"과 보스 설명에 적힌 값). 감속이 없으면 0. 회피 거리·입력 방향은 바꾸지 않는다(CombatState.update_player)
+static func zone_slow(z: Dictionary) -> float:
+	var zt := String(z.type)
+	if zt == "ice":
+		return float(z.get("slow", 0.6))
+	if zt == "web":
+		return 0.5
+	return 0.0
 
 ## 발사자가 있는 투사체의 공격 부분 id("e<id>#<n>:proj<i>", 같은 공격의 몇 번째 투사체인지 counts로 센다). 발사자가 없으면 ""
 static func _shooter_attack(pr: Dictionary, counts: Dictionary) -> String:
@@ -271,8 +295,15 @@ static func threats_of(st: CombatState, out: Array) -> void:
 			out.append({ "attack_id": zid, "enemy_id": -1, "type": zt, "kind": "circle", "phase": "lock" if float(z.ttl) < 0.45 else "warn", "prog": 1.0 - life, "x": float(z.x), "y": float(z.y), "ang": 0.0, "r": float(z.r), "half": 0.0, "len": 0.0, "w": 0.0, "harm": "damage", "shown_left": -1.0, "rev": 0, "label": "frost%d" % int(z.get("order", 0)) })
 		elif zt == "web":
 			out.append({ "attack_id": zid, "enemy_id": -1, "type": zt, "kind": "circle", "phase": "active", "prog": 1.0, "x": float(z.x), "y": float(z.y), "ang": 0.0, "r": float(z.r), "half": 0.0, "len": 0.0, "w": 0.0, "harm": "slow", "shown_left": -1.0, "rev": 0, "label": "web" })
+		elif zt == "ice": # 빙판(서리 추적자, render draw_zones "ice"): 걷기 속도만 감속(회피·입력 방향 그대로). 봇은 그냥 느려진다
+			out.append({ "attack_id": zid, "enemy_id": -1, "type": zt, "kind": "circle", "phase": "active", "prog": 1.0, "x": float(z.x), "y": float(z.y), "ang": 0.0, "r": float(z.r), "half": 0.0, "len": 0.0, "w": 0.0, "harm": "slow", "shown_left": -1.0, "rev": 0, "label": "ice" })
+		elif zt == "rubble": # 낙석 잔해(굴착 거수, render draw_zones "rubble"): 서 있으면 주기 피해 — 잔류 위험 지역
+			out.append({ "attack_id": zid, "enemy_id": -1, "type": zt, "kind": "circle", "phase": "active", "prog": 1.0, "x": float(z.x), "y": float(z.y), "ang": 0.0, "r": float(z.r), "half": 0.0, "len": 0.0, "w": 0.0, "harm": "damage", "shown_left": -1.0, "rev": 0, "label": "rubble" })
 
 static func _boss_threats(st: CombatState, bz: Dictionary, out: Array) -> void:
+	if PBoss3.has(String(bz.get("boss_id", ""))):
+		_boss3_threats(st, bz, out)
+		return
 	var cfg := PBoss.cfg_of(bz)
 	var stt := String(bz.state)
 	var p: Dictionary = st.player
@@ -328,6 +359,128 @@ static func _boss_threats(st: CombatState, bz: Dictionary, out: Array) -> void:
 		var R: float = float(rad[mini(2, int(bz.get("phase", 1)) - 1)])
 		_th(out, bz, "", "circle", "lock" if stt == "wide_lock" else "warn", (st_t / float(cfg.wide.aim)) if stt == "wide_aim" else 1.0, { "r": R, "label": "wide" })
 
+## 직선 돌진/돌파/굴착 예고(render _boss3_dash_beam·굴착 계획 선과 같은 수치): 준비 중엔 추적 각의 실제 경로(path_from), 확정 뒤엔 고정 경로(dash_len). 폭 = (보스 r + 플레이어 r)×2
+static func _boss3_dash(st: CombatState, bz: Dictionary, out: Array, sub: String, phase: String, prog: float, dist: float, label: String, extra: Dictionary = {}) -> void:
+	var pr_: float = float(st.player.r)
+	var ang: float
+	var plen: float
+	if phase == "warn":
+		ang = float(bz.aim_angle)
+		plen = float(PBoss3.path_from(st, float(bz.x), float(bz.y), float(bz.r), ang, dist)["len"])
+	else:
+		ang = float(bz.dir)
+		plen = float(bz.get("dash_len", 0.0))
+	var d := { "ang": ang, "len": plen, "w": (float(bz.r) + pr_) * 2.0, "label": label }
+	for k in extra:
+		d[k] = extra[k]
+	_th(out, bz, sub, "corridor", phase, prog, d)
+
+## 부채꼴 예고(render _boss3_sector: 반지름 radius, 반각 arcDeg/2, 준비 중엔 추적 각, 확정 뒤 고정 각 + '!')
+static func _boss3_sector(bz: Dictionary, out: Array, sub: String, S: Dictionary, locked: bool, st_t: float, label: String) -> void:
+	_th(out, bz, sub, "sector", "lock" if locked else "warn", 1.0 if locked else st_t / float(S.aim), { "ang": PBoss3.facing(bz), "r": float(S.radius), "half": PGeom.deg(float(S.arcDeg)) / 2.0, "label": label })
+
+## 신규 관문 보스 6종의 화면 예고(render.gd draw_boss3_telegraphs와 같은 수치, docs/BOSSES.md '봇 관측'). 그려지지 않는 것(굴착 계획의 미래 각, 착탄 시각 자체, 난수)은 넣지 않는다.
+## - 위치 예고(포자 탄 :mark<n>, 낙석 :rock<n>)는 화면에 순번과 남은 초가 글자로 있으므로 shown_left를 준다(먹는 자 표식과 같은 규칙). 0.4초 미만은 굵은 테두리/점멸 = lock.
+## - 사냥왕 재조준(:dash2)은 "방향 고정 %.1f초 뒤" 글자가 있어 shown_left = 고정까지 남은 초(착탄이 아니라 고정 시각), 고정 뒤(dash_relock)는 -1.
+## - 집행관 절단선은 세로 통로(x = 선의 x, y = 0, 각 π/2, 길이 = 경기장 높이, 폭 80). 1번 선은 예고 중 플레이어 x를 따라오고(warn), 2번은 1번이 떨어질 때 고정.
+## - 포자 고리: 준비/확정 = 빈 구간을 뺀 부채꼴(maxR), 확산 중 = 띠(band, ring_r ± width/2). 빈 구간은 부채꼴 밖으로만 표현(초록 안전 표시는 위협이 아니다).
+static func _boss3_threats(st: CombatState, bz: Dictionary, out: Array) -> void:
+	var cfg := PBoss3.cfg_of(bz)
+	var s := String(bz.state)
+	var st_t: float = float(bz.state_t)
+	var bid := String(bz.boss_id)
+	match bid:
+		"gate_warden":
+			if s == "guard_aim" or s == "guard_lock":
+				_boss3_sector(bz, out, "", cfg.guard, s == "guard_lock", st_t, "shove")
+			if s == "breach_aim":
+				_boss3_dash(st, bz, out, "", "warn", st_t / float(cfg.breach.aim), float(cfg.breach.dist), "breach")
+			if s == "breach_lock" or s == "breach":
+				_boss3_dash(st, bz, out, "", "lock" if s == "breach_lock" else "active", 1.0, float(cfg.breach.dist), "breach")
+			if s == "bsweep_aim" or s == "bsweep_lock":
+				_boss3_sector(bz, out, ":sweep", cfg.breach.sweep, s == "bsweep_lock", st_t, "bsweep")
+			if s == "bolts_aim" or s == "bolts_lock":
+				var BL: Dictionary = cfg.bolts
+				var n: int = int(BL.count)
+				for i in n:
+					var a: float = PBoss3.facing(bz) + PGeom.deg(float(BL.spreadDeg)) * (float(i) - float(n - 1) / 2.0)
+					_th(out, bz, ":bolt%d" % i, "corridor", "lock" if s == "bolts_lock" else "warn", 1.0 if s == "bolts_lock" else st_t / float(BL.aim), { "ang": a, "len": float(BL.len), "w": float(BL.width) + 10.0, "label": "bolt%d" % (i + 1) })
+		"spore_matriarch":
+			for mk in bz.marks: # 상태와 무관하게 착탄까지 그려진다("<순번> · <남은 초>")
+				var left: float = maxf(0.0, float(mk.land_at) - st.t)
+				_th(out, bz, ":mark%d" % int(mk.order), "circle", "lock" if left < 0.4 else "warn", 1.0 - minf(1.0, left / maxf(0.001, float(cfg.shot.delay))), { "x": float(mk.x), "y": float(mk.y), "r": float(mk.r), "shown_left": left, "label": "shot%d" % int(mk.order) })
+			if s == "ring_aim" or s == "ring_lock" or s == "ring":
+				var R: Dictionary = cfg.ring
+				var gap: float = float(bz.ring_gap)
+				var gh: float = float(bz.ring_half)
+				if s == "ring":
+					var w: float = float(R.width)
+					_th(out, bz, "", "band", "active", 1.0, { "ang": gap + PI, "r": float(bz.ring_r) + w / 2.0, "w": w, "half": PI - gh, "label": "ring" })
+				else:
+					_th(out, bz, "", "sector", "lock" if s == "ring_lock" else "warn", 1.0 if s == "ring_lock" else st_t / float(R.aim), { "ang": gap + PI, "r": float(R.maxR), "half": PI - gh, "label": "ring" })
+			if s == "spray_aim" or s == "spray_lock":
+				_boss3_sector(bz, out, "", cfg.spray, s == "spray_lock", st_t, "spray")
+		"excavation_behemoth":
+			var B: Dictionary = cfg.burrow
+			if s == "burrow_aim":
+				_boss3_dash(st, bz, out, ":burrow1", "warn", st_t / float(B.aim), float(B.dist), "burrow1")
+			if s == "burrow_lock" or s == "burrow":
+				var plan: Array = bz.burrow_plan
+				var pr_: float = float(st.player.r)
+				for i in plan.size():
+					if i < int(bz.dash_seq) - 1:
+						continue
+					var pl: Dictionary = plan[i]
+					var cur: bool = i == int(bz.dash_seq) - 1
+					var ph := ("active" if s == "burrow" else "lock") if cur else "lock" # 다음 경로도 고정된 채 그려진다(옅은 선 + "굴착 2/2")
+					_th(out, bz, ":burrow%d" % (i + 1), "corridor", ph, 1.0, { "x": float(bz.x) if cur else float(pl.x), "y": float(bz.y) if cur else float(pl.y), "ang": float(pl.ang), "len": float(pl.len), "w": (float(bz.r) + pr_) * 2.0, "label": "burrow%d" % (i + 1) })
+			for rk in bz.rocks: # 착지까지 그려진다("낙석 <순번> · <남은 초>", 큰 순번 숫자)
+				if bool(rk.done):
+					continue
+				var left: float = maxf(0.0, float(rk.land_at) - st.t)
+				_th(out, bz, ":rock%d" % int(rk.order), "circle", "lock" if left < 0.4 else "warn", 1.0 - minf(1.0, left / maxf(0.001, float(cfg.rockfall.warn))), { "x": float(rk.x), "y": float(rk.y), "r": float(rk.r), "shown_left": left, "label": "rock%d" % int(rk.order) })
+		"frost_stalker":
+			var D: Dictionary = cfg.dash
+			if s == "bolt_aim" or s == "bolt_lock":
+				_th(out, bz, "", "corridor", "lock" if s == "bolt_lock" else "warn", 1.0 if s == "bolt_lock" else st_t / float(cfg.bolt.aim), { "ang": PBoss3.facing(bz), "len": float(cfg.bolt.len), "w": float(cfg.bolt.width) + 10.0, "label": "icebolt" })
+			if s == "path_aim" or s == "path_lock":
+				var I: Dictionary = cfg.icepath
+				var angs: Array = bz.lanes if s == "path_lock" else PBoss3.lane_angles({ "dir": float(bz.aim_angle) }, I)
+				for i in angs.size():
+					_th(out, bz, ":lane%d" % i, "corridor", "lock" if s == "path_lock" else "warn", 1.0 if s == "path_lock" else st_t / float(I.aim), { "ang": float(angs[i]), "len": float(I.len), "w": float(I.width), "label": "icepath%d" % (i + 1) })
+			if s == "dash_aim": # 옆 이동(sidestep)은 몸만 움직이고 예고가 없다
+				_boss3_dash(st, bz, out, "", "warn", st_t / float(D.aim), float(D.dist), "dash")
+			if s == "dash_lock" or s == "dash":
+				_boss3_dash(st, bz, out, "", "lock" if s == "dash_lock" else "active", 1.0, float(D.dist), "dash")
+		"blood_hunt_king":
+			var D: Dictionary = cfg.dash
+			if s == "claw_aim" or s == "claw_lock":
+				_boss3_sector(bz, out, "", cfg.claw, s == "claw_lock", st_t, "claw")
+			var seq: int = int(bz.dash_seq)
+			if s == "dash_aim":
+				_boss3_dash(st, bz, out, ":dash1", "warn", st_t / float(D.aim), float(D.dist), "dash1")
+			if s == "dash_reaim": # 재조준 표식(십자) + 추적 선 + "방향 고정 %.1f초 뒤"
+				_boss3_dash(st, bz, out, ":dash%d" % seq, "warn", st_t / float(D.reaim), float(D.dist), "dash%d" % seq, { "shown_left": maxf(0.0, float(D.reaim) - st_t) })
+			if s == "dash_lock" or s == "dash_relock" or s == "dash":
+				_boss3_dash(st, bz, out, ":dash%d" % seq, "active" if s == "dash" else "lock", 1.0, float(D.dist), "dash%d" % seq)
+		"doom_executor":
+			var SL: Dictionary = cfg.slash
+			if s == "slash_warn" or s == "slash_lock" or s == "slash_gap":
+				for i in (bz.slashes as Array).size():
+					var sl: Dictionary = bz.slashes[i]
+					if bool(sl.fired):
+						continue
+					var cur: bool = i == int(bz.slash_idx)
+					var k: float = 1.0
+					if s == "slash_warn":
+						k = st_t / float(SL.warn)
+					elif s == "slash_gap":
+						k = st_t / float(SL.gap)
+					var locked: bool = cur and s == "slash_lock"
+					_th(out, bz, ":slash%d" % int(sl.order), "corridor", "lock" if locked else "warn", 1.0 if locked else k, { "x": float(sl.x), "y": 0.0, "ang": PI / 2.0, "len": float(st.arena_h), "w": float(SL.width), "label": "slash%d" % int(sl.order) })
+			if s == "gstrike_aim" or s == "gstrike_lock": # 방어 자세(guard)의 정면 부채꼴은 위협이 아니라 boss.guard
+				_boss3_sector(bz, out, ":strike", cfg.guard.strike, s == "gstrike_lock", st_t, "gstrike")
+
 # ---------- 기하(봇·계측 공용, 스냅샷만 읽는다) ----------
 ## 원(px,py,pr)이 위협 도형 안에 있는가. margin은 도형을 그만큼 키운다
 static func inside(th: Dictionary, px: float, py: float, pr: float, margin: float = 0.0) -> bool:
@@ -340,6 +493,11 @@ static func inside(th: Dictionary, px: float, py: float, pr: float, margin: floa
 		return PGeom.in_arc(x, y, float(th.r) + margin, float(th.ang), float(th.half) + (margin / maxf(20.0, float(th.r))), px, py, pr)
 	if k == "corridor" or k == "lane":
 		return PGeom.in_beam(x, y, float(th.ang), float(th.len) + margin, float(th.w) + margin * 2.0, px, py, pr)
+	if k == "band": # 띠: 안쪽 r−w 이상·바깥 r 이하이고 빈 구간 밖(부채꼴 각 안)
+		var d := PGeom.dist(x, y, px, py)
+		if d > float(th.r) + pr + margin or d < float(th.r) - float(th.w) - pr - margin:
+			return false
+		return PGeom.in_arc(x, y, float(th.r) + margin, float(th.ang), float(th.half) + (margin / maxf(20.0, float(th.r))), px, py, pr)
 	return false
 
 ## 도형 경계까지의 대략 거리(안이면 0). 주의력 정렬용
@@ -358,6 +516,13 @@ static func dist_to(th: Dictionary, px: float, py: float, pr: float) -> float:
 		var radial := maxf(0.0, d - float(th.r) - pr)
 		var tang := maxf(0.0, da - float(th.half)) * minf(d, float(th.r))
 		return sqrt(radial * radial + tang * tang)
+	if k == "band":
+		var a2 := atan2(py - y, px - x)
+		var da2 := absf(PGeom.ang_diff(float(th.ang), a2))
+		var inner: float = float(th.r) - float(th.w)
+		var radial2 := maxf(0.0, maxf(d - float(th.r) - pr, inner - d - pr))
+		var tang2 := maxf(0.0, da2 - float(th.half)) * clampf(d, inner, float(th.r))
+		return sqrt(radial2 * radial2 + tang2 * tang2)
 	var ca := cos(float(th.ang))
 	var sa := sin(float(th.ang))
 	var along := (px - x) * ca + (py - y) * sa

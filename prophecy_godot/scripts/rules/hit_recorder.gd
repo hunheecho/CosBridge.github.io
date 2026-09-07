@@ -163,7 +163,7 @@ func on_step_end(st: CombatState) -> void:
 			np += 1
 	var nz := 0
 	for z in st.zones:
-		if String(z.type) in ["spore", "frostzone", "hazard", "web"]:
+		if String(z.type) in ["spore", "frostzone", "hazard", "web", "ice", "rubble"]:
 			nz += 1
 	max_concurrent.enemies = maxi(int(max_concurrent.enemies), en)
 	max_concurrent.telegraphs = maxi(int(max_concurrent.telegraphs), tele_n)
