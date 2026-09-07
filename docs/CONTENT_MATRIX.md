@@ -103,6 +103,7 @@ E는 1개, 차 있으면 습득 카드 없음(교체는 상점). 일제 공격(�
 | wd:formations | 지역×날짜 사전 편성 대안 2(역할 조합 5종), 카드 생성 시 선택·직전 편성 회피, 첫날 숲 고정 | 사용자 합의 방향(D40), 내용 시험값 | 없음(신규) | 구현(run.gd formation_options/waves·sortie.gd pick_formation) | 포함 | content_tests |
 | ev:challenge | 강적의 흔적: 거절 가능한 추가 전투(정예 +2·등급 +1), 선택 전 보상·시간·손실 표시 | 사용자 합의 방향(D40), 수치 시험값 | 없음(신규) | 구현(events.gd) | 포함 | content_tests |
 | run:boss_plan | 관문별 보스 후보 → 회차 시작 시 계획(bossPlan), 거점 표시 | 사용자 합의(구조만) | 없음(신규) | 구현(run.gd pick_boss_plan·next_boss) | 포함 | content_tests |
+| run:acts | 본편 10일·3막·관문 4/7/10(기본 모드 acts), 막 판정·관문 준비 다음 막 미리보기, 옛 trio 저장 호환, 영구 기록 하루 2/3 | 사용자 결정(D41), 배치·날짜 시험값 | 없음(신규) | 구현(run.gd acts/act_of/act_preview·places_by_mode·profile.gd meta_records_for) | 포함 | acts_tests |
 | ui:density_pick | 검증 메뉴 "밀도 비교 회차": 같은 시드 + 세트 선택 → 새 회차 | 사용자 합의(D40) | 없음 | 구현(title.gd·main.gd new_run_opts) | 포함 | content_tests(new_run opts) |
 | wd:arena | 지역 전장: 기본 숲(장애물 없음), 공터(바위2·나무2), 기둥 숲(바위3·나무1); 배치안 classic/trial | 시험값 | 구현 | 구현(run.gd·formation.gd·world.json; run_layer_tests·port_tests·FORMATION_TABLE) | 포함(지역별 배치는 시험값: 숲=공터(D33), 능선=기둥, 습지=숲, 굴=기둥, 심층=공터) | 지형 검증 161~170 |
 

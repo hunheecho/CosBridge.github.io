@@ -82,7 +82,7 @@ func _run() -> void:
 	main.view.st.player.hp = 70.0
 	main._on_finished(main.view.st.summary())
 	await process_frame
-	ok("승리 정산 뒤 보상 화면에 '탐험 기록: +1 (다음 회차부터 반영)', 프로필 기록 1 저장", main.screen == "reward" and _count_text(main.screens["reward"], "탐험 기록: +1") == 1 and int(PProfile.load("trial").records) == 1, str(main.last_profile_award))
+	ok("승리 정산 뒤 보상 화면에 '탐험 기록: +0.7 (다음 회차부터 반영)'(10일 본편 2/3), 프로필 기록 2/3 저장", main.screen == "reward" and _count_text(main.screens["reward"], "탐험 기록: +0.7") == 1 and is_equal_approx(float(PProfile.load("trial").records), 2.0 / 3.0), "count=%d loaded=%s award=%s" % [_count_text(main.screens["reward"], "탐험 기록: +0.7"), str(PProfile.load("trial").get("records", null)), str(main.last_profile_award)])
 	main.view.running = false
 	main.queue_free()
 	await process_frame

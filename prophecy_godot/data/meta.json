@@ -3,7 +3,22 @@
   "note": "영구 성장·해금·제작 데이터(손으로 작성, 내보내기 도구 아님). 모든 수치·개수·조건은 시험값(Codex 초안 prophecy-meta-progression-draft-20260907.md, 사용자 승인 아님). 방향(제한된 특성 선택·시작 기술 맞춤·영구 해금·회차 한정 장비/재료·제작법 영구 유지)만 사용자 합의. 기존 data/*.json은 내보내기 산출물이라 여기서만 확장한다.",
   "levels": {
     "max": 15,
-    "thresholds": [4, 4, 6, 6, 8, 8, 10, 10, 12, 12, 14, 14, 16, 16],
+    "thresholds": [
+      4,
+      4,
+      6,
+      6,
+      8,
+      8,
+      10,
+      10,
+      12,
+      12,
+      14,
+      14,
+      16,
+      16
+    ],
     "note": "Lv n→n+1에 필요한 기록. 총 140. 시험값"
   },
   "records": {
@@ -12,7 +27,22 @@
     "day_max": 6,
     "boss_first": 2,
     "clear": 2,
-    "note": "1~6일차 첫 정상 전투 승리 +1(심층·임무·사건 전투·같은 날 반복 제외), 서로 다른 관문 보스 최초 승리 +2, 완주 +2. 최대 14/회차. 봇·시험실·즉시 관문·검증 회차 제외. 시험값"
+    "note": "1~N일차 첫 정상 전투 승리(심층·임무·사건 전투·같은 날 반복 제외) + 서로 다른 관문 보스 최초 승리 +2 + 완주 +2. 최대 14/회차. 회차 구조(mode)별 값은 by_mode. 봇·시험실·즉시 관문·검증 회차 제외. 시험값",
+    "by_mode": {
+      "trio": {
+        "day_win": 1,
+        "day_max": 6,
+        "note": "옛 7일 회차: 1~6일차 +1"
+      },
+      "acts": {
+        "day_win_frac": [
+          2,
+          3
+        ],
+        "day_max": 9,
+        "note": "10일 본편(계획서 §9): 1~9일차 첫 일반 전투 승리마다 2/3 기록(합계 6), 관문 3×2, 완주 2 → 최대 14 유지. 소수는 버리지 않음. 시험값"
+      }
+    }
   },
   "offer": {
     "kind_normalized": true,
@@ -22,7 +52,14 @@
     "legacy": {
       "name": "기존 시험 사용자",
       "desc": "0.4.x까지 공개된 콘텐츠(자동기술 10·개조 30·공용 9·Q/E·장비 12)를 그대로 연다. 영구 레벨 1, 특성 미선택에서 시작하며 시작 선택·제작법은 시험 일정을 따른다.",
-      "open": ["weapons", "mods", "commons", "q_variants", "e_skills", "equipment"]
+      "open": [
+        "weapons",
+        "mods",
+        "commons",
+        "q_variants",
+        "e_skills",
+        "equipment"
+      ]
     },
     "trial": {
       "name": "새 시험 프로필",
@@ -32,152 +69,708 @@
   },
   "unlocks": {
     "weapons": {
-      "sword": { "level": 1 }, "spear": { "level": 1 }, "blades": { "level": 1 }, "bow": { "level": 1 },
-      "frost": { "level": 1 }, "ember": { "level": 1 }, "mine": { "level": 1 },
-      "daggers": { "level": 3 }, "hammer": { "level": 6 }, "orb": { "level": 9 }
+      "sword": {
+        "level": 1
+      },
+      "spear": {
+        "level": 1
+      },
+      "blades": {
+        "level": 1
+      },
+      "bow": {
+        "level": 1
+      },
+      "frost": {
+        "level": 1
+      },
+      "ember": {
+        "level": 1
+      },
+      "mine": {
+        "level": 1
+      },
+      "daggers": {
+        "level": 3
+      },
+      "hammer": {
+        "level": 6
+      },
+      "orb": {
+        "level": 9
+      }
     },
     "start_weapons": {
-      "sword": { "level": 1 }, "spear": { "level": 1 }, "blades": { "level": 1 },
-      "bow": { "level": 2 }, "daggers": { "level": 3 }, "hammer": { "level": 6 }, "orb": { "level": 9 }
+      "sword": {
+        "level": 1
+      },
+      "spear": {
+        "level": 1
+      },
+      "blades": {
+        "level": 1
+      },
+      "bow": {
+        "level": 2
+      },
+      "daggers": {
+        "level": 3
+      },
+      "hammer": {
+        "level": 6
+      },
+      "orb": {
+        "level": 9
+      }
     },
     "mods": {
-      "sword": { "base": ["cross", "crescent"], "third": "scar" },
-      "spear": { "base": ["returning", "split"], "third": "brand" },
-      "blades": { "base": ["dual", "launch"], "third": "serrated" },
-      "bow": { "base": ["spread", "ricochet"], "third": "pierce" },
-      "daggers": { "base": ["bleed", "flank"], "third": "pursuit" },
-      "hammer": { "base": ["shockwave", "aftershock"], "third": "pull" },
-      "orb": { "base": ["fork", "loop"], "third": "conduct" },
-      "frost": { "base": ["fan", "shatter"], "third": "ground" },
-      "ember": { "base": ["scatter", "trail"], "third": "reignite" },
-      "mine": { "base": ["chain", "frosttrap"], "third": "lure" },
+      "sword": {
+        "base": [
+          "cross",
+          "crescent"
+        ],
+        "third": "scar"
+      },
+      "spear": {
+        "base": [
+          "returning",
+          "split"
+        ],
+        "third": "brand"
+      },
+      "blades": {
+        "base": [
+          "dual",
+          "launch"
+        ],
+        "third": "serrated"
+      },
+      "bow": {
+        "base": [
+          "spread",
+          "ricochet"
+        ],
+        "third": "pierce"
+      },
+      "daggers": {
+        "base": [
+          "bleed",
+          "flank"
+        ],
+        "third": "pursuit"
+      },
+      "hammer": {
+        "base": [
+          "shockwave",
+          "aftershock"
+        ],
+        "third": "pull"
+      },
+      "orb": {
+        "base": [
+          "fork",
+          "loop"
+        ],
+        "third": "conduct"
+      },
+      "frost": {
+        "base": [
+          "fan",
+          "shatter"
+        ],
+        "third": "ground"
+      },
+      "ember": {
+        "base": [
+          "scatter",
+          "trail"
+        ],
+        "third": "reignite"
+      },
+      "mine": {
+        "base": [
+          "chain",
+          "frosttrap"
+        ],
+        "third": "lure"
+      },
       "note": "기본 2개는 기술과 함께 열린다. 세 번째는 도전 mod3:<기술>(그 기술 Lv3 이상 장착·전투 승리·그 전투에서 그 기술 유효 피해 > 0)"
     },
     "commons": {
-      "wide": { "level": 1 }, "reach": { "level": 1 }, "frost": { "level": 1 }, "burn": { "level": 1 }, "echo": { "level": 1 }, "ember": { "level": 1 },
-      "saving": { "level": 4 }, "stasis": { "level": 7 }, "flare": { "challenge": "flare" }
+      "wide": {
+        "level": 1
+      },
+      "reach": {
+        "level": 1
+      },
+      "frost": {
+        "level": 1
+      },
+      "burn": {
+        "level": 1
+      },
+      "echo": {
+        "level": 1
+      },
+      "ember": {
+        "level": 1
+      },
+      "saving": {
+        "level": 4
+      },
+      "stasis": {
+        "level": 7
+      },
+      "flare": {
+        "challenge": "flare"
+      }
     },
-    "q_variants": { "follow": { "level": 1 }, "echo": { "level": 1 }, "split": { "level": 5 } },
-    "e_skills": { "gust": { "level": 1 }, "bladestorm": { "level": 1 }, "ward": { "level": 1 }, "strike": { "level": 5 }, "gravity": { "level": 8 } },
+    "q_variants": {
+      "follow": {
+        "level": 1
+      },
+      "echo": {
+        "level": 1
+      },
+      "split": {
+        "level": 5
+      }
+    },
+    "e_skills": {
+      "gust": {
+        "level": 1
+      },
+      "bladestorm": {
+        "level": 1
+      },
+      "ward": {
+        "level": 1
+      },
+      "strike": {
+        "level": 5
+      },
+      "gravity": {
+        "level": 8
+      }
+    },
     "equipment": {
-      "hunter_sword": { "level": 1 }, "pioneer_spear": { "level": 1 }, "traveler_armor": { "level": 1 }, "guardian_armor": { "level": 1 },
-      "vitality_coat": { "level": 1 }, "iron_shield": { "level": 1 }, "emergency_shield": { "level": 1 }, "caster_shield": { "level": 1 },
-      "ember_sword": { "challenge": "eq:ember_sword", "level": 7 },
-      "chrono_staff": { "challenge": "eq:chrono_staff", "level": 7 },
-      "expedition_armor": { "challenge": "eq:expedition_armor", "level": 6 },
-      "time_shield": { "challenge": "eq:time_shield", "level": 8 }
+      "hunter_sword": {
+        "level": 1
+      },
+      "pioneer_spear": {
+        "level": 1
+      },
+      "traveler_armor": {
+        "level": 1
+      },
+      "guardian_armor": {
+        "level": 1
+      },
+      "vitality_coat": {
+        "level": 1
+      },
+      "iron_shield": {
+        "level": 1
+      },
+      "emergency_shield": {
+        "level": 1
+      },
+      "caster_shield": {
+        "level": 1
+      },
+      "ember_sword": {
+        "challenge": "eq:ember_sword",
+        "level": 7
+      },
+      "chrono_staff": {
+        "challenge": "eq:chrono_staff",
+        "level": 7
+      },
+      "expedition_armor": {
+        "challenge": "eq:expedition_armor",
+        "level": 6
+      },
+      "time_shield": {
+        "challenge": "eq:time_shield",
+        "level": 8
+      }
     },
     "recipes": {
-      "bloodmoon_sword": { "challenge": "recipe:bloodmoon_sword", "level": 10 },
-      "echo_staff": { "challenge": "recipe:echo_staff", "level": 11 },
-      "renewal_coat": { "challenge": "recipe:renewal_coat", "level": 12 },
-      "moon_armor": { "challenge": "recipe:moon_armor", "level": 13 },
-      "reprisal_shield": { "challenge": "recipe:reprisal_shield", "level": 14 },
-      "relay_shield": { "challenge": "recipe:relay_shield", "level": 15 }
+      "bloodmoon_sword": {
+        "challenge": "recipe:bloodmoon_sword",
+        "level": 10
+      },
+      "echo_staff": {
+        "challenge": "recipe:echo_staff",
+        "level": 11
+      },
+      "renewal_coat": {
+        "challenge": "recipe:renewal_coat",
+        "level": 12
+      },
+      "moon_armor": {
+        "challenge": "recipe:moon_armor",
+        "level": 13
+      },
+      "reprisal_shield": {
+        "challenge": "recipe:reprisal_shield",
+        "level": 14
+      },
+      "relay_shield": {
+        "challenge": "recipe:relay_shield",
+        "level": 15
+      }
     },
     "note": "항목의 level과 challenge는 OR. level만 있으면 레벨로, challenge만 있으면 도전으로만 열린다. 프로필 kind가 legacy면 profiles.legacy.open에 든 분류는 전부 열린 것으로 본다"
   },
   "challenges": {
-    "mod3:sword": { "name": "검 세 번째 개조", "cond": "검을 Lv3 이상으로 장착한 채 전투 승리(그 전투에서 검 유효 피해 > 0)" },
-    "mod3:spear": { "name": "관통창 세 번째 개조", "cond": "관통창을 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)" },
-    "mod3:blades": { "name": "회전 칼날 세 번째 개조", "cond": "회전 칼날을 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)" },
-    "mod3:bow": { "name": "추적궁 세 번째 개조", "cond": "추적궁을 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)" },
-    "mod3:daggers": { "name": "쌍검 세 번째 개조", "cond": "쌍검을 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)" },
-    "mod3:hammer": { "name": "전투망치 세 번째 개조", "cond": "전투망치를 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)" },
-    "mod3:orb": { "name": "번개 구체 세 번째 개조", "cond": "번개 구체를 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)" },
-    "mod3:frost": { "name": "서리 수정 세 번째 개조", "cond": "서리 수정을 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)" },
-    "mod3:ember": { "name": "불씨 정령 세 번째 개조", "cond": "불씨 정령을 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)" },
-    "mod3:mine": { "name": "룬 지뢰 세 번째 개조", "cond": "룬 지뢰를 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)" },
-    "flare": { "name": "불꽃 파열 해금", "cond": "불씨 정령 또는 잔불 걸음을 보유하고 정예 포함 전투 승리(그 전투에서 아군 불길 유효 피해 > 0)" },
-    "eq:ember_sword": { "name": "잔불검 해금", "cond": "화상 또는 출혈 유효 피해가 있었던 전투 승리 (또는 Lv7)" },
-    "eq:chrono_staff": { "name": "시간술사의 지팡이 해금", "cond": "Q로 감속한 적에게 유효 피해를 넣은 서로 다른 전투 3회 승리 (또는 Lv7)", "progress_max": 3 },
-    "eq:expedition_armor": { "name": "원정대의 갑옷 해금", "cond": "더 깊이 전투 승리 뒤 생환·정산 1회 (또는 Lv6)" },
-    "eq:time_shield": { "name": "시간의 방패 해금", "cond": "첫 관문 승리 (또는 Lv8)" },
-    "recipe:bloodmoon_sword": { "name": "혈월검 제작법", "cond": "화상/출혈 유효 피해를 넣은 상태로 첫 관문 승리 (또는 Lv10)" },
-    "recipe:echo_staff": { "name": "잔향의 지팡이 제작법", "cond": "Q로 감속한 적에게 유효 피해를 넣고 두 번째 관문 승리 (또는 Lv11)" },
-    "recipe:renewal_coat": { "name": "재생의 여행복 제작법", "cond": "한 출격에서 일반 전투 + 더 깊이 승리 후 생환·정산 (또는 Lv12)" },
-    "recipe:moon_armor": { "name": "월광 갑옷 제작법", "cond": "수호자의 갑옷 장착 상태로 정예 포함 전투 승리 (또는 Lv13)" },
-    "recipe:reprisal_shield": { "name": "반격 방패 제작법", "cond": "철벽 방패 또는 비상 방패 장착 상태로 관문 승리 (또는 Lv14)" },
-    "recipe:relay_shield": { "name": "연계 방패 제작법", "cond": "같은 전투에서 Q와 E를 각각 실제 사용하고 두 번째 관문 승리 (또는 Lv15)" }
+    "mod3:sword": {
+      "name": "검 세 번째 개조",
+      "cond": "검을 Lv3 이상으로 장착한 채 전투 승리(그 전투에서 검 유효 피해 > 0)"
+    },
+    "mod3:spear": {
+      "name": "관통창 세 번째 개조",
+      "cond": "관통창을 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)"
+    },
+    "mod3:blades": {
+      "name": "회전 칼날 세 번째 개조",
+      "cond": "회전 칼날을 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)"
+    },
+    "mod3:bow": {
+      "name": "추적궁 세 번째 개조",
+      "cond": "추적궁을 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)"
+    },
+    "mod3:daggers": {
+      "name": "쌍검 세 번째 개조",
+      "cond": "쌍검을 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)"
+    },
+    "mod3:hammer": {
+      "name": "전투망치 세 번째 개조",
+      "cond": "전투망치를 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)"
+    },
+    "mod3:orb": {
+      "name": "번개 구체 세 번째 개조",
+      "cond": "번개 구체를 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)"
+    },
+    "mod3:frost": {
+      "name": "서리 수정 세 번째 개조",
+      "cond": "서리 수정을 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)"
+    },
+    "mod3:ember": {
+      "name": "불씨 정령 세 번째 개조",
+      "cond": "불씨 정령을 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)"
+    },
+    "mod3:mine": {
+      "name": "룬 지뢰 세 번째 개조",
+      "cond": "룬 지뢰를 Lv3 이상으로 장착한 채 전투 승리(유효 피해 > 0)"
+    },
+    "flare": {
+      "name": "불꽃 파열 해금",
+      "cond": "불씨 정령 또는 잔불 걸음을 보유하고 정예 포함 전투 승리(그 전투에서 아군 불길 유효 피해 > 0)"
+    },
+    "eq:ember_sword": {
+      "name": "잔불검 해금",
+      "cond": "화상 또는 출혈 유효 피해가 있었던 전투 승리 (또는 Lv7)"
+    },
+    "eq:chrono_staff": {
+      "name": "시간술사의 지팡이 해금",
+      "cond": "Q로 감속한 적에게 유효 피해를 넣은 서로 다른 전투 3회 승리 (또는 Lv7)",
+      "progress_max": 3
+    },
+    "eq:expedition_armor": {
+      "name": "원정대의 갑옷 해금",
+      "cond": "더 깊이 전투 승리 뒤 생환·정산 1회 (또는 Lv6)"
+    },
+    "eq:time_shield": {
+      "name": "시간의 방패 해금",
+      "cond": "첫 관문 승리 (또는 Lv8)"
+    },
+    "recipe:bloodmoon_sword": {
+      "name": "혈월검 제작법",
+      "cond": "화상/출혈 유효 피해를 넣은 상태로 첫 관문 승리 (또는 Lv10)"
+    },
+    "recipe:echo_staff": {
+      "name": "잔향의 지팡이 제작법",
+      "cond": "Q로 감속한 적에게 유효 피해를 넣고 두 번째 관문 승리 (또는 Lv11)"
+    },
+    "recipe:renewal_coat": {
+      "name": "재생의 여행복 제작법",
+      "cond": "한 출격에서 일반 전투 + 더 깊이 승리 후 생환·정산 (또는 Lv12)"
+    },
+    "recipe:moon_armor": {
+      "name": "월광 갑옷 제작법",
+      "cond": "수호자의 갑옷 장착 상태로 정예 포함 전투 승리 (또는 Lv13)"
+    },
+    "recipe:reprisal_shield": {
+      "name": "반격 방패 제작법",
+      "cond": "철벽 방패 또는 비상 방패 장착 상태로 관문 승리 (또는 Lv14)"
+    },
+    "recipe:relay_shield": {
+      "name": "연계 방패 제작법",
+      "cond": "같은 전투에서 Q와 E를 각각 실제 사용하고 두 번째 관문 승리 (또는 Lv15)"
+    }
   },
   "traits": {
     "max_equipped": 4,
     "rows": [
-      { "level": 1, "name": "공격 성향", "ids": ["near", "far", "dot_plus"] },
-      { "level": 5, "name": "생존 준비", "ids": ["heal", "guard", "move"] },
-      { "level": 10, "name": "운용 성향", "ids": ["q_ops", "e_ops", "auto_ops"] },
-      { "level": 15, "name": "전문화", "ids": ["focus", "link", "dot_spec"] }
+      {
+        "level": 1,
+        "name": "공격 성향",
+        "ids": [
+          "near",
+          "far",
+          "dot_plus"
+        ]
+      },
+      {
+        "level": 5,
+        "name": "생존 준비",
+        "ids": [
+          "heal",
+          "guard",
+          "move"
+        ]
+      },
+      {
+        "level": 10,
+        "name": "운용 성향",
+        "ids": [
+          "q_ops",
+          "e_ops",
+          "auto_ops"
+        ]
+      },
+      {
+        "level": 15,
+        "name": "전문화",
+        "ids": [
+          "focus",
+          "link",
+          "dot_spec"
+        ]
+      }
     ],
     "defs": {
-      "near": { "name": "근거리 훈련", "short": "적 중심과 거리 120 이하일 때 자동기술 직접 피해 +6%", "fit": "검·쌍검·칼날", "eff": { "nearDist": 120, "nearMult": 0.06 } },
-      "far": { "name": "원거리 훈련", "short": "적 중심과 거리 160 이상일 때 자동기술 직접 피해 +6%", "fit": "창·추적궁", "eff": { "farDist": 160, "farMult": 0.06 } },
-      "dot_plus": { "name": "지속 전투", "short": "내가 부여한 화상·출혈·지면 지속 피해 +6%", "fit": "불씨·지속 피해 조합", "eff": { "dotMult": 0.06 } },
-      "heal": { "name": "회복 준비", "short": "자기 체력 회복량 +10% (최대 체력·보호막 제외)", "fit": "원정·회복 장비", "eff": { "healMult": 0.1 } },
-      "guard": { "name": "방호 준비", "short": "전투 시작 시 보호막 5 (별도 출처)", "fit": "근접·초반 피격 대비", "eff": { "startShield": 5 } },
-      "move": { "name": "기동 준비", "short": "이동속도 +4% (회피 거리·무적·예고 시간 그대로)", "fit": "거리 유지·장판 유도", "eff": { "speed": 0.04 } },
-      "q_ops": { "name": "감속장 운용", "short": "Q 재사용 시간 -5%", "fit": "Q 중심", "eff": { "qCd": 0.05 } },
-      "e_ops": { "name": "수동기술 운용", "short": "E 재사용 시간 -5%", "fit": "E 중심", "eff": { "eCd": 0.05 } },
-      "auto_ops": { "name": "자동기술 운용", "short": "자동기술 공격 주기 -3%", "fit": "자동기술 중심", "eff": { "interval": 0.03 } },
-      "focus": { "name": "단일 집중", "short": "출발 때 고른 자동기술 직접 피해 +12%, 나머지 자동기술 직접 피해 -6% (시작 기술 ID에 귀속)", "fit": "주력 하나에 집중", "eff": { "focusUp": 0.12, "focusDown": 0.06 } },
-      "link": { "name": "연계 준비", "short": "E 사용 후 3초간 자동기술 직접 피해 +10%, E 피해·흡수량 -10% (연타로 중첩 없음, 시간만 갱신)", "fit": "E를 연계 신호로", "eff": { "linkWindow": 3, "linkMult": 0.1, "linkSkillDown": 0.1 } },
-      "dot_spec": { "name": "지속 전문화", "short": "내가 만든 해로운 지속 효과·불길 지속시간 +15%, 자동기술 직접 피해 -5% (Q·보호막 시간 제외)", "fit": "지속·영역 중심", "eff": { "dotDur": 0.15, "directDown": 0.05 } }
+      "near": {
+        "name": "근거리 훈련",
+        "short": "적 중심과 거리 120 이하일 때 자동기술 직접 피해 +6%",
+        "fit": "검·쌍검·칼날",
+        "eff": {
+          "nearDist": 120,
+          "nearMult": 0.06
+        }
+      },
+      "far": {
+        "name": "원거리 훈련",
+        "short": "적 중심과 거리 160 이상일 때 자동기술 직접 피해 +6%",
+        "fit": "창·추적궁",
+        "eff": {
+          "farDist": 160,
+          "farMult": 0.06
+        }
+      },
+      "dot_plus": {
+        "name": "지속 전투",
+        "short": "내가 부여한 화상·출혈·지면 지속 피해 +6%",
+        "fit": "불씨·지속 피해 조합",
+        "eff": {
+          "dotMult": 0.06
+        }
+      },
+      "heal": {
+        "name": "회복 준비",
+        "short": "자기 체력 회복량 +10% (최대 체력·보호막 제외)",
+        "fit": "원정·회복 장비",
+        "eff": {
+          "healMult": 0.1
+        }
+      },
+      "guard": {
+        "name": "방호 준비",
+        "short": "전투 시작 시 보호막 5 (별도 출처)",
+        "fit": "근접·초반 피격 대비",
+        "eff": {
+          "startShield": 5
+        }
+      },
+      "move": {
+        "name": "기동 준비",
+        "short": "이동속도 +4% (회피 거리·무적·예고 시간 그대로)",
+        "fit": "거리 유지·장판 유도",
+        "eff": {
+          "speed": 0.04
+        }
+      },
+      "q_ops": {
+        "name": "감속장 운용",
+        "short": "Q 재사용 시간 -5%",
+        "fit": "Q 중심",
+        "eff": {
+          "qCd": 0.05
+        }
+      },
+      "e_ops": {
+        "name": "수동기술 운용",
+        "short": "E 재사용 시간 -5%",
+        "fit": "E 중심",
+        "eff": {
+          "eCd": 0.05
+        }
+      },
+      "auto_ops": {
+        "name": "자동기술 운용",
+        "short": "자동기술 공격 주기 -3%",
+        "fit": "자동기술 중심",
+        "eff": {
+          "interval": 0.03
+        }
+      },
+      "focus": {
+        "name": "단일 집중",
+        "short": "출발 때 고른 자동기술 직접 피해 +12%, 나머지 자동기술 직접 피해 -6% (시작 기술 ID에 귀속)",
+        "fit": "주력 하나에 집중",
+        "eff": {
+          "focusUp": 0.12,
+          "focusDown": 0.06
+        }
+      },
+      "link": {
+        "name": "연계 준비",
+        "short": "E 사용 후 3초간 자동기술 직접 피해 +10%, E 피해·흡수량 -10% (연타로 중첩 없음, 시간만 갱신)",
+        "fit": "E를 연계 신호로",
+        "eff": {
+          "linkWindow": 3,
+          "linkMult": 0.1,
+          "linkSkillDown": 0.1
+        }
+      },
+      "dot_spec": {
+        "name": "지속 전문화",
+        "short": "내가 만든 해로운 지속 효과·불길 지속시간 +15%, 자동기술 직접 피해 -5% (Q·보호막 시간 제외)",
+        "fit": "지속·영역 중심",
+        "eff": {
+          "dotDur": 0.15,
+          "directDown": 0.05
+        }
+      }
     },
     "note": "행마다 1개, 최대 4개. 출발 전 무료 재선택, 새 회차 시작 시 run.traits로 고정(회차 중 레벨이 올라도 소급 없음). 기준 전투(D33)는 특성 없음"
   },
   "crafted_equipment": {
     "bloodmoon_sword": {
-      "name": "혈월검", "slot": "weapon",
+      "name": "혈월검",
+      "slot": "weapon",
       "short": "출혈·화상 상태인 적에게 자동기술 직접 피해 +20%",
       "desc": "출혈 또는 화상 상태인 적에게 자동기술 직접 피해 +20%. 상태를 스스로 부여하지 않으며, 재료 장비(사냥꾼의 검·잔불검)의 효과는 이어받지 않는다.",
-      "eff": { "statusDirect": 0.2 }, "needs": "dot",
-      "recipe": { "equipment": ["hunter_sword", "ember_sword"], "mats": { "fang": 1 }, "fee": 60 }
+      "eff": {
+        "statusDirect": 0.2
+      },
+      "needs": "dot",
+      "recipe": {
+        "equipment": [
+          "hunter_sword",
+          "ember_sword"
+        ],
+        "mats": {
+          "fang": 1
+        },
+        "fee": 60
+      }
     },
     "echo_staff": {
-      "name": "잔향의 지팡이", "slot": "weapon",
+      "name": "잔향의 지팡이",
+      "slot": "weapon",
       "short": "감속장 안에서 직접 적중한 적에게 2초 표식, 표식 대상 직접 피해 +15%",
       "desc": "Q 감속장 안에서 자동기술 직접 적중한 적에게 2초 표식. 표식 대상에게 자동기술 직접 피해 +15%, 재적중은 시간만 갱신. 감속장 밖에서도 표식이 남아 있는 동안 유지. 자체 폭발 없음.",
-      "eff": { "fieldMark": { "dur": 2, "bonus": 0.15 } },
-      "recipe": { "equipment": ["chrono_staff"], "mats": { "spore": 2 }, "fee": 80 }
+      "eff": {
+        "fieldMark": {
+          "dur": 2,
+          "bonus": 0.15
+        }
+      },
+      "recipe": {
+        "equipment": [
+          "chrono_staff"
+        ],
+        "mats": {
+          "spore": 2
+        },
+        "fee": 80
+      }
     },
     "renewal_coat": {
-      "name": "재생의 여행복", "slot": "armor",
+      "name": "재생의 여행복",
+      "slot": "armor",
       "short": "전투 승리 시 체력 8 회복, 초과분은 다음 전투 보호막(최대 16)",
       "desc": "전투 승리 정산마다 체력 8 회복. 최대 체력을 넘는 초과분은 다음 전투의 시작 보호막으로 저장(누적 최대 16, 전투 시작 시 소비). 이동속도 효과는 없다.",
-      "eff": { "winHeal": 8, "overflowShield": { "max": 16 } },
-      "recipe": { "equipment": ["traveler_armor", "expedition_armor"], "mats": { "pelt": 1 }, "fee": 60 }
+      "eff": {
+        "winHeal": 8,
+        "overflowShield": {
+          "max": 16
+        }
+      },
+      "recipe": {
+        "equipment": [
+          "traveler_armor",
+          "expedition_armor"
+        ],
+        "mats": {
+          "pelt": 1
+        },
+        "fee": 60
+      }
     },
     "moon_armor": {
-      "name": "월광 갑옷", "slot": "armor",
+      "name": "월광 갑옷",
+      "slot": "armor",
       "short": "시작 보호막 20, 감속장 안에 있으면 이 보호막이 초당 2 회복(상한 20)",
       "desc": "전투 시작 시 보호막 20. 이 장비의 보호막이 남아 있고 플레이어가 Q 감속장 안에 있으면 초당 2 회복(상한 20). 다른 출처의 보호막은 회복하지 않으며, 완전히 깨진 뒤에는 재생하지 않는다.",
-      "eff": { "startShield": 20, "fieldRegen": { "rate": 2, "max": 20 } },
-      "recipe": { "equipment": ["guardian_armor"], "mats": { "iron": 2, "pelt": 1 }, "fee": 80 }
+      "eff": {
+        "startShield": 20,
+        "fieldRegen": {
+          "rate": 2,
+          "max": 20
+        }
+      },
+      "recipe": {
+        "equipment": [
+          "guardian_armor"
+        ],
+        "mats": {
+          "iron": 2,
+          "pelt": 1
+        },
+        "fee": 80
+      }
     },
     "reprisal_shield": {
-      "name": "반격 방패", "slot": "shield",
+      "name": "반격 방패",
+      "slot": "shield",
       "short": "큰 직접 타격 -25%, 그 타격을 버티면 Q/E 남은 재사용 -1초(5초마다)",
       "desc": "철벽 방패와 같은 큰 직접 타격 -25%(경감 전 피해가 최대 체력의 20% 이상). 그 타격 뒤 살아 있으면 Q와 E의 남은 재사용 시간이 각각 1초 줄어든다(내부 재사용 5초). 비상 보호막 효과는 없다.",
-      "eff": { "bigHit": { "frac": 0.2, "reduce": 0.25 }, "reprisal": { "cdReduce": 1, "cd": 5 } },
-      "recipe": { "equipment": ["iron_shield", "emergency_shield"], "mats": { "iron": 1 }, "fee": 60 }
+      "eff": {
+        "bigHit": {
+          "frac": 0.2,
+          "reduce": 0.25
+        },
+        "reprisal": {
+          "cdReduce": 1,
+          "cd": 5
+        }
+      },
+      "recipe": {
+        "equipment": [
+          "iron_shield",
+          "emergency_shield"
+        ],
+        "mats": {
+          "iron": 1
+        },
+        "fee": 60
+      }
     },
     "relay_shield": {
-      "name": "연계 방패", "slot": "shield",
+      "name": "연계 방패",
+      "slot": "shield",
       "short": "Q 사용 후 4초 안에 E를 쓰면 보호막 18/3초 (재사용 10초)",
       "desc": "Q 감속장 사용 후 4초 안에 E를 사용하면 3초 동안 보호막 18(내부 재사용 10초). E만으로는 보호막이 생기지 않는다.",
-      "eff": { "relay": { "window": 4, "shield": 18, "dur": 3, "cd": 10 } },
-      "recipe": { "equipment": ["caster_shield"], "mats": { "spore": 2, "iron": 1 }, "fee": 80 }
+      "eff": {
+        "relay": {
+          "window": 4,
+          "shield": 18,
+          "dur": 3,
+          "cd": 10
+        }
+      },
+      "recipe": {
+        "equipment": [
+          "caster_shield"
+        ],
+        "mats": {
+          "spore": 2,
+          "iron": 1
+        },
+        "fee": 80
+      }
     },
     "note": "제작 전용 6종. 상점·심층·사건 후보에 넣지 않는다. 판매가는 같은 부위 기존 장비(35/30/30). 재료 장비는 장착 중 또는 가방의 인스턴스, 재료는 귀환 정산된 run.mats만. 수수료·수량·효과는 시험값"
   },
   "glossary": {
-    "meta": { "name": "영구 성장", "short": "회차 밖에서 쌓이는 탐험 기록·영구 레벨·특성·해금", "body": "회차 레벨(적 처치 경험치, 전투 중 3택)과 경험치 통을 공유하지 않는다. 1~6일차 첫 정상 전투 승리 +1, 관문 보스 최초 승리 +2, 완주 +2(회차당 최대 14). 해금은 다음 새 회차의 후보부터 반영된다. 봇·시험실·즉시 관문 경로는 기록되지 않는다. 시험값(Codex 초안).", "related": ["trait", "craft"] },
-    "trait": { "name": "영구 특성", "short": "출발 전에 고르는 행별 1개, 최대 4개", "body": "영구 Lv1/5/10/15에 행이 하나씩 열리고 행마다 3택 중 1개만 장착한다. 출발 전 무료 재선택, 새 회차를 시작하면 그 회차 동안 고정된다. 회차 내 패시브 8종과 별개 목록.", "related": ["meta", "passive"] },
-    "craft": { "name": "제작", "short": "대장간에서 장비 + 재료 + 금화 → 제작 전용 장비", "body": "제작법은 영구 해금(도전 또는 영구 레벨), 재료·완성품은 이번 회차 한정. 장착 중이거나 가방에 있는 장비 인스턴스와 귀환 정산된 재료만 쓴다. 확정 전에는 아무것도 소비하지 않으며 분해는 없다. 완성품은 상점·전투 보상에 나오지 않고 판매가는 같은 부위 기존 장비와 같다.", "related": ["forge", "equipment", "meta"] },
-    "eq:bloodmoon_sword": { "name": "혈월검", "short": "출혈·화상 상태 적에게 직접 피해 +20%", "body": "제작 전용(사냥꾼의 검 + 잔불검 + 우두머리 송곳니 1 + 60금). 상태를 스스로 부여하지 않는다. 판매 35. 시험값.", "related": ["craft"] },
-    "eq:echo_staff": { "name": "잔향의 지팡이", "short": "감속장 안 적중 시 2초 표식, 표식 대상 직접 피해 +15%", "body": "제작 전용(시간술사의 지팡이 + 포자 결정 2 + 80금). 감속장 밖에서도 표식이 남아 있는 동안 유지, 재적중은 시간만 갱신. 판매 35. 시험값.", "related": ["craft"] },
-    "eq:renewal_coat": { "name": "재생의 여행복", "short": "승리 시 회복 8, 초과분은 다음 전투 보호막(최대 16)", "body": "제작 전용(여행자의 경갑 + 원정대의 갑옷 + 늑대 가죽 1 + 60금). 이동속도 효과 없음. 판매 30. 시험값.", "related": ["craft"] },
-    "eq:moon_armor": { "name": "월광 갑옷", "short": "시작 보호막 20, 감속장 안에서 초당 2 회복(상한 20)", "body": "제작 전용(수호자의 갑옷 + 철 조각 2 + 늑대 가죽 1 + 80금). 이 장비의 보호막만 회복하며 완전히 깨지면 재생하지 않는다. 판매 30. 시험값.", "related": ["craft"] },
-    "eq:reprisal_shield": { "name": "반격 방패", "short": "큰 타격 -25%, 버티면 Q/E 재사용 -1초(5초마다)", "body": "제작 전용(철벽 방패 + 비상 방패 + 철 조각 1 + 60금). 비상 보호막 효과 없음. 판매 30. 시험값.", "related": ["craft"] },
-    "eq:relay_shield": { "name": "연계 방패", "short": "Q 뒤 4초 안 E → 보호막 18/3초(재사용 10초)", "body": "제작 전용(시전자의 방패 + 포자 결정 2 + 철 조각 1 + 80금). E만으로는 보호막 없음. 판매 30. 시험값.", "related": ["craft"] }
+    "meta": {
+      "name": "영구 성장",
+      "short": "회차 밖에서 쌓이는 탐험 기록·영구 레벨·특성·해금",
+      "body": "회차 레벨(적 처치 경험치, 전투 중 3택)과 경험치 통을 공유하지 않는다. 1~6일차 첫 정상 전투 승리 +1, 관문 보스 최초 승리 +2, 완주 +2(회차당 최대 14). 해금은 다음 새 회차의 후보부터 반영된다. 봇·시험실·즉시 관문 경로는 기록되지 않는다. 시험값(Codex 초안).",
+      "related": [
+        "trait",
+        "craft"
+      ]
+    },
+    "trait": {
+      "name": "영구 특성",
+      "short": "출발 전에 고르는 행별 1개, 최대 4개",
+      "body": "영구 Lv1/5/10/15에 행이 하나씩 열리고 행마다 3택 중 1개만 장착한다. 출발 전 무료 재선택, 새 회차를 시작하면 그 회차 동안 고정된다. 회차 내 패시브 8종과 별개 목록.",
+      "related": [
+        "meta",
+        "passive"
+      ]
+    },
+    "craft": {
+      "name": "제작",
+      "short": "대장간에서 장비 + 재료 + 금화 → 제작 전용 장비",
+      "body": "제작법은 영구 해금(도전 또는 영구 레벨), 재료·완성품은 이번 회차 한정. 장착 중이거나 가방에 있는 장비 인스턴스와 귀환 정산된 재료만 쓴다. 확정 전에는 아무것도 소비하지 않으며 분해는 없다. 완성품은 상점·전투 보상에 나오지 않고 판매가는 같은 부위 기존 장비와 같다.",
+      "related": [
+        "forge",
+        "equipment",
+        "meta"
+      ]
+    },
+    "eq:bloodmoon_sword": {
+      "name": "혈월검",
+      "short": "출혈·화상 상태 적에게 직접 피해 +20%",
+      "body": "제작 전용(사냥꾼의 검 + 잔불검 + 우두머리 송곳니 1 + 60금). 상태를 스스로 부여하지 않는다. 판매 35. 시험값.",
+      "related": [
+        "craft"
+      ]
+    },
+    "eq:echo_staff": {
+      "name": "잔향의 지팡이",
+      "short": "감속장 안 적중 시 2초 표식, 표식 대상 직접 피해 +15%",
+      "body": "제작 전용(시간술사의 지팡이 + 포자 결정 2 + 80금). 감속장 밖에서도 표식이 남아 있는 동안 유지, 재적중은 시간만 갱신. 판매 35. 시험값.",
+      "related": [
+        "craft"
+      ]
+    },
+    "eq:renewal_coat": {
+      "name": "재생의 여행복",
+      "short": "승리 시 회복 8, 초과분은 다음 전투 보호막(최대 16)",
+      "body": "제작 전용(여행자의 경갑 + 원정대의 갑옷 + 늑대 가죽 1 + 60금). 이동속도 효과 없음. 판매 30. 시험값.",
+      "related": [
+        "craft"
+      ]
+    },
+    "eq:moon_armor": {
+      "name": "월광 갑옷",
+      "short": "시작 보호막 20, 감속장 안에서 초당 2 회복(상한 20)",
+      "body": "제작 전용(수호자의 갑옷 + 철 조각 2 + 늑대 가죽 1 + 80금). 이 장비의 보호막만 회복하며 완전히 깨지면 재생하지 않는다. 판매 30. 시험값.",
+      "related": [
+        "craft"
+      ]
+    },
+    "eq:reprisal_shield": {
+      "name": "반격 방패",
+      "short": "큰 타격 -25%, 버티면 Q/E 재사용 -1초(5초마다)",
+      "body": "제작 전용(철벽 방패 + 비상 방패 + 철 조각 1 + 60금). 비상 보호막 효과 없음. 판매 30. 시험값.",
+      "related": [
+        "craft"
+      ]
+    },
+    "eq:relay_shield": {
+      "name": "연계 방패",
+      "short": "Q 뒤 4초 안 E → 보호막 18/3초(재사용 10초)",
+      "body": "제작 전용(시전자의 방패 + 포자 결정 2 + 철 조각 1 + 80금). E만으로는 보호막 없음. 판매 30. 시험값.",
+      "related": [
+        "craft"
+      ]
+    }
   }
 }

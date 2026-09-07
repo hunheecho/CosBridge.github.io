@@ -378,6 +378,12 @@ func _want(day: int) -> Array:
 	match String(S.pick):
 		"easy": return ["forest"]
 		"risky": return ["deep", "den"]
+	var a := PRun.act_of(run, day) # 10일 본편: 막 기준(1막 근교, 2막 습지·굴, 3막 굴·심층). 옛 trio는 날짜 기준
+	if not a.is_empty():
+		match int(a.id):
+			1: return LATER
+			2: return MID
+			_: return LATE
 	if day <= 2:
 		return LATER
 	if day <= 4:

@@ -145,7 +145,8 @@ static func settings_short(run: Dictionary) -> String:
 static func header(run: Dictionary) -> Control:
 	var b := PBuild.derive(run)
 	var h := hbox(14)
-	h.add_child(rich_nowrap("[color=#9ea8b8]날짜[/color] [b]%d일차[/b]" % int(run.day), 14))
+	var act_lbl := PRun.act_label(run)
+	h.add_child(rich_nowrap("[color=#9ea8b8]날짜[/color] [b]%s%d일차[/b]" % [(act_lbl + " · ") if act_lbl != "" else "", int(run.day)], 14))
 	var slots := PRun.time_slots()
 	var cur := PRun.slot_index(run)
 	var done: bool = int(run.hours) <= 0

@@ -33,7 +33,13 @@ EN.wolf_alpha = Object.assign({}, ga, { godot_rules: true, provisional: 'C2/Q5: 
   bite: Object.assign({}, gw.bite, { damage: ga.damage, reach: gw.bite.reach + (ga.r - gw.r) }),
   dash: Object.assign({}, gw.dash, { crouch: ga.crouch, lock: ga.lock, dash_time: ga.dashTime, dash_speed: ga.dashSpeed, recover: ga.recover, damage: ga.damage, dashes: ga.dashes, second_crouch: ga.secondCrouch, engage_dist: ga.engageDist }) });
 for (const k in EN) { const d = EN[k]; if (d.engageDist != null && !d.godot_rules) d.engage_dist = d.engageDist; }
-write('enemies.json', { enemies: EN, boss_defs: strip(PA.BOSS_DEFS), boss_hp_sets: strip(PA.BOSS_HP_SETS), boss_hp_set_default: 'hi', run_modes: strip(PA.RUN_MODES) });
+// 10일·3막 본편(2026-09-07 사용자 결정, prophecy-act-themes-plan §1·§3): 탐험 1~3/4~6/7~9일, 관문 4/7/10일차 시작. 기존 trio(7일)는 옛 저장 호환 모드로 유지.
+// 관문 보스 id는 회차 계획(run.bossPlan, 테마 경로)이 정한다. 여기 id는 테마가 없을 때의 기본값.
+const RUN_MODES = strip(PA.RUN_MODES);
+RUN_MODES.acts = { name: '3막 10일 (본편)', days: 10, acts: [ { id: 1, name: '1막', days: [1, 2, 3], gate_day: 4 }, { id: 2, name: '2막', days: [4, 5, 6], gate_day: 7 }, { id: 3, name: '3막', days: [7, 8, 9], gate_day: 10 } ],
+  bosses: [ { id: 'boss', day: 4, hpKey: 'stage1', rare: true }, { id: 'guardian', day: 7, hpKey: 'stage2', rare: true }, { id: 'eater', day: 10, hpKey: 'stage3', rare: false } ],
+  note: '관문 승리 → 그날의 5칸 시작(막 전환·세계 변화·희귀 보상은 관문 승리 이벤트 1회). 10일차 관문 승리 = 본편 완주' };
+write('enemies.json', { enemies: EN, boss_defs: strip(PA.BOSS_DEFS), boss_hp_sets: strip(PA.BOSS_HP_SETS), boss_hp_set_default: 'hi', run_modes: RUN_MODES, run_mode_default: 'acts' });
 
 // ---------- world ----------
 // 밀도 모델(PORT_BASELINE C4, 잠정): 일반 적 전체 수 = HTML 편성 합 × 5(정예·구조물·보스 제외), 동시 상한 12, 묶음 3·간격 1.0, 역할별 동시 상한(시험값)
@@ -109,7 +115,13 @@ const formation_sets = {
 // 3) 선택형 위험 전투: 기존 사건 틀의 '강적의 흔적'(events에 추가, missions.json). 4) 관문별 보스 후보: 지금은 기존 3종을 그대로 후보 1개씩. 후보가 늘면 회차 시작 시 계획(bossPlan)으로 확정해 거점에 미리 보여준다.
 const boss_gates = { note: '관문별 후보 구조(확장용). 후보가 2개 이상이면 회차 시작 시 시드로 하나를 정하고(bossPlan) 거점 상단 줄에 미리 표시한다. 새 보스 제작은 이번 범위 아님',
   gates: [ { day: 3, candidates: ['boss'] }, { day: 5, candidates: ['guardian'] }, { day: 7, candidates: ['eater'] } ] };
-write('world.json', { world_stages, world_features, formation_sets, boss_gates, time_slots: PA.TIME_SLOTS, schedule: strip(PA.SCHEDULE), mission_steer: PA.MISSION_STEER, day_waves: strip(PA.DAY_WAVES), day_hp_sets: PA.DAY_HP_SETS, elite_day_mult: PA.ELITE_DAY_MULT, slot_variants: strip(PA.SLOT_VARIANTS), merchant_visits: PA.MERCHANT_VISITS, equipment: strip(PA.EQUIPMENT), equip_slots: PA.EQUIP_SLOTS, equip_slot_names: PA.EQUIP_SLOT_NAMES, shop: strip(PA.SHOP), regions: strip(PA.REGIONS), materials: strip(PA.MATERIALS), density, region_arena: { forest: 'clearing', ridge: 'pillars', marsh: 'forest', den: 'pillars', deep: 'clearing', boss: 'clearing' } });
+// 10일 일정의 장소(테마 도입 전 임시: 기존 지역으로 막별 2곳. 각 날에 1칸 장소 1곳 이상 → 마지막 칸에도 실제 행동이 남는다). null = 이전에 방문한 1칸 지역 재방문(시드)
+const SCHEDULE = strip(PA.SCHEDULE);
+SCHEDULE.places_by_mode = { acts: { '1': ['forest', 'ridge'], '2': ['forest', 'marsh'], '3': ['ridge', 'den'], '4': ['ridge', 'marsh'], '5': ['forest', 'den'], '6': [null, 'den'], '7': ['ridge', 'deep'], '8': ['forest', 'deep'], '9': [null, 'deep'], '10': [] },
+  note: '시험값(구현자). 테마(3막×3)가 들어오면 테마 정의의 장소로 대체. 1칸 장소 1곳 이상/일' };
+const MERCHANT = Object.assign({}, PA.MERCHANT_VISITS, { by_mode: { trio: [2, 4, 6], acts: [2, 5, 8] }, note: 'acts: 막마다 1회(2·5·8일차 점심부터). 시험값' });
+world_features.list[0].merchant_days_by_mode = { trio: [1, 3, 5], acts: [1, 4, 7] };
+write('world.json', { world_stages, world_features, formation_sets, boss_gates, time_slots: PA.TIME_SLOTS, schedule: SCHEDULE, mission_steer: PA.MISSION_STEER, day_waves: strip(PA.DAY_WAVES), day_hp_sets: PA.DAY_HP_SETS, elite_day_mult: PA.ELITE_DAY_MULT, slot_variants: strip(PA.SLOT_VARIANTS), merchant_visits: MERCHANT, equipment: strip(PA.EQUIPMENT), equip_slots: PA.EQUIP_SLOTS, equip_slot_names: PA.EQUIP_SLOT_NAMES, shop: strip(PA.SHOP), regions: strip(PA.REGIONS), materials: strip(PA.MATERIALS), density, region_arena: { forest: 'clearing', ridge: 'pillars', marsh: 'forest', den: 'pillars', deep: 'clearing', boss: 'clearing' } });
 
 // ---------- missions / events ----------
 const EV = strip(PA.EVENTS); const evIds = PA.EVENT_IDS.slice();

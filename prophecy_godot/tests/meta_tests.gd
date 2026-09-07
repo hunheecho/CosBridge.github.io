@@ -282,7 +282,8 @@ func _init() -> void:
 	PFlow.settle_victory(re, se, ste)
 	var a1 := PProfile.award_from_run(pe, re, "victory", { "sortie": se, "st": ste })
 	var a1b := PProfile.award_from_run(pe, re, "victory", { "sortie": se, "st": ste })
-	ok("1일차 첫 정상 전투 승리 +1, 같은 전투 두 번 정산해도 0", int(a1.records) == 1 and int(pe.records) == 1 and int(a1b.records) == 0, str(a1))
+	var DW: float = float(PCatalog.meta_records_for("acts").day_win) # 10일 본편: 하루 2/3
+	ok("1일차 첫 정상 전투 승리 +2/3(10일 본편), 같은 전투 두 번 정산해도 0", is_equal_approx(float(a1.records), DW) and is_equal_approx(float(pe.records), DW) and float(a1b.records) == 0.0, str(a1))
 	if se.get("event", null) != null:
 		PEvents.resolve(re, se, "leave")
 	PFlow.return_home(re, se)
@@ -290,7 +291,7 @@ func _init() -> void:
 	var ste2 := fake_win(re, se2)
 	PFlow.settle_victory(re, se2, ste2)
 	var a2 := PProfile.award_from_run(pe, re, "victory", { "sortie": se2, "st": ste2 })
-	ok("같은 날 두 번째 전투 승리는 0(날짜당 1회)", int(a2.records) == 0 and int(pe.records) == 1)
+	ok("같은 날 두 번째 전투 승리는 0(날짜당 1회)", float(a2.records) == 0.0 and is_equal_approx(float(pe.records), DW))
 	if se2.get("event", null) != null:
 		PEvents.resolve(re, se2, "leave")
 	PRun.deep_explore(re, se2)
@@ -304,7 +305,7 @@ func _init() -> void:
 	PProfile.save(pe)
 	var pe2 := PProfile.load("trial")
 	var a4 := PProfile.award_from_run(pe2, re, "victory", { "sortie": se, "st": ste })
-	ok("프로필 재로드 뒤 같은 이벤트 재지급 없음(events_done 저장)", int(a4.records) == 0 and int(pe2.records) == 1 and bool(pe2.challenges.get("eq:expedition_armor", false)))
+	ok("프로필 재로드 뒤 같은 이벤트 재지급 없음(events_done 저장)", float(a4.records) == 0.0 and is_equal_approx(float(pe2.records), DW) and bool(pe2.challenges.get("eq:expedition_armor", false)))
 	re.day = 2
 	re.hours = 5
 	re.cards = null
@@ -314,7 +315,7 @@ func _init() -> void:
 	var a5 := PProfile.award_from_run(pe, re, "victory", { "sortie": se4, "st": ste4 })
 	ok("2일차 첫 정상 전투(임무면 0, 전멸이면 +1)", int(a5.records) == (0 if bool(se4.get("mission", false)) else 1), "mission=%s" % str(se4.get("mission", false)))
 	# 보스: 최초 승리 +2, 재도전(패배 뒤 승리) 중복 없음, 완주 +2, 스냅샷 복구가 프로필을 되돌리지 않음
-	re.day = 3
+	re.day = 4
 	re.phase = "boss_prep"
 	re.hours = 5
 	var bs := PRun.start_boss(re)

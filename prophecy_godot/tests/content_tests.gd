@@ -30,7 +30,7 @@ func _init() -> void:
 	ok("같은 시드 = 같은 특징(재접속 재추첨 없음: 저장 필드만 읽음)", String(PRun.new_run(41, "sword").worldFeature) == String(r1.worldFeature) and String(PSave.normalize(r1).worldFeature) == String(r1.worldFeature))
 	var rm := PRun.new_run(1, "sword")
 	rm.worldFeature = "wandering_merchant"
-	ok("떠돌이 상인의 해: 방문 상인 1·3·5일차", PRun.merchant_days(rm).map(func(d): return int(d)) == [1, 3, 5] and PRun.merchant_days(PRun.new_run(1, "sword").merged({ "worldFeature": "misty_season" }, true)).map(func(d): return int(d)) == [2, 4, 6])
+	ok("떠돌이 상인의 해(10일 본편): 방문 상인 1·4·7일차(기본 2·5·8)", PRun.merchant_days(rm).map(func(d): return int(d)) == [1, 4, 7] and PRun.merchant_days(PRun.new_run(1, "sword").merged({ "worldFeature": "misty_season" }, true)).map(func(d): return int(d)) == [2, 5, 8])
 	rm.day = 1
 	rm.stock = null
 	PRun.refresh_stock(rm)
@@ -54,7 +54,7 @@ func _init() -> void:
 			if String(ev.id) == "time_spring":
 				spring += 1
 	ok("안개 낀 계절 60시드: 사건은 나오되 시간의 샘은 0회", rolls > 5 and spring == 0, "rolls %d spring %d" % [rolls, spring])
-	ok("핵심 일정 불변: 특징이 있어도 관문 3/5/7·하루 5칸·경험치 ×0.3 그대로", int(PRun.next_boss(rr).day) == 3 and int(rr.hours) == 5 and is_equal_approx(PRun.kill_xp_mult(rr), 0.3))
+	ok("핵심 일정 불변: 특징이 있어도 관문 4/7/10·하루 5칸·경험치 ×0.3 그대로", int(PRun.next_boss(rr).day) == 4 and int(rr.hours) == 5 and is_equal_approx(PRun.kill_xp_mult(rr), 0.3))
 	# ---------- 사전 편성(역할 조합) ----------
 	var FS: Dictionary = W.formation_sets
 	var missing := []
@@ -149,9 +149,9 @@ func _init() -> void:
 	ok("봇 정책: 위험 전략·체력 60% 이상이면 맞선다, 신중은 지나친다", PEvents.bot_choose(r9, { "event": { "id": "challenge" }, "loot": { "gold": 0 } }, "risky") == "fight" and PEvents.bot_choose(r9, { "event": { "id": "challenge" }, "loot": { "gold": 0 } }, "cautious") == "leave")
 	# ---------- 보스 계획 ----------
 	var r10 := PRun.new_run(3, "sword")
-	ok("보스 계획: 관문 3개 후보에서 확정(현재 후보 1개씩 = boss/guardian/eater), 다음 보스는 계획을 따른다", (r10.bossPlan as Array) == ["boss", "guardian", "eater"] and String(PRun.next_boss(r10).id) == "boss" and int(PRun.next_boss(r10).day) == 3)
+	ok("보스 계획: 관문 3개 후보에서 확정(현재 후보 1개씩 = boss/guardian/eater), 다음 보스는 계획을 따른다", (r10.bossPlan as Array) == ["boss", "guardian", "eater"] and String(PRun.next_boss(r10).id) == "boss" and int(PRun.next_boss(r10).day) == 4)
 	r10.bossPlan = ["guardian", "boss", "eater"]
-	ok("계획이 바뀌면 다음 보스 id가 바뀌고 관문 날짜·체력 키는 관문 순서를 따른다", String(PRun.next_boss(r10).id) == "guardian" and int(PRun.next_boss(r10).day) == 3 and String(PRun.next_boss(r10).hpKey) == "stage1")
+	ok("계획이 바뀌면 다음 보스 id가 바뀌고 관문 날짜·체력 키는 관문 순서를 따른다", String(PRun.next_boss(r10).id) == "guardian" and int(PRun.next_boss(r10).day) == 4 and String(PRun.next_boss(r10).hpKey) == "stage1")
 	# ---------- 밀도 세트 선택(비교 회차) ----------
 	var rd := PRun.new_run(1, "sword", "", { "density_set": "roles" })
 	ok("새 회차 옵션 density_set=roles → run.densitySet", String(rd.densitySet) == "roles")

@@ -97,6 +97,21 @@ static func first_fight() -> Dictionary: return _load("first_fight")
 static func meta() -> Dictionary: return _load("meta")
 static func meta_levels() -> Dictionary: return meta().levels
 static func meta_records() -> Dictionary: return meta().records
+## 회차 구조별 기록 규칙(10일 본편은 하루 2/3 기록): { name, day_win: float, day_max, boss_first, clear }
+static func meta_records_for(mode: String) -> Dictionary:
+	var base: Dictionary = meta().records
+	var out := { "name": String(base.name), "day_win": float(base.get("day_win", 1)), "day_max": int(base.get("day_max", 6)), "boss_first": int(base.get("boss_first", 2)), "clear": int(base.get("clear", 2)) }
+	var bm: Dictionary = base.get("by_mode", {})
+	if bm.has(mode):
+		var o: Dictionary = bm[mode]
+		if o.has("day_win_frac"):
+			out.day_win = float(o.day_win_frac[0]) / float(o.day_win_frac[1])
+		elif o.has("day_win"):
+			out.day_win = float(o.day_win)
+		if o.has("day_max"):
+			out.day_max = int(o.day_max)
+	return out
+static func run_mode_default() -> String: return String(_load("enemies").get("run_mode_default", "trio"))
 static func meta_unlocks() -> Dictionary: return meta().unlocks
 static func meta_profiles() -> Dictionary: return meta().profiles
 static func challenges() -> Dictionary: return meta().challenges

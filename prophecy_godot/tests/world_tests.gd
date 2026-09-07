@@ -36,7 +36,7 @@ func _init() -> void:
 	ok("worldStages=false 회차(옛 저장·비교용)는 항상 0", PRun.world_stage(run) == 0)
 	# 전환 정확히 1회: boss_victory가 기록을 남기고, 재도전·재정산은 단계를 바꾸지 않는다
 	var r2 := PRun.new_run(32, "sword")
-	r2.day = 3
+	r2.day = 4
 	r2.phase = "boss_prep"
 	var bs := PRun.start_boss(r2)
 	var stb := PFlow.make_boss_encounter(r2, bs)

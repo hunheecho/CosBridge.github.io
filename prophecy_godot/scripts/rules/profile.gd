@@ -40,7 +40,7 @@ static func _normalize(p: Dictionary) -> Dictionary:
 		if not p.has(k):
 			p[k] = base[k]
 	p.version = int(p.version)
-	p.records = int(p.records)
+	p.records = float(p.records) # 10일 본편은 하루 2/3 기록(소수 유지)
 	p.runs = int(p.get("runs", 0))
 	p.created_at = int(p.get("created_at", 0))
 	p.updated_at = int(p.get("updated_at", 0))
@@ -144,32 +144,32 @@ static func max_level() -> int:
 	return int(M().levels.max)
 
 ## 누적 기록 → 영구 레벨(문턱 4,4,6,6,… 누적)
-static func level_of(records: int) -> int:
+static func level_of(records: float) -> int:
 	var T: Array = M().levels.thresholds
 	var lv := 1
 	var need := 0
 	for t in T:
 		need += int(t)
-		if records >= need:
+		if records + 1e-6 >= float(need): # 2/3 기록 누적의 부동소수 오차 허용
 			lv += 1
 		else:
 			break
 	return mini(lv, max_level())
 
 static func level(profile: Dictionary) -> int:
-	return level_of(int(profile.get("records", 0)))
+	return level_of(float(profile.get("records", 0)))
 
 ## 다음 레벨 정보 {level, next, have, need, remain}. 최대면 next = level
 static func next_level(profile: Dictionary) -> Dictionary:
 	var T: Array = M().levels.thresholds
 	var lv := level(profile)
-	var have := int(profile.get("records", 0))
+	var have: float = float(profile.get("records", 0))
 	if lv >= max_level():
-		return { "level": lv, "next": lv, "have": have, "need": have, "remain": 0 }
+		return { "level": lv, "next": lv, "have": have, "need": have, "remain": 0.0 }
 	var need := 0
 	for i in lv:
 		need += int(T[i])
-	return { "level": lv, "next": lv + 1, "have": have, "need": need, "remain": maxi(0, need - have) }
+	return { "level": lv, "next": lv + 1, "have": have, "need": need, "remain": maxf(0.0, float(need) - have) }
 
 # ---------- 해금 ----------
 static func _entry_ok(profile: Dictionary, entry: Dictionary, lv: int) -> bool:
@@ -391,11 +391,11 @@ static func eligible(run: Dictionary) -> bool:
 	return bool(run.get("profileEligible", false)) and not bool(run.get("quick", false)) and not bool(run.get("lab", false))
 
 ## 이벤트 1회 지급. 이미 처리했으면 false
-static func record_event(profile: Dictionary, event_id: String, amount: int) -> bool:
+static func record_event(profile: Dictionary, event_id: String, amount: float) -> bool:
 	if (profile.events_done as Dictionary).has(event_id):
 		return false
 	profile.events_done[event_id] = true
-	profile.records = int(profile.records) + amount
+	profile.records = float(profile.records) + float(amount)
 	return true
 
 ## 도전 달성(1회). 새로 달성했으면 true
@@ -501,7 +501,7 @@ static func award_from_run(profile: Dictionary, run: Dictionary, kind: String, c
 	if not bool(out.eligible):
 		return out
 	var before := unlocked(profile)
-	var R := PCatalog.meta_records()
+	var R := PCatalog.meta_records_for(String(run.get("mode", "trio"))) # 회차 구조별(10일 본편: 하루 2/3)
 	var seed_v := int(run.seed)
 	match kind:
 		"victory":
@@ -513,8 +513,8 @@ static func award_from_run(profile: Dictionary, run: Dictionary, kind: String, c
 			var day := int(run.day)
 			if normal and day >= 1 and day <= int(R.day_max):
 				var ev := "run:%d:day:%d" % [seed_v, day]
-				if record_event(profile, ev, int(R.day_win)):
-					out.records = int(out.records) + int(R.day_win)
+				if record_event(profile, ev, float(R.day_win)):
+					out.records = float(out.records) + float(R.day_win)
 					(out.events as Array).append(ev)
 			_challenges_on_win(profile, run, st, out, false)
 		"boss":
@@ -522,13 +522,13 @@ static func award_from_run(profile: Dictionary, run: Dictionary, kind: String, c
 			if st == null or st.status != "won" or st.boss_id == "":
 				return out
 			var ev := "run:%d:boss:%s" % [seed_v, st.boss_id]
-			if record_event(profile, ev, int(R.boss_first)):
-				out.records = int(out.records) + int(R.boss_first)
+			if record_event(profile, ev, float(R.boss_first)):
+				out.records = float(out.records) + float(R.boss_first)
 				(out.events as Array).append(ev)
 			if String(run.get("phase", "")) == "cleared":
 				var ev2 := "run:%d:clear" % seed_v
-				if record_event(profile, ev2, int(R.clear)):
-					out.records = int(out.records) + int(R.clear)
+				if record_event(profile, ev2, float(R.clear)):
+					out.records = float(out.records) + float(R.clear)
 					(out.events as Array).append(ev2)
 			_challenges_on_win(profile, run, st, out, true)
 		"return":
@@ -549,8 +549,8 @@ static func award_text(a: Dictionary) -> String:
 	if a.is_empty() or not bool(a.get("eligible", false)):
 		return ""
 	var parts := []
-	if int(a.get("records", 0)) > 0:
-		parts.append("이번 회차 %s: +%d (다음 회차부터 반영)" % [String(PCatalog.meta_records().name), int(a.records)])
+	if float(a.get("records", 0)) > 0.0:
+		parts.append("이번 회차 %s: +%s (다음 회차부터 반영)" % [String(PCatalog.meta_records().name), _fmt_rec(float(a.records))])
 	if int(a.get("level_after", 1)) > int(a.get("level_before", 1)):
 		parts.append("영구 Lv%d → Lv%d" % [int(a.level_before), int(a.level_after)])
 	var names := unlocked_names(a.get("unlocked", {}))
@@ -577,3 +577,7 @@ static func unlocked_names(diff: Dictionary) -> Array:
 				"equipment": names.append(String(PCatalog.equipment()[sid].name))
 				"recipes": names.append(String(PCatalog.crafted_equipment()[sid].name) + " 제작법")
 	return names
+
+## 기록 수 표시(소수는 셋째 자리 버림 없이 1자리로): 6.0 → "6", 4.67 → "4.7"
+static func _fmt_rec(v: float) -> String:
+	return str(int(round(v))) if absf(v - round(v)) < 1e-6 else "%.1f" % v

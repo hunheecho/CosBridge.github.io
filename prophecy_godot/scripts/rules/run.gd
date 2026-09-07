@@ -31,7 +31,7 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 	var run := {
 		"version": VERSION, "seed": s,
 		"balance": bal, "bossHpSet": String(B.get("bossHpSet", "base")), "dayHpSet": String(B.get("dayHp", "none")),
-		"mode": "trio", "stage": 0, "bossesDone": [], "bossRecords": {},
+		"mode": String(opts.get("mode", PCatalog.run_mode_default())), "stage": 0, "bossesDone": [], "bossRecords": {}, # acts = 10일·3막 본편(사용자 결정), trio = 옛 7일 호환
 		"growth": PGrowth.new_growth(start_weapon if start_weapon != "" else "sword"),
 		"layout": "classic", "difficulty": "base", # D33: Godot 기본은 적 체력 ×1(세트의 candE는 쓰지 않는다)
 		"sortieCount": 0,
@@ -92,10 +92,17 @@ static func pick_boss_plan(seed_v: int) -> Array:
 
 ## 방문 상인이 오는 날짜(회차 특징으로 바뀔 수 있음)
 static func merchant_days(run: Dictionary) -> Array:
+	var mode := String(run.get("mode", "trio"))
 	var f := world_feature(run)
-	if String(f.get("kind", "")) == "merchant" and f.has("merchant_days"):
-		return f.merchant_days
-	return W().merchant_visits.days
+	if String(f.get("kind", "")) == "merchant":
+		var fm: Dictionary = f.get("merchant_days_by_mode", {})
+		if fm.has(mode):
+			return fm[mode]
+		if f.has("merchant_days"):
+			return f.merchant_days
+	var MV: Dictionary = W().merchant_visits
+	var bm: Dictionary = MV.get("by_mode", {})
+	return bm[mode] if bm.has(mode) else MV.days
 
 ## 위험 임무 확률·보상 배율(회차 특징 'risk')
 static func risk_chance(run: Dictionary) -> float:
@@ -174,6 +181,71 @@ static func mode_def(run: Dictionary) -> Dictionary:
 	var m := String(run.get("mode", "trio"))
 	return RM[m] if RM.has(m) else RM.trio
 
+## 막(act): 10일 본편은 1~3/4~6/7~9일 탐험, 관문 4/7/10. 옛 trio 모드는 막 정의가 없어 {}를 돌려준다
+static func acts(run: Dictionary) -> Array:
+	return mode_def(run).get("acts", [])
+
+static func act_of(run: Dictionary, day: int = 0) -> Dictionary:
+	var d: int = day if day > 0 else int(run.get("day", 1))
+	var A := acts(run)
+	var passed: int = int(run.get("stage", 0)) # 넘은 관문 수. 관문일에 관문을 넘었으면 남은 칸은 다음 막
+	for i in A.size():
+		var a: Dictionary = A[i]
+		var in_days := false
+		for x in a.days: # JSON 숫자는 float → int 비교
+			if int(x) == d:
+				in_days = true
+		if in_days:
+			return a
+		if int(a.gate_day) == d:
+			return A[i + 1] if (passed > i and i + 1 < A.size()) else a
+	return A[A.size() - 1] if A.size() > 0 else {}
+
+static func act_label(run: Dictionary, day: int = 0) -> String:
+	var a := act_of(run, day)
+	return String(a.get("name", "")) if not a.is_empty() else ""
+
+## 관문 준비 화면용 다음 막 미리보기(계획서 §4: 다음 막의 장소·대표 적·위협 한 줄·보스 이름). 없으면 {}
+static func act_preview(run: Dictionary) -> Dictionary:
+	var A := acts(run)
+	if A.is_empty():
+		return {}
+	var cur := act_of(run)
+	var idx := -1
+	for i in A.size():
+		if int(A[i].id) == int(cur.get("id", -1)):
+			idx = i
+	var nb := next_boss(run)
+	var next_act: Dictionary = {}
+	# 관문 준비(gate_day) 시점: 이 관문을 넘으면 시작되는 막 = 현재 act(gate_day를 포함) 다음 막
+	if is_boss_day(run) and idx >= 0 and idx + 1 < A.size():
+		next_act = A[idx + 1]
+	elif is_boss_day(run) and idx >= 0 and idx + 1 >= A.size():
+		return { "final": true, "boss": (String(nb.id) if not nb.is_empty() else "") }
+	if next_act.is_empty():
+		return {}
+	var days: Array = next_act.days
+	var places := []
+	var enemies := []
+	for d in days:
+		for id in places_for(run, int(d)):
+			var rid := String(id)
+			if not places.has(rid):
+				places.append(rid)
+			for wave in day_waves(rid, int(d)):
+				for g in wave:
+					if not enemies.has(String(g.type)) and not bool(PCatalog.enemy(String(g.type)).get("elite", false)):
+						enemies.append(String(g.type))
+	var next_gate: Dictionary = {}
+	var bosses: Array = mode_def(run).bosses
+	var st: int = int(run.get("stage", 0)) + 1
+	if st < bosses.size():
+		next_gate = (bosses[st] as Dictionary).duplicate()
+		var plan: Array = run.get("bossPlan", [])
+		if st < plan.size():
+			next_gate.id = String(plan[st])
+	return { "act": next_act, "places": places, "enemies": enemies.slice(0, 4), "gate": next_gate }
+
 ## 다음 보스 정의 {id, day, hpKey, rare}. 완주 후에는 {}. 회차의 보스 계획(bossPlan, 관문별 후보에서 시드로 확정)이 있으면 그 id를 쓴다
 static func next_boss(run: Dictionary) -> Dictionary:
 	var bosses: Array = mode_def(run).bosses
@@ -237,11 +309,15 @@ static func places_for(run: Dictionary, day: int = 0) -> Array:
 	if sched.has(key):
 		return sched[key]
 	var places: Dictionary = W().schedule.places
+	var by_mode: Dictionary = W().schedule.get("places_by_mode", {})
+	var mode := String(run.get("mode", "trio"))
+	if by_mode.has(mode):
+		places = by_mode[mode]
 	var base: Array = (places[key] as Array).duplicate() if places.has(key) else []
-	if base.has(null):
+	if base.has(null): # 재방문: 이전 방문 지역 중 1칸 장소 우선(마지막 칸에도 실제 행동이 남게)
 		var visited := []
 		for id in run.get("visited", {}):
-			if String(id) != "deep" and not base.has(id):
+			if String(id) != "deep" and not base.has(id) and place_cost(String(id)) <= 1:
 				visited.append(String(id))
 		var pool: Array = visited if visited.size() > 0 else ["forest"]
 		var rng := PRng.new((int(run.seed) * 53 + d * 977) & 0xFFFFFFFF)

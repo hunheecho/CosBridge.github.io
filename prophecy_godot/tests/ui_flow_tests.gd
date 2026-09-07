@@ -81,13 +81,13 @@ func _run() -> void:
 	else:
 		ok("사건 추가 전투 선택지 확인(갇힌 상인)", false, str(opts))
 	# ---------- F1: 보스전 도중 종료 ----------
-	main.run.day = 3
+	main.run.day = 4
 	main.run.phase = "boss_prep"
 	main.run.hours = 5
 	main.start_boss()
 	ok("보스 입장 체크포인트: pendingSortie 없음·phase boss_prep 유지", main.screen == "combat" and PSave.load().get("pendingSortie", null) == null and String(PSave.load().phase) == "boss_prep")
 	_reopen(main)
-	ok("보스전 도중 종료 → 거점(관문 준비), 재도전 수 0, 하루 손실 없음", main.screen == "base" and String(main.run.phase) == "boss_prep" and int(main.run.bossRetries) == 0 and int(main.run.day) == 3)
+	ok("보스전 도중 종료 → 거점(관문 준비), 재도전 수 0, 하루 손실 없음", main.screen == "base" and String(main.run.phase) == "boss_prep" and int(main.run.bossRetries) == 0 and int(main.run.day) == 4)
 	# ---------- F2: 수호 결계 HUD ----------
 	main.run = PRun.new_run(1, "sword")
 	main.run.growth.skills.e = { "id": "ward", "level": 1, "variant": null }

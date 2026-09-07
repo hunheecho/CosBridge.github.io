@@ -23,7 +23,7 @@ func _init() -> void:
 	# ---------- 시작 상태(HTML 154·162) ----------
 	var run := PRun.new_run(1, "sword")
 	var g: Dictionary = run.growth
-	ok("새 회차: 1일차 새벽 5칸, 체력 100, 금화 60, 검 Lv1·Q Lv1·E 없음·장비 없음·강화 0, trio, balance test03(경험치 ×0.3), 적 체력 base", int(run.day) == 1 and int(run.hours) == 5 and float(run.hp) == 100.0 and int(run.gold) == 60 and g.weapons.size() == 1 and String(g.weapons[0].id) == "sword" and g.skills.e == null and run.equipment.armor == null and int(run.forge) == 0 and String(run.mode) == "trio" and String(run.balance) == "test03" and is_equal_approx(PRun.kill_xp_mult(run), 0.3) and String(run.difficulty) == "base")
+	ok("새 회차: 1일차 새벽 5칸, 체력 100, 금화 60, 검 Lv1·Q Lv1·E 없음·장비 없음·강화 0, acts(10일), balance test03(경험치 ×0.3), 적 체력 base", int(run.day) == 1 and int(run.hours) == 5 and float(run.hp) == 100.0 and int(run.gold) == 60 and g.weapons.size() == 1 and String(g.weapons[0].id) == "sword" and g.skills.e == null and run.equipment.armor == null and int(run.forge) == 0 and String(run.mode) == "acts" and String(run.balance) == "test03" and is_equal_approx(PRun.kill_xp_mult(run), 0.3) and String(run.difficulty) == "base")
 	var cards := PSortie.cards_for(run)
 	ok("1일차 카드 2장 = 오늘의 장소(숲·능선), 전멸만(임무는 2일차부터), 시드 결정적·저장 필드", cards.size() == 2 and String(cards[0].regionId) == "forest" and String(cards[1].regionId) == "ridge" and String(cards[0].objective) == "clear" and String(cards[1].objective) == "clear" and run.cards != null, str(cards.map(func(c): return c.id)))
 	var acts := PFlow.actions(run)
@@ -119,10 +119,11 @@ func _init() -> void:
 	run.hp = 40.0
 	PRun.rest(run)
 	ok("휴식: 1칸 소모·완전 회복, 가득 차도 가능", int(run.hours) == 4 and float(run.hp) == 100.0 and PRun.can_rest(run))
+	PRun.end_day(run) # 3일차
 	var prev := PRun.preview_next_day(run)
-	ok("2일차 종료 전 미리보기 = 3일차 관문(가시갈기)", prev.has("boss") and String(prev.boss) == "boss", str(prev))
+	ok("3일차 종료 전 미리보기 = 4일차 관문(가시갈기) — 10일 본편", prev.has("boss") and String(prev.boss) == "boss", str(prev))
 	PRun.end_day(run)
-	ok("3일차 = 관문: phase boss_prep, 출격 불가, 행동 목록에 boss_start", String(run.phase) == "boss_prep" and not PRun.can_sortie(run, "ridge") and PFlow.actions(run).any(func(a): return String(a.id) == "boss_start"))
+	ok("4일차 = 관문: phase boss_prep, 출격 불가, 행동 목록에 boss_start", String(run.phase) == "boss_prep" and not PRun.can_sortie(run, "ridge") and PFlow.actions(run).any(func(a): return String(a.id) == "boss_start"))
 	# ---------- 보스 스냅샷·재도전·승리(HTML 6·35·118) ----------
 	run.gold = 300
 	var bs := PRun.start_boss(run)
@@ -133,7 +134,7 @@ func _init() -> void:
 	PGrowth.add_xp(g, 100.0)
 	stb.status = "lost"
 	PFlow.settle_boss_defeat(run, stb)
-	ok("보스 패배: 금화·성장 입장 시점으로 복구, 재도전 1회, 하루 손실 없음", int(run.gold) == 300 and int(run.growth.level) == 1 and int(run.bossRetries) == 1 and String(run.phase) == "boss_prep" and int(run.day) == 3)
+	ok("보스 패배: 금화·성장 입장 시점으로 복구, 재도전 1회, 하루 손실 없음", int(run.gold) == 300 and int(run.growth.level) == 1 and int(run.bossRetries) == 1 and String(run.phase) == "boss_prep" and int(run.day) == 4)
 	g = run.growth
 	var bs2 := PRun.start_boss(run)
 	ok("재도전은 같은 시드", int(bs2.seed) == int(bs.seed))

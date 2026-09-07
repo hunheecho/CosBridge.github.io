@@ -199,7 +199,7 @@ func _award_profile(kind: String, ctx: Dictionary) -> Dictionary:
 	if run.is_empty() or fight_kind != "run":
 		return {}
 	var a := PProfile.award_from_run(profile, run, kind, ctx)
-	if bool(a.get("eligible", false)) and (int(a.get("records", 0)) > 0 or not (a.get("challenges", []) as Array).is_empty()):
+	if bool(a.get("eligible", false)) and (float(a.get("records", 0)) > 0.0 or not (a.get("challenges", []) as Array).is_empty()): # 10일 본편은 하루 2/3 기록(소수)
 		PProfile.save(profile)
 		var txt := PProfile.award_text(a)
 		if txt != "":

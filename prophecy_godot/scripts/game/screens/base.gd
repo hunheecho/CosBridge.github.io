@@ -423,6 +423,23 @@ func _final_prep(r: Dictionary) -> void:
 	var wn := []
 	for w in g.weapons:
 		wn.append("%s Lv%d" % [String(PCatalog.weapon(String(w.id)).name), int(w.level)])
+	var ap := PRun.act_preview(r) # 다음 막 미리보기(계획서 §4): 관문 도전 전에 대비할 수 있게 장소·대표 적·보스 이름만
+	if not cleared and not ap.is_empty():
+		var pv := PUi.card("다음 막 미리보기", PUi.CARD, 13)
+		if bool(ap.get("final", false)):
+			(pv.box as VBoxContainer).add_child(PUi.rich("[color=#9ea8b8]이 관문을 넘으면 본편 완주입니다.[/color]", 12))
+		else:
+			var pnames := []
+			for pid in ap.places:
+				pnames.append(String(PRun.region(String(pid)).name))
+			var enames := []
+			for eid in ap.enemies:
+				enames.append(String(PCatalog.enemy(String(eid)).name))
+			var gate: Dictionary = ap.get("gate", {})
+			var gname := String(PCatalog.boss_def(String(gate.id)).name) if not gate.is_empty() else "-"
+			(pv.box as VBoxContainer).add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8](%d~%d일차)[/color] · 장소: %s · 대표 적: %s" % [PGlossaryTip.esc(String(ap.act.name)), int((ap.act.days as Array)[0]), int((ap.act.days as Array)[(ap.act.days as Array).size() - 1]), PGlossaryTip.esc("·".join(pnames)), PGlossaryTip.esc("·".join(enames))], 12))
+			(pv.box as VBoxContainer).add_child(PUi.rich("[color=#9ea8b8]다음 관문 보스:[/color] [b]%s[/b] [color=#9ea8b8](%d일차)[/color]" % [PGlossaryTip.esc(gname), int(gate.get("day", 0))], 12))
+		left.add_child(pv.panel)
 	var snap := PUi.card("입장 스냅샷", PUi.CARD, 13)
 	(snap.box as VBoxContainer).add_child(PUi.rich("[color=#9ea8b8]Lv %d · %s · 체력 %d · 재도전 %d회%s[/color]" % [int(g.level), ", ".join(wn), int(float(b.hp_max)), int(r.get("bossRetries", 0)), " (입장 시점 상태로 복구됨: 처치 경험치·보상 중복 없음)" if int(r.get("bossRetries", 0)) > 0 else ""], 12))
 	left.add_child(snap.panel)
