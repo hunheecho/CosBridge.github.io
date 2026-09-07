@@ -154,3 +154,4 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 - 관찰(테스트 E1n): 검격 넉백 40이 물기 준비 중인 늑대를 사거리 44 밖으로 밀어 정면 늑대의 물기가 자주 빗나간다. 봇 결과의 "실행 전 사망 15~27%"와 낮은 물기 명중은 이 상호작용의 영향이 크다. 이번에 넉백·사거리를 바꾸지 않았다(다음 비교 후보).
 - 봇 정책: v1(0.2.0: 돌진 통로만 회피) → v2(0.3.0: 물기 고정/유효 부채꼴 안이면 옆으로 회피 추가) + stand(입력 없음) 신설. 규칙 우회 없음.
 - 성능(Xvfb 소프트웨어 GL, 실제 GPU 아님): x5 평균 프레임 9.5ms·시뮬 0.33ms/프레임(최대 5.5ms), x10 평균 10.2ms·시뮬 0.61ms(최대 9.2ms), 단계 상한 도달 1프레임(시작 직후 스파이크 130ms 1회). headless 시뮬 µs/단계: base 100, x5 240~270, x10 430~480. 실제 GPU·Windows 프레임은 미확인.
+- 커밋·배포물(godot-0.3.0): 프로젝트 커밋 **272608f**, `prophecy_godot_build/prophecy_godot_project_godot-0.3.0_272608f.zip`, `prophecy_first_fight_windows_godot-0.3.0_272608f.zip`(Windows 실기 실행 미확인). 0.2.0 ZIP은 삭제.
