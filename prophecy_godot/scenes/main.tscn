@@ -12,82 +12,12 @@ script = ExtResource("2_view")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="Title" type="Control" parent="UI"]
+[node name="Screens" type="Control" parent="UI"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-
-[node name="BG" type="ColorRect" parent="UI/Title"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-color = Color(0.078, 0.094, 0.114, 1)
-
-[node name="VBox" type="VBoxContainer" parent="UI/Title"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -190.0
-offset_right = 220.0
-offset_bottom = 190.0
-theme_override_constants/separation = 10
-
-[node name="Heading" type="Label" parent="UI/Title/VBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 34
-text = "예언의 시간표"
-horizontal_alignment = 1
-
-[node name="Sub" type="Label" parent="UI/Title/VBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 15
-text = "Godot 첫 전투 — 근교 숲 · 검격 Lv1 · 늑대 2 → 3"
-horizontal_alignment = 1
-
-[node name="StartBtn" type="Button" parent="UI/Title/VBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "전투 시작 (Enter)"
-
-[node name="BotBtn" type="Button" parent="UI/Title/VBox"]
-layout_mode = 2
-text = "봇 조작으로 보기 (같은 규칙·같은 행동 형식)"
-
-[node name="ControlsBtn" type="Button" parent="UI/Title/VBox"]
-layout_mode = 2
-text = "조작법"
-
-[node name="SeedRow" type="HBoxContainer" parent="UI/Title/VBox"]
-layout_mode = 2
-alignment = 1
-
-[node name="SeedLabel" type="Label" parent="UI/Title/VBox/SeedRow"]
-layout_mode = 2
-text = "시드"
-
-[node name="SeedSpin" type="SpinBox" parent="UI/Title/VBox"]
-layout_mode = 2
-min_value = 1.0
-max_value = 99999.0
-value = 7.0
-
-[node name="QuitBtn" type="Button" parent="UI/Title/VBox"]
-layout_mode = 2
-text = "종료"
-
-[node name="Version" type="Label" parent="UI/Title/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.6, 0.65, 0.7, 1)
-theme_override_font_sizes/font_size = 12
-text = "version"
-horizontal_alignment = 1
-autowrap_mode = 3
+mouse_filter = 2
 
 [node name="HUD" type="Control" parent="UI"]
 visible = false
@@ -106,61 +36,152 @@ color = Color(0.05, 0.06, 0.08, 1)
 [node name="HP" type="ProgressBar" parent="UI/HUD"]
 layout_mode = 0
 offset_left = 12.0
-offset_top = 6.0
+offset_top = 5.0
 offset_right = 212.0
-offset_bottom = 34.0
+offset_bottom = 29.0
+show_percentage = false
+
+[node name="Shield" type="ProgressBar" parent="UI/HUD"]
+visible = false
+layout_mode = 0
+offset_left = 12.0
+offset_top = 31.0
+offset_right = 212.0
+offset_bottom = 37.0
 show_percentage = false
 
 [node name="HPText" type="Label" parent="UI/HUD"]
 layout_mode = 0
 offset_left = 18.0
-offset_top = 10.0
+offset_top = 7.0
 offset_right = 210.0
-offset_bottom = 32.0
+offset_bottom = 27.0
+theme_override_font_sizes/font_size = 13
 text = "체력"
 
 [node name="Dodge" type="ProgressBar" parent="UI/HUD"]
 layout_mode = 0
 offset_left = 224.0
 offset_top = 6.0
-offset_right = 486.0
+offset_right = 386.0
 offset_bottom = 34.0
 show_percentage = false
 
 [node name="DodgeText" type="Label" parent="UI/HUD"]
 layout_mode = 0
+clip_text = true
 offset_left = 230.0
 offset_top = 10.0
-offset_right = 486.0
+offset_right = 386.0
 offset_bottom = 32.0
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 12
 text = "Space 회피"
 
 [node name="Q" type="ProgressBar" parent="UI/HUD"]
 layout_mode = 0
-offset_left = 498.0
+offset_left = 396.0
 offset_top = 6.0
-offset_right = 660.0
+offset_right = 570.0
 offset_bottom = 34.0
 show_percentage = false
 
 [node name="QText" type="Label" parent="UI/HUD"]
 layout_mode = 0
-offset_left = 504.0
+clip_text = true
+offset_left = 402.0
 offset_top = 10.0
-offset_right = 660.0
+offset_right = 570.0
 offset_bottom = 32.0
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 12
 text = "Q 감속장"
+
+[node name="E" type="ProgressBar" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 580.0
+offset_top = 6.0
+offset_right = 690.0
+offset_bottom = 34.0
+show_percentage = false
+
+[node name="EText" type="Label" parent="UI/HUD"]
+layout_mode = 0
+clip_text = true
+offset_left = 586.0
+offset_top = 10.0
+offset_right = 690.0
+offset_bottom = 32.0
+theme_override_font_sizes/font_size = 12
+text = "E"
 
 [node name="Objective" type="Label" parent="UI/HUD"]
 layout_mode = 0
-offset_left = 672.0
-offset_top = 10.0
+offset_left = 700.0
+offset_top = 2.0
 offset_right = 956.0
-offset_bottom = 32.0
-theme_override_font_sizes/font_size = 13
+offset_bottom = 38.0
+theme_override_font_sizes/font_size = 12
 text = "목적"
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Boss" type="Control" parent="UI/HUD"]
+visible = false
+layout_mode = 0
+offset_left = 240.0
+offset_top = 46.0
+offset_right = 720.0
+offset_bottom = 84.0
+mouse_filter = 2
+
+[node name="BossBG" type="ColorRect" parent="UI/HUD/Boss"]
+layout_mode = 0
+offset_right = 480.0
+offset_bottom = 38.0
+color = Color(0, 0, 0, 0.45)
+
+[node name="BossName" type="Label" parent="UI/HUD/Boss"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 1.0
+offset_right = 300.0
+offset_bottom = 21.0
+theme_override_font_sizes/font_size = 14
+text = "보스"
+
+[node name="BossAction" type="Label" parent="UI/HUD/Boss"]
+layout_mode = 0
+offset_left = 300.0
+offset_top = 1.0
+offset_right = 474.0
+offset_bottom = 21.0
+theme_override_colors/font_color = Color(1, 0.85, 0.5, 1)
+theme_override_font_sizes/font_size = 14
+text = "행동"
+horizontal_alignment = 2
+
+[node name="BossBar" type="ProgressBar" parent="UI/HUD/Boss"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 22.0
+offset_right = 474.0
+offset_bottom = 34.0
+show_percentage = false
+
+[node name="Tick1" type="ColorRect" parent="UI/HUD/Boss"]
+layout_mode = 0
+offset_left = 100.0
+offset_top = 20.0
+offset_right = 102.0
+offset_bottom = 36.0
+color = Color(1, 1, 1, 0.8)
+
+[node name="Tick2" type="ColorRect" parent="UI/HUD/Boss"]
+layout_mode = 0
+offset_left = 200.0
+offset_top = 20.0
+offset_right = 202.0
+offset_bottom = 36.0
+color = Color(1, 1, 1, 0.8)
 
 [node name="Demo" type="Label" parent="UI/HUD"]
 layout_mode = 0
@@ -203,10 +224,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -160.0
-offset_top = -90.0
-offset_right = 160.0
-offset_bottom = 90.0
+offset_left = -180.0
+offset_top = -110.0
+offset_right = 180.0
+offset_bottom = 110.0
 theme_override_constants/separation = 10
 
 [node name="Heading" type="Label" parent="UI/Pause/VBox"]
@@ -222,6 +243,10 @@ text = "계속 (Esc)"
 [node name="ControlsBtn" type="Button" parent="UI/Pause/VBox"]
 layout_mode = 2
 text = "조작법"
+
+[node name="SettingsBtn" type="Button" parent="UI/Pause/VBox"]
+layout_mode = 2
+text = "설정"
 
 [node name="TitleBtn" type="Button" parent="UI/Pause/VBox"]
 layout_mode = 2
@@ -248,10 +273,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -300.0
-offset_top = -120.0
-offset_right = 300.0
-offset_bottom = 120.0
+offset_left = -320.0
+offset_top = -140.0
+offset_right = 320.0
+offset_bottom = 140.0
 theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="UI/Result/VBox"]
@@ -262,6 +287,7 @@ horizontal_alignment = 1
 
 [node name="Body" type="Label" parent="UI/Result/VBox"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 13
 text = "..."
 horizontal_alignment = 1
 autowrap_mode = 3
@@ -296,10 +322,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -300.0
-offset_top = -170.0
-offset_right = 300.0
-offset_bottom = 170.0
+offset_left = -330.0
+offset_top = -200.0
+offset_right = 330.0
+offset_bottom = 200.0
 theme_override_constants/separation = 10
 
 [node name="Heading" type="Label" parent="UI/Controls/VBox"]
@@ -310,17 +336,8 @@ horizontal_alignment = 1
 
 [node name="Body" type="Label" parent="UI/Controls/VBox"]
 layout_mode = 2
-text = "WASD / 방향키: 이동
-Space: 회피 (0.26초 무적, 이동 방향으로 150 굴림, 재사용 0.9초)
-Q: 감속장 (반지름 150, 3초, 안의 적 속도·준비 40%, 재사용 14초)
-자동 공격: 사거리 안의 가장 가까운 적을 향해 검격 (0.55초마다)
-Esc: 일시정지 / 재개 · F3: 검증 패널
-
-읽어야 할 것
-붉은 통로: 늑대가 돌진할 길. 굵어지며 '!'가 뜨면 방향이 고정됨 — 옆으로 피하세요.
-통로의 폭 = 실제 물기 판정 폭. 흰 부채꼴 = 검격의 실제 판정 범위.
-노란 늑대 = 빈틈 (피해 1.5배). 파란 원 = 감속장 범위.
-바위·나무의 테두리 = 충돌 경계. 돌진도 막힙니다."
+theme_override_font_sizes/font_size = 13
+text = "..."
 autowrap_mode = 3
 
 [node name="CloseBtn" type="Button" parent="UI/Controls/VBox"]
@@ -363,7 +380,7 @@ offset_bottom = 328.0
 [node name="Heading" type="Label" parent="UI/Debug/Opts"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
-text = "비교 설정 (다음 재시작에 적용)"
+text = "비교 설정 (기준 전투 다음 재시작에 적용)"
 
 [node name="ModeLabel" type="Label" parent="UI/Debug/Opts"]
 layout_mode = 2
@@ -406,3 +423,13 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 11
 text = ""
 autowrap_mode = 3
+
+[node name="Overlay" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Tips" type="CanvasLayer" parent="."]
+layer = 5

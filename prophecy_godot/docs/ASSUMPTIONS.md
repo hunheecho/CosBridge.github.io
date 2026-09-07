@@ -38,3 +38,21 @@
 
 ## 회피 (godot-0.2.0)
 최소 70·최대 150·재사용 1.5(출발 기준)·무적 = 이동 중: `docs/RULES.md` §회피.
+
+## 전체 게임 이식 잠정값 (godot-0.4.0, 2026-09-07) — 사용자 확인 전
+근거·충돌 번호(C·Q)는 `docs/PORT_BASELINE.md` §6. 값은 `data/*.json`(HTML `tools/port_export_data.js`로 생성)에 있고, 코드에 숫자를 두지 않는다.
+
+| 값 | 위치 | 근거 |
+|---|---|---|
+| 밀도 배율 5(일반 적만), 동시 상한 12, 묶음 3·간격 1.0 | `world.json` density (C4/Q1) | D33 기준 전투(늑대 2+3 → 25마리)를 그대로 재현하는 정수 배율. 정예·구조물·보스 소환은 배율 제외(우두머리 1마리는 1마리) |
+| 종류별 동시 상한: 궁수 3·주술사 1·서리술사 2·거미 2·폭탄 3·방패병 3·멧돼지 2·잠복충 2·도적 3·포자 3·우두머리 2 | `world.json` density.type_alive_cap | 시험값. 원거리·지원·지형 지배형이 동시 상한 12를 채우면 예고를 읽을 수 없어서 역할별로 나눔. 늑대는 상한 없음(전체 상한 12만) |
+| 전투 경험치 = HTML 편성 단위값 ÷ 5 per kill(예산 고정), 지역 보너스 ×0.3 | `formation.gd` xp_map (C6) | D35 "개체 수로 성장이 빨라지지 않게"를 전 지역으로 확장 |
+| 적 체력 지역 배율 ×1(base), 4일차부터 정예 ×1.25 | `balance.json` difficulty + `run.gd` hp_mult_for (C5/Q2) | D33(늑대 30). HTML test03 세트의 candE(숲 1.5…)는 F3 비교 후보 |
+| 보스 체력 세트 hi: 2400 / 5000 / 7000 | `enemies.json` boss_hp_set_default (Q2) | test03 = HTML 기본 세트가 가리키는 값(D27 논의값). base(1500/3000/3600)는 비교 후보 |
+| 관통창 근접 약화(사거리 45% 안쪽 ×0.5)·주기 0.85 | `balance.json` test03 spearOverride (C9/Q3) | HTML 기본 세트. 현재값(0.7·약화 없음)은 비교 후보 |
+| 저녁 변주 이동: 습지 저녁 "포자" → 오후, 심층 저녁 "심연" → 오후 | `world.json` slot_variants (C11/Q4) | HTML F2(비용 2 장소는 저녁 출발 불가) 수정. 굴은 변주가 새벽/오후뿐이라 그대로 |
+| 늑대 우두머리 = HTML 값(체력 120·피해 18·2연속 돌진) + Godot 물기·돌진 재사용·동시 돌진 집계 | `enemies.json` wolf_alpha (C2/Q5) | 늑대 규칙(D35)이 우두머리·보스 소환 늑대에도 같이 적용되어야 "가까우면 물기" 리듬이 깨지지 않음 |
+| 넉백 ×2(HTML ×4 아님) | `combat_state.gd` knock_enemy (C21) | 0.3.1 값 유지(D35: 넉백은 검의 장점일 수 있어 조정하지 않음). 원본은 ×4 |
+| 원정대의 갑옷 회복 8 = 전투 승리(일반·심층·보스)마다 1회 | `flow.gd` (C7) | D20 합의. HTML은 귀환 정산 1회(F7) |
+| 지역 → 전장: 숲 공터, 능선 기둥, 습지 숲(장애물 많음), 굴 기둥, 심층 공터, 보스 공터 | `world.json` region_arena | HTML `regionArena`와 같음 |
+| Godot 저장 파일 `user://prophecy_save_v1.json`(버전 1, 임시 파일 뒤 교체) | `save.gd` (C12/C14) | HTML localStorage 이행(v1~v3)은 옮기지 않음 |

@@ -1,37 +1,46 @@
-# 예언의 시간표 — Godot 첫 전투 (prophecy_godot)
+# 예언의 시간표(가칭) — Godot 이식 (prophecy_godot)
 
-HTML 프로토타입(`../prophecy_action_prototype`, v0.8.0, 커밋 ee10fc7)의 **첫 전투 하나**를 Godot으로 옮긴 프로젝트입니다. 전체 이식이 아니라 "집에서 열면 바로 한 판 플레이할 수 있는 상태"가 목표입니다. 상세 기록은 `docs/PORT_NOTES.md`.
+HTML 프로토타입(`../prophecy_action_prototype`, v0.8.0, 커밋 ee10fc7)에서 합의된 게임 전체를 Godot으로 옮긴 프로젝트입니다(godot-0.4.0). 새 회차 → 시작 기술 → 거점 → 장소/시간대 카드 → 전투(레벨업 3택) → 승리/보상 → 더 깊이/귀환 → 상점·장비·대장간·휴식 → 다음 날 → 관문 보스(희귀 보상) → 최종 보스 → 회차 결과 → 새 회차까지 일반 UI로 진행할 수 있고, 저장/계속하기와 패배 경로가 있습니다. 0.3.1의 첫 전투(사용자 긍정 평가, D33)는 "기준 전투"로 그대로 보존됩니다. 게임 이름은 아직 미정(가칭)입니다.
+
+이식 기준·충돌 처리: `../docs/PORT_BASELINE.md` · 콘텐츠 ID별 상태: `../docs/CONTENT_MATRIX.md` · 규칙 계층 계약: `docs/PORT_CONVENTIONS.md` · 잠정값과 근거: `docs/ASSUMPTIONS.md` · 이번 이식 기록·재현 정보: `docs/PORT_NOTES.md` §12.
 
 ## 필요한 Godot
 - **Godot 4.7.2-stable, 표준(non-.NET) Windows 64비트** 공식 배포본.
 - 다운로드: https://github.com/godotengine/godot/releases/tag/4.7.2-stable → `Godot_v4.7.2-stable_win64.exe.zip` (`mono`가 붙은 파일은 .NET판이므로 받지 않음).
-- 이 프로젝트는 GDScript만 사용하고, .NET·C#·JS 확장·외부 플러그인이 없습니다. 렌더러는 Compatibility(OpenGL 3).
+- GDScript만 사용하고, .NET·C#·JS 확장·외부 플러그인·외부 에셋이 없습니다(그래픽은 도형, 소리는 합성음). 렌더러는 Compatibility(OpenGL 3).
 
 ## 바로 실행하는 방법
 1. 위 zip을 풀고 `Godot_v4.7.2-stable_win64.exe`를 실행한다(설치 과정 없음).
 2. 프로젝트 관리자에서 **가져오기(Import)** → 이 폴더의 `project.godot` 선택 → **가져오기 및 편집**.
-3. 편집기 우상단 ▶(F5) 실행. 시작 화면에서 **Enter** 또는 `전투 시작`.
+3. 편집기 우상단 ▶(F5) 실행. 제목 화면에서 **새 회차** 또는 **계속하기**.
 
-Godot 없이 플레이하려면 `../prophecy_godot_build/`의 Windows 빌드 ZIP(`prophecy_first_fight.exe`, godot-0.3.0)을 사용합니다. 프로젝트를 Windows 10 로컬 Godot 4.7.2에서 가져오기·테스트·실행한 것은 godot-0.3.1에서 확인했습니다(`docs/PORT_NOTES.md` §11). 사람이 키보드로 플레이한 확인은 아직 없습니다.
-
-새 세션에서 읽을 문서 순서·현재 초점·공식 문서 위치는 저장소 루트 `../docs/PROJECT_CONTEXT.md` 한 곳에만 둡니다. 설계 변경 이유와 사용자 플레이 판단(D33 등)은 `../docs/DESIGN_DECISIONS.md`.
+Godot 없이 플레이하려면 `../prophecy_godot_build/`의 Windows 빌드 ZIP을 사용합니다(§`docs/PORT_NOTES.md` §12에 빌드 커밋·해시). 사람이 키보드로 플레이한 확인은 아직 없습니다(봇 자동 진행·헤드리스 검증만).
 
 ## 조작
-WASD/방향키 이동 · Space 회피(짧게/길게 눌러 거리 70~150 조절, 재사용 1.5초) · Q 감속장 · 자동 공격(검격 Lv1) · Esc 일시정지/재개 · F3 검증 패널(회피 방식·재사용, 편성 5/25/50, 동시 돌진 2/3 비교 설정, 다음 재시작에 적용) · Enter 시작/재시작. 규칙: `docs/RULES.md`, 근거: `docs/ASSUMPTIONS.md`, 봇 밀도 비교: `docs/DENSITY_REPORT.md`.
+WASD/방향키 이동 · Space 회피(짧게/길게 눌러 거리 70~150, 재사용 1.5초) · Q 감속장 · **E 수동 기술**(습득 후) · 자동 공격(보유 자동기술이 사거리 안의 적에게 자동 발동) · Esc 일시정지/메뉴 닫기 · Enter 기본 버튼 · F3 검증 패널. 밑줄 친 용어는 마우스를 올리면 설명, 클릭하면 고정(전투 중 고정 시 일시정지).
+제목 화면 **검증 메뉴**: 기준 전투(0.3.1 D33, 사람/봇) · 시작 기술 첫 전투 비교 · 관문 빌드 보스전 · 봇 회차 데모. 전투 규칙: `docs/RULES.md`.
 
-## 검증 명령(터미널, Godot 실행 파일 경로를 `godot`라고 할 때)
+## 검증 명령(터미널, Godot 콘솔 실행 파일 경로를 `godot`라고 할 때)
 ```
-godot --headless --path prophecy_godot -s tests/run_tests.gd        # 규칙 테스트 72개
-godot --headless --path prophecy_godot -s tools/density_report.gd   # 밀도 비교(편성 × 봇 정책 × 시드) → docs/DENSITY_REPORT.md
-godot --headless --path prophecy_godot -s tools/compare_scenario.gd  # HTML 대조용 측정(COMPARE_JSON)
-PROPHECY_CAPTURE=<폴더> godot --path prophecy_godot                  # 봇 전투를 돌리며 화면 7장 저장 후 종료
-PROPHECY_MOVIE=1|single [PROPHECY_FORMATION=base|x5|x10] godot --path prophecy_godot --write-movie out.png --fixed-fps 30  # 영상 프레임 기록
-PROPHECY_DODGE_DEMO=1 [PROPHECY_DODGE_MODE=hold|fixed PROPHECY_DODGE_CD=1.5] godot --path prophecy_godot  # 회피 시연(스크립트 입력, DEMO_RESULT 출력)
+godot --headless --path prophecy_godot --import                       # class_name 추가 뒤 1회(전역 클래스 캐시)
+godot --headless --path prophecy_godot -s tests/run_tests.gd          # 기준 전투 규칙 72
+godot --headless --path prophecy_godot -s tests/port_tests.gd         # 전투 콘텐츠(자동기술·개조·범용·특성·Q/E·장비·지형·편성) 69
+godot --headless --path prophecy_godot -s tests/boss_tests.gd         # 보스 3·전투 목표 34
+godot --headless --path prophecy_godot -s tests/run_layer_tests.gd    # 회차 계층(상점·교체·대장간·정산·관문·저장·통계) 51
+godot --headless --path prophecy_godot -s tools/density_report.gd     # 기준 전투 밀도 비교(0.3.1과 같은 36행) → docs/DENSITY_REPORT.md
+godot --headless --path prophecy_godot -s tools/compare_scenario.gd   # HTML 대조 측정(COMPARE_JSON)
+PROPHECY_SIM_SEEDS=1,2 godot --headless --path prophecy_godot -s tools/run_sim.gd        # 회차 봇 전략 7종 → docs/sim/RUN_SIM.md
+PROPHECY_SIM_SEEDS=11,18 godot --headless --path prophecy_godot -s tools/boss_sim.gd     # 관문 빌드 × 보스 × 정책 → docs/sim/BOSS_SIM.md
+PROPHECY_SIM_SEEDS=100,101 godot --headless --path prophecy_godot -s tools/start_compare.gd  # 시작 기술 비교 → docs/sim/START_COMPARE.md
+PROPHECY_UI_SMOKE=<폴더> [PROPHECY_UI_FULL=1 PROPHECY_UI_SPEED=5] godot --path prophecy_godot  # 실제 창에서 새 회차→…→관문(→최종 보스→회차 결과→새 회차) 자동 진행, PNG 저장
+PROPHECY_CAPTURE=<폴더> godot --path prophecy_godot                   # 기준 전투 봇 캡처 7장
+PROPHECY_MOVIE=1|single godot --path prophecy_godot --write-movie out.png --fixed-fps 30   # 기준 전투 영상 프레임
+godot --headless --path prophecy_godot --export-release "Windows Desktop" <출력 exe>       # Windows 빌드(공식 4.7.2 템플릿 필요)
 ```
-HTML 쪽 대조 스크립트: `node prophecy_action_prototype/tools/port_compare_html.js`.
+데이터 재생성(HTML 카탈로그 → JSON): `node prophecy_action_prototype/tools/port_export_data.js` (HTML 원본은 수정하지 않음).
 
 ## 폴더
-- `data/first_fight.json` 첫 전투 데이터(플레이어·검격·늑대 물기/돌진·장애물·편성·소환·보상 예산). 규칙 코드는 숫자를 갖지 않는다.
-- `scripts/rules/` 순수 규칙(`combat_state.gd`, `rng.gd`, `geom.gd`, `bot.gd`): Node·Vector2·입력·그리기 없음. 고정 단계 1/120초.
-- `scripts/game/` 표시·연결부(`step_driver.gd` 프레임→단계·누름 1회 소비, `combat_view.gd` 입력 읽기와 `_draw`, `main.gd` 화면 전환·HUD·F3 비교 설정, `game.gd` 자동 로드·설정).
-- `scenes/main.tscn` 단일 씬. `tests/`, `tools/` 검증용. `docs/` 기록·캡처(`.gdignore`로 Godot이 가져오지 않음).
+- `data/*.json` 카탈로그(HTML에서 내보냄: config·weapons·growth·enemies·world·missions·balance·glossary) + `first_fight.json`(0.3.1 기준 전투). 규칙 코드는 숫자를 갖지 않는다.
+- `scripts/rules/` 순수 규칙(Node·Vector2·입력·그리기 없음, 고정 단계 1/120초): `combat_state.gd`(전투) · `weapons.gd`·`skills.gd`(자동기술·Q/E) · `enemies.gd`·`enemies_new.gd`·`boss.gd`·`boss2.gd`·`objectives.gd` · `growth.gd`·`build.gd`·`formation.gd` · `run.gd`·`sortie.gd`·`events.gd`·`flow.gd`(행동 목록 `PFlow.actions(run)`, UI·봇 공용) · `stats.gd`·`save.gd`(`user://prophecy_save_v1.json`) · `bot.gd`·`run_bot.gd` · `catalog.gd`·`geom.gd`·`rng.gd`.
+- `scripts/game/` 표시·연결부: `step_driver.gd`(프레임→단계) · `combat_view.gd`(입력·`_draw`) · `render.gd`(도형 그리기) · `audio.gd`(합성음, 자동 로드 `Audio`) · `main.gd`(화면 전환·HUD·자동 진행) · `screens/`·`ui/`(화면·위젯·3택·용어 툴팁·설정) · `game.gd`(자동 로드·버전).
+- `scenes/main.tscn` 단일 씬. `tests/`, `tools/` 검증용. `docs/` 기록·보고서·캡처(`.gdignore`).

@@ -190,3 +190,30 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 - 프로젝트 커밋(godot-0.3.1): **2cb7ae6** (브랜치 `claude/prophecy-action-prototype-hehbeo`, 로컬 커밋. 원격 push 여부는 HANDOFF 참조).
 - 배포물 ZIP(`prophecy_godot_build/`)은 0.3.0 그대로(272608f). 0.3.1 Windows 빌드는 내보내기 템플릿이 이 PC에 설치돼 있지 않아 만들지 않았다. 필요하면 `Godot_v4.7.2-stable_export_templates.tpz` 설치 뒤 `--export-release "Windows Desktop"`.
 - 제목 화면 부제 "늑대 2 → 3"(`scenes/main.tscn`)은 0.1.0 웨이브 문구가 남은 것(현재 편성은 25마리). 규칙과 무관한 표시 오류라 이번 수정에 섞지 않았다(다음 작업 1번에 포함).
+
+## 12. 합의된 게임 전체 이식 (godot-0.4.0, 2026-09-07, Windows 로컬)
+기준 문서: `docs/PORT_BASELINE.md`(권한·충돌 C1~C21·질문 Q1~Q5), `docs/CONTENT_MATRIX.md`(ID별 상태), `prophecy_godot/docs/PORT_CONVENTIONS.md`(규칙 계층 계약), `prophecy_godot/docs/ASSUMPTIONS.md` §전체 게임 이식(잠정값). HTML 기준 커밋 ee10fc7(v0.8.0), Godot 기준 0.3.1(8cad17f).
+
+### 12-1. 환경·명령 (Codex 재현용)
+| 항목 | 값 |
+|---|---|
+| OS | Windows 10 Home 10.0.19045 |
+| Godot | 4.7.2.stable.official.ed1daf0bf, `Godot_v4.7.2-stable_win64_console.exe`(headless), 편집기 실행 파일 같은 폴더 |
+| 내보내기 템플릿 | 4.7.2.stable 공식 `.tpz` → `%APPDATA%\Godot\export_templates\4.7.2.stable\` (이 세션에서 설치) |
+| 데이터 생성 | `node prophecy_action_prototype/tools/port_export_data.js` → `prophecy_godot/data/*.json` (HTML 원본은 수정하지 않음) |
+| 클래스 캐시 | `class_name` 파일을 추가한 뒤에는 `godot --headless --path prophecy_godot --import` 1회 |
+| 규칙 테스트 | `godot --headless --path prophecy_godot -s tests/run_tests.gd` (기준 전투 72) · `-s tests/port_tests.gd` (전투 콘텐츠 69) · `-s tests/boss_tests.gd` (보스·목표 34) · `-s tests/run_layer_tests.gd` (회차 계층 51) |
+| 기준 전투 보존 | `tools/density_report.gd`(0.3.1과 같은 시드 36행 비교), `tools/compare_scenario.gd`(HTML 대조 14개) |
+| Windows 빌드 | `godot --headless --path prophecy_godot --export-release "Windows Desktop" <출력 exe>` (preset `export_presets.cfg`, 임베디드 PCK) |
+
+### 12-2. 구현 순서·커밋 (모두 로컬, push 안 함)
+| 커밋 | 내용 |
+|---|---|
+| 8e02ceb | PORT_BASELINE·CONTENT_MATRIX(이식 기준·ID 목록) |
+| 32f0599 | 데이터 내보내기·JSON·PORT_CONVENTIONS |
+| e256488 | 규칙 뼈대(geom·catalog·build·growth·formation·combat_state 재작성) — 기준 전투 72/72 유지 |
+| 18a8176 | port_tests 69 |
+| 48e7ff0 | 적 12종·정예·보스 3·목표(objectives) |
+| 3167a41 | 봇 정책·boss_tests 34 |
+| fe0b23e | 회차 계층(run·sortie·events·flow·stats·save) + delayed 람다 누수 수정 |
+| 4f97a5f | run_layer_tests 51 |

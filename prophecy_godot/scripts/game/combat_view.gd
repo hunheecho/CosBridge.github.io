@@ -14,6 +14,7 @@ var frame_count: int = 0
 var end_timer: float = 0.0
 var decor: Dictionary = {}     # 숲 장식(시드 결정적, PRender.make_decor)
 var audio: PAudio = null
+var time_scale: float = 1.0 # 검증 자동 진행 전용(PROPHECY_UI_SPEED). 규칙은 고정 단계라 결과는 같고 벽시계만 빨라진다
 
 const STEP := PStepDriver.STEP
 
@@ -99,6 +100,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		driver.note_dodge_press() # 프레임 사이의 짧은 탭도 기록된다(다음 단계에서 1번 소비)
 	if event.is_action_pressed("slowfield") and not event.is_echo():
 		driver.note_special_press()
+	if event.is_action_pressed("skill_e") and not event.is_echo():
+		driver.note_e_press()
 
 func _process(delta: float) -> void:
 	if not running or st == null or paused:
@@ -118,7 +121,7 @@ func _process(delta: float) -> void:
 			my += 1.0
 		held = Input.is_action_pressed("dodge")
 	var t0 := Time.get_ticks_usec()
-	var n_steps := driver.frame(st, delta, mx, my, held, bot)
+	var n_steps := driver.frame(st, delta * time_scale, mx, my, held, bot)
 	var sim_us := Time.get_ticks_usec() - t0
 	_perf_record(delta, sim_us, n_steps)
 	if audio != null:
