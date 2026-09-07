@@ -231,6 +231,28 @@ func _init() -> void:
 	st.player.hit_prot = 0.0
 	st.damage_player(10.0, "wolf:bite")
 	ok("철벽 방패: 20 이상 직접 피해 −25%(25→18.8), 작은 피해 그대로", is_equal_approx(snapped(st.stats.damage_taken, 0.01), 28.8), "%.2f" % st.stats.damage_taken)
+	# F3(Codex 검수): 철벽 자격은 경감 전 피해. 체력 100·강인함 10%·철벽 25%·명목 20 → 20×0.9×0.75 = 13.5
+	st = mk({ "equipment": { "shield": "iron_shield" }, "passives": { "toughness": 1 } })
+	st.damage_player(20.0, "wolf:bite")
+	ok("철벽+강인함: 명목 20은 경감 전 기준으로 발동 → 13.5, 발동 기록 1", is_equal_approx(snapped(st.stats.damage_taken, 0.01), 13.5) and int(st.stats.equip_procs.get("iron_shield", 0)) == 1, "%.2f procs %s" % [st.stats.damage_taken, str(st.stats.equip_procs)])
+	st = mk({ "equipment": { "shield": "iron_shield" }, "passives": { "toughness": 1 } })
+	st.damage_player(19.9, "wolf:bite")
+	ok("철벽+강인함: 명목 19.9는 발동 안 함 → 17.9", is_equal_approx(snapped(st.stats.damage_taken, 0.01), 17.9) and not st.stats.equip_procs.has("iron_shield"), "%.2f" % st.stats.damage_taken)
+	st = mk({ "equipment": { "shield": "iron_shield" } })
+	st.damage_player(20.0, "wolf:bite")
+	ok("철벽 단독: 명목 정확히 20(=20%)은 발동 → 15", is_equal_approx(snapped(st.stats.damage_taken, 0.01), 15.0), "%.2f" % st.stats.damage_taken)
+	st = mk({ "equipment": { "shield": "iron_shield" }, "passives": { "toughness": 1 } })
+	st.damage_player(30.0, "zone")
+	ok("철벽: 장판(zone) 피해는 강인함·철벽 모두 제외 → 30", is_equal_approx(st.stats.damage_taken, 30.0), "%.2f" % st.stats.damage_taken)
+	# F5(Codex 검수): 상태 공급원은 개조 태그 기준 — 회전 칼날 톱날(serrated)도 출혈 공급원
+	var g5 := PGrowth.new_growth("blades")
+	g5.weapons = [{ "id": "blades", "level": 3, "mods": ["serrated"] }]
+	ok("톱날(serrated) = 출혈 공급원: has_dot_source·연쇄의 씨앗 후보·상태 목록 '출혈'", PGrowth.has_dot_source(g5) and PGrowth.boss_reward_applies(g5, "seed") and PGrowth.status_sources(g5) == ["출혈"], str(PGrowth.status_sources(g5)))
+	var g5b := PGrowth.new_growth("sword")
+	ok("검만 있으면 상태 공급원 없음(씨앗 후보 아님)", not PGrowth.has_dot_source(g5b) and not PGrowth.boss_reward_applies(g5b, "seed"))
+	g5b.weapons = [{ "id": "daggers", "level": 1, "mods": ["bleed"] }]
+	g5b.commons = { "frost": 1 }
+	ok("쌍검 출혈 칼날 + 얼음 파편 → 냉기·출혈", PGrowth.status_sources(g5b) == ["냉기", "출혈"], str(PGrowth.status_sources(g5b)))
 	st = mk({ "equipment": { "shield": "emergency_shield" } })
 	st.damage_player(75.0, "boss_dash")
 	ok("비상 방패: 체력 30% 이하가 된 직후 보호막 20(1회), 소급 없음", st.player.hp == 25.0 and st.player.shield == 20.0)

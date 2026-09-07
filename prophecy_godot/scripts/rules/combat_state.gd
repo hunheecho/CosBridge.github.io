@@ -70,7 +70,7 @@ var stats: Dictionary = {}
 var metrics: Dictionary = {}
 var active_t: Dictionary = {}
 var stats_recorded: bool = false
-var settled: bool = false
+var settled: String = "" # 정산 1회 가드(F6): "won"|"lost"|"boss_won"|"boss_lost"
 var _in_step: bool = false
 var _next_id: int = 1
 
@@ -727,7 +727,7 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 	var nominal := amount
 	if direct_hit and float(build.toughness) > 0.0:
 		amount = round(amount * (1.0 - float(build.toughness)) * 10.0) / 10.0
-	if direct_hit and EQ.has("bigHit") and amount >= p.hp_max * float(EQ.bigHit.frac):
+	if direct_hit and EQ.has("bigHit") and nominal >= p.hp_max * float(EQ.bigHit.frac): # 자격 판정은 경감 전 피해(world.json "경감 전 직접 피해 1회가 최대 체력의 20% 이상", F3)
 		amount = round(amount * (1.0 - float(EQ.bigHit.reduce)) * 10.0) / 10.0
 		stats.equip_procs.iron_shield = int(stats.equip_procs.get("iron_shield", 0)) + 1
 	if direct_hit and EQ.has("fieldTaken") and attacker != null and in_field(attacker):
@@ -1471,6 +1471,12 @@ func step(input: Dictionary, dt: float) -> void:
 	if build.skills.get("e") != null:
 		var ke := "skill:" + String(build.skills.e.id)
 		active_t[ke] = float(active_t.get(ke, 0.0)) + dt
+	for c in build.get("commons", {}): # 공용 증강·희귀 보상도 보유 시간 기록(F4: DPS 분모)
+		var kc := "common:" + String(c)
+		active_t[kc] = float(active_t.get(kc, 0.0)) + dt
+	for rw in build.get("boss_rewards", []):
+		var kr := "reward:" + String(rw)
+		active_t[kr] = float(active_t.get(kr, 0.0)) + dt
 	if time_limit > 0.0 and t >= time_limit:
 		status = "timeout"
 		ev("timeout")

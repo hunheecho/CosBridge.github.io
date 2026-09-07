@@ -257,6 +257,55 @@ func _init() -> void:
 	var views := PStats.views(r8)
 	var ver := PStats.verify(r8)
 	ok("통계: 전투 1회만 기록(중복 정산 없음), 출처 합 = 총합, 4 보기 검증 통과, 받은 피해 유효/명목 분리", (r8.dmgStats.combats as Array).size() == 1 and ver.all(func(v): return bool(v.ok)) and views.all.rows.size() >= 1 and (r8.dmgStats.combats[0] as Dictionary).has("takenNominal"), str(ver))
+	# ---------- F6(Codex 검수): 정산 정확히 1회·자격 ----------
+	var r9 := PRun.new_run(13, "sword")
+	var s9 := PSortie.start(r9, String(PSortie.cards_for(r9)[0].id))
+	var st9 := fake_fight(r9, s9, true, 70.0)
+	var rw9 := PFlow.settle_victory(r9, s9, st9)
+	var snap9 := { "gold": int(s9.loot.gold), "xp": float(r9.growth.xp), "wins": int(r9.stats.wins), "enc": int(s9.encounters), "hp": float(r9.hp) }
+	var rw9b := PFlow.settle_victory(r9, s9, st9)
+	ok("같은 전투 승리 정산 2회째는 {} 반환·전리품/경험치/승리 수/조우 수 불변, 통계 1건", rw9b.is_empty() and not rw9.is_empty() and int(s9.loot.gold) == snap9.gold and is_equal_approx(float(r9.growth.xp), snap9.xp) and int(r9.stats.wins) == snap9.wins and int(s9.encounters) == snap9.enc and (r9.dmgStats.combats as Array).size() == 1, str(snap9))
+	PFlow.settle_defeat(r9, s9, st9)
+	ok("승리 전투를 패배 정산에 넘겨도 무시(하루 손실 없음)", int(r9.day) == 1 and int(r9.hours) == 4 and (r9.dmgStats.combats as Array).size() == 1)
+	var r9c := PRun.new_run(13, "sword")
+	var s9c := PSortie.start(r9c, String(PSortie.cards_for(r9c)[0].id))
+	var st9c := fake_fight(r9c, s9c, false)
+	var rw9c := PFlow.settle_victory(r9c, s9c, st9c)
+	ok("패배(lost) 전투는 승리 정산 자격 없음: {} 반환, 금화·경험치 불변", rw9c.is_empty() and int(s9c.loot.gold) == 0 and float(r9c.growth.xp) == 0.0 and st9c.settled == "")
+	PFlow.settle_defeat(r9c, s9c, st9c)
+	var day9 := int(r9c.day)
+	PFlow.settle_defeat(r9c, s9c, st9c)
+	ok("패배 정산 2회째 무시(다음 날로 두 번 넘어가지 않음)", int(r9c.day) == day9 and day9 == 2 and st9c.settled == "lost")
+	# ---------- F4(Codex 검수): 지속 피해 DPS 분모 = 원천 기술 보유 시간 ----------
+	var r10 := PRun.new_run(14, "sword")
+	r10.dmgStats = { "combats": [{ "elapsed": 20.0, "dmg": { "weapon:daggers": 100.0, "dot:bleed@daggers": 100.0, "dot:burn@ember": 40.0, "common:frost": 10.0 }, "total": 250.0, "taken": 0.0, "activeT": { "weapon:sword": 20.0, "weapon:daggers": 5.0, "weapon:ember": 10.0, "common:frost": 8.0 }, "kind": "sortie", "won": true }], "byKey": {} }
+	var agg10 := PStats.aggregate(r10)
+	var by_key := {}
+	for row in agg10.rows:
+		by_key[String(row.key)] = row
+	ok("쌍검 출혈: 분모 = 쌍검 보유 5초 → DPS 20(직접과 같은 분모), 화상(불씨)는 불씨 보유 10초 → 4, 얼음 파편은 자기 보유 8초 → 1.25", is_equal_approx(float(by_key["dot:bleed@daggers"].dps), 20.0) and is_equal_approx(float(by_key["dot:bleed@daggers"].active), 5.0) and is_equal_approx(float(by_key["dot:burn@ember"].dps), 4.0) and is_equal_approx(float(by_key["common:frost"].dps), 1.3), str(by_key["dot:bleed@daggers"]))
+	var grp := PStats.by_owner(agg10)
+	var dag := {}
+	for gr in grp:
+		if String(gr.owner) == "weapon:daggers":
+			dag = gr
+	ok("기술별 묶음: 쌍검 = 직접 100 + 파생(출혈) 100 = 200, 보유 5초 → DPS 40", not dag.is_empty() and is_equal_approx(float(dag.direct), 100.0) and is_equal_approx(float(dag.derived), 100.0) and is_equal_approx(float(dag.dps), 40.0), str(dag))
+	r10.dmgStats.combats[0].erase("activeT")
+	var agg10b := PStats.aggregate(r10)
+	var old_row := {}
+	for row in agg10b.rows:
+		if String(row.key) == "dot:bleed@daggers":
+			old_row = row
+	ok("activeT가 없는 옛 기록은 전투 시간 전체(20초)로 계산(오류 없음)", is_equal_approx(float(old_row.active), 20.0) and is_equal_approx(float(old_row.dps), 5.0))
+	var r11 := PRun.new_run(15, "sword")
+	r11.growth.commons = { "frost": 1 }
+	r11.growth.bossRewards = ["vigor"]
+	var s11 := PSortie.start(r11, String(PSortie.cards_for(r11)[0].id))
+	var st11 := PFlow.make_encounter(r11, s11)
+	st11.spawn_hold = true
+	for i in 120:
+		st11.step({}, STEP)
+	ok("전투 중 공용 증강·희귀 보상 보유 시간이 기록된다(1초)", is_equal_approx(snapped(float(st11.active_t.get("common:frost", 0.0)), 0.01), 1.0) and is_equal_approx(snapped(float(st11.active_t.get("reward:vigor", 0.0)), 0.01), 1.0), str(st11.active_t))
 	# ---------- 밀도 세트(Q1 비교 후보): 역할별 배율, 경험치 예산 보존 ----------
 	var ru := PRun.new_run(21, "sword")
 	var rr := PRun.new_run(21, "sword")

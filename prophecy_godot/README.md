@@ -24,9 +24,10 @@ WASD/방향키 이동 · Space 회피(짧게/길게 눌러 거리 70~150, 재사
 ```
 godot --headless --path prophecy_godot --import                       # class_name 추가 뒤 1회(전역 클래스 캐시)
 godot --headless --path prophecy_godot -s tests/run_tests.gd          # 기준 전투 규칙 72
-godot --headless --path prophecy_godot -s tests/port_tests.gd         # 전투 콘텐츠(자동기술·개조·범용·특성·Q/E·장비·지형·편성) 69
+godot --headless --path prophecy_godot -s tests/port_tests.gd         # 전투 콘텐츠(자동기술·개조·범용·특성·Q/E·장비·지형·편성·철벽 경계·상태 공급원) 76
 godot --headless --path prophecy_godot -s tests/boss_tests.gd         # 보스 3·전투 목표 34
-godot --headless --path prophecy_godot -s tests/run_layer_tests.gd    # 회차 계층(상점·교체·대장간·정산·관문·저장·통계) 51
+godot --headless --path prophecy_godot -s tests/run_layer_tests.gd    # 회차 계층(상점·교체·대장간·정산·관문·저장·통계·밀도 세트·정산 1회·DPS 분모) 62
+godot --headless --path prophecy_godot -s tests/ui_flow_tests.gd      # 화면 계층(실제 main.tscn: 전투 중 종료 체크포인트·HUD 보호막) 14 — user:// 저장을 쓰므로 APPDATA를 별도 폴더로 두고 실행
 godot --headless --path prophecy_godot -s tools/density_report.gd     # 기준 전투 밀도 비교(0.3.1과 같은 36행) → docs/DENSITY_REPORT.md
 godot --headless --path prophecy_godot -s tools/compare_scenario.gd   # HTML 대조 측정(COMPARE_JSON)
 PROPHECY_SIM_SEEDS=1,2 godot --headless --path prophecy_godot -s tools/run_sim.gd        # 회차 봇 전략 7종 → docs/sim/RUN_SIM.md

@@ -392,6 +392,7 @@ func start_encounter() -> void:
 	else:
 		st = PFlow.make_encounter(run, sortie)
 	fight_kind = "run"
+	save_run() # 전투 시작 체크포인트(F1): pendingSortie=null 상태로 저장 → 전투 중 종료 시 시간은 지불·성장 유지·미정산 전리품 상실·거점 복구(GAME_SPEC §전투 도중 종료)
 	_view_start(st, PBot.new("balanced") if use_bot else null)
 	choice.close()
 	tips.close_all()
@@ -706,7 +707,7 @@ func _update_hud() -> void:
 	var P: Dictionary = st.cfg.player
 	var hp_bar: ProgressBar = $UI/HUD/HP
 	hp_bar.value = p.hp / p.hp_max * 100.0
-	var shield: float = float(p.shield) + float(p.get("ward_shield", 0.0))
+	var shield: float = float(p.shield) # ward_shield는 shield 총량의 구성분이라 다시 더하지 않는다(F2)
 	$UI/HUD/HPText.text = "체력 %d / %d" % [int(ceil(p.hp)), int(p.hp_max)] + ((" · 보호막 %d" % int(ceil(shield))) if shield > 0.0 else "")
 	var sh_bar: ProgressBar = $UI/HUD/Shield
 	var sh_max: float = maxf(float(p.shield_max), shield)

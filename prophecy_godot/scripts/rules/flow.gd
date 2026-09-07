@@ -52,6 +52,13 @@ static func _kind_of(sortie: Dictionary) -> String:
 
 ## 조우 승리 정산(정확히 1회): 전리품 굴림 → 출격 전리품 반영 → 원정대의 갑옷 회복(C7: 승리마다 1회) → 지역 경험치 → 사건 굴림 → 심층 보상 → 통계
 static func settle_victory(run: Dictionary, sortie: Dictionary, st: CombatState) -> Dictionary:
+	if st == null or st.status != "won":
+		push_error("승리 정산 자격 없음: status=" + (st.status if st != null else "null"))
+		return {}
+	if st.settled != "":
+		push_error("이미 정산된 전투(" + st.settled + ")")
+		return {}
+	st.settled = "won"
 	consume_buff(run, st)
 	var elite_killed: bool = st.status == "won" and st.objective == "elite"
 	for e in st.enemies:
@@ -93,6 +100,13 @@ static func settle_victory(run: Dictionary, sortie: Dictionary, st: CombatState)
 	return reward
 
 static func settle_defeat(run: Dictionary, sortie: Dictionary, st: CombatState) -> void:
+	if st == null or not (st.status == "lost" or st.status == "timeout"):
+		push_error("패배 정산 자격 없음: status=" + (st.status if st != null else "null"))
+		return
+	if st.settled != "":
+		push_error("이미 정산된 전투(" + st.settled + ")")
+		return
+	st.settled = "lost"
 	consume_buff(run, st)
 	PStats.record(run, st, { "kind": _kind_of(sortie), "regionId": String(sortie.regionId), "day": int(run.day), "won": false })
 	PRun.apply_encounter_result(run, sortie, "lost", {}, 0.0)
@@ -112,6 +126,10 @@ static func make_boss_encounter(run: Dictionary, sortie: Dictionary) -> CombatSt
 
 ## 보스 승리 정산(정확히 1회): 통계 → 원정대의 갑옷 회복(C7) → 처치 기록·다음 단계·희귀 보상 보류
 static func settle_boss_victory(run: Dictionary, st: CombatState) -> Dictionary:
+	if st == null or st.status != "won" or st.settled != "":
+		push_error("보스 승리 정산 자격 없음/중복")
+		return {}
+	st.settled = "boss_won"
 	consume_buff(run, st)
 	PStats.record(run, st, { "kind": "boss", "bossId": st.boss_id, "day": int(run.day), "won": true })
 	run.hp = maxf(0.0, float(st.player.hp))
@@ -123,6 +141,10 @@ static func settle_boss_victory(run: Dictionary, st: CombatState) -> Dictionary:
 	return rec
 
 static func settle_boss_defeat(run: Dictionary, st: CombatState) -> void:
+	if st == null or not (st.status == "lost" or st.status == "timeout") or st.settled != "":
+		push_error("보스 패배 정산 자격 없음/중복")
+		return
+	st.settled = "boss_lost"
 	consume_buff(run, st)
 	PStats.record(run, st, { "kind": "boss", "bossId": st.boss_id, "day": int(run.day), "won": false })
 	PRun.boss_defeat(run)

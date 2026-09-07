@@ -16,7 +16,22 @@ static func _src_name(src: String) -> String:
 		return String(PCatalog.commons()[src].name)
 	return src
 
-## 출처 키 → {name, cat, skill}. skill은 보유 시간(activeT) 키("" = 전투 시간 전체)
+## 지속 피해 원천(dot:*@<src>)의 보유 시간 키(F4): 원천이 자동기술이면 weapon:<id>, E 기술이면 skill:<id>, Q면 skill:q, 공용 증강이면 common:<id>, 그 외("common"·"" 등)는 전투 시간 전체.
+## 정책: DPS 분모 = 원천을 보유한 실제 전투 시간(획득~제거). 제거 뒤 남아 있던 지속 효과의 피해는 같은 분모에 포함한다(분모를 늘리지 않음). 획득 전 시간은 절대 포함하지 않는다.
+static func _owner_key(src: String) -> String:
+	if src == "":
+		return ""
+	if PCatalog.weapons().has(src):
+		return "weapon:" + src
+	if src == "q" or src == "slowfield":
+		return "skill:q"
+	if PCatalog.skills().has(src):
+		return "skill:" + src
+	if PCatalog.commons().has(src):
+		return "common:" + src
+	return ""
+
+## 출처 키 → {name, cat, skill}. skill은 보유 시간(activeT) 키("" = 전투 시간 전체). 저장 기록에 activeT 키가 없는 옛 전투 기록은 전투 시간 전체로 계산한다
 static func classify(key: String) -> Dictionary:
 	var sep := key.find(":")
 	var kind := key.substr(0, sep) if sep >= 0 else key
@@ -31,7 +46,7 @@ static func classify(key: String) -> Dictionary:
 			var dk := id.substr(0, at) if at >= 0 else id
 			var src := id.substr(at + 1) if at >= 0 else ""
 			var base := "화상" if dk == "burn" else ("출혈" if dk == "bleed" else dk)
-			return { "name": base + (("(" + _src_name(src) + ")") if src != "" else ""), "cat": "dot", "skill": "" }
+			return { "name": base + (("(" + _src_name(src) + ")") if src != "" else ""), "cat": "dot", "skill": _owner_key(src) }
 		"skill":
 			if id == "q" or id == "slowfield":
 				return { "name": "감속장(Q)", "cat": "skill", "skill": "skill:q" }
@@ -39,10 +54,10 @@ static func classify(key: String) -> Dictionary:
 			return { "name": (String(SK[id].name) + "(E)") if SK.has(id) else id, "cat": "skill", "skill": key }
 		"common":
 			var CM := PCatalog.commons()
-			return { "name": String(CM[id].name) if CM.has(id) else id, "cat": "extra", "skill": "" }
+			return { "name": String(CM[id].name) if CM.has(id) else id, "cat": "extra", "skill": key }
 		"reward":
 			var BR := PCatalog.boss_rewards()
-			return { "name": String(BR[id].name) if BR.has(id) else id, "cat": "extra", "skill": "" }
+			return { "name": String(BR[id].name) if BR.has(id) else id, "cat": "extra", "skill": key }
 	return { "name": "기타" if key == "other" else key, "cat": "extra", "skill": "" }
 
 ## 정산 1회: 같은 전투를 두 번 기록하지 않는다(st.stats_recorded). meta = {kind, regionId|bossId, day, won?}
@@ -94,13 +109,38 @@ static func aggregate(run: Dictionary, filter: Variant = null) -> Dictionary:
 	for k in sum:
 		var c := classify(String(k))
 		var active: float = float(act[c.skill]) if (String(c.skill) != "" and act.has(c.skill)) else elapsed
-		rows.append({ "key": String(k), "name": String(c.name), "cat": String(c.cat), "amount": _r1(float(sum[k])), "share": (round(float(sum[k]) / total * 1000.0) / 10.0) if total > 0.0 else 0.0,
+		rows.append({ "key": String(k), "name": String(c.name), "cat": String(c.cat), "owner": String(c.skill), "amount": _r1(float(sum[k])), "share": (round(float(sum[k]) / total * 1000.0) / 10.0) if total > 0.0 else 0.0,
 			"active": _r1(active), "dps": _r1(float(sum[k]) / active) if active > 0.0 else 0.0 })
 	rows.sort_custom(func(a, b): return float(a.amount) > float(b.amount))
 	var cats := {}
 	for r in rows:
 		cats[r.cat] = _r1(float(cats.get(r.cat, 0.0)) + float(r.amount))
 	return { "rows": rows, "total": _r1(total), "elapsed": _r1(elapsed), "taken": _r1(taken), "takenNominal": _r1(taken_nom), "cats": cats, "n": list.size(), "dpsAll": _r1(total / elapsed) if elapsed > 0.0 else 0.0 }
+
+## 기술별 묶음(F4): owner(weapon:<id>·skill:<id>·common:<id>)마다 직접 + 파생(지속 피해) 합과 보유 시간 기준 DPS. owner가 없는 행은 "other"
+static func by_owner(agg: Dictionary) -> Array:
+	var groups := {}
+	for r in agg.rows:
+		var o: String = String(r.get("owner", "")) if String(r.get("owner", "")) != "" else "other"
+		if not groups.has(o):
+			groups[o] = { "owner": o, "amount": 0.0, "direct": 0.0, "derived": 0.0, "active": float(r.active), "rows": [] }
+		var g: Dictionary = groups[o]
+		g.amount += float(r.amount)
+		if String(r.key) == o:
+			g.direct += float(r.amount)
+		else:
+			g.derived += float(r.amount)
+		(g.rows as Array).append(String(r.key))
+	var out := []
+	for o in groups:
+		var g: Dictionary = groups[o]
+		g.amount = _r1(float(g.amount))
+		g.direct = _r1(float(g.direct))
+		g.derived = _r1(float(g.derived))
+		g.dps = _r1(float(g.amount) / float(g.active)) if float(g.active) > 0.0 else 0.0
+		out.append(g)
+	out.sort_custom(func(a, b): return float(a.amount) > float(b.amount))
+	return out
 
 ## 보기 4종: 전체 / 보스전(성공) / 보스전(실패한 도전) / 일반 출격
 static func views(run: Dictionary) -> Dictionary:

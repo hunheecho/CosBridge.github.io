@@ -122,11 +122,7 @@ func _compare_note(r: Dictionary, d: Dictionary) -> String:
 	var g: Dictionary = r.growth
 	var eff: Dictionary = d.eff
 	if String(d.get("needs", "")) == "dot":
-		var has_bleed := false
-		for w in g.weapons:
-			if (w.mods as Array).has("bleed"):
-				has_bleed = true
-		if not PGrowth.has_fire_source(g) and not has_bleed and int(g.commons.get("frost", 0)) == 0:
+		if not PGrowth.has_dot_source(g): # 희귀 보상 후보와 같은 판정(F5)
 			return "[color=#ff8c73]지금 빌드에는 지속 피해 원천이 없어 효과가 없음[/color]"
 	if eff.has("eliteDirect"):
 		var any_elite := false

@@ -292,3 +292,19 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 | 최종 headless 검증(7f36cd9) | run_tests 72/72 · port_tests 69/69 · boss_tests 34/34 · run_layer_tests 54/54 · 밀도 보고서 36행 결과 열 동일(µs/단계 열만 다름) · HTML 대조 14개 0.3.1 기록과 동일(`dodge_cd_after` 0.6333, `hit_damage_normal` 12 포함) |
 | 미커밋으로 남긴 것(의도) | 루트 `index.html`·`CNAME`·`wash.jpg` 삭제(Codex 정리, 홈페이지 파일 — 복원하지 않았고 커밋도 하지 않음), `project.godot`의 편집기 기본값 줄(`window/stretch/aspect`) 제거, `icon.svg.import` 편집기 재작성 |
 | 재현 순서(Codex) | ① 7f36cd9(또는 프로젝트 ZIP) 체크아웃 ② Godot 4.7.2 콘솔 실행 파일로 `--headless --path prophecy_godot --import` ③ §12-1 테스트 4종·`tools/density_report.gd`(결과 열을 `docs/DENSITY_REPORT.md`와 비교, µs 열 제외)·`tools/compare_scenario.gd` ④ `PROPHECY_SIM_SEEDS=1,2 -s tools/run_sim.gd`(약 4~5분, `docs/sim/RUN_SIM.md`와 비교; 같은 OS에서만 완전 재현) ⑤ 창: `PROPHECY_UI_SMOKE=<폴더> --path prophecy_godot`(약 5분) ⑥ 빌드 ZIP 해시 대조 |
+
+## 13. Codex 독립 검수(ca027fc) 오류 수정 (godot-0.4.1, 2026-09-07)
+검수 문서: `C:\Users\Public\Documents\ESTsoft\CreatorTemp\godot-audit-ca027fc-20260907\AUDIT_REPORT.md`(F1~F6, 프로브 `audit_probes.gd`), `EXE_CHECK.md`. 검수자는 기존 229 테스트·기준 전투 36행·회차 시뮬 14회·배포 해시를 독립 재현했고, 아래 6건을 별도 프로브로 재현했다. 순서: 현재 트리에서 같은 프로브로 **재현 확인** → 수정 → 명세에서 출발한 회귀 테스트 → 프로브 재실행. 재미 조정용 수치(체력·공격력·회피·경험치)는 바꾸지 않았다.
+
+| 번호 | 재현(수정 전, 이 트리) | 원인·수정 | 회귀 검증 |
+|---|---|---|---|
+| F1 심층 전투 시작 저장이 이전 보상 화면으로 복구 | `deep_resume`: saved_pending=true, screen=after, 전리품 27 회수 | `deep_explore()`가 `pendingSortie`가 남은 상태로 저장한 뒤 전투를 만들었다(`make_encounter`의 null 처리가 저장보다 늦음). **모든 전투 시작 경로(`start_encounter`: 출격·심층·사건 추가 전투·보스)에서 전투 생성 직후 체크포인트 저장** → 디스크에는 항상 pendingSortie=null. 계약(GAME_SPEC §전투 도중 종료): 시간 지불·이미 고른 성장 유지·미정산 전리품 상실·거점 복구 | 새 `tests/ui_flow_tests.gd`(실제 main.tscn, 상태 주입으로 승리 생성·입력 합성 없음): 출격 체크포인트, 심층 중 종료→거점·금화 불변·시간 3칸, 전투 중 3택 뒤 자동 저장·복구, 사건 추가 전투 중 종료, 보스전 중 종료→관문 준비·재도전 0. 프로브: screen=base, restored_loot_gold=0 |
+| F2 수호 결계 HUD 60 | hud "보호막 60"(실제 30) | HUD가 `shield + ward_shield`를 더했다(ward_shield는 shield의 구성분). `shield`만 표시 | ui_flow_tests: 결계 30·부분 흡수 18·갑옷 15+결계 30=45·만료 뒤 15 모두 HUD와 실제 일치 |
+| F3 철벽 방패 문턱이 강인함 적용 후 | taken 18.0, procs {} | 자격 판정을 강인함 적용 전 명목 피해로(`nominal >= hp_max×0.2`), 차감 계산 순서는 그대로 | port_tests: 20→13.5(발동 1), 19.9→17.9(미발동), 단독 정확히 20→15, 장판은 둘 다 제외. 기존 25→18.8 유지 |
+| F4 지속 피해 DPS 분모가 전투 전체 시간 | 쌍검 출혈 active 20·dps 5 | `classify("dot:*@src")`의 보유 시간 키를 원천으로 연결(자동기술→weapon:id, E→skill:id, Q→skill:q, 공용→common:id). 공용 증강·희귀 보상도 `active_t` 기록. 정책: 분모 = 원천 보유 실제 전투 시간(획득~제거), 제거 뒤 잔류 지속 피해도 같은 분모(분모를 늘리지 않음), 획득 전 시간 미포함. `PStats.by_owner()`로 직접+파생 묶음 제공. activeT 없는 옛 기록은 전투 시간 전체 | run_layer_tests: 출혈 dps 20(=직접), 불씨 화상 4, 얼음 파편 1.25, 묶음 쌍검 200/5초=40, 옛 기록 20초, 전투 중 common/reward 보유 시간 1초 기록 |
+| F5 톱날 출혈이 씨앗 후보에서 제외 | has_dot_source=false | 개조 ID(`bleed`) 대신 카탈로그 태그(`mods[].tags` bleed)로 판정하는 `has_bleed_source`·`status_sources`로 공통화. 희귀 보상 설명·상점 잔불검 호환 문구가 같은 함수 사용 | port_tests: 톱날→출혈 공급원·씨앗 후보, 검만→없음, 쌍검 출혈+얼음 파편→냉기·출혈. 프로브 true/true |
+| F6 승리 정산 2회 호출 시 중복 | 2회째 gold 64·xp 6·wins 2 | `CombatState.settled` 가드 + 자격 검사(승리 정산은 status=won, 패배 정산은 lost/timeout, 보스 동일). 실패 시 `{}` 반환·push_error·상태 불변 | run_layer_tests: 2회째 {} 반환·전리품/경험치/승리/조우 불변·통계 1건, 승리 전투를 패배 정산에 넘겨도 무시, 패배 전투는 승리 정산 거부, 패배 정산 2회째 무시 |
+
+- 검증(이 PC, APPDATA를 별도 폴더로 격리): run_tests 72/72 · port_tests 76/76(+7) · boss_tests 34/34 · run_layer_tests 62/62(+8) · ui_flow_tests 14/14(신설) · 밀도 보고서 36행 결과 열 동일 · Codex 프로브 6항목 모두 기대값. 회차 봇 전체 시뮬은 최종 통합 시점에 다시 비교한다(지시문 §7).
+- 검수 로그의 `Failed to read the root certificate store`는 엔진 환경 메시지(게임 스크립트 오류 아님). headless 종료 시 ObjectDB 누수 경고는 테스트 스크립트가 main 씬을 제거하는 경로에서 남는 것으로, 종료 코드는 0이며 장시간 누적 영향은 미측정.
+- 실제 사람 키보드·마우스 플레이는 여전히 없음.

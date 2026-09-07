@@ -77,13 +77,37 @@ static func has_projectile_weapon(g: Dictionary) -> bool:
 static func has_fire_source(g: Dictionary) -> bool:
 	return has_common(g, "ember") or not weapon_of(g, "ember").is_empty()
 
-static func has_dot_source(g: Dictionary) -> bool:
-	if has_common(g, "frost") or has_common(g, "burn") or has_fire_source(g):
-		return true
+## 상태 공급원 판정(공통, F5): 개조 ID가 아니라 카탈로그 태그(weapons.json mods[].tags: "bleed")로 판단한다.
+## 출혈 공급원 = tags에 bleed가 있는 개조(쌍검 출혈 칼날, 회전 칼날 톱날). 화상 공급원 = 불붙은 공격·불씨 정령·잔불 걸음. 냉기 = 얼음 파편.
+static func weapon_mod_has_tag(weapon_id: String, mod_id: String, tag: String) -> bool:
+	var W := PCatalog.weapons()
+	if not W.has(weapon_id):
+		return false
+	var mods: Dictionary = W[weapon_id].get("mods", {})
+	if not mods.has(mod_id):
+		return false
+	return (mods[mod_id].get("tags", []) as Array).has(tag)
+
+static func has_bleed_source(g: Dictionary) -> bool:
 	for w in g.weapons:
-		if (w.mods as Array).has("bleed"):
-			return true
+		for m in w.mods:
+			if weapon_mod_has_tag(String(w.id), String(m), "bleed"):
+				return true
 	return false
+
+## 보유한 상태 공급원 이름 목록(희귀 보상 설명·장비 호환 안내가 같은 기준을 쓴다)
+static func status_sources(g: Dictionary) -> Array:
+	var out := []
+	if has_common(g, "frost"):
+		out.append("냉기")
+	if has_common(g, "burn") or has_fire_source(g):
+		out.append("화상")
+	if has_bleed_source(g):
+		out.append("출혈")
+	return out
+
+static func has_dot_source(g: Dictionary) -> bool:
+	return not status_sources(g).is_empty()
 
 static func boss_reward_applies(g: Dictionary, id: String) -> bool:
 	match id:
@@ -499,11 +523,7 @@ static func describe(run: Dictionary, c: Dictionary) -> Dictionary:
 			match String(c.id):
 				"resonance": out.scope = "적용: %s%s" % ["·".join(wn), " (자동기술 3종이 되면 발동)" if g.weapons.size() < 3 else ""]
 				"seed":
-					var srcs := []
-					if has_common(g, "frost"): srcs.append("냉기")
-					if has_common(g, "burn") or has_fire_source(g): srcs.append("화상")
-					for w in g.weapons:
-						if (w.mods as Array).has("bleed"): srcs.append("출혈")
+					var srcs := status_sources(g)
 					out.scope = "적용: %s" % ("·".join(srcs) if srcs.size() > 0 else "상태 이상 없음")
 				"clone": out.scope = "적용: 투사체 자동기술 · 감속장 안을 지나는 투사체가 1회 복제"
 				"volley": out.scope = "적용: E %s · E 사용 시 자동기술이 즉시 1회씩 추가 공격" % (String(PCatalog.skills()[String(g.skills.e.id)].name) if g.skills.get("e") != null else "없음")
