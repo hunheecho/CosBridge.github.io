@@ -359,9 +359,9 @@ func _init() -> void:
 	ok("직접 공격(검격)은 장애물 뒤의 적을 때리지 않는다", float(behind2.hp) == float(behind2.hp_max) and st.stats.attacks == 0, "attacks %d" % st.stats.attacks)
 	st = mk({ "weapons": [{ "id": "spear" }], "arena": "clearing" })
 	st.player.x = 285.0; st.player.y = 220.0 + 42.0 + 14.0 + 20.0
-	var near_ := dummy(st, 285.0, st.player.y - 40.0) # 바위 앞(사이)
+	var near_ := dummy(st, 285.0, st.player.y - 18.0) # 바위 앞(플레이어와 바위 사이, 바위 밖)
 	var behind3 := dummy(st, 285.0, 220.0 - 42.0 - 30.0)
-	steps_pinned(st, 1.0, [[near_, 285.0, st.player.y - 40.0], [behind3, 285.0, 148.0]])
+	steps_pinned(st, 1.0, [[near_, 285.0, st.player.y - 18.0], [behind3, 285.0, 148.0]])
 	ok("관통 검광은 장애물에서 멈춘다(앞의 적만 피해)", float(near_.hp) < float(near_.hp_max) and float(behind3.hp) == float(behind3.hp_max))
 	st = mk({ "commons": { "ember": 1 }, "arena": "clearing" })
 	st.player.x = 285.0 - 42.0 - 14.0 - 2.0; st.player.y = 220.0

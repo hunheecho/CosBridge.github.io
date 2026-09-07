@@ -1,0 +1,273 @@
+extends SceneTree
+## 보스 3종·전투 목표 4종 규칙 테스트(headless): godot --headless --path prophecy_godot -s tests/boss_tests.gd
+## HTML test/boss.test.js·boss2.test.js·objectives.test.js·events.test.js의 규칙 케이스를 Godot 규칙으로 다시 쓴 것. 수치는 GAME_SPEC §13·§17·§18·데이터에서.
+
+const STEP := 1.0 / 120.0
+var results := []
+
+func ok(name: String, cond: bool, extra: String = "") -> void:
+	results.append([cond, name, extra])
+	print(("PASS " if cond else "FAIL ") + name + ((" — " + extra) if extra != "" else ""))
+
+func build(o: Dictionary = {}) -> Dictionary:
+	var g := PGrowth.new_growth(String(o.get("start", "sword")))
+	if o.has("weapons"):
+		g.weapons = o.weapons
+	if o.has("commons"):
+		g.commons = o.commons
+	var run := PBuild.empty_run_like(g)
+	return PBuild.derive(run)
+
+func boss_state(id: String, seed_v: int = 5, hp: float = 0.0, o: Dictionary = {}) -> CombatState:
+	var opts := { "build": build(o), "seed": seed_v, "arena": "clearing", "boss": true, "boss_id": id, "region_id": "boss", "xp_kill_mult": 0.3 }
+	if hp > 0.0:
+		opts.boss_hp = hp
+	return CombatState.new(opts)
+
+func steps(st: CombatState, seconds: float, input: Dictionary = {}) -> void:
+	for i in int(round(seconds / STEP)):
+		st.step(input, STEP)
+
+func run_until(st: CombatState, pred: Callable, max_sec: float, input: Dictionary = {}) -> bool:
+	var n := int(round(max_sec / STEP))
+	for i in n:
+		if pred.call():
+			return true
+		st.step(input, STEP)
+	return pred.call()
+
+func _init() -> void:
+	# ---------- 가시갈기 ----------
+	var st := boss_state("boss")
+	var bz := st.boss
+	ok("보스 생성: 체력 후보 hi 2400(stage1), 반지름 42, 입장 연출 1.6초 동안 시간·피해 없음", bz.hp == 2400.0 and bz.r == 42.0 and st.intro == 1.6)
+	st.damage_player(10.0, "test")
+	steps(st, 1.0)
+	ok("입장 연출 중 피해·시간 진행 없음(HTML 13)", st.player.hp == 100.0 and st.t == 0.0 and bz.state == "intro")
+	steps(st, 0.7)
+	ok("입장 뒤 접근 시작, 포효 이벤트", bz.state == "approach" and st.events.has("boss_roar"))
+	# 첫 공격은 단일 돌진(HTML 14)
+	var first_pat := ""
+	run_until(st, func(): return bz.state in ["dash_aim", "sweep_aim", "howl", "pounce_aim"], 10.0)
+	first_pat = String(bz.state)
+	ok("첫 공격은 돌진(dash_aim)", first_pat == "dash_aim", first_pat)
+	# 돌진: 확정 뒤 방향 고정·거리 460·경로 유지(HTML 15), 장애물이면 접촉 위치에서 정지(HTML 16)
+	run_until(st, func(): return bz.state == "dash_lock", 3.0)
+	var dir0: float = bz.dir
+	var len0: float = float(bz.dash_len)
+	st.player.x += 250.0
+	run_until(st, func(): return bz.state == "recover", 3.0)
+	ok("돌진 확정 뒤 방향 불변, 예고 길이(dash_len ≤ 460)만큼 이동 후 빈틈 2.2초", absf(PGeom.ang_diff(dir0, bz.dir)) < 1e-9 and len0 <= 460.0 + 1e-6 and bz.state == "recover" and is_equal_approx(float(bz.recover_dur), 2.2), "len %.1f" % len0)
+	# 첫 돌진 빈틈 뒤 첫 소환(HTML 14): 소환 늑대는 발자국 예고 뒤 등장, 등장 후 0.8초 돌진 금지
+	run_until(st, func(): return bz.state == "howl", 6.0)
+	ok("첫 돌진 뒤 첫 무리 소환(howl 1.6초)", bz.state == "howl")
+	run_until(st, func(): return PBoss.summoned_alive(st) >= 1, 4.0)
+	var summ := 0
+	for e in st.enemies:
+		if bool(e.get("summoned", false)) and not e.dead:
+			summ += 1
+	ok("소환 늑대 2마리 등장(summoned=true, 통계 키 wolf:summoned)", summ == 2 and st.metrics.enemies.has("wolf:summoned"), "summ %d keys %s" % [summ, str(st.metrics.enemies.keys())])
+	# 감속장은 보스 준비 진행을 40%로(HTML 18)
+	st = boss_state("boss")
+	bz = st.boss
+	steps(st, 1.7)
+	bz.state = "sweep_aim"; bz.state_t = 0.0
+	st.player.x = bz.x; st.player.y = bz.y + 100.0
+	st.step({ "special": true }, STEP)
+	ok("감속장 안 보스 준비 진행 = dt × 0.4", absf(float(bz.state_t) - STEP * 0.4) < 1e-9, "%.5f" % float(bz.state_t))
+	# 휩쓸기: 부채꼴 안만, 장애물 뒤 무사, 대상당 1회(HTML 17)
+	st = boss_state("boss")
+	bz = st.boss
+	steps(st, 1.7)
+	bz.x = 480.0; bz.y = 300.0
+	st.player.x = 480.0; st.player.y = 300.0 + 100.0
+	bz.state = "sweep_aim"; bz.state_t = 0.0
+	run_until(st, func(): return bz.state == "recover", 2.0)
+	var hp_in: float = st.player.hp
+	st = boss_state("boss")
+	bz = st.boss
+	steps(st, 1.7)
+	bz.x = 480.0; bz.y = 300.0
+	st.player.x = 480.0 + 200.0; st.player.y = 300.0
+	bz.state = "sweep_aim"; bz.state_t = 0.0
+	bz.aim_angle = 0.0
+	run_until(st, func(): return bz.state == "recover", 2.0)
+	ok("휩쓸기: 반지름 145 안 정면은 16 피해, 200 밖은 무사", hp_in == 84.0 and st.player.hp == 100.0, "in %.0f out %.0f" % [hp_in, st.player.hp])
+	# 단계 전환·회복 구슬(HTML 20~22): 체력선 70%·35% 첫 통과 시 구슬, 한 번에 두 선 넘기면 구슬 2·단계 3
+	st = boss_state("boss")
+	bz = st.boss
+	steps(st, 1.7)
+	st.damage_enemy(bz, 2400.0 * 0.7, { "src": { "tag": "test" } })
+	ok("한 번에 두 체력선(70·35%) 통과: 구슬 2개, 단계 대기 3", st.pickups.size() == 2 and int(bz.phase_pending) == 3 and not bz.dead, "pickups %d pending %d" % [st.pickups.size(), int(bz.phase_pending)])
+	var orb: Dictionary = st.pickups[0]
+	ok("회복 구슬 = 최대 체력 15%(15), 유효 위치·보스 몸 밖", float(orb.amount) == 15.0 and st.valid_pos(orb.x, orb.y, orb.r) and PGeom.dist(orb.x, orb.y, bz.x, bz.y) >= bz.r + orb.r + 30.0 - 1e-6)
+	st.player.hp = 50.0
+	st.player.x = orb.x; st.player.y = orb.y
+	st.step({}, STEP)
+	ok("구슬 접촉 회복 15×2(두 구슬이 같은 최적 위치에 놓임, HTML과 동일), 중복 획득 없음", st.player.hp == 80.0 and st.pickups.size() == 0, "hp %.0f pickups %d" % [st.player.hp, st.pickups.size()])
+	# 보스 사망: 같은 단계 승리 우선, 사망 후 추가 피해 없음(HTML 26)
+	st = boss_state("boss", 5, 30.0)
+	bz = st.boss
+	steps(st, 1.7)
+	st.player.hp = 1.0
+	bz.x = st.player.x + 60.0; bz.y = st.player.y
+	run_until(st, func(): return st.status != "running", 10.0)
+	ok("보스 처치 → won(플레이어 생존 여부와 무관하게 승리 우선)", st.status == "won" and bz.dead)
+	ok("보스 사망 뒤 플레이어 추가 피해 없음", not st.damage_player(10.0, "test"))
+	# 넉백 20%·돌진 중 넉백 없음(HTML 27)
+	st = boss_state("boss")
+	bz = st.boss
+	steps(st, 1.7)
+	bz.state = "approach"
+	st.knock_enemy(bz, [1.0, 0.0], 40.0)
+	var vx1: float = bz.vx
+	bz.vx = 0.0
+	bz.state = "dash"
+	st.knock_enemy(bz, [1.0, 0.0], 40.0)
+	ok("보스 넉백은 일반의 20%(40×0.2×2=16), 돌진 중 0", is_equal_approx(vx1, 16.0) and bz.vx == 0.0, "%.1f %.1f" % [vx1, bz.vx])
+	# ---------- 봉인 수호자(HTML 32) ----------
+	st = boss_state("guardian")
+	bz = st.boss
+	var devices := 0
+	for e in st.enemies:
+		if e.type == "seal_device":
+			devices += 1
+	var dev0 := {}
+	for e in st.enemies:
+		if e.type == "seal_device":
+			dev0 = e
+	ok("수호자: 기본 체력 3000(단계 후보는 회차가 boss_hp로 넘김), 장치 3개(체력 120, 구조물, 경험치 0)", bz.hp == 3000.0 and devices == 3 and dev0.hp == 120.0 and bool(dev0.structure) and st.xp_for(dev0) == 0.0, "hp %.0f devices %d" % [bz.hp, devices])
+	steps(st, 1.7)
+	run_until(st, func(): return bz.state == "shock_lock", 6.0)
+	var sdir: float = bz.dir
+	st.player.x += 200.0
+	run_until(st, func(): return bz.state == "recover", 2.0)
+	var shock := {}
+	for pr in st.projectiles:
+		if pr.kind == "shock":
+			shock = pr
+	ok("첫 공격 충격파: 확정 방향으로 파동(폭 70, 피해 18)이 날아가고 재추적 없음", not shock.is_empty() and absf(PGeom.ang_diff(float(shock.angle), sdir)) < 1e-9 and float(shock.width) == 70.0 and float(shock.dmg) == 18.0, str(shock.keys()) if not shock.is_empty() else "no shock")
+	run_until(st, func(): return st.zones.size() > 0, 8.0)
+	var hz := 0
+	for z in st.zones:
+		if z.type == "hazard":
+			hz += 1
+	ok("봉인 장치가 주기적으로 플레이어 좌우 바닥 위험(hazard)을 만든다", hz >= 1, "hazard %d" % hz)
+	for e in st.enemies:
+		if e.type == "seal_device":
+			st.damage_enemy(e, 9999.0, "test")
+	var before_z := st.zones.size()
+	steps(st, 8.0)
+	var new_hz := 0
+	for z in st.zones:
+		if z.type == "hazard":
+			new_hz += 1
+	ok("장치를 모두 부수면 새 바닥 위험이 생기지 않는다(처치 수 제외)", new_hz == 0 and st.stats.kills == 0, "hz %d kills %d" % [new_hz, st.stats.kills])
+	# ---------- 예언을 먹는 자(HTML 33) ----------
+	st = boss_state("eater")
+	bz = st.boss
+	steps(st, 1.7)
+	var lanes_seen := run_until(st, func(): return bz.state == "lanes_warn", 6.0)
+	ok("먹는 자 첫 공격은 두 줄 직선(lanes)", lanes_seen)
+	var lane0: float = float(bz.lanes[0].ang)
+	var lane1: float = float(bz.lanes[1].ang)
+	ok("둘째 줄은 첫 줄 +70°", absf(PGeom.ang_diff(lane0, lane1) - 70.0 * PI / 180.0) < 1e-6)
+	run_until(st, func(): return bz.state == "recover", 6.0)
+	var fired := 0
+	for pr in st.projectiles:
+		if pr.kind == "shock":
+			fired += 1
+	ok("두 줄 순차 발사 뒤 빈틈 1.5초", fired >= 1 and is_equal_approx(float(bz.recover_dur), 1.5), "fired %d" % fired)
+	# 표식은 0.5초 이상 지난 위치에만(현재 위치 제외), 정해진 시각에 순차 폭발
+	st = boss_state("eater")
+	bz = st.boss
+	steps(st, 1.7)
+	for i in 240:
+		st.step({ "mx": 1.0 }, STEP)
+	bz.state = "mark_cast"; bz.state_t = 0.0
+	run_until(st, func(): return bz.state == "mark_wait", 2.0)
+	var marks: Array = bz.marks
+	var at_player := false
+	for mk in marks:
+		if PGeom.dist(mk.x, mk.y, st.player.x, st.player.y) < 1.0:
+			at_player = true
+	ok("표식은 지난 위치(≥0.5초 전)에 찍히고 현재 위치는 아니며 순차 폭발 시각이 0.25초 간격", marks.size() >= 1 and not at_player and (marks.size() < 2 or is_equal_approx(float(marks[1].explode_at) - float(marks[0].explode_at), 0.25)), "marks %d" % marks.size())
+	# ---------- 전투 목표 4종(HTML 140~144) ----------
+	var run := PBuild.empty_run_like(PGrowth.new_growth("sword"))
+	for obj in ["hunt", "altars", "seal", "rescue"]:
+		var so := CombatState.new({ "build": PBuild.derive(run), "seed": 7, "arena": "clearing", "objective": obj, "region_id": "forest", "pool": ["wolf"], "risk": "", "xp_kill_mult": 0.3 })
+		var h := PObjectives.hud(so)
+		ok("목표 %s: 설정·HUD(%s)" % [obj, String(h.get("title", ""))], not so.obj.is_empty() and h.has("line") and h.has("end_rule"), str(h))
+	var sh := CombatState.new({ "build": PBuild.derive(run), "seed": 7, "arena": "clearing", "objective": "hunt", "region_id": "forest", "pool": ["wolf"], "risk": "escort", "xp_kill_mult": 0.3 })
+	var alphas := 0
+	for u in sh.formation.units:
+		if String(u) == "wolf_alpha":
+			alphas += 1
+	ok("정예 추적 + 정예 호위: 정예 2마리(전부 처치해야 종료), 호위 늑대는 ×5", alphas == 2 and sh.elite_count().total == 2, "alphas %d total %d" % [alphas, sh.elite_count().total])
+	var sa := CombatState.new({ "build": PBuild.derive(run), "seed": 7, "arena": "clearing", "objective": "altars", "region_id": "forest", "pool": ["wolf"], "xp_kill_mult": 0.3 })
+	var altars := []
+	for e in sa.enemies:
+		if bool(e.structure):
+			altars.append(e)
+	var gap_ok := true
+	for i in altars.size():
+		for j in range(i + 1, altars.size()):
+			if PGeom.dist(altars[i].x, altars[i].y, altars[j].x, altars[j].y) < 200.0:
+				gap_ok = false
+		if PGeom.dist(altars[i].x, altars[i].y, sa.player.x, sa.player.y) < 170.0 or not sa.valid_pos(altars[i].x, altars[i].y, altars[i].r):
+			gap_ok = false
+	ok("제단 3개: 서로 200 이상·플레이어 170 이상·유효 위치, 체력 90, 경험치 0", altars.size() == 3 and gap_ok and altars[0].hp == 90.0 and sa.xp_for(altars[0]) == 0.0)
+	sa.spawn_hold = true
+	for a in altars:
+		sa.damage_enemy(a, 9999.0, "test")
+	sa.spawn_hold = false
+	sa.step({}, STEP)
+	ok("제단을 모두 부수면 적이 남아도 승리, 처치 수는 0", sa.status == "won" and sa.stats.kills == 0)
+	var ss := CombatState.new({ "build": PBuild.derive(run), "seed": 7, "arena": "clearing", "objective": "seal", "region_id": "forest", "pool": ["wolf"], "xp_kill_mult": 0.3 })
+	ss.player.attack_timer = 1.0e9
+	var seal_pt := {}
+	for ob in ss.objects:
+		if ob.kind == "seal":
+			seal_pt = ob
+	ss.player.x = seal_pt.x; ss.player.y = seal_pt.y
+	ss.spawn_hold = true
+	for i in 120:
+		ss.step({}, STEP)
+		ss.player.x = seal_pt.x; ss.player.y = seal_pt.y
+	var prog1: float = float(ss.obj.progress)
+	ss.player.x = seal_pt.x + 300.0
+	for i in 60:
+		ss.step({}, STEP)
+	ok("봉인: 지점 안에서 진행(1초 → 1.0), 밖에서는 멈추되 유지", is_equal_approx(snapped(prog1, 0.01), 1.0) and is_equal_approx(float(ss.obj.progress), prog1) and bool(ss.obj.paused), "%.2f %.2f" % [prog1, float(ss.obj.progress)])
+	ss.player.x = seal_pt.x
+	ss.damage_player(5.0, "test")
+	ss.step({}, STEP)
+	ok("피격 시 0.6초 정지", bool(ss.obj.paused) and float(ss.obj.hit_pause) > 0.0)
+	var sr := CombatState.new({ "build": PBuild.derive(run), "seed": 7, "arena": "clearing", "objective": "rescue", "region_id": "forest", "pool": ["wolf"], "xp_kill_mult": 0.3 })
+	var cages := []
+	var exit := {}
+	for ob in sr.objects:
+		if ob.kind == "cage":
+			cages.append(ob)
+		elif ob.kind == "exit":
+			exit = ob
+	ok("포로 구출: 우리 2·출구 1 배치(유효 위치), 출구는 처음엔 닫힘", cages.size() == 2 and not exit.is_empty() and not bool(exit.open))
+	# 위험 지형: 목표 지점을 덮지 않고 안전 통로(3개 등간격)
+	var sz := CombatState.new({ "build": PBuild.derive(run), "seed": 7, "arena": "clearing", "objective": "seal", "region_id": "forest", "pool": ["wolf"], "risk": "hazard", "xp_kill_mult": 0.3 })
+	sz.spawn_hold = true
+	steps(sz, 7.5)
+	var hz2 := 0
+	var covers := false
+	for z in sz.zones:
+		if z.type == "hazard":
+			hz2 += 1
+			for ob in sz.objects:
+				if ob.kind == "seal" and PGeom.dist(z.x, z.y, ob.x, ob.y) <= z.r + ob.r:
+					covers = true
+	ok("위험 지형: 7초마다 플레이어 주변 최대 3개, 목표 지점을 덮지 않는다", hz2 >= 1 and hz2 <= 3 and not covers, "hz %d" % hz2)
+	var pass_n := 0
+	for r in results:
+		if r[0]:
+			pass_n += 1
+	print("%d/%d PASS" % [pass_n, results.size()])
+	quit(0 if pass_n == results.size() else 1)
