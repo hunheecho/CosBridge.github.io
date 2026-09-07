@@ -2,7 +2,7 @@ extends SceneTree
 ## 회차 시뮬레이션 보고서(헤드리스, HTML tools/run_sim.js 이식). 봇이 회차를 끝까지 돌리고(PRunBot) 전략 × 시드 표를 만든다.
 ## 사용: PROPHECY_SIM_SEEDS=1,2,3 godot --headless --path prophecy_godot -s tools/run_sim.gd
 ## 환경 변수: PROPHECY_SIM_SEEDS("1,2,3,4,5") PROPHECY_SIM_STRATS(전략 id 목록, 기본 7종 전부) PROPHECY_SIM_START(sword|spear|blades)
-##   PROPHECY_SIM_BOT(balanced 등 PBot 정책) PROPHECY_SIM_BALANCE(밸런스 세트, 기본 = balance_default) PROPHECY_SIM_STOPDAY(성장 중단일) PROPHECY_SIM_OUT(res://docs/sim/RUN_SIM.md)
+##   PROPHECY_SIM_BOT(balanced 등 PBot 정책) PROPHECY_SIM_BALANCE(밸런스 세트, 기본 = balance_default) PROPHECY_SIM_STOPDAY(성장 중단일) PROPHECY_SIM_DENSITY(밀도 세트 uniform_x5|roles) PROPHECY_SIM_OUT(res://docs/sim/RUN_SIM.md)
 ## 머리말의 설정값은 실제 회차·카탈로그 값에서 만든다(F8: 하드코딩 없음). 결과: 마크다운 + RUN_SIM_JSON 한 줄. 봇 결과는 정책 비교용이며 사람의 체감·재미와 다르다.
 
 func _env(k: String, d: String) -> String:
@@ -80,8 +80,9 @@ func _init() -> void:
 	var bot := _env("PROPHECY_SIM_BOT", "balanced")
 	var balance := _env("PROPHECY_SIM_BALANCE", "")
 	var stop_day := int(_env("PROPHECY_SIM_STOPDAY", "0"))
+	var density_set := _env("PROPHECY_SIM_DENSITY", "") # 밀도 세트(uniform_x5 기본 | roles 후보)
 	var out_path := _env("PROPHECY_SIM_OUT", "res://docs/sim/RUN_SIM.md")
-	var o := { "start": start, "bot_policy": bot, "balance": balance, "stop_day": stop_day, "max_retries": 3 }
+	var o := { "start": start, "bot_policy": bot, "balance": balance, "stop_day": stop_day, "max_retries": 3, "density_set": density_set }
 	var SET := PRunBot.settings(o)
 	printerr("run_sim: seeds=%s strats=%s start=%s bot=%s balance=%s(%s) difficulty=%s bossHp=%s" % [str(seeds), str(strats), start, bot, String(SET.balance), String(SET.balance_name), String(SET.difficulty), JSON.stringify(SET.boss_hp)])
 	var all := []
@@ -127,9 +128,9 @@ func _markdown(all: Array, strats: Array, seeds: Array, SET: Dictionary, o: Dict
 	for id in SET.boss_hp:
 		boss_parts.append("%s %d" % [String(SET.boss_names[id]), int(SET.boss_hp[id])])
 	var stop_txt := (", 성장 중단 %d일차" % int(o.stop_day)) if int(o.stop_day) > 0 else ""
-	var md := "# 회차 시뮬레이션 (%s, 봇 %s, 밸런스 %s(%s), 난이도 %s(%s), 시작 무기 %s, 회차 구조 %s %d일, 처치 경험치 ×%s, 지역 경험치 ×%s, 보스 체력 세트 %s = %s, 날짜 체력 %s, 밀도 배율 ×%s 동시 %d%s)\n\n" % [
+	var md := "# 회차 시뮬레이션 (%s, 봇 %s, 밸런스 %s(%s), 난이도 %s(%s), 시작 무기 %s, 회차 구조 %s %d일, 처치 경험치 ×%s, 지역 경험치 ×%s, 보스 체력 세트 %s = %s, 날짜 체력 %s, 밀도 세트 %s(배율 ×%s) 동시 %d%s)\n\n" % [
 		String(SET.rules_version), String(SET.bot_policy), String(SET.balance), String(SET.balance_name), String(SET.difficulty), String(SET.difficulty_name), String(SET.start), String(SET.mode), int(SET.days),
-		str(SET.killXp), str(SET.bonusXp), String(SET.bossHpSet), ", ".join(boss_parts), String(SET.dayHpSet), str(SET.density_mult), int(SET.alive_cap), stop_txt]
+		str(SET.killXp), str(SET.bonusXp), String(SET.bossHpSet), ", ".join(boss_parts), String(SET.dayHpSet), String(SET.density_set) + " " + String(SET.density_set_name), str(SET.density_mult), int(SET.alive_cap), stop_txt]
 	md += "생성: `tools/run_sim.gd` (Godot %s, %s). 전략 %d종 × 시드 %s. 경험치 필요치 %s+%sk+%sk². 봇 결과는 정책 비교용이며 사람의 체감 플레이타임·재미와 다르다. 머리말 값은 실제 회차·카탈로그에서 읽은 것(F8).\n\n" % [String(SET.engine), String(SET.os), strats.size(), _join(seeds, ","), str(SET.xp_base), str(SET.xp_step), str(SET.xp_quad)]
 	md += "시간 계정(C19): 시뮬레이션된 시간 = 전투 + 보스(고정 단계 시계 1/120초). 가정한 메뉴 시간 = 카드 1장 %d초(전투 중 레벨업·지역 3택 포함, 실제 발생 시점에 기록) + 조우 전후 화면 %d초 + 사건 %d초 + 하루 종료 %d초 + 휴식 %d초. 합계는 보스전까지 포함해 마지막에 한 번만 더한다. 시간 초과(봇이 조우 %d초/보스 %d초 안에 못 끝냄)는 패배와 별도 열. 모든 행동은 PFlow.actions(run)의 항목으로만 실행(F1), 조우 생성·정산·3택·사건은 게임과 같은 PFlow/PEvents 경로.\n\n" % [int(M.card), int(M.encounter), int(M.event), int(M.dayEnd), int(M.rest), int(SET.encounter_max_sec), int(SET.boss_max_sec)]
 	md += "전략:\n"

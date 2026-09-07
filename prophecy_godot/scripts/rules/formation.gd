@@ -9,6 +9,7 @@ static func from_waves(waves: Array, override: Dictionary, region_id: String, st
 	for k in override:
 		D[k] = override[k]
 	var mult := float(D.multiplier)
+	var by_type: Dictionary = D.get("multiplier_by_type", {}) # 역할별 배율 후보(Q1 비교 세트). 없으면 일괄 배율
 	var units := []
 	var html_counts := {}
 	var godot_counts := {}
@@ -18,7 +19,8 @@ static func from_waves(waves: Array, override: Dictionary, region_id: String, st
 			var d := PCatalog.enemy(type)
 			var n: int = int(g.n)
 			var scaled: bool = not bool(d.get("elite", false)) and not bool(d.get("boss", false)) and not bool(d.get("structure", false))
-			var total: int = int(round(float(n) * mult)) if scaled else n
+			var m_t: float = float(by_type.get(type, mult))
+			var total: int = int(round(float(n) * m_t)) if scaled else n
 			html_counts[type] = int(html_counts.get(type, 0)) + n
 			godot_counts[type] = int(godot_counts.get(type, 0)) + total
 			for i in total:

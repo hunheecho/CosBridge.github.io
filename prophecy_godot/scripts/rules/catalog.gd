@@ -51,6 +51,19 @@ static func shop() -> Dictionary: return _load("world").shop
 static func regions() -> Array: return _load("world").regions
 static func materials() -> Dictionary: return _load("world").materials
 static func density() -> Dictionary: return _load("world").density
+## 밀도 세트 override(Q1 비교 후보): 이름이 없거나 기본 세트면 {}(density 루트 값 그대로)
+static func density_set(name: String) -> Dictionary:
+	var D: Dictionary = _load("world").density
+	var sets: Dictionary = D.get("sets", {})
+	if name == "" or not sets.has(name) or name == String(D.get("set_default", "")):
+		return {}
+	var out := {}
+	var S: Dictionary = sets[name]
+	for k in S:
+		if k != "name" and k != "role_class":
+			out[k] = S[k]
+	out["set_name"] = name
+	return out
 static func missions() -> Dictionary: return _load("missions")
 static func objectives() -> Dictionary: return _load("missions").objectives
 static func structures() -> Dictionary: return _load("missions").structures

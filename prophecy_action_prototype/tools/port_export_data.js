@@ -39,7 +39,26 @@ write('enemies.json', { enemies: EN, boss_defs: strip(PA.BOSS_DEFS), boss_hp_set
 // 밀도 모델(PORT_BASELINE C4, 잠정): 일반 적 전체 수 = HTML 편성 합 × 5(정예·구조물·보스 제외), 동시 상한 12, 묶음 3·간격 1.0, 역할별 동시 상한(시험값)
 const density = { multiplier: 5, /* D33 기준 전투 = 숲 1일차 새벽(늑대 2+3=5) × 5 = 25마리(0.3.0 'x5') */ alive_cap: 12, group: 3, interval: 1.0, first_delay: FIRST.spawn.first_delay, warn: FIRST.spawn.warn, min_player_dist: FIRST.spawn.min_player_dist, group_spread: FIRST.spawn.group_spread, entry_points: FIRST.spawn.entry_points,
   type_alive_cap: { archer: 3, shaman: 1, frostcaller: 2, spider: 2, bomber: 3, shieldbearer: 3, boar: 2, burrower: 2, rogue: 3, spore: 3, wolf_alpha: 2 },
-  note: '잠정 규칙(C4/Q1). 경험치·금화 예산은 HTML 편성 기준으로 고정하고 개체 수에 비례하지 않는다' };
+  note: '잠정 규칙(C4/Q1). 경험치·금화 예산은 HTML 편성 기준으로 고정하고 개체 수에 비례하지 않는다(종류별: HTML 예산 ÷ 해당 종류의 Godot 개체 수)',
+  set_default: 'uniform_x5',
+  // 비교 후보(2026-09-07 사용자 Q1 답변): 역할별 배율. 동시 상한은 바꾸지 않는다. 분류는 실제 행동 기준(enemies.js), 애매한 것은 reason에 근거.
+  sets: {
+    uniform_x5: { name: '일괄 ×5(현재 비교 설정, 최종 아님)', multiplier: 5 },
+    roles: { name: '역할별(근접 ×5 · 원거리 ×2 · 지원/봉쇄 ×1~2 · 정예/구조물/보스 소환 ×1)', multiplier: 5,
+      multiplier_by_type: { wolf: 5, rogue: 5, boar: 5, shieldbearer: 5, bomber: 5, burrower: 5, archer: 2, frostcaller: 2, spore: 2, spider: 1, shaman: 1 },
+      role_class: {
+        wolf: { role: '근접 무리', reason: '물기·돌진, 몸으로 압박' },
+        rogue: { role: '근접 무리', reason: '측면 접근 후 베기' },
+        boar: { role: '근접 무리(애매)', reason: '긴 직선 돌파는 통로 예고형 위협이라 원거리 장판처럼 화면을 가를 수 있음. 동시 상한 2가 이미 제한하므로 근접으로 둠' },
+        shieldbearer: { role: '근접 무리(애매)', reason: '정면 방어·밀치기는 근접이지만 느린 차단자 역할. 봉쇄로 볼 수도 있음' },
+        bomber: { role: '근접 무리(애매)', reason: '접근 후 폭발(범위 22)이라 근접 접근형이지만 폭발 범위가 장판 성격. ×2 후보도 가능' },
+        burrower: { role: '근접 무리(애매)', reason: '지하 이동 뒤 발밑 기습·물기. 기습 지점 예고는 장판형이지만 피해는 근접' },
+        archer: { role: '원거리', reason: '거리 유지·화살' },
+        frostcaller: { role: '원거리(애매)', reason: '거리 유지 + 순차 바닥 장판. 원거리로 분류했으나 장판이 남으므로 봉쇄(×1~2) 후보' },
+        spore: { role: '지원·봉쇄', reason: '독구름·사망 구름으로 지역 통제(약한 봉쇄 → ×2)' },
+        spider: { role: '지원·봉쇄', reason: '거미줄로 이동 경로 제한(강한 봉쇄 → ×1)' },
+        shaman: { role: '지원', reason: '치료·저주(×1)' },
+        wolf_alpha: { role: '정예', reason: '배율 없음(×1), 경험치 단위값 그대로' } } } } };
 write('world.json', { time_slots: PA.TIME_SLOTS, schedule: strip(PA.SCHEDULE), mission_steer: PA.MISSION_STEER, day_waves: strip(PA.DAY_WAVES), day_hp_sets: PA.DAY_HP_SETS, elite_day_mult: PA.ELITE_DAY_MULT, slot_variants: strip(PA.SLOT_VARIANTS), merchant_visits: PA.MERCHANT_VISITS, equipment: strip(PA.EQUIPMENT), equip_slots: PA.EQUIP_SLOTS, equip_slot_names: PA.EQUIP_SLOT_NAMES, shop: strip(PA.SHOP), regions: strip(PA.REGIONS), materials: strip(PA.MATERIALS), density, region_arena: { forest: 'clearing', ridge: 'pillars', marsh: 'forest', den: 'pillars', deep: 'clearing', boss: 'clearing' } });
 
 // ---------- missions / events ----------

@@ -65,6 +65,7 @@ static func simulate(seed: int, strat: String, o: Dictionary = {}) -> Dictionary
 static func settings(o: Dictionary = {}) -> Dictionary:
 	var start := String(o.get("start", "sword"))
 	var r := PRun.new_run(1, start, String(o.get("balance", "")))
+	r.densitySet = String(o.get("density_set", ""))
 	var BS := PCatalog.balance_sets()
 	var bal := String(r.balance)
 	var DC: Dictionary = PCatalog.difficulty().candidates
@@ -82,6 +83,7 @@ static func settings(o: Dictionary = {}) -> Dictionary:
 		"difficulty": did, "difficulty_name": String(DC[did].name) if DC.has(did) else did,
 		"bossHpSet": String(r.bossHpSet), "dayHpSet": String(r.dayHpSet), "boss_hp": boss_hp, "boss_names": boss_names,
 		"killXp": PRun.kill_xp_mult(r), "bonusXp": PRun.bonus_xp_mult(r),
+		"density_set": String(o.get("density_set", "")) if String(o.get("density_set", "")) != "" else String(D.get("set_default", "uniform_x5")), "density_set_name": String((D.get("sets", {}) as Dictionary).get(String(o.get("density_set", "")) if String(o.get("density_set", "")) != "" else String(D.get("set_default", "uniform_x5")), {}).get("name", "")),
 		"density_mult": float(D.multiplier), "alive_cap": int(D.alive_cap), "group": int(D.group), "interval": float(D.interval),
 		"xp_base": float(X.base), "xp_step": float(X.step), "xp_quad": float(X.get("quad", 0.0)),
 		"bot_policy": String(o.get("bot_policy", "balanced")), "rules_version": String(GAME.VERSION), "engine": String(Engine.get_version_info().string), "os": OS.get_name(),
@@ -445,6 +447,8 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 	verbose = bool(o.get("verbose", false))
 	var start := String(o.get("start", "sword"))
 	run = PRun.new_run(seed, start, String(o.get("balance", "")))
+	if String(o.get("density_set", "")) != "":
+		run.densitySet = String(o.density_set) # 밀도 세트(Q1 비교 후보)
 	T = { "combat": 0.0, "cards": 0.0, "screens": 0.0, "rest": 0.0, "dayEnd": 0.0, "boss": 0.0 }
 	L = _new_log()
 	L.stopDay = stop_day

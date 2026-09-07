@@ -71,6 +71,7 @@ func _ready() -> void:
 	if OS.get_environment("PROPHECY_UI_SMOKE") != "":
 		_auto_dir = OS.get_environment("PROPHECY_UI_SMOKE")
 		_auto_full = OS.get_environment("PROPHECY_UI_FULL") != "" # 최종 보스·회차 결과·새 회차까지 봇으로 계속
+		_auto_stop = OS.get_environment("PROPHECY_UI_STOP")
 		if OS.get_environment("PROPHECY_UI_SPEED") != "":
 			view.time_scale = clampf(float(OS.get_environment("PROPHECY_UI_SPEED")), 1.0, 6.0)
 		_auto = true
@@ -966,6 +967,7 @@ var _auto_snap := false
 var _auto_quit := false
 var _auto_dir := ""
 var _auto_full := false
+var _auto_stop := "" # PROPHECY_UI_STOP=<단계 이름>: 그 캡처 뒤 종료(짧은 영상 기록용)
 var _auto_state := "start"
 var _auto_wait := 0
 var _auto_done := {}
@@ -987,6 +989,9 @@ func _auto_shot(name: String) -> void:
 	_auto_done[name] = true
 	if _auto_snap:
 		_snap_to(_auto_dir, name)
+	if _auto_stop != "" and name == _auto_stop:
+		_auto_wait = 1000000
+		call_deferred("_auto_finish")
 	print("UI_SMOKE step=", name, " screen=", screen, " state=", _auto_state, " day=", (int(run.day) if not run.is_empty() else 0), " phase=", (String(run.phase) if not run.is_empty() else "-"))
 
 func _auto_finish() -> void:

@@ -1281,7 +1281,81 @@
    "spore": 3,
    "wolf_alpha": 2
   },
-  "note": "잠정 규칙(C4/Q1). 경험치·금화 예산은 HTML 편성 기준으로 고정하고 개체 수에 비례하지 않는다"
+  "note": "잠정 규칙(C4/Q1). 경험치·금화 예산은 HTML 편성 기준으로 고정하고 개체 수에 비례하지 않는다(종류별: HTML 예산 ÷ 해당 종류의 Godot 개체 수)",
+  "set_default": "uniform_x5",
+  "sets": {
+   "uniform_x5": {
+    "name": "일괄 ×5(현재 비교 설정, 최종 아님)",
+    "multiplier": 5
+   },
+   "roles": {
+    "name": "역할별(근접 ×5 · 원거리 ×2 · 지원/봉쇄 ×1~2 · 정예/구조물/보스 소환 ×1)",
+    "multiplier": 5,
+    "multiplier_by_type": {
+     "wolf": 5,
+     "rogue": 5,
+     "boar": 5,
+     "shieldbearer": 5,
+     "bomber": 5,
+     "burrower": 5,
+     "archer": 2,
+     "frostcaller": 2,
+     "spore": 2,
+     "spider": 1,
+     "shaman": 1
+    },
+    "role_class": {
+     "wolf": {
+      "role": "근접 무리",
+      "reason": "물기·돌진, 몸으로 압박"
+     },
+     "rogue": {
+      "role": "근접 무리",
+      "reason": "측면 접근 후 베기"
+     },
+     "boar": {
+      "role": "근접 무리(애매)",
+      "reason": "긴 직선 돌파는 통로 예고형 위협이라 원거리 장판처럼 화면을 가를 수 있음. 동시 상한 2가 이미 제한하므로 근접으로 둠"
+     },
+     "shieldbearer": {
+      "role": "근접 무리(애매)",
+      "reason": "정면 방어·밀치기는 근접이지만 느린 차단자 역할. 봉쇄로 볼 수도 있음"
+     },
+     "bomber": {
+      "role": "근접 무리(애매)",
+      "reason": "접근 후 폭발(범위 22)이라 근접 접근형이지만 폭발 범위가 장판 성격. ×2 후보도 가능"
+     },
+     "burrower": {
+      "role": "근접 무리(애매)",
+      "reason": "지하 이동 뒤 발밑 기습·물기. 기습 지점 예고는 장판형이지만 피해는 근접"
+     },
+     "archer": {
+      "role": "원거리",
+      "reason": "거리 유지·화살"
+     },
+     "frostcaller": {
+      "role": "원거리(애매)",
+      "reason": "거리 유지 + 순차 바닥 장판. 원거리로 분류했으나 장판이 남으므로 봉쇄(×1~2) 후보"
+     },
+     "spore": {
+      "role": "지원·봉쇄",
+      "reason": "독구름·사망 구름으로 지역 통제(약한 봉쇄 → ×2)"
+     },
+     "spider": {
+      "role": "지원·봉쇄",
+      "reason": "거미줄로 이동 경로 제한(강한 봉쇄 → ×1)"
+     },
+     "shaman": {
+      "role": "지원",
+      "reason": "치료·저주(×1)"
+     },
+     "wolf_alpha": {
+      "role": "정예",
+      "reason": "배율 없음(×1), 경험치 단위값 그대로"
+     }
+    }
+   }
+  }
  },
  "region_arena": {
   "forest": "clearing",

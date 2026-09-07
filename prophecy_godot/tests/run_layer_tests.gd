@@ -257,6 +257,26 @@ func _init() -> void:
 	var views := PStats.views(r8)
 	var ver := PStats.verify(r8)
 	ok("통계: 전투 1회만 기록(중복 정산 없음), 출처 합 = 총합, 4 보기 검증 통과, 받은 피해 유효/명목 분리", (r8.dmgStats.combats as Array).size() == 1 and ver.all(func(v): return bool(v.ok)) and views.all.rows.size() >= 1 and (r8.dmgStats.combats[0] as Dictionary).has("takenNominal"), str(ver))
+	# ---------- 밀도 세트(Q1 비교 후보): 역할별 배율, 경험치 예산 보존 ----------
+	var ru := PRun.new_run(21, "sword")
+	var rr := PRun.new_run(21, "sword")
+	rr.densitySet = "roles"
+	var so := { "regionId": "ridge", "deep": false, "loot": { "gold": 0, "mats": {}, "chestGold": 0 }, "encounters": 0, "seed": 5, "day": 1, "slot": 1, "variant": null }
+	var fu: Dictionary = PFlow.make_encounter(ru, so).formation
+	var fr: Dictionary = PFlow.make_encounter(rr, so).formation
+	var xp_u := 0.0
+	var xp_r := 0.0
+	for t in fu.html_counts:
+		xp_u += float(fu.xp_map[t]) * float(fu.godot_counts[t])
+		xp_r += float(fr.xp_map[t]) * float(fr.godot_counts[t])
+	ok("밀도 세트 roles: 능선 1일차 궁수 7→14(×2)·늑대 4→20(×5), 동시 상한·종류별 상한은 일괄 세트와 같음", int(fr.godot_counts.archer) == 14 and int(fr.godot_counts.wolf) == 20 and int(fu.godot_counts.archer) == 35 and int(fr.alive_cap) == int(fu.alive_cap) and str(fr.type_caps) == str(fu.type_caps), str(fr.godot_counts))
+	ok("경험치 예산 보존: 두 세트의 처치 경험치 합이 같고(HTML 예산), 궁수 1마리 값은 roles에서 ÷2·uniform에서 ÷5", is_equal_approx(xp_u, xp_r) and is_equal_approx(float(fr.xp_map.archer) * 2.0, float(fu.xp_map.archer) * 5.0), "xp %.3f vs %.3f" % [xp_u, xp_r])
+	var rd := PRun.new_run(21, "sword")
+	rd.densitySet = "roles"
+	rd.day = 3
+	var sd3 := { "regionId": "den", "deep": false, "loot": { "gold": 0, "mats": {}, "chestGold": 0 }, "encounters": 0, "seed": 5, "day": 3, "slot": 1, "variant": null }
+	var fd: Dictionary = PFlow.make_encounter(rd, sd3).formation
+	ok("정예(우두머리)는 두 세트 모두 ×1이고 경험치 단위값은 HTML 값 그대로(일반 적 ÷ 규칙과 분리)", int(fd.godot_counts.wolf_alpha) == 1 and is_equal_approx(float(fd.xp_map.wolf_alpha), PGrowth.xp_value_unit("wolf_alpha", false, "den", 0.3)), str(fd.xp_map))
 	var pass_n := 0
 	for r in results:
 		if r[0]:
