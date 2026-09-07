@@ -13,18 +13,21 @@ var step_n: int = 0
 var status: String = "running" # running | won | lost
 var player: Dictionary
 var enemies: Array = []
-var pending: Array = []
-var waves: Array = []
-var wave_index: int = -1
-var wave_timer: float = 0.4
+var pending: Array = []        # 등장 대기(예고 중). 동시 생존 상한에 포함된다
+var formation: Dictionary = {} # {total, alive_cap, group, interval}
+var spawn_total: int = 0
+var spawn_count: int = 0       # 지금까지 예약(등장 + 대기)한 수
+var spawn_timer: float = 0.4
+var spawn_hold: bool = false   # 테스트·시연용: 소환 멈춤(승리 판정도 나지 않는다)
 var spawned_all: bool = false
+var attack_log: Array = []     # [t, id, kind] 공격 시작 순서(재현 검사용)
 var field: Dictionary = {}
 var obstacles: Array = []
 var arena_w: float
 var arena_h: float
 var effects: Array = []   # 표시용 이벤트(화면이 읽기만 한다): {kind, x, y, ttl, t, ...}
 var events: Array = []    # 소리·통계용 이벤트 이름
-var stats: Dictionary = { "kills": 0, "damage_taken": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [] }
+var stats: Dictionary = { "kills": 0, "damage_taken": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "max_alive": 0, "max_dash_states": 0, "max_bite_states": 0 }
 var metrics: Dictionary = { "dmg": {}, "taken": {}, "enemies": {} } # 피해 출처별 유효 피해(과잉 제외), 받은 피해 원인별
 var settled: bool = false
 var _next_id: int = 1
@@ -37,8 +40,9 @@ func _init(config: Dictionary, seed_v: int = 1) -> void:
 	arena_h = float(cfg.arena.h)
 	for o in cfg.obstacles:
 		obstacles.append({ "id": o.id, "type": o.type, "x": float(o.x), "y": float(o.y), "r": float(o.r) })
-	waves = cfg.waves.duplicate(true)
-	wave_timer = float(cfg.constants.first_wave_timer)
+	formation = cfg.formation if cfg.has("formation") else cfg.formations[cfg.formation_default]
+	spawn_total = int(formation.total)
+	spawn_timer = float(cfg.spawn.first_delay)
 	var P: Dictionary = cfg.player
 	player = {
 		"x": float(P.start.x), "y": float(P.start.y), "r": float(P.r), "hp": float(P.hp), "hp_max": float(P.hp),
@@ -234,40 +238,62 @@ func steer_dir(e: Dictionary, tx: float, ty: float) -> Array:
 	var ang := base + off * side_sign
 	return [cos(ang), sin(ang)]
 
-# ---------- 스폰·웨이브 ----------
-func edge_pos() -> Array:
-	var side := rng.int_range(0, 3)
-	var pad := 30.0
-	if side == 0:
-		return [rng.range_f(pad, arena_w - pad), pad]
-	if side == 1:
-		return [arena_w - pad, rng.range_f(pad, arena_h - pad)]
-	if side == 2:
-		return [rng.range_f(pad, arena_w - pad), arena_h - pad]
-	return [pad, rng.range_f(pad, arena_h - pad)]
+# ---------- 소환(편성: 전체 수·동시 생존 상한·묶음·보충 간격) ----------
+## 진입 지점: 가장자리 8곳 중 플레이어에서 min_player_dist 이상 떨어진 곳을 시드로 고른다(없으면 가장 먼 곳)
+func pick_entry_point() -> Array:
+	var pts: Array = cfg.spawn.entry_points
+	var ok := []
+	var far := []
+	var far_d := -1.0
+	for q in pts:
+		var dd := PGeom.dist(float(q[0]), float(q[1]), player.x, player.y)
+		if dd >= float(cfg.spawn.min_player_dist):
+			ok.append([float(q[0]), float(q[1])])
+		if dd > far_d:
+			far_d = dd
+			far = [float(q[0]), float(q[1])]
+	if ok.is_empty():
+		return far
+	return ok[rng.int_range(0, ok.size() - 1)]
 
-func queue_wave(wave: Array) -> void:
-	for g in wave:
-		var er: float = float(cfg.enemies[g.type].r)
-		for i in int(g.n):
-			var p := edge_pos()
-			var tries := 0
-			while (PGeom.dist(p[0], p[1], player.x, player.y) < 160.0 or not valid_pos(p[0], p[1], er)) and tries < 12:
-				p = edge_pos()
-				tries += 1
-			var vp := nearest_valid_pos(p[0], p[1], er)
+## 묶음 n마리를 한 진입 지점 주변에 예약(예고 뒤 등장). 플레이어 바로 위·장애물 안에는 두지 않는다
+func queue_group(type: String, n: int) -> void:
+	var er: float = float(cfg.enemies[type].r)
+	var base := pick_entry_point()
+	var spread: float = float(cfg.spawn.group_spread)
+	var min_pd: float = float(cfg.spawn.min_player_dist)
+	for i in n:
+		var px: float = base[0] + rng.range_f(-spread, spread)
+		var py: float = base[1] + rng.range_f(-spread, spread)
+		px = clampf(px, er + 4.0, arena_w - er - 4.0)
+		py = clampf(py, er + 4.0, arena_h - er - 4.0)
+		var vp := nearest_valid_pos(px, py, er)
+		if not vp.is_empty():
+			px = vp[0]
+			py = vp[1]
+		var dp := PGeom.dist(px, py, player.x, player.y)
+		if dp < min_pd * 0.5: # 진입 지점이 멀어도 편차로 가까워졌으면 플레이어 반대쪽으로 민다
+			var away := PGeom.norm(px - player.x, py - player.y) if dp > 1e-6 else [1.0, 0.0]
+			px = clampf(player.x + away[0] * min_pd * 0.5, er + 4.0, arena_w - er - 4.0)
+			py = clampf(player.y + away[1] * min_pd * 0.5, er + 4.0, arena_h - er - 4.0)
+			vp = nearest_valid_pos(px, py, er)
 			if not vp.is_empty():
-				p = vp
-			pending.append({ "type": g.type, "x": p[0], "y": p[1], "t": float(cfg.constants.spawn_warn) })
-			_fx({ "kind": "spawnwarn", "x": p[0], "y": p[1], "ttl": float(cfg.constants.spawn_warn), "type": g.type })
-	_ev("wave")
+				px = vp[0]
+				py = vp[1]
+		pending.append({ "type": type, "x": px, "y": py, "t": float(cfg.spawn.warn) })
+		_fx({ "kind": "spawnwarn", "x": px, "y": py, "ttl": float(cfg.spawn.warn), "type": type })
+	_ev("group")
 
 func spawn_enemy(type: String, x: float, y: float) -> Dictionary:
 	var d: Dictionary = cfg.enemies[type]
 	var e := {
 		"id": _next_id, "type": type, "def": d, "x": x, "y": y, "r": float(d.r), "hp": float(d.hp), "hp_max": float(d.hp),
 		"spawn_t": t, "acted": false, "state": "approach", "state_t": 0.0, "dir": 0.0, "aim_angle": 0.0, "flash": 0.0, "dead": false, "death_t": 0.0,
-		"dash_left": int(d.dashes), "vx": 0.0, "vy": 0.0, "hit_by": false, "steer_side": 0, "steer_t": 0.0, "face_x": 1.0, "last_x": x, "last_y": y, "bite_t": 9.0,
+		"vx": 0.0, "vy": 0.0, "hit_by": false, "steer_side": 0, "steer_t": 0.0, "face_x": 1.0, "last_x": x, "last_y": y, "bite_t": 9.0,
+		# 공격 재사용: 생성 시 시드로 1회 정한 초기 편차. dash_ready_at은 시뮬레이션 시간(배율 없음), 재사용 대기(cd)는 적 시간 배율을 따른다
+		"dash_ready_at": t + rng.range_f(float(d.dash.first_delay[0]), float(d.dash.first_delay[1])),
+		"dash_cd": 0.0, "bite_cd": rng.range_f(float(d.bite.initial_delay[0]), float(d.bite.initial_delay[1])),
+		"last_dash_end": -1.0, "dash_granted": false, "bite_hit_done": false, "bites": 0, "dashes": 0,
 	}
 	_next_id += 1
 	enemies.append(e)
@@ -277,37 +303,44 @@ func spawn_enemy(type: String, x: float, y: float) -> Dictionary:
 
 func _metrics_for(type: String) -> Dictionary:
 	if not metrics.enemies.has(type):
-		metrics.enemies[type] = { "spawned": 0, "killed": 0, "prepared": 0, "executed": 0, "died_before_attack": 0 }
+		metrics.enemies[type] = { "spawned": 0, "killed": 0, "prepared": 0, "executed": 0, "died_before_attack": 0, "died_before_execute": 0, "bites_prepared": 0, "bites_executed": 0, "bite_hits": 0, "dashes_prepared": 0, "dashes_executed": 0, "dash_hits": 0 }
 	return metrics.enemies[type]
 
-func update_waves(dt: float) -> void:
-	for s in pending:
-		s.t -= dt
-		if s.t <= 0.0:
-			spawn_enemy(s.type, s.x, s.y)
+## 등장 대기 진행 + 보충. 동시 생존 상한(살아 있는 + 대기)을 넘겨 예약하지 않고, 묶음 사이에 최소 간격을 둔다
+func update_spawner(dt: float) -> void:
+	for sp in pending:
+		sp.t -= dt
+		if sp.t <= 0.0:
+			spawn_enemy(sp.type, sp.x, sp.y)
 	var keep := []
-	for s in pending:
-		if s.t > 0.0:
-			keep.append(s)
+	for sp in pending:
+		if sp.t > 0.0:
+			keep.append(sp)
 	pending = keep
-	var alive_n := alive_enemies().size()
-	if wave_index < waves.size() - 1 and alive_n == 0 and pending.is_empty():
-		wave_timer -= dt
-		if wave_timer <= 0.0:
-			wave_index += 1
-			wave_timer = float(cfg.constants.wave_delay)
-			queue_wave(waves[wave_index])
-	spawned_all = wave_index >= waves.size() - 1 and pending.is_empty()
+	spawned_all = spawn_count >= spawn_total and pending.is_empty()
+	if spawn_hold or spawn_count >= spawn_total:
+		return
+	spawn_timer -= dt
+	if spawn_timer > 0.0:
+		return
+	var room: int = int(formation.alive_cap) - alive_enemies().size() - pending.size()
+	if room <= 0:
+		return
+	var n: int = mini(int(formation.group), mini(room, spawn_total - spawn_count))
+	if n <= 0:
+		return
+	queue_group("wolf", n)
+	spawn_count += n
+	spawn_timer = float(formation.interval)
 
-## 남은 적 수(살아 있는 + 등장 대기 + 남은 웨이브 정의)와 남은 웨이브
+## 남은 적 수(살아 있는 + 등장 대기 + 아직 예약하지 않은 수)
 func remaining() -> Dictionary:
-	var n := alive_enemies().size() + pending.size()
-	var i := wave_index + 1
-	while i < waves.size():
-		for g in waves[i]:
-			n += int(g.n)
-		i += 1
-	return { "total": n, "alive": alive_enemies().size(), "waves_left": maxi(0, waves.size() - 1 - maxi(0, wave_index)), "waves": waves.size() }
+	var alive_n := alive_enemies().size()
+	return { "total": alive_n + pending.size() + (spawn_total - spawn_count), "alive": alive_n, "pending": pending.size(), "cap": int(formation.alive_cap), "spawn_total": spawn_total, "spawned": spawn_count - pending.size() }
+
+## 처치 경험치: 같은 전투의 기본 예산(base_fight_xp)을 편성의 전체 수로 나눈다. 소수 누적(표시는 내림)
+func xp_per_kill() -> float:
+	return float(cfg.reward.base_fight_xp) / float(spawn_total)
 
 # ---------- 피해 ----------
 func damage_player(amount: float, src: String) -> bool:
@@ -363,10 +396,13 @@ func _kill_enemy(e: Dictionary) -> void:
 	e.dead = true
 	e.death_t = 0.0
 	stats.kills += 1
+	stats.xp += xp_per_kill()
 	var m := _metrics_for(e.type)
 	m.killed += 1
 	if not e.acted:
-		m.died_before_attack += 1
+		m.died_before_attack += 1 # 공격 준비(예고)조차 못 하고 죽음
+	if e.bites + e.dashes == 0:
+		m.died_before_execute += 1 # 예고는 했지만 실제 공격(물기 유효 구간·돌진)을 한 번도 못 하고 죽음
 	_fx({ "kind": "death", "x": e.x, "y": e.y, "r": e.r, "ttl": 0.4 })
 	_ev("kill")
 
@@ -483,7 +519,7 @@ func pick_target(range_v: float, need_los: bool) -> Dictionary:
 			best = e
 	return best
 
-# ---------- 늑대 ----------
+# ---------- 늑대 (docs/RULES.md §늑대: 가까우면 물기, 적당한 거리·재사용 가능·자리 확보 시 돌진) ----------
 func _approach(e: Dictionary, tx: float, ty: float, speed: float, dt: float) -> void:
 	if e.steer_t > 0.0:
 		e.steer_t -= dt
@@ -494,66 +530,179 @@ func _approach(e: Dictionary, tx: float, ty: float, speed: float, dt: float) -> 
 		n = steer_dir(e, tx, ty)
 	move_swept(e, n[0] * speed * dt, n[1] * speed * dt, true)
 
+## 돌진 자리(준비·고정·실행 합계) 사용 수
+func dash_states_count() -> int:
+	var n := 0
+	for e in alive_enemies():
+		if e.state == "crouch" or e.state == "lock" or e.state == "dash":
+			n += 1
+	return n
+
+func bite_states_count() -> int:
+	var n := 0
+	for e in alive_enemies():
+		if e.state == "bite_track" or e.state == "bite_lock" or e.state == "bite_hit":
+			n += 1
+	return n
+
+## 이 단계에 돌진을 원하는가(접근 중·첫 지연 경과·재사용 가능·거리 조건·시야)
+func wants_dash(e: Dictionary) -> bool:
+	if e.state != "approach" or e.dead:
+		return false
+	var D: Dictionary = e.def.dash
+	if t < float(e.dash_ready_at) or e.dash_cd > 0.0:
+		return false
+	var dist := PGeom.dist(e.x, e.y, player.x, player.y)
+	if dist < float(D.min_dist) or dist > float(D.engage_dist):
+		return false
+	return not los_blocked(e.x, e.y, player.x, player.y)
+
+## 동시 돌진 제한: 빈 자리만큼, 마지막 돌진이 오래된 순(동률은 id) — 매 단계 추첨 없음, 같은 시드·입력이면 같은 순서
+func grant_dash_slots() -> void:
+	var D: Dictionary = cfg.enemies.wolf.dash
+	var free: int = int(D.max_concurrent) - dash_states_count()
+	if free <= 0:
+		return
+	var cands := []
+	for e in alive_enemies():
+		if wants_dash(e):
+			cands.append(e)
+	cands.sort_custom(func(a, b):
+		if a.last_dash_end != b.last_dash_end:
+			return a.last_dash_end < b.last_dash_end
+		return a.id < b.id)
+	for i in mini(free, cands.size()):
+		cands[i].dash_granted = true
+
+func _bite_hit_check(e: Dictionary) -> bool:
+	var B: Dictionary = e.def.bite
+	var p := player
+	var dist := PGeom.dist(e.x, e.y, p.x, p.y)
+	if dist > float(B.reach):
+		return false
+	var ang := atan2(p.y - e.y, p.x - e.x)
+	return absf(PGeom.ang_diff(ang, e.dir)) <= float(B.arc_deg) * PI / 360.0
+
 func update_wolf(e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
+	var D: Dictionary = d.dash
+	var B: Dictionary = d.bite
 	var p := player
 	var tf := time_factor(e.x, e.y, e.r)
 	var dist := PGeom.dist(e.x, e.y, p.x, p.y)
+	# 재사용 대기는 상태와 무관하게 적 시간 배율로 줄어든다(감속장 안에서는 느리게, 일시정지는 단계가 없으므로 정지)
+	if e.dash_cd > 0.0:
+		e.dash_cd = maxf(0.0, e.dash_cd - dt * tf)
+		if e.dash_cd < 1e-6:
+			e.dash_cd = 0.0
+	if e.bite_cd > 0.0:
+		e.bite_cd = maxf(0.0, e.bite_cd - dt * tf)
+		if e.bite_cd < 1e-6:
+			e.bite_cd = 0.0
 	match e.state:
 		"approach":
-			_approach(e, p.x, p.y, float(d.speed) * tf, dt)
-			if dist <= float(d.engage_dist) and not los_blocked(e.x, e.y, p.x, p.y):
-				e.state = "crouch"
+			if dist <= float(B.reach) and e.bite_cd <= 0.0:
+				e.state = "bite_track" # 물기 준비: 앞 0.2초 추적
 				e.state_t = 0.0
-				e.dash_left = int(d.dashes)
+				e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 				e.acted = true
+				e.dash_granted = false
+				_metrics_for(e.type).bites_prepared += 1
 				_metrics_for(e.type).prepared += 1
-		"crouch": # 방향 추적 중(예고)
+				attack_log.append([snapped(t, 0.0001), e.id, "bite"])
+			elif e.dash_granted:
+				e.dash_granted = false
+				e.state = "crouch" # 돌진 준비(자리 확보됨)
+				e.state_t = 0.0
+				e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+				e.acted = true
+				_metrics_for(e.type).dashes_prepared += 1
+				_metrics_for(e.type).prepared += 1
+				attack_log.append([snapped(t, 0.0001), e.id, "dash"])
+			elif dist > float(B.reach) - 4.0:
+				_approach(e, p.x, p.y, float(d.speed) * tf, dt)
+			# 물기 범위 안인데 재사용 대기 중이면 제자리(밀고 들어가지 않는다)
+		"bite_track": # 방향 추적(예고)
 			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 			e.state_t += dt * tf
-			if e.state_t >= float(d.crouch):
+			if e.state_t >= float(B.track):
+				e.state = "bite_lock" # 방향 고정: 이후 추적하지 않는다
+				e.state_t = 0.0
+				e.dir = e.aim_angle
+				_ev("bite_lock")
+		"bite_lock":
+			e.state_t += dt * tf
+			if e.state_t >= float(B.lock):
+				e.state = "bite_hit" # 공격 유효 구간(0.1초): 예고한 부채꼴에 1회만 타격
+				e.state_t = 0.0
+				e.bite_hit_done = false
+				e.bites += 1
+				_metrics_for(e.type).bites_executed += 1
+				_metrics_for(e.type).executed += 1
+		"bite_hit":
+			if not e.bite_hit_done and _bite_hit_check(e):
+				e.bite_hit_done = true
+				e.bite_t = 0.0
+				_ev("bite")
+				if damage_player(float(B.damage), "wolf:bite"):
+					_metrics_for(e.type).bite_hits += 1
+			e.state_t += dt * tf
+			if e.state_t >= float(B.active):
+				e.state = "bite_recover" # 물기 뒤 빈틈(피해 보너스 없음)
+				e.state_t = 0.0
+				e.bite_cd = float(B.cooldown) # 유효 구간 종료 시점부터, 빈틈 0.4 포함
+		"bite_recover":
+			e.state_t += dt * tf
+			if e.state_t >= float(B.recover):
+				e.state = "approach"
+				e.state_t = 0.0
+		"crouch": # 돌진 방향 추적 중(예고)
+			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+			e.state_t += dt * tf
+			if e.state_t >= float(D.crouch):
 				e.state = "lock" # 방향 확정: 이후 바꾸지 않는다
 				e.state_t = 0.0
 				e.dir = e.aim_angle
 				_ev("lock")
 		"lock":
 			e.state_t += dt * tf
-			if e.state_t >= float(d.lock):
+			if e.state_t >= float(D.lock):
 				e.state = "dash"
 				e.state_t = 0.0
 				e.hit_by = false
+				e.dashes += 1
+				_metrics_for(e.type).dashes_executed += 1
 				_metrics_for(e.type).executed += 1
 		"dash":
-			var remain := maxf(0.0, float(d.dash_time) - e.state_t)
+			var remain := maxf(0.0, float(D.dash_time) - e.state_t)
 			var use_dt := minf(dt * tf, remain)
 			e.state_t += dt * tf
-			var stp := float(d.dash_speed) * use_dt
+			var stp := float(D.dash_speed) * use_dt
 			var x0: float = e.x
 			var y0: float = e.y
 			var mv := move_swept(e, cos(e.dir) * stp, sin(e.dir) * stp)
 			if not e.hit_by and PGeom.seg_circle(x0, y0, e.x, e.y, p.x, p.y, p.r + e.r):
 				e.hit_by = true
 				e.bite_t = 0.0
-				_ev("bite")
-				damage_player(float(d.damage), "wolf")
+				_ev("dash_hit")
+				if damage_player(float(D.damage), "wolf:dash"):
+					_metrics_for(e.type).dash_hits += 1
 			var hit_wall: bool = mv.hit != ""
-			if e.state_t >= float(d.dash_time) or hit_wall:
+			if e.state_t >= float(D.dash_time) or hit_wall:
 				if not e.hit_by:
 					e.bite_t = 0.0
-				e.dash_left -= 1
-				if e.dash_left > 0:
-					e.state = "crouch"
-					e.state_t = 0.0
-				else:
-					e.state = "recover" # 빈틈
-					e.state_t = 0.0
-		"recover":
+				e.state = "recover" # 빈틈(받는 피해 ×1.5). 장애물에 막혀 끝나도 같다
+				e.state_t = 0.0
+				e.dash_cd = float(D.cooldown) # 돌진 종료 시점부터, 빈틈 0.9 포함
+				e.last_dash_end = t
+		"recover": # 빈틈: 물기를 포함한 모든 공격 금지
 			e.state_t += dt * tf
-			if e.state_t >= float(d.recover):
+			if e.state_t >= float(D.recover):
 				e.state = "approach"
 				e.state_t = 0.0
 
 func update_enemies(dt: float) -> void:
+	grant_dash_slots()
 	for e in enemies:
 		if e.dead:
 			e.death_t += dt
@@ -567,6 +716,7 @@ func update_enemies(dt: float) -> void:
 		if e.flash > 0.0:
 			e.flash -= dt
 		update_wolf(e, dt)
+		e.dash_granted = false # 이 단계에 쓰지 않은 허가는 버린다(다음 단계에 다시 판단)
 		if e.vx != 0.0 or e.vy != 0.0:
 			move_swept(e, e.vx * dt, e.vy * dt)
 			var k := exp(-10.0 * dt)
@@ -577,31 +727,71 @@ func update_enemies(dt: float) -> void:
 			if absf(e.vy) < 1.0:
 				e.vy = 0.0
 		push_out(e)
-	# 분리: 완전히 겹치지 않게
-	var al := alive_enemies()
-	for i in al.size():
-		for j in range(i + 1, al.size()):
-			var A: Dictionary = al[i]
-			var B: Dictionary = al[j]
-			if A.state == "dash" or B.state == "dash":
-				continue
-			var dx: float = B.x - A.x
-			var dy: float = B.y - A.y
-			var dd := sqrt(dx * dx + dy * dy)
-			var mn: float = A.r + B.r
-			if dd < mn and dd > 1e-6:
-				var push: float = (mn - dd) / 2.0 * float(cfg.constants.separation)
-				A.x -= dx / dd * push
-				A.y -= dy / dd * push
-				B.x += dx / dd * push
-				B.y += dy / dd * push
-				push_out(A)
-				push_out(B)
+	resolve_overlaps(dt)
 	var keep := []
 	for e in enemies:
 		if not e.dead or e.death_t < float(cfg.constants.death_linger):
 			keep.append(e)
 	enemies = keep
+	var al := alive_enemies().size()
+	if al > stats.max_alive:
+		stats.max_alive = al
+	var ds := dash_states_count()
+	if ds > stats.max_dash_states:
+		stats.max_dash_states = ds
+	var bs := bite_states_count()
+	if bs > stats.max_bite_states:
+		stats.max_bite_states = bs
+
+## 겹침 해소(피해 없음): 적끼리는 절반씩, 적-플레이어는 적이 70%·플레이어가 30%. 플레이어 밀림은 단계당 상한(고속 날림 없음),
+## 회피 중에는 적의 몸을 통과한다. 같은 좌표면 id 기반 방향. 밀린 뒤 장애물·경계 밖으로 밀어낸다(장애물 안으로 들어가지 않음)
+func resolve_overlaps(dt: float) -> void:
+	var al := alive_enemies()
+	for i in al.size():
+		for j in range(i + 1, al.size()):
+			var A: Dictionary = al[i]
+			var Bq: Dictionary = al[j]
+			if A.state == "dash" or Bq.state == "dash":
+				continue
+			var dx: float = Bq.x - A.x
+			var dy: float = Bq.y - A.y
+			var dd := sqrt(dx * dx + dy * dy)
+			var mn: float = A.r + Bq.r
+			if dd < mn:
+				var n: Array = [dx / dd, dy / dd] if dd > 1e-6 else [cos(float(A.id) * 2.399), sin(float(A.id) * 2.399)]
+				var push: float = minf((mn - dd) / 2.0 * float(cfg.constants.separation), 6.0)
+				A.x -= n[0] * push
+				A.y -= n[1] * push
+				Bq.x += n[0] * push
+				Bq.y += n[1] * push
+				push_out(A)
+				push_out(Bq)
+	var p := player
+	if p.dead or p.dodge_active:
+		return
+	var px_sum := 0.0
+	var py_sum := 0.0
+	for e in al:
+		if e.state == "dash":
+			continue
+		var dx: float = p.x - e.x
+		var dy: float = p.y - e.y
+		var dd := sqrt(dx * dx + dy * dy)
+		var mn: float = p.r + e.r
+		if dd < mn:
+			var n: Array = [dx / dd, dy / dd] if dd > 1e-6 else [cos(float(e.id) * 2.399), sin(float(e.id) * 2.399)]
+			var overlap: float = mn - dd
+			e.x -= n[0] * overlap * 0.7
+			e.y -= n[1] * overlap * 0.7
+			push_out(e)
+			px_sum += n[0] * overlap * 0.3
+			py_sum += n[1] * overlap * 0.3
+	var mag := sqrt(px_sum * px_sum + py_sum * py_sum)
+	var cap: float = 120.0 * dt # 플레이어 밀림 상한 120/s(여러 적의 밀침을 합산해도 이 이상 빠르지 않다)
+	if mag > 1e-9:
+		var k := minf(1.0, cap / mag)
+		move_swept(p, px_sum * k, py_sum * k, true)
+		push_out(p)
 
 func update_field(dt: float) -> void:
 	if field.is_empty():
@@ -642,7 +832,7 @@ func step(input: Dictionary, dt: float) -> void:
 	update_player(input, dt)
 	update_enemies(dt)
 	update_field(dt)
-	update_waves(dt)
+	update_spawner(dt)
 	update_effects(dt)
 	check_objective()
 
@@ -651,4 +841,4 @@ func summary() -> Dictionary:
 	var total := 0.0
 	for k in metrics.dmg:
 		total += metrics.dmg[k]
-	return { "status": status, "elapsed": snapped(t, 0.01), "hp": player.hp, "hp_max": player.hp_max, "kills": stats.kills, "damage_taken": stats.damage_taken, "attacks": stats.attacks, "hits": stats.hits, "dodges": stats.dodges, "special_uses": stats.special_uses, "dmg": metrics.dmg.duplicate(), "dmg_total": snapped(total, 0.1), "taken": metrics.taken.duplicate(), "enemies": metrics.enemies.duplicate(true), "steps": step_n, "seed": seed_value, "dodge_mode": String(cfg.player.dodge.mode), "dodge_cooldown": float(cfg.player.dodge.cooldown), "dodge_dists": stats.dodge_dists.duplicate(), "perfect_dodges": stats.perfect_dodges }
+	return { "status": status, "elapsed": snapped(t, 0.01), "hp": player.hp, "hp_max": player.hp_max, "kills": stats.kills, "damage_taken": stats.damage_taken, "attacks": stats.attacks, "hits": stats.hits, "dodges": stats.dodges, "special_uses": stats.special_uses, "dmg": metrics.dmg.duplicate(), "dmg_total": snapped(total, 0.1), "taken": metrics.taken.duplicate(), "enemies": metrics.enemies.duplicate(true), "steps": step_n, "seed": seed_value, "dodge_mode": String(cfg.player.dodge.mode), "dodge_cooldown": float(cfg.player.dodge.cooldown), "dodge_dists": stats.dodge_dists.duplicate(), "perfect_dodges": stats.perfect_dodges, "formation": String(cfg.formation_id) if cfg.has("formation_id") else "?", "spawn_total": spawn_total, "spawned": spawn_count, "xp": snapped(stats.xp, 0.0001), "max_alive": stats.max_alive, "max_dash_states": stats.max_dash_states, "max_bite_states": stats.max_bite_states, "dash_max": int(cfg.enemies.wolf.dash.max_concurrent), "wolf_hp": float(cfg.enemies.wolf.hp) }

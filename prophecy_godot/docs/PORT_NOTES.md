@@ -5,7 +5,7 @@
 |---|---|
 | 이식 기준 HTML | `prophecy_action_prototype` v0.8.0, 커밋 **ee10fc7** (작업 시작 시 최신, 작업 트리 깨끗함 확인) |
 | Godot 프로젝트 커밋 | 아래 "커밋 기록" 절 |
-| Godot 프로젝트 버전 | `godot-0.2.0` (`project.godot` `config/version`, 시작 화면·HUD 하단에 표시). 0.1.0 = 이식 그대로, 0.2.0 = 회피 시험 설계(docs/RULES.md) |
+| Godot 프로젝트 버전 | `godot-0.3.0` (`project.godot` `config/version`, 시작 화면·HUD 하단에 표시). 0.1.0 = 이식 그대로, 0.2.0 = 회피 시험 설계, 0.3.0 = 늑대 물기·돌진 빈도·밀도 시험(docs/RULES.md) |
 | 엔진 | **Godot 4.7.2-stable** 공식 배포본 (`4.7.2.stable.official.ed1daf0bf`), GDScript만, 2D, Compatibility 렌더러 |
 | 내보내기 템플릿 | 공식 `Godot_v4.7.2-stable_export_templates.tpz` → `windows_release_x86_64.exe` (템플릿 버전 = 엔진 버전 4.7.2.stable) |
 | HTML 프로젝트 | 손대지 않음(비교 기준). 추가한 것은 대조 스크립트 `tools/port_compare_html.js` 하나 |
@@ -146,3 +146,11 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 - 봇 정책 변경: 입력 형식만 바꿈(press 1회 + 회피가 끝날 때까지 held → 항상 최대 거리 시도). 판단 논리(통로 안이면 옆으로 회피·접근·Q)는 그대로. 봇은 거리를 고르지 않는다.
 - 미결(사용자 판단): 막힌 채 누르면 거리 0으로 끝나며 대기 시간을 소모한다 / 0.9 비교 설정은 과거(종료 기준)와 재사용 시작 시점이 다르다 / 회피 중 이동 입력 무시(HTML과 같음)를 유지할지.
 - 커밋·배포물(godot-0.2.0): 프로젝트 커밋 **77d48c0**, `prophecy_godot_build/prophecy_godot_project_godot-0.2.0_77d48c0.zip`, `prophecy_first_fight_windows_godot-0.2.0_77d48c0.zip`(Windows 실기 실행 미확인). 0.1.0 ZIP은 삭제.
+
+## 10. 몬스터 밀도·늑대 공격 시험 (godot-0.3.0, 2026-09-07)
+규칙·수치는 `docs/RULES.md` §늑대·§밀도, 근거는 `docs/ASSUMPTIONS.md`, 봇 비교는 `docs/DENSITY_REPORT.md`. 0.2.0 회피 작업은 그대로 보존(설정도 그대로 비교에 사용).
+- 사용자 결정: 몬스터가 적어 위협이 없다 → 5/25/50 편성 비교, 접촉 피해 없음, 가까우면 물기·멀면 돌진, 물기 자주·돌진 드물게, 예고·반격 가독성. 경험치 예산 고정(성장 미구현: 누적·검증만).
+- 규칙 테스트 68/68(0.2.0의 42 + 늑대·밀도 E1~E19 26). HTML 대조: 이동·회피·돌진·감속·검격 시각 등 12개 동일, 달라진 2개는 규칙 변경(`dodge_cd_after` 재사용 시작 시점, `hit_damage_normal` 12 = 공격하지 않는 표적 기준(HTML 14는 빈틈 명중 섞임)).
+- 관찰(테스트 E1n): 검격 넉백 40이 물기 준비 중인 늑대를 사거리 44 밖으로 밀어 정면 늑대의 물기가 자주 빗나간다. 봇 결과의 "실행 전 사망 15~27%"와 낮은 물기 명중은 이 상호작용의 영향이 크다. 이번에 넉백·사거리를 바꾸지 않았다(다음 비교 후보).
+- 봇 정책: v1(0.2.0: 돌진 통로만 회피) → v2(0.3.0: 물기 고정/유효 부채꼴 안이면 옆으로 회피 추가) + stand(입력 없음) 신설. 규칙 우회 없음.
+- 성능(Xvfb 소프트웨어 GL, 실제 GPU 아님): x5 평균 프레임 9.5ms·시뮬 0.33ms/프레임(최대 5.5ms), x10 평균 10.2ms·시뮬 0.61ms(최대 9.2ms), 단계 상한 도달 1프레임(시작 직후 스파이크 130ms 1회). headless 시뮬 µs/단계: base 100, x5 240~270, x10 430~480. 실제 GPU·Windows 프레임은 미확인.

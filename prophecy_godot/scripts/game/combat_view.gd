@@ -23,6 +23,7 @@ func start(seed_v: int, use_bot: bool = false) -> void:
 	st = Game.new_combat(seed_v)
 	bot = PBot.new() if use_bot else null
 	driver.reset() # 재시작 뒤 대기 입력 없음
+	perf = { "frames": 0, "frame_ms_max": 0.0, "frame_ms_sum": 0.0, "sim_us_sum": 0, "sim_us_max": 0, "steps_sum": 0, "capped_frames": 0, "win_frames": 0, "win_frame_ms_max": 0.0, "win_sim_us_max": 0, "win_t": 0.0, "last_frame_ms_max": 0.0, "last_sim_us_max": 0 }
 	paused = false
 	running = true
 	end_timer = 0.0
@@ -35,6 +36,38 @@ func set_paused(v: bool) -> void:
 
 func steps_this_frame() -> int:
 	return driver.steps_last_frame
+
+# ---------- 성능 기록(표시·보고용): 프레임 간격·시뮬레이션 시간·단계 상한 도달(=시뮬레이션 지연) ----------
+var perf := { "frames": 0, "frame_ms_max": 0.0, "frame_ms_sum": 0.0, "sim_us_sum": 0, "sim_us_max": 0, "steps_sum": 0, "capped_frames": 0, "win_frames": 0, "win_frame_ms_max": 0.0, "win_sim_us_max": 0, "win_t": 0.0, "last_frame_ms_max": 0.0, "last_sim_us_max": 0 }
+
+func _perf_record(delta: float, sim_us: int, n_steps: int) -> void:
+	perf.frames += 1
+	perf.frame_ms_sum += delta * 1000.0
+	perf.frame_ms_max = maxf(perf.frame_ms_max, delta * 1000.0)
+	perf.sim_us_sum += sim_us
+	perf.sim_us_max = maxi(perf.sim_us_max, sim_us)
+	perf.steps_sum += n_steps
+	if n_steps >= PStepDriver.MAX_STEPS_PER_FRAME:
+		perf.capped_frames += 1
+	perf.win_frames += 1
+	perf.win_frame_ms_max = maxf(perf.win_frame_ms_max, delta * 1000.0)
+	perf.win_sim_us_max = maxi(perf.win_sim_us_max, sim_us)
+	perf.win_t += delta
+	if perf.win_t >= 1.0:
+		perf.last_frame_ms_max = perf.win_frame_ms_max
+		perf.last_sim_us_max = perf.win_sim_us_max
+		perf.win_frames = 0
+		perf.win_frame_ms_max = 0.0
+		perf.win_sim_us_max = 0
+		perf.win_t = 0.0
+
+func perf_text() -> String:
+	if perf.frames == 0:
+		return "성능: -"
+	return "성능: 평균 프레임 %.1fms(최근 1초 최대 %.1fms, 전체 최대 %.1fms) · 시뮬 %.2fms/프레임(최대 %.2fms) · 단계 상한 도달 %d/%d 프레임" % [perf.frame_ms_sum / perf.frames, perf.last_frame_ms_max, perf.frame_ms_max, perf.sim_us_sum / 1000.0 / perf.frames, perf.sim_us_max / 1000.0, perf.capped_frames, perf.frames]
+
+func perf_summary() -> Dictionary:
+	return { "frames": perf.frames, "avg_frame_ms": snapped(perf.frame_ms_sum / maxf(1.0, perf.frames), 0.01), "max_frame_ms": snapped(perf.frame_ms_max, 0.01), "avg_sim_ms": snapped(perf.sim_us_sum / 1000.0 / maxf(1.0, perf.frames), 0.001), "max_sim_ms": snapped(perf.sim_us_max / 1000.0, 0.001), "avg_steps": snapped(float(perf.steps_sum) / maxf(1.0, perf.frames), 0.01), "capped_frames": perf.capped_frames }
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
@@ -65,7 +98,10 @@ func _process(delta: float) -> void:
 		if Input.is_action_pressed("move_down"):
 			my += 1.0
 		held = Input.is_action_pressed("dodge")
-	driver.frame(st, delta, mx, my, held, bot)
+	var t0 := Time.get_ticks_usec()
+	var n_steps := driver.frame(st, delta, mx, my, held, bot)
+	var sim_us := Time.get_ticks_usec() - t0
+	_perf_record(delta, sim_us, n_steps)
 	if st.status != "running":
 		end_timer += delta
 		if end_timer >= 1.3:
@@ -99,8 +135,26 @@ func _draw() -> void:
 	var p := st.player
 	# 늑대 돌진 예고: 통로(폭 = 늑대 반지름 + 플레이어 반지름 × 2 = 실제 물기 판정), 확정되면 굵어지고 '!'
 	for e in st.alive_enemies():
+		if e.state == "bite_track" or e.state == "bite_lock" or e.state == "bite_hit":
+			# 물기 예고: 머리 앞 짧은 부채꼴(반지름 = 실제 판정 거리 reach, 각도 = 실제 판정 각도). 추적 = 옅은 주황, 고정 = 진한 주황 + 테두리 + '!', 유효 = 흰색
+			var B: Dictionary = e.def.bite
+			var bang: float = e.aim_angle if e.state == "bite_track" else e.dir
+			var half := float(B.arc_deg) * PI / 360.0
+			var rr := float(B.reach)
+			var pts := PackedVector2Array([Vector2(e.x, e.y)])
+			for i in 11:
+				var a: float = bang - half + half * 2.0 * float(i) / 10.0
+				pts.append(Vector2(e.x + cos(a) * rr, e.y + sin(a) * rr))
+			if e.state == "bite_track":
+				draw_colored_polygon(pts, Color(1.0, 0.55, 0.2, 0.22 + 0.2 * (e.state_t / float(B.track))))
+			elif e.state == "bite_lock":
+				draw_colored_polygon(pts, Color(1.0, 0.5, 0.15, 0.55))
+				draw_polyline(pts, Color(1.0, 0.7, 0.3, 0.95), 2.0)
+				draw_string(ThemeDB.fallback_font, Vector2(e.x - 3.0, e.y - e.r - 8.0), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 0.7, 0.3))
+			else:
+				draw_colored_polygon(pts, Color(1.0, 1.0, 1.0, 0.7))
 		if e.state == "crouch" or e.state == "lock":
-			var d: Dictionary = e.def
+			var d: Dictionary = e.def.dash
 			var ang: float = e.aim_angle if e.state == "crouch" else e.dir
 			var L := float(d.dash_speed) * float(d.dash_time)
 			var locked: bool = e.state == "lock"
@@ -132,13 +186,17 @@ func _draw() -> void:
 		elif e.flash > 0.0:
 			col = Color.WHITE
 		elif e.state == "recover":
-			col = Color(0.95, 0.8, 0.4)
+			col = Color(0.95, 0.8, 0.4) # 돌진 뒤 빈틈(피해 ×1.5)
 		elif e.state == "dash":
 			col = Color(1, 0.55, 0.45)
+		elif e.state == "bite_recover":
+			col = Color(0.65, 0.72, 0.85) # 물기 뒤 빈틈(보너스 없음)
+		elif e.state == "bite_lock" or e.state == "bite_hit":
+			col = Color(0.9, 0.7, 0.55)
 		draw_circle(Vector2(e.x, e.y), e.r, col)
 		draw_arc(Vector2(e.x, e.y), e.r, 0.0, TAU, 24, Color(0, 0, 0, 0.6), 1.5)
 		if not e.dead:
-			var fa: float = e.aim_angle if e.state == "crouch" else (e.dir if (e.state == "lock" or e.state == "dash") else atan2(p.y - e.y, p.x - e.x))
+			var fa: float = e.aim_angle if (e.state == "crouch" or e.state == "bite_track") else (e.dir if (e.state == "lock" or e.state == "dash" or e.state == "bite_lock" or e.state == "bite_hit") else atan2(p.y - e.y, p.x - e.x))
 			draw_circle(Vector2(e.x + cos(fa) * e.r * 0.6, e.y + sin(fa) * e.r * 0.6), 3.5, Color(1, 0.3, 0.3) if e.state != "approach" else Color(1, 0.85, 0.5))
 			if e.state == "recover":
 				draw_string(ThemeDB.fallback_font, Vector2(e.x - 16.0, e.y - e.r - 12.0), "빈틈!", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 0.85, 0.4))

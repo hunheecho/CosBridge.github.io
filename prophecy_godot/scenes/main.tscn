@@ -340,7 +340,7 @@ layout_mode = 0
 offset_left = 8.0
 offset_top = 48.0
 offset_right = 952.0
-offset_bottom = 230.0
+offset_bottom = 330.0
 color = Color(0, 0, 0, 0.7)
 
 [node name="Text" type="Label" parent="UI/Debug"]
@@ -348,7 +348,7 @@ layout_mode = 0
 offset_left = 14.0
 offset_top = 52.0
 offset_right = 640.0
-offset_bottom = 228.0
+offset_bottom = 328.0
 theme_override_font_sizes/font_size = 12
 text = "debug"
 autowrap_mode = 3
@@ -358,7 +358,7 @@ layout_mode = 0
 offset_left = 652.0
 offset_top = 52.0
 offset_right = 946.0
-offset_bottom = 228.0
+offset_bottom = 328.0
 
 [node name="Heading" type="Label" parent="UI/Debug/Opts"]
 layout_mode = 2
@@ -380,6 +380,19 @@ theme_override_font_sizes/font_size = 12
 text = "재사용 대기 (0.9 = 과거 비교용, 1.2·1.8 = 후보)"
 
 [node name="CdOpt" type="OptionButton" parent="UI/Debug/Opts"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+
+[node name="FormLabel" type="Label" parent="UI/Debug/Opts"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "편성 (전체 수 · 동시 생존 상한)"
+
+[node name="FormOpt" type="OptionButton" parent="UI/Debug/Opts"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+
+[node name="DashOpt" type="OptionButton" parent="UI/Debug/Opts"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 

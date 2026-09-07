@@ -45,14 +45,28 @@ func steps(st: CombatState, seconds: float, input: Dictionary = {}, dt: float = 
 	for i in n:
 		st.step(input, dt)
 
-## 적이 등장하지 않는 상태(승리 판정도 나지 않게: 웨이브 1개를 무한히 미룬다)
+## 적이 등장하지 않는 상태(소환 멈춤: 예약하지 않은 적이 남아 승리 판정도 나지 않는다)
 func no_enemies(st: CombatState) -> void:
-	st.waves = [[{ "type": "wolf", "n": 1 }]]
-	st.wave_timer = 1.0e9
+	st.spawn_hold = true
+
+## 늑대 1마리를 놓고 공격을 못 하게(재사용 대기 무한) — 이동·충돌·검격 시험용
+func passive_wolf(st: CombatState, x: float, y: float) -> Dictionary:
+	var w := st.spawn_enemy("wolf", x, y)
+	w.bite_cd = 1.0e9
+	w.dash_ready_at = 1.0e9
+	return w
+
+## 검격을 끈 상태(물기·돌진 규칙만 볼 때). 검격 넉백 40이 물기 준비 중인 늑대를 사거리(44) 밖으로 밀어내는 상호작용은 E1n에서 따로 확인한다
+func no_sword(st: CombatState) -> void:
+	st.player.attack_timer = 1.0e9
+
+func mk_formation(fid: String, seed_v: int = 1, dmax: int = 2) -> CombatState:
+	var G := preload("res://scripts/game/game.gd")
+	return CombatState.new(G.config_with(cfg(), "hold", 1.5, fid, dmax), seed_v)
 
 func _init() -> void:
 	var c := cfg()
-	ok("데이터 로드: 검 12/0.55/95, 늑대 30/150, 웨이브 2", c.weapon.damage == 12 and c.weapon.interval == 0.55 and c.enemies.wolf.hp == 30 and c.waves.size() == 2)
+	ok("데이터 로드: 검 12/0.55/95, 늑대 30/150, 편성 3(기본 x5 25마리)", c.weapon.damage == 12 and c.weapon.interval == 0.55 and c.enemies.wolf.hp == 30 and c.formations.size() == 3 and c.formation_default == "x5" and c.formations.x5.total == 25)
 	# 1. 이동 속도: 1초 이동 거리 220
 	var st := mk()
 	no_enemies(st)
@@ -141,15 +155,15 @@ func _init() -> void:
 	for i in 400:
 		st.step({}, STEP)
 	ok("3초 뒤 감속장 해제", st.field.is_empty())
-	# 6. 적 0마리지만 다음 웨이브가 남으면 승리하지 않음 / 전멸 시 승리 1회
-	st = mk(3)
-	for i in 240:
-		st.step({}, STEP)
+	# 6. 화면의 적이 0이어도 예약하지 않은 적·등장 대기가 남으면 승리하지 않음 / 전멸 시 승리 1회
+	st = mk_formation("base", 3)
+	for i in 130:
+		st.step({}, STEP) # 0.4 + 0.6초: 첫 묶음 2마리 등장
 	for e in st.alive_enemies():
 		st.damage_enemy(e, 9999.0, "test")
 	st.step({}, STEP)
-	ok("1웨이브 전멸 뒤에도 2웨이브가 남으면 계속(running)", st.status == "running" and st.remaining().waves_left == 1, "%s waves_left %d" % [st.status, st.remaining().waves_left])
-	for i in 400:
+	ok("첫 묶음 전멸 뒤에도 남은 예약이 있으면 계속(running)", st.status == "running" and st.remaining().total == 3 and st.alive_enemies().is_empty(), "%s 남은 %d" % [st.status, st.remaining().total])
+	for i in 1200:
 		st.step({}, STEP)
 		for e in st.alive_enemies():
 			st.damage_enemy(e, 9999.0, "test")
@@ -157,7 +171,7 @@ func _init() -> void:
 	for ev in st.events:
 		if ev == "win":
 			wins += 1
-	ok("모든 웨이브 전멸 → 승리, 승리 이벤트 1회", st.status == "won" and wins == 1, "%s wins %d" % [st.status, wins])
+	ok("예정 5마리 전부 등장·전멸 → 승리, 승리 이벤트 1회", st.status == "won" and wins == 1, "%s wins %d" % [st.status, wins])
 	# 7. 패배: 체력 0 → lost 1회, 이후 시간 정지
 	st = mk(); no_enemies(st)
 	st.damage_player(60.0, "t"); st.player.hit_prot = 0.0; st.damage_player(60.0, "t")
@@ -170,13 +184,13 @@ func _init() -> void:
 	ok("피격 보호 0.6초 동안 추가 피해 없음", st.player.hp == 90.0)
 	# 9. 초과 피해 제외: 체력 30 늑대에 100 피해 → 유효 30
 	st = mk(); no_enemies(st)
-	var w5 := st.spawn_enemy("wolf", 100.0, 100.0)
+	var w5 := passive_wolf(st, 100.0, 100.0)
 	st.damage_enemy(w5, 100.0, "weapon:sword")
 	ok("유효 피해에 초과 피해 미포함(30)", is_equal_approx(st.metrics.dmg["weapon:sword"], 30.0) and w5.dead)
 	# 10. 검격 주기 0.55: 5초 동안 공격 횟수 9~10, 빈틈 배율 1.5
 	st = mk(); no_enemies(st)
-	var w6 := st.spawn_enemy("wolf", st.player.x + 60.0, st.player.y)
-	w6.hp = 99999.0; w6.state = "recover"; w6.def = w6.def.duplicate(); w6.def.recover = 999.0
+	var w6 := passive_wolf(st, st.player.x + 60.0, st.player.y)
+	w6.hp = 99999.0; w6.state = "recover"; w6.def = w6.def.duplicate(true); w6.def.dash.recover = 999.0
 	for i in 600:
 		st.step({}, STEP)
 		w6.x = st.player.x + 60.0; w6.y = st.player.y
@@ -379,6 +393,299 @@ func _init() -> void:
 	var t_p: float = st.t
 	var cd_p: float = st.player.dodge_cd
 	ok("D14 일시정지(프레임 미진행) 중 전투 시간·재사용 정지", st.t == t_p and st.player.dodge_cd == cd_p and cd_p > 0.0)
+	# ---------- 늑대 물기·돌진·동시 제한·밀도(docs/RULES.md §늑대·§밀도) ----------
+	var WB: Dictionary = cfg().enemies.wolf.bite
+	var WD: Dictionary = cfg().enemies.wolf.dash
+	# E1. 가까우면 물기: 사거리(44) 안에 두면 물기 준비 → 고정 → 유효 → 빈틈, 유효 구간에 1회 피해 12
+	st = mk(); no_enemies(st)
+	var e1k := st.spawn_enemy("wolf", st.player.x + 40.0, st.player.y)
+	e1k.bite_cd = 0.0; e1k.dash_ready_at = 1.0e9
+	var seen1k := {}
+	for i in 120:
+		st.step({}, STEP)
+		seen1k[e1k.state] = true
+	ok("E1n (관찰) 검격이 켜져 있으면 넉백 40으로 물기 준비 중 늑대가 사거리 44 밖으로 밀려 물기가 빗나간다(피해 0)", seen1k.has("bite_hit") and st.player.hp == 100.0, "hp %.0f" % st.player.hp)
+	st = mk(); no_enemies(st); no_sword(st)
+	var e1 := st.spawn_enemy("wolf", st.player.x + 40.0, st.player.y)
+	e1.bite_cd = 0.0; e1.dash_ready_at = 0.0
+	var seen1 := {}
+	var hp_e1: float = st.player.hp
+	for i in 120:
+		st.step({}, STEP)
+		seen1[e1.state] = true
+	ok("E1 가까우면 물기: 준비→고정→유효→빈틈, 피해 12 한 번", seen1.has("bite_track") and seen1.has("bite_lock") and seen1.has("bite_hit") and seen1.has("bite_recover") and not seen1.has("crouch") and st.player.hp == hp_e1 - 12.0 and st.metrics.enemies.wolf.bite_hits == 1, "%s hp %.0f" % [str(seen1.keys()), st.player.hp])
+	# E2. 적당한 거리(70~170)면 돌진(첫 지연 경과·재사용 가능·자리 있음)
+	st = mk(); no_enemies(st)
+	var e2 := st.spawn_enemy("wolf", st.player.x, st.player.y - 120.0)
+	e2.dash_ready_at = 0.0
+	st.step({}, STEP)
+	ok("E2 적당한 거리·조건 충족 → 돌진 준비(crouch)", e2.state == "crouch" and st.metrics.enemies.wolf.dashes_prepared == 1, e2.state)
+	# E3. 돌진 재사용 대기 중에는 접근해서 물기
+	st = mk(); no_enemies(st)
+	var e3 := st.spawn_enemy("wolf", st.player.x, st.player.y - 120.0)
+	e3.dash_ready_at = 0.0; e3.dash_cd = 8.0; e3.bite_cd = 0.0
+	var seen3 := {}
+	for i in 240:
+		st.step({}, STEP)
+		seen3[e3.state] = true
+	ok("E3 돌진 대기 중: 접근 뒤 물기(돌진 없음)", seen3.has("bite_hit") and not seen3.has("crouch"), str(seen3.keys()))
+	# E4. 공격 시작 뒤 전환 없음: 물기 준비 중 플레이어가 멀어져도 물기 절차를 마친다(돌진으로 바꾸지 않음), 돌진 준비 중 가까워져도 돌진
+	st = mk(); no_enemies(st)
+	var e4 := st.spawn_enemy("wolf", st.player.x + 40.0, st.player.y)
+	e4.bite_cd = 0.0; e4.dash_ready_at = 0.0
+	st.step({}, STEP)
+	var started_bite: bool = e4.state == "bite_track"
+	st.player.x -= 150.0 # 멀어짐
+	var seen4 := {}
+	for i in 100:
+		st.step({}, STEP)
+		seen4[e4.state] = true
+	ok("E4a 물기 시작 뒤 멀어져도 물기 절차 유지(돌진 전환 없음, 빗나감)", started_bite and seen4.has("bite_hit") and seen4.has("bite_recover") and not seen4.has("crouch") and st.player.hp == 100.0, str(seen4.keys()))
+	st = mk(); no_enemies(st)
+	var e4b := st.spawn_enemy("wolf", st.player.x, st.player.y - 120.0)
+	e4b.dash_ready_at = 0.0; e4b.bite_cd = 0.0
+	st.step({}, STEP)
+	st.player.y = e4b.y + 30.0 # 돌진 준비 중 바로 옆으로
+	var seen4b := {}
+	for i in 100:
+		st.step({}, STEP)
+		seen4b[e4b.state] = true
+	ok("E4b 돌진 준비 뒤 가까워져도 물기로 바꾸지 않음", seen4b.has("lock") and not seen4b.has("bite_track"), str(seen4b.keys()))
+	# E5. 방향 고정 뒤 옆·뒤로 빠지면 맞지 않음(판정 = 예고 부채꼴)
+	var side_ok := true
+	for offset in [[0.0, 60.0], [0.0, -60.0], [-70.0, 0.0]]:
+		var s5 := mk(); s5.spawn_hold = true
+		var e5 := s5.spawn_enemy("wolf", s5.player.x - 40.0, s5.player.y) # 왼쪽에서 오른쪽을 물려 함
+		e5.bite_cd = 0.0; e5.dash_ready_at = 1.0e9
+		while e5.state != "bite_lock" and s5.step_n < 200:
+			s5.step({}, STEP)
+		s5.player.x += float(offset[0]); s5.player.y += float(offset[1])
+		for i in 60:
+			s5.step({}, STEP)
+		if s5.player.hp != 100.0 or s5.metrics.enemies.wolf.bites_executed != 1:
+			side_ok = false
+	ok("E5 방향 고정 뒤 위/아래/뒤로 빠지면 물기 빗나감(피해 0)", side_ok)
+	var s5c := mk(); s5c.spawn_hold = true
+	var e5c := s5c.spawn_enemy("wolf", s5c.player.x - 40.0, s5c.player.y)
+	e5c.bite_cd = 0.0; e5c.dash_ready_at = 1.0e9
+	while e5c.state != "bite_lock" and s5c.step_n < 200:
+		s5c.step({}, STEP)
+	s5c.player.x -= 8.0 # 부채꼴 안에 그대로
+	for i in 60:
+		s5c.step({}, STEP)
+	ok("E5 부채꼴 안에 남으면 맞음(피해 12)", s5c.player.hp == 88.0)
+	# E6. 물기 1회에 중복 피해 없음: 유효 구간 내내 안에 있어도 피해 12 한 번, 피격 보호는 공용
+	st = mk(); no_enemies(st); no_sword(st)
+	var e6 := st.spawn_enemy("wolf", st.player.x + 40.0, st.player.y)
+	e6.bite_cd = 0.0; e6.dash_ready_at = 1.0e9
+	st.player.hit_prot = 0.0
+	for i in 120:
+		st.step({}, STEP)
+	ok("E6 물기 유효 구간 12단계 동안 피해 12 한 번", st.player.hp == 88.0 and st.metrics.enemies.wolf.bite_hits == 1)
+	# E7. 돌진 뒤 빈틈 0.9초에는 물기 불가(바로 옆에 있어도), 빈틈 뒤 접근·물기 가능
+	st = mk(); no_enemies(st); no_sword(st)
+	var e7 := st.spawn_enemy("wolf", st.player.x + 40.0, st.player.y)
+	e7.state = "recover"; e7.state_t = 0.0; e7.bite_cd = 0.0; e7.dash_cd = 8.0
+	var no_bite_in_recover := true
+	for i in int(round(0.9 / STEP)) - 1:
+		st.step({}, STEP)
+		if e7.state != "recover":
+			no_bite_in_recover = false
+	for i in 60:
+		st.step({}, STEP)
+	ok("E7 돌진 빈틈 0.9초 동안 물기 없음, 빈틈 뒤 물기", no_bite_in_recover and st.metrics.enemies.wolf.bites_prepared >= 1, "bites_prepared %d" % st.metrics.enemies.wolf.bites_prepared)
+	# E8. 재사용 대기 경계: 물기 1.2초는 유효 종료 시점부터(빈틈 0.4 포함), 돌진 8초는 돌진 종료 시점부터(빈틈 0.9 포함)
+	st = mk(); no_enemies(st); no_sword(st)
+	var e8 := st.spawn_enemy("wolf", st.player.x + 40.0, st.player.y)
+	e8.bite_cd = 0.0; e8.dash_ready_at = 1.0e9
+	while e8.state != "bite_recover" and st.step_n < 200:
+		st.step({}, STEP)
+	var cd_at_recover_start: float = e8.bite_cd
+	var n8 := 0
+	while e8.bite_cd > 0.0 and n8 < 500:
+		st.step({}, STEP)
+		n8 += 1
+	ok("E8a 물기 재사용 1.2초 = 빈틈 시작 시 1.2, 144단계 뒤 0(빈틈 0.4 포함)", is_equal_approx(cd_at_recover_start, 1.2) and n8 == 144, "%.3f %d단계" % [cd_at_recover_start, n8])
+	st = mk(); no_enemies(st); no_sword(st)
+	var e8b := st.spawn_enemy("wolf", st.player.x, 200.0)
+	st.player.y = 585.0
+	e8b.state = "lock"; e8b.state_t = 0.0; e8b.dir = PI / 2.0
+	while e8b.state != "recover" and st.step_n < 200:
+		st.step({}, STEP)
+	var dcd0: float = e8b.dash_cd
+	var n8b := 0
+	while e8b.dash_cd > 0.0 and n8b < 2000:
+		st.step({}, STEP)
+		n8b += 1
+	ok("E8b 돌진 재사용 8초 = 돌진 종료 시 8.0, 960단계 뒤 0(빈틈 0.9 포함)", is_equal_approx(dcd0, 8.0) and n8b == 960, "%.3f %d단계" % [dcd0, n8b])
+	# E9. 감속장 안에서는 재사용 대기가 적 시간 배율(0.4)로 줄어든다 — 밖보다 빨라지는 역전 없음
+	st = mk(); no_enemies(st)
+	var e9 := passive_wolf(st, st.player.x + 100.0, st.player.y)
+	e9.bite_cd = 1.0; e9.dash_cd = 8.0
+	var e9o := passive_wolf(st, 60.0, 60.0)
+	e9o.bite_cd = 1.0; e9o.dash_cd = 8.0
+	st.step({ "special": true }, STEP)
+	for i in 119:
+		st.step({}, STEP)
+	ok("E9 감속장 안 1초: 물기 대기 1.0→0.6, 돌진 8.0→7.6 / 밖: 0.0, 7.0", absf(e9.bite_cd - 0.6) < 1e-6 and absf(e9.dash_cd - 7.6) < 1e-6 and e9o.bite_cd == 0.0 and absf(e9o.dash_cd - 7.0) < 1e-6, "in %.3f/%.3f out %.3f/%.3f" % [e9.bite_cd, e9.dash_cd, e9o.bite_cd, e9o.dash_cd])
+	# E10. 동시 돌진 제한 2: 준비·고정·돌진 합계가 2를 넘지 않음, 준비 중 사망 시 자리 반환, 자리 얻지 못한 늑대는 예고 없이 접근
+	st = mk(); no_enemies(st); no_sword(st)
+	var pack := []
+	for i in 6:
+		var wi := st.spawn_enemy("wolf", 330.0 + 60.0 * i, 400.0) # 플레이어(480,500)에서 100~180
+		wi.dash_ready_at = 0.0
+		wi.bite_cd = 1.0e9
+		pack.append(wi)
+	var max_ds := 0
+	var killed_in_crouch := false
+	for i in 400:
+		st.step({}, STEP)
+		max_ds = maxi(max_ds, st.dash_states_count())
+		if not killed_in_crouch:
+			for wi in pack:
+				if wi.state == "crouch":
+					st.damage_enemy(wi, 9999.0, "test")
+					killed_in_crouch = true
+					break
+	ok("E10 동시 돌진 ≤ 2, 준비 중 사망해도 다른 늑대가 자리를 받아 계속 돌진", max_ds == 2 and killed_in_crouch and st.metrics.enemies.wolf.dashes_prepared >= 3, "max %d prepared %d" % [max_ds, st.metrics.enemies.wolf.dashes_prepared])
+	var s10 := mk_formation("x5", 1, 3); s10.spawn_hold = true; no_sword(s10)
+	for i in 6:
+		var wi := s10.spawn_enemy("wolf", 330.0 + 60.0 * i, 400.0)
+		wi.dash_ready_at = 0.0
+		wi.bite_cd = 1.0e9
+	var max3 := 0
+	for i in 200:
+		s10.step({}, STEP)
+		max3 = maxi(max3, s10.dash_states_count())
+	ok("E10 비교 설정 동시 돌진 3", max3 == 3, "max %d" % max3)
+	# E11. 첫 돌진 지연 2~5초(생성 시 1회), 같은 시드·같은 입력이면 공격 순서(attack_log) 재현
+	var s11 := mk_formation("x5", 4)
+	var delays_ok := true
+	for i in 600:
+		s11.step({}, STEP)
+		for e in s11.alive_enemies():
+			var dly: float = e.dash_ready_at - e.spawn_t
+			if dly < 2.0 - 1e-9 or dly > 5.0 + 1e-9:
+				delays_ok = false
+	var s11b := mk_formation("x5", 4)
+	for i in 600:
+		s11b.step({}, STEP)
+	ok("E11 첫 돌진 지연 2~5초, 같은 시드 → 같은 공격 순서(%d건)" % s11.attack_log.size(), delays_ok and s11.attack_log.size() > 0 and JSON.stringify(s11.attack_log) == JSON.stringify(s11b.attack_log))
+	# E12. 밀도: 25/50마리 정확히 등장, 동시 생존+대기 ≤ 상한, 대기가 남았을 때 조기 승리 없음
+	for pair in [["x5", 25, 12], ["x10", 50, 20], ["base", 5, 5]]:
+		var s12 := mk_formation(String(pair[0]), 2)
+		var cap_ok := true
+		var early_win := false
+		var n12 := 0
+		while s12.status == "running" and n12 < 120 * 200:
+			s12.step({}, STEP)
+			n12 += 1
+			if s12.alive_enemies().size() + s12.pending.size() > int(pair[2]):
+				cap_ok = false
+			for e in s12.alive_enemies():
+				st.damage_enemy(e, 9999.0, "test") if false else s12.damage_enemy(e, 9999.0, "test")
+			if s12.status == "won" and (s12.spawn_count < int(pair[1]) or not s12.pending.is_empty()):
+				early_win = true
+		ok("E12 %s: 정확히 %d 등장, 생존+대기 ≤ %d, 조기 승리 없음" % [pair[0], int(pair[1]), int(pair[2])], s12.status == "won" and s12.metrics.enemies.wolf.spawned == int(pair[1]) and cap_ok and not early_win, "%s spawned %d" % [s12.status, s12.metrics.enemies.wolf.spawned])
+	# E13. 소환 위치: 플레이어에서 100 이상, 장애물 밖, 경계 안
+	var s13 := mk_formation("x10", 6)
+	var pos_ok := true
+	var min_pd := 1.0e9
+	for i in 120 * 40:
+		s13.step({}, STEP)
+		for e in s13.enemies:
+			if e.spawn_t == s13.t and not e.dead:
+				var dpp := PGeom.dist(e.x, e.y, s13.player.x, s13.player.y)
+				min_pd = minf(min_pd, dpp)
+				if dpp < 100.0 or not s13.valid_pos(e.x, e.y, e.r):
+					pos_ok = false
+		if s13.status != "running":
+			break
+	ok("E13 소환 위치: 플레이어와 100 이상(최소 %.0f), 장애물·경계 밖 없음" % min_pd, pos_ok and s13.metrics.enemies.wolf.spawned >= 20)
+	# E14. 다수 겹침: 늑대 12마리를 플레이어와 같은 좌표에 → 좌표 유한, 플레이어 밀림 ≤ 120/s, 장애물·경계 안 아님, 접촉 피해 없음
+	st = mk(); no_enemies(st)
+	for i in 12:
+		var wi := passive_wolf(st, st.player.x, st.player.y)
+	var max_v := 0.0
+	var finite := true
+	var pxp: float = st.player.x
+	var pyp: float = st.player.y
+	for i in 240:
+		st.step({}, STEP)
+		var vv := PGeom.dist(pxp, pyp, st.player.x, st.player.y) / STEP
+		max_v = maxf(max_v, vv)
+		pxp = st.player.x; pyp = st.player.y
+		for e in st.alive_enemies():
+			if not is_finite(e.x) or not is_finite(e.y):
+				finite = false
+	ok("E14 같은 좌표 12마리: 좌표 유한, 플레이어 밀림 최대 %.0f/s ≤ 120, 장애물 밖, 접촉 피해 0" % max_v, finite and max_v <= 120.0 + 1e-6 and st.valid_pos(st.player.x, st.player.y, st.player.r) and st.player.hp == 100.0)
+	# E15. 접촉만으로 피해 없음: 늑대(공격 불가)가 2초 동안 몸을 붙여도 피해 0
+	st = mk(); no_enemies(st)
+	var e15 := passive_wolf(st, st.player.x + 20.0, st.player.y)
+	for i in 240:
+		st.step({}, STEP)
+		e15.x = st.player.x + 20.0; e15.y = st.player.y
+	ok("E15 접촉·겹침 2초 피해 0(피해는 물기·돌진 판정만)", st.player.hp == 100.0 and st.stats.damage_taken == 0.0)
+	# E16. 여러 늑대의 물기가 같은 순간 겹쳐도 피격 보호 0.6초(공용)로 체력은 12만 줄어든다
+	st = mk(); no_enemies(st)
+	for i in 3:
+		var wi := st.spawn_enemy("wolf", st.player.x + 40.0 * cos(float(i) * 2.0), st.player.y + 40.0 * sin(float(i) * 2.0))
+		wi.bite_cd = 0.0; wi.dash_ready_at = 1.0e9
+	for i in 60:
+		st.step({}, STEP)
+	ok("E16 물기 3개 동시: 피해 12 한 번(피격 보호 0.6초 공용), 실행 3회", st.player.hp == 88.0 and st.metrics.enemies.wolf.bites_executed == 3 and st.metrics.enemies.wolf.bite_hits == 1, "hp %.0f exec %d hits %d" % [st.player.hp, st.metrics.enemies.wolf.bites_executed, st.metrics.enemies.wolf.bite_hits])
+	# E17. 회피 무적 중 물기·돌진 모두 회피(회피! 판정): 유효 구간 직전에 회피를 시작해 무적 상태로 판정을 지난다
+	st = mk(); no_enemies(st); no_sword(st)
+	var e17 := st.spawn_enemy("wolf", st.player.x - 40.0, st.player.y)
+	e17.bite_cd = 0.0; e17.dash_ready_at = 1.0e9
+	while not (e17.state == "bite_lock" and e17.state_t + STEP >= float(WB.lock) - 1e-9) and st.step_n < 200:
+		st.step({}, STEP)
+	st.player.face = -PI / 2.0 # 위로 회피(늑대 부채꼴 안에서 출발)
+	st.step({ "dodge_press": true, "dodge_held": true }, STEP)
+	var entered_hit: bool = e17.state == "bite_hit"
+	for i in 3:
+		st.step({ "dodge_held": true }, STEP) # 유효 구간의 판정을 무적 상태로 지난다
+	var bite_dodged: bool = entered_hit and st.player.hp == 100.0 and st.stats.perfect_dodges == 1
+	for i in 40:
+		st.step({}, STEP)
+	var e17d := st.spawn_enemy("wolf", st.player.x, st.player.y - 90.0)
+	e17d.state = "lock"; e17d.state_t = 0.0; e17d.dir = PI / 2.0; e17d.bite_cd = 1.0e9
+	st.player.dodge_cd = 0.0
+	while e17d.state != "dash" and st.step_n < 400:
+		st.step({}, STEP)
+	for i in 8:
+		st.step({}, STEP) # 돌진 8단계(53px) 진행: 다음 단계들에 플레이어를 지난다
+	st.player.face = 0.0
+	st.step({ "dodge_press": true, "dodge_held": true }, STEP)
+	for i in 6:
+		st.step({ "dodge_held": true }, STEP)
+	ok("E17 회피 무적 중 물기·돌진 모두 피해 0(회피! 2회)", bite_dodged and st.player.hp == 100.0 and st.stats.perfect_dodges == 2, "bite %s hp %.0f perfect %d" % [str(bite_dodged), st.player.hp, st.stats.perfect_dodges])
+	# E18. 받은 피해 출처 합 = 체력 감소, 물기/돌진 출처 구분
+	var s18 := mk_formation("x5", 9)
+	var b18 := PBot.new("stand")
+	var n18 := 0
+	while s18.status == "running" and n18 < 120 * 120:
+		s18.step(b18.step_input(s18), STEP)
+		n18 += 1
+	var taken_sum := 0.0
+	for k in s18.metrics.taken:
+		taken_sum += s18.metrics.taken[k]
+	ok("E18 받은 피해 출처 합(%s) = 체력 감소 %.0f" % [str(s18.metrics.taken), 100.0 - maxf(0.0, s18.player.hp)], absf(taken_sum - (100.0 - maxf(0.0, s18.player.hp))) < 1e-6 or (s18.player.hp <= 0.0 and taken_sum >= 100.0))
+	# E19. 경험치 예산: 5/25/50마리 모두 전멸 시 합계 9.0(소수 누적, 손실 없음), 마리당 1.8/0.36/0.18
+	var xp_ok := true
+	var xp_detail := []
+	for fid in ["base", "x5", "x10"]:
+		var sx := mk_formation(fid, 2)
+		var nx := 0
+		while sx.status == "running" and nx < 120 * 200:
+			sx.step({}, STEP)
+			nx += 1
+			for e in sx.alive_enemies():
+				sx.damage_enemy(e, 9999.0, "test")
+		xp_detail.append("%s %.4f(마리당 %.2f)" % [fid, sx.stats.xp, sx.xp_per_kill()])
+		if absf(sx.stats.xp - 9.0) > 1e-9 or sx.status != "won":
+			xp_ok = false
+	ok("E19 경험치 예산 9.0 일치: " + " / ".join(xp_detail), xp_ok)
 	var pass_n := 0
 	for r in results:
 		if r[0]:

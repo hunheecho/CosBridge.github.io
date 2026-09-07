@@ -15,20 +15,21 @@ HTML 프로토타입(`../prophecy_action_prototype`, v0.8.0, 커밋 ee10fc7)의 
 Godot 없이 플레이하려면 `../prophecy_godot_build/`의 Windows 빌드 ZIP(`prophecy_first_fight.exe`)을 사용합니다. Windows 실기 실행은 이 세션(Linux)에서 확인하지 못했습니다.
 
 ## 조작
-WASD/방향키 이동 · Space 회피(짧게/길게 눌러 거리 70~150 조절, 재사용 1.5초) · Q 감속장 · 자동 공격(검격 Lv1) · Esc 일시정지/재개 · F3 검증 패널(회피 방식·재사용 비교 설정, 다음 재시작에 적용) · Enter 시작/재시작. 규칙: `docs/RULES.md`.
+WASD/방향키 이동 · Space 회피(짧게/길게 눌러 거리 70~150 조절, 재사용 1.5초) · Q 감속장 · 자동 공격(검격 Lv1) · Esc 일시정지/재개 · F3 검증 패널(회피 방식·재사용, 편성 5/25/50, 동시 돌진 2/3 비교 설정, 다음 재시작에 적용) · Enter 시작/재시작. 규칙: `docs/RULES.md`, 근거: `docs/ASSUMPTIONS.md`, 봇 밀도 비교: `docs/DENSITY_REPORT.md`.
 
 ## 검증 명령(터미널, Godot 실행 파일 경로를 `godot`라고 할 때)
 ```
-godot --headless --path prophecy_godot -s tests/run_tests.gd        # 규칙 테스트 25개
+godot --headless --path prophecy_godot -s tests/run_tests.gd        # 규칙 테스트 68개
+godot --headless --path prophecy_godot -s tools/density_report.gd   # 밀도 비교(편성 × 봇 정책 × 시드) → docs/DENSITY_REPORT.md
 godot --headless --path prophecy_godot -s tools/compare_scenario.gd  # HTML 대조용 측정(COMPARE_JSON)
 PROPHECY_CAPTURE=<폴더> godot --path prophecy_godot                  # 봇 전투를 돌리며 화면 7장 저장 후 종료
-PROPHECY_MOVIE=1 godot --path prophecy_godot --write-movie out.png --fixed-fps 30  # 영상 프레임 기록
+PROPHECY_MOVIE=1|single [PROPHECY_FORMATION=base|x5|x10] godot --path prophecy_godot --write-movie out.png --fixed-fps 30  # 영상 프레임 기록
 PROPHECY_DODGE_DEMO=1 [PROPHECY_DODGE_MODE=hold|fixed PROPHECY_DODGE_CD=1.5] godot --path prophecy_godot  # 회피 시연(스크립트 입력, DEMO_RESULT 출력)
 ```
 HTML 쪽 대조 스크립트: `node prophecy_action_prototype/tools/port_compare_html.js`.
 
 ## 폴더
-- `data/first_fight.json` 첫 전투 데이터(플레이어·검격·늑대·장애물·웨이브). 규칙 코드는 숫자를 갖지 않는다.
+- `data/first_fight.json` 첫 전투 데이터(플레이어·검격·늑대 물기/돌진·장애물·편성·소환·보상 예산). 규칙 코드는 숫자를 갖지 않는다.
 - `scripts/rules/` 순수 규칙(`combat_state.gd`, `rng.gd`, `geom.gd`, `bot.gd`): Node·Vector2·입력·그리기 없음. 고정 단계 1/120초.
 - `scripts/game/` 표시·연결부(`step_driver.gd` 프레임→단계·누름 1회 소비, `combat_view.gd` 입력 읽기와 `_draw`, `main.gd` 화면 전환·HUD·F3 비교 설정, `game.gd` 자동 로드·설정).
 - `scenes/main.tscn` 단일 씬. `tests/`, `tools/` 검증용. `docs/` 기록·캡처(`.gdignore`로 Godot이 가져오지 않음).

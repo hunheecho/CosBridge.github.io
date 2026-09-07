@@ -1,29 +1,224 @@
 {
-  "schema": "prophecy_first_fight/1",
-  "source": { "html_version": "0.8.0", "html_commit": "ee10fc7", "files": ["src/data.js", "src/growth_data.js", "src/world_data.js", "src/combat.js", "src/weapons.js", "src/skills.js"] },
-  "step": 0.008333333333333333,
-  "arena": { "w": 960, "h": 600 },
-  "constants": { "wave_delay": 1.2, "spawn_warn": 0.6, "separation": 1.0, "first_wave_timer": 0.4, "exposed_mult": 1.5, "death_linger": 0.9 },
-  "player": {
-    "hp": 100, "speed": 220, "r": 14, "hit_protect": 0.6,
-    "dodge": { "mode": "hold", "min_distance": 70, "distance": 150, "duration": 0.26, "cooldown": 1.5, "modes": ["fixed", "hold"], "cooldown_options": [0.9, 1.2, 1.5, 1.8], "note": "mode hold=누르는 시간에 따라 70~150(기본), fixed=항상 150(기존 HTML). 속도 150/0.26 일정, 무적은 회피 이동 중에만(최대 duration). cooldown은 시작 순간부터. 0.9는 과거 비교용, 1.2·1.8은 후보. 시험값(2026-09-07), 최종 아님" },
-    "slowfield": { "radius": 150, "duration": 3.0, "cooldown": 14, "slow": 0.4 },
-    "start": { "x": 480, "y": 500 }
+  "schema": "prophecy_first_fight/2",
+  "source": {
+    "html_version": "0.8.0",
+    "html_commit": "ee10fc7",
+    "files": [
+      "src/data.js",
+      "src/growth_data.js",
+      "src/world_data.js",
+      "src/combat.js",
+      "src/weapons.js",
+      "src/skills.js"
+    ]
   },
-  "weapon": { "id": "sword", "name": "검격", "level": 1, "damage": 12, "interval": 0.55, "range": 95, "arc_deg": 110, "knock": 40, "first_attack_delay": 0.25 },
+  "step": 0.008333333333333333,
+  "arena": {
+    "w": 960,
+    "h": 600
+  },
+  "constants": {
+    "spawn_warn": 0.6,
+    "separation": 1.0,
+    "exposed_mult": 1.5,
+    "death_linger": 0.9
+  },
+  "player": {
+    "hp": 100,
+    "speed": 220,
+    "r": 14,
+    "hit_protect": 0.6,
+    "dodge": {
+      "mode": "hold",
+      "min_distance": 70,
+      "distance": 150,
+      "duration": 0.26,
+      "cooldown": 1.5,
+      "modes": [
+        "fixed",
+        "hold"
+      ],
+      "cooldown_options": [
+        0.9,
+        1.2,
+        1.5,
+        1.8
+      ],
+      "note": "mode hold=누르는 시간에 따라 70~150(기본), fixed=항상 150(기존 HTML). 속도 150/0.26 일정, 무적은 회피 이동 중에만(최대 duration). cooldown은 시작 순간부터. 0.9는 과거 비교용, 1.2·1.8은 후보. 시험값(2026-09-07), 최종 아님"
+    },
+    "slowfield": {
+      "radius": 150,
+      "duration": 3.0,
+      "cooldown": 14,
+      "slow": 0.4
+    },
+    "start": {
+      "x": 480,
+      "y": 500
+    }
+  },
+  "weapon": {
+    "id": "sword",
+    "name": "검격",
+    "level": 1,
+    "damage": 12,
+    "interval": 0.55,
+    "range": 95,
+    "arc_deg": 110,
+    "knock": 40,
+    "first_attack_delay": 0.25
+  },
   "enemies": {
-    "wolf": { "name": "늑대", "r": 14, "hp": 30, "speed": 150, "engage_dist": 170, "crouch": 0.6, "lock": 0.15, "dash_time": 0.32, "dash_speed": 800, "recover": 0.9, "damage": 12, "dashes": 1 }
+    "wolf": {
+      "name": "늑대",
+      "r": 14,
+      "hp": 30,
+      "speed": 150,
+      "xp": 1.8,
+      "dash": {
+        "min_dist": 70,
+        "engage_dist": 170,
+        "crouch": 0.6,
+        "lock": 0.15,
+        "dash_time": 0.32,
+        "dash_speed": 800,
+        "recover": 0.9,
+        "damage": 12,
+        "cooldown": 8.0,
+        "first_delay": [
+          2.0,
+          5.0
+        ],
+        "max_concurrent": 2,
+        "concurrent_options": [
+          2,
+          3
+        ]
+      },
+      "bite": {
+        "reach": 44,
+        "arc_deg": 100,
+        "track": 0.2,
+        "lock": 0.15,
+        "active": 0.1,
+        "recover": 0.4,
+        "cooldown": 1.2,
+        "damage": 12,
+        "initial_delay": [
+          0.0,
+          0.6
+        ]
+      },
+      "note": "dash.cooldown 8초는 돌진 종료(빈틈 시작) 시점부터, 빈틈 0.9 포함. bite.cooldown 1.2초는 공격 유효 구간 종료(빈틈 시작)부터, 빈틈 0.4 포함. 둘 다 적 시간 배율(감속장 0.4)을 따른다. first_delay는 등장 완료 뒤 시뮬레이션 시간(배율 없음), 생성 시 시드로 1회. bite.reach = 늑대 중심~플레이어 중심 거리(몸 반지름 합 28 + 16). 시험값 2026-09-07"
+    }
   },
   "obstacles": [
-    { "id": "rockA", "type": "rock", "x": 285, "y": 220, "r": 42 },
-    { "id": "rockB", "type": "rock", "x": 675, "y": 380, "r": 42 },
-    { "id": "treeA", "type": "tree", "x": 300, "y": 420, "r": 26 },
-    { "id": "treeB", "type": "tree", "x": 660, "y": 180, "r": 26 }
+    {
+      "id": "rockA",
+      "type": "rock",
+      "x": 285,
+      "y": 220,
+      "r": 42
+    },
+    {
+      "id": "rockB",
+      "type": "rock",
+      "x": 675,
+      "y": 380,
+      "r": 42
+    },
+    {
+      "id": "treeA",
+      "type": "tree",
+      "x": 300,
+      "y": 420,
+      "r": 26
+    },
+    {
+      "id": "treeB",
+      "type": "tree",
+      "x": 660,
+      "y": 180,
+      "r": 26
+    }
   ],
-  "waves": [[{ "type": "wolf", "n": 2 }], [{ "type": "wolf", "n": 3 }]],
   "notes": [
-    "waves = HTML 1일차 근교 숲 새벽 변주(소규모 순찰: 마지막 웨이브 없음) = 늑대 2 → 늑대 3",
     "obstacles = HTML 공터(clearing) 전장. 첫 전투에 '바위·나무 소수' 요구를 맞추기 위해 숲 전장(장애물 없음) 대신 사용",
-    "수치 의미: 거리 단위 = 픽셀(전장 960×600), 시간 = 초. 늑대 돌진 길이 = dash_speed × dash_time = 256"
-  ]
+    "수치 의미: 거리 단위 = 픽셀(전장 960×600), 시간 = 초. 늑대 돌진 길이 = dash_speed × dash_time = 256",
+    "formations/spawn/reward는 godot-0.3.0 밀도 시험(docs/RULES.md §늑대·§밀도)"
+  ],
+  "formations": {
+    "base": {
+      "name": "기준 5마리",
+      "total": 5,
+      "alive_cap": 5,
+      "group": 2,
+      "interval": 1.2
+    },
+    "x5": {
+      "name": "5배 25마리",
+      "total": 25,
+      "alive_cap": 12,
+      "group": 3,
+      "interval": 1.0
+    },
+    "x10": {
+      "name": "10배 50마리",
+      "total": 50,
+      "alive_cap": 20,
+      "group": 4,
+      "interval": 0.8
+    }
+  },
+  "formation_default": "x5",
+  "spawn": {
+    "first_delay": 0.4,
+    "warn": 0.6,
+    "min_player_dist": 200,
+    "group_spread": 34,
+    "entry_points": [
+      [
+        80,
+        60
+      ],
+      [
+        480,
+        40
+      ],
+      [
+        880,
+        60
+      ],
+      [
+        920,
+        300
+      ],
+      [
+        880,
+        540
+      ],
+      [
+        480,
+        560
+      ],
+      [
+        80,
+        540
+      ],
+      [
+        40,
+        300
+      ]
+    ],
+    "note": "total = 전체 등장 수, alive_cap = 동시 생존 상한(등장 대기 포함), group = 한 번에 진입하는 묶음 크기, interval = 묶음 사이 최소 보충 간격(초). 진입 지점은 전장 가장자리 8곳 중 플레이어에서 min_player_dist 이상 떨어진 곳을 시드로 고른다. 시험값 2026-09-07"
+  },
+  "reward": {
+    "wolf_xp_applied": 1.8,
+    "xp_source": "HTML growth_data XP_VALUE.wolf 6 × REGION_XP_MULT.forest 1 × XP_KILL_MULT 0.3(시험 빌드 test03, 현재 적용값) = 1.8",
+    "base_fight_xp": 9.0,
+    "base_total": 5,
+    "region_bonus_xp": 3.0,
+    "region_bonus_source": "REGION_BONUS_XP.forest 10 × BONUS_XP_MULT 0.3 = 3.0, 개체 수와 무관",
+    "per_kill_rule": "마리당 경험치 = base_fight_xp / formation.total (25마리 0.36, 50마리 0.18). 소수 누적. 금화·아이템은 첫 전투 미구현(HTML 지역 보상 예산 기준으로 이후 이식)"
+  }
 }
