@@ -3,6 +3,7 @@ var PA = (typeof PA !== 'undefined') ? PA : {};
 if (typeof globalThis !== 'undefined') globalThis.PA = PA;
 
 PA.VERSION = '0.8.0';
+PA.clock = { now: () => Date.now() }; // 시간 연결부: 핵심 규칙은 Date.now를 직접 부르지 않고 여기서 받는다(이식·시험 시 교체 가능)
 PA.BLADE_SPOKE = { innerFrac: 0.35, hitR: 14 }; // 회전 칼날 판정: 중심에서 반지름×0.35 지점부터 칼날 끝까지의 살, 두께 14 (v0.8 사각 수정)
 
 // mulberry32: 시드 기반 결정적 난수

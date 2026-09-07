@@ -26,3 +26,18 @@
 ## 실행 환경 제한(이 세션)
 - 원격 Linux 컨테이너. 실제 Windows 실행은 하지 못했고, 헤드리스 Chromium으로 렌더링·입력 시나리오를 확인했다.
 - 소리는 헤드리스에서 들을 수 없으므로 코드 경로만 검증했다.
+
+## Godot 이식 준비 지침 (2026-09-07, 지금 이식하지 않음)
+
+새 기능은 아래를 지킨다. 이식 준비를 이유로 구현을 늦추지 않고, 대규모 구조 변경도 하지 않는다.
+
+| 지침 | 현재 상태(감사: `grep document|window|localStorage|canvas|Date.now|Math.random` src/핵심 모듈) |
+|---|---|
+| 전투·성장·경제 규칙 ↔ 화면 표시 분리 | 규칙: combat/weapons/skills/boss/enemies/objectives/growth/run/sortie/flow/stats. 표시: render.js(캔버스)·screens.js(DOM)·main.js(입력·루프·화면 전환). 규칙 모듈은 DOM·Canvas 참조 0 |
+| 데이터 ↔ 실행 코드 분리 | data.js(적·지역·설정), growth_data.js(자동기술·개조·공용·패시브·기술), world_data.js(시간대·장소·편성·변주·장비·가격), boss_data.js, mission_data.js, balance_data.js, glossary_data.js, lab_data.js |
+| 핵심 규칙에서 브라우저 API 직접 참조 금지 | 저장은 `Run.save/load(storage)`·`Lab.saveConfig(storage)`에 저장소를 주입(기본값만 localStorage, 테스트는 fakeStorage). 시간은 `PA.clock.now()`(기본 Date.now) 한 곳. 난수는 `PA.rng.create(seed)`만 사용(Math.random 0) |
+| 입력·저장은 별도 연결부 | 입력: `PA.Input`(키 → {mx,my,dodge,special,skillE}) 또는 `PA.Bot.stepInput`이 같은 형식으로 `Combat.step(st, input, dt)`에 전달. 저장: 위 storage 인자 |
+| 시간·난수 통제 | 고정 단계 1/120초(`CONFIG.STEP`), 봇 판단 5스텝, 단일 시드 난수. 프레임 속도 독립 테스트(test/lab.test.js) |
+| 대표 전투의 입력·설정·결과 | `docs/port/fixtures_v08.json` + `FIXTURES.md`(`tools/port_fixtures.js`, `--verify`로 입력 열만 재실행). 규칙이 바뀌면 `test/port_fixtures.test.js`가 깨지고 다시 기록한다 |
+
+남은 결합(이식 시 정리 대상, 지금은 두는 것): screens.js가 규칙 함수(Run.*, Sortie.*)를 직접 호출해 문자열을 만든다(표시 전용이라 허용). main.js의 게임 루프가 Combat.step과 Bot을 직접 묶는다(연결부 역할). Combat.summary/metrics는 규칙 모듈 안에 있으나 표시와 무관한 순수 집계다.

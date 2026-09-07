@@ -14,7 +14,7 @@ PA.Run = (function () {
       mode: mode && PA.RUN_MODES[mode] ? mode : 'trio', stage: 0, bossesDone: [], bossRecords: {}, // 회차 구조: 새 회차 기본은 3보스
       growth: PA.Growth.newGrowth(startWeapon || 'sword'),
       layout: 'classic', difficulty: B && B.difficulty ? B.difficulty : 'base',
-      version: VERSION, seed: seed || (Date.now() % 100000), sortieCount: 0,
+      version: VERSION, seed: seed || (PA.clock.now() % 100000), sortieCount: 0,
       phase: 'prep',            // prep(준비) | boss_prep(관문) | cleared(완주)
       bossRetries: 0, bossClear: null,
       day: 1, hours: cfg.HOURS_PER_DAY, // hours = 남은 시간대 칸 수(새벽=5칸 남음). 현재 시간대 = HOURS_PER_DAY - hours
@@ -228,7 +228,7 @@ PA.Run = (function () {
   }
   function bossVictory(run, stats) {
     const b = build(run), nb = nextBoss(run), bossId = nb ? nb.id : 'boss', cfg = PA.BOSS_DEFS[bossId];
-    const rec = { bossId, stage: run.stage || 0, time: Math.round(stats.elapsed * 10) / 10, retries: run.bossRetries || 0, weapon: b.weapon.name, upgrade: run.gear.upgrade, acc: run.gear.acc, armor: run.gear.armor, augments: Object.assign({}, run.augments), level: run.growth.level, specialUses: stats.specialUses || 0, bossDamage: Math.round(stats.bossDamage || 0), day: run.day, seed: run.seed, mode: run.mode, at: Date.now() };
+    const rec = { bossId, stage: run.stage || 0, time: Math.round(stats.elapsed * 10) / 10, retries: run.bossRetries || 0, weapon: b.weapon.name, upgrade: run.gear.upgrade, acc: run.gear.acc, armor: run.gear.armor, augments: Object.assign({}, run.augments), level: run.growth.level, specialUses: stats.specialUses || 0, bossDamage: Math.round(stats.bossDamage || 0), day: run.day, seed: run.seed, mode: run.mode, at: PA.clock.now() };
     if (!run.bossRecords[bossId]) run.bossRecords[bossId] = rec; // 보스별 처치 기록은 1회(재도전·재정산으로 갱신하지 않음)
     if (bossId === 'boss' && !run.bossClear) run.bossClear = rec; // 단일 보스 회차 호환 필드
     run.lastBossClear = rec; if (!run.bossesDone.includes(bossId)) run.bossesDone.push(bossId);

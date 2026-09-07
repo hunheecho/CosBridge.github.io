@@ -129,7 +129,7 @@ PA.Lab = (function () {
   function labText(cfg) { const ep = enemyPreset(cfg.enemy), b = PA.LAB.BUILDS[cfg.build]; return `시험실 v${PA.VERSION} · ${cfg.balance && cfg.balance !== 'current' && PA.BALANCE_SETS[cfg.balance] ? PA.BALANCE_SETS[cfg.balance].name + ' · ' : ''}${ep ? ep.name : cfg.enemy} · 체력 ×${cfg.hp.normal}/${cfg.hp.elite}/${cfg.hp.boss} · ${b ? b.name : cfg.build} · 시드 ${cfg.seed} · ${cfg.control === 'bot' ? '봇 ' + PA.Bot.POLICIES[cfg.bot].name : '직접 조작'} · ${cfg.growth === 'grow' ? '성장' : '빌드 고정'} · 제한 ${cfg.time}초`; }
 
   // ---------- 결과 ----------
-  function result(cfg, st) { const s = PA.Combat.summary(st); s.config = Object.assign({}, cfg, { hp: Object.assign({}, cfg.hp) }); s.configText = encode(cfg); s.at = Date.now(); return s; }
+  function result(cfg, st) { const s = PA.Combat.summary(st); s.config = Object.assign({}, cfg, { hp: Object.assign({}, cfg.hp) }); s.configText = encode(cfg); s.at = PA.clock.now(); return s; }
   const CSV_COLS = ['at', 'version', 'configText', 'status', 'elapsed', 'hp', 'hpMax', 'damageTaken', 'absorbed', 'kills', 'specialUses', 'eUses', 'dodges', 'xp', 'levelUps', 'dmgTotal', 'enemiesSpawned', 'enemiesKilled', 'prepared', 'executed', 'diedBeforeAttack', 'ttkAvg', 'takenBy', 'dmgBy'];
   function csvRow(r) {
     const en = Object.values(r.enemies || {}), sum = (k) => en.reduce((a, e) => a + (e[k] || 0), 0);
