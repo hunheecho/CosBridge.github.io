@@ -1,0 +1,226 @@
+{
+ "schema": "prophecy_port/1",
+ "source": {
+  "html_version": "0.8.0",
+  "html_commit": "ee10fc7",
+  "exported_by": "tools/port_export_data.js",
+  "godot_rules_from": "first_fight.json(godot-0.3.1, D33/D34/D35)"
+ },
+ "config": {
+  "STEP": 0.008333333333333333,
+  "ARENA": {
+   "w": 960,
+   "h": 600
+  },
+  "VIEW": {
+   "pad": 44
+  },
+  "HOURS_PER_DAY": 5,
+  "BOSS_DAY": 7,
+  "START_GOLD": 60,
+  "REST_HOURS": 1,
+  "DEFEAT_HOUR_PENALTY": 1,
+  "DEFEAT_HP_RATIO": 0.3,
+  "DEEP_EXPLORE_HOURS": 1,
+  "DEEP_REWARD_MULT": 1.5,
+  "SKIP_AUGMENT_GOLD": 20,
+  "PLAYER": {
+   "hp": 100,
+   "speed": 220,
+   "r": 14,
+   "hitProtect": 0.6,
+   "zoneTick": 0.5,
+   "dodge": {
+    "mode": "hold",
+    "min_distance": 70,
+    "distance": 150,
+    "duration": 0.26,
+    "cooldown": 1.5,
+    "modes": [
+     "fixed",
+     "hold"
+    ],
+    "cooldown_options": [
+     0.9,
+     1.2,
+     1.5,
+     1.8
+    ],
+    "note": "mode hold=누르는 시간에 따라 70~150(기본), fixed=항상 150(기존 HTML). 속도 150/0.26 일정, 무적은 회피 이동 중에만(최대 duration). cooldown은 시작 순간부터. 0.9는 과거 비교용, 1.2·1.8은 후보. 시험값(2026-09-07), 최종 아님"
+   },
+   "special": {
+    "radius": 150,
+    "duration": 3,
+    "cooldown": 14,
+    "slow": 0.4
+   },
+   "exposedMult": 1.5,
+   "hit_protect": 0.6
+  },
+  "ECHO": {
+   "every": 4,
+   "delay": 0.2
+  },
+  "EMBER": {
+   "count": 3,
+   "radius": 30,
+   "ttl": 2.5,
+   "tick": 0.4,
+   "damage": 5
+  },
+  "FROST": {
+   "chill": 2,
+   "slow": 0.6,
+   "shards": 6,
+   "shardDamage": 8,
+   "shardSpeed": 300,
+   "shardTtl": 0.5
+  },
+  "STASIS": {
+   "maxStacks": 5,
+   "damagePerStack": 10
+  },
+  "FLARE": {
+   "radius": 80,
+   "damage": 20
+  },
+  "SAVING": {
+   "cdPerKill": 1
+  },
+  "CHEST": {
+   "gold": [
+    15,
+    25
+   ],
+   "wave": 1,
+   "r": 16
+  },
+  "WAVE_DELAY": 1.2,
+  "SPAWN_WARN": 0.6,
+  "SEPARATION": 1
+ },
+ "arenas": {
+  "forest": {
+   "name": "숲 전장",
+   "obstacles": []
+  },
+  "clearing": {
+   "name": "돌과 나무가 있는 숲의 공터",
+   "obstacles": [
+    {
+     "id": "rockA",
+     "type": "rock",
+     "x": 285,
+     "y": 220,
+     "r": 42
+    },
+    {
+     "id": "rockB",
+     "type": "rock",
+     "x": 675,
+     "y": 380,
+     "r": 42
+    },
+    {
+     "id": "treeA",
+     "type": "tree",
+     "x": 300,
+     "y": 420,
+     "r": 26,
+     "canopy": 70
+    },
+    {
+     "id": "treeB",
+     "type": "tree",
+     "x": 660,
+     "y": 180,
+     "r": 26,
+     "canopy": 70
+    }
+   ],
+   "playerStart": {
+    "x": 480,
+    "y": 500
+   },
+   "bossStart": {
+    "x": 480,
+    "y": 120
+   }
+  },
+  "pillars": {
+   "name": "기둥 숲",
+   "obstacles": [
+    {
+     "id": "rockA",
+     "type": "rock",
+     "x": 240,
+     "y": 300,
+     "r": 40
+    },
+    {
+     "id": "rockB",
+     "type": "rock",
+     "x": 720,
+     "y": 300,
+     "r": 40
+    },
+    {
+     "id": "rockC",
+     "type": "rock",
+     "x": 480,
+     "y": 140,
+     "r": 36
+    },
+    {
+     "id": "treeA",
+     "type": "tree",
+     "x": 480,
+     "y": 470,
+     "r": 26,
+     "canopy": 70
+    }
+   ],
+   "playerStart": {
+    "x": 480,
+    "y": 330
+   },
+   "bossStart": {
+    "x": 480,
+    "y": 120
+   }
+  }
+ },
+ "blade_spoke": {
+  "innerFrac": 0.35,
+  "hitR": 14
+ },
+ "keys_text": "WASD/방향키 이동 · Space 회피 · Q 감속장 · E 기술 · Esc 일시정지",
+ "boss_action_text": {
+  "intro": "입장",
+  "approach": "접근",
+  "sweep_aim": "송곳니 휩쓸기 준비",
+  "sweep_lock": "휩쓸기!",
+  "dash_aim": "사냥 돌진 준비",
+  "dash_lock": "돌진!",
+  "dash": "돌진 중",
+  "howl": "무리 소환",
+  "pounce_aim": "덮쳐찍기 준비",
+  "pounce_lock": "덮쳐찍기!",
+  "leap": "도약 중",
+  "recover": "빈틈!",
+  "roar": "포효",
+  "stagger": "비틀거림!",
+  "dead": "쓰러짐",
+  "shock_aim": "충격파 준비",
+  "shock_lock": "충격파!",
+  "mark_cast": "표식",
+  "mark_wait": "표식 폭발 대기",
+  "lanes_warn": "두 줄 직선 준비",
+  "lanes_lock": "직선!",
+  "lanes_fire": "직선 발사",
+  "wide_aim": "광역 준비",
+  "wide_lock": "광역!",
+  "summon": "소환"
+ },
+ "version_html": "0.8.0"
+}

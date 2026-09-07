@@ -79,6 +79,8 @@
 |---|---|---|
 | 의도·읽기 순서·현재 초점·문서 운영 | `docs/PROJECT_CONTEXT.md` (이 문서) | |
 | 설계 변경의 이유·과거 결정·대체 관계·사용자 판단 기록 | `docs/DESIGN_DECISIONS.md` | D01~D36 |
+| Godot 전체 이식의 기준(기준 커밋·권한 순위·범위·구조·충돌·질문) | `docs/PORT_BASELINE.md` | 2026-09-07 착수 |
+| 콘텐츠 대조표(개별 ID·설계/HTML/Godot 상태·포함·검증) | `docs/CONTENT_MATRIX.md` | 구현 진행에 따라 Godot 열 갱신 |
 | 전체 게임 규칙(설계 정본, HTML v0.8.0 구현 기준) | `prophecy_action_prototype/docs/GAME_SPEC.md` (§19가 v0.8 규칙) | 초안 `CURRENT_DESIGN_DRAFT.md`의 병합은 **미완**(아래 열린 항목) |
 | HTML 시험값·이전값·근거 | `prophecy_action_prototype/docs/ASSUMPTIONS.md` | |
 | HTML 요구별 구현·검증 상태 | `prophecy_action_prototype/docs/TRACEABILITY.md` | R-CODEX-* 포함 |

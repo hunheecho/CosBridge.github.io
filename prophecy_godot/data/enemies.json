@@ -1,0 +1,724 @@
+{
+ "schema": "prophecy_port/1",
+ "source": {
+  "html_version": "0.8.0",
+  "html_commit": "ee10fc7",
+  "exported_by": "tools/port_export_data.js",
+  "godot_rules_from": "first_fight.json(godot-0.3.1, D33/D34/D35)"
+ },
+ "enemies": {
+  "boss": {
+   "name": "가시갈기",
+   "role": "보스 · 숲의 왕",
+   "r": 42,
+   "hp": 2400,
+   "speed": 110,
+   "color": "#6e5a3a",
+   "boss": true,
+   "readme": "거대한 늑대. 휩쓸기·돌진·무리 소환·덮쳐찍기."
+  },
+  "wolf": {
+   "name": "늑대",
+   "role": "돌진 습격",
+   "r": 14,
+   "hp": 30,
+   "speed": 150,
+   "color": "#9aa0a8",
+   "engageDist": 170,
+   "crouch": 0.6,
+   "lock": 0.15,
+   "dashTime": 0.32,
+   "dashSpeed": 800,
+   "recover": 0.9,
+   "damage": 12,
+   "dashes": 1,
+   "readme": "웅크리고 화살표로 방향을 예고한 뒤 직진 돌진. 확정 신호 뒤에는 방향이 바뀌지 않는다. 옆으로 피하면 빈틈.",
+   "godot_rules": true,
+   "bite": {
+    "reach": 44,
+    "arc_deg": 100,
+    "track": 0.2,
+    "lock": 0.15,
+    "active": 0.1,
+    "recover": 0.4,
+    "cooldown": 1.2,
+    "damage": 12,
+    "initial_delay": [
+     0,
+     0.6
+    ]
+   },
+   "dash": {
+    "min_dist": 70,
+    "engage_dist": 170,
+    "crouch": 0.6,
+    "lock": 0.15,
+    "dash_time": 0.32,
+    "dash_speed": 800,
+    "recover": 0.9,
+    "damage": 12,
+    "cooldown": 8,
+    "first_delay": [
+     2,
+     5
+    ],
+    "max_concurrent": 2,
+    "concurrent_options": [
+     2,
+     3
+    ]
+   },
+   "note": "dash.cooldown 8초는 돌진 종료(빈틈 시작) 시점부터, 빈틈 0.9 포함. bite.cooldown 1.2초는 공격 유효 구간 종료(빈틈 시작)부터, 빈틈 0.4 포함. 둘 다 적 시간 배율(감속장 0.4)을 따른다. first_delay는 등장 완료 뒤 시뮬레이션 시간(배율 없음), 생성 시 시드로 1회. bite.reach = 늑대 중심~플레이어 중심 거리(몸 반지름 합 28 + 16). 시험값 2026-09-07"
+  },
+  "wolf_alpha": {
+   "name": "늑대 우두머리",
+   "role": "정예",
+   "r": 22,
+   "hp": 120,
+   "speed": 160,
+   "color": "#c9b458",
+   "elite": true,
+   "engageDist": 200,
+   "crouch": 0.6,
+   "lock": 0.15,
+   "dashTime": 0.34,
+   "dashSpeed": 820,
+   "recover": 1.2,
+   "damage": 18,
+   "dashes": 2,
+   "secondCrouch": 0.35,
+   "readme": "연속 2회 돌진. 두 번째 준비가 짧다. 두 번 모두 옆으로.",
+   "godot_rules": true,
+   "provisional": "C2/Q5: HTML 2연속 돌진 + Godot 물기·재사용·동시 집계",
+   "bite": {
+    "reach": 52,
+    "arc_deg": 100,
+    "track": 0.2,
+    "lock": 0.15,
+    "active": 0.1,
+    "recover": 0.4,
+    "cooldown": 1.2,
+    "damage": 18,
+    "initial_delay": [
+     0,
+     0.6
+    ]
+   },
+   "dash": {
+    "min_dist": 70,
+    "engage_dist": 200,
+    "crouch": 0.6,
+    "lock": 0.15,
+    "dash_time": 0.34,
+    "dash_speed": 820,
+    "recover": 1.2,
+    "damage": 18,
+    "cooldown": 8,
+    "first_delay": [
+     2,
+     5
+    ],
+    "max_concurrent": 2,
+    "concurrent_options": [
+     2,
+     3
+    ],
+    "dashes": 2,
+    "second_crouch": 0.35
+   }
+  },
+  "archer": {
+   "name": "궁수",
+   "role": "원거리 압박",
+   "r": 13,
+   "hp": 22,
+   "speed": 110,
+   "color": "#7cc47a",
+   "keepMin": 220,
+   "keepMax": 360,
+   "aim": 1,
+   "lock": 0.25,
+   "recover": 1.3,
+   "arrowSpeed": 460,
+   "arrowDamage": 10,
+   "arrowR": 5,
+   "readme": "붉은 선으로 조준을 예고하고 선이 굵어지면 방향 고정. 체력이 낮으니 접근해서 먼저 처치."
+  },
+  "spore": {
+   "name": "포자 괴물",
+   "role": "지역 통제",
+   "r": 18,
+   "hp": 55,
+   "speed": 60,
+   "color": "#b070d8",
+   "engageDist": 130,
+   "swell": 0.9,
+   "recover": 1.6,
+   "cloudR": 80,
+   "cloudTtl": 5,
+   "cloudDamage": 6,
+   "deathCloudR": 50,
+   "deathCloudTtl": 3,
+   "readme": "부풀면서 바닥에 원을 그린다. 원 = 구름 범위. 죽어도 작은 구름을 남긴다.",
+   "engage_dist": 130
+  },
+  "boar": {
+   "name": "멧돼지",
+   "role": "긴 직선 돌파",
+   "r": 18,
+   "hp": 70,
+   "speed": 115,
+   "color": "#8a6a4a",
+   "arena": "pillars",
+   "engageDist": 320,
+   "minDist": 110,
+   "aim": 0.9,
+   "lock": 0.35,
+   "chargeDist": 520,
+   "chargeSpeed": 700,
+   "damage": 16,
+   "recover": 1.4,
+   "stun": 2.4,
+   "readme": "늑대보다 길게 준비하고 무겁게 직진한다. 확정 뒤에는 추적하지 않는다. 바위·나무에 부딪히면 오래 비틀거린다(빈틈). 장애물 뒤로 유도하라.",
+   "engage_dist": 320
+  },
+  "shieldbearer": {
+   "name": "방패병",
+   "role": "정면 방어",
+   "r": 16,
+   "hp": 60,
+   "speed": 95,
+   "color": "#7a8aa0",
+   "turnRate": 2.2,
+   "frontDeg": 120,
+   "frontMult": 0.3,
+   "knockMult": 0.5,
+   "engageDist": 66,
+   "aim": 0.7,
+   "bashRange": 64,
+   "bashDeg": 100,
+   "damage": 14,
+   "lunge": 18,
+   "recover": 1.3,
+   "readme": "방패를 향한 정면 공격은 30%만 들어간다. 몸을 돌리는 속도가 느리니 옆·뒤로 돌아가라. 방패치기를 준비하면 방패가 열려 정면도 정상 피해.",
+   "engage_dist": 66
+  },
+  "shaman": {
+   "name": "주술사",
+   "role": "우선 처치(치료)",
+   "r": 14,
+   "hp": 40,
+   "speed": 90,
+   "color": "#c58ae0",
+   "keepMin": 170,
+   "keepMax": 300,
+   "healInterval": 6,
+   "healCast": 1.5,
+   "healRange": 280,
+   "healRatio": 0.3,
+   "interruptDamage": 12,
+   "hexAim": 0.9,
+   "hexSpeed": 260,
+   "hexDamage": 8,
+   "hexR": 7,
+   "hexInterval": 3,
+   "recover": 1.2,
+   "readme": "주변 아군 하나를 골라 연결선을 긋고 1.5초 시전 뒤 최대 체력의 30%를 치료한다. 자기 자신·다른 주술사·보스는 치료하지 않는다. 시전 중 12 이상 한 방이나 넉백으로 끊긴다. 치료할 대상이 없으면 느린 저주 구슬을 쏜다."
+  },
+  "bomber": {
+   "name": "폭탄 운반체",
+   "role": "접근 후 폭발",
+   "r": 15,
+   "hp": 35,
+   "speed": 135,
+   "color": "#e07040",
+   "engageDist": 90,
+   "fuse": 1.3,
+   "blastR": 95,
+   "damage": 22,
+   "readme": "가까이 오면 멈춰 서서 1.3초 뒤 표시된 원만큼 터진다. 준비 중에 처치하면 터지지 않는다. 죽어도 몰래 터지지 않는다.",
+   "engage_dist": 90
+  },
+  "burrower": {
+   "name": "잠복충",
+   "role": "자리 옮기기",
+   "r": 15,
+   "hp": 45,
+   "speed": 100,
+   "color": "#a0784c",
+   "engageDist": 240,
+   "dive": 0.4,
+   "under": 0.7,
+   "underSpeed": 260,
+   "warn": 0.6,
+   "emergeR": 60,
+   "damage": 14,
+   "exposed": 2,
+   "cooldown": 6,
+   "biteRange": 44,
+   "biteAim": 0.5,
+   "biteDeg": 90,
+   "biteDamage": 8,
+   "biteRecover": 1,
+   "readme": "땅속으로 0.7초만 파고들어 다가온 뒤, 출현 지점을 0.6초 예고하고 솟구친다. 예고가 뜨면 위치는 바뀌지 않는다. 출현 뒤 2초 동안 빈틈. 다음 잠복까지 6초.",
+   "engage_dist": 240
+  },
+  "spider": {
+   "name": "거미",
+   "role": "이동 경로 제한",
+   "r": 14,
+   "hp": 40,
+   "speed": 115,
+   "color": "#5c5c6e",
+   "keepMin": 120,
+   "keepMax": 240,
+   "webInterval": 5,
+   "webAim": 0.7,
+   "webR": 55,
+   "webTtl": 6,
+   "webSlow": 0.5,
+   "maxWebs": 4,
+   "biteRange": 46,
+   "biteAim": 0.5,
+   "biteDeg": 90,
+   "biteDamage": 9,
+   "recover": 1.1,
+   "readme": "플레이어가 가는 방향 앞에 거미줄을 친다(예고 0.7초, 6초 유지, 전장 최대 4개). 거미줄 위에서는 걷는 속도 50%, 회피(Space)는 정상 거리로 통과한다. 가까우면 문다."
+  },
+  "frostcaller": {
+   "name": "서리술사",
+   "role": "순차 바닥 공격",
+   "r": 14,
+   "hp": 38,
+   "speed": 85,
+   "color": "#8fc8e8",
+   "keepMin": 200,
+   "keepMax": 330,
+   "castInterval": 5.5,
+   "castAim": 0.6,
+   "zoneR": 55,
+   "spacing": 120,
+   "delays": [
+    0.9,
+    1.5,
+    2.1
+   ],
+   "damage": 12,
+   "recover": 1.4,
+   "readme": "플레이어가 움직이는 방향으로 바닥 영역 3개를 1→2→3 순서로 예고하고 차례로 터뜨린다. 영역은 시전 시작 때 확정되어 옮겨지지 않는다. 영역 사이나 이미 터진 자리로 피할 수 있다."
+  },
+  "rogue": {
+   "name": "쌍날 도적",
+   "role": "근접 측면 접근",
+   "r": 13,
+   "hp": 45,
+   "speed": 175,
+   "color": "#b04a5a",
+   "flankDist": 190,
+   "flankOffset": 70,
+   "engageDist": 54,
+   "aim1": 0.45,
+   "aim2": 0.35,
+   "slashRange": 50,
+   "slashDeg": 100,
+   "damage": 10,
+   "adjustDeg": 35,
+   "recover": 1.6,
+   "readme": "정면으로 오지 않고 옆으로 돌아 붙는다. 멈춘 뒤 짧은 베기 2번을 각각 예고한다. 두 번째 베기는 첫 방향에서 35°까지만 보정된다. 끝나면 확실한 빈틈.",
+   "engage_dist": 54
+  },
+  "altar_heal": {
+   "name": "치료 제단",
+   "role": "구조물 · 적 치료",
+   "r": 22,
+   "hp": 90,
+   "speed": 0,
+   "color": "#8ee6a0",
+   "structure": true,
+   "altar": "heal",
+   "readme": "주기적으로 가장 다친 적을 치료한다(총량 유한). 부수면 멈춘다."
+  },
+  "altar_hazard": {
+   "name": "위험 제단",
+   "role": "구조물 · 바닥 위험",
+   "r": 22,
+   "hp": 90,
+   "speed": 0,
+   "color": "#ff8a5c",
+   "structure": true,
+   "altar": "hazard",
+   "readme": "주기적으로 플레이어 좌우에 위험 지역을 예고 후 만든다. 부수면 멈춘다."
+  },
+  "altar_reinforce": {
+   "name": "증원 제단",
+   "role": "구조물 · 증원",
+   "r": 22,
+   "hp": 90,
+   "speed": 0,
+   "color": "#c9a2ff",
+   "structure": true,
+   "altar": "reinforce",
+   "readme": "주기적으로 적을 부른다(예산·동시 상한 유한). 부수면 멈춘다."
+  },
+  "guardian": {
+   "name": "봉인 수호자",
+   "role": "보스 · 봉인의 파수꾼",
+   "r": 40,
+   "hp": 3000,
+   "speed": 95,
+   "color": "#5a6a9a",
+   "boss": true,
+   "readme": "무거운 휩쓸기·직선 충격파·봉인 장치."
+  },
+  "eater": {
+   "name": "예언을 먹는 자",
+   "role": "보스 · 시간의 포식자",
+   "r": 38,
+   "hp": 3600,
+   "speed": 100,
+   "color": "#7a3a8a",
+   "boss": true,
+   "readme": "표식 폭발·두 줄 직선·광역·제한 소환."
+  },
+  "seal_device": {
+   "name": "봉인 장치",
+   "role": "구조물 · 바닥 위험",
+   "r": 20,
+   "hp": 120,
+   "speed": 0,
+   "color": "#9ad0ff",
+   "structure": true,
+   "device": true,
+   "readme": "주기적으로 바닥 위험을 만든다. 부수면 멈춘다(경험치 없음)."
+  }
+ },
+ "boss_defs": {
+  "boss": {
+   "id": "boss",
+   "name": "가시갈기",
+   "title": "숲의 왕",
+   "hp": 2400,
+   "speed": 110,
+   "r": 42,
+   "phases": [
+    0.7,
+    0.35
+   ],
+   "intro": 1.6,
+   "roar": 0.9,
+   "stagger": 1,
+   "knockMult": 0.2,
+   "stopDist": 118,
+   "sweep": {
+    "aim": 0.65,
+    "lock": 0.4,
+    "radius": 145,
+    "arcDeg": 120,
+    "damage": 16,
+    "recover": 1.5,
+    "maxDist": 200
+   },
+   "dash": {
+    "aim": 0.7,
+    "lock": 0.45,
+    "dist": 460,
+    "speed": 800,
+    "damage": 20,
+    "recover": 2.2,
+    "minDist": 150,
+    "maxDist": 520,
+    "second": {
+     "aim": 0.45,
+     "lock": 0.4
+    },
+    "doubleRecover": 3
+   },
+   "howl": {
+    "duration": 1.6,
+    "count": 2,
+    "maxWolves": 4,
+    "interval": 18,
+    "warn": 0.9,
+    "ring": [
+     90,
+     150
+    ]
+   },
+   "pounce": {
+    "aim": 0.5,
+    "lock": 0.65,
+    "leap": 0.45,
+    "radius": 105,
+    "damage": 18,
+    "recover": 1.8,
+    "minDist": 300
+   },
+   "overlap": {
+    "bossWaitMax": 1.2,
+    "wolfDelay": [
+     0.15,
+     0.5
+    ],
+    "summonGrace": 0.8
+   },
+   "orb": {
+    "healRatio": 0.15,
+    "r": 14,
+    "ring": 170
+   },
+   "minApproach": 0.4,
+   "weights": {
+    "sweep": 1,
+    "dash": 1.2,
+    "pounce": 1.5,
+    "howl": 2
+   },
+   "info": [
+    "긴 돌진: 붉은 통로가 굳으면 방향이 고정됩니다. 옆으로.",
+    "무리 소환: 울부짖으면 늑대가 발자국 자리에 나타납니다. 광역·파편·폭발의 기회.",
+    "큰 공격 뒤에는 확실히 지칩니다(빈틈 피해 1.5배).",
+    "감속장(Q)은 보스의 준비·돌진·빈틈 모두를 40% 속도로 늦춥니다.",
+    "바위와 나무는 이동과 돌진을 막습니다. 직접 공격은 장애물을 관통하지 않지만 불길·폭발·감속장은 바닥 범위대로 적용됩니다."
+   ]
+  },
+  "guardian": {
+   "id": "guardian",
+   "name": "봉인 수호자",
+   "title": "봉인의 파수꾼",
+   "hp": 3000,
+   "speed": 95,
+   "r": 40,
+   "phases": [
+    0.65,
+    0.3
+   ],
+   "intro": 1.6,
+   "roar": 0.9,
+   "stagger": 1,
+   "knockMult": 0.15,
+   "stopDist": 130,
+   "sweep": {
+    "aim": 0.8,
+    "lock": 0.45,
+    "radius": 165,
+    "arcDeg": 150,
+    "damage": 22,
+    "recover": 1.8,
+    "maxDist": 210
+   },
+   "shock": {
+    "aim": 0.6,
+    "lock": 0.35,
+    "len": 520,
+    "width": 70,
+    "speed": 900,
+    "damage": 18,
+    "recover": 1.6,
+    "minDist": 60,
+    "maxDist": 620,
+    "count": [
+     1,
+     1,
+     2
+    ],
+    "gap": 0.4,
+    "spread": 0.35
+   },
+   "devices": {
+    "count": 3,
+    "hp": 120,
+    "minGap": 220,
+    "minBossGap": 160,
+    "interval": 6,
+    "first": 3,
+    "warn": 1.1,
+    "ttl": 1.5,
+    "r": 55,
+    "dmg": 10,
+    "n": 2,
+    "dist": 110
+   },
+   "orb": {
+    "healRatio": 0.15,
+    "r": 14,
+    "ring": 170
+   },
+   "overlap": {
+    "bossWaitMax": 1,
+    "maxHazardZones": 6
+   },
+   "minApproach": 0.5,
+   "weights": {
+    "sweep": 1.2,
+    "shock": 1.2
+   },
+   "info": [
+    "무거운 휩쓸기: 준비가 길고 부채꼴이 넓다(150°). 등 뒤로 돌아가면 안전.",
+    "직선 충격파: 확정된 방향으로 굳은 뒤 파동이 날아간다. 옆으로 한 걸음.",
+    "봉인 장치 3개가 주기적으로 바닥 위험을 만든다. 장치를 부수면 그 패턴이 사라진다(경험치 없음). 자동 공격 대상이 장치인지 보스인지 표시됨.",
+    "완전 무적 구간 없음. 감속장(Q)은 준비·확정·빈틈과 파동을 늦춘다.",
+    "넉백은 15%만, 방벽 파열은 진행 중 공격을 끊는다."
+   ]
+  },
+  "eater": {
+   "id": "eater",
+   "name": "예언을 먹는 자",
+   "title": "시간의 포식자",
+   "hp": 3600,
+   "speed": 100,
+   "r": 38,
+   "phases": [
+    0.6,
+    0.3
+   ],
+   "intro": 1.8,
+   "roar": 1,
+   "stagger": 1,
+   "knockMult": 0.15,
+   "stopDist": 150,
+   "mark": {
+    "history": 2.5,
+    "sample": 0.5,
+    "count": [
+     4,
+     6,
+     6
+    ],
+    "r": 58,
+    "cast": 0.5,
+    "delay": 1.2,
+    "gap": 0.25,
+    "damage": 14,
+    "recover": 1.4
+   },
+   "lanes": {
+    "warn": 0.7,
+    "lock": 0.3,
+    "width": 90,
+    "len": 720,
+    "speed": 1000,
+    "damage": 16,
+    "gap": 0.5,
+    "secondDeg": 70,
+    "recover": 1.5,
+    "minDist": 90
+   },
+   "wide": {
+    "aim": 1.2,
+    "lock": 0.5,
+    "radius": [
+     230,
+     230,
+     270
+    ],
+    "damage": 24,
+    "recover": 3,
+    "maxDist": 320
+   },
+   "summon": {
+    "count": 2,
+    "cap": 3,
+    "budget": 6,
+    "interval": 16,
+    "warn": 0.9,
+    "ring": [
+     120,
+     190
+    ],
+    "pool": [
+     "wolf",
+     "archer",
+     "spore"
+    ],
+    "duration": 1.4
+   },
+   "orb": {
+    "healRatio": 0.15,
+    "r": 14,
+    "ring": 170
+   },
+   "overlap": {
+    "bossWaitMax": 1
+   },
+   "minApproach": 0.5,
+   "weights": {
+    "mark": 1.5,
+    "lanes": 1.2,
+    "wide": 1,
+    "summon": 1.3
+   },
+   "info": [
+    "표식: 당신이 지나온 자리에 원이 찍히고 잠시 뒤 차례로 터진다. 계속 움직이고 되돌아가지 않기.",
+    "두 줄 직선: 첫 줄은 지금 위치, 둘째 줄은 70° 옆. 두 줄 사이로.",
+    "광역 폭발 뒤에는 긴 빈틈(3초). 이때 몰아치기.",
+    "소환은 총 6마리·동시 3마리로 제한. 숨거나 순간이동하지 않는다.",
+    "체력 구간 무적·피해 상한 없음: 강한 빌드는 빨리 끝낸다."
+   ]
+  }
+ },
+ "boss_hp_sets": {
+  "base": {
+   "boss": {
+    "single": 2400,
+    "stage1": 1500
+   },
+   "guardian": {
+    "stage2": 3000
+   },
+   "eater": {
+    "stage3": 3600
+   }
+  },
+  "hi": {
+   "boss": {
+    "single": 2400,
+    "stage1": 2400
+   },
+   "guardian": {
+    "stage2": 5000
+   },
+   "eater": {
+    "stage3": 7000
+   }
+  }
+ },
+ "boss_hp_set_default": "hi",
+ "run_modes": {
+  "single": {
+   "name": "단일 보스 (7일, 기존)",
+   "days": 7,
+   "bosses": [
+    {
+     "id": "boss",
+     "day": 7,
+     "hpKey": "single",
+     "rare": false
+    }
+   ]
+  },
+  "trio": {
+   "name": "보스 3마리 (7일, 시험)",
+   "days": 7,
+   "bosses": [
+    {
+     "id": "boss",
+     "day": 3,
+     "hpKey": "stage1",
+     "rare": true
+    },
+    {
+     "id": "guardian",
+     "day": 5,
+     "hpKey": "stage2",
+     "rare": true
+    },
+    {
+     "id": "eater",
+     "day": 7,
+     "hpKey": "stage3",
+     "rare": false
+    }
+   ]
+  }
+ }
+}

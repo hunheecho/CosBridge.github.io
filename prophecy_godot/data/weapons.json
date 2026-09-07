@@ -1,0 +1,497 @@
+{
+ "schema": "prophecy_port/1",
+ "source": {
+  "html_version": "0.8.0",
+  "html_commit": "ee10fc7",
+  "exported_by": "tools/port_export_data.js",
+  "godot_rules_from": "first_fight.json(godot-0.3.1, D33/D34/D35)"
+ },
+ "weapons": {
+  "sword": {
+   "name": "검",
+   "kind": "arc",
+   "startable": true,
+   "impl": true,
+   "base": {
+    "damage": 12,
+    "interval": 0.55,
+    "range": 95,
+    "arcDeg": 110,
+    "knock": 40
+   },
+   "reach": true,
+   "width": true,
+   "category": "direct",
+   "tags": [
+    "melee",
+    "combo"
+   ],
+   "desc": "전방 부채꼴 검격. 접근과 광역 처리의 균형.",
+   "mods": {
+    "cross": {
+     "name": "교차 검격",
+     "desc": "3번째 검격마다 반대 방향으로 한 번 더",
+     "impl": true,
+     "tags": [
+      "combo"
+     ]
+    },
+    "crescent": {
+     "name": "날아가는 검광",
+     "desc": "검격 끝에서 초승달 검기가 전진(피해 60%, 관통)",
+     "impl": true,
+     "tags": [
+      "projectile"
+     ]
+    },
+    "scar": {
+     "name": "잔류 검흔",
+     "desc": "벤 자리에 검흔이 남아 0.5초 뒤 한 번 더(피해 50%)",
+     "impl": true,
+     "tags": [
+      "combo"
+     ]
+    }
+   }
+  },
+  "spear": {
+   "name": "관통창",
+   "kind": "beam",
+   "startable": true,
+   "impl": true,
+   "base": {
+    "damage": 14,
+    "interval": 0.7,
+    "range": 230,
+    "width": 44,
+    "knock": 30
+   },
+   "reach": true,
+   "width": true,
+   "category": "direct",
+   "tags": [
+    "pierce"
+   ],
+   "desc": "긴 직선 관통 검기. 적을 일렬로 세우는 재미. (기존 관통검이 이 무기로 이어진다)",
+   "mods": {
+    "returning": {
+     "name": "귀환 검기",
+     "desc": "끝까지 간 검기가 0.35초 뒤 돌아오며 다시 공격",
+     "impl": true,
+     "tags": [
+      "pierce"
+     ]
+    },
+    "split": {
+     "name": "분열 창날",
+     "desc": "첫 적중 뒤 작은 검기 2개가 사선으로 분열(피해 40%)",
+     "impl": true,
+     "tags": [
+      "projectile"
+     ]
+    },
+    "brand": {
+     "name": "꿰뚫는 표식",
+     "desc": "같은 적을 4번 찌르면 표식 폭발(피해 150%, 반지름 60)",
+     "impl": true,
+     "tags": [
+      "pierce"
+     ]
+    }
+   }
+  },
+  "daggers": {
+   "name": "쌍검",
+   "kind": "melee",
+   "startable": true,
+   "impl": true,
+   "base": {
+    "damage": 6,
+    "interval": 0.75,
+    "range": 62,
+    "hits": 3,
+    "hitGap": 0.09,
+    "arcDeg": 70,
+    "knock": 10
+   },
+   "reach": false,
+   "width": true,
+   "category": "direct",
+   "tags": [
+    "melee",
+    "bleed"
+   ],
+   "desc": "가까운 적에게 짧은 3연속 공격. 근접 집중.",
+   "mods": {
+    "bleed": {
+     "name": "출혈 칼날",
+     "desc": "적중 시 2초 출혈(초당 30%)",
+     "impl": true,
+     "tags": [
+      "bleed"
+     ]
+    },
+    "flank": {
+     "name": "측면 연무",
+     "desc": "연속 공격 마지막이 좌우 넓은 검격",
+     "impl": true,
+     "tags": [
+      "melee"
+     ]
+    },
+    "pursuit": {
+     "name": "추격 칼날",
+     "desc": "적 처치 시 가까운 다른 적에게 작은 칼날(피해 80%)",
+     "impl": true,
+     "tags": [
+      "combo"
+     ]
+    }
+   }
+  },
+  "bow": {
+   "name": "추적궁",
+   "kind": "homing",
+   "startable": true,
+   "impl": true,
+   "base": {
+    "damage": 11,
+    "interval": 0.8,
+    "range": 320,
+    "speed": 380,
+    "turn": 4
+   },
+   "reach": true,
+   "width": false,
+   "category": "projectile",
+   "tags": [
+    "projectile"
+   ],
+   "desc": "적을 향해 경로를 보정하는 화살. 이동하며 원거리 공격. 장애물에 막힌다.",
+   "mods": {
+    "spread": {
+     "name": "갈래 사격",
+     "desc": "화살 3발을 부채꼴로",
+     "impl": true,
+     "tags": [
+      "projectile"
+     ]
+    },
+    "ricochet": {
+     "name": "도탄 화살",
+     "desc": "적중 후 가까운 다른 적에게 한 번 튕김(피해 70%)",
+     "impl": true,
+     "tags": [
+      "projectile"
+     ]
+    },
+    "pierce": {
+     "name": "관통 화살",
+     "desc": "적을 통과해 뒤쪽 적까지",
+     "impl": true,
+     "tags": [
+      "pierce"
+     ]
+    }
+   }
+  },
+  "hammer": {
+   "name": "전투망치",
+   "kind": "heavy",
+   "startable": true,
+   "impl": true,
+   "base": {
+    "damage": 30,
+    "interval": 1.4,
+    "range": 110,
+    "radius": 70,
+    "knock": 120
+   },
+   "reach": true,
+   "width": true,
+   "category": "direct",
+   "tags": [
+    "melee"
+   ],
+   "desc": "느리고 강한 범위 타격. 큰 한 방과 밀어내기.",
+   "mods": {
+    "shockwave": {
+     "name": "전방 충격파",
+     "desc": "타격 지점에서 앞으로 충격파(길이 160, 피해 60%)",
+     "impl": true,
+     "tags": [
+      "melee"
+     ]
+    },
+    "aftershock": {
+     "name": "여진",
+     "desc": "타격한 바닥이 0.6초 뒤 다시 폭발(피해 50%)",
+     "impl": true,
+     "tags": [
+      "zone"
+     ]
+    },
+    "pull": {
+     "name": "끌어당기는 망치",
+     "desc": "타격 직전 근처 작은 적을 타격점으로 조금 당김",
+     "impl": true,
+     "tags": [
+      "melee"
+     ]
+    }
+   }
+  },
+  "blades": {
+   "name": "회전 칼날",
+   "kind": "orbit",
+   "startable": true,
+   "impl": true,
+   "base": {
+    "damage": 10,
+    "interval": 0.35,
+    "count": 2,
+    "radius": 78,
+    "angular": 3.2,
+    "hitGap": 0.35,
+    "knock": 20
+   },
+   "reach": false,
+   "width": true,
+   "category": "direct",
+   "tags": [
+    "melee",
+    "combo"
+   ],
+   "desc": "플레이어 주변을 도는 칼날. 칼날의 살(중심 근처~끝)에 닿는 적을 벤다. 같은 적은 0.35초마다 한 번.",
+   "mods": {
+    "dual": {
+     "name": "세 번째 칼날",
+     "desc": "칼날 +1 (같은 궤도, 접촉 빈도 증가)",
+     "impl": true,
+     "tags": [
+      "melee"
+     ]
+    },
+    "launch": {
+     "name": "사출 칼날",
+     "desc": "3초마다 칼날 하나가 적에게 날아갔다 복귀(피해 120%)",
+     "impl": true,
+     "tags": [
+      "projectile"
+     ]
+    },
+    "serrated": {
+     "name": "톱날",
+     "desc": "적중한 적에게 짧은 출혈",
+     "impl": true,
+     "tags": [
+      "bleed"
+     ]
+    }
+   }
+  },
+  "orb": {
+   "name": "번개 구체",
+   "kind": "chain",
+   "startable": true,
+   "impl": true,
+   "base": {
+    "damage": 9,
+    "interval": 0.9,
+    "range": 200,
+    "hop": 130,
+    "hops": 3
+   },
+   "reach": true,
+   "width": false,
+   "category": "direct",
+   "tags": [
+    "chain"
+   ],
+   "desc": "주변 구체가 연쇄 번개를 쏜다. 가까운 적들을 연결. 한 연쇄에서 같은 적은 한 번만.",
+   "mods": {
+    "fork": {
+     "name": "분기 번개",
+     "desc": "첫 대상에서 두 갈래로 연쇄",
+     "impl": true,
+     "tags": [
+      "chain"
+     ]
+    },
+    "loop": {
+     "name": "순환 전류",
+     "desc": "연쇄 마지막에 최초 대상으로 한 번 돌아옴(명시적 예외)",
+     "impl": true,
+     "tags": [
+      "chain"
+     ]
+    },
+    "conduct": {
+     "name": "전도 표식",
+     "desc": "번개에 맞은 적을 다른 무기로 치면 작은 전기 폭발(피해 40%)",
+     "impl": true,
+     "tags": [
+      "combo"
+     ]
+    }
+   }
+  },
+  "frost": {
+   "name": "서리 수정",
+   "kind": "bolt",
+   "startable": false,
+   "impl": true,
+   "base": {
+    "damage": 7,
+    "interval": 1,
+    "range": 260,
+    "speed": 360,
+    "chill": 2
+   },
+   "reach": true,
+   "width": false,
+   "category": "projectile",
+   "tags": [
+    "dot",
+    "projectile"
+   ],
+   "desc": "주기적으로 냉기 탄환 발사. 냉기 공급과 조합 지원. 우선 추가 획득.",
+   "mods": {
+    "fan": {
+     "name": "서리 부채",
+     "desc": "냉기 탄환 3발을 부채꼴로",
+     "impl": true,
+     "tags": [
+      "projectile"
+     ]
+    },
+    "shatter": {
+     "name": "깨지는 수정",
+     "desc": "탄환 적중 시 작은 파편 3개로 분열(피해 40%)",
+     "impl": true,
+     "tags": [
+      "projectile"
+     ]
+    },
+    "ground": {
+     "name": "차가운 바닥",
+     "desc": "적중 지점에 2초 냉기 영역(반지름 40)",
+     "impl": true,
+     "tags": [
+      "zone"
+     ]
+    }
+   }
+  },
+  "ember": {
+   "name": "불씨 정령",
+   "kind": "ember",
+   "startable": false,
+   "impl": true,
+   "base": {
+    "damage": 5,
+    "interval": 1.6,
+    "range": 260,
+    "radius": 34,
+    "ttl": 2.5,
+    "tick": 0.4
+   },
+   "reach": true,
+   "width": true,
+   "category": "ground",
+   "tags": [
+    "dot",
+    "zone"
+   ],
+   "desc": "적 주변으로 불씨를 던져 불길 생성. 적을 불길로 유도. 우선 추가 획득.",
+   "mods": {
+    "scatter": {
+     "name": "불씨 산개",
+     "desc": "작은 불씨 3개를 여러 위치로",
+     "impl": true,
+     "tags": [
+      "zone"
+     ]
+    },
+    "trail": {
+     "name": "화염 띠",
+     "desc": "착탄 지점에서 불길이 길게 이어짐(3조각)",
+     "impl": true,
+     "tags": [
+      "zone"
+     ]
+    },
+    "reignite": {
+     "name": "재점화",
+     "desc": "불길 위 적 처치 시 그 불길 +1.5초(상한 +4.5초)",
+     "impl": true,
+     "tags": [
+      "dot"
+     ]
+    }
+   }
+  },
+  "mine": {
+   "name": "룬 지뢰",
+   "kind": "mine",
+   "startable": false,
+   "impl": true,
+   "base": {
+    "damage": 22,
+    "interval": 1.5,
+    "radius": 70,
+    "trigger": 30,
+    "arm": 0.5,
+    "max": 6
+   },
+   "reach": false,
+   "width": true,
+   "category": "ground",
+   "tags": [
+    "zone",
+    "chain"
+   ],
+   "desc": "일정 간격으로 바닥에 지뢰 설치. 뒤따르는 적의 경로 활용. 회피 성공과 무관. 우선 추가 획득.",
+   "mods": {
+    "chain": {
+     "name": "연결 폭발",
+     "desc": "폭발이 90 안의 다른 지뢰를 0.15초 뒤 연달아 기폭",
+     "impl": true,
+     "tags": [
+      "chain"
+     ]
+    },
+    "frosttrap": {
+     "name": "서리 함정",
+     "desc": "폭발 범위 적에게 냉기",
+     "impl": true,
+     "tags": [
+      "dot"
+     ]
+    },
+    "lure": {
+     "name": "유인 룬",
+     "desc": "준비된 지뢰가 70 안의 작은 적을 천천히 당김",
+     "impl": true,
+     "tags": [
+      "zone"
+     ]
+    }
+   }
+  }
+ },
+ "startable": [
+  "sword",
+  "spear",
+  "blades"
+ ],
+ "startable_all": [
+  "sword",
+  "spear",
+  "daggers",
+  "bow",
+  "hammer",
+  "blades",
+  "orb"
+ ]
+}
