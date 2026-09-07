@@ -94,8 +94,8 @@ static func settle_victory(run: Dictionary, sortie: Dictionary, st: CombatState)
 		reward.heal = heal
 	reward.xp = 0.0 if reward.has("eventFight") else PRun.region_bonus_xp(run, String(sortie.regionId), bool(sortie.get("deep", false)))
 	PGrowth.add_xp(run.growth, float(reward.xp))
-	if not reward.has("eventFight") and sortie.get("event", null) == null:
-		sortie.event = PEvents.roll(run, sortie) # 탐험 사건: 출격당 최대 1회, 시드 결정적
+	if not reward.has("eventFight") and sortie.get("event", null) == null and not bool(sortie.get("endless", false)):
+		sortie.event = PEvents.roll(run, sortie) # 탐험 사건: 출격당 최대 1회, 시드 결정적(무한 전투에는 사건 없음)
 	run.pendingSortie = sortie # 전투 뒤 안전 화면 상태를 저장
 	var deep_pick: bool = bool(PCatalog.growth().get("DEEP_PICK", false))
 	if bool(sortie.get("deep", false)) and deep_pick and not bool(sortie.get("deepPicked", false)):
@@ -142,7 +142,7 @@ static func settle_boss_victory(run: Dictionary, st: CombatState) -> Dictionary:
 	PStats.record(run, st, { "kind": "boss", "bossId": st.boss_id, "day": int(run.day), "won": true })
 	run.hp = maxf(0.0, float(st.player.hp))
 	var heal := PRun.on_victory_heal(run)
-	var rec := PRun.boss_victory(run, st.stats)
+	var rec := PEndless.boss_victory(run, st.stats) if PEndless.active(run) else PRun.boss_victory(run, st.stats)
 	if heal > 0.0:
 		rec.heal = heal
 	run.pendingSortie = null
@@ -155,7 +155,10 @@ static func settle_boss_defeat(run: Dictionary, st: CombatState) -> void:
 	st.settled = "boss_lost"
 	consume_buff(run, st)
 	PStats.record(run, st, { "kind": "boss", "bossId": st.boss_id, "day": int(run.day), "won": false })
-	PRun.boss_defeat(run)
+	if PEndless.active(run):
+		PEndless.over(run, "boss_lost" if st.status == "lost" else "timeout") # 무한: 구간 보스 패배 = 종료
+	else:
+		PRun.boss_defeat(run)
 	run.pendingSortie = null
 
 ## 다음에 제시할 선택(순서 고정): 보류 제시 → 미처리 레벨업 → 임무 보상 3택 → 보스 희귀 보상 → 사건 보상 → 더 깊이 지역 3택 → null
@@ -363,6 +366,7 @@ static func must_return(sortie: Dictionary) -> bool:
 static func return_home(run: Dictionary, sortie: Dictionary) -> void:
 	PRun.return_to_base(run, sortie)
 	run.pendingSortie = null
+	PEndless.after_fight(run, sortie) # 무한 전투면 구간 전투 수 증가(보스 대기 전환)
 
 # ---------- 행동 목록(UI·회차 봇 공용) ----------
 static func _act(id: String, kind: String, label: String, enabled: bool, reason: String = "", data: Dictionary = {}) -> Dictionary:
@@ -375,10 +379,12 @@ static func _has_pending_offer(g: Dictionary) -> bool:
 ## 지금 가능한 행동 전부: [{id, kind, label, enabled, reason, data}]. 전투 뒤 안전 화면(run.pendingSortie)이면 그 단계의 행동, 아니면 거점 행동
 static func actions(run: Dictionary) -> Array:
 	var out := []
-	if bool(run.get("ended", false)):
+	var phase := String(run.phase)
+	if bool(run.get("ended", false)): # 끝난 회차: 본편 완주 상태에서 무한 시작만 가능(PEndless.start가 ended를 다시 연다)
+		if phase == "cleared" and PEndless.can_start(run):
+			out.append(_act("endless_start", "endless_start", "현재 빌드로 계속 (무한 모드)", true, "", { "fights": PEndless.fights_per_segment() }))
 		return out
 	var g: Dictionary = run.growth
-	var phase := String(run.phase)
 	if _has_pending_offer(g):
 		out.append(_act("continue_offer", "continue_offer", "보류 중인 3택 진행", true))
 	var ps = run.get("pendingSortie", null)
@@ -394,11 +400,24 @@ static func actions(run: Dictionary) -> Array:
 		if sortie.get("eventFight", null) != null:
 			out.append(_act("event_fight", "event_fight", "사건 추가 전투 시작", true, "", { "event_fight": String(sortie.eventFight) }))
 			return out
+		if bool(sortie.get("endless", false)): # 무한 전투 뒤: 더 깊이 없음, 정산만
+			out.append(_act("return_home", "return_home", "전리품 정산 (다음 전투 준비)", true))
+			return out
 		var must := must_return(sortie)
 		var can_deep := PRun.can_deep_explore(run, sortie) and not must
 		out.append(_act("deep_explore", "deep_explore", "더 깊이 탐험 (+1칸)", can_deep, ("심층 승리 뒤에는 귀환만" if must else ("시간 부족/임무/이미 탐험" if not can_deep else "")), (PRun.deep_preview(run, sortie) if can_deep else {})))
 		out.append(_act("return_home", "return_home", "전리품을 가지고 귀환", true))
 		return out
+	if phase == "endless" or phase == "endless_boss": # 무한 모드(PEndless): 전투 선택 / 재정비 / 구간 보스 / 마침. 거점 시설은 아래 공용 목록
+		var E := PEndless.state(run)
+		if phase == "endless":
+			var nf := PEndless.next_fight(run)
+			out.append(_act("endless_fight", "endless_fight", "무한 %d구간 전투 %d/%d: %s · %s" % [int(nf.segment), int(nf.fight), int(nf.perSegment), String(nf.name), String(nf.formationName)], true, "", nf))
+			out.append(_act("endless_regroup", "endless_regroup", "재정비 (체력 완전 회복, 남은 %d회)" % int(E.get("regroupLeft", 0)), PEndless.can_regroup(run), "" if PEndless.can_regroup(run) else ("체력이 이미 최대" if int(E.get("regroupLeft", 0)) > 0 else "이번 구간 재정비 소진")))
+		else:
+			var bid := PEndless.boss_id(run)
+			out.append(_act("boss_start", "boss_start", "무한 %d구간 보스 입장: %s" % [int(E.segment), String(PCatalog.boss_def(bid).name)], true, "", { "boss_id": bid, "endless": true, "segment": int(E.segment) }))
+		out.append(_act("endless_quit", "endless_quit", "무한 모드 마치기 (기록 확정)", true))
 	if phase == "boss_prep" or phase == "cleared":
 		var nb := PRun.next_boss(run)
 		out.append(_act("boss_start", "boss_start", "보스 입장: %s" % (String(PCatalog.boss_def(String(nb.id)).name) if not nb.is_empty() else "보스"), PRun.can_start_boss(run), "", { "boss_id": (String(nb.id) if not nb.is_empty() else "boss"), "stage": int(run.get("stage", 0)) }))

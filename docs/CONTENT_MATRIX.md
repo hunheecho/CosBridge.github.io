@@ -105,6 +105,8 @@ E는 1개, 차 있으면 습득 카드 없음(교체는 상점). 일제 공격(�
 | run:boss_plan | 관문별 보스 후보 → 회차 시작 시 계획(bossPlan), 거점 표시 | 사용자 합의(구조만) | 없음(신규) | 구현(run.gd pick_boss_plan·next_boss) | 포함 | content_tests |
 | run:acts | 본편 10일·3막·관문 4/7/10(기본 모드 acts), 막 판정·관문 준비 다음 막 미리보기, 옛 trio 저장 호환, 영구 기록 하루 2/3 | 사용자 결정(D41), 배치·날짜 시험값 | 없음(신규) | 구현(run.gd acts/act_of/act_preview·places_by_mode·profile.gd meta_records_for) | 포함 | acts_tests |
 | wd:themes | 테마 9종(막별 3): 장소 2·편성 템플릿 4·전장·보상 태그·재료·보스, 경로 추첨·고정, 관문 준비 미리보기, 검증 메뉴 경로 지정 | 사용자 결정(D42), 내용 시험값 | 없음(신규) | 구현(data/themes.json·catalog.gd theme_*·run.gd pick_route/template_waves·growth.gd) | 포함 | theme_tests·route_smoke |
+| run:endless | 무한 모드: 본편 완주 뒤 현재 빌드로 계속, 구간(전투 3+보스)·체력 계단·등급 퇴장·재정비·패배=종료·구간 보스 영구 기록 0.267 | 사용자 결정(D43, 계획서 §10), 수치 시험값 | 없음(신규) | 구현(scripts/rules/endless.gd PEndless, flow.gd actions, base/run_result 화면) | 포함 | endless_tests |
+| meta:conqueror | 정복자: 영구 Lv15 이후 기록 초과분으로 별도 레벨(상한 50), 공격/체력/이동 배분, 출발 시 스냅샷 | 사용자 결정(D43), 경험치 곡선 시험값 | 없음(신규) | 구현(profile.gd conqueror_*, build.gd, screens/meta.gd) | 포함 | endless_tests |
 | ui:density_pick | 검증 메뉴 "밀도 비교 회차": 같은 시드 + 세트 선택 → 새 회차 | 사용자 합의(D40) | 없음 | 구현(title.gd·main.gd new_run_opts) | 포함 | content_tests(new_run opts) |
 | wd:arena | 지역 전장: 기본 숲(장애물 없음), 공터(바위2·나무2), 기둥 숲(바위3·나무1); 배치안 classic/trial | 시험값 | 구현 | 구현(run.gd·formation.gd·world.json; run_layer_tests·port_tests·FORMATION_TABLE) | 포함(지역별 배치는 시험값: 숲=공터(D33), 능선=기둥, 습지=숲, 굴=기둥, 심층=공터) | 지형 검증 161~170 |
 
@@ -204,4 +206,4 @@ E는 1개, 차 있으면 습득 카드 없음(교체는 상점). 일제 공격(�
 | craft:reprisal_shield | 반격 방패: 큰 타격 −25% + 버티면 Q/E −1초(내부 5초) | Codex 시험값 | 없음 | 구현(combat_state.gd reprisal) | 포함 | meta_tests |
 | craft:relay_shield | 연계 방패: Q 뒤 4초 안 E → 보호막 18/3초(내부 10초) | Codex 시험값 | 없음 | 구현(skills.gd relay·combat_state.gd) | 포함 | meta_tests |
 | ui:meta | 제목 → 영구 성장 화면(프로필 전환 확인·레벨/기록/다음 해금 한 줄·특성 4행·도감 "획득 7/10 · 시작 가능 3/7"·잠긴 항목 클릭 상세), 시작 선택에 특성 요약·해금 시작 기술, 결과 화면 "이번 회차 탐험 기록: +N (다음 회차부터 반영)"·새로 열림, 대장간 제작 칸 | 합의 방향(초안 §11) | 없음 | 구현(screens/meta.gd·pick_start.gd·forge.gd·reward.gd·boss_result.gd·run_result.gd·title.gd) | 포함 | meta_ui_tests 11 |
-| meta:deferred | 10일·3막 일정의 9일 기록 예산(2/3), 정복자 성장(상한 50), 무한 모드 | 추가 계획(사용자) | 없음 | 미구현(일정 도입 시 `records` 데이터 교체) | 보류 | — |
+| meta:deferred | (0.6.0에서 구현됨 → 아래 run:endless·meta:conqueror 행) 10일·3막 일정의 9일 기록 예산(2/3), 정복자 성장(상한 50), 무한 모드 | 추가 계획(사용자) | 없음 | 미구현(일정 도입 시 `records` 데이터 교체) | 보류 | — |

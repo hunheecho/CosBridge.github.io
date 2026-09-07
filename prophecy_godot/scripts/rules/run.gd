@@ -52,6 +52,7 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 		"route": pick_route(s, opts), # 10일·3막: 막마다 테마 1개(독립 경로 난수, 저장·재추첨 없음). trio는 []
 		"profileEligible": bool(opts.get("eligible", false)), "traits": [], "startWeapon": (start_weapon if start_weapon != "" else "sword"),
 		"storedShield": 0.0, "crafted": [],
+		"endless": null, "mainCleared": false, # 무한 모드 상태(PEndless)·본편 완주 확정(무한에서 죽어도 유지)
 	}
 	var profile = opts.get("profile", null)
 	if profile != null and typeof(profile) == TYPE_DICTIONARY and not (profile as Dictionary).is_empty():
@@ -59,6 +60,9 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 		run.traits = PProfile.selected_traits(profile) # 출발 시 고정
 		run.profileKind = String(profile.get("kind", "trial"))
 		run.profileLevel = int(PProfile.level(profile))
+		var cq := PProfile.conqueror_snapshot(profile) # 정복자 배분 스냅샷(출발 후 고정, 무한 도중 레벨업 소급 없음). 포인트 없으면 키 없음
+		if not cq.is_empty():
+			run.conqueror = cq
 	run.bossPlan = pick_boss_plan(s, run) # 경로의 테마 보스(또는 boss_gates 후보)
 	PSortie.cards_for(run) # 1일차 장소·목적 확정
 	refresh_stock(run)
@@ -328,6 +332,8 @@ static func act_of(run: Dictionary, day: int = 0) -> Dictionary:
 	return A[A.size() - 1] if A.size() > 0 else {}
 
 static func act_label(run: Dictionary, day: int = 0) -> String:
+	if PEndless.active(run) or PEndless.is_over(run):
+		return "무한 %d구간" % PEndless.segment(run)
 	var a := act_of(run, day)
 	if a.is_empty():
 		return ""
@@ -416,9 +422,10 @@ static func boss_hp(run: Dictionary, boss_id: String) -> float:
 	var sets := PCatalog.boss_hp_sets()
 	var set_id := String(run.get("bossHpSet", ""))
 	var H: Dictionary = sets[set_id] if sets.has(set_id) else sets.base
+	var mult: float = PEndless.boss_hp_mult(run) if PEndless.active(run) else 1.0 # 무한 구간 계단(시험값)
 	if not nb.is_empty() and H.has(boss_id) and (H[boss_id] as Dictionary).has(String(nb.hpKey)):
-		return float(H[boss_id][String(nb.hpKey)])
-	return float(PCatalog.boss_def(boss_id).hp)
+		return float(H[boss_id][String(nb.hpKey)]) * mult
+	return float(PCatalog.boss_def(boss_id).hp) * mult
 
 static func stage_count(run: Dictionary) -> int: return (mode_def(run).bosses as Array).size()
 static func boss_days_left(run: Dictionary) -> int:
@@ -539,6 +546,8 @@ static func world_stage_def(run: Dictionary) -> Dictionary:
 
 ## 등급 비율(종류별 정수 편성은 PFormation이 한다)
 static func tier_mix(run: Dictionary) -> Dictionary:
+	if PEndless.active(run):
+		return PEndless.tier_mix(run) # 무한: 구간별 하위 등급 퇴장(시험값)
 	return (world_stage_def(run).get("mix", { "normal": 1.0 }) as Dictionary).duplicate()
 
 ## 지역의 적 종류(날짜 편성 기준, 등장 순)
@@ -650,6 +659,8 @@ static func hp_mult_for(run: Dictionary, region_id: String, deep: bool) -> Dicti
 	if bool(run.get("worldStages", true)) and bool(PCatalog.world_stages().get("excludes_day_hp_set", true)):
 		dm = 1.0 # 세계 변화(등급)와 날짜 체력 세트는 중복 적용하지 않는다
 	var v: float = float(c.hp.get(region_id, 1.0)) * (float(c.get("deepMult", 1.0)) if deep else 1.0) * dm
+	if PEndless.active(run):
+		v *= PEndless.enemy_hp_mult(run) # 무한 구간 계단(선형, 시험값)
 	var EDM: Dictionary = W().elite_day_mult
 	var em: float = float(EDM.mult) if day >= int(EDM.from) else 1.0
 	return { "normal": round(v * 100.0) / 100.0, "elite": round(v * em * 100.0) / 100.0, "boss": 1.0 }
@@ -818,6 +829,9 @@ static func defeat(run: Dictionary, sortie: Dictionary) -> void:
 	sortie.lost = true
 	sortie.settled = true
 	sortie.loot = { "gold": 0, "mats": {}, "chestGold": 0 }
+	if PEndless.active(run): # 무한: 패배 = 종료(재도전 없음), 본편 완주 기록 유지
+		PEndless.over(run, "lost")
+		return
 	add_log(run, "%s에서 패배: 미정산 전리품 상실, 남은 하루 상실" % String(region(String(sortie.regionId)).name))
 	run.hours = 0
 	run.hp = float(build(run).hp_max)

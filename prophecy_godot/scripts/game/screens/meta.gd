@@ -56,6 +56,25 @@ func refresh() -> void:
 	lbox.add_child(PUi.rich("다음 해금: [b]%s[/b]" % PGlossaryTip.esc(PProfile.next_unlock_line(p)), 13))
 	lbox.add_child(PUi.rich("[color=#9ea8b8]기록: 1~6일차 첫 정상 전투 승리 +1 · 관문 보스 최초 승리 +2 · 완주 +2(회차당 최대 14). 심층·임무·같은 날 반복·봇·시험실·즉시 관문은 기록되지 않습니다. 해금은 다음 새 회차의 후보부터.[/color]", 11))
 	body.add_child(lc.panel)
+	# ---------- 정복자(영구 Lv15 이후, 계획서 §10, 시험값) ----------
+	var ci := PProfile.conqueror_info(p)
+	var CS: Dictionary = PCatalog.meta_conqueror().get("stats", {})
+	var cc2 := PUi.card("%s Lv %d/%d [color=#9ea8b8]· 포인트 %d (남은 %d)%s[/color]" % [PGlossaryTip.term("conqueror", "정복자"), int(ci.level), int(ci.max_level), int(ci.points), int(ci.free), ("" if int(ci.level) >= int(ci.max_level) else " · 다음 Lv까지 기록 %s" % PProfile._fmt_rec(float(ci.next_need)))], PUi.CARD, 14)
+	var cbox: VBoxContainer = cc2.box
+	cbox.add_child(PUi.rich("[color=#9ea8b8]영구 Lv%d(기록 %d) 이후의 별도 레벨. 기록 초과분 %d마다 1레벨(시험값). 출발 전 무료 재분배, 출발 후 무한까지 고정. 영구 만렙과 정복자 만렙은 다른 표시.[/color]" % [PProfile.max_level(), PProfile.records_to_max(), int(PCatalog.meta_conqueror().get("xp_per_level", 16))], 11))
+	for key in ["attack", "hp", "move"]:
+		var k2 := String(key)
+		if not CS.has(k2):
+			continue
+		var sd: Dictionary = CS[k2]
+		var cur := int((ci.alloc as Dictionary).get(k2, 0))
+		var crow := PUi.hbox(6)
+		crow.add_child(PUi.rich_nowrap("[b]%s[/b] %d/%d [color=#9ea8b8](+%.1f%%)[/color]" % [PGlossaryTip.esc(String(sd.name)), cur, int(sd.max_points), float(sd.per_point) * float(cur) * 100.0], 13))
+		crow.add_child(PUi.button("−", func(): main.set_conqueror(k2, cur - 1), cur > 0, 12))
+		crow.add_child(PUi.button("+", func(): main.set_conqueror(k2, cur + 1), int(ci.free) > 0 and cur < int(sd.max_points), 12))
+		crow.add_child(PUi.rich("[color=#6a7078]%s[/color]" % PGlossaryTip.esc(String(sd.get("applies", ""))), 10))
+		cbox.add_child(crow)
+	body.add_child(cc2.panel)
 	# ---------- 특성 ----------
 	var sel := PProfile.selected_traits(p)
 	var tc := PUi.card("%s [color=#9ea8b8]행마다 1개 · 장착 %d/%d · 무료 재선택 · 다음 새 회차부터 반영(진행 중 회차는 출발 때 고정)[/color]" % [PGlossaryTip.term("trait", "영구 특성"), sel.size(), int(PCatalog.traits().max_equipped)])

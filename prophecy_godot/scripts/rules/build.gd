@@ -96,6 +96,17 @@ static func derive(run: Dictionary) -> Dictionary:
 	b.width_mult = float(CV.wide[wide_lv - 1]) if wide_lv > 0 else 1.0
 	b.hp_max += float(PV.vitality) * float(p.get("vitality", 0))
 	b.speed_mult = 1.0 + float(PV.mobility) * float(p.get("mobility", 0))
+	# 정복자(run.conqueror, 새 회차에서 고정 — 시험값 meta.json conqueror). 포인트가 없으면 키가 없어 기준 빌드(D33)와 같다.
+	# 체력은 기본 체력에만 비율(패시브·장비·보스 보상은 그대로 더함), 공격은 damage_mult(공용 강화·숙련 자리)에 1회, 이동은 speed_mult에 1회
+	var cq: Dictionary = run.get("conqueror", {}) if typeof(run.get("conqueror", {})) == TYPE_DICTIONARY else {}
+	if not cq.is_empty():
+		var CE := PProfile.conqueror_effects(cq)
+		b.conqueror = cq.duplicate()
+		b.conq_hp = float(C.PLAYER.hp) * float(CE.hp)
+		b.hp_max += b.conq_hp
+		b.conq_damage_mult = 1.0 + float(CE.damage)
+		b.damage_mult = float(b.damage_mult) * float(b.conq_damage_mult)
+		b.speed_mult = float(b.speed_mult) * (1.0 + float(CE.speed))
 	b.toughness = float(PV.toughness) * float(p.get("toughness", 0))
 	b.exposed_mult = float(b.exposed_mult) + float(PV.exploit) * float(p.get("exploit", 0))
 	b.duration_mult = 1.0 + float(PV.persistence) * float(p.get("persistence", 0))

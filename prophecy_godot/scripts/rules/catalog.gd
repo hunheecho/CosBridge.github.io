@@ -114,6 +114,8 @@ static func meta_records_for(mode: String) -> Dictionary:
 static func run_mode_default() -> String: return String(_load("enemies").get("run_mode_default", "trio"))
 static func meta_unlocks() -> Dictionary: return meta().unlocks
 static func meta_profiles() -> Dictionary: return meta().profiles
+static func meta_endless() -> Dictionary: return meta().get("endless", {})
+static func meta_conqueror() -> Dictionary: return meta().get("conqueror", {})
 static func challenges() -> Dictionary: return meta().challenges
 static func traits() -> Dictionary: return meta().traits
 static func trait_defs() -> Dictionary: return meta().traits.defs

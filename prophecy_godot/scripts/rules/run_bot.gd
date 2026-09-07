@@ -52,6 +52,7 @@ var _t0: float = 0.0
 var _card_sec: float = 0.0
 var stop_day: int = 0
 var max_days: int = 0
+var endless_segments: int = 0 # >0: 본편 완주 뒤 무한 모드를 그 구간 수만큼(구간 보스 승리 기준) 진행하고 마친다
 var max_retries: int = 3
 var verbose: bool = false
 
@@ -122,7 +123,13 @@ func _perform(act: Dictionary, sortie: Dictionary = {}) -> Variant:
 		"sortie": return PSortie.start(run, String(d.card_id))
 		"rest": return PRun.rest(run)
 		"end_day": return PRun.end_day(run)
-		"boss_start": return PRun.start_boss(run)
+		"boss_start": return PEndless.start_boss(run) if PEndless.active(run) else PRun.start_boss(run)
+		"endless_start": return PEndless.start(run)
+		"endless_fight": return PEndless.start_fight(run)
+		"endless_regroup": return PEndless.regroup(run)
+		"endless_quit":
+			PEndless.over(run, "quit")
+			return true
 		"deep_explore": return PRun.deep_explore(run, s)
 		"return_home":
 			PFlow.return_home(run, s)
@@ -460,9 +467,10 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 	max_retries = int(o.get("max_retries", 3))
 	stop_day = int(o.get("stop_day", 0))
 	max_days = int(o.get("max_days", 0))
+	endless_segments = int(o.get("endless_segments", 0))
 	verbose = bool(o.get("verbose", false))
 	var start := String(o.get("start", "sword"))
-	run = PRun.new_run(seed, start, String(o.get("balance", "")), { "route": o.get("route", []), "mode": String(o.get("mode", PCatalog.run_mode_default())) })
+	run = PRun.new_run(seed, start, String(o.get("balance", "")), { "route": o.get("route", []), "mode": String(o.get("mode", PCatalog.run_mode_default())), "legacy_places": bool(o.get("legacy_places", false)) })
 	if String(o.get("density_set", "")) != "":
 		run.densitySet = String(o.density_set) # 밀도 세트(Q1 비교 후보)
 	T = { "combat": 0.0, "cards": 0.0, "screens": 0.0, "rest": 0.0, "dayEnd": 0.0, "boss": 0.0 }
@@ -584,7 +592,68 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 			break
 	if String(run.phase) == "boss_prep" and not (max_days > 0 and int(run.day) > max_days):
 		_boss_gate()
+	if endless_segments > 0 and String(run.phase) == "cleared":
+		_endless_loop()
 	return _finish(seed, start)
+
+## 무한 모드(계획서 §10) 봇 진행: 행동 목록의 endless_* 항목만 사용. 구간 보스를 endless_segments회 이기면 마침(endless_quit). 패배는 규칙대로 종료
+func _endless_loop() -> void:
+	var es := _find(_actions(), "endless_start")
+	if es.is_empty() or not bool(_perform(es)):
+		return
+	var rows := []
+	var guard := 0
+	while PEndless.active(run) and guard < endless_segments * (PEndless.fights_per_segment() + 4) + 8:
+		guard += 1
+		var acts := _actions()
+		if String(run.phase) == "endless_boss":
+			var act := _find(acts, "boss_start")
+			var bs_v = _perform(act)
+			if bs_v == null or not (bs_v is Dictionary) or (bs_v as Dictionary).is_empty():
+				break
+			var bs: Dictionary = bs_v
+			var st := PFlow.make_boss_encounter(run, bs)
+			PBot.run_combat(st, bot_policy, { "max_sec": BOSS_MAX_SEC })
+			if st.status == "running":
+				st.status = "timeout"
+				st.delayed.clear()
+			T.boss = float(T.boss) + st.t
+			clock += st.t
+			var sm := st.summary()
+			rows.append({ "kind": "boss", "segment": int(bs.segment), "id": String(bs.bossId), "status": st.status, "sec": int(round(st.t)), "hp": int(round(float(st.player.hp))), "bossHpMax": int(round(float(st.boss.hp_max))) if not st.boss.is_empty() else 0, "taken": int(round(float(sm.damage_taken))), "level": int(run.growth.level) })
+			if st.status == "won":
+				PFlow.settle_boss_victory(run, st)
+				PFlow.resolve_all(run, {}, _pick_cb(), _on_pick_cb("screen"))
+				if int(PEndless.state(run).bossesWon) >= endless_segments:
+					_perform(_find(_actions(), "endless_quit"))
+					break
+			else:
+				PFlow.settle_boss_defeat(run, st)
+			continue
+		var hp_max := float(PRun.build(run).hp_max)
+		var rg := _find(acts, "endless_regroup")
+		if float(run.hp) < hp_max * float(S.restBelow) and not rg.is_empty() and bool(rg.enabled):
+			_perform(rg)
+			L.rests = int(L.rests) + 1
+			continue
+		var ef := _find(acts, "endless_fight")
+		if ef.is_empty():
+			break
+		var s_v = _perform(ef)
+		if s_v == null or not (s_v is Dictionary) or (s_v as Dictionary).is_empty():
+			break
+		var s: Dictionary = s_v
+		var st2 := _fight(s)
+		rows.append({ "kind": "fight", "segment": int(s.segment), "fight": int(s.fight), "regionId": String(s.regionId), "formationId": String(s.formationId), "status": st2.status, "sec": int(round(st2.t)), "hp": int(round(float(st2.player.hp))), "taken": int(round(float(st2.summary().damage_taken))), "level": int(run.growth.level) })
+		if st2.status == "won":
+			_settle_win(s, st2)
+			var rh := _find(_actions(), "return_home")
+			if not rh.is_empty():
+				_perform(rh)
+		else:
+			_settle_loss(s, st2)
+	L.endless = PEndless.summary(run)
+	L.endlessRows = rows
 
 func _finish(seed: int, start: String) -> Dictionary:
 	var g: Dictionary = run.growth
@@ -654,8 +723,8 @@ func _finish(seed: int, start: String) -> Dictionary:
 	for b in L.bosses:
 		bparts.append("%s:%s@%ds" % [String(b.id), String(b.status), int(b.sec)])
 	L.boss = " ".join(bparts)
-	L.bossStatus = "won" if String(run.phase) == "cleared" else String(last_b.status)
-	L.cleared = String(run.phase) == "cleared"
+	L.bossStatus = "won" if (String(run.phase) == "cleared" or bool(run.get("mainCleared", false))) else String(last_b.status)
+	L.cleared = String(run.phase) == "cleared" or bool(run.get("mainCleared", false))
 	if bool(L.cleared):
 		L.stopReason = "cleared"
 	# 합계는 여기서 한 번만: 버킷 합 = 시계(clock)와 같아야 한다(검증)

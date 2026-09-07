@@ -31,7 +31,7 @@ static func new_profile(kind: String) -> Dictionary:
 	var traits := {}
 	for row in PCatalog.trait_rows():
 		traits[str(int(row.level))] = null
-	return { "version": VERSION, "kind": k, "records": 0, "events_done": {}, "challenges": {}, "progress": {}, "traits": traits, "runs": 0, "created_at": 0, "updated_at": 0 }
+	return { "version": VERSION, "kind": k, "records": 0, "events_done": {}, "challenges": {}, "progress": {}, "traits": traits, "conqueror": { "attack": 0, "hp": 0, "move": 0 }, "runs": 0, "created_at": 0, "updated_at": 0 }
 
 ## JSON에서 읽은 값의 정수·형식 복구(제자리)
 static func _normalize(p: Dictionary) -> Dictionary:
@@ -52,6 +52,10 @@ static func _normalize(p: Dictionary) -> Dictionary:
 		var key := str(int(row.level))
 		if not (p.traits as Dictionary).has(key):
 			p.traits[key] = null
+	if p.get("conqueror", null) == null or typeof(p.conqueror) != TYPE_DICTIONARY:
+		p.conqueror = { "attack": 0, "hp": 0, "move": 0 }
+	for k in ["attack", "hp", "move"]:
+		p.conqueror[k] = int((p.conqueror as Dictionary).get(k, 0))
 	return p
 
 # ---------- 파일 ----------
@@ -170,6 +174,81 @@ static func next_level(profile: Dictionary) -> Dictionary:
 	for i in lv:
 		need += int(T[i])
 	return { "level": lv, "next": lv + 1, "have": have, "need": need, "remain": maxf(0.0, float(need) - have) }
+
+# ---------- 정복자(계획서 §10, 시험값 meta.json conqueror): 영구 Lv15 이후 기록 초과분으로 오르는 별도 레벨. 레벨당 1포인트 ----------
+static func CQ() -> Dictionary: return PCatalog.meta_conqueror()
+
+## 영구 만렙까지 필요한 누적 기록(문턱 합)
+static func records_to_max() -> int:
+	var need := 0
+	for t in M().levels.thresholds:
+		need += int(t)
+	return need
+
+static func conqueror_max_level() -> int:
+	return int(CQ().get("max_level", 50))
+
+## 기록 초과분 → 정복자 레벨(선형, xp_per_level 시험값). 영구 Lv15 전에는 0
+static func conqueror_level_of(records: float) -> int:
+	var over: float = records - float(records_to_max())
+	if over + 1e-6 < 0.0:
+		return 0
+	var per: float = maxf(1.0, float(CQ().get("xp_per_level", 16)))
+	return mini(conqueror_max_level(), int(floor((over + 1e-6) / per)))
+
+static func conqueror_level(profile: Dictionary) -> int:
+	return conqueror_level_of(float(profile.get("records", 0)))
+
+## { level, points, used, free, next_need(다음 레벨까지 남은 기록), alloc{attack,hp,move} }
+static func conqueror_info(profile: Dictionary) -> Dictionary:
+	var lv := conqueror_level(profile)
+	var alloc: Dictionary = profile.get("conqueror", { "attack": 0, "hp": 0, "move": 0 })
+	var used := 0
+	for k in alloc:
+		used += int(alloc[k])
+	var per: float = maxf(1.0, float(CQ().get("xp_per_level", 16)))
+	var have: float = float(profile.get("records", 0))
+	var next_need := 0.0
+	if lv < conqueror_max_level():
+		next_need = maxf(0.0, float(records_to_max()) + per * float(lv + 1) - have)
+	return { "level": lv, "points": lv, "used": used, "free": lv - used, "next_need": next_need, "alloc": alloc.duplicate(), "max_level": conqueror_max_level(), "unlocked": level(profile) >= max_level() }
+
+## 배분(출발 전 무료 재분배): 항목 상한·총 포인트 안에서만. 성공 시 true
+static func set_conqueror(profile: Dictionary, key: String, n: int) -> bool:
+	var S: Dictionary = CQ().get("stats", {})
+	if not S.has(key):
+		return false
+	var info := conqueror_info(profile)
+	var alloc: Dictionary = profile.conqueror
+	var cur := int(alloc.get(key, 0))
+	var v: int = clampi(n, 0, int(S[key].max_points))
+	if int(info.used) - cur + v > int(info.points):
+		return false
+	alloc[key] = v
+	return true
+
+## 새 회차에 고정할 스냅샷(포인트가 하나도 없으면 {} → 빌드에 키를 추가하지 않아 기준 빌드와 같다)
+static func conqueror_snapshot(profile: Dictionary) -> Dictionary:
+	var info := conqueror_info(profile)
+	var alloc: Dictionary = info.alloc
+	var any := false
+	for k in alloc:
+		if int(alloc[k]) > 0:
+			any = true
+	if not any:
+		return {}
+	return { "level": int(info.level), "attack": int(alloc.get("attack", 0)), "hp": int(alloc.get("hp", 0)), "move": int(alloc.get("move", 0)) }
+
+## 배분 → 배율 { damage, hp, speed }: 포인트별 합산(1 + per_point × n), 복리 없음. 항목 상한을 넘는 포인트는 무시
+static func conqueror_effects(alloc: Dictionary) -> Dictionary:
+	var S: Dictionary = CQ().get("stats", {})
+	var out := { "damage": 0.0, "hp": 0.0, "speed": 0.0 }
+	var keymap := { "attack": "damage", "hp": "hp", "move": "speed" }
+	for k in keymap:
+		if S.has(k):
+			var n: int = mini(int(alloc.get(k, 0)), int(S[k].max_points))
+			out[keymap[k]] = float(S[k].per_point) * float(maxi(0, n))
+	return out
 
 # ---------- 해금 ----------
 static func _entry_ok(profile: Dictionary, entry: Dictionary, lv: int) -> bool:
@@ -520,6 +599,16 @@ static func award_from_run(profile: Dictionary, run: Dictionary, kind: String, c
 		"boss":
 			var st: CombatState = ctx.get("st", null)
 			if st == null or st.status != "won" or st.boss_id == "":
+				return out
+			var seg := int(ctx.get("endless_segment", 0))
+			if seg > 0: # 무한 구간 보스: 본편 대응 예산 × 비율, 구간당 1회. 도전 달성은 무한에서 처리하지 않는다
+				var eve := "run:%d:endless:%d" % [seed_v, seg]
+				var amt := PEndless.segment_records(run)
+				if record_event(profile, eve, amt):
+					out.records = float(out.records) + amt
+					(out.events as Array).append(eve)
+				out.unlocked = _diff_unlocked(before, unlocked(profile))
+				out.level_after = level(profile)
 				return out
 			var ev := "run:%d:boss:%s" % [seed_v, st.boss_id]
 			if record_event(profile, ev, float(R.boss_first)):

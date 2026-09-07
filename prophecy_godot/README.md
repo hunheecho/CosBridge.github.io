@@ -33,6 +33,7 @@ godot --headless --path prophecy_godot -s tests/boss_tests.gd         # 보스 3
 PROPHECY_LEGACY_PLACES=1 godot --headless --path prophecy_godot -s tests/run_layer_tests.gd   # 회차 계층 64 — 옛 지역 일정(테마 없음)에 대한 회귀 스위트: run_layer·content·world·ui_flow·meta·meta_ui는 이 환경 변수로 실행
 godot --headless --path prophecy_godot -s tests/world_tests.gd        # 세계 변화(붉은 달) 30
 godot --headless --path prophecy_godot -s tests/acts_tests.gd         # 10일·3막 본편 구조(관문 4/7/10·막·장소·영구 기록 2/3·봇 완주)
+godot --headless --path prophecy_godot -s tests/endless_tests.gd      # 무한 모드·정복자(APPDATA 격리 필요: 프로필·저장 파일 사용)
 godot --headless --path prophecy_godot -s tests/theme_tests.gd        # 테마 경로(카탈로그 정합·추첨·템플릿·전장·태그·봇 완주)
 PROPHECY_SIM_SEEDS=1 godot --headless --path prophecy_godot -s tools/route_smoke.gd   # 구현된 경로 × 시작 기술 봇 완주 스모크 → docs/sim/ROUTE_SMOKE.md
 godot --headless --path prophecy_godot -s tests/content_tests.gd      # 반복 콘텐츠(회차 특징·사전 편성·강적의 흔적·보스 계획·밀도 비교 회차) 28

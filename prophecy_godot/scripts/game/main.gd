@@ -151,7 +151,7 @@ func go_base() -> void:
 		go_title()
 		return
 	save_run()
-	show("run_result" if String(run.phase) == "cleared" else "base")
+	show("run_result" if (String(run.phase) == "cleared" or PEndless.is_over(run)) else "base")
 	var g: Dictionary = run.growth
 	if g.get("pendingDeepPick", null) != null or g.get("pendingBossPick", null) != null or g.get("pendingMissionPick", null) != null or (g.get("pendingOffer", null) != null and String(g.pendingOffer.pool) != "level"):
 		var off = PFlow.next_offer(run)
@@ -258,13 +258,46 @@ func end_day() -> void:
 	go_base()
 
 func start_boss() -> void:
-	var s := PRun.start_boss(run)
+	var s := PEndless.start_boss(run) if PEndless.active(run) else PRun.start_boss(run)
 	if s.is_empty():
 		message("보스 준비 상태가 아닙니다")
 		return
 	sortie = s
 	save_run() # 보스 직전 상태 저장
 	start_encounter()
+
+# ---------- 무한 모드(PEndless, 계획서 §10) ----------
+func start_endless() -> void:
+	if not PEndless.start(run):
+		message("무한 모드를 시작할 수 없습니다(본편 완주 뒤 1회)")
+		return
+	save_run()
+	go_base()
+
+func endless_fight() -> void:
+	var s := PEndless.start_fight(run)
+	if s.is_empty():
+		message("무한 전투를 시작할 수 없습니다")
+		return
+	sortie = s
+	save_run()
+	start_encounter()
+
+func endless_regroup() -> void:
+	if PEndless.regroup(run):
+		save_run()
+	show("base")
+
+func endless_quit() -> void:
+	PEndless.over(run, "quit")
+	save_run()
+	go_base()
+
+## 정복자 배분(출발 전 무료 재분배, 다음 새 회차부터 반영)
+func set_conqueror(key: String, n: int) -> void:
+	if PProfile.set_conqueror(profile, key, n):
+		PProfile.save(profile)
+	show("meta")
 
 func buy_equipment(id: String, equip: bool, from: String) -> void:
 	PRun.buy_equipment(run, id, equip, from)
@@ -610,15 +643,15 @@ func _on_finished(summary: Dictionary) -> void:
 			last_record = PFlow.settle_boss_victory(run, st)
 			if not bool(run.get("quick", false)):
 				PSave.save_record(last_record)
-			last_profile_award = _award_profile("boss", { "st": st })
+			last_profile_award = _award_profile("boss", { "st": st, "endless_segment": int(last_record.get("segment", 0)) if bool(last_record.get("endless", false)) else 0 })
 			save_run()
 			sortie = {}
-			show("run_result" if String(run.phase) == "cleared" else "boss_result")
+			show("run_result" if String(run.phase) == "cleared" else ("base" if PEndless.active(run) else "boss_result"))
 		else:
 			PFlow.settle_boss_defeat(run, st)
 			save_run()
 			sortie = {}
-			show("boss_result")
+			show("run_result" if PEndless.is_over(run) else "boss_result")
 		return
 	if st.status == "won":
 		last_reward = PFlow.settle_victory(run, sortie, st)

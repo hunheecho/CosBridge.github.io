@@ -10,7 +10,8 @@ func refresh() -> void:
 	var g: Dictionary = r.growth
 	var stages := PRun.stage_count(r)
 	var cleared: bool = String(r.phase) == "cleared"
-	heading(("회차 완주." if stages > 1 else "예언의 날을 넘겼다.") if cleared else "회차 결과")
+	var main_cleared: bool = cleared or bool(r.get("mainCleared", false))
+	heading(("회차 완주." if stages > 1 else "예언의 날을 넘겼다.") if main_cleared else "회차 결과")
 	top.add_child(PUi.rich("[color=#9ea8b8]%s · %d일차 · 출격 %d회 · 전투 %d(승 %d · 패 %d)[/color]" % [PGlossaryTip.esc(PUi.settings_short(r)), int(r.day), int(r.get("sortieCount", 0)), int(r.stats.encounters), int(r.stats.wins), int(r.stats.losses)], 12))
 	var c := PUi.card("회차 결과")
 	var box: VBoxContainer = c.box
@@ -40,6 +41,13 @@ func refresh() -> void:
 		for id in crafted:
 			cn.append(PRun.equip_name(String(id)))
 		box.add_child(PUi.rich("[color=#9ea8b8]이번 회차 제작: %s (완성품·재료는 회차와 함께 소멸)[/color]" % PGlossaryTip.esc(", ".join(cn)), 12))
+	var ES := PEndless.summary(r)
+	if not ES.is_empty(): # 무한 모드 요약(본편 완주와 별도)
+		var ec := PUi.card("%s [color=#9ea8b8]%s[/color]" % [PGlossaryTip.term("endless", "무한 모드"), ("종료: " + PGlossaryTip.esc(PEndless.reason_name(String(ES.reason)))) if bool(ES.over) else "진행 중"], PUi.CARD_ON, 14)
+		(ec.box as VBoxContainer).add_child(PUi.rich("%d구간 도달 · 전투 승 %d · 구간 보스 %d · Lv %d → %d" % [int(ES.segment), int(ES.wins), int(ES.bossesWon), int(ES.startLevel), int(ES.level)], 13))
+		for rec in ES.rows:
+			(ec.box as VBoxContainer).add_child(PUi.rich("[color=#9ea8b8]%d구간 %s: %s초 · 보스 체력 ×%.2f · 보스에게 준 피해 %d[/color]" % [int(rec.segment), PGlossaryTip.esc(String(PCatalog.boss_def(String(rec.bossId)).name)), str(rec.time), float(rec.bossHpMult), int(rec.bossDamage)], 12))
+		body.add_child(ec.panel)
 	var R := PSave.load_records()
 	var fc = R.get("first_clear", null)
 	if fc != null:
@@ -52,6 +60,10 @@ func refresh() -> void:
 			var sc := PUi.card("")
 			(sc.box as VBoxContainer).add_child(PUi.stats_table(V[String(pair[0])], String(pair[1])))
 			body.add_child(sc.panel)
+	if cleared and PEndless.can_start(r):
+		var eb := PUi.button("현재 빌드로 계속 (무한 모드)", func(): main.start_endless(), true, 14)
+		eb.tooltip_text = "본편 완주 기록·영구 보상은 이미 확정. 무한에서 패배해도 취소되지 않음(시험값)"
+		bottom.add_child(eb)
 	if cleared:
 		bottom.add_child(PUi.button("이번 빌드로 보스 다시 도전", func(): main.start_boss(), PRun.can_start_boss(r), 14))
 	var nb := PUi.button("새 회차 시작", func(): main.new_run_flow(), true, 14)

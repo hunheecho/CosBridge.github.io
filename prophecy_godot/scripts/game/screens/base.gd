@@ -60,7 +60,10 @@ func refresh() -> void:
 	if not cth.is_empty(): # 현재 막 테마 한 줄(계획서 §4: 1막은 거점에서 공개, 다음 막은 관문 준비에서)
 		top.add_child(PUi.rich("[color=#9ea8b8]%s[/color] [b]%s[/b] [color=#9ea8b8]— %s · 보스: %s[/color]" % [PGlossaryTip.esc(PRun.act_label(r).split(" · ")[0]), PGlossaryTip.esc(String(cth.name)), PGlossaryTip.esc(String(cth.line)), PGlossaryTip.esc(String(PCatalog.boss_def(String(cth.boss)).name))], 12))
 	if String(r.phase) != "prep":
-		_final_prep(r)
+		if PEndless.active(r):
+			_endless_home(r)
+		else:
+			_final_prep(r)
 		return
 	var bk := bucket()
 	var cols := two_cols(PLayout.left_ratio(bk))
@@ -403,6 +406,69 @@ func _open_endday() -> void:
 	_confirm_box.add_child(row)
 	default_button = ok
 	_confirm.visible = true
+
+# ---------- 무한 모드 거점(PEndless, 계획서 §10) ----------
+func _endless_home(r: Dictionary) -> void:
+	var E := PEndless.state(r)
+	var b := PBuild.derive(r)
+	var g: Dictionary = r.growth
+	var boss_wait: bool = String(r.phase) == "endless_boss"
+	heading("%s — %d구간 · 전투 %d/%d%s" % [PGlossaryTip.term("endless", "무한 모드"), int(E.segment), int(E.fights), PEndless.fights_per_segment(), " · 구간 보스 대기" if boss_wait else ""])
+	top.add_child(PUi.rich("[color=#9ea8b8]본편 완주 기록은 확정되었습니다. 무한에서 패배하면 이 회차는 끝나지만 완주·보스 기록·영구 보상은 유지됩니다. 구간마다 적 체력 +%d%%, 보스 체력 +%d%%, 하위 등급 퇴장(시험값).[/color]" % [int(round(float(PEndless.D().get("enemy_hp_step", 0.1)) * 100.0)), int(round(float(PEndless.D().get("boss_hp_step", 0.15)) * 100.0))], 12))
+	var cols := two_cols(PLayout.left_ratio(bucket()))
+	var left: VBoxContainer = cols.left
+	var right: VBoxContainer = cols.right
+	var nc := PUi.card("구간 보스" if boss_wait else "다음 전투", PUi.CARD_BOSS if boss_wait else PUi.CARD, 14)
+	var nbox: VBoxContainer = nc.box
+	if boss_wait:
+		var bid := PEndless.boss_id(r)
+		nbox.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]· 체력 %d (×%.2f) · 입장 시 체력 완전 회복 · 패배하면 무한 종료[/color]" % [PGlossaryTip.esc(String(PCatalog.boss_def(bid).name)), int(round(PRun.boss_hp(r, bid))), PEndless.boss_hp_mult(r)], 13))
+		var enter := PUi.button("구간 보스 입장", func(): main.start_boss(), true, 16)
+		enter.custom_minimum_size = Vector2(0, PLayout.primary_button_height())
+		nbox.add_child(enter)
+		default_button = enter
+	else:
+		var nf := PEndless.next_fight(r)
+		var tier_parts := []
+		var TD: Dictionary = PCatalog.world_stages().get("tiers", {})
+		for k in nf.tier:
+			tier_parts.append("%s %d%%" % [String((TD.get(String(k), {}) as Dictionary).get("name", String(k))), int(round(float(nf.tier[k]) * 100.0))])
+		nbox.add_child(PUi.rich("[b]%s[/b] · %s [color=#9ea8b8]· 적 체력 ×%.2f · 등급 %s[/color]" % [PGlossaryTip.esc(String(nf.name)), PGlossaryTip.esc(String(nf.formationName)), float(nf.hpMult), " / ".join(tier_parts)], 13))
+		var go := PUi.button("전투 시작 (%d/%d)" % [int(nf.fight), int(nf.perSegment)], func(): main.endless_fight(), true, 16)
+		go.custom_minimum_size = Vector2(0, PLayout.primary_button_height())
+		nbox.add_child(go)
+		default_button = go
+		var can_rg := PEndless.can_regroup(r)
+		nbox.add_child(PUi.button("재정비 (체력 완전 회복, 남은 %d회)" % int(E.get("regroupLeft", 0)), func(): main.endless_regroup(), can_rg, 13))
+	left.add_child(nc.panel)
+	var rows: Array = E.get("rows", [])
+	if not rows.is_empty():
+		var rc := PUi.card("구간 보스 기록", PUi.CARD_ON, 13)
+		for rec in rows:
+			(rc.box as VBoxContainer).add_child(PUi.rich("%d구간 %s: %s초 · Lv %d · 보스 체력 ×%.2f" % [int(rec.segment), PGlossaryTip.esc(String(PCatalog.boss_def(String(rec.bossId)).name)), str(rec.time), int(rec.level), float(rec.bossHpMult)], 12))
+		left.add_child(rc.panel)
+	var snap := PUi.card("현재 빌드", PUi.CARD, 13)
+	var wn := []
+	for w in g.weapons:
+		wn.append("%s Lv%d" % [String(PCatalog.weapon(String(w.id)).name), int(w.level)])
+	(snap.box as VBoxContainer).add_child(PUi.rich("[color=#9ea8b8]Lv %d · %s · 체력 %d/%d · 금화 %d[/color]" % [int(g.level), PGlossaryTip.esc(", ".join(wn)), int(float(r.hp)), int(float(b.hp_max)), int(r.gold)], 12))
+	left.add_child(snap.panel)
+	var prep := PUi.card("거점 시설 (시간 소모 없음)")
+	var row := PUi.hbox(6)
+	row.add_child(PUi.button("상점", func(): main.show("shop"), true, 14))
+	row.add_child(PUi.button("대장간", func(): main.show("forge"), true, 14))
+	row.add_child(PUi.button("장비", func(): main.show("equip"), true, 14))
+	row.add_child(PUi.button("통계", func(): main.show("stats"), true, 14))
+	row.add_child(PUi.button("기록", func(): main.show("log"), true, 14))
+	(prep.box as VBoxContainer).add_child(row)
+	(prep.box as VBoxContainer).add_child(PUi.button("무한 모드 마치기 (기록 확정)", func(): main.endless_quit(), true, 13))
+	(prep.box as VBoxContainer).add_child(PUi.button("저장하고 제목으로", func(): main.save_quit(), true, 13))
+	right.add_child(prep.panel)
+	right.add_child(_build_summary(r))
+	if _build_detail_open:
+		right.add_child(PUi.equip_panel(r))
+		right.add_child(PUi.build_panel(r))
+		_log_card(r, right)
 
 # ---------- 최종 준비(관문) ----------
 func _final_prep(r: Dictionary) -> void:
