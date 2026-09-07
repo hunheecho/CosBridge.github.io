@@ -1,6 +1,8 @@
 # Godot 첫 전투 규칙 (현재 규칙 · 시험값 · 변경 이력 · 검증 상태)
 
-이 문서가 Godot 버전 규칙의 기준이다. 숫자는 `data/first_fight.json`, 규칙 코드는 `scripts/rules/combat_state.gd`. 화면(`scripts/game/`)은 규칙을 읽기만 한다. HTML v0.8.0(ee10fc7)과 다른 점은 각 절에 적는다.
+이 문서가 Godot 버전 규칙의 기준이다. 숫자는 `data/first_fight.json`, 규칙 코드는 `scripts/rules/combat_state.gd`. 화면(`scripts/game/`)은 규칙을 읽기만 한다. HTML v0.8.0(ee10fc7)과 다른 점은 각 절에 적는다. 설계 변경의 이유·사용자 판단은 저장소 루트 `docs/DESIGN_DECISIONS.md`(D34 회피, D35 늑대·밀도, D36 피해 통계).
+
+**비교 기준 조합(D33)**: godot-0.3.1의 기본값 조합(편성 x5, 회피 hold·1.5초, 동시 돌진 2, 늑대 체력 30, 물기·돌진 12)을 사용자가 직접 플레이하고 긍정 평가했다(2026-09-07). 이후 어떤 절의 값을 바꾸더라도 이 조합을 같은 OS에서 함께 재측정해 비교 기준으로 남긴다. 조합 전체의 체감 평가이며 개별 값·최종 밸런스 승인이 아니다.
 
 ## 공통
 - 고정 단계 1/120초. 입력은 게임 행동 `{mx, my, dodge_press, dodge_held, special}`. 사람(키보드)과 봇이 같은 `CombatState.step`을 쓴다.

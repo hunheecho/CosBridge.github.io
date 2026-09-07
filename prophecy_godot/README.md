@@ -14,7 +14,7 @@ HTML 프로토타입(`../prophecy_action_prototype`, v0.8.0, 커밋 ee10fc7)의 
 
 Godot 없이 플레이하려면 `../prophecy_godot_build/`의 Windows 빌드 ZIP(`prophecy_first_fight.exe`, godot-0.3.0)을 사용합니다. 프로젝트를 Windows 10 로컬 Godot 4.7.2에서 가져오기·테스트·실행한 것은 godot-0.3.1에서 확인했습니다(`docs/PORT_NOTES.md` §11). 사람이 키보드로 플레이한 확인은 아직 없습니다.
 
-새 세션에서 읽을 문서 순서는 `../prophecy_action_prototype/docs/HANDOFF.md` 맨 위 "구현자 진입 순서" 한 곳에만 둡니다.
+새 세션에서 읽을 문서 순서·현재 초점·공식 문서 위치는 저장소 루트 `../docs/PROJECT_CONTEXT.md` 한 곳에만 둡니다. 설계 변경 이유와 사용자 플레이 판단(D33 등)은 `../docs/DESIGN_DECISIONS.md`.
 
 ## 조작
 WASD/방향키 이동 · Space 회피(짧게/길게 눌러 거리 70~150 조절, 재사용 1.5초) · Q 감속장 · 자동 공격(검격 Lv1) · Esc 일시정지/재개 · F3 검증 패널(회피 방식·재사용, 편성 5/25/50, 동시 돌진 2/3 비교 설정, 다음 재시작에 적용) · Enter 시작/재시작. 규칙: `docs/RULES.md`, 근거: `docs/ASSUMPTIONS.md`, 봇 밀도 비교: `docs/DENSITY_REPORT.md`.

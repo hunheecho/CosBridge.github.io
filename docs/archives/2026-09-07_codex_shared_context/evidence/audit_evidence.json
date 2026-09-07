@@ -1,0 +1,146 @@
+{
+  "singleMatches": true,
+  "evening": [
+    {
+      "region": "forest",
+      "day": 1,
+      "variant": "저녁 습격",
+      "cost": 1,
+      "hours": 1,
+      "canStart": true
+    },
+    {
+      "region": "ridge",
+      "day": 1,
+      "variant": "저녁 매복",
+      "cost": 1,
+      "hours": 1,
+      "canStart": true
+    },
+    {
+      "region": "marsh",
+      "day": 2,
+      "variant": "저녁 포자",
+      "cost": 2,
+      "hours": 1,
+      "canStart": false
+    },
+    {
+      "region": "deep",
+      "day": 5,
+      "variant": "저녁 심연",
+      "cost": 2,
+      "hours": 1,
+      "canStart": false
+    }
+  ],
+  "flowMismatch": {
+    "day": 2,
+    "card": {
+      "id": "d2c1",
+      "day": 2,
+      "regionId": "forest",
+      "objective": "altars",
+      "risk": null,
+      "rewardKind": "weapon_mod",
+      "rewardTarget": "검 개조 0/2",
+      "fallbackGold": 40,
+      "timeCost": 1,
+      "enemies": [
+        "wolf",
+        "boar",
+        "archer"
+      ],
+      "first": true,
+      "done": true,
+      "attempts": 1,
+      "linked": true,
+      "variantSlot": 0,
+      "variantName": "소규모 순찰"
+    },
+    "ui": {
+      "mission": true,
+      "objective": "altars"
+    },
+    "sim": {
+      "mission": false,
+      "objective": "clear"
+    },
+    "afterWin": {
+      "uiCanStart": false,
+      "simCanStart": true,
+      "hours": 4
+    }
+  },
+  "steer": {
+    "valid": [
+      "sword:cross",
+      "sword:crescent",
+      "sword:scar"
+    ],
+    "offered": [
+      "sword:crescent"
+    ]
+  },
+  "dot": {
+    "storedBleed": {
+      "t": 2.0000000000000036,
+      "dps": 1.7999999999999998,
+      "tick": 0.008333333333332636
+    },
+    "damage": {
+      "weapon:daggers": 15,
+      "dot:bleed": 2.6
+    },
+    "rows": [
+      {
+        "key": "weapon:daggers",
+        "name": "쌍검",
+        "cat": "direct",
+        "amount": 15,
+        "share": 85.2,
+        "active": 1,
+        "dps": 15
+      },
+      {
+        "key": "dot:bleed",
+        "name": "출혈",
+        "cat": "dot",
+        "amount": 2.6,
+        "share": 14.8,
+        "active": 1,
+        "dps": 2.6
+      }
+    ]
+  },
+  "victoryHeal": {
+    "beforeReturn": 50,
+    "afterReturn": 58
+  },
+  "deepEquipment": {
+    "samples": 24,
+    "unique": [
+      "pioneer_spear"
+    ]
+  },
+  "dotLateAcquisition": [
+    {
+      "key": "weapon:daggers",
+      "name": "쌍검",
+      "cat": "direct",
+      "amount": 15,
+      "share": 85.2,
+      "active": 1,
+      "dps": 15
+    },
+    {
+      "key": "dot:bleed",
+      "name": "출혈",
+      "cat": "dot",
+      "amount": 2.6,
+      "share": 14.8,
+      "active": 10,
+      "dps": 0.3
+    }
+  ]
+}

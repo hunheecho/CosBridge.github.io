@@ -1,0 +1,101 @@
+[
+  {
+    "day": 2,
+    "slot": "새벽",
+    "region": "forest",
+    "uiObjective": "altars",
+    "uiCanStart": true,
+    "done": false,
+    "simObjective": "clear"
+  },
+  {
+    "day": 2,
+    "slot": "아침",
+    "region": "forest",
+    "uiObjective": "altars",
+    "uiCanStart": true,
+    "done": false,
+    "simObjective": "clear"
+  },
+  {
+    "day": 2,
+    "slot": "점심",
+    "region": "forest",
+    "uiObjective": "altars",
+    "uiCanStart": true,
+    "done": false,
+    "simObjective": "clear"
+  },
+  {
+    "day": 2,
+    "slot": "오후",
+    "region": "forest",
+    "uiObjective": "altars",
+    "uiCanStart": true,
+    "done": false,
+    "simObjective": "clear"
+  },
+  {
+    "day": 2,
+    "slot": "저녁",
+    "region": "forest",
+    "uiObjective": "altars",
+    "uiCanStart": true,
+    "done": false,
+    "simObjective": "clear"
+  },
+  {
+    "day": 3,
+    "slot": "저녁",
+    "region": "ridge",
+    "uiObjective": "rescue",
+    "uiCanStart": true,
+    "done": false,
+    "simObjective": "clear"
+  },
+  {
+    "day": 4,
+    "slot": "새벽",
+    "region": "marsh",
+    "uiObjective": "altars",
+    "uiCanStart": true,
+    "done": false,
+    "simObjective": "clear"
+  },
+  {
+    "day": 4,
+    "slot": "점심",
+    "region": "marsh",
+    "uiObjective": "altars",
+    "uiCanStart": true,
+    "done": false,
+    "simObjective": "clear"
+  },
+  {
+    "day": 5,
+    "slot": "새벽",
+    "region": "den",
+    "uiObjective": "hunt",
+    "uiCanStart": true,
+    "done": false,
+    "simObjective": "clear"
+  },
+  {
+    "day": 5,
+    "slot": "점심",
+    "region": "den",
+    "uiObjective": "hunt",
+    "uiCanStart": true,
+    "done": false,
+    "simObjective": "clear"
+  },
+  {
+    "day": 6,
+    "slot": "저녁",
+    "region": "ridge",
+    "uiObjective": "seal",
+    "uiCanStart": true,
+    "done": false,
+    "simObjective": "clear"
+  }
+]
