@@ -490,3 +490,14 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 
 ### 18-7. 사람이 먼저 플레이할 경로 (추천)
 ① 검증 메뉴 > 기준 전투(사람): 0.3.1 느낌 유지 확인 ② 새 회차(검, legacy 프로필, 경로 지정 사냥 숲→붉은 의식터→시간의 심연): 1~3일차 → 4일차 가시갈기 → 붉은 달 → 7일차 → 10일차 완주 → "현재 빌드로 계속(무한)" 1구간 ③ 경로 지정 버려진 요새→무너지는 광산→뒤틀린 성채: 성문 파수장(4일차)·굴착 거수(7일차)·종말의 집행관(10일차) — 봇이 진 보스 3종 ④ 포자 정원→얼어붙은 협곡→피의 사냥터: 나머지 신규 보스 3종 ⑤ 영구 성장 trial 프로필로 새 회차: 정복자 카드(Lv15 전엔 잠김 표시)·제작 재료 도달(대장간 제작 1회)
+
+### 18-8. 최종 커밋·빌드·해시 (Codex 독립 검수 기준)
+| 항목 | 값 |
+|---|---|
+| **최종 코드 커밋** | **7d770b3** (브랜치 `claude/prophecy-action-prototype-hehbeo`, 로컬, push 안 함). 이 뒤의 커밋은 ZIP·해시 기록만 |
+| 앞선 커밋 | e879471(단계 4) → ccff702(봇 기반 병합 04cfc3e) → 41a2bd6(신규 보스 병합 f9db235) → 661e302(관측 보완 병합 163c910) → 7d770b3(단계 4') |
+| Windows 빌드 | `prophecy_godot_build/prophecy_godot_windows_godot-0.6.0_7d770b3.zip` (안: `prophecy_godot/prophecy_godot.exe` 110,249,280 B + `실행_안내.txt`). exe SHA-256 `7de8a882f75a87b6ae5428f33ed44247c11a23872a9c03b0774a4b83b987c883`, ZIP SHA-256 `e6c9102628593b5a2bf77d0165ab650dc40110fa1e8f3fd5e8beee3a618f7d2a` |
+| 프로젝트 ZIP | `prophecy_godot_build/prophecy_godot_project_godot-0.6.0_7d770b3.zip` = `git archive HEAD prophecy_godot` (297 파일). SHA-256 `7566f50b25f25d420353f414368f19585c415e94556728bc8350940e72c8cc79` |
+| 빌드 실행 확인 | 같은 PC, APPDATA 격리, 패키지 exe로 `PROPHECY_UI_SMOKE`(시드 1 경로 추첨: 새 회차→…→4일차 성문 파수장 승리→저장→계속하기→검증 메뉴 빠른 전투): **종료 코드 0, 스크립트 오류 0, PNG 23장**. 편집기 실행으로는 전체 회차+무한(18-2). 실제 사람 플레이 없음 |
+| 미커밋(의도) | 루트 `index.html`·`CNAME`·`wash.jpg` 삭제(Codex 정리, 복원·커밋 모두 안 함), `icon.svg.import` 편집기 재작성, `.claude/`(에이전트 worktree) |
+| 재현 순서(Codex) | ① 7d770b3(또는 프로젝트 ZIP) 체크아웃 ② `--headless --path prophecy_godot --import` ③ 18-2의 15개 스위트(APPDATA 격리; run_layer·ui_flow·world·content는 `PROPHECY_LEGACY_PLACES=1`) + `tools/density_report.gd`(결과 열 비교) ④ `PROPHECY_SIM_SEEDS=1 tools/route_smoke.gd`(27경로, 약 18분) · `tools/stop3_skill.gd`(약 15분, `PROPHECY_SIM_ROUTE`로 기존 보스 경로) · `tools/craft_economy.gd`(약 12분, `PROPHECY_SIM_STRAT=deep`) · `PROPHECY_BOT_SCENARIOS=boss3 tools/bot_batch.gd` ⑤ `--export-release "Windows Desktop"` → exe 해시 비교(같은 템플릿·같은 PC에서만 일치 기대) |
