@@ -1,0 +1,172 @@
+{
+  "schema": "prophecy_boss/1",
+  "source": "손으로 작성(2026-09-07, 계획 문서 §7 신규 보스 6종). 모든 숫자는 시험값이며 사람 승인 아님. PCatalog.boss_defs()/boss_def()/boss_hp_sets()/boss_action_text()가 enemies.json·config.json과 합친다(enemies.json은 손대지 않음).",
+  "note": "공통: 준비(aim/warn/cast) → 확정(lock, 방향 고정) → 실행 → 빈틈(recover). 감속장(Q)은 준비·이동·실행·빈틈 진행(tf)에 적용. 단계 70/35%. 완전 무적 구간·DPS 비례 체력·강제 피해 상한 없음. 피격 보호(hit_protect)·동시 위험 행동 한도는 보스+소환이 공유. 소환 상한은 기존 보스(늑대 4·먹는 자 3)를 넘지 않는다.",
+  "boss_hp_sets": {
+    "base": {
+      "gate_warden": { "stage1": 1500 },
+      "spore_matriarch": { "stage1": 1500 },
+      "excavation_behemoth": { "stage2": 3000 },
+      "frost_stalker": { "stage2": 3000 },
+      "blood_hunt_king": { "stage3": 3600 },
+      "doom_executor": { "stage3": 3600 }
+    },
+    "hi": {
+      "gate_warden": { "stage1": 2400 },
+      "spore_matriarch": { "stage1": 2400 },
+      "excavation_behemoth": { "stage2": 5000 },
+      "frost_stalker": { "stage2": 5000 },
+      "blood_hunt_king": { "stage3": 7000 },
+      "doom_executor": { "stage3": 7000 }
+    }
+  },
+  "boss_action_text": {
+    "guard_aim": "방패 자세(정면 경감)",
+    "guard_lock": "밀치기!",
+    "breach_aim": "방패 돌파 준비",
+    "breach_lock": "돌파!",
+    "breach": "돌파 중",
+    "bsweep_aim": "넓은 휩쓸기 준비",
+    "bsweep_lock": "휩쓸기!",
+    "bolts_aim": "석궁 조준",
+    "bolts_lock": "석궁 3발!",
+    "shot_cast": "포자 탄 조준",
+    "shot_wait": "포자 탄 착탄 대기",
+    "ring_aim": "포자 고리 준비(빈 구간 확인)",
+    "ring_lock": "고리!",
+    "ring": "고리 확산 중",
+    "spray_aim": "분사 준비",
+    "spray_lock": "분사!",
+    "burrow_aim": "굴착 돌파 준비",
+    "burrow_lock": "굴착!",
+    "burrow": "굴착 돌파 중",
+    "rock_cast": "낙석 준비",
+    "rock_wait": "낙석 1→2→3",
+    "bolt_aim": "얼음 발사 준비",
+    "bolt_lock": "얼음 발사!",
+    "path_aim": "얼음길 준비",
+    "path_lock": "얼음길!",
+    "sidestep": "옆으로 이동",
+    "claw_aim": "발톱 휩쓸기 준비",
+    "claw_lock": "발톱!",
+    "dash_reaim": "재조준(2번째 돌진)",
+    "dash_relock": "재조준 고정!",
+    "slash_warn": "절단선 1 준비",
+    "slash_lock": "절단!",
+    "slash_gap": "절단선 2 준비",
+    "guard": "회전 방어 자세(정면 경감)",
+    "gstrike_aim": "큰 베기 준비",
+    "gstrike_lock": "큰 베기!"
+  },
+  "bosses": {
+    "gate_warden": {
+      "id": "gate_warden", "name": "성문 파수장", "title": "버려진 요새의 문지기", "act": 1, "theme": "act1_abandoned_fort",
+      "hp": 2400, "speed": 100, "r": 40, "color": "#8a97b0", "boss": true,
+      "phases": [0.7, 0.35], "intro": 1.6, "roar": 0.9, "stagger": 1.0, "knockMult": 0.2, "stopDist": 120, "minApproach": 0.4,
+      "guard": { "aim": 0.8, "lock": 0.3, "frontDeg": 120, "reduce": 0.4, "maxReal": 3.0, "radius": 110, "arcDeg": 100, "damage": 14, "recover": 1.2, "maxDist": 190 },
+      "breach": { "aim": 0.8, "lock": 0.4, "dist": 440, "speed": 780, "damage": 18, "recover": 2.0, "minDist": 110, "maxDist": 520, "sweep": { "aim": 0.5, "lock": 0.3, "radius": 150, "arcDeg": 200, "damage": 16, "recover": 2.4 } },
+      "bolts": { "aim": 0.7, "lock": 0.35, "count": 3, "spreadDeg": 18, "speed": 540, "damage": 10, "r": 7, "len": 620, "width": 16, "recover": 1.4, "minDist": 90 },
+      "overlap": { "bossWaitMax": 1.0 },
+      "orb": { "healRatio": 0.15, "r": 14, "ring": 170 },
+      "weights": { "guard": 1.2, "breach": 1.2, "bolts": 1.0 },
+      "info": [
+        "방패 자세: 예고된 자세(0.8초) 동안만 정면 ±60°의 직접 피해가 40% 줄어든다. 옆·뒤는 정상, 정면도 0이 되지 않는다.",
+        "자세 뒤 짧은 밀치기(정면 부채꼴 110). 자세 시간 상한 3초(실시간).",
+        "방패 돌파: 예고 직선(440)을 방향 고정 뒤 그대로 달린다. 2단계부터 돌파 끝에 넓은 휩쓸기(200°) 한 번, 그 뒤 방패를 내리고 긴 빈틈(2.4초).",
+        "석궁 3발: 확정된 부채꼴(±18°)로 발사, 재추적 없음. 줄 사이가 안전.",
+        "투사체 반사 없음(첫 분량 제외). 감속장(Q)은 준비·돌파·빈틈 모두 40% 속도."
+      ]
+    },
+    "spore_matriarch": {
+      "id": "spore_matriarch", "name": "포자 어미", "title": "포자 정원의 군락주", "act": 1, "theme": "act1_spore_garden",
+      "hp": 2400, "speed": 70, "r": 44, "color": "#a070c8", "boss": true,
+      "phases": [0.7, 0.35], "intro": 1.6, "roar": 0.9, "stagger": 1.0, "knockMult": 0.15, "stopDist": 140, "minApproach": 0.5,
+      "shot": { "cast": 0.7, "delay": 1.0, "r": 62, "damage": 14, "count": [1, 2, 2], "gap": 0.45, "cloudTtl": 3.5, "cloudDmg": 5, "cloudCap": 3, "recover": 1.3 },
+      "ring": { "aim": 0.9, "lock": 0.3, "speed": 250, "maxR": 340, "width": 44, "gapDeg": [70, 70, 55], "damage": 16, "recover": 1.6, "maxDist": 300 },
+      "spray": { "aim": 0.6, "lock": 0.25, "radius": 120, "arcDeg": 90, "damage": 12, "recover": 1.4, "maxDist": 150 },
+      "summon": { "count": 1, "cap": 2, "budget": 4, "interval": 15, "warn": 0.9, "ring": [110, 170], "pool": ["spore"], "duration": 1.2 },
+      "overlap": { "bossWaitMax": 1.0 },
+      "orb": { "healRatio": 0.15, "r": 14, "ring": 170 },
+      "weights": { "shot": 1.4, "ring": 1.2, "spray": 1.0, "summon": 1.0 },
+      "info": [
+        "포자 탄: 조준 0.7초 뒤 표시된 자리(r62)에 1초 뒤 착탄. 2단계부터 두 자리에 0.45초 시간차. 착탄 자리에 잔류 구름(3.5초, 동시 3개 상한).",
+        "포자 고리: 예고 중 보이는 빈 구간(70°, 마지막 단계 55°)은 실제 판정도 비어 있다. 고리는 250/s로 퍼지므로 달아나기보다 빈 구간으로.",
+        "느린 몸통(70)이 다가와 정면 분사(r120, 90°). 분사 뒤 이동을 멈춘다(빈틈 1.4초).",
+        "소환 포자 괴물은 동시 2마리·총 4마리까지. 끝난 구름은 피해가 없다.",
+        "감속장(Q)은 조준·고리 확산·빈틈 모두 40% 속도."
+      ]
+    },
+    "excavation_behemoth": {
+      "id": "excavation_behemoth", "name": "굴착 거수", "title": "무너지는 광산의 파쇄자", "act": 2, "theme": "act2_collapsing_mine",
+      "hp": 5000, "speed": 85, "r": 46, "color": "#a8865a", "boss": true,
+      "phases": [0.7, 0.35], "intro": 1.8, "roar": 0.9, "stagger": 1.0, "knockMult": 0.1, "stopDist": 130, "minApproach": 0.5,
+      "burrow": { "aim": 0.9, "lock": 0.4, "lock2": 0.35, "dist": 480, "speed": 720, "damage": 20, "recover": 2.4, "doubleRecover": 3.0, "minDist": 130, "maxDist": 560 },
+      "rockfall": { "cast": 0.6, "warn": 0.9, "gap": 0.5, "count": 3, "r": 72, "spacing": 125, "damage": 18, "rubbleTtl": 4.0, "rubbleDmg": 5, "rubbleTick": 0.5, "recover": 1.5, "minExits": 4, "probe": 110 },
+      "summon": { "count": 2, "cap": 2, "budget": 6, "interval": 12, "warn": 0.9, "ring": [130, 190], "pool": ["bomber"], "duration": 1.2 },
+      "overlap": { "bossWaitMax": 1.0, "allyLimit": 1 },
+      "orb": { "healRatio": 0.15, "r": 14, "ring": 170 },
+      "weights": { "burrow": 1.3, "rockfall": 1.2, "summon": 1.0 },
+      "info": [
+        "굴착 돌파: 바닥 직선 예고(480)를 방향 고정 뒤 달린다. 몸은 계속 보이고 공격받는다(지하 무적 없음). 돌파 끝 잔해에서 긴 빈틈(2.4초).",
+        "2단계부터 두 방향을 1→2 순서로 미리 예고하고 그대로 달린다(재조준 없음). 두 번 뒤 빈틈 3초.",
+        "낙석 세 구역은 1→2→3 순서(0.5초 간격)로 떨어진다. 내가 움직이는 방향으로 줄지어 놓이므로 옆으로 빠진다. 새 구역과 잔해가 출구를 모두 막지 않는다.",
+        "잔해(4초)는 서 있으면 조금씩 아프다. 폭탄 운반체 소환은 동시 2·총 6, 폭발/사망은 1회만 집계.",
+        "감속장(Q)은 준비·돌파·빈틈 모두 40% 속도."
+      ]
+    },
+    "frost_stalker": {
+      "id": "frost_stalker", "name": "서리 추적자", "title": "얼어붙은 협곡의 사냥꾼", "act": 2, "theme": "act2_frozen_pass",
+      "hp": 5000, "speed": 120, "r": 36, "color": "#9fd0ea", "boss": true,
+      "phases": [0.7, 0.35], "intro": 1.6, "roar": 0.9, "stagger": 1.0, "knockMult": 0.2, "stopDist": 150, "minApproach": 0.4,
+      "bolt": { "aim": 0.6, "lock": 0.3, "speed": 720, "damage": 14, "r": 9, "len": 640, "width": 18, "recover": 1.2, "minDist": 120 },
+      "icepath": { "aim": 0.8, "lock": 0.3, "lanes": 3, "spreadDeg": 40, "len": 420, "width": 70, "damage": 12, "iceR": 38, "iceStep": 68, "iceTtl": 7.0, "slow": 0.6, "iceCap": 36, "recover": 1.5 },
+      "dash": { "side": 0.4, "sideDist": 140, "aim": 0.7, "lock": 0.35, "dist": 480, "speed": 850, "damage": 18, "recover": 2.2, "minDist": 140, "maxDist": 560 },
+      "overlap": { "bossWaitMax": 1.0 },
+      "orb": { "healRatio": 0.15, "r": 14, "ring": 170 },
+      "weights": { "bolt": 1.0, "icepath": 1.3, "dash": 1.2 },
+      "info": [
+        "얼음 발사: 확정 방향으로 얼음 탄(720/s, 피해 14) 한 발. 옆으로 한 걸음.",
+        "얼음길: 세 줄(±40°, 길이 420, 폭 70)을 예고 뒤 동시에 만든다. 줄 위는 12 피해 + 7초 빙판. 줄 사이 통로는 항상 비어 있다.",
+        "빙판은 이동 속도만 60%로 줄인다(회피 거리·입력 방향은 그대로, 미끄러짐 없음). 겹쳐도 더 줄지 않는다.",
+        "옆으로 140 이동한 뒤 예고 돌진(480). 옆 이동 중에도 피해를 입는다. 돌진 뒤 빈틈 2.2초. 2단계부터 얼음길 다음에 돌진이 이어진다.",
+        "아군 냉기에 면역 아님(냉기 걸리면 이동 60%). 감속장(Q)은 준비·이동·돌진에 40%."
+      ]
+    },
+    "blood_hunt_king": {
+      "id": "blood_hunt_king", "name": "핏빛 사냥왕", "title": "피의 사냥터의 주인", "act": 3, "theme": "act3_blood_hunt",
+      "hp": 7000, "speed": 125, "r": 42, "color": "#b04040", "boss": true,
+      "phases": [0.7, 0.35], "intro": 1.8, "roar": 0.9, "stagger": 1.0, "knockMult": 0.15, "stopDist": 120, "minApproach": 0.4,
+      "claw": { "aim": 0.7, "lock": 0.35, "radius": 170, "arcDeg": 170, "damage": 20, "recover": 1.5, "maxDist": 220 },
+      "dash": { "aim": 0.7, "lock": 0.35, "dist": 420, "speed": 900, "damage": 18, "reaim": 0.45, "relock": 0.3, "recover": 2.6, "minDist": 140, "maxDist": 560 },
+      "summon": { "count": 2, "cap": 3, "budget": 6, "interval": 14, "warn": 0.9, "ring": [120, 180], "pool": ["wolf"], "duration": 1.4, "flankDeg": 100 },
+      "overlap": { "bossWaitMax": 1.0 },
+      "orb": { "healRatio": 0.15, "r": 14, "ring": 170 },
+      "weights": { "claw": 1.2, "dash": 1.3, "summon": 1.0 },
+      "info": [
+        "발톱 휩쓸기: 넓은 부채꼴(r170, 170°). 뒤로 돌아가면 무사.",
+        "추적 돌진 2회: 첫 예고 선은 첫 돌진만. 첫 돌진이 끝나면 그 자리에서 재조준(0.45초, 재조준 표식) 뒤 새 방향을 고정(0.3초)하고 두 번째 돌진. 고정 뒤에는 방향이 바뀌지 않는다.",
+        "두 번 돌진 뒤 긴 빈틈(2.6초). 이때 공격.",
+        "호위 늑대 호출: 2마리씩, 동시 3·총 6. 2단계부터 한쪽 측면에 몰아 부르므로 보스 반대쪽이 열린다.",
+        "늑대는 보스가 확정·실행 중이면 돌진하지 않고, 보스는 늑대가 돌진 중이면 큰 공격을 미룬다(동시 위험 행동 공유)."
+      ]
+    },
+    "doom_executor": {
+      "id": "doom_executor", "name": "종말의 집행관", "title": "뒤틀린 성채의 처형자", "act": 3, "theme": "act3_twisted_citadel",
+      "hp": 7000, "speed": 95, "r": 44, "color": "#6a5a8a", "boss": true,
+      "phases": [0.7, 0.35], "intro": 2.0, "roar": 0.9, "stagger": 1.0, "knockMult": 0.1, "stopDist": 160, "minApproach": 0.5,
+      "slash": { "warn": 0.8, "lock": 0.3, "gap": 0.5, "count": 2, "width": 80, "damage": 22, "recover": 1.6 },
+      "guard": { "dur": 2.4, "minDur": 0.8, "turnRate": 1.2, "frontDeg": 110, "reduce": 0.4, "maxReal": 4.0, "speedMult": 0.6, "strike": { "aim": 0.5, "lock": 0.3, "radius": 160, "arcDeg": 140, "damage": 24 }, "recover": 2.0, "maxDist": 240 },
+      "summon": { "count": 2, "cap": 2, "budget": 4, "interval": 16, "warn": 1.0, "ring": [160, 220], "pool": ["shieldbearer"], "duration": 1.2, "sideDeg": 90 },
+      "overlap": { "bossWaitMax": 1.0, "allyLimit": 1 },
+      "orb": { "healRatio": 0.15, "r": 14, "ring": 170 },
+      "weights": { "slash": 1.3, "guard": 1.1, "summon": 1.0 },
+      "info": [
+        "세로 절단선 2개: 1번(붉은 실선, 내 x를 0.8초 따라오다 고정)이 먼저, 2번(보라 점선, 1번이 떨어질 때 고정)이 0.8초 뒤. 폭 80. 좌우로 한 걸음.",
+        "회전 방어 자세(최대 2.4초): 정면 ±55°의 직접 피해만 40% 경감, 초당 1.2rad로만 돈다. 옆·뒤는 정상, 정면도 0이 아니다. 자세 끝 큰 베기(r160, 140°) 뒤 자세 해제·빈틈 2초.",
+        "호위 방패병 2명이 좌우 두 방향에서 온다(동시 2·총 4). 2단계부터 절단선 다음에 호위를 부른다.",
+        "무적·순간이동 없음: 장판 위에 서 있으면 계속 피해를 입는다. 호위는 동시에 1명만 위험 행동.",
+        "감속장(Q)은 준비·자세 회전·이동·빈틈 모두 40% 속도."
+      ]
+    }
+  }
+}

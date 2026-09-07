@@ -327,6 +327,22 @@ static func draw_zones(ci: Node2D, st: CombatState) -> void:
 					var bx: float = zx + cos(ang) * fr
 					var by: float = zy + sin(ang) * fr
 					ci.draw_colored_polygon(PackedVector2Array([Vector2(bx, by - 6.0 - 4.0 * sin(zt * 15.0 + float(i))), Vector2(bx - 3.0, by + 2.0), Vector2(bx + 3.0, by + 2.0)]), rgba(255, 200, 80, 0.5 * life))
+			"ice": # 빙판(서리 추적자): 걷기 속도만 감속. 미끄러짐·입력 반전 없음
+				ci.draw_circle(c, zr, rgba(170, 225, 255, 0.16 + 0.18 * life))
+				stroke_circle(ci, zx, zy, zr, rgba(210, 240, 255, 0.5 * life + 0.2), 1.5)
+				for i in 3:
+					var a: float = float(i) * 2.1 + 0.4
+					ci.draw_line(Vector2(zx + cos(a) * zr * 0.2, zy + sin(a) * zr * 0.2), Vector2(zx + cos(a) * zr * 0.8, zy + sin(a) * zr * 0.8), rgba(255, 255, 255, 0.45 * life), 1.2)
+				if PGeom.dist(zx, zy, float(st.player.x), float(st.player.y)) <= zr + float(st.player.r) * 0.5:
+					txt(ci, zx, zy - zr - 6.0, "빙판(걷기 %d%%)" % int(round(float(z.get("slow", 0.6)) * 100.0)), 11, Color(1, 1, 1, 0.85))
+			"rubble": # 낙석 잔해(굴착 거수): 서 있으면 0.5초마다 피해
+				ci.draw_circle(c, zr, rgba(150, 110, 70, 0.22 + 0.2 * life))
+				stroke_circle(ci, zx, zy, zr, rgba(210, 170, 120, 0.6 * life + 0.2), 2.0)
+				for i in 6:
+					var a: float = float(i) * 1.05 + 0.2
+					var rr: float = zr * (0.25 + 0.5 * fmod(float(i) * 0.41, 1.0))
+					ci.draw_circle(Vector2(zx + cos(a) * rr, zy + sin(a) * rr), 4.0 + float(i % 3), rgba(120, 90, 60, 0.8))
+				txt(ci, zx, zy + 5.0, "잔해", 11, Color(1, 1, 1, 0.75))
 			_:
 				stroke_circle(ci, zx, zy, zr, Color(1, 1, 1, 0.4 * life), 1.5)
 	if not st.field.is_empty():
@@ -1018,12 +1034,224 @@ static func draw_eater(ci: Node2D, st: CombatState, e: Dictionary) -> void:
 
 static func draw_boss(ci: Node2D, st: CombatState, e: Dictionary) -> void:
 	var id := String(e.get("boss_id", "boss"))
-	if id == "guardian":
-		draw_guardian(ci, st, e)
-	elif id == "eater":
-		draw_eater(ci, st, e)
-	else:
-		draw_thornmane(ci, st, e)
+	match id:
+		"guardian": draw_guardian(ci, st, e)
+		"eater": draw_eater(ci, st, e)
+		"gate_warden": draw_gate_warden(ci, st, e)
+		"spore_matriarch": draw_spore_matriarch(ci, st, e)
+		"excavation_behemoth": draw_excavation_behemoth(ci, st, e)
+		"frost_stalker": draw_frost_stalker(ci, st, e)
+		"blood_hunt_king": draw_blood_hunt_king(ci, st, e)
+		"doom_executor": draw_doom_executor(ci, st, e)
+		_: draw_thornmane(ci, st, e)
+
+# ---------- 신규 보스 6종(임시 도형: 실루엣·자세 색·방향으로 식별. 애니메이션 없음) ----------
+static func _boss3_alpha(e: Dictionary) -> float:
+	return maxf(0.25, 1.0 - maxf(0.0, float(e.death_t) - 1.2) / 1.5) if bool(e.dead) else 1.0
+
+static func _boss3_body(e: Dictionary, color: String, alpha: float) -> Color:
+	if float(e.flash) > 0.0:
+		return Color(1, 1, 1, alpha)
+	if float(e.get("chill", 0.0)) > 0.0:
+		return C(color, alpha).lerp(C("#bcd6e6"), 0.5)
+	return C(color, alpha)
+
+## 빈틈·비틀거림이면 노란 테두리(공격 기회)
+static func _boss3_exposed(ci: Node2D, e: Dictionary) -> void:
+	var stt := String(e.state)
+	if stt == "recover" or stt == "stagger":
+		dashed_circle(ci, float(e.x), float(e.y), float(e.r) + 6.0, rgba(255, 209, 102, 0.85), 2.5, 6.0, 5.0)
+
+## 방패 경감 표시: 정면 부채꼴(파랑) + 문구. 경감이 유효할 때만
+static func _boss3_guard_arc(ci: Node2D, e: Dictionary, ang: float, front_deg: float, reduce: float, R: float) -> void:
+	if not PBoss3.guard_active(e):
+		return
+	var half: float = front_deg * PI / 360.0
+	fill_sector(ci, float(e.x), float(e.y), R, ang - half, ang + half, rgba(120, 170, 255, 0.18), 16)
+	stroke_sector(ci, float(e.x), float(e.y), R, ang - half, ang + half, rgba(140, 190, 255, 0.85), 2.0, 16)
+	txt(ci, float(e.x) + cos(ang) * (R + 14.0), float(e.y) + sin(ang) * (R + 14.0), "정면만 -%d%% (옆·뒤 정상)" % int(round(reduce * 100.0)), 11, C("#bcd0ff"))
+
+# 성문 파수장: 갑옷 병사 + 큰 탑방패(향하는 쪽) + 반대팔 석궁
+static func draw_gate_warden(ci: Node2D, st: CombatState, e: Dictionary) -> void:
+	var s: float = float(e.r) / 40.0
+	var alpha := _boss3_alpha(e)
+	var stt := String(e.state)
+	var face := PBoss3.facing(e) if stt != "approach" and stt != "recover" and stt != "intro" and stt != "roar" else atan2(float(st.player.y) - float(e.y), float(st.player.x) - float(e.x))
+	shadow(ci, float(e.x), float(e.y) + 30.0 * s, 32.0 * s, 10.0 * s)
+	var T := xf(Vector2(float(e.x), float(e.y)), minf(1.2, float(e.death_t) * 2.0) if bool(e.dead) else 0.0, Vector2.ONE)
+	ci.draw_set_transform_matrix(T)
+	var armor := _boss3_body(e, "#8a97b0", alpha)
+	var dark := C("#4a5468", alpha)
+	var gold := C("#d8b458", alpha)
+	ci.draw_rect(Rect2(-18.0 * s, 4.0 * s, 14.0 * s, 26.0 * s), dark)
+	ci.draw_rect(Rect2(4.0 * s, 4.0 * s, 14.0 * s, 26.0 * s), dark)
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(-26.0 * s, -24.0 * s), Vector2(26.0 * s, -24.0 * s), Vector2(22.0 * s, 10.0 * s), Vector2(-22.0 * s, 10.0 * s)]), armor)
+	ci.draw_rect(Rect2(-12.0 * s, -44.0 * s, 24.0 * s, 22.0 * s), armor)
+	ci.draw_rect(Rect2(-9.0 * s, -37.0 * s, 18.0 * s, 4.0 * s), dark)
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(-4.0 * s, -52.0 * s), Vector2(4.0 * s, -52.0 * s), Vector2(2.0 * s, -44.0 * s), Vector2(-2.0 * s, -44.0 * s)]), gold)
+	# 탑방패: 향하는 방향 앞. 자세 중엔 밝게(경감 유효), 빈틈엔 내려놓음(옆으로)
+	var guard_on := PBoss3.guard_active(e)
+	var lowered: bool = stt == "recover"
+	var sh_ang: float = face + (1.3 if lowered else 0.0)
+	var sh_d: float = (22.0 if lowered else 34.0) * s
+	ci.draw_set_transform_matrix(T * Transform2D(sh_ang, Vector2(cos(sh_ang) * sh_d, sin(sh_ang) * sh_d)))
+	var sh_col: Color = C("#cfe0ff", alpha) if guard_on else C("#6a7a9a", alpha)
+	ci.draw_rect(Rect2(-6.0 * s, -30.0 * s, 12.0 * s, 60.0 * s), sh_col)
+	ci.draw_rect(Rect2(-3.0 * s, -22.0 * s, 6.0 * s, 44.0 * s), gold if guard_on else dark)
+	# 석궁(반대팔)
+	ci.draw_set_transform_matrix(T * Transform2D(face, Vector2(cos(face + PI) * 24.0 * s, sin(face + PI) * 24.0 * s)))
+	ci.draw_rect(Rect2(-4.0 * s, -3.0 * s, 44.0 * s, 6.0 * s), C("#6b4a2a", alpha))
+	ci.draw_line(Vector2(30.0 * s, -16.0 * s), Vector2(30.0 * s, 16.0 * s), C("#d0d0d0", alpha), 2.0)
+	ci.draw_set_transform_matrix(IDENT)
+	_boss3_exposed(ci, e)
+
+# 포자 어미: 커다란 보라 버섯 갓(점무늬) + 포자 주머니. 준비 중 갓이 부푼다
+static func draw_spore_matriarch(ci: Node2D, st: CombatState, e: Dictionary) -> void:
+	var s: float = float(e.r) / 44.0
+	var alpha := _boss3_alpha(e)
+	var stt := String(e.state)
+	var swell: float = 1.0 + (0.12 if (stt.ends_with("_aim") or stt == "shot_cast" or stt == "ring_lock") else 0.0) + 0.03 * sin(st.t * 2.5)
+	shadow(ci, float(e.x), float(e.y) + 34.0 * s, 40.0 * s, 12.0 * s)
+	var T := xf(Vector2(float(e.x), float(e.y)), 0.0, Vector2.ONE)
+	ci.draw_set_transform_matrix(T)
+	var cap := _boss3_body(e, "#a070c8", alpha)
+	var stem := C("#e8d8f0", alpha)
+	ci.draw_rect(Rect2(-16.0 * s, -4.0 * s, 32.0 * s, 36.0 * s), stem)
+	for i in 3:
+		var a: float = -0.5 + float(i) * 0.5
+		ci.draw_circle(Vector2(cos(a + PI / 2.0) * 30.0 * s, 20.0 * s + sin(a) * 6.0 * s), 9.0 * s, C("#c090e0", alpha))
+	fill_ellipse(ci, 0.0, -12.0 * s, 46.0 * s * swell, 26.0 * s * swell, cap, 0.0, 28)
+	var spots := [[-22.0, -16.0, 6.0], [4.0, -24.0, 8.0], [22.0, -10.0, 5.0], [-6.0, -6.0, 4.0]]
+	for sp in spots:
+		ci.draw_circle(Vector2(float(sp[0]) * s * swell, float(sp[1]) * s * swell), float(sp[2]) * s, C("#e8c8ff", alpha))
+	var eye_c := C("#ffd166", alpha) if (stt == "recover" or stt == "stagger") else C("#fff0ff", alpha)
+	ci.draw_circle(Vector2(-8.0 * s, 8.0 * s), 3.5 * s, eye_c)
+	ci.draw_circle(Vector2(8.0 * s, 8.0 * s), 3.5 * s, eye_c)
+	ci.draw_set_transform_matrix(IDENT)
+	_boss3_exposed(ci, e)
+
+# 굴착 거수: 바위 등껍질 딱정벌레 + 드릴 주둥이(향하는 방향). 굴착 중 흙먼지
+static func draw_excavation_behemoth(ci: Node2D, st: CombatState, e: Dictionary) -> void:
+	var s: float = float(e.r) / 46.0
+	var alpha := _boss3_alpha(e)
+	var stt := String(e.state)
+	var face := PBoss3.facing(e) if (stt.begins_with("burrow")) else atan2(float(st.player.y) - float(e.y), float(st.player.x) - float(e.x))
+	shadow(ci, float(e.x), float(e.y) + 30.0 * s, 42.0 * s, 12.0 * s)
+	var T := xf(Vector2(float(e.x), float(e.y)), face, Vector2.ONE)
+	ci.draw_set_transform_matrix(T)
+	var rock := _boss3_body(e, "#a8865a", alpha)
+	var dark := C("#5a4630", alpha)
+	for i in 6:
+		var a: float = float(i) * TAU / 6.0
+		ci.draw_line(Vector2(cos(a) * 20.0 * s, sin(a) * 20.0 * s), Vector2(cos(a) * 44.0 * s, sin(a) * 44.0 * s), dark, 6.0 * s)
+	fill_ellipse(ci, -4.0 * s, 0.0, 40.0 * s, 32.0 * s, rock, 0.0, 24)
+	for i in 4:
+		var a: float = float(i) * 1.5 + 0.3
+		ci.draw_circle(Vector2(-6.0 * s + cos(a) * 18.0 * s, sin(a) * 12.0 * s), 6.0 * s, dark)
+	var spin: float = st.t * (18.0 if stt == "burrow" else 3.0)
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(30.0 * s, -14.0 * s), Vector2(62.0 * s, 0.0), Vector2(30.0 * s, 14.0 * s)]), C("#c0c0c8", alpha))
+	for i in 3:
+		var k: float = fmod(spin + float(i) * 0.33, 1.0)
+		ci.draw_line(Vector2((30.0 + 30.0 * k) * s, -12.0 * (1.0 - k) * s), Vector2((30.0 + 30.0 * k) * s, 12.0 * (1.0 - k) * s), dark, 2.0)
+	var eye_c := C("#ffd166", alpha) if (stt == "recover" or stt == "stagger") else C("#ff8040", alpha)
+	ci.draw_circle(Vector2(22.0 * s, -10.0 * s), 3.5 * s, eye_c)
+	ci.draw_circle(Vector2(22.0 * s, 10.0 * s), 3.5 * s, eye_c)
+	ci.draw_set_transform_matrix(IDENT)
+	if stt == "burrow":
+		for i in 5:
+			var a2: float = face + PI + float(i - 2) * 0.35
+			ci.draw_circle(Vector2(float(e.x) + cos(a2) * (float(e.r) + 12.0 + float(i % 2) * 10.0), float(e.y) + sin(a2) * (float(e.r) + 12.0)), 5.0, rgba(180, 150, 110, 0.6))
+	_boss3_exposed(ci, e)
+
+# 서리 추적자: 낮고 긴 네발짐승, 창백한 푸른 몸 + 얼음 가시. 옆 이동 중 화살표
+static func draw_frost_stalker(ci: Node2D, st: CombatState, e: Dictionary) -> void:
+	var s: float = float(e.r) / 36.0
+	var alpha := _boss3_alpha(e)
+	var stt := String(e.state)
+	var face := PBoss3.facing(e) if (stt.ends_with("_aim") or stt.ends_with("_lock") or stt == "dash") else atan2(float(st.player.y) - float(e.y), float(st.player.x) - float(e.x))
+	shadow(ci, float(e.x), float(e.y) + 22.0 * s, 40.0 * s, 9.0 * s)
+	var T := xf(Vector2(float(e.x), float(e.y)), face, Vector2.ONE)
+	ci.draw_set_transform_matrix(T)
+	var body := _boss3_body(e, "#9fd0ea", alpha)
+	var dark := C("#4a6a8a", alpha)
+	for i in 4:
+		var lx: float = (-24.0 + float(i) * 16.0) * s
+		ci.draw_line(Vector2(lx, 8.0 * s), Vector2(lx + (4.0 if i % 2 == 0 else -4.0) * s, 24.0 * s), dark, 4.0 * s)
+	fill_ellipse(ci, -4.0 * s, 0.0, 40.0 * s, 16.0 * s, body, 0.0, 22)
+	fill_ellipse(ci, 30.0 * s, -4.0 * s, 16.0 * s, 11.0 * s, body, 0.0, 16)
+	for i in 4:
+		var bx: float = (-20.0 + float(i) * 12.0) * s
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(bx - 4.0 * s, -10.0 * s), Vector2(bx + 4.0 * s, -10.0 * s), Vector2(bx, -26.0 * s)]), C("#e8f8ff", alpha))
+	ci.draw_line(Vector2(-40.0 * s, 0.0), Vector2(-60.0 * s, -10.0 * s), body, 5.0 * s)
+	var eye_c := C("#ffd166", alpha) if (stt == "recover" or stt == "stagger") else C("#40e0ff", alpha)
+	ci.draw_circle(Vector2(38.0 * s, -7.0 * s), 3.0 * s, eye_c)
+	ci.draw_set_transform_matrix(IDENT)
+	if stt == "sidestep":
+		var sd: Array = e.get("side_dir", [1.0, 0.0])
+		var ax: float = float(e.x) + float(sd[0]) * (float(e.r) + 24.0)
+		var ay: float = float(e.y) + float(sd[1]) * (float(e.r) + 24.0)
+		ci.draw_line(Vector2(float(e.x), float(e.y)), Vector2(ax, ay), rgba(191, 239, 255, 0.9), 3.0)
+		txt(ci, ax, ay - 14.0, "옆 이동(맞음)", 11, C("#bfefff"))
+	_boss3_exposed(ci, e)
+
+# 핏빛 사냥왕: 붉은 큰 짐승 + 뼈 왕관 + 발톱. 재조준 중 표식은 telegraph가 그린다
+static func draw_blood_hunt_king(ci: Node2D, st: CombatState, e: Dictionary) -> void:
+	var s: float = float(e.r) / 42.0
+	var alpha := _boss3_alpha(e)
+	var stt := String(e.state)
+	var face := PBoss3.facing(e) if (stt.begins_with("claw") or stt.begins_with("dash")) else atan2(float(st.player.y) - float(e.y), float(st.player.x) - float(e.x))
+	shadow(ci, float(e.x), float(e.y) + 30.0 * s, 40.0 * s, 11.0 * s)
+	var T := xf(Vector2(float(e.x), float(e.y)), face, Vector2.ONE)
+	ci.draw_set_transform_matrix(T)
+	var body := _boss3_body(e, "#b04040", alpha)
+	var dark := C("#5a1a1a", alpha)
+	var bone := C("#efe6d0", alpha)
+	for i in 4:
+		var lx: float = (-22.0 + float(i) * 15.0) * s
+		ci.draw_line(Vector2(lx, 12.0 * s), Vector2(lx + (5.0 if i % 2 == 0 else -5.0) * s, 30.0 * s), dark, 6.0 * s)
+	fill_ellipse(ci, -6.0 * s, 0.0, 42.0 * s, 24.0 * s, body, 0.0, 24)
+	fill_ellipse(ci, 32.0 * s, -6.0 * s, 20.0 * s, 15.0 * s, body, 0.0, 18)
+	for i in 5:
+		var cx: float = (24.0 + float(i) * 4.0) * s
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(cx - 3.0 * s, -20.0 * s), Vector2(cx + 3.0 * s, -20.0 * s), Vector2(cx, (-30.0 - float(i % 2) * 6.0) * s)]), bone)
+	var claw_out: float = 1.0 if (stt == "claw_aim" or stt == "claw_lock") else 0.5
+	for i in 3:
+		var cy: float = (-10.0 + float(i) * 10.0) * s
+		ci.draw_line(Vector2(40.0 * s, cy), Vector2((40.0 + 18.0 * claw_out) * s, cy + 4.0 * s), bone, 3.0)
+	var eye_c := C("#ffd166", alpha) if (stt == "recover" or stt == "stagger") else C("#ffe060", alpha)
+	ci.draw_circle(Vector2(40.0 * s, -10.0 * s), 3.0 * s, eye_c)
+	ci.draw_set_transform_matrix(IDENT)
+	_boss3_exposed(ci, e)
+
+# 종말의 집행관: 키 큰 검은 로브 + 거대한 처형검 + 방패(방어 자세 땐 정면으로)
+static func draw_doom_executor(ci: Node2D, st: CombatState, e: Dictionary) -> void:
+	var s: float = float(e.r) / 44.0
+	var alpha := _boss3_alpha(e)
+	var stt := String(e.state)
+	var face: float = float(e.get("face", 0.0)) if stt == "guard" else (PBoss3.facing(e) if (stt.begins_with("gstrike")) else atan2(float(st.player.y) - float(e.y), float(st.player.x) - float(e.x)))
+	shadow(ci, float(e.x), float(e.y) + 34.0 * s, 30.0 * s, 10.0 * s)
+	var T := xf(Vector2(float(e.x), float(e.y)), 0.0, Vector2.ONE)
+	ci.draw_set_transform_matrix(T)
+	var robe := _boss3_body(e, "#6a5a8a", alpha)
+	var dark := C("#2a2038", alpha)
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(-16.0 * s, -30.0 * s), Vector2(16.0 * s, -30.0 * s), Vector2(30.0 * s, 34.0 * s), Vector2(-30.0 * s, 34.0 * s)]), robe)
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(-14.0 * s, -56.0 * s), Vector2(14.0 * s, -56.0 * s), Vector2(18.0 * s, -28.0 * s), Vector2(-18.0 * s, -28.0 * s)]), dark)
+	var eye_c := C("#ffd166", alpha) if (stt == "recover" or stt == "stagger") else C("#c080ff", alpha)
+	ci.draw_circle(Vector2(-6.0 * s, -42.0 * s), 3.0 * s, eye_c)
+	ci.draw_circle(Vector2(6.0 * s, -42.0 * s), 3.0 * s, eye_c)
+	# 처형검: 절단 준비 땐 세로로 높이, 큰 베기 땐 향하는 쪽
+	var raised: bool = stt.begins_with("slash")
+	var sw_ang: float = -PI / 2.0 if raised else face
+	ci.draw_set_transform_matrix(T * Transform2D(sw_ang, Vector2(cos(face) * 22.0 * s, sin(face) * 22.0 * s)))
+	ci.draw_rect(Rect2(0.0, -5.0 * s, 70.0 * s, 10.0 * s), C("#d0d0e0", alpha))
+	ci.draw_rect(Rect2(-10.0 * s, -8.0 * s, 10.0 * s, 16.0 * s), dark)
+	# 방패: 방어 자세 땐 정면(밝게), 아니면 등 뒤
+	var guard_on := PBoss3.guard_active(e)
+	var sh_ang: float = face if guard_on else face + PI
+	ci.draw_set_transform_matrix(T * Transform2D(sh_ang, Vector2(cos(sh_ang) * 30.0 * s, sin(sh_ang) * 30.0 * s)))
+	ci.draw_rect(Rect2(-5.0 * s, -26.0 * s, 10.0 * s, 52.0 * s), C("#c8b8ff", alpha) if guard_on else dark)
+	ci.draw_set_transform_matrix(IDENT)
+	_boss3_exposed(ci, e)
 
 # ---------- 궁수·포자 ----------
 static func begin_alpha(e: Dictionary) -> float:
@@ -1732,6 +1960,9 @@ static func draw_boss_telegraphs(ci: Node2D, st: CombatState, flash_t: float) ->
 	var st_t: float = float(bz.state_t)
 	var id := String(bz.get("boss_id", "boss"))
 	var p: Dictionary = st.player
+	if PBoss3.has(id):
+		draw_boss3_telegraphs(ci, st, bz, cfg, flash_t)
+		return
 	if id == "guardian" or id == "eater":
 		if (stt == "shock_aim" or stt == "shock_lock") and cfg.has("shock"):
 			var S: Dictionary = cfg.shock
@@ -1831,6 +2062,213 @@ static func draw_boss_telegraphs(ci: Node2D, st: CombatState, flash_t: float) ->
 		for i in 3:
 			stroke_circle(ci, bx, by - 20.0, 40.0 + fmod(k * 3.0 + float(i), 3.0) * 40.0, rgba(255, 200, 120, 0.6 * (1.0 - k)), 3.0)
 
+## 신규 보스 6종 예고: PBoss3.threats()와 같은 기하(봇이 보는 것 = 화면이 보는 것). 순서 번호·색으로 구분
+static func draw_boss3_telegraphs(ci: Node2D, st: CombatState, bz: Dictionary, cfg: Dictionary, flash_t: float) -> void:
+	var stt := String(bz.state)
+	var bx: float = bz.x
+	var by: float = bz.y
+	var br: float = bz.r
+	var st_t: float = float(bz.state_t)
+	var id := String(bz.boss_id)
+	var p: Dictionary = st.player
+	match id:
+		"gate_warden":
+			var G: Dictionary = cfg.guard
+			if stt == "guard_aim" or stt == "guard_lock":
+				var locked: bool = stt == "guard_lock"
+				var ang := PBoss3.facing(bz)
+				_boss3_guard_arc(ci, bz, ang, float(G.frontDeg), float(G.reduce), float(G.radius) + 40.0)
+				var half: float = float(G.arcDeg) * PI / 360.0
+				var alpha: float = flash_t if locked else 0.35 + 0.35 * (st_t / maxf(0.001, float(G.aim)))
+				fill_sector(ci, bx, by, float(G.radius), ang - half, ang + half, rgba(255, 60, 60, alpha * 0.3), 18)
+				stroke_sector(ci, bx, by, float(G.radius), ang - half, ang + half, rgba(255, 80, 80, alpha), 4.0 if locked else 2.0, 18)
+				txt(ci, bx, by - br - 44.0, "밀치기!" if locked else "방패 자세 — 옆·뒤로 돌아가기", 13, C("#ffd9b0"))
+			if stt == "breach_aim" or stt == "breach_lock" or stt == "breach":
+				_boss3_dash_beam(ci, st, bz, float(cfg.breach.dist), flash_t, "방패 돌파" + (" → 휩쓸기" if int(bz.phase) >= 2 else ""), 1, 1)
+			if stt == "bsweep_aim" or stt == "bsweep_lock":
+				_boss3_sector(ci, bz, cfg.breach.sweep, stt == "bsweep_lock", flash_t, "넓은 휩쓸기 — 뒤 긴 빈틈")
+			if stt == "bolts_aim" or stt == "bolts_lock":
+				var BL: Dictionary = cfg.bolts
+				var locked: bool = stt == "bolts_lock"
+				var n: int = int(BL.count)
+				for i in n:
+					var a: float = PBoss3.facing(bz) + float(BL.spreadDeg) * PI / 180.0 * (float(i) - float(n - 1) / 2.0)
+					_beam(ci, bx, by, a, float(BL.len), float(BL.width) + 10.0, locked, st_t / maxf(0.001, float(BL.aim)), flash_t)
+				txt(ci, bx, by - br - 44.0, "석궁 3발!" if locked else "석궁 조준 — 줄 사이로", 13, C("#ffd9b0"))
+		"spore_matriarch":
+			for mk in bz.marks:
+				var left: float = maxf(0.0, float(mk.land_at) - st.t)
+				var k: float = 1.0 - minf(1.0, left / maxf(0.001, float(cfg.shot.delay)))
+				var mx: float = mk.x
+				var my: float = mk.y
+				var mr: float = mk.r
+				dashed_circle(ci, mx, my, mr, rgba(230, 120, 255, flash_t) if left < 0.4 else rgba(200, 120, 255, 0.8), 4.0 if left < 0.4 else 2.0, 6.0, 5.0)
+				ci.draw_circle(Vector2(mx, my), mr * k, rgba(200, 120, 255, 0.12 + 0.25 * k))
+				txt(ci, mx, my + 4.0, "%d · %.1f" % [int(mk.order), left], 12, C("#e0c0ff"))
+			if stt == "ring_aim" or stt == "ring_lock" or stt == "ring":
+				var R: Dictionary = cfg.ring
+				var gap: float = float(bz.ring_gap)
+				var gh: float = float(bz.ring_half)
+				var locked: bool = stt != "ring_aim"
+				var alpha: float = flash_t if locked else 0.35 + 0.35 * (st_t / maxf(0.001, float(R.aim)))
+				var a0: float = gap + gh
+				var a1: float = gap - gh + TAU
+				if stt == "ring":
+					var rr: float = float(bz.ring_r)
+					var w: float = float(R.width)
+					# 확산 중인 띠(빈 구간 제외): 바깥 호 - 안쪽 호
+					ci.draw_arc(Vector2(bx, by), rr, a0, a1, 48, rgba(200, 120, 255, 0.85), w)
+					ci.draw_arc(Vector2(bx, by), rr, a0, a1, 48, rgba(240, 200, 255, 0.9), 2.0)
+				else:
+					fill_sector(ci, bx, by, float(R.maxR), a0, a1, rgba(200, 120, 255, alpha * 0.18), 48)
+					stroke_sector(ci, bx, by, float(R.maxR), a0, a1, rgba(220, 140, 255, alpha), 3.0 if locked else 1.5, 48)
+				# 빈 구간(안전): 초록 부채꼴 + 문구
+				fill_sector(ci, bx, by, float(R.maxR), gap - gh, gap + gh, rgba(120, 255, 160, 0.12), 12)
+				stroke_sector(ci, bx, by, float(R.maxR), gap - gh, gap + gh, rgba(120, 255, 160, 0.8), 2.0, 12)
+				txt(ci, bx + cos(gap) * float(R.maxR) * 0.6, by + sin(gap) * float(R.maxR) * 0.6, "빈 구간(안전)", 12, C("#a0ffb0"))
+				txt(ci, bx, by - br - 44.0, "고리!" if locked else "포자 고리 준비 — 빈 구간으로", 13, C("#e0c0ff"))
+			if stt == "spray_aim" or stt == "spray_lock":
+				_boss3_sector(ci, bz, cfg.spray, stt == "spray_lock", flash_t, "분사 — 뒤에 정지")
+		"excavation_behemoth":
+			var B: Dictionary = cfg.burrow
+			if stt == "burrow_aim":
+				_boss3_dash_beam(ci, st, bz, float(B.dist), flash_t, "굴착 돌파", 1, int(bz.dash_total))
+			if stt == "burrow_lock" or stt == "burrow":
+				var plan: Array = bz.burrow_plan
+				for i in plan.size():
+					if i < int(bz.dash_seq) - 1:
+						continue
+					var pl: Dictionary = plan[i]
+					var cur: bool = i == int(bz.dash_seq) - 1
+					var ox: float = bx if cur else float(pl.x)
+					var oy: float = by if cur else float(pl.y)
+					var W: float = (br + float(p.r)) * 2.0
+					ci.draw_set_transform(Vector2(ox, oy), float(pl.ang), Vector2.ONE)
+					ci.draw_rect(Rect2(0.0, -W / 2.0, float(pl.len), W), rgba(255, 60, 60, (flash_t if cur else 0.5) * 0.3))
+					ci.draw_rect(Rect2(0.0, -W / 2.0, float(pl.len), W), rgba(255, 80, 80, flash_t if cur else 0.6), 4.0 if cur else 2.0)
+					ci.draw_set_transform_matrix(IDENT)
+					var end: Array = pl.end
+					dashed_circle(ci, float(end[0]), float(end[1]), br, rgba(255, 120, 120, 0.8), 2.0, 5.0, 5.0)
+					txt(ci, ox + cos(float(pl.ang)) * float(pl.len) * 0.5, oy + sin(float(pl.ang)) * float(pl.len) * 0.5 - 16.0, "굴착 %d/%d" % [i + 1, plan.size()], 13, C("#ffd166") if cur else C("#ffb080"))
+			for rk in bz.rocks:
+				if bool(rk.done):
+					continue
+				var left: float = maxf(0.0, float(rk.land_at) - st.t)
+				var k: float = 1.0 - minf(1.0, left / maxf(0.001, float(cfg.rockfall.warn)))
+				var rx: float = rk.x
+				var ry: float = rk.y
+				var rr2: float = rk.r
+				dashed_circle(ci, rx, ry, rr2, rgba(255, 140, 80, flash_t) if left < 0.4 else rgba(230, 160, 100, 0.8), 4.0 if left < 0.4 else 2.0, 6.0, 5.0)
+				ci.draw_circle(Vector2(rx, ry), rr2 * k, rgba(200, 140, 80, 0.12 + 0.3 * k))
+				txt(ci, rx, ry + 6.0, str(int(rk.order)), 20, Color.WHITE)
+				txt(ci, rx, ry - rr2 - 8.0, "낙석 %d · %.1f" % [int(rk.order), left], 11, C("#ffd9b0"))
+		"frost_stalker":
+			if stt == "bolt_aim" or stt == "bolt_lock":
+				var locked: bool = stt == "bolt_lock"
+				_beam(ci, bx, by, PBoss3.facing(bz), float(cfg.bolt.len), float(cfg.bolt.width) + 10.0, locked, st_t / maxf(0.001, float(cfg.bolt.aim)), flash_t)
+				txt(ci, bx, by - br - 44.0, "얼음 발사!" if locked else "얼음 발사 준비 — 옆으로", 13, C("#bfefff"))
+			if stt == "path_aim" or stt == "path_lock":
+				var I: Dictionary = cfg.icepath
+				var locked: bool = stt == "path_lock"
+				var angs: Array = bz.lanes if locked else PBoss3.lane_angles({ "dir": float(bz.aim_angle) }, I)
+				for i in angs.size():
+					var a: float = float(angs[i])
+					var alpha: float = flash_t if locked else 0.35 + 0.35 * (st_t / maxf(0.001, float(I.aim)))
+					ci.draw_set_transform(Vector2(bx, by), a, Vector2.ONE)
+					ci.draw_rect(Rect2(0.0, -float(I.width) / 2.0, float(I.len), float(I.width)), rgba(160, 220, 255, alpha * 0.35))
+					ci.draw_rect(Rect2(0.0, -float(I.width) / 2.0, float(I.len), float(I.width)), rgba(200, 240, 255, alpha), 4.0 if locked else 2.0)
+					ci.draw_set_transform_matrix(IDENT)
+					txt(ci, bx + cos(a) * float(I.len) * 0.55, by + sin(a) * float(I.len) * 0.55, "얼음길 %d" % (i + 1), 12, C("#bfefff"))
+				txt(ci, bx, by - br - 44.0, "얼음길!" if locked else "얼음길 준비 — 줄 사이 통로로", 13, C("#bfefff"))
+			if stt == "dash_aim" or stt == "dash_lock" or stt == "dash":
+				_boss3_dash_beam(ci, st, bz, float(cfg.dash.dist), flash_t, "돌진", 1, 1)
+		"blood_hunt_king":
+			if stt == "claw_aim" or stt == "claw_lock":
+				_boss3_sector(ci, bz, cfg.claw, stt == "claw_lock", flash_t, "발톱 휩쓸기 — 뒤로")
+			if stt == "dash_aim" or stt == "dash_lock" or stt == "dash":
+				_boss3_dash_beam(ci, st, bz, float(cfg.dash.dist), flash_t, "추적 돌진", int(bz.dash_seq), int(bz.dash_total))
+			if stt == "dash_reaim" or stt == "dash_relock":
+				# 재조준 표식: 이 자리에서 새 방향이 정해진다(첫 예고 선과 별개). 고정 전엔 추적 각, 고정 뒤엔 실제 경로
+				var locked: bool = stt == "dash_relock"
+				stroke_circle(ci, bx, by, br + 10.0, rgba(255, 200, 80, 0.9), 3.0)
+				ci.draw_line(Vector2(bx - br - 18.0, by), Vector2(bx + br + 18.0, by), rgba(255, 200, 80, 0.9), 2.0)
+				ci.draw_line(Vector2(bx, by - br - 18.0), Vector2(bx, by + br + 18.0), rgba(255, 200, 80, 0.9), 2.0)
+				_boss3_dash_beam(ci, st, bz, float(cfg.dash.dist), flash_t, "재조준" if not locked else "방향 고정", 2, 2)
+				txt(ci, bx, by + br + 26.0, "재조준 지점 — 방향 고정 %s" % ("완료" if locked else "%.1f초 뒤" % maxf(0.0, float(cfg.dash.reaim) - st_t)), 12, C("#ffd166"))
+		"doom_executor":
+			var SL: Dictionary = cfg.slash
+			if stt == "slash_warn" or stt == "slash_lock" or stt == "slash_gap":
+				for i in (bz.slashes as Array).size():
+					var sl: Dictionary = bz.slashes[i]
+					if bool(sl.fired):
+						continue
+					var cur: bool = i == int(bz.slash_idx)
+					var first: bool = int(sl.order) == 1
+					var k: float = 1.0
+					if stt == "slash_warn":
+						k = st_t / maxf(0.001, float(SL.warn))
+					elif stt == "slash_gap":
+						k = st_t / maxf(0.001, float(SL.gap))
+					var locked: bool = cur and stt == "slash_lock"
+					var alpha: float = flash_t if locked else 0.35 + 0.35 * k
+					var col_fill: Color = rgba(255, 60, 60, alpha * 0.3) if first else rgba(200, 100, 255, alpha * 0.3)
+					var col_line: Color = rgba(255, 80, 80, alpha) if first else rgba(220, 140, 255, alpha)
+					var sx: float = sl.x
+					var w: float = float(SL.width)
+					ci.draw_rect(Rect2(sx - w / 2.0, 0.0, w, st.arena_h), col_fill)
+					if first:
+						ci.draw_rect(Rect2(sx - w / 2.0, 0.0, w, st.arena_h), col_line, false, 4.0 if locked else 2.0)
+					else:
+						dashed_line(ci, Vector2(sx - w / 2.0, 0.0), Vector2(sx - w / 2.0, st.arena_h), col_line, 3.0 if locked else 2.0, 10.0, 8.0)
+						dashed_line(ci, Vector2(sx + w / 2.0, 0.0), Vector2(sx + w / 2.0, st.arena_h), col_line, 3.0 if locked else 2.0, 10.0, 8.0)
+					txt(ci, sx, 24.0 + float(i) * 18.0, "절단 %d%s" % [int(sl.order), "!" if locked else (" (따라옴)" if not bool(sl.fixed) else " 고정")], 13, C("#ffd9b0") if first else C("#e0c0ff"))
+			if stt == "guard":
+				var G: Dictionary = cfg.guard
+				_boss3_guard_arc(ci, bz, float(bz.face), float(G.frontDeg), float(G.reduce), float(G.strike.radius))
+				txt(ci, bx, by - br - 44.0, "회전 방어 자세 %.1f초 — 옆·뒤로" % maxf(0.0, float(G.dur) - float(bz.guard_t)), 13, C("#c8b8ff"))
+			if stt == "gstrike_aim" or stt == "gstrike_lock":
+				_boss3_sector(ci, bz, cfg.guard.strike, stt == "gstrike_lock", flash_t, "큰 베기 — 뒤 자세 해제")
+
+## 부채꼴 예고(준비: 추적 각 옅게, 확정: 고정 각 진하게 + '!')
+static func _boss3_sector(ci: Node2D, bz: Dictionary, S: Dictionary, locked: bool, flash_t: float, label: String) -> void:
+	var ang := PBoss3.facing(bz)
+	var half: float = float(S.arcDeg) * PI / 360.0
+	var alpha: float = flash_t if locked else 0.35 + 0.35 * (float(bz.state_t) / maxf(0.001, float(S.aim)))
+	var R: float = float(S.radius)
+	fill_sector(ci, float(bz.x), float(bz.y), R, ang - half, ang + half, rgba(255, 60, 60, alpha * 0.32), 24)
+	stroke_sector(ci, float(bz.x), float(bz.y), R, ang - half, ang + half, rgba(255, 80, 80, alpha), 4.0 if locked else 2.0, 24)
+	txt(ci, float(bz.x), float(bz.y) - float(bz.r) - 44.0, "!" if locked else label, 18 if locked else 13, C("#ff7070") if locked else C("#ffd9b0"))
+
+## 직선 돌진 예고(준비 중엔 추적 각의 실제 경로, 확정 뒤엔 고정 경로) + 끝점 원 + n/m 표시
+static func _boss3_dash_beam(ci: Node2D, st: CombatState, bz: Dictionary, dist: float, flash_t: float, label: String, seq: int, total: int) -> void:
+	var stt := String(bz.state)
+	var locked: bool = not (stt.ends_with("_aim") or stt == "dash_reaim")
+	var bx: float = bz.x
+	var by: float = bz.y
+	var br: float = bz.r
+	var ang: float = float(bz.dir) if locked else float(bz.aim_angle)
+	var plen: float
+	var pend: Array
+	if locked:
+		plen = float(bz.get("dash_len", 0.0))
+		pend = bz.get("dash_end", [])
+	else:
+		var path := PBoss3.path_from(st, bx, by, br, ang, dist)
+		plen = float(path["len"])
+		pend = path.end
+	if pend.is_empty():
+		pend = [bx + cos(ang) * plen, by + sin(ang) * plen]
+	var alpha: float = flash_t if locked else 0.35 + 0.35 * minf(1.0, float(bz.state_t))
+	var W: float = (br + float(st.player.r)) * 2.0
+	ci.draw_set_transform(Vector2(bx, by), ang, Vector2.ONE)
+	ci.draw_rect(Rect2(0.0, -W / 2.0, plen, W), rgba(255, 60, 60, alpha * 0.3))
+	ci.draw_rect(Rect2(0.0, -W / 2.0, plen, W), rgba(255, 80, 80, alpha), false, 4.0 if locked else 2.0)
+	ci.draw_line(Vector2(br, 0.0), Vector2(maxf(br, plen - 14.0), 0.0), rgba(255, 80, 80, alpha), 4.0 if locked else 2.0)
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(plen, 0.0), Vector2(plen - 18.0, -10.0), Vector2(plen - 18.0, 10.0)]), rgba(255, 80, 80, alpha))
+	ci.draw_set_transform_matrix(IDENT)
+	dashed_circle(ci, float(pend[0]), float(pend[1]), br, rgba(255, 120, 120, alpha), 2.0, 5.0, 5.0)
+	txt(ci, bx, by - br - 44.0, ("!" if locked else label + " 준비 — 옆으로") + ((" %d/%d" % [seq, total]) if total > 1 else ""), 18 if locked else 13, C("#ff7070") if locked else C("#ffd9b0"))
+
 # ---------- 투사체 ----------
 static func draw_projectiles(ci: Node2D, st: CombatState) -> void:
 	for pr in st.projectiles:
@@ -1881,6 +2319,17 @@ static func draw_projectiles(ci: Node2D, st: CombatState) -> void:
 			ci.draw_line(Vector2(-14, 0), Vector2(8, 0), C("#ffd9a0"), 3.0)
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(12, 0), Vector2(4, -4), Vector2(4, 4)]), C("#ff6b6b"))
 			ci.draw_set_transform_matrix(IDENT)
+		elif kind == "boss_bolt": # 파수장 석궁 볼트(굵은 화살)
+			ci.draw_set_transform(c, float(pr.get("angle", atan2(vy, vx))), Vector2.ONE)
+			ci.draw_line(Vector2(-18, 0), Vector2(10, 0), C("#d8c8a8"), 4.0)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(16, 0), Vector2(6, -6), Vector2(6, 6)]), C("#ff6b6b"))
+			ci.draw_set_transform_matrix(IDENT)
+		elif kind == "boss_icebolt": # 서리 추적자 얼음 탄(푸른 결정)
+			var r2: float = pr.r
+			ci.draw_set_transform(c, float(pr.get("angle", atan2(vy, vx))), Vector2.ONE)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(r2 * 1.6, 0), Vector2(0, -r2), Vector2(-r2 * 1.4, 0), Vector2(0, r2)]), rgba(200, 240, 255, 0.95))
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r2 * 1.4, 0), Vector2(-r2 * 2.6, -r2 * 0.5), Vector2(-r2 * 2.6, r2 * 0.5)]), rgba(191, 239, 255, 0.45))
+			ci.draw_set_transform_matrix(IDENT)
 		else:
 			ci.draw_circle(c, 4.0, C("#bfefff"))
 			ci.draw_circle(Vector2(x - vx * 0.02, y - vy * 0.02), 3.0, rgba(191, 239, 255, 0.4))
@@ -1910,6 +2359,11 @@ static func draw_misc(ci: Node2D, st: CombatState) -> void:
 					ci.draw_circle(Vector2(fx + cos(a) * r * (1.0 - k) * 0.9, fy + sin(a) * r * (1.0 - k) * 0.9 - 14.0 * k), 3.0, C("#8a6b45", k))
 			"burst":
 				stroke_circle(ci, float(f.x), float(f.y), float(f.r) * (1.0 - k * 0.6), C(String(f.get("color", "#ffffff")), k), 4.0)
+			"slashline": # 집행관 세로 절단(순서별 색)
+				var first: bool = int(f.get("order", 1)) == 1
+				var w: float = float(f.w) * (1.0 - k * 0.5)
+				ci.draw_rect(Rect2(float(f.x) - w / 2.0, float(f.y), w, float(f.h)), rgba(255, 120, 80, 0.45 * k) if first else rgba(220, 140, 255, 0.45 * k))
+				ci.draw_line(Vector2(float(f.x), float(f.y)), Vector2(float(f.x), float(f.y) + float(f.h)), Color(1, 1, 1, k), 3.0)
 			"death":
 				var fx: float = f.x
 				var fy: float = f.y

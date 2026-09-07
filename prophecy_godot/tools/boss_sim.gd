@@ -1,12 +1,36 @@
 extends SceneTree
-## 보스전 헤드리스 측정(HTML tools/boss_sim.js·boss_matrix.js 이식): 고정 빌드(PCatalog.lab().BUILDS) × 보스 3종 × 봇 정책 × 시드.
+## 보스전 헤드리스 측정(HTML tools/boss_sim.js·boss_matrix.js 이식): 고정 빌드(PCatalog.lab().BUILDS) × 보스 9종(기존 3 + 신규 6) × 봇 정책 × 시드.
 ## 사용: PROPHECY_SIM_SEEDS=11,18 godot --headless --path prophecy_godot -s tools/boss_sim.gd
-## 환경 변수: PROPHECY_BOSS_BUILDS("stage1,stage2,stage3,stop3_final") PROPHECY_SIM_BOT(정책 목록, "still,balanced,survival") PROPHECY_SIM_SEEDS("11,18,25")
-##   PROPHECY_SIM_OUT(res://docs/sim/BOSS_SIM.md). 보스 체력은 회차 규칙(PRun.boss_hp, 세트 hi)에서 읽는다(F8). 결과: 마크다운 + BOSS_SIM_JSON 한 줄.
+## 환경 변수: PROPHECY_BOSS_IDS(기본 9종 전부) PROPHECY_BOSS_BUILDS(비우면 막에 맞는 관문 프리셋: 1막 stage1 · 2막 stage2 · 3막 stage3; 지정하면 모든 보스에 그 빌드들)
+##   PROPHECY_SIM_BOT(정책 목록, "still,balanced,survival") PROPHECY_SIM_SEEDS("11,18,25") PROPHECY_BOSS_HP_SET("hi"|"base") PROPHECY_SIM_OUT(res://docs/sim/BOSS_SIM.md).
+##   보스 체력은 회차 규칙(PRun.boss_hp)에서, 회차 모드에 없는 신규 보스는 boss_hp_sets[세트][id][stage<막>](bosses_new.json 시험값)에서 읽는다. 결과: 마크다운 + BOSS_SIM_JSON 한 줄.
 ## 기록: 승패·시간, 남은 체력, 보스 남은 체력, 받은 유효 피해, 흡수·회복, 보스 공격 실행, 패턴 실행, Q/E, 출처별 피해. 봇 결과는 사람 승률이 아니다.
+## "제자리(still)"가 이기는 보스는 표 끝에 따로 표시한다(수치를 고치지 않고 보고만 한다).
 
-const BOSSES := ["boss", "guardian", "eater"]
+const ALL_BOSSES := ["boss", "gate_warden", "spore_matriarch", "guardian", "excavation_behemoth", "frost_stalker", "eater", "blood_hunt_king", "doom_executor"]
+const LEGACY_ACT := { "boss": 1, "guardian": 2, "eater": 3 }
 const MAX_SEC := 300.0
+var BOSSES: Array = []
+
+## 보스의 막(1~3): 신규는 정의의 act, 기존 3종은 관문 순서
+static func boss_act(bid: String) -> int:
+	var d := PCatalog.boss_def(bid)
+	if d.has("act"):
+		return int(d.act)
+	return int(LEGACY_ACT.get(bid, 1))
+
+## 보스 체력: 회차 모드(PRun.boss_hp)에 있으면 그 값, 아니면 boss_hp_sets[세트][id][stage<막>], 없으면 정의 hp
+static func boss_hp_of(run: Dictionary, bid: String) -> float:
+	for b in PRun.mode_def(run).bosses:
+		if String(b.id) == bid:
+			return PRun.boss_hp(run, bid)
+	var sets := PCatalog.boss_hp_sets()
+	var set_id := String(run.get("bossHpSet", "hi"))
+	var H: Dictionary = sets[set_id] if sets.has(set_id) else sets.base
+	var key := "stage%d" % boss_act(bid)
+	if H.has(bid) and (H[bid] as Dictionary).has(key):
+		return float(H[bid][key])
+	return float(PCatalog.boss_def(bid).hp)
 
 func _env(k: String, d: String) -> String:
 	var v := OS.get_environment(k)
@@ -25,7 +49,7 @@ func make_run(seed: int, preset: Dictionary) -> Dictionary:
 	var gw: Dictionary = preset.growth
 	var first := String((gw.weapons as Array)[0].id)
 	var run := PRun.new_run(seed, first)
-	run.bossHpSet = "hi"
+	run.bossHpSet = _env("PROPHECY_BOSS_HP_SET", "hi")
 	var g: Dictionary = run.growth
 	var ws := []
 	for w in gw.weapons:
@@ -67,7 +91,7 @@ func make_run(seed: int, preset: Dictionary) -> Dictionary:
 
 func fight(run: Dictionary, boss_id: String, pol: String, seed: int) -> Dictionary:
 	var b := PRun.build(run)
-	var st := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": seed, "boss": true, "boss_id": boss_id, "boss_hp": PRun.boss_hp(run, boss_id),
+	var st := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": seed, "boss": true, "boss_id": boss_id, "boss_hp": boss_hp_of(run, boss_id),
 		"arena": "clearing", "region_id": "boss", "xp_kill_mult": PRun.kill_xp_mult(run), "run": run })
 	PBot.run_combat(st, pol, { "max_sec": MAX_SEC })
 	if st.status == "running":
@@ -102,8 +126,14 @@ func _avg(list: Array, key: String) -> String:
 func _init() -> void:
 	var LAB := PCatalog.lab()
 	var BUILDS: Dictionary = LAB.get("BUILDS", {})
+	for id in _list(_env("PROPHECY_BOSS_IDS", ",".join(ALL_BOSSES))):
+		if PCatalog.boss_defs().has(id):
+			BOSSES.append(id)
+		else:
+			printerr("알 수 없는 보스: " + id)
 	var build_ids := []
-	for id in _list(_env("PROPHECY_BOSS_BUILDS", "stage1,stage2,stage3,stop3_final")):
+	var fixed_builds: bool = _env("PROPHECY_BOSS_BUILDS", "") != ""
+	for id in _list(_env("PROPHECY_BOSS_BUILDS", "stage1,stage2,stage3")):
 		if BUILDS.has(id):
 			build_ids.append(id)
 		else:
@@ -120,13 +150,17 @@ func _init() -> void:
 	var probe := make_run(1, BUILDS[build_ids[0]] if build_ids.size() > 0 else { "growth": { "weapons": [{ "id": "sword", "level": 1 }] } })
 	var boss_hp := {}
 	for bid in BOSSES:
-		boss_hp[bid] = int(PRun.boss_hp(probe, bid))
-	printerr("boss_sim: builds=%s bosses=%s policies=%s seeds=%s bossHpSet=%s hp=%s" % [str(build_ids), str(BOSSES), str(pols), str(seeds), String(probe.bossHpSet), JSON.stringify(boss_hp)])
+		boss_hp[bid] = int(boss_hp_of(probe, bid))
+	printerr("boss_sim: builds=%s(%s) bosses=%s policies=%s seeds=%s bossHpSet=%s hp=%s" % [str(build_ids), "고정" if fixed_builds else "막별", str(BOSSES), str(pols), str(seeds), String(probe.bossHpSet), JSON.stringify(boss_hp)])
 	var rows := []
 	var fights := []
 	var t_all := Time.get_ticks_msec()
 	for bid in BOSSES:
-		for build_id in build_ids:
+		var use_builds: Array = build_ids
+		if not fixed_builds: # 막에 맞는 관문 프리셋 하나(1막 stage1 · 2막 stage2 · 3막 stage3)
+			var want := "stage%d" % boss_act(String(bid))
+			use_builds = [want] if BUILDS.has(want) else build_ids
+		for build_id in use_builds:
 			var preset: Dictionary = BUILDS[build_id]
 			for pol in pols:
 				var res := []
@@ -171,14 +205,17 @@ func _init() -> void:
 					row.level = int(res[0].level)
 				rows.append(row)
 				printerr("done %s %s %s: %d/%d" % [String(bid), String(build_id), String(pol), wins.size(), res.size()])
-	var md := "# 보스전 헤드리스 측정 (%s, Godot %s, %s, 밸런스 %s, 보스 체력 세트 %s = 가시갈기 %d / 봉인 수호자 %d / 예언을 먹는 자 %d, 상한 %d초, 시드 %s)\n\n" % [String(preload("res://scripts/game/game.gd").VERSION), String(Engine.get_version_info().string), OS.get_name(), String(probe.balance), String(probe.bossHpSet), int(boss_hp.boss), int(boss_hp.guardian), int(boss_hp.eater), int(MAX_SEC), str(seeds)]
-	md += "생성: `tools/boss_sim.gd`. 빌드는 PCatalog.lab().BUILDS 프리셋(성장·장비·강화)을 회차 dict에 넣고 PRun.build로 파생. 정책: "
+	var hp_parts := []
+	for bid in BOSSES:
+		hp_parts.append("%s %d" % [String(PCatalog.boss_def(bid).name), int(boss_hp[bid])])
+	var md := "# 보스전 헤드리스 측정 (%s, Godot %s, %s, 밸런스 %s, 보스 체력 세트 %s = %s, 상한 %d초, 시드 %s)\n\n" % [String(preload("res://scripts/game/game.gd").VERSION), String(Engine.get_version_info().string), OS.get_name(), String(probe.balance), String(probe.bossHpSet), " / ".join(hp_parts), int(MAX_SEC), str(seeds)]
+	md += "생성: `tools/boss_sim.gd`. 빌드는 PCatalog.lab().BUILDS 프리셋(성장·장비·강화)을 회차 dict에 넣고 PRun.build로 파생%s. 신규 보스 6종 수치는 bosses_new.json 시험값(사람 승인 아님). 정책: " % ("(막별 관문 프리셋: 1막 stage1 · 2막 stage2 · 3막 stage3)" if not fixed_builds else "(고정 빌드 " + ",".join(build_ids) + ")")
 	var pn := []
 	for p in pols:
 		pn.append("%s=%s" % [String(p), String(PBot.policies()[p].name) if PBot.policies().has(p) else String(p)])
 	md += " · ".join(pn) + ". 봇 결과는 사람 승률이 아니다. 받은 피해 = 유효 피해(실제 체력 감소).\n"
 	for bid in BOSSES:
-		md += "\n## %s (체력 %d)\n\n| 빌드 | 선택 수 | 정책 | 승리 | 평균 초(승) | 남은 체력 | 보스 남은 | 받은 피해 | 흡수 | 회복 | 보스 공격 실행 | 명중 | Q | E | 보스에게 준 피해 | 패턴 실행(평균) | 피해 출처 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n" % [String(PCatalog.boss_def(bid).name), int(boss_hp[bid])]
+		md += "\n## %s (%d막 · 체력 %d)\n\n| 빌드 | 선택 수 | 정책 | 승리 | 평균 초(승) | 남은 체력 | 보스 남은 | 받은 피해 | 흡수 | 회복 | 보스 공격 실행 | 명중 | Q | E | 보스에게 준 피해 | 패턴 실행(평균) | 피해 출처 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n" % [String(PCatalog.boss_def(bid).name), boss_act(String(bid)), int(boss_hp[bid])]
 		for r in rows:
 			if String(r.boss) != bid:
 				continue
@@ -189,6 +226,13 @@ func _init() -> void:
 		for k in f.patterns:
 			pp.append("%s %d" % [String(k), int(f.patterns[k])])
 		md += "| %s | %s | %s | %d | %s | %s | %d | %d/%d | %d | %d | %d | %d | %s |\n" % [String(PCatalog.boss_def(String(f.boss)).name), String(f.build), String(f.policy), int(f.seed), String(f.status), str(f.t), int(f.hp), int(f.bossHp), int(f.bossHpMax), int(f.taken), int(f.kills), int(f.q), int(f.e), ", ".join(pp)]
+	# 제자리 정책이 이기는 칸: 서서 버티며 이김의 신호(수치는 고치지 않고 보고)
+	md += "\n## 제자리(still) 정책 결과 — 서서 버티며 이기는 보스\n\n| 보스 | 빌드 | 제자리 승리 | 판정 |\n|---|---|---|---|\n"
+	for r in rows:
+		if String(r.policy) != "still":
+			continue
+		var flag := "**경고: 제자리 자동 공격만으로 전승**" if (int(r.wins) == int(r.n) and int(r.n) > 0) else ("일부 승(관찰)" if int(r.wins) > 0 else "패(정지 표적 아님)")
+		md += "| %s | %s | %d/%d | %s |\n" % [String(PCatalog.boss_def(String(r.boss)).name), String(r.build), int(r.wins), int(r.n), flag]
 	md += "\n## 읽는 법\n- \"제자리 Q/E\"(still)와 이동 정책의 차이 = 이동·회피가 보스 행동·생존에 미친 영향(같은 빌드·시드).\n- 보스 공격 실행 대비 명중이 0에 가까우면 정지한 플레이어를 못 맞히는 것이므로 재현·수정 대상.\n- 제자리 행동이 이기는 칸은 \"서서 버티며 이김\"의 신호. 원인은 체력 부족으로 단정하지 않는다(공격 빈도·명중률·틈을 함께 본다).\n"
 	var dir := ProjectSettings.globalize_path(out_path.get_base_dir())
 	DirAccess.make_dir_recursive_absolute(dir)

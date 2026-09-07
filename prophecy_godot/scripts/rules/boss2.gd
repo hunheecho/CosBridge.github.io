@@ -10,7 +10,7 @@ static func cfg_of(e: Dictionary) -> Dictionary:
 	return PCatalog.boss_def(String(e.get("boss_id", "boss")))
 
 static func is_committed(e: Dictionary) -> bool:
-	return String(e.get("state", "")) in COMMITTED
+	return String(e.get("state", "")) in COMMITTED or PBoss3.is_committed(e)
 
 static func to_recover(st: CombatState, e: Dictionary, dur: float) -> void:
 	e.state = "recover"
@@ -31,6 +31,9 @@ static func allies_committed(st: CombatState) -> bool:
 
 # ---------- 설정(스폰 시) ----------
 static func init(st: CombatState, e: Dictionary) -> void:
+	if PBoss3.has(String(e.boss_id)): # 신규 보스 6종은 PBoss3
+		PBoss3.init(st, e)
+		return
 	var cfg := cfg_of(e)
 	e.history = []
 	e.actions = 0
@@ -132,6 +135,9 @@ static func fire_shock(st: CombatState, e: Dictionary, ang: float, S: Dictionary
 
 # ---------- 갱신 ----------
 static func update(st: CombatState, e: Dictionary, dt: float) -> void:
+	if PBoss3.has(String(e.boss_id)):
+		PBoss3.update(st, e, dt)
+		return
 	var cfg := cfg_of(e)
 	var p := st.player
 	var tf := st.time_factor(e)
@@ -382,6 +388,8 @@ static func summon(st: CombatState, e: Dictionary) -> void:
 
 ## 현재 위험 예고 안인가(회복 구슬 배치용). pt = {x, y}
 static func in_danger(st: CombatState, e: Dictionary, pt: Dictionary) -> bool:
+	if PBoss3.has(String(e.get("boss_id", ""))):
+		return PBoss3.in_danger(st, e, pt)
 	var cfg := cfg_of(e)
 	var px := float(pt.x)
 	var py := float(pt.y)
@@ -404,6 +412,9 @@ static func in_danger(st: CombatState, e: Dictionary, pt: Dictionary) -> bool:
 
 ## 봇 위협 도형. out에 {kind, e, x, y, ang, len, w, r, half, prog, locked} 추가
 static func threats(st: CombatState, bz: Dictionary, out: Array) -> void:
+	if PBoss3.has(String(bz.get("boss_id", ""))):
+		PBoss3.threats(st, bz, out)
+		return
 	var cfg := cfg_of(bz)
 	if bz.state == "sweep_aim":
 		out.append({ "kind": "arc", "e": bz, "x": bz.x, "y": bz.y, "ang": float(bz.aim_angle), "r": float(cfg.sweep.radius) + 30.0, "half": float(cfg.sweep.arcDeg) * PI / 360.0 + 0.2, "prog": float(bz.state_t) / float(cfg.sweep.aim), "locked": false })
