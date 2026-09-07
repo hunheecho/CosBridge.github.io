@@ -6,7 +6,8 @@ extends RefCounted
 ## 환경 변수: PROPHECY_BOT_RUN_ID(기본 날짜시각) PROPHECY_BOT_MODE(compare|throughput|report) PROPHECY_BOT_SCENARIOS(쉼표, 기본 compare 묶음)
 ##   PROPHECY_BOT_PROFILES(기본 novice,regular,skilled,balanced) PROPHECY_BOT_SEEDS(기본 1,2,3,4,5) PROPHECY_BOT_BOSS_SEEDS(기본 1,2,3) PROPHECY_BOT_BOT_SEED(기본 = 게임 seed; 정수면 고정)
 ##   PROPHECY_BOT_BUDGET_SEC(벽시계 예산, 기본 600) PROPHECY_BOT_MAX_SEC(전투 상한 덮어쓰기) PROPHECY_BOT_SAMPLE(성공 재생 표본 간격, 기본 5) PROPHECY_BOT_FORCE=1(캐시 불일치 시 폴더 무효화 후 새로)
-##   PROPHECY_BOT_REPORT(res://docs/sim/BOT_COMPARE.md; 비어 있으면 run 폴더에만 summary.md)
+##   PROPHECY_BOT_REPORT(res://docs/sim/BOT_COMPARE.md; 비어 있으면 run 폴더에만 summary.md) PROPHECY_BOT_TITLE(보고서 제목, 기본 "실력별 전투 봇 첫 비교(BOT_COMPARE)")
+##   시나리오 "boss3" = 신규 관문 보스 6종 묶음(BOSS3_SCENARIOS)으로 펼친다
 ## 결과: res://docs/sim/bot_runs/<run_id>/{results.jsonl, meta.json, summary.md, git_head.txt, replays/*.json}. 시간초과는 timeout 그대로(패배·승리로 바꾸지 않는다). 봇 결과는 가상 조작 모델이며 사람 승률이 아니다.
 
 const STEP := 1.0 / 120.0
@@ -17,8 +18,32 @@ const SCENARIOS := {
 	"boss_thornmane": { "kind": "boss", "boss": "boss", "preset": "stage1", "max_sec": 300.0, "build": "lab:stage1", "doc": "가시갈기 × 실험실 stage1 프리셋(boss_sim make_run)" },
 	"boss_guardian": { "kind": "boss", "boss": "guardian", "preset": "stage2", "max_sec": 300.0, "build": "lab:stage2", "doc": "봉인 수호자 × stage2 프리셋" },
 	"boss_eater": { "kind": "boss", "boss": "eater", "preset": "stage3", "max_sec": 300.0, "build": "lab:stage3", "doc": "예언을 먹는 자 × stage3 프리셋" },
+	# 신규 관문 보스 6종(boss3.gd, bosses_new.json 시험값): 막에 맞는 관문 프리셋(tools/boss_sim.gd와 같은 규칙: 1막 stage1 · 2막 stage2 · 3막 stage3), 체력 세트 hi(boss_hp_sets)
+	"boss_warden": { "kind": "boss", "boss": "gate_warden", "preset": "stage1", "max_sec": 300.0, "build": "lab:stage1", "doc": "성문 파수장(1막) × stage1 프리셋, 체력 hi 2400" },
+	"boss_matriarch": { "kind": "boss", "boss": "spore_matriarch", "preset": "stage1", "max_sec": 300.0, "build": "lab:stage1", "doc": "포자 어미(1막) × stage1 프리셋, 체력 hi 2400" },
+	"boss_behemoth": { "kind": "boss", "boss": "excavation_behemoth", "preset": "stage2", "max_sec": 300.0, "build": "lab:stage2", "doc": "굴착 거수(2막) × stage2 프리셋, 체력 hi 5000" },
+	"boss_stalker": { "kind": "boss", "boss": "frost_stalker", "preset": "stage2", "max_sec": 300.0, "build": "lab:stage2", "doc": "서리 추적자(2막) × stage2 프리셋, 체력 hi 5000" },
+	"boss_hunt_king": { "kind": "boss", "boss": "blood_hunt_king", "preset": "stage3", "max_sec": 300.0, "build": "lab:stage3", "doc": "핏빛 사냥왕(3막) × stage3 프리셋, 체력 hi 7000" },
+	"boss_executor": { "kind": "boss", "boss": "doom_executor", "preset": "stage3", "max_sec": 300.0, "build": "lab:stage3", "doc": "종말의 집행관(3막) × stage3 프리셋, 체력 hi 7000" },
 }
+const BOSS3_SCENARIOS := ["boss_warden", "boss_matriarch", "boss_behemoth", "boss_stalker", "boss_hunt_king", "boss_executor"]
+const LEGACY_ACT := { "boss": 1, "guardian": 2, "eater": 3 }
 const STALL_SEC := 60.0 # 처치·피해·체력 변화가 이 시간 동안 없으면 진행정체(stalled)로 종료
+
+## 보스 체력(tools/boss_sim.gd boss_hp_of와 같은 규칙; SceneTree 스크립트를 preload하면 종료 시 ObjectDB 누수 경고가 나서 여기 복사): 회차 모드(PRun.boss_hp)에 있으면 그 값, 아니면 boss_hp_sets[세트][id][stage<막>], 없으면 정의 hp
+static func _boss_hp_of(run: Dictionary, bid: String) -> float:
+	for b in PRun.mode_def(run).bosses:
+		if String(b.id) == bid:
+			return PRun.boss_hp(run, bid)
+	var d := PCatalog.boss_def(bid)
+	var act: int = int(d.act) if d.has("act") else int(LEGACY_ACT.get(bid, 1))
+	var sets := PCatalog.boss_hp_sets()
+	var set_id := String(run.get("bossHpSet", "hi"))
+	var H: Dictionary = sets[set_id] if sets.has(set_id) else sets.base
+	var key := "stage%d" % act
+	if H.has(bid) and (H[bid] as Dictionary).has(key):
+		return float(H[bid][key])
+	return float(d.hp)
 
 var run_id := ""
 var run_dir := ""
@@ -105,7 +130,7 @@ func make_scenario(sid: String, seed_v: int) -> Dictionary:
 				return { "error": "unimplemented:no_preset" }
 			var run2 := _lab_run(seed_v, BUILDS[String(S.preset)])
 			var b := PRun.build(run2)
-			var st2 := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": seed_v, "boss": true, "boss_id": String(S.boss), "boss_hp": PRun.boss_hp(run2, String(S.boss)),
+			var st2 := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": seed_v, "boss": true, "boss_id": String(S.boss), "boss_hp": _boss_hp_of(run2, String(S.boss)),
 				"arena": "clearing", "region_id": "boss", "xp_kill_mult": PRun.kill_xp_mult(run2), "run": run2 })
 			return { "st": st2, "build_fixture": String(S.build), "max_sec": max_sec, "boss_id": String(S.boss) }
 	return { "error": "unimplemented" }
@@ -626,7 +651,13 @@ func run(o: Dictionary = {}) -> Dictionary:
 	var profiles := _list(_env("PROPHECY_BOT_PROFILES", "novice,regular,skilled,balanced"))
 	var seeds := _ints(_env("PROPHECY_BOT_SEEDS", "1,2,3,4,5"))
 	var boss_seeds := _ints(_env("PROPHECY_BOT_BOSS_SEEDS", "1,2,3"))
-	var scen := _list(_env("PROPHECY_BOT_SCENARIOS", "baseline_wolf25,ranged_mix,zone_mix,boss_thornmane,boss_guardian,boss_eater"))
+	var scen := []
+	for s in _list(_env("PROPHECY_BOT_SCENARIOS", "baseline_wolf25,ranged_mix,zone_mix,boss_thornmane,boss_guardian,boss_eater")):
+		if String(s) == "boss3":
+			scen.append_array(BOSS3_SCENARIOS)
+		else:
+			scen.append(s)
+	var report_title := _env("PROPHECY_BOT_TITLE", "실력별 전투 봇 첫 비교(BOT_COMPARE)")
 	var bot_seed_fixed := _env("PROPHECY_BOT_BOT_SEED", "")
 	var max_sec := {}
 	for s in scen:
@@ -676,7 +707,7 @@ func run(o: Dictionary = {}) -> Dictionary:
 		_report(existing, settings, run_dir.path_join("summary.md"), "실력 봇 비교(run %s)" % run_id)
 		var rp0 := _env("PROPHECY_BOT_REPORT", "")
 		if rp0 != "":
-			_report(existing, settings, rp0, "실력별 전투 봇 첫 비교(BOT_COMPARE)")
+			_report(existing, settings, rp0, report_title)
 		return { "code": 0, "rows": existing, "complete": bool(meta.get("complete", false)), "messages": messages }
 	var done_keys := {}
 	for r in existing:
@@ -729,6 +760,6 @@ func run(o: Dictionary = {}) -> Dictionary:
 	_report(rows, settings, run_dir.path_join("summary.md"), "실력 봇 비교(run %s)" % run_id)
 	var rp := _env("PROPHECY_BOT_REPORT", "")
 	if rp != "" and complete:
-		_report(rows, settings, rp, "실력별 전투 봇 첫 비교(BOT_COMPARE)")
+		_report(rows, settings, rp, report_title)
 	_msg("bot_batch: %s rows=%d/%d wall=%.1fs(이번 실행 %d행) → %s" % ["complete" if complete else "partial", rows.size(), jobs.size(), float(int(meta.get("wall_ms_total", 0))) / 1000.0, did, run_dir])
 	return { "code": 0 if complete else 3, "rows": rows, "complete": complete, "messages": messages, "did": did }

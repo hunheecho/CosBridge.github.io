@@ -1,6 +1,7 @@
 # 실력별 전투 봇·밸런스 측정 기반 (BOT_FRAMEWORK) — 공식 문서
 
 작성 2026-09-07 (godot-0.5.0 위에 첫 납품). 지시문: 외부 `prophecy-bot-balance-framework-20260907.md`(Codex). 이 문서가 봇 규칙·관측 경계·프로필 값·통계/태그 정의·기록 형식·배치 사용법·보정 상태의 **한 곳**이다. 첫 비교 보고서: `docs/sim/BOT_COMPARE.md`. 회귀 검사: `tests/bot_tests.gd`.
+2차(같은 날, observe-2): 신규 관문 보스 6종(`scripts/rules/boss3.gd`, `docs/BOSSES.md`)의 화면 예고·빙판·잔해·보스 투사체를 관측 경계에 추가(§2-1), 보스 6종 배치 시나리오·비교 보고서 `docs/sim/BOT_COMPARE_BOSS3.md`(§6), 회귀 검사 §12-11(43). 봇 규칙(§3)·프로필 값·게임 수치는 바꾸지 않았다.
 
 **상태: 사람 보정 미완료.** novice/regular/skilled는 **가상 조작 모델**이며 실제 초보/평균/상위 플레이어 분포가 아니다. 어떤 수치도 사용자 승인값이 아니다. 게임 수치(회피 70~150·재사용 1.5초·무적·늑대 규칙·밀도·경험치)는 바꾸지 않았고, 기존 봇 정책(`bot.gd` stand/active/aggressive/balanced/survival/idle/aware/still)은 코드·동작 그대로다(D33 기준 전투 72/72, `tools/density_report.gd` 결과 열 동일).
 
@@ -8,7 +9,7 @@
 
 | 파일 | 역할 |
 |---|---|
-| `scripts/rules/observe.gd` (`PObserve`, observe-1) | CombatState → 화면에 그려지는 것만 담은 읽기 전용 스냅샷(깊은 복사). 위협 도형·attack_id·수정 번호(rev) |
+| `scripts/rules/observe.gd` (`PObserve`, observe-2) | CombatState → 화면에 그려지는 것만 담은 읽기 전용 스냅샷(깊은 복사). 위협 도형·attack_id·수정 번호(rev). observe-2 = 신규 보스 6종 예고·빙판·잔해 추가(§2-1) |
 | `scripts/rules/skill_bot.gd` (`PSkillBot`, skillbot-0.1) | 실력 프로필 봇. `PBot`을 상속해 `step_input`만 덮어씀(PStepDriver·PBot.run_combat에 그대로 꽂힌다) |
 | `data/bots.json` | 프로필 값(시험값)·공통 규칙·진단 성향 기본값. 보고서 머리말은 이 데이터에서 생성 |
 | `scripts/rules/hit_recorder.gd` (`PHitRecorder`) | 선택 계측: 공격 관측·피격 사건·거절·검산·보호막 분리·피격 태그. `st.recorder = PHitRecorder.new()`로만 켜진다 |
@@ -24,9 +25,10 @@
 
 허용(화면에 실제로 그려지는 것):
 - 적: id, 종류, 등급, 위치·반지름, 좌우 방향(`face_x`), 상태 이름(애니메이션으로 보이는 것), 체력 막대 비율, 정예/구조물/보스, 빈틈(노란색) 여부. **hidden(지하 잠복)·죽은 적은 없다.**
-- 위협 도형(`threats`): render.gd `draw_telegraphs`/`draw_boss_telegraphs`/`draw_zones`/`draw_projectiles`와 같은 수치. `kind` = sector(부채꼴: x,y,ang,r,half) · corridor(통로: x,y,ang,len,w) · circle(원: x,y,r) · lane(선 예고: x,y,ang,len,w — 화면의 선에는 폭이 없으므로 폭 40을 가정, PBot과 같은 값). `phase` = warn(추적/준비) · lock(확정: 색이 진해지고 '!'/굵은 테두리) · active(실행 중: 달리는 몸·유효 구간). `prog` = 그려지는 진행률(0~1, 알파/두께 변화의 근거). `shown_left` = 화면에 **글자로** 표시되는 남은 초(폭탄 운반체 "폭발 1.2s", 예언을 먹는 자 표식)만, 그 외 −1. `harm` = damage | slow(거미줄·거미줄 예고).
-- 적 투사체: 위치·속도·반지름(진행 방향 220px 외삽 통로로도 제공 — 공개 정보의 제한적 외삽).
-- 바닥 지역: 종류·위치·반지름·표시되는 생명 비율(life), 서리 순번, 제단/붕괴 위험의 예고/활성.
+- 위협 도형(`threats`): render.gd `draw_telegraphs`/`draw_boss_telegraphs`/`draw_boss3_telegraphs`/`draw_zones`/`draw_projectiles`와 같은 수치. `kind` = sector(부채꼴: x,y,ang,r,half) · corridor(통로: x,y,ang,len,w) · circle(원: x,y,r) · lane(선 예고: x,y,ang,len,w — 화면의 선에는 폭이 없으므로 폭 40을 가정, PBot과 같은 값) · band(띠: 바깥 반지름 r, 안쪽 r−w, 각 ang±half — 포자 어미의 확산 중인 고리 전용, observe-2). `phase` = warn(추적/준비) · lock(확정: 색이 진해지고 '!'/굵은 테두리) · active(실행 중: 달리는 몸·유효 구간). `prog` = 그려지는 진행률(0~1, 알파/두께 변화의 근거). `shown_left` = 화면에 **글자로** 표시되는 남은 초(폭탄 운반체 "폭발 1.2s", 예언을 먹는 자 표식, 포자 탄·낙석 순번 옆 초, 사냥왕 "방향 고정 n초 뒤")만, 그 외 −1. `harm` = damage | slow(거미줄·거미줄 예고·빙판).
+- 적 투사체: 위치·속도·반지름(진행 방향 220px 외삽 통로로도 제공 — 공개 정보의 제한적 외삽). 보스 볼트(`boss_bolt`)·얼음 탄(`boss_icebolt`)도 같은 규칙(발사한 공격의 부분 `e<id>#<n>:proj<i>`).
+- 바닥 지역: 종류·위치·반지름·표시되는 생명 비율(life), 서리 순번, 제단/붕괴 위험의 예고/활성, 걷기 감속 배율(`slow`: 거미줄 0.5·빙판 0.6 — 화면 문구 "걷기 n%"·보스 설명값).
+- 보스 방패/방어 자세(`boss.guard`, 위협 아님): 파수장 guard_aim/lock·집행관 guard 중 그려지는 정면 부채꼴(각·반각·반지름·경감률)과 집행관 자세의 글자 남은 초(`left`). 그려지지 않으면 `{}`.
 - 목표물·회복 구슬·장애물·경기장 크기·등장 예고(화면의 `spawnwarn`/`pawwarn` 효과와 남은 시간).
 - 자기 상태: 위치·체력·보호막·회피 재사용(HUD 막대)·회피 중·감속장/E 재사용·E 보유 여부.
 - 조작 규칙(`rules`, 조작법 화면에 적힌 값): 회피 방식/최소·최대 거리/시간/재사용, 이동 속도, 자동기술 사거리(기술 설명상 성능).
@@ -35,7 +37,35 @@
 금지(스냅샷에 없음, 검사 §12-1이 숨은 값을 바꿔도 스냅샷·입력이 같음을 확인):
 - 게임 난수 상태·다음 공격의 난수 결과, 아직 예고되지 않은 착탄 지점/방향(예: 서리술사가 시전을 시작하기 전의 위치, 표식이 찍히기 전의 과거 궤적), 숨은 적 좌표, 미등장 대기열(`pending`) 좌표/시간, 예고에 없는 내부 타이머(`dash_ready_at`·`bite_cd`·`dash_cd`·`ready_t`·`heal_t`·`web_t`·`cast_t`), 최종 충돌 결과, 규칙 엔진을 미리 실행해 얻은 정답, 화면에 없는 정확한 발동 시각(진행률 `prog`만 준다).
 
-attack_id: `e<적 id>#<attack_n>`. `attack_n`은 공격 준비(예고)가 시작될 때 1 오른다(`note_attack("prepare")`, 늑대는 `update_wolf`의 물기/돌진 시작). 한 공격의 부분은 접미사(`:lane1`, `:shock0`, `:mark2`, `:pt1`(서리 3점), `:s2`(도적 2타), `:proj0`(그 공격이 쏜 투사체)). 지역은 `zone:<종류>:<x>:<y>`. 발사자가 없는 투사체는 추적기가 `proj:<n>`을 준다. `rev`는 그려지는 기하(각도 0.5°, 위치/길이 1px, 단계)가 바뀔 때만 오른다(추적 인스턴스 `take()`).
+attack_id: `e<적 id>#<attack_n>`. `attack_n`은 공격 준비(예고)가 시작될 때 1 오른다(`note_attack("prepare")`, 늑대는 `update_wolf`의 물기/돌진 시작; 신규 보스는 `PBoss3.begin`). 한 공격의 부분은 접미사(`:lane1`, `:shock0`, `:mark2`, `:pt1`(서리 3점), `:s2`(도적 2타), `:proj0`(그 공격이 쏜 투사체)). 지역은 `zone:<종류>:<x>:<y>`. 발사자가 없는 투사체는 추적기가 `proj:<n>`을 준다. `rev`는 그려지는 기하(각도 0.5°, 위치/길이 1px, 단계)가 바뀔 때만 오른다(추적 인스턴스 `take()`).
+
+### 2-1. 신규 관문 보스 6종 관측표 (observe-2, `PObserve._boss3_threats` = render.gd `draw_boss3_telegraphs`)
+
+경계는 그대로: 화면에 그려지는 도형·글자만. 굴착 계획의 "그 순간 플레이어 방향"은 고정 시점에 두 통로가 함께 그려지므로 그때부터만, 고리의 빈 구간 각은 준비 중 초록 부채꼴로 그려지므로 그 각(부채꼴 밖)으로, 착탄/낙하 시각은 화면 글자의 남은 초로만 준다. 난수·`land_at`·`burrow_plan`·`hit_done`·`wait_t`·`shot_timer`·`rubble_tick`·`guard_real`·`summon_budget` 같은 내부 필드 이름은 스냅샷에 없다(검사 §12-11p).
+
+| 보스 | 화면 | attack_id 부분 | kind | phase | 수치(render와 동일) | shown_left |
+|---|---|---|---|---|---|---|
+| 성문 파수장 | 방패 자세 → 밀치기 | `e#n` label shove | sector | guard_aim warn(추적 각, prog st/0.8) → guard_lock lock | r 110, 반각 100°/2 | −1 |
+| | 방패 정면 경감 부채꼴 | `boss.guard` | (위협 아님) | 자세 중만 | r 110+40, 반각 120°/2, reduce 0.4 | −1 |
+| | 방패 돌파 | `e#n` breach | corridor | breach_aim warn(추적 각·`path_from` 길이) → breach_lock lock(`dash_len`) → breach active | 폭 (보스 r+플레이어 r)×2 | −1 |
+| | 넓은 휩쓸기(2단계~) | `:sweep` bsweep | sector | bsweep_aim warn → bsweep_lock lock | r 150, 반각 200°/2 | −1 |
+| | 석궁 3발 | `:bolt0~2` → 발사 뒤 `:proj0~2`(boss_bolt) | corridor → lane | bolts_aim warn → bolts_lock lock → 투사체 active | 0°·±18°, 길이 620, 폭 16+10; 투사체 폭 16+4·외삽 220 | −1 |
+| 포자 어미 | 포자 탄 표식 | `:mark<순번>` shot<n> | circle | 남은 초 ≥0.4 warn, <0.4 lock(굵은 테두리·점멸), 착탄 뒤 사라지고 `zone:spore` active | 표시 자리, r 62, prog = 1 − 남은/1.0 | 남은 초(1.0→0) |
+| | 포자 고리 준비/확정 | `e#n` ring | sector | ring_aim warn(prog st/0.9) → ring_lock lock | r 340, 각 = 빈 구간 반대편, 반각 = π − 빈 구간 반각(70°/2, 3단계 55°/2) | −1 |
+| | 포자 고리 확산 | `e#n` ring | **band** | active | 바깥 r = ring_r + 22, 폭 44, 같은 각 범위 | −1 |
+| | 분사 | `e#n` spray | sector | spray_aim warn → spray_lock lock | r 120, 반각 90°/2 | −1 |
+| 굴착 거수 | 낙석 3구역 | `:rock<순번>` rock<n> | circle | 남은 초 ≥0.4 warn, <0.4 lock, 착지 뒤 `zone:rubble` active(잔해 r 72, damage) | r 72, prog = 1 − 남은/0.9 | 남은 초(0.9 / 1.4 / 1.9 → 0) |
+| | 굴착 돌파 | `:burrow1`(+2단계 `:burrow2`) | corridor | burrow_aim warn → burrow_lock: 현재 경로 lock + 다음 경로 lock(첫 경로 끝에서, 옅게 그려짐) → burrow active | 길이 = 경로 길이(벽·장애물 끊김), 폭 (r+플레이어 r)×2 | −1 |
+| 서리 추적자 | 얼음 발사 | `e#n` icebolt → `:proj0`(boss_icebolt) | corridor → lane | bolt_aim warn → bolt_lock lock → 투사체 active | 길이 640, 폭 18+10; 투사체 폭 18+4 | −1 |
+| | 얼음길 3줄 | `:lane0~2` icepath<n> → `zone:ice` | corridor → circle(harm slow) | path_aim warn → path_lock lock → 빙판 active(slow 0.6, 걷기만) | 0°·±40°, 길이 420, 폭 70; 빙판 r 38 | −1 |
+| | 옆 이동 → 돌진 | `e#n` dash | (없음) → corridor | sidestep: 예고 없음(몸만 이동) → dash_aim warn → dash_lock lock → dash active | 위와 같은 돌진 통로 | −1 |
+| 핏빛 사냥왕 | 발톱 휩쓸기 | `e#n` claw | sector | claw_aim warn → claw_lock lock | r 170, 반각 170°/2 | −1 |
+| | 추적 돌진 2회 | `:dash1`, 재조준 뒤 `:dash2` | corridor | dash_aim warn → dash_lock lock → dash active → dash_reaim warn(재조준 표식, 추적 각) → dash_relock lock → dash active | 돌진 통로 | 재조준 중 "방향 고정 n초 뒤"의 n(0.45→0), 그 외 −1 |
+| 종말의 집행관 | 세로 절단선 2 | `:slash1`(붉은 실선), `:slash2`(보라 점선) | corridor | slash_warn warn(1번은 플레이어 x를 따라옴, prog st/0.8) → slash_lock lock → 1번 뒤 2번 slash_gap warn(x 고정, prog st/0.5) → lock | x = 선의 x, y = 0, 각 π/2, 길이 = 경기장 높이, 폭 80 | −1 |
+| | 회전 방어 자세 | `boss.guard` | (위협 아님) | guard 중만 | 각 = face, 반각 110°/2, r 160, left = 자세 남은 초 | (left) |
+| | 큰 베기 | `:strike` gstrike | sector | gstrike_aim warn → gstrike_lock lock | r 160, 반각 140°/2 | −1 |
+
+넣지 않은 것: 절단 뒤 0.3초 잔상 효과 `slashline`·휩쓸기 잔상 `bosssweep`·착지 효과 `bossland`(피해가 끝난 뒤의 그림), 소환 `summon`(등장 예고 `pawwarn`으로 이미 있음), 고리 준비 중 돌진 통로의 알파(render는 1초에 걸쳐 짙어지고 prog는 준비 시간 비율 — 둘 다 공개 정보라 준비 시간 비율을 쓴다).
 
 ## 3. 봇 규칙 (PSkillBot)
 
@@ -122,6 +152,7 @@ PROPHECY_BOT_RUN_ID=<id> [PROPHECY_BOT_MODE=compare|throughput|report] [PROPHECY
 godot --headless --path prophecy_godot -s tools/bot_batch.gd        # APPDATA 격리 권장(사람 저장·프로필과 분리)
 ```
 - 시나리오(첫 납품): `baseline_wolf25`(D33 기준 전투, 상한 240초) · `ranged_mix`(능선 3일차 기본 편성, uniform_x5, 검 Lv1 고정 `fixed_build`) · `zone_mix`(습지 4일차) · `boss_thornmane|boss_guardian|boss_eater`(실험실 stage1/2/3 프리셋, 상한 300초, boss_sim make_run과 같은 절차). 만들 수 없으면 `unimplemented` 행.
+- 시나리오(2차, 신규 보스 6종): `boss_warden|boss_matriarch`(1막, stage1 프리셋) · `boss_behemoth|boss_stalker`(2막, stage2) · `boss_hunt_king|boss_executor`(3막, stage3). 체력은 boss_sim과 같은 규칙(회차 모드에 없으면 `boss_hp_sets.hi[id].stage<막>` = 2400/5000/7000). `PROPHECY_BOT_SCENARIOS=boss3`가 6종으로 펼쳐지고, `PROPHECY_BOT_TITLE`로 보고서 제목을 준다. 보고서: `docs/sim/BOT_COMPARE_BOSS3.md`(run `boss3_compare1`).
 - 출력 `docs/sim/bot_runs/<run_id>/`: `results.jsonl`(행마다 즉시 flush), `meta.json`(캐시 키: git HEAD·prophecy_godot 미커밋 여부·데이터 해시·프로필 해시·설정 해시·엔진·OS·게임/봇 버전·기록 형식), `summary.md`, `git_head.txt`, `replays/`(실패 전부 + 성공 표본 1/5).
 - 재개: 같은 run_id면 완료 행을 건너뛴다. 캐시 키가 다르면 `CACHE_INVALID`를 찍고 종료 코드 2(재개 거부; `PROPHECY_BOT_FORCE=1`이면 기존 결과를 `results.invalidated_<시각>.jsonl`로 옮기고 새로). 벽시계 예산을 넘으면 현재 전투를 마친 뒤 `BUDGET_EXCEEDED`와 재개 방법을 찍고 종료 코드 3.
 - 처리량(`throughput`): 기준 전투 10회 + 가시갈기 5회(regular)로 전투/분·평균 벽시계·최장 시뮬·최대 메모리·결과 파일 크기를 재고 45전투·보스 27전투 예상 시간을 찍는다.
@@ -129,11 +160,21 @@ godot --headless --path prophecy_godot -s tools/bot_batch.gd        # APPDATA �
 
 ## 7. 회귀 검사 (`tests/bot_tests.gd`, §12)
 
-1 미래 정보 누출(숨은 난수·대기열·늑대 타이머 변경 → 같은 스냅샷·같은 입력) · 2 인식 지연 전후 입력 시점, 조준선 갱신에도 인식 시각 불변·기억 기하는 마지막 추적 갱신값, 인식 전 사망한 위협 폐기 · 3 스냅샷 격리 · 4 봇 seed와 편성/난수 독립 · 5 짧음/중간/김·지형 차단·재사용 거절·일시정지 뒤 재발동 방지(사람과 같은 `st.step`/`PStepDriver`) · 6 계측 켜짐/꺼짐 결과·난수·공격 순서 동일 · 7 검산(보호막 부여/흡수·회복·과잉·거절)·출처 합·보유시간 DPS·정산 1회 · 8 재생 해시 일치·JSON 왕복·버전 거부·변조 감지 · 9 배치 예산 중단→재개 중복 없음·캐시 무효화 · 10 실제 장면(main.tscn) 프로필 선택→시작→결과→재시작과 사람 경로 기록 저장 — **모두 함수 호출**(사람 입력·합성 키 이벤트 없음).
+1 미래 정보 누출(숨은 난수·대기열·늑대 타이머 변경 → 같은 스냅샷·같은 입력) · 2 인식 지연 전후 입력 시점, 조준선 갱신에도 인식 시각 불변·기억 기하는 마지막 추적 갱신값, 인식 전 사망한 위협 폐기 · 3 스냅샷 격리 · 4 봇 seed와 편성/난수 독립 · 5 짧음/중간/김·지형 차단·재사용 거절·일시정지 뒤 재발동 방지(사람과 같은 `st.step`/`PStepDriver`) · 6 계측 켜짐/꺼짐 결과·난수·공격 순서 동일 · 7 검산(보호막 부여/흡수·회복·과잉·거절)·출처 합·보유시간 DPS·정산 1회 · 8 재생 해시 일치·JSON 왕복·버전 거부·변조 감지 · 9 배치 예산 중단→재개 중복 없음·캐시 무효화 · 10 실제 장면(main.tscn) 프로필 선택→시작→결과→재시작과 사람 경로 기록 저장 — **모두 함수 호출**(사람 입력·합성 키 이벤트 없음) · 11 신규 보스 6종 관측(11a~11o: 패턴마다 warn/lock/active 단계의 스냅샷 위협이 §2-1 표의 kind·phase·수치·attack_id 부분·shown_left와 같음, 띠(band) 안/빈 구간/지나간 안쪽 판정, 잔해·빙판 지역 이어짐, 방패 표시; 11p: 보스별 실력 봇 15초 전투에서 매 단계 숨은 값(난수·대기열·보스 타이머·소환 예산)을 바꿔도 스냅샷·입력 동일, 숨은 필드 이름 없음). 총 43.
 
 ## 8. 보정 상태·다음 단계
 
 - **사람 보정 미완료.** 비교 기준은 사용자 긍정 평가를 받은 0.3.1 늑대25/동시12 전투(D33)지만 그 평가에는 반응 시간·승률 수치가 없으므로 임의로 넣지 않았다. 사람이 같은 조건으로 5~10회 플레이한 기록(입력 기록 체크)이 모이면 전투 시간·피해 출처·회피 빈도/거리·Q/E를 비교한다. 일부 기록은 조정에, 다른 기록은 확인에 쓴다. 한 전투의 피해 총량만 맞추려고 봇을 조정하지 않는다.
 - 사람은 화면을 읽고 봇은 수치 관측(공개 도형을 수치로)을 받는 픽셀 인식이 아닌 모델이므로, 보정 뒤에도 가독성·피로·재미는 봇 결과로 확정하지 않는다.
 - 게임 난이도 수치를 승률 목표에 자동으로 맞추는 루프는 없다. 보고서는 원인 후보·조정 대상만 적는다.
-- 확장(지시문 §10 4~6): 무기 비교(창·칼날, 선택 횟수·개조·장비 명시), 9보스 동일 규격, 전체 런(대표 경로부터). 시나리오 목록(`PBotBatch.SCENARIOS`)에 추가한다.
+- 확장(지시문 §10 4~6): 무기 비교(창·칼날, 선택 횟수·개조·장비 명시), 9보스 동일 규격(신규 6종은 2차에서 추가, 아래), 전체 런(대표 경로부터). 시나리오 목록(`PBotBatch.SCENARIOS`)에 추가한다.
+
+### 8-1. 신규 관문 보스 6종에 대한 범용 봇의 한계 (2차, `docs/sim/BOT_COMPARE_BOSS3.md`) — 사람 보정 미완료
+
+관측(§2-1)을 넣은 뒤에도 봇 규칙(§3)은 그대로이므로 봇은 모든 위협을 "고려한 도형 합집합에서 가장 짧게 벗어나기"로만 다룬다. 보스별 설계 답(빈 구간 진입·줄 사이 통로·좌우 한 걸음·옆·뒤로 돌기)을 아는 특수 전략은 넣지 않았다(측정이 목적). 알려진 한계:
+- 포자 고리: 준비 중 부채꼴(r340)은 150px 탐색 안에서 벗어날 수 없는 경우가 많아 "가장 트인 방향"(보스 반대쪽)으로 걷고, 확산 띠(250/s)가 따라잡는다. 빈 구간이 후보 방향 안에 우연히 들 때만 통과한다.
+- 낙석: 세 원과 잔해를 한 도형 합집합으로 보므로 고려 위험 수(novice 2)가 모자라면 3번 원이나 잔해 위로 걸어 들어갈 수 있다. 출구 검사(≥4)는 게임 쪽 보장이고 봇은 그 방향을 고르지 않는다.
+- 빙판: `harm=slow`라 긴급도가 낮고 회피 대상이 아니다. 봇은 빙판 위에서 그냥 60%로 걷는다(걸어서 벗어나기 판단이 기본 속도 기준이라 빙판 위에서는 늦을 수 있다 — 거미줄과 같은 기존 한계).
+- 절단선: 세로 통로에서 좌우로 벗어나는 것은 범용 규칙으로 되지만, 2번 선이 1번이 떨어지는 순간 플레이어 x에 고정되므로 1번을 피한 자리가 곧 2번 자리다. 봇은 2번을 새 부분(`:slash2`)으로 이어받아 다시 벗어난다.
+- 방패/방어 자세(`boss.guard`)는 스냅샷에 있지만 봇은 쓰지 않는다(옆·뒤로 돌아 공격하지 않음).
+- 돌진 통로의 확정 뒤 "정확한 발동 시각"은 주지 않으므로(lock 잔여 추정 0.15초) 고정 0.3~0.4초 돌진은 회피 재사용 중이면 걸어서만 벗어난다.
