@@ -285,7 +285,9 @@ static func update_archer(st: CombatState, e: Dictionary, dt: float) -> void:
 		"lock":
 			e.state_t += dt * tf
 			if float(e.state_t) >= float(d.lock):
-				st.projectiles.append({ "owner": "enemy", "kind": "arrow", "shooter": e, "x": e.x + cos(e.dir) * (e.r + 4.0), "y": e.y + sin(e.dir) * (e.r + 4.0), "vx": cos(e.dir) * float(d.arrowSpeed), "vy": sin(e.dir) * float(d.arrowSpeed), "r": float(d.arrowR), "dmg": float(d.arrowDamage), "ttl": 4.0, "angle": e.dir, "dead": false, "hits": {} })
+				var pr_arrow := { "owner": "enemy", "kind": "arrow", "shooter": e, "x": e.x + cos(e.dir) * (e.r + 4.0), "y": e.y + sin(e.dir) * (e.r + 4.0), "vx": cos(e.dir) * float(d.arrowSpeed), "vy": sin(e.dir) * float(d.arrowSpeed), "r": float(d.arrowR), "dmg": float(d.arrowDamage), "ttl": 4.0, "angle": e.dir, "dead": false, "hits": {} }
+				CombatState.stamp_projectile(e, pr_arrow)
+				st.projectiles.append(pr_arrow)
 				st.ev("shoot")
 				st.note_attack(e, "execute")
 				e.state = "recover"

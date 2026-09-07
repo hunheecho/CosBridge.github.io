@@ -501,3 +501,30 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 | 빌드 실행 확인 | 같은 PC, APPDATA 격리, 패키지 exe로 `PROPHECY_UI_SMOKE`(시드 1 경로 추첨: 새 회차→…→4일차 성문 파수장 승리→저장→계속하기→검증 메뉴 빠른 전투): **종료 코드 0, 스크립트 오류 0, PNG 23장**. 편집기 실행으로는 전체 회차+무한(18-2). 실제 사람 플레이 없음 |
 | 미커밋(의도) | 루트 `index.html`·`CNAME`·`wash.jpg` 삭제(Codex 정리, 복원·커밋 모두 안 함), `icon.svg.import` 편집기 재작성, `.claude/`(에이전트 worktree) |
 | 재현 순서(Codex) | ① 7d770b3(또는 프로젝트 ZIP) 체크아웃 ② `--headless --path prophecy_godot --import` ③ 18-2의 15개 스위트(APPDATA 격리; run_layer·ui_flow·world·content는 `PROPHECY_LEGACY_PLACES=1`) + `tools/density_report.gd`(결과 열 비교) ④ `PROPHECY_SIM_SEEDS=1 tools/route_smoke.gd`(27경로, 약 18분) · `tools/stop3_skill.gd`(약 15분, `PROPHECY_SIM_ROUTE`로 기존 보스 경로) · `tools/craft_economy.gd`(약 12분, `PROPHECY_SIM_STRAT=deep`) · `PROPHECY_BOT_SCENARIOS=boss3 tools/bot_batch.gd` ⑤ `--export-release "Windows Desktop"` → exe 해시 비교(같은 템플릿·같은 PC에서만 일치 기대) |
+
+## 19. 독립 검수 2(godot-audit-8dfcbd1) 지적 3건 수정 (2026-09-07, Windows 로컬)
+검수 보고: `C:\Users\Public\Documents\ESTsoft\CreatorTemp\godot-audit-8dfcbd1-20260907\AUDIT_REPORT.md`(Codex, 기준 7d770b3/8dfcbd1). 게임 밸런스 수치·봇 프로필 값은 바꾸지 않았다. **사람 보정 미완료** 상태 유지.
+
+### 19-1. 재현 → 수정 → 회귀
+| 지적 | 재현(현재 트리, 검수 프로브 `audit_probes.gd` 그대로) | 수정 | 수정 뒤 프로브 |
+|---|---|---|---|
+| 1 다른 장판이 기존 장판의 인식을 상속 | `AUDIT_ZONE with_existing_unrelated_zone=0`(기대 36) | `PSkillBot.perceive`: 상속은 `e<id>#<n>` 공격 인스턴스의 부분에만(`_is_attack_instance`). `zone:`·`proj:`는 각각 새 지연. skillbot-0.2 | 36 = 단독 36 |
+| 2 비행 중 투사체 id 변경 | `e5#2:proj0 → e5#3:proj0`, `proj1 → proj0` | 발사 시 `CombatState.stamp_projectile(e, pr)`(궁수 화살·주술사 저주·수호자 충격파·신규 보스 `fire`)로 attack_id·proj_i 고정, `PObserve._shooter_attack`은 찍힌 값만(없으면 처음 본 순간 고정), 피격 기록은 `st.hit_attack_id`(발사 시점 공격). observe-3 | 전부 `e5#2:proj0`(프로브는 같은 dict를 두 번 넘김; 형제 투사체 검사는 bot_tests 12d) |
+| 3 캐시 키가 미커밋 코드 변경을 구분 못 함 | `different_dirty_rule_source_same_key=true` | `PReplay.code_hash`(scripts/tools .gd + 장면 .tscn + project.godot 내용 해시, .uid/.import 제외) + rules/observe 버전을 캐시 키에, `PBotBatch.can_resume`(unknown이면 재개 거부)·`cache_diff` | false |
+회귀: `tests/bot_tests.gd` **56/56**(§12 13건 추가: 12a~12j), boss_tests 34 · port_tests 76 · boss3_tests 111 · run_tests 72, `density_report` 42행 결과 열 동일 — 모두 종료 0. 12e는 실제 능선 3일차 전투 20초에서 적 투사체 18개 전부 발사 시 id가 찍히고 수명 동안 불변임을, 12f는 발사자가 다음 공격(#3)을 준비해도 피격 기록이 발사 시점(#2)에 붙음을 확인.
+
+### 19-2. 수정 전후 같은 조건 비교 (`docs/sim/BOT_COMPARE_AUDIT2.md`, run `audit2_before`·`audit2_after`)
+수정 전 = 8dfcbd1을 별도 worktree에 체크아웃해 새로 실행(기존 보고서 수치 재사용 없음), 수정 후 = 이 커밋. 시나리오 7(기준 늑대25 · 능선 3일차 궁수 · 습지 4일차 장판 · 봉인 수호자 · 성문 파수장 · 포자 어미 · 서리 추적자) × 봇 4 × 시드 5(보스 3) = 108행씩. 데이터는 줄 끝(CRLF)만 다르고 내용 동일.
+| 관찰 | 값 |
+|---|---|
+| balanced(기존 정책, 관측 미사용) 27행 | 결과·피해·시간 **전부 동일** → 게임 규칙·난수 불변 |
+| 기준 늑대25(장판·투사체 없음) 실력 봇 15행 | 전부 동일 |
+| 능선 3일차(궁수 투사체) | 승 novice 0→1, regular 1→3, skilled 2→2(시간 초과 2→2). regular 평균 피해 98→84 — 투사체 id가 안정되어 추적·회피가 이어짐 |
+| 습지 4일차(장판) | novice·regular 0→0, skilled 1→0(시간 초과 3→1, 평균 피해 53→98) — 독립 장판마다 새 지연을 받아 반응이 늦어짐(지적 1의 의도된 결과: 이전 값이 봇을 과대평가) |
+| 보스 4종 | 승 전부 3/3 유지. 포자 어미 피해 novice/regular/skilled 82/64/68 → 71/53/56, 서리 추적자 novice 20→4·skilled 0→8, 봉인 수호자 novice 7→0 |
+| 행 단위 | 108행 중 54행 변화(전부 실력 봇 × 장판/투사체가 있는 시나리오), 합계 승 novice 17→18 · regular 18→20 · skilled 20→19 · balanced 17→17 (각 27전투) |
+방향은 한쪽이 아니다(지적 1은 피격 증가, 지적 2는 감소·증가 모두). 어느 표도 사람 승률·밸런스 승인이 아니다. 기존 `BOT_COMPARE.md`·`BOT_COMPARE_BOSS3.md`에는 "수정 전 결과" 주의를 달았고, 전체 27경로·STOP3 재실행은 관련 비교가 안정된 뒤 범위를 정한다(검수 지시).
+
+### 19-3. 하지 않은 것
+- 정복자 0/50 비교, 무한 시간당 보상, 전체 경로 전수 재실행(검수 지시대로 관련 시나리오·대표 보스만).
+- `unclassified` 피격 태그가 장판 시나리오에서 늘었다(수정 후 skilled 32). 태그 분류 규칙(장판 안 피격의 원인 구분)은 다음 측정 항목.

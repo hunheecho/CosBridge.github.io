@@ -189,6 +189,54 @@ static func replay(st: CombatState, rec: Dictionary, opts: Dictionary = {}) -> D
 	return { "ok": mism.is_empty() and not (bool(opts.get("require_result", true)) and rec.has("result") and not (rec.result as Dictionary).is_empty() and String(rec.result.status) != String(st.status)), "refused": false, "reason": "", "steps": n, "mismatches": mism, "status": String(st.status), "hash_checked": checked }
 
 ## data/*.json 전체의 SHA-256(파일 이름순 연결). 캐시 키·기록 머리말용
+## 판단·규칙에 영향을 주는 코드의 내용 해시(검수 지적 3): res://scripts, res://tools의 .gd + project.godot + .tscn(경로+내용, 정렬). .uid/.import 제외.
+## git 정보가 없는 프로젝트 ZIP에서도 같은 값. 파일을 못 읽으면 "unknown"(배치는 그 값으로 기존 결과 재개를 거부한다)
+static func code_hash() -> String:
+	var files := []
+	for root in ["res://scripts", "res://tools", "res://scenes"]:
+		_collect_code(root, files)
+	var top := DirAccess.open("res://") # 최상위 장면 파일(main.tscn 등)만, 하위 폴더는 위 목록으로
+	if top != null:
+		top.list_dir_begin()
+		var tn := top.get_next()
+		while tn != "":
+			if not top.current_is_dir() and tn.ends_with(".tscn"):
+				files.append("res://" + tn)
+			tn = top.get_next()
+		top.list_dir_end()
+	files.append("res://project.godot")
+	files.sort()
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_SHA256)
+	var n := 0
+	for path in files:
+		var f := FileAccess.open(String(path), FileAccess.READ)
+		if f == null:
+			continue
+		ctx.update((String(path) + "\n").to_utf8_buffer())
+		ctx.update(f.get_buffer(f.get_length()))
+		f.close()
+		n += 1
+	if n == 0:
+		return "unknown"
+	return ctx.finish().hex_encode()
+
+static func _collect_code(root: String, out: Array) -> void:
+	var dir := DirAccess.open(root)
+	if dir == null:
+		return
+	dir.list_dir_begin()
+	var fn := dir.get_next()
+	while fn != "":
+		var full := root.path_join(fn)
+		if dir.current_is_dir():
+			if not fn.begins_with("."):
+				_collect_code(full, out)
+		elif fn.ends_with(".gd") or fn.ends_with(".tscn"):
+			out.append(full)
+		fn = dir.get_next()
+	dir.list_dir_end()
+
 static func data_hash() -> String:
 	var dir := DirAccess.open("res://data")
 	if dir == null:

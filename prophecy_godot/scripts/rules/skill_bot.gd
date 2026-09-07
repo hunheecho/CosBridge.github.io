@@ -9,7 +9,7 @@ extends PBot
 ## - Q/E는 모든 프로필 같은 단순 규칙(200 안 3마리 Q, E 보유·200 안 2마리). 자동 공격은 게임이 한다. 실력 비교는 이동·회피 차이만 본다.
 ## - 재사용 표시가 판단 간격의 절반 이하로 남았으면 미리 누른다(사람처럼 조금 이른 누름 → 게임이 거절, 계측에 '재사용 중 거절'로 남는다).
 
-const BOT_VERSION := "skillbot-0.1" # STEP은 PBot.STEP(1/120)
+const BOT_VERSION := "skillbot-0.2" # STEP은 PBot.STEP(1/120)
 
 var profile_id: String = "regular"
 var prof: Dictionary = {}
@@ -126,14 +126,18 @@ func perceive(snap: Dictionary, n: int) -> void:
 			if String(t.attack_id) == id:
 				th = t
 				break
-		# 같은 공격 인스턴스의 새 부분(예: 조준선 e5#2 → 날아가는 화살 e5#2:proj0, 2번째 직선 :lane1)은 이미 인식한 공격을 이어받는다(인식 지연 재시작 없음)
-		var base: String = id.split(":")[0]
+		# 같은 공격 인스턴스(e<id>#<n>)의 새 부분(예: 조준선 e5#2 → 날아가는 화살 e5#2:proj0, 2번째 직선 :lane1)만 이미 인식한 공격을 이어받는다(인식 지연 재시작 없음).
+		# 지역(zone:…)·발사자 없는 투사체(proj:…)는 접두사가 같아도 서로 다른 위험이라 각각 새 지연을 받는다(검수 지적 1)
 		var parent: Dictionary = {}
-		if id.find(":") >= 0:
-			for kid in known:
-				if String(kid).split(":")[0] == base:
-					parent = known[kid]
-					break
+		var colon: int = id.find(":")
+		if colon > 0:
+			var base: String = id.substr(0, colon)
+			if _is_attack_instance(base):
+				for kid in known:
+					var kb := String(kid)
+					if kb == base or kb.begins_with(base + ":"):
+						parent = known[kid]
+						break
 		var ins0: int = n if (String(th.harm) == "damage" and PObserve.inside(th, float(snap.player.x), float(snap.player.y), float(snap.player.r))) else -1
 		if not parent.is_empty():
 			known[id] = { "first_step": n, "recog_step": maxi(n, int(parent.recog_step)), "seen_step": n, "geom": th.duplicate(true), "tracked_step": n, "inside_seen": false, "input_step": -1, "inside_first": ins0 }
@@ -147,6 +151,15 @@ func perceive(snap: Dictionary, n: int) -> void:
 	for id in known.keys(): # 화면에서 사라진 위협: 인식 대기 중이었으면 입력 없이 버린다
 		if not seen.has(id):
 			known.erase(id)
+
+## "e<적 id>#<공격 번호>" 꼴(실제 공격 인스턴스)인가. 지역 "zone:…"·발사자 없는 투사체 "proj:…"는 아니다
+static func _is_attack_instance(s: String) -> bool:
+	if not s.begins_with("e"):
+		return false
+	var h := s.find("#")
+	if h < 2:
+		return false
+	return s.substr(1, h - 1).is_valid_int() and s.substr(h + 1).is_valid_int()
 
 ## 인식 완료·아직 보이는 위협의(봇이 아는) 기하 목록
 func perceived_threats(n: int) -> Array:

@@ -1,0 +1,82 @@
+{
+  "cache_key": {
+    "bot_version": "skillbot-0.2/skillbot-0.1",
+    "code_hash": "bbf6ce1ed94f8140956bf7b93c1cbcdc39b872f8f9c02b93b4c20769a9d22173",
+    "data_hash": "cb567b2ded307ab9f9a229ee634ef2e9069606ae68c415b9be9ff9c5ceacf1f1",
+    "dirty": true,
+    "engine": "4.7.2-stable (official)",
+    "game_version": "godot-0.6.0",
+    "git_head": "8dfcbd1da645e6482d1d9523c828f1d1b8499d66",
+    "observe_version": "observe-3",
+    "os": "Windows/x86_64",
+    "profile_hash": "d325940048e157de",
+    "replay_format": "prophecy_replay/1",
+    "rules_version": "rules@godot-0.6.0/observe-3",
+    "settings_hash": "f67688401f5a4651"
+  },
+  "complete": true,
+  "created": "2026-09-07T23:31:08",
+  "env": {
+    "bot_version": "skillbot-0.2/skillbot-0.1",
+    "code_hash": "bbf6ce1ed94f8140956bf7b93c1cbcdc39b872f8f9c02b93b4c20769a9d22173",
+    "data_hash": "cb567b2ded307ab9f9a229ee634ef2e9069606ae68c415b9be9ff9c5ceacf1f1",
+    "dirty": true,
+    "dirty_files": 11,
+    "engine": "4.7.2-stable (official)",
+    "game_version": "godot-0.6.0",
+    "git_head": "8dfcbd1da645e6482d1d9523c828f1d1b8499d66",
+    "observe_version": "observe-3",
+    "os": "Windows/x86_64",
+    "profile_hash": "d325940048e157de",
+    "replay_format": "prophecy_replay/1",
+    "rules_version": "rules@godot-0.6.0/observe-3"
+  },
+  "rows_done": 108,
+  "run_id": "audit2_after",
+  "settings": {
+    "boss_seeds": [
+      1,
+      2,
+      3
+    ],
+    "bot_seed": "=game_seed",
+    "game_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "hash_every": 120,
+    "max_sec": {
+      "baseline_wolf25": 240.0,
+      "boss_guardian": 300.0,
+      "boss_matriarch": 300.0,
+      "boss_stalker": 300.0,
+      "boss_warden": 300.0,
+      "ranged_mix": 240.0,
+      "zone_mix": 240.0
+    },
+    "mode": "compare",
+    "profiles": [
+      "novice",
+      "regular",
+      "skilled",
+      "balanced"
+    ],
+    "sample_every": 5,
+    "scenarios": [
+      "baseline_wolf25",
+      "ranged_mix",
+      "zone_mix",
+      "boss_guardian",
+      "boss_warden",
+      "boss_matriarch",
+      "boss_stalker"
+    ],
+    "stall_sec": 60.0
+  },
+  "updated": "2026-09-07T23:38:45",
+  "wall_ms_total": 456935,
+  "warnings": []
+}

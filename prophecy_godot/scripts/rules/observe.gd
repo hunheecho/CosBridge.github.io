@@ -13,7 +13,7 @@ extends RefCounted
 ## rev(수정 번호)는 take()를 쓰는 추적 인스턴스가 붙이며, 그려지는 기하(각도 0.5°·위치 1px·단계)가 바뀔 때만 오른다.
 ## observe-2: 신규 관문 보스 6종(PBoss3)의 예고(render.gd draw_boss3_telegraphs와 같은 수치)·빙판(ice, 걷기 감속만)·잔해(rubble)·보스 볼트/얼음 탄 투사체·방패/방어 자세 부채꼴(boss.guard, 위협 아님)을 담는다.
 
-const VERSION := "observe-2"
+const VERSION := "observe-3" # 검수 2: 투사체 id 발사 시점 고정
 const LANE_W := 40.0        # 화면의 선 예고(궁수·주술사 조준선)에는 폭이 없으므로 봇은 화살 반지름+플레이어 반지름 기준 폭 40을 가정한다(PBot과 같은 값)
 const PROJ_LOOK := 220.0    # 날아가는 투사체의 진행 방향 외삽 길이(공개 정보의 제한적 외삽)
 const ARCHER_LANE_LEN := 2000.0
@@ -180,15 +180,15 @@ static func zone_slow(z: Dictionary) -> float:
 		return 0.5
 	return 0.0
 
-## 발사자가 있는 투사체의 공격 부분 id("e<id>#<n>:proj<i>", 같은 공격의 몇 번째 투사체인지 counts로 센다). 발사자가 없으면 ""
-static func _shooter_attack(pr: Dictionary, counts: Dictionary) -> String:
+## 발사자가 있는 투사체의 공격 부분 id("e<id>#<n>:proj<i>"). 발사 코드가 CombatState.stamp_projectile로 찍은 attack_id·proj_i를 그대로 쓴다
+## (발사자의 현재 attack_n·스냅샷 순번이 아니라 — 검수 지적 2). 찍히지 않은 투사체는 처음 본 순간 같은 규칙으로 고정한다. 발사자가 없으면 ""
+static func _shooter_attack(pr: Dictionary, _counts: Dictionary) -> String:
 	var sh = pr.get("shooter")
 	if sh == null or typeof(sh) != TYPE_DICTIONARY or not sh.has("id"):
 		return ""
-	var base := "e%d#%d" % [int(sh.id), int(sh.get("attack_n", 0))]
-	var i: int = int(counts.get(base, 0))
-	counts[base] = i + 1
-	return "%s:proj%d" % [base, i]
+	if not pr.has("attack_id"):
+		CombatState.stamp_projectile(sh, pr)
+	return "%s:proj%d" % [String(pr.attack_id), int(pr.get("proj_i", 0))]
 
 static func _th(out: Array, e: Dictionary, sub: String, kind: String, phase: String, prog: float, d: Dictionary) -> Dictionary:
 	var th := { "attack_id": "e%d#%d%s" % [int(e.id), int(e.get("attack_n", 0)), sub], "enemy_id": int(e.id), "type": String(e.type), "kind": kind, "phase": phase, "prog": clampf(prog, 0.0, 1.0),

@@ -131,6 +131,7 @@ static func fire(st: CombatState, e: Dictionary, ang: float, S: Dictionary, kind
 	var speed := float(S.speed)
 	var pr := { "owner": "enemy", "kind": kind, "shooter": e, "x": e.x + cos(ang) * e.r, "y": e.y + sin(ang) * e.r, "vx": cos(ang) * speed, "vy": sin(ang) * speed,
 		"r": float(S.r), "dmg": float(S.damage), "ttl": float(S.len) / speed, "angle": ang, "width": float(S.get("width", float(S.r) * 2.0)), "dead": false, "hits": {} }
+	CombatState.stamp_projectile(e, pr)
 	st.projectiles.append(pr)
 	return pr
 

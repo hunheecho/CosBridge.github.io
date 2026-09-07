@@ -130,7 +130,9 @@ static func begin(st: CombatState, e: Dictionary, pat: String) -> void:
 static func fire_shock(st: CombatState, e: Dictionary, ang: float, S: Dictionary) -> void:
 	var width := float(S.width)
 	var speed := float(S.speed)
-	st.projectiles.append({ "owner": "enemy", "kind": "shock", "shooter": e, "x": e.x + cos(ang) * e.r, "y": e.y + sin(ang) * e.r, "vx": cos(ang) * speed, "vy": sin(ang) * speed, "r": width / 2.0, "dmg": float(S.damage), "ttl": float(S.len) / speed, "angle": ang, "width": width, "dead": false, "hits": {} })
+	var pr_shock := { "owner": "enemy", "kind": "shock", "shooter": e, "x": e.x + cos(ang) * e.r, "y": e.y + sin(ang) * e.r, "vx": cos(ang) * speed, "vy": sin(ang) * speed, "r": width / 2.0, "dmg": float(S.damage), "ttl": float(S.len) / speed, "angle": ang, "width": width, "dead": false, "hits": {} }
+	CombatState.stamp_projectile(e, pr_shock)
+	st.projectiles.append(pr_shock)
 	st.ev("boss_sweep")
 
 # ---------- 갱신 ----------

@@ -293,7 +293,9 @@ static func update_shaman(st: CombatState, e: Dictionary, dt: float) -> void:
 			if float(e.state_t) >= float(d.hexAim):
 				e.dir = e.aim_angle
 				var ang: float = e.dir
-				st.projectiles.append({ "owner": "enemy", "kind": "hex", "shooter": e, "x": e.x + cos(ang) * (e.r + 4.0), "y": e.y + sin(ang) * (e.r + 4.0), "vx": cos(ang) * float(d.hexSpeed), "vy": sin(ang) * float(d.hexSpeed), "r": float(d.hexR), "dmg": float(d.hexDamage), "ttl": 4.0, "angle": ang, "dead": false, "hits": {} })
+				var pr_hex := { "owner": "enemy", "kind": "hex", "shooter": e, "x": e.x + cos(ang) * (e.r + 4.0), "y": e.y + sin(ang) * (e.r + 4.0), "vx": cos(ang) * float(d.hexSpeed), "vy": sin(ang) * float(d.hexSpeed), "r": float(d.hexR), "dmg": float(d.hexDamage), "ttl": 4.0, "angle": ang, "dead": false, "hits": {} }
+				CombatState.stamp_projectile(e, pr_hex)
+				st.projectiles.append(pr_hex)
 				st.ev("shoot")
 				st.note_attack(e, "execute")
 				e.hex_t = float(d.hexInterval)

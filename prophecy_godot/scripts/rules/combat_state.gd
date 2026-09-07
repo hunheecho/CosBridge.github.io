@@ -16,6 +16,7 @@ var mode: String = "normal"    # normal | boss
 var objective: String = "clear"
 var region_id: String = ""
 var hp_mult: Dictionary = { "normal": 1.0, "elite": 1.0, "boss": 1.0 }
+var hit_attack_id: String = "" # 계측 전용: 투사체 명중 처리 중에만 그 투사체의 발사 시점 공격 id(PHitRecorder가 읽는다)
 var time_limit: float = 0.0
 var fixed_build: bool = false
 var overlap_limit: int = 0
@@ -266,6 +267,17 @@ func _metrics_for(type: String) -> Dictionary:
 	return metrics.enemies[type]
 
 ## 공격 준비(예고 시작)·실행(피해 판정 발생)·사망 효과를 구분해 센다
+## 투사체 발사 시 공격 인스턴스 id 고정(검수 지적 2): attack_id = e<id>#<attack_n>(발사 순간), proj_i = 그 공격의 몇 번째 투사체.
+## 수명 동안 바뀌지 않는다(발사자가 다음 공격을 준비해도, 형제 투사체가 사라져도). 관측·계측 전용 — 규칙·난수에 쓰지 않는다
+static func stamp_projectile(e: Dictionary, pr: Dictionary) -> void:
+	var n: int = int(e.get("attack_n", 0))
+	if int(e.get("proj_attack_n", -1)) != n:
+		e.proj_attack_n = n
+		e.proj_i = 0
+	pr.attack_id = "e%d#%d" % [int(e.id), n]
+	pr.proj_i = int(e.get("proj_i", 0))
+	e.proj_i = int(pr.proj_i) + 1
+
 func note_attack(e: Dictionary, phase: String) -> void:
 	var m := metrics_for(e)
 	if phase == "prepare":
@@ -1370,7 +1382,9 @@ func update_projectiles(dt: float) -> void:
 			var tp := PGeom.seg_circle_t(pr.x, pr.y, nx, ny, p.x, p.y, p.r + pr.r)
 			if tp >= 0.0 and tp <= t_obs:
 				pr.dead = true
+				hit_attack_id = String(pr.get("attack_id", "")) # 계측: 발사 시점의 공격 인스턴스(발사자의 현재 attack_n이 아니라)
 				damage_player(float(pr.dmg), String(pr.kind), pr.get("shooter"))
+				hit_attack_id = ""
 		else:
 			var cands := []
 			for e in enemies:

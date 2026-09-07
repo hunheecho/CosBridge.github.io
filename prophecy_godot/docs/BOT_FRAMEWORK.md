@@ -9,7 +9,7 @@
 
 | 파일 | 역할 |
 |---|---|
-| `scripts/rules/observe.gd` (`PObserve`, observe-2) | CombatState → 화면에 그려지는 것만 담은 읽기 전용 스냅샷(깊은 복사). 위협 도형·attack_id·수정 번호(rev). observe-2 = 신규 보스 6종 예고·빙판·잔해 추가(§2-1) |
+| `scripts/rules/observe.gd` (`PObserve`, observe-3) | CombatState → 화면에 그려지는 것만 담은 읽기 전용 스냅샷(깊은 복사). 위협 도형·attack_id·수정 번호(rev). observe-2 = 신규 보스 6종 예고·빙판·잔해 추가(§2-1) |
 | `scripts/rules/skill_bot.gd` (`PSkillBot`, skillbot-0.1) | 실력 프로필 봇. `PBot`을 상속해 `step_input`만 덮어씀(PStepDriver·PBot.run_combat에 그대로 꽂힌다) |
 | `data/bots.json` | 프로필 값(시험값)·공통 규칙·진단 성향 기본값. 보고서 머리말은 이 데이터에서 생성 |
 | `scripts/rules/hit_recorder.gd` (`PHitRecorder`) | 선택 계측: 공격 관측·피격 사건·거절·검산·보호막 분리·피격 태그. `st.recorder = PHitRecorder.new()`로만 켜진다 |
@@ -37,7 +37,7 @@
 금지(스냅샷에 없음, 검사 §12-1이 숨은 값을 바꿔도 스냅샷·입력이 같음을 확인):
 - 게임 난수 상태·다음 공격의 난수 결과, 아직 예고되지 않은 착탄 지점/방향(예: 서리술사가 시전을 시작하기 전의 위치, 표식이 찍히기 전의 과거 궤적), 숨은 적 좌표, 미등장 대기열(`pending`) 좌표/시간, 예고에 없는 내부 타이머(`dash_ready_at`·`bite_cd`·`dash_cd`·`ready_t`·`heal_t`·`web_t`·`cast_t`), 최종 충돌 결과, 규칙 엔진을 미리 실행해 얻은 정답, 화면에 없는 정확한 발동 시각(진행률 `prog`만 준다).
 
-attack_id: `e<적 id>#<attack_n>`. `attack_n`은 공격 준비(예고)가 시작될 때 1 오른다(`note_attack("prepare")`, 늑대는 `update_wolf`의 물기/돌진 시작; 신규 보스는 `PBoss3.begin`). 한 공격의 부분은 접미사(`:lane1`, `:shock0`, `:mark2`, `:pt1`(서리 3점), `:s2`(도적 2타), `:proj0`(그 공격이 쏜 투사체)). 지역은 `zone:<종류>:<x>:<y>`. 발사자가 없는 투사체는 추적기가 `proj:<n>`을 준다. `rev`는 그려지는 기하(각도 0.5°, 위치/길이 1px, 단계)가 바뀔 때만 오른다(추적 인스턴스 `take()`).
+attack_id: `e<적 id>#<attack_n>`. `attack_n`은 공격 준비(예고)가 시작될 때 1 오른다(`note_attack("prepare")`, 늑대는 `update_wolf`의 물기/돌진 시작; 신규 보스는 `PBoss3.begin`). 한 공격의 부분은 접미사(`:lane1`, `:shock0`, `:mark2`, `:pt1`(서리 3점), `:s2`(도적 2타), `:proj0`(그 공격이 쏜 투사체 — **발사 순간** `CombatState.stamp_projectile`이 발사자의 그때 attack_n과 그 공격 안 순번을 투사체에 고정하며, 발사자가 다음 공격을 준비하거나 형제 투사체가 사라져도 바뀌지 않는다. 피격 기록도 발사 시점 공격에 붙는다(`st.hit_attack_id`). 검수 2 수정)). 지역은 `zone:<종류>:<x>:<y>`. 발사자가 없는 투사체는 추적기가 `proj:<n>`을 준다. `rev`는 그려지는 기하(각도 0.5°, 위치/길이 1px, 단계)가 바뀔 때만 오른다(추적 인스턴스 `take()`).
 
 ### 2-1. 신규 관문 보스 6종 관측표 (observe-2, `PObserve._boss3_threats` = render.gd `draw_boss3_telegraphs`)
 
@@ -74,7 +74,7 @@ attack_id: `e<적 id>#<attack_n>`. `attack_n`은 공격 준비(예고)가 시작
 지각:
 - 새 attack_id를 처음 보면 인식 지연을 **봇 RNG**(`PRng.new(bot_seed)`, 게임 난수와 분리)에서 프로필 범위로 1회 표본화한다. 인식 전에는 그 위협 때문에 어떤 입력도 바꾸지 않는다. 인식 전에 사라진 위협(예고 중 사망)은 입력 없이 버린다.
 - 인식한 위협은 **추적 갱신 지연**마다만 새 기하를 복사한다. 그 사이 봇이 아는 기하는 오래된 복사본이다(조준선이 갱신돼도 인식을 다시 시작하지 않는다).
-- 같은 공격의 새 부분(조준선 `e5#2` → 날아가는 화살 `e5#2:proj0`, 2번째 직선)은 이미 인식한 공격을 이어받는다.
+- 같은 **공격 인스턴스**(`e<적 id>#<n>`)의 새 부분(조준선 `e5#2` → 날아가는 화살 `e5#2:proj0`, 2번째 직선 `:lane1`)만 이미 인식한 공격을 이어받는다. 서로 다른 지역(`zone:…`)·발사자 없는 투사체(`proj:…`)는 접두사가 같아도 독립 위험이라 각각 새 지연을 받는다(검수 2 지적 1 수정, skillbot-0.2; `_is_attack_instance`).
 - `inside_first` = 그 위협이 처음으로 플레이어를 담은 단계(최초 입력 지연의 기준).
 
 판단(프로필의 판단 간격마다, 그 사이에는 이동 입력만 유지):
@@ -153,8 +153,8 @@ godot --headless --path prophecy_godot -s tools/bot_batch.gd        # APPDATA �
 ```
 - 시나리오(첫 납품): `baseline_wolf25`(D33 기준 전투, 상한 240초) · `ranged_mix`(능선 3일차 기본 편성, uniform_x5, 검 Lv1 고정 `fixed_build`) · `zone_mix`(습지 4일차) · `boss_thornmane|boss_guardian|boss_eater`(실험실 stage1/2/3 프리셋, 상한 300초, boss_sim make_run과 같은 절차). 만들 수 없으면 `unimplemented` 행.
 - 시나리오(2차, 신규 보스 6종): `boss_warden|boss_matriarch`(1막, stage1 프리셋) · `boss_behemoth|boss_stalker`(2막, stage2) · `boss_hunt_king|boss_executor`(3막, stage3). 체력은 boss_sim과 같은 규칙(회차 모드에 없으면 `boss_hp_sets.hi[id].stage<막>` = 2400/5000/7000). `PROPHECY_BOT_SCENARIOS=boss3`가 6종으로 펼쳐지고, `PROPHECY_BOT_TITLE`로 보고서 제목을 준다. 보고서: `docs/sim/BOT_COMPARE_BOSS3.md`(run `boss3_compare1`).
-- 출력 `docs/sim/bot_runs/<run_id>/`: `results.jsonl`(행마다 즉시 flush), `meta.json`(캐시 키: git HEAD·prophecy_godot 미커밋 여부·데이터 해시·프로필 해시·설정 해시·엔진·OS·게임/봇 버전·기록 형식), `summary.md`, `git_head.txt`, `replays/`(실패 전부 + 성공 표본 1/5).
-- 재개: 같은 run_id면 완료 행을 건너뛴다. 캐시 키가 다르면 `CACHE_INVALID`를 찍고 종료 코드 2(재개 거부; `PROPHECY_BOT_FORCE=1`이면 기존 결과를 `results.invalidated_<시각>.jsonl`로 옮기고 새로). 벽시계 예산을 넘으면 현재 전투를 마친 뒤 `BUDGET_EXCEEDED`와 재개 방법을 찍고 종료 코드 3.
+- 출력 `docs/sim/bot_runs/<run_id>/`: `results.jsonl`(행마다 즉시 flush), `meta.json`(캐시 키: git HEAD·prophecy_godot 미커밋 여부·**코드 내용 해시**(`PReplay.code_hash`: scripts/tools의 .gd + 장면 .tscn + project.godot, .uid/.import 제외 — 미커밋 코드 변경·git 없는 ZIP도 구분, 검수 2 지적 3)·규칙 버전·관측 버전·데이터 해시·프로필 해시·설정 해시·엔진·OS·게임/봇 버전·기록 형식), `summary.md`, `git_head.txt`, `replays/`(실패 전부 + 성공 표본 1/5).
+- 재개: 같은 run_id면 완료 행을 건너뛴다. 캐시 키가 다르면(옛 meta에 코드 해시가 없거나 코드 해시가 `unknown`이어서 식별할 수 없는 경우 포함) `CACHE_INVALID`를 찍고 종료 코드 2(재개 거부; `PROPHECY_BOT_FORCE=1`이면 기존 결과를 `results.invalidated_<시각>.jsonl`로 옮기고 새로). 벽시계 예산을 넘으면 현재 전투를 마친 뒤 `BUDGET_EXCEEDED`와 재개 방법을 찍고 종료 코드 3.
 - 처리량(`throughput`): 기준 전투 10회 + 가시갈기 5회(regular)로 전투/분·평균 벽시계·최장 시뮬·최대 메모리·결과 파일 크기를 재고 45전투·보스 27전투 예상 시간을 찍는다.
 - 병렬 실행은 run_id를 다르게(공유 폴더에 두 프로세스가 쓰지 않는다). 긴 프레임 로그는 run 폴더에만 두고 Git 문서에는 요약만.
 
@@ -178,3 +178,11 @@ godot --headless --path prophecy_godot -s tools/bot_batch.gd        # APPDATA �
 - 절단선: 세로 통로에서 좌우로 벗어나는 것은 범용 규칙으로 되지만, 2번 선이 1번이 떨어지는 순간 플레이어 x에 고정되므로 1번을 피한 자리가 곧 2번 자리다. 봇은 2번을 새 부분(`:slash2`)으로 이어받아 다시 벗어난다.
 - 방패/방어 자세(`boss.guard`)는 스냅샷에 있지만 봇은 쓰지 않는다(옆·뒤로 돌아 공격하지 않음).
 - 돌진 통로의 확정 뒤 "정확한 발동 시각"은 주지 않으므로(lock 잔여 추정 0.15초) 고정 0.3~0.4초 돌진은 회피 재사용 중이면 걸어서만 벗어난다.
+
+## 9. 독립 검수 2(godot-audit-8dfcbd1) 수정 기록 (2026-09-07)
+| 지적 | 수정 | 회귀 검사 |
+|---|---|---|
+| 1 서로 다른 장판이 같은 공격으로 인식돼 새 지연 생략 | `PSkillBot.perceive`: 부모 상속은 `e<id>#<n>` 꼴 공격 인스턴스의 부분에만. `zone:`·`proj:`는 각각 새 지연 | bot_tests 12a·12b·12b2 |
+| 2 비행 중 투사체 식별자 변경 | 발사 시 `CombatState.stamp_projectile(e, pr)`(궁수·주술사·수호자 충격·신규 보스 fire), `PObserve._shooter_attack`은 찍힌 값만 사용(없으면 처음 본 순간 고정), 피격 기록은 `st.hit_attack_id`(발사 시점 공격) | bot_tests 12c~12f2 |
+| 3 미커밋 코드 변경을 구분 못 하는 캐시 키 | `PReplay.code_hash` + 규칙/관측 버전을 캐시 키에, `PBotBatch.can_resume`(unknown이면 재개 거부), `cache_diff` | bot_tests 12g~12j |
+수정 전후 같은 조건 비교: `docs/sim/BOT_COMPARE_AUDIT2.md`(run `audit2_before` = 8dfcbd1 worktree, `audit2_after` = 수정 커밋). 게임 수치·프로필 값 변경 없음. 기존 보고서 `BOT_COMPARE.md`·`BOT_COMPARE_BOSS3.md`는 수정 전(observe-1/2·skillbot-0.1) 결과이며 새 코드의 결과로 재사용하지 않는다. **사람 보정 미완료** 상태는 그대로다.

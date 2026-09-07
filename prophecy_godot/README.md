@@ -44,7 +44,7 @@ godot --headless --path prophecy_godot -s tests/ui_flow_tests.gd      # 화면 �
 godot --headless --path prophecy_godot -s tests/meta_tests.gd         # 영구 성장·해금·제작(레벨·해금 집합·후보 필터·카드 희석 수치·특성 12·기록 1회·제작·제작 6종 전투 효과) 78 — user:// 프로필을 쓰므로 APPDATA 격리
 godot --headless --path prophecy_godot -s tests/meta_ui_tests.gd      # 영구 성장 화면 계층(실제 main.tscn: 영구 성장·특성·프로필 전환·시작 선택·제작 미리보기/확정·보상 줄) 11 — APPDATA 격리
 godot --headless --path prophecy_godot -s tests/input_tests.gd        # 입력 라우터(키보드 = 0.4.3 동일값·1회 소비)·가상 스틱/멀티터치·배치 헬퍼·거점 마을 60 — APPDATA 격리
-godot --headless --path prophecy_godot -s tests/bot_tests.gd          # 실력 봇 기반(관측 경계·지연·기록 재생·검산·배치 재개·실제 장면 함수 호출) 22 — APPDATA 격리
+godot --headless --path prophecy_godot -s tests/bot_tests.gd          # 실력 봇 기반(관측 경계·지연·기록 재생·검산·배치 재개·검수 2 회귀 §12·실제 장면 함수 호출) 22 — APPDATA 격리
 PROPHECY_BOT_RUN_ID=<id> [PROPHECY_BOT_MODE=compare|throughput|report] godot --headless --path prophecy_godot -s tools/bot_batch.gd   # 실력 봇 배치(증분 저장·재개·예산) → docs/sim/bot_runs/<id>/, 보고서 docs/sim/BOT_COMPARE.md — docs/BOT_FRAMEWORK.md
 PROPHECY_SHOTS=<폴더> [PROPHECY_TOUCH=1] godot --path prophecy_godot --resolution 1280x720 -s tools/layout_shots.gd   # 창 크기별 배치 캡처 + 넘침 검사(LAYOUT_CHECK)
 godot --headless --path prophecy_godot -s tools/density_report.gd     # 기준 전투 밀도 비교(0.3.1과 같은 36행) → docs/DENSITY_REPORT.md

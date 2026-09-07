@@ -373,6 +373,7 @@ func _run() -> void:
 			inval = true
 	ok("9b 캐시 키(데이터 해시) 불일치 → 명시적 무효화 메시지·코드 2·기존 행 유지", int(o4.code) == 2 and inval and int(o4.rows.size()) == 2)
 	boss3_observe_tests()
+	audit2_tests()
 	# ---------- 10. 실제 장면(main.tscn): 프로필 선택 → 시작 → 결과 → 재시작. 모두 함수 호출(버튼과 같은 함수), 사람 입력·합성 키 이벤트 없음 ----------
 	var packed: PackedScene = load("res://scenes/main.tscn")
 	var main = packed.instantiate()
@@ -840,3 +841,124 @@ func _rm_rf(path: String) -> void:
 		fn = d.get_next()
 	d.list_dir_end()
 	DirAccess.remove_absolute(path)
+
+# ---------- 12. 독립 검수 2(godot-audit-8dfcbd1) 회귀: ① 서로 다른 장판·발사자 없는 투사체는 인식 지연을 상속하지 않는다(같은 공격 인스턴스의 새 부분만 상속)
+# ② 투사체 id는 발사 시점에 고정되어 발사자의 다음 공격·형제 투사체 제거에도 바뀌지 않고, 피격 기록도 발사 시점 공격에 붙는다 ③ 배치 캐시 키에 코드 내용 해시·규칙/관측 버전이 있고 식별 불가면 재개를 거부한다.
+# 게임 수치·프로필 값 변경 없음. 모두 함수 단위·짧은 전투 검사이며 사람 조작이 아니다 ----------
+func z_th(id: String, x: float) -> Dictionary:
+	return { "attack_id": id, "harm": "damage", "kind": "circle", "x": x, "y": 100.0, "r": 30.0, "phase": "active", "prog": 1.0, "shown_left": -1.0, "rev": 0, "enemy_id": -1, "type": "spore", "label": "spore" }
+
+func z_snap(n: int, hazards: Array) -> Dictionary:
+	return { "step_n": n, "player": { "x": 0.0, "y": 0.0, "r": 12.0 }, "threats": hazards }
+
+func audit2_tests() -> void:
+	var fixed := { "overrides": { "recog_ms": [300, 300] } } # 300ms = 36단계
+	var b := PSkillBot.new("regular", 7, fixed)
+	var z1 := z_th("zone:spore:100:100", 100.0)
+	var z2 := z_th("zone:spore:500:100", 500.0)
+	b.perceive(z_snap(0, [z1]), 0)
+	b.perceive(z_snap(60, [z1]), 60)
+	b.perceive(z_snap(61, [z1, z2]), 61)
+	var fresh := PSkillBot.new("regular", 7, fixed)
+	fresh.perceive(z_snap(61, [z2]), 61)
+	ok("12a 다른 위치의 새 장판은 기존 장판의 인식 완료를 상속하지 않는다: 지연 36단계 = 단독일 때와 같음", int(b.known[z2.attack_id].recog_step) - 61 == 36 and int(fresh.known[z2.attack_id].recog_step) - 61 == 36, "%d vs %d" % [int(b.known[z2.attack_id].recog_step) - 61, int(fresh.known[z2.attack_id].recog_step) - 61])
+	var b2 := PSkillBot.new("regular", 7, fixed)
+	var a := z_th("e5#2", 100.0)
+	b2.perceive(z_snap(0, [a]), 0)
+	b2.perceive(z_snap(50, [a]), 50)
+	var part := z_th("e5#2:proj0", 100.0)
+	var other := z_th("e5#3", 200.0)
+	var p1 := z_th("proj:1", 300.0)
+	b2.perceive(z_snap(51, [a, part, other, p1]), 51)
+	var p2 := z_th("proj:2", 400.0)
+	b2.perceive(z_snap(52, [a, part, other, p1, p2]), 52)
+	ok("12b 같은 공격 인스턴스의 새 부분(e5#2 → e5#2:proj0)만 상속(지연 0), 다른 공격(e5#3)·발사자 없는 투사체(proj:1, proj:2)는 각각 새 지연 36", int(b2.known[part.attack_id].recog_step) == 51 and int(b2.known[other.attack_id].recog_step) - 51 == 36 and int(b2.known[p1.attack_id].recog_step) - 51 == 36 and int(b2.known[p2.attack_id].recog_step) - 52 == 36)
+	ok("12b2 공격 인스턴스 판정: e5#2 예, zone/proj/e#/e5 아니오", PSkillBot._is_attack_instance("e5#2") and PSkillBot._is_attack_instance("e12#0") and not PSkillBot._is_attack_instance("zone") and not PSkillBot._is_attack_instance("proj") and not PSkillBot._is_attack_instance("e#2") and not PSkillBot._is_attack_instance("e5"))
+	# ② 투사체 id 고정
+	var sh := { "id": 5, "attack_n": 2 }
+	var pr := { "shooter": sh }
+	var id0 := PObserve._shooter_attack(pr, {})
+	sh.attack_n = 3
+	var id1 := PObserve._shooter_attack(pr, {})
+	ok("12c 같은 투사체는 발사자가 다음 공격을 준비해도 id 유지(e5#2:proj0)", id0 == "e5#2:proj0" and id1 == id0, "%s → %s" % [id0, id1])
+	var pa := { "shooter": sh }
+	var pb := { "shooter": sh }
+	CombatState.stamp_projectile(sh, pa)
+	CombatState.stamp_projectile(sh, pb)
+	var idb_first := PObserve._shooter_attack(pb, {})
+	var idb_alone := PObserve._shooter_attack(pb, {}) # 첫 투사체가 목록에서 사라진 뒤(카운트 없이) 같은 값
+	ok("12d 같은 공격의 2번째 투사체는 형제가 사라져도 proj1 유지, 첫 투사체는 proj0", PObserve._shooter_attack(pa, {}) == "e5#3:proj0" and idb_first == "e5#3:proj1" and idb_alone == "e5#3:proj1")
+	sh.attack_n = 4
+	var pc := { "shooter": sh }
+	CombatState.stamp_projectile(sh, pc)
+	ok("12d2 새 공격의 첫 투사체는 proj0부터", PObserve._shooter_attack(pc, {}) == "e5#4:proj0")
+	# 실제 전투(능선 3일차 궁수 편성, regular 봇 20초): 살아 있는 적 투사체마다 발사 시 찍힌 id가 있고 수명 동안 바뀌지 않는다. 관측 id 집합 크기 ≤ 발사된 투사체 수
+	var bb := PBotBatch.new()
+	var sc := bb.make_scenario("ranged_mix", 1)
+	var stable := true
+	var stamped := true
+	var ids_seen := {}
+	var fired := 0
+	if sc.has("st"):
+		var st: CombatState = sc.st
+		var bot := PSkillBot.new("regular", 1)
+		var n := 0
+		while st.status == "running" and n < int(20.0 / PBot.STEP):
+			st.step(bot.step_input(st), PBot.STEP)
+			n += 1
+			for q in st.projectiles:
+				if String(q.get("owner", "")) != "enemy":
+					continue
+				if not q.has("attack_id"):
+					stamped = false
+					continue
+				var cur := "%s:proj%d" % [String(q.attack_id), int(q.proj_i)]
+				if not q.has("_t_first_id"):
+					q._t_first_id = cur
+					fired += 1
+				elif String(q._t_first_id) != cur:
+					stable = false
+			if n % 6 == 0:
+				for op in PObserve.snapshot(st, false).projectiles:
+					ids_seen[String(op.id)] = true
+	ok("12e 실제 전투(능선 3일차, regular 20초): 적 투사체 전부 발사 시 id 찍힘, 수명 동안 불변, 관측 id 수(%d) ≤ 발사 수(%d) > 0" % [ids_seen.size(), fired], sc.has("st") and stamped and stable and fired > 0 and ids_seen.size() <= fired and ids_seen.size() > 0)
+	# 피격 기록: 발사 뒤 발사자가 다음 공격을 준비해도 피격은 발사 시점 공격(e<id>#2)에 붙는다
+	var st2 := mk(3)
+	no_enemies(st2)
+	var idle := { "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": false, "special": false }
+	while st2.intro > 0.0 and st2.status == "running":
+		st2.step(idle, PBot.STEP)
+	var w := passive_wolf(st2, st2.player.x - 200.0, st2.player.y)
+	w.attack_n = 2
+	var rec := PHitRecorder.new()
+	st2.recorder = rec
+	var arrow := { "owner": "enemy", "kind": "arrow", "shooter": w, "x": st2.player.x - 40.0, "y": st2.player.y, "vx": 480.0, "vy": 0.0, "r": 4.0, "dmg": 5.0, "ttl": 1.0, "angle": 0.0, "width": 8.0, "dead": false, "hits": {} }
+	CombatState.stamp_projectile(w, arrow)
+	st2.projectiles.append(arrow)
+	w.attack_n = 3 # 화살이 나는 동안 발사자는 다음 공격을 준비
+	var hp0: float = st2.player.hp
+	for i in 30:
+		st2.step(idle, PBot.STEP)
+	var last_hit: Dictionary = rec.hits[rec.hits.size() - 1] if rec.hits.size() > 0 else {}
+	ok("12f 투사체 피격 기록의 attack_id = 발사 시점 공격(e%d#2), 발사자의 현재 공격(#3) 아님 (피해 %.0f)" % [int(w.id), hp0 - st2.player.hp], not last_hit.is_empty() and String(last_hit.get("attack_id", "")) == "e%d#2" % int(w.id) and String(last_hit.get("src", "")) == "arrow", str(last_hit.get("attack_id", "")))
+	ok("12f2 명중 처리 뒤 hit_attack_id는 비워진다", st2.hit_attack_id == "")
+	# ③ 캐시 키
+	var bx := PBotBatch.new()
+	bx.env_info = { "git_head": "fixed", "dirty": true, "dirty_files": 1, "data_hash": "d", "profile_hash": "p", "engine": "eng", "os": "os", "game_version": "g", "bot_version": "b", "rules_version": "rules-A", "observe_version": "observe-A", "replay_format": PReplay.FORMAT, "code_hash": "code-A" }
+	var k_a := bx._cache_key({ "scenario": "x" })
+	bx.env_info.code_hash = "code-B"
+	var k_b := bx._cache_key({ "scenario": "x" })
+	bx.env_info.code_hash = "code-A"
+	bx.env_info.rules_version = "rules-B"
+	var k_c := bx._cache_key({ "scenario": "x" })
+	bx.env_info.rules_version = "rules-A"
+	bx.env_info.observe_version = "observe-B"
+	var k_d := bx._cache_key({ "scenario": "x" })
+	ok("12g 같은 HEAD·dirty·데이터·설정이라도 코드 해시/규칙 버전/관측 버전이 다르면 캐시 키가 다르다", k_a != k_b and k_a != k_c and k_a != k_d and PBotBatch.cache_diff(k_a, k_b) == ["code_hash: code-A → code-B"], str(PBotBatch.cache_diff(k_a, k_b)))
+	var k_old := k_a.duplicate()
+	k_old.erase("code_hash")
+	ok("12h 옛 meta(코드 해시 없음)와는 재개 불가(차이 목록에 code_hash), 식별 불가(unknown)면 can_resume false, 정상 해시면 true", not PBotBatch.cache_diff(k_old, k_a).is_empty() and not PBotBatch.can_resume({ "code_hash": "unknown" }) and not PBotBatch.can_resume({}) and PBotBatch.can_resume(k_a))
+	var h1 := PReplay.code_hash()
+	ok("12i 코드 해시: SHA-256 64자, 두 번 호출 같음, 데이터 해시와 다름", h1.length() == 64 and h1 == PReplay.code_hash() and h1 != PReplay.data_hash(), h1.substr(0, 16))
+	var env := bx._env_info()
+	ok("12j 배치 환경 정보에 code_hash·rules_version·observe_version(observe-3)·bot_version(skillbot-0.2)", String(env.get("code_hash", "")) == h1 and String(env.observe_version) == "observe-3" and String(env.bot_version).begins_with("skillbot-0.2"))

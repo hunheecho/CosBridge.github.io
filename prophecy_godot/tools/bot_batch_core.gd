@@ -98,7 +98,7 @@ func _env_info() -> Dictionary:
 	var head := _git(["rev-parse", "HEAD"])
 	var dirty := _git(["status", "--porcelain", "--", "prophecy_godot"])
 	return { "git_head": head if head != "" else "unknown", "dirty": (dirty != "") if head != "" else "unknown", "dirty_files": dirty.split("\n").size() if dirty != "" else 0,
-		"data_hash": PReplay.data_hash(), "profile_hash": PSkillBot.profile_hash(), "engine": Engine.get_version_info().string, "os": OS.get_name() + "/" + Engine.get_architecture_name(),
+		"data_hash": PReplay.data_hash(), "code_hash": PReplay.code_hash(), "profile_hash": PSkillBot.profile_hash(), "engine": Engine.get_version_info().string, "os": OS.get_name() + "/" + Engine.get_architecture_name(),
 		"game_version": PReplay.game_version(), "rules_version": PReplay.rules_version(), "bot_version": PSkillBot.BOT_VERSION + "/" + String(PCatalog.bots().get("version", "?")), "observe_version": PObserve.VERSION, "replay_format": PReplay.FORMAT }
 
 # ---------- 시나리오 ----------
@@ -345,8 +345,23 @@ func _write(path: String, text: String) -> void:
 	f.store_string(text)
 	f.close()
 
+## 캐시 키 차이 목록(비어 있으면 같은 환경). 옛 meta에 없는 키(code_hash 등)도 차이로 본다
+static func cache_diff(old: Dictionary, ck: Dictionary) -> Array:
+	var diff := []
+	for k in ck:
+		if str(old.get(k, "")) != str(ck[k]):
+			diff.append("%s: %s → %s" % [String(k), str(old.get(k, "")), str(ck[k])])
+	return diff
+
+## 코드를 식별할 수 없으면(code_hash unknown) 완료 행 재개를 허용하지 않는다
+static func can_resume(ck: Dictionary) -> bool:
+	var ch := String(ck.get("code_hash", "unknown"))
+	return ch != "" and ch != "unknown"
+
+## 캐시 키(검수 지적 3): 커밋·dirty만으로는 미커밋 코드 변경을 구분할 수 없어 코드 내용 해시(code_hash)·규칙/관측 버전을 넣는다. 데이터·프로필·설정·엔진·OS·게임/봇 버전은 그대로
 func _cache_key(settings: Dictionary) -> Dictionary:
-	return { "git_head": String(env_info.git_head), "dirty": env_info.dirty, "data_hash": String(env_info.data_hash), "profile_hash": String(env_info.profile_hash),
+	return { "git_head": String(env_info.git_head), "dirty": env_info.dirty, "code_hash": String(env_info.get("code_hash", "unknown")), "rules_version": String(env_info.get("rules_version", "")), "observe_version": String(env_info.get("observe_version", "")),
+		"data_hash": String(env_info.data_hash), "profile_hash": String(env_info.profile_hash),
 		"settings_hash": JSON.stringify(settings).sha256_text().substr(0, 16), "engine": String(env_info.engine), "os": String(env_info.os), "game_version": String(env_info.game_version), "bot_version": String(env_info.bot_version), "replay_format": String(env_info.replay_format) }
 
 func _save_meta(complete: bool, rows_done: int) -> void:
@@ -686,10 +701,9 @@ func run(o: Dictionary = {}) -> Dictionary:
 		if typeof(parsed) == TYPE_DICTIONARY:
 			meta = parsed
 		var old: Dictionary = meta.get("cache_key", {})
-		var diff := []
-		for k in ck:
-			if str(old.get(k, "")) != str(ck[k]):
-				diff.append("%s: %s → %s" % [String(k), str(old.get(k, "")), str(ck[k])])
+		var diff := cache_diff(old, ck)
+		if not existing.is_empty() and not can_resume(ck):
+			diff.append("code_hash: 코드 식별 불가(unknown) — 기존 결과 재개 거부")
 		if not diff.is_empty() and mode != "report":
 			_msg("CACHE_INVALID run_id=%s 캐시 키 불일치: %s" % [run_id, "; ".join(diff)])
 			if _env("PROPHECY_BOT_FORCE", "") == "1":

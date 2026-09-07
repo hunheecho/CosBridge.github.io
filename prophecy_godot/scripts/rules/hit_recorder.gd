@@ -206,6 +206,8 @@ static func _enemy_by_id(st: CombatState, id: int) -> Dictionary:
 
 ## 피해 출처 → attack_id. 적 개체가 있으면 e<id>#<n>, 지역은 플레이어를 담은 지역 키, 표식은 보스 표식
 func _attack_id_of(st: CombatState, src: String, attacker) -> String:
+	if st.hit_attack_id != "": # 투사체 명중: 발사 시점의 공격 인스턴스(발사자가 다음 공격을 준비했어도)
+		return st.hit_attack_id
 	if attacker != null and typeof(attacker) == TYPE_DICTIONARY and attacker.has("id"):
 		return "e%d#%d" % [int(attacker.id), int(attacker.get("attack_n", 0))]
 	var p: Dictionary = st.player
