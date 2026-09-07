@@ -71,6 +71,8 @@ func decide(st: CombatState) -> Dictionary:
 	var threatened := false
 	for e in st.alive_enemies():
 		var d: Dictionary = e.def
+		if not PEnemies.is_wolf(d):
+			continue # 늑대 규칙(물기·돌진)만 읽는다. 다른 적은 'aware' 정책이 다룬다(D33 기준 봇 동작은 늑대만 있어 변화 없음)
 		if e.state == "lock" or e.state == "dash":
 			var L := float(d.dash.dash_speed) * float(d.dash.dash_time)
 			var ex: float = e.x + cos(e.dir) * L
