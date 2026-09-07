@@ -36,6 +36,8 @@ static func _valid(id: String, run: Dictionary, s: Dictionary) -> bool:
 			return not bool(s.get("deep", false)) and not bool(s.get("mission", false)) and PRun.can_deep_explore(run, s)
 		"scout":
 			return not _other_cards(run, s).is_empty()
+		"challenge": # 선택형 위험 전투(강적의 흔적): 일반 출격 뒤, 체력 50% 이상, 아직 추가 전투 없음
+			return not bool(s.get("mission", false)) and not bool(s.get("deep", false)) and s.get("eventFight", null) == null and float(run.hp) >= float(PRun.build(run).hp_max) * float(E().challenge.get("minHp", 0.5))
 	return false
 
 static func _other_cards(run: Dictionary, s: Dictionary) -> Array:
@@ -54,13 +56,31 @@ static func roll(run: Dictionary, sortie: Dictionary) -> Variant:
 	if rng.next() >= float(E().chance):
 		return null
 	var valid := []
+	var weights := []
+	var weighted := false
 	var last = run.get("lastEvent", null)
 	for id in PCatalog.event_ids():
 		if _valid(String(id), run, sortie) and not (last != null and String(last) == String(id)):
+			var w := PRun.event_weight(run, String(id)) # 회차 특징(사건 편성): 0이면 제외, 1이 아니면 가중 추첨
+			if w <= 0.0:
+				continue
+			if w != 1.0:
+				weighted = true
 			valid.append(String(id))
+			weights.append(w)
 	if valid.is_empty():
 		return null
 	var id: String = valid[rng.int_range(0, valid.size() - 1)]
+	if weighted: # 가중 추첨(특징이 있는 회차만; 없는 회차는 0.4.2와 같은 균등 추첨·같은 rng 소비)
+		var total := 0.0
+		for w in weights:
+			total += float(w)
+		var r := rng.next() * total
+		for i in valid.size():
+			r -= float(weights[i])
+			if r <= 0.0:
+				id = valid[i]
+				break
 	var ev := { "id": id, "seed": rng.int_range(0, 1000000000), "resolved": false, "choice": null }
 	if id == "scout":
 		var cards := _other_cards(run, sortie)
@@ -100,6 +120,11 @@ static func options(run: Dictionary, sortie: Dictionary) -> Array:
 			out.append({ "id": "fight", "name": "상인을 구한다 (추가 전투)", "cost": "지역 웨이브 + 정예 1, 체력 회복 없음(%d/%d), 패배 시 이번 출격 전리품 상실" % [int(hp), int(hp_max)],
 				"effect": "승리 시 해금: %s — %s. 새 전리품·재료 없음" % [String(S.get("name", ev.service)), String(S.get("desc", ""))], "enabled": true })
 			out.append({ "id": "leave", "name": "지나친다", "cost": "없음", "effect": "없음", "enabled": true })
+		"challenge":
+			var CH: Dictionary = E().challenge
+			out.append({ "id": "fight", "name": "맞선다 (추가 전투: 정예 %d + 한 단계 높은 등급)" % int(CH.elites), "cost": "시간 소모 없음 · 체력 회복 없음(%d/%d) · 패배 시 이번 출격 미정산 전리품(금화 %d) 상실" % [int(hp), int(hp_max), int(sortie.loot.gold)],
+				"effect": "승리 시 이번 출격 전리품 금화 ×%s(%d → %d) + 지역 보상 3택 1회. 새 재료 없음" % [str(float(CH.goldMult)), int(sortie.loot.gold), int(round(float(sortie.loot.gold) * float(CH.goldMult)))], "enabled": true })
+			out.append({ "id": "leave", "name": "지나친다", "cost": "없음", "effect": "없음", "enabled": true })
 		"time_spring":
 			var has_buff: bool = (run.get("buffs", {}) as Dictionary).has("skillCd")
 			out.append({ "id": "buff", "name": "샘물을 마신다 (다음 전투 강화)", "cost": "없음", "effect": "다음 전투 1회: 감속장·E 재사용 ×0.7", "enabled": not has_buff })
@@ -113,7 +138,7 @@ static func options(run: Dictionary, sortie: Dictionary) -> Array:
 		"scout":
 			var c := PSortie.card(run, String(ev.cardId))
 			var label: String = ("%s · %s" % [String(PRun.region(String(c.regionId)).name), PSortie.objective_name(String(c.objective))]) if not c.is_empty() else String(ev.cardId)
-			var to_txt := _risk_text(ev.toRisk) + ((" (금화 ×%s)" % str(float(PCatalog.mission_rules().riskRewardMult))) if ev.toRisk != null else "")
+			var to_txt := _risk_text(ev.toRisk) + ((" (금화 ×%s)" % str(PRun.risk_reward_mult(run))) if ev.toRisk != null else "")
 			out.append({ "id": "swap", "name": "카드 교체: %s" % label, "cost": "없음", "effect": "위험 조건 %s → %s" % [_risk_text(ev.fromRisk), to_txt], "enabled": not c.is_empty() and not bool(c.done) })
 			out.append({ "id": "leave", "name": "듣지 않는다", "cost": "없음", "effect": "없음", "enabled": true })
 	return out
@@ -187,6 +212,9 @@ static func resolve(run: Dictionary, sortie: Dictionary, opt_id: String) -> Dict
 			sortie.deepGoldMult = float(E().sealed_loot.goldMult)
 			PRun.add_log(run, "봉인된 전리품: 더 깊이 탐험")
 			return { "next": "deep" }
+		"challenge":
+			sortie.eventFight = "challenge"
+			return { "next": "fight" }
 		"scout":
 			var c := PSortie.card(run, String(ev.cardId))
 			c.risk = ev.toRisk
@@ -197,6 +225,19 @@ static func resolve(run: Dictionary, sortie: Dictionary, opt_id: String) -> Dict
 
 ## 상인 추가 전투: 지역 웨이브 + 정예(더 깊이와 같은 구성), 전멸 목표, 전리품 없음. CombatState opts 덮어쓰기(snake_case)
 static func fight_opts(run: Dictionary, sortie: Dictionary) -> Dictionary:
+	if String(sortie.eventFight) == "challenge": # 강적의 흔적: 이번 출격 편성 + 정예 2, 한 단계 높은 등급(최대 2차), 시간 소모 없음
+		var cw := PRun.encounter_waves(String(sortie.regionId), false, run, sortie)
+		var lastw: Array = cw[cw.size() - 1]
+		var added := false
+		for g in lastw:
+			if String(g.type) == "wolf_alpha":
+				g.n = int(g.n) + int(E().challenge.elites)
+				added = true
+		if not added:
+			lastw.append({ "type": "wolf_alpha", "n": int(E().challenge.elites) })
+		var S: Array = PCatalog.world_stages().get("stages", [])
+		var next_stage: int = mini(PRun.world_stage(run) + 1, S.size() - 1)
+		return { "waves": cw, "objective": "clear", "seed": int(sortie.seed) + 8000 + int(sortie.get("encounters", 0)) * 1000, "event_fight": "challenge", "tier_mix": (S[next_stage].mix as Dictionary).duplicate(), "world_stage": next_stage }
 	var waves := PRun.encounter_waves(String(sortie.regionId), true, run)
 	return { "waves": waves, "objective": "clear", "seed": int(sortie.seed) + 9000 + int(sortie.get("encounters", 0)) * 1000, "event_fight": String(sortie.eventFight) }
 
@@ -208,6 +249,11 @@ static func on_fight_win(run: Dictionary, sortie: Dictionary) -> void:
 		var sv := String(sortie.eventService)
 		run.services[sv] = int(run.services.get(sv, 0)) + 1
 		PRun.add_log(run, "상인 구출: %s 해금" % String(PCatalog.services()[sv].name))
+	if String(sortie.get("eventFight", "")) == "challenge" and not bool(sortie.get("eventFightDone", false)): # 강적 처치: 이번 출격 전리품 ×1.6 + 지역 보상 3택 1회(정확히 1회)
+		sortie.eventFightDone = true
+		sortie.loot.gold = int(round(float(sortie.loot.gold) * float(E().challenge.goldMult)))
+		run.growth.pendingDeepPick = { "regionId": String(sortie.regionId), "key": "challenge:%d" % int(sortie.seed) }
+		PRun.add_log(run, "강적 처치: 전리품 금화 ×%s, 지역 보상 3택" % str(float(E().challenge.goldMult)))
 	sortie.eventFight = null
 
 ## 봇 선택 정책(회차 시뮬레이션): risky는 전투·제단, cautious는 치료, 기본은 무료 이득만
@@ -233,5 +279,6 @@ static func bot_choose(run: Dictionary, sortie: Dictionary, strat: String) -> St
 			if cautious and enabled.has("heal") and hp < hp_max * 0.6: return "heal"
 			return "buff" if enabled.has("buff") else "leave"
 		"sealed_loot": return "fight" if (risky and enabled.has("fight") and hp >= hp_max * 0.5) else "leave"
+		"challenge": return "fight" if (risky and enabled.has("fight") and hp >= hp_max * 0.6) else "leave"
 		"scout": return "swap" if (enabled.has("swap") and ev.toRisk == null) else "leave"
 	return "leave"

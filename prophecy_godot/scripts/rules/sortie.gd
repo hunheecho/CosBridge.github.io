@@ -89,7 +89,7 @@ static func generate(run: Dictionary, day: int) -> Array:
 			obj = String(objs[oi])
 			objs.remove_at(oi)
 		var risk = null
-		if obj != "clear" and day >= int(SCH.riskFromDay) and rng.next() < float(M().riskChance):
+		if obj != "clear" and day >= int(SCH.riskFromDay) and rng.next() < PRun.risk_chance(run):
 			risk = String(M().risks[rng.int_range(0, (M().risks as Array).size() - 1)])
 		var kind = null
 		if obj != "clear":
@@ -103,7 +103,25 @@ static func generate(run: Dictionary, day: int) -> Array:
 			"enemies": main_enemies(run, rid, obj, (String(risk) if risk != null else "")), "first": obj != "clear" and int(run.get("missionsDone", {}).get(obj, 0)) == 0,
 			"done": false, "attempts": 0, "linked": (build_linked(run, String(kind)) if kind != null else false),
 			"variantSlot": (int(variant.slot) if not variant.is_empty() else null), "variantName": (String(variant.name) if not variant.is_empty() else null) })
+		var fm := pick_formation(run, rid, day, rng) # 사전 편성(역할 조합): 카드마다 정수 1개 소비, 같은 지역의 직전 편성 회피
+		out[out.size() - 1].formationId = String(fm.id)
+		out[out.size() - 1].formationName = String(fm.name)
+		out[out.size() - 1].formationDesc = String(fm.get("desc", ""))
 	return out
+
+## 편성 대안 선택: 대안이 1개(기본뿐)면 rng를 소비하지 않는다(첫날 숲 카드는 0.4.2와 동일). 직전에 같은 지역에서 쓴 편성은 제외
+static func pick_formation(run: Dictionary, region_id: String, day: int, rng: PRng) -> Dictionary:
+	var opts := PRun.formation_options(region_id, day)
+	if opts.size() <= 1:
+		return opts[0]
+	var last := String((run.get("lastFormation", {}) as Dictionary).get(region_id, ""))
+	var pool := []
+	for o in opts:
+		if String(o.id) != last:
+			pool.append(o)
+	if pool.is_empty():
+		pool = opts
+	return pool[rng.int_range(0, pool.size() - 1)]
 
 static func main_enemies(run: Dictionary, region_id: String, objective: String, risk: String) -> Array:
 	var base := []
@@ -144,6 +162,11 @@ static func start(run: Dictionary, id: String) -> Dictionary:
 	if s.is_empty():
 		return {}
 	s.cardId = String(c.id)
+	s.formationId = String(c.get("formationId", "base"))
+	s.formationName = String(c.get("formationName", "기본"))
+	if not run.has("lastFormation") or run.lastFormation == null:
+		run.lastFormation = {}
+	run.lastFormation[String(c.regionId)] = s.formationId
 	c.attempts = int(c.attempts) + 1
 	if String(c.objective) != "clear":
 		s.objective = String(c.objective)

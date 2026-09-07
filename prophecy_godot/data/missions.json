@@ -262,6 +262,14 @@
   "scout": {
    "name": "정찰자의 정보",
    "desc": "오늘 남은 출격 카드 1장의 위험 조건을 교체한다(정보는 이미 공개되어 있으므로 교체 서비스). 새로고침 재선택 없음."
+  },
+  "challenge": {
+   "name": "강적의 흔적",
+   "desc": "정예 2마리가 이끄는 무리(한 단계 높은 등급)와의 추가 전투. 시간 소모 없음, 체력 회복 없음. 승리: 이번 출격 전리품 금화 ×1.6 + 지역 보상 3택 1회. 패배: 이번 출격 미정산 전리품 상실.",
+   "elites": 2,
+   "goldMult": 1.6,
+   "minHp": 0.5,
+   "provisional": true
   }
  },
  "event_ids": [
@@ -270,6 +278,7 @@
   "merchant",
   "time_spring",
   "sealed_loot",
-  "scout"
+  "scout",
+  "challenge"
  ]
 }

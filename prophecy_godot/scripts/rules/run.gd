@@ -15,7 +15,8 @@ static func SH() -> Dictionary: return PCatalog.shop()
 
 # ---------- 새 회차 ----------
 ## seed_v 0 = 현재 시각에서 고른다(HTML: PA.clock.now() % 100000). balance ""면 balance_default. mode는 trio 고정
-static func new_run(seed_v: int, start_weapon: String, balance: String = "") -> Dictionary:
+## opts(선택): { density_set: "roles" 등 밀도 세트(비교용), world_stages: bool }
+static func new_run(seed_v: int, start_weapon: String, balance: String = "", opts: Dictionary = {}) -> Dictionary:
 	var cfg := C()
 	var BS := PCatalog.balance_sets()
 	var bal := balance if (balance != "" and BS.has(balance)) else String(PCatalog.balance().balance_default)
@@ -44,12 +45,95 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "") -> 
 		"dmgStats": { "combats": [], "byKey": {} },
 		"services": {}, "cards": null, "missionsDone": {}, "pendingSortie": null, "buffs": {}, "lastEvent": null, "lastSupplyDay": null, "eventsResolved": 0,
 		"ended": false, "bossEntry": null,
+		"worldStages": bool(opts.get("world_stages", true)), "densitySet": String(opts.get("density_set", "")),
+		"worldFeature": pick_world_feature(s), "bossPlan": pick_boss_plan(s), "lastFormation": {}, # 반복 콘텐츠(시드 확정, 재접속 재추첨 없음)
 	}
 	PSortie.cards_for(run) # 1일차 장소·목적 확정
 	refresh_stock(run)
 	return run
 
 static func build(run: Dictionary) -> Dictionary: return PBuild.derive(run)
+
+# ---------- 반복 콘텐츠(2026-09-07 사용자 합의 방향, 값은 시험값) ----------
+## 회차 특징: 시드로 1개 확정. 저장 필드(run.worldFeature)만 읽으므로 재접속 재추첨이 없다
+static func pick_world_feature(seed_v: int) -> String:
+	var L: Array = W().get("world_features", {}).get("list", [])
+	if L.is_empty():
+		return ""
+	var rng := PRng.new((seed_v * 31 + 5) & 0xFFFFFFFF)
+	return String(L[rng.int_range(0, L.size() - 1)].id)
+
+static func world_feature(run: Dictionary) -> Dictionary:
+	var id := String(run.get("worldFeature", ""))
+	for f in W().get("world_features", {}).get("list", []):
+		if String(f.id) == id:
+			return f
+	return {}
+
+## 관문별 보스 계획: 관문마다 후보 중 하나를 시드로 확정(후보 1개면 그대로). 거점에 미리 표시한다
+static func pick_boss_plan(seed_v: int) -> Array:
+	var G: Array = W().get("boss_gates", {}).get("gates", [])
+	var rng := PRng.new((seed_v * 53 + 9) & 0xFFFFFFFF)
+	var out := []
+	for g in G:
+		var cands: Array = g.candidates
+		out.append(String(cands[rng.int_range(0, cands.size() - 1)]) if cands.size() > 1 else String(cands[0]))
+	return out
+
+## 방문 상인이 오는 날짜(회차 특징으로 바뀔 수 있음)
+static func merchant_days(run: Dictionary) -> Array:
+	var f := world_feature(run)
+	if String(f.get("kind", "")) == "merchant" and f.has("merchant_days"):
+		return f.merchant_days
+	return W().merchant_visits.days
+
+## 위험 임무 확률·보상 배율(회차 특징 'risk')
+static func risk_chance(run: Dictionary) -> float:
+	var f := world_feature(run)
+	return float(f.risk_chance) if String(f.get("kind", "")) == "risk" else float(PCatalog.mission_rules().riskChance)
+
+static func risk_reward_mult(run: Dictionary) -> float:
+	var f := world_feature(run)
+	return float(f.risk_reward_mult) if String(f.get("kind", "")) == "risk" else float(PCatalog.mission_rules().riskRewardMult)
+
+## 사건 가중치(회차 특징 'events'): 없는 종류는 1, 0이면 제외
+static func event_weight(run: Dictionary, event_id: String) -> float:
+	var f := world_feature(run)
+	if String(f.get("kind", "")) == "events":
+		return float((f.get("event_weights", {}) as Dictionary).get(event_id, 1.0))
+	return 1.0
+
+## 지역×날짜의 편성 대안(기본 "base" + formation_sets). 첫날 숲은 고정(D33)
+static func formation_options(region_id: String, day: int) -> Array:
+	var out := [{ "id": "base", "name": "기본", "desc": "" }]
+	if region_id == "forest" and day <= 1:
+		return out
+	var FS: Dictionary = W().get("formation_sets", {})
+	if not FS.has(region_id):
+		return out
+	var key := day_key(region_id, day)
+	for a in (FS[region_id] as Dictionary).get(key, []):
+		out.append({ "id": String(a.id), "name": String(a.name), "desc": String(a.get("desc", "")) })
+	return out
+
+static func formation_waves(region_id: String, day: int, formation_id: String) -> Array:
+	if formation_id == "" or formation_id == "base":
+		return day_waves(region_id, day)
+	var FS: Dictionary = W().get("formation_sets", {})
+	if FS.has(region_id):
+		for a in (FS[region_id] as Dictionary).get(day_key(region_id, day), []):
+			if String(a.id) == formation_id:
+				return a.waves
+	return day_waves(region_id, day)
+
+## 시간대 변주 목록(표시용): 실제 출발 시간대 기준(비용 2 장소의 저녁 변주는 오후로 이동, Q4). 화면 문구와 출발 시간대를 같은 함수로 맞춘다
+static func slot_variants_list(region_id: String) -> Array:
+	var out := []
+	for s in 5:
+		var v := slot_variant(region_id, s)
+		if not v.is_empty():
+			out.append(v)
+	return out
 
 static func add_log(run: Dictionary, msg: String) -> void:
 	if not run.has("log"): run.log = []
@@ -80,11 +164,17 @@ static func mode_def(run: Dictionary) -> Dictionary:
 	var m := String(run.get("mode", "trio"))
 	return RM[m] if RM.has(m) else RM.trio
 
-## 다음 보스 정의 {id, day, hpKey, rare}. 완주 후에는 {}
+## 다음 보스 정의 {id, day, hpKey, rare}. 완주 후에는 {}. 회차의 보스 계획(bossPlan, 관문별 후보에서 시드로 확정)이 있으면 그 id를 쓴다
 static func next_boss(run: Dictionary) -> Dictionary:
 	var bosses: Array = mode_def(run).bosses
 	var st: int = int(run.get("stage", 0))
-	return bosses[st] if st >= 0 and st < bosses.size() else {}
+	if st < 0 or st >= bosses.size():
+		return {}
+	var nb: Dictionary = (bosses[st] as Dictionary).duplicate()
+	var plan: Array = run.get("bossPlan", [])
+	if st < plan.size():
+		nb.id = String(plan[st])
+	return nb
 
 static func next_boss_cfg(run: Dictionary) -> Dictionary:
 	var nb := next_boss(run)
@@ -234,11 +324,11 @@ static func region_arena(region_id: String, run: Dictionary = {}) -> String:
 			return String(lr.arena)
 	return String(W().region_arena.get(region_id, "forest"))
 
-## 날짜별 편성: 그 날짜 이하에서 가장 가까운 정의
-static func day_waves(region_id: String, day: int) -> Array:
+## 날짜별 편성 키: 그 날짜 이하에서 가장 가까운 정의
+static func day_key(region_id: String, day: int) -> String:
 	var T: Dictionary = W().day_waves
 	if not T.has(region_id):
-		return region(region_id).waves
+		return ""
 	var keys := []
 	for k in T[region_id]:
 		keys.append(int(String(k)))
@@ -249,7 +339,14 @@ static func day_waves(region_id: String, day: int) -> Array:
 			best = k
 	if best < 0:
 		best = keys[0]
-	return T[region_id][str(best)]
+	return str(best)
+
+## 날짜별 편성: 그 날짜 이하에서 가장 가까운 정의
+static func day_waves(region_id: String, day: int) -> Array:
+	var T: Dictionary = W().day_waves
+	if not T.has(region_id):
+		return region(region_id).waves
+	return T[region_id][day_key(region_id, day)]
 
 static func _copy_waves(src: Array) -> Array:
 	var out := []
@@ -261,7 +358,7 @@ static func _copy_waves(src: Array) -> Array:
 	return out
 
 static func encounter_waves(region_id: String, deep: bool, run: Dictionary, sortie: Dictionary = {}) -> Array:
-	var waves := _copy_waves(day_waves(region_id, int(run.get("day", 1))))
+	var waves := _copy_waves(formation_waves(region_id, int(run.get("day", 1)), String(sortie.get("formationId", "base"))))
 	var v = sortie.get("variant", null)
 	if v != null:
 		if bool(v.get("dropLastWave", false)) and waves.size() > 1:
@@ -684,7 +781,7 @@ static func refresh_stock(run: Dictionary) -> Dictionary:
 	run.stock = { "day": int(run.day), "equipment": eq, "skill": skill, "sold": [] }
 	var MV: Dictionary = W().merchant_visits
 	var visit := false
-	for d in MV.days:
+	for d in merchant_days(run):
 		if int(d) == int(run.day):
 			visit = true
 	if visit:

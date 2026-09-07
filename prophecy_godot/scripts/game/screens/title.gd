@@ -118,6 +118,17 @@ func _verify_panel() -> Control:
 			var k := String(key)
 			row2.add_child(PUi.button(String(BUILDS[k].stage), func(): main.quick_boss_fight(k, _bot_check.button_pressed), true, 13))
 	box.add_child(row2)
+	box.add_child(PUi.rich("[color=#9ea8b8]밀도 비교 회차[/color] (같은 시드로 편성 세트만 다르게 새 회차 시작 — 사람 플레이 비교용. 첫날 새벽 늑대 25는 두 세트 동일)", 12))
+	var row3 := PUi.hbox(6)
+	var D := PCatalog.density()
+	var SETS: Dictionary = D.get("sets", {})
+	for key in SETS:
+		var k := String(key)
+		var nm := "%s: %s" % [k, String(SETS[k].get("name", k))]
+		row3.add_child(PUi.button(nm, func():
+			main.new_run_opts = { "seed": int(_seed_spin.value), "density_set": ("" if k == String(D.get("set_default", "uniform_x5")) else k) }
+			main.new_run_flow(), true, 12))
+	box.add_child(row3)
 	box.add_child(PUi.button("봇 회차 데모 (선택: 봇이 새 회차를 첫 관문까지 진행)", func(): main.bot_demo(), true, 12))
 	box.add_child(PUi.rich("[color=#6a7078]검증 정보·비교 설정은 전투 중 F3 패널.[/color]", 11))
 	return c.panel

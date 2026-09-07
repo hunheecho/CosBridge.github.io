@@ -72,10 +72,50 @@ const world_stages = {
   mix_note: '비율 60:40은 첫 후보. 종류별 정수 편성(등장 순서 뒤쪽이 높은 등급). 정예·구조물·보스 소환은 등급 배정 제외',
   risk_elite_from_stage: 2, risk_elite_extra: 1, risk_elite_note: '2단계부터 위험 임무 출격의 마지막 웨이브에 정예(늑대 우두머리) +1 — 일부 위험 전투에만(잠정). 정예 경험치 단위값은 XP_VALUE 그대로 예산에 더해진다',
   excludes_day_hp_set: true, exclude_note: '세계 변화가 켜진 회차에서는 날짜 체력 세트(dayA 등)를 적용하지 않는다(중복 강화 금지)' };
-write('world.json', { world_stages, time_slots: PA.TIME_SLOTS, schedule: strip(PA.SCHEDULE), mission_steer: PA.MISSION_STEER, day_waves: strip(PA.DAY_WAVES), day_hp_sets: PA.DAY_HP_SETS, elite_day_mult: PA.ELITE_DAY_MULT, slot_variants: strip(PA.SLOT_VARIANTS), merchant_visits: PA.MERCHANT_VISITS, equipment: strip(PA.EQUIPMENT), equip_slots: PA.EQUIP_SLOTS, equip_slot_names: PA.EQUIP_SLOT_NAMES, shop: strip(PA.SHOP), regions: strip(PA.REGIONS), materials: strip(PA.MATERIALS), density, region_arena: { forest: 'clearing', ridge: 'pillars', marsh: 'forest', den: 'pillars', deep: 'clearing', boss: 'clearing' } });
+// 반복 콘텐츠(2026-09-07 사용자 합의 방향 4가지, 내용·수치는 구현자 시험값 — 사용자 승인 아님)
+// 1) 회차 특징: 회차 시작 시 하나(시드 결정, 재접속 재추첨 없음). 방문 상인 시점 / 사건 편성 / 위험 임무 편성 중 하나에만 영향. 핵심 세계 변화 일정·경험치 배율은 바꾸지 않는다.
+const world_features = {
+  note: '시험값(구현자). 한 줄로 이해되는 작은 차이. 세계 변화 일정·경험치 배율 불변',
+  list: [
+    { id: 'wandering_merchant', name: '떠돌이 상인의 해', line: '방문 상인이 1·3·5일차 점심부터 온다(원래 2·4·6)', kind: 'merchant', merchant_days: [1, 3, 5] },
+    { id: 'misty_season', name: '안개 낀 계절', line: '탐험 사건에 보급소·정찰자가 더 자주 나오고 시간의 샘은 나오지 않는다', kind: 'events', event_weights: { supply: 2, scout: 2, time_spring: 0 } },
+    { id: 'bounty_year', name: '위험한 의뢰의 해', line: '임무 카드에 위험 조건이 더 자주 붙고(75%) 위험 임무 보상 ×1.35', kind: 'risk', risk_chance: 0.75, risk_reward_mult: 1.35 } ] };
+// 2) 같은 지역의 사전 편성(역할 조합): 지역×날짜 정의마다 기본 + 2안. 첫날 숲(승인된 첫 전투)은 고정. 합계는 기본과 같게 두어 경험치 예산 차이를 줄였다(종류별 단위값 차이는 남는다).
+//    선택은 카드 생성 시드로 1회(카드마다 정수 1개 소비), 같은 지역에서 직전에 쓴 편성은 피한다. 역할: siege 포위(근접 다수) / escort 원거리 호위 / breach 돌파(돌파·측면) / shieldwall 방진 / ambush 매복(지하·폭발)
+const FN = { siege: '포위', escort: '원거리 호위', breach: '돌파', shieldwall: '방진', ambush: '매복' };
+const FD = { siege: '근접 무리가 사방에서 조여 온다', escort: '원거리가 뒤에서 쏘고 근접이 앞을 막는다', breach: '돌파·측면 공격이 직선으로 들어온다', shieldwall: '방패병이 앞을 막고 궁수가 뒤에서 쏜다', ambush: '지하·폭발 개체가 발밑과 근접에서 터진다' };
+const F = (id, waves) => ({ id, name: FN[id], desc: FD[id], waves: waves.map(w => w.map(([type, n]) => ({ type, n }))) });
+const formation_sets = {
+  note: '시험값(구현자). 기본 편성(day_waves)은 그대로 두고 대안 2개씩. 첫날 숲은 고정(D33)',
+  forest: {
+    '2': [F('siege', [[['wolf', 3]], [['wolf', 4]], [['boar', 1], ['wolf', 3]]]), F('escort', [[['archer', 2], ['wolf', 1]], [['archer', 2], ['wolf', 2]], [['archer', 1], ['boar', 1], ['wolf', 2]]])],
+    '6': [F('breach', [[['boar', 3], ['wolf', 1]], [['boar', 3], ['rogue', 1]], [['boar', 2], ['wolf', 2], ['wolf_alpha', 1]]]), F('escort', [[['shaman', 1], ['wolf', 3]], [['archer', 3], ['rogue', 2]], [['shaman', 1], ['wolf', 2], ['wolf_alpha', 1]]])] },
+  ridge: {
+    '1': [F('siege', [[['wolf', 3]], [['wolf', 3], ['archer', 1]], [['wolf', 3], ['archer', 1]]]), F('shieldwall', [[['shieldbearer', 2], ['archer', 1]], [['shieldbearer', 2], ['archer', 2]], [['archer', 2], ['wolf', 2]]])],
+    '3': [F('siege', [[['wolf', 3], ['spider', 1]], [['wolf', 4], ['archer', 1]], [['wolf', 3], ['archer', 1]]]), F('escort', [[['archer', 3], ['shieldbearer', 1]], [['archer', 3], ['shieldbearer', 2]], [['archer', 2], ['spider', 1], ['shieldbearer', 1]]])],
+    '6': [F('breach', [[['rogue', 3], ['shieldbearer', 1]], [['rogue', 3], ['archer', 2]], [['rogue', 3], ['shieldbearer', 2], ['archer', 2]]]), F('siege', [[['wolf', 4], ['archer', 1]], [['wolf', 4], ['rogue', 2]], [['wolf', 3], ['archer', 2]]])] },
+  marsh: {
+    '2': [F('escort', [[['archer', 2], ['spore', 1]], [['archer', 2], ['wolf', 2]], [['archer', 1], ['spore', 2]]]), F('siege', [[['wolf', 3]], [['wolf', 3], ['spore', 1]], [['wolf', 2], ['spore', 1]]])],
+    '4': [F('escort', [[['archer', 2], ['spore', 1]], [['frostcaller', 2], ['archer', 2]], [['archer', 2], ['spider', 1], ['spore', 3]]]), F('ambush', [[['burrower', 2], ['spore', 1]], [['burrower', 2], ['wolf', 2]], [['spider', 2], ['burrower', 1], ['spore', 3]]])],
+    '6': [F('escort', [[['frostcaller', 2], ['archer', 2]], [['archer', 3], ['spore', 2]], [['frostcaller', 2], ['archer', 2], ['spider', 2]]]), F('ambush', [[['burrower', 2], ['bomber', 1]], [['burrower', 2], ['spore', 2], ['bomber', 1]], [['burrower', 2], ['spider', 2], ['bomber', 3]]])] },
+  den: {
+    '3': [F('escort', [[['archer', 2], ['wolf', 2]], [['archer', 2], ['wolf', 2]], [['archer', 1], ['wolf', 1], ['wolf_alpha', 1]]]), F('breach', [[['boar', 2], ['wolf', 1]], [['boar', 2], ['wolf', 2]], [['boar', 1], ['wolf', 2], ['wolf_alpha', 1]]])],
+    '4': [F('siege', [[['wolf', 4]], [['wolf', 4], ['shaman', 1]], [['wolf', 3], ['boar', 1], ['wolf_alpha', 1]]]), F('escort', [[['archer', 2], ['wolf', 2]], [['archer', 2], ['wolf', 2], ['shaman', 1]], [['archer', 2], ['wolf', 1], ['shaman', 1], ['wolf_alpha', 1]]])],
+    '5': [F('siege', [[['wolf', 4], ['rogue', 1]], [['wolf', 4], ['rogue', 1]], [['wolf', 2], ['rogue', 2], ['wolf_alpha', 1]]]), F('ambush', [[['burrower', 2], ['rogue', 2]], [['burrower', 2], ['boar', 2], ['wolf', 2]], [['burrower', 2], ['bomber', 2], ['wolf_alpha', 1]]])],
+    '6': [F('breach', [[['boar', 3], ['rogue', 2]], [['boar', 3], ['rogue', 2], ['bomber', 1]], [['boar', 2], ['rogue', 2], ['shaman', 1], ['wolf_alpha', 2]]]), F('escort', [[['archer', 3], ['wolf', 2]], [['archer', 3], ['shaman', 1], ['wolf', 2]], [['archer', 2], ['shaman', 1], ['wolf', 2], ['wolf_alpha', 2]]])] },
+  deep: {
+    '5': [F('siege', [[['wolf', 4], ['rogue', 2]], [['wolf', 4], ['rogue', 2]], [['wolf', 2], ['rogue', 2], ['wolf_alpha', 1]]]), F('escort', [[['archer', 3], ['frostcaller', 1], ['spore', 1]], [['archer', 3], ['frostcaller', 2], ['spore', 1]], [['archer', 2], ['shaman', 1], ['spore', 2], ['wolf_alpha', 1]]])],
+    '6': [F('breach', [[['boar', 3], ['rogue', 2]], [['boar', 3], ['rogue', 2], ['bomber', 2]], [['boar', 2], ['rogue', 2], ['shieldbearer', 1], ['wolf_alpha', 2]]]), F('ambush', [[['burrower', 2], ['bomber', 2], ['spore', 1]], [['burrower', 3], ['spider', 2], ['bomber', 2]], [['burrower', 2], ['frostcaller', 2], ['spore', 1], ['wolf_alpha', 2]]])] } };
+// 3) 선택형 위험 전투: 기존 사건 틀의 '강적의 흔적'(events에 추가, missions.json). 4) 관문별 보스 후보: 지금은 기존 3종을 그대로 후보 1개씩. 후보가 늘면 회차 시작 시 계획(bossPlan)으로 확정해 거점에 미리 보여준다.
+const boss_gates = { note: '관문별 후보 구조(확장용). 후보가 2개 이상이면 회차 시작 시 시드로 하나를 정하고(bossPlan) 거점 상단 줄에 미리 표시한다. 새 보스 제작은 이번 범위 아님',
+  gates: [ { day: 3, candidates: ['boss'] }, { day: 5, candidates: ['guardian'] }, { day: 7, candidates: ['eater'] } ] };
+write('world.json', { world_stages, world_features, formation_sets, boss_gates, time_slots: PA.TIME_SLOTS, schedule: strip(PA.SCHEDULE), mission_steer: PA.MISSION_STEER, day_waves: strip(PA.DAY_WAVES), day_hp_sets: PA.DAY_HP_SETS, elite_day_mult: PA.ELITE_DAY_MULT, slot_variants: strip(PA.SLOT_VARIANTS), merchant_visits: PA.MERCHANT_VISITS, equipment: strip(PA.EQUIPMENT), equip_slots: PA.EQUIP_SLOTS, equip_slot_names: PA.EQUIP_SLOT_NAMES, shop: strip(PA.SHOP), regions: strip(PA.REGIONS), materials: strip(PA.MATERIALS), density, region_arena: { forest: 'clearing', ridge: 'pillars', marsh: 'forest', den: 'pillars', deep: 'clearing', boss: 'clearing' } });
 
 // ---------- missions / events ----------
 const EV = strip(PA.EVENTS); const evIds = PA.EVENT_IDS.slice();
+// 선택형 위험 전투(2026-09-07 사용자 합의 방향, 수치는 구현자 시험값): 기존 사건 틀. 거절 가능. 선택 전에 보상·시간·손실을 표시한다.
+EV.challenge = { name: '강적의 흔적', desc: '정예 2마리가 이끄는 무리(한 단계 높은 등급)와의 추가 전투. 시간 소모 없음, 체력 회복 없음. 승리: 이번 출격 전리품 금화 ×1.6 + 지역 보상 3택 1회. 패배: 이번 출격 미정산 전리품 상실.', elites: 2, goldMult: 1.6, minHp: 0.5, provisional: true };
+evIds.push('challenge');
 write('missions.json', { objectives: strip(PA.OBJECTIVES), objective_ids: PA.OBJECTIVE_IDS, structures: strip(PA.STRUCTURES), services: strip(PA.SERVICES), missions: strip(PA.MISSIONS), events: EV, event_ids: evIds });
 
 // ---------- balance / lab ----------

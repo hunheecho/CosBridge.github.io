@@ -146,9 +146,13 @@ func go_base() -> void:
 func new_run_flow() -> void:
 	show("pick_start")
 
+var new_run_opts := {} # 검증 메뉴에서 정한 새 회차 옵션 { seed, density_set } — 새 회차 1회에만 쓰고 비운다
+
 func start_run(weapon_id: String) -> void:
 	fight_kind = "run"
-	run = PRun.new_run(_auto_seed if _auto else 0, weapon_id)
+	var seed_use: int = int(new_run_opts.get("seed", _auto_seed if _auto else 0))
+	run = PRun.new_run(seed_use, weapon_id, "", { "density_set": String(new_run_opts.get("density_set", "")) })
+	new_run_opts = {}
 	sortie = {}
 	save_run()
 	go_base()

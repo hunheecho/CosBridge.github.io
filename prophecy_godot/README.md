@@ -27,6 +27,8 @@ godot --headless --path prophecy_godot -s tests/run_tests.gd          # 기준 �
 godot --headless --path prophecy_godot -s tests/port_tests.gd         # 전투 콘텐츠(자동기술·개조·범용·특성·Q/E·장비·지형·편성·철벽 경계·상태 공급원) 76
 godot --headless --path prophecy_godot -s tests/boss_tests.gd         # 보스 3·전투 목표 34
 godot --headless --path prophecy_godot -s tests/run_layer_tests.gd    # 회차 계층(상점·교체·대장간·정산·관문·저장·통계·밀도 세트·정산 1회·DPS 분모) 62
+godot --headless --path prophecy_godot -s tests/world_tests.gd        # 세계 변화(붉은 달) 30
+godot --headless --path prophecy_godot -s tests/content_tests.gd      # 반복 콘텐츠(회차 특징·사전 편성·강적의 흔적·보스 계획·밀도 비교 회차) 28
 godot --headless --path prophecy_godot -s tests/ui_flow_tests.gd      # 화면 계층(실제 main.tscn: 전투 중 종료 체크포인트·HUD 보호막) 14 — user:// 저장을 쓰므로 APPDATA를 별도 폴더로 두고 실행
 godot --headless --path prophecy_godot -s tools/density_report.gd     # 기준 전투 밀도 비교(0.3.1과 같은 36행) → docs/DENSITY_REPORT.md
 godot --headless --path prophecy_godot -s tools/compare_scenario.gd   # HTML 대조 측정(COMPARE_JSON)

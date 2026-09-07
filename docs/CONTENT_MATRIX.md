@@ -99,6 +99,11 @@ E는 1개, 차 있으면 습득 카드 없음(교체는 상점). 일제 공격(�
 | wd:hp_mult | 지역 체력 후보 base/candE/A~D, 날짜 후보 none/dayA, 정예 4일차 ×1.25 | 후보(D07·D13) | 구현 | 구현(run.gd·formation.gd·world.json; run_layer_tests·port_tests·FORMATION_TABLE) | 포함(F3 후보, 기본 base·none, C5) | |
 | wd:world_stages | 세계 변화 두 단계: 변화 전 → 첫 관문 뒤 붉은 달(일반+붉은 60:40) → 두 번째 관문 뒤 일반 퇴장(붉은+변이 60:40). 관문 완료(bossesDone)에서 도출, day 증가로 전환 없음. 등급은 정예와 별개, 경험치 예산 불변, 날짜 체력 세트 제외 | 사용자 합의(D38), 배율·비율 Codex 시험값 | 없음(신규) | 구현(run.gd world_stage·formation.gd assign_tiers·combat_state.gd tier; world_tests) | 포함 | world_tests |
 | m:tiers | 등급 붉은(체력 ×1.25·피해 ×1.10)·상위 변이(×1.60·×1.20): 종류의 행동·속도·예고 공유, 체력·피해만 배율. 표시 tint + 삼각 표식·링. 2단계 위험 임무 정예 +1 | Codex 시험값 | 없음(신규) | 구현(combat_state.gd spawn_enemy/damage_player·render.gd tier_mark) | 포함 | world_tests |
+| wd:feature | 회차 특징 3종(상인 시점/사건 편성/위험 임무), 시드 1개, 재추첨 없음, 거점 한 줄 표시 | 사용자 합의 방향(D39), 내용 시험값 | 없음(신규) | 구현(run.gd pick_world_feature·merchant_days·risk_chance·event_weight) | 포함 | content_tests |
+| wd:formations | 지역×날짜 사전 편성 대안 2(역할 조합 5종), 카드 생성 시 선택·직전 편성 회피, 첫날 숲 고정 | 사용자 합의 방향(D39), 내용 시험값 | 없음(신규) | 구현(run.gd formation_options/waves·sortie.gd pick_formation) | 포함 | content_tests |
+| ev:challenge | 강적의 흔적: 거절 가능한 추가 전투(정예 +2·등급 +1), 선택 전 보상·시간·손실 표시 | 사용자 합의 방향(D39), 수치 시험값 | 없음(신규) | 구현(events.gd) | 포함 | content_tests |
+| run:boss_plan | 관문별 보스 후보 → 회차 시작 시 계획(bossPlan), 거점 표시 | 사용자 합의(구조만) | 없음(신규) | 구현(run.gd pick_boss_plan·next_boss) | 포함 | content_tests |
+| ui:density_pick | 검증 메뉴 "밀도 비교 회차": 같은 시드 + 세트 선택 → 새 회차 | 사용자 합의(D39) | 없음 | 구현(title.gd·main.gd new_run_opts) | 포함 | content_tests(new_run opts) |
 | wd:arena | 지역 전장: 기본 숲(장애물 없음), 공터(바위2·나무2), 기둥 숲(바위3·나무1); 배치안 classic/trial | 시험값 | 구현 | 구현(run.gd·formation.gd·world.json; run_layer_tests·port_tests·FORMATION_TABLE) | 포함(지역별 배치는 시험값: 숲=공터(D33), 능선=기둥, 습지=숲, 굴=기둥, 심층=공터) | 지형 검증 161~170 |
 
 ## H. 회차·경제 (run.js/sortie.js/flow.js/events.js, GAME_SPEC §19) — 사용자 합의 D14~D24, 세부 구현자

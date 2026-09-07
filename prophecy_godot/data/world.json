@@ -65,6 +65,1269 @@
   "excludes_day_hp_set": true,
   "exclude_note": "세계 변화가 켜진 회차에서는 날짜 체력 세트(dayA 등)를 적용하지 않는다(중복 강화 금지)"
  },
+ "world_features": {
+  "note": "시험값(구현자). 한 줄로 이해되는 작은 차이. 세계 변화 일정·경험치 배율 불변",
+  "list": [
+   {
+    "id": "wandering_merchant",
+    "name": "떠돌이 상인의 해",
+    "line": "방문 상인이 1·3·5일차 점심부터 온다(원래 2·4·6)",
+    "kind": "merchant",
+    "merchant_days": [
+     1,
+     3,
+     5
+    ]
+   },
+   {
+    "id": "misty_season",
+    "name": "안개 낀 계절",
+    "line": "탐험 사건에 보급소·정찰자가 더 자주 나오고 시간의 샘은 나오지 않는다",
+    "kind": "events",
+    "event_weights": {
+     "supply": 2,
+     "scout": 2,
+     "time_spring": 0
+    }
+   },
+   {
+    "id": "bounty_year",
+    "name": "위험한 의뢰의 해",
+    "line": "임무 카드에 위험 조건이 더 자주 붙고(75%) 위험 임무 보상 ×1.35",
+    "kind": "risk",
+    "risk_chance": 0.75,
+    "risk_reward_mult": 1.35
+   }
+  ]
+ },
+ "formation_sets": {
+  "note": "시험값(구현자). 기본 편성(day_waves)은 그대로 두고 대안 2개씩. 첫날 숲은 고정(D33)",
+  "forest": {
+   "2": [
+    {
+     "id": "siege",
+     "name": "포위",
+     "desc": "근접 무리가 사방에서 조여 온다",
+     "waves": [
+      [
+       {
+        "type": "wolf",
+        "n": 3
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 4
+       }
+      ],
+      [
+       {
+        "type": "boar",
+        "n": 1
+       },
+       {
+        "type": "wolf",
+        "n": 3
+       }
+      ]
+     ]
+    },
+    {
+     "id": "escort",
+     "name": "원거리 호위",
+     "desc": "원거리가 뒤에서 쏘고 근접이 앞을 막는다",
+     "waves": [
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 1
+       },
+       {
+        "type": "boar",
+        "n": 1
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       }
+      ]
+     ]
+    }
+   ],
+   "6": [
+    {
+     "id": "breach",
+     "name": "돌파",
+     "desc": "돌파·측면 공격이 직선으로 들어온다",
+     "waves": [
+      [
+       {
+        "type": "boar",
+        "n": 3
+       },
+       {
+        "type": "wolf",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "boar",
+        "n": 3
+       },
+       {
+        "type": "rogue",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "boar",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 1
+       }
+      ]
+     ]
+    },
+    {
+     "id": "escort",
+     "name": "원거리 호위",
+     "desc": "원거리가 뒤에서 쏘고 근접이 앞을 막는다",
+     "waves": [
+      [
+       {
+        "type": "shaman",
+        "n": 1
+       },
+       {
+        "type": "wolf",
+        "n": 3
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 3
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "shaman",
+        "n": 1
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 1
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  "ridge": {
+   "1": [
+    {
+     "id": "siege",
+     "name": "포위",
+     "desc": "근접 무리가 사방에서 조여 온다",
+     "waves": [
+      [
+       {
+        "type": "wolf",
+        "n": 3
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 3
+       },
+       {
+        "type": "archer",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 3
+       },
+       {
+        "type": "archer",
+        "n": 1
+       }
+      ]
+     ]
+    },
+    {
+     "id": "shieldwall",
+     "name": "방진",
+     "desc": "방패병이 앞을 막고 궁수가 뒤에서 쏜다",
+     "waves": [
+      [
+       {
+        "type": "shieldbearer",
+        "n": 2
+       },
+       {
+        "type": "archer",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "shieldbearer",
+        "n": 2
+       },
+       {
+        "type": "archer",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       }
+      ]
+     ]
+    }
+   ],
+   "3": [
+    {
+     "id": "siege",
+     "name": "포위",
+     "desc": "근접 무리가 사방에서 조여 온다",
+     "waves": [
+      [
+       {
+        "type": "wolf",
+        "n": 3
+       },
+       {
+        "type": "spider",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 4
+       },
+       {
+        "type": "archer",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 3
+       },
+       {
+        "type": "archer",
+        "n": 1
+       }
+      ]
+     ]
+    },
+    {
+     "id": "escort",
+     "name": "원거리 호위",
+     "desc": "원거리가 뒤에서 쏘고 근접이 앞을 막는다",
+     "waves": [
+      [
+       {
+        "type": "archer",
+        "n": 3
+       },
+       {
+        "type": "shieldbearer",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 3
+       },
+       {
+        "type": "shieldbearer",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "spider",
+        "n": 1
+       },
+       {
+        "type": "shieldbearer",
+        "n": 1
+       }
+      ]
+     ]
+    }
+   ],
+   "6": [
+    {
+     "id": "breach",
+     "name": "돌파",
+     "desc": "돌파·측면 공격이 직선으로 들어온다",
+     "waves": [
+      [
+       {
+        "type": "rogue",
+        "n": 3
+       },
+       {
+        "type": "shieldbearer",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "rogue",
+        "n": 3
+       },
+       {
+        "type": "archer",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "rogue",
+        "n": 3
+       },
+       {
+        "type": "shieldbearer",
+        "n": 2
+       },
+       {
+        "type": "archer",
+        "n": 2
+       }
+      ]
+     ]
+    },
+    {
+     "id": "siege",
+     "name": "포위",
+     "desc": "근접 무리가 사방에서 조여 온다",
+     "waves": [
+      [
+       {
+        "type": "wolf",
+        "n": 4
+       },
+       {
+        "type": "archer",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 4
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 3
+       },
+       {
+        "type": "archer",
+        "n": 2
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  "marsh": {
+   "2": [
+    {
+     "id": "escort",
+     "name": "원거리 호위",
+     "desc": "원거리가 뒤에서 쏘고 근접이 앞을 막는다",
+     "waves": [
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "spore",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 1
+       },
+       {
+        "type": "spore",
+        "n": 2
+       }
+      ]
+     ]
+    },
+    {
+     "id": "siege",
+     "name": "포위",
+     "desc": "근접 무리가 사방에서 조여 온다",
+     "waves": [
+      [
+       {
+        "type": "wolf",
+        "n": 3
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 3
+       },
+       {
+        "type": "spore",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 2
+       },
+       {
+        "type": "spore",
+        "n": 1
+       }
+      ]
+     ]
+    }
+   ],
+   "4": [
+    {
+     "id": "escort",
+     "name": "원거리 호위",
+     "desc": "원거리가 뒤에서 쏘고 근접이 앞을 막는다",
+     "waves": [
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "spore",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "frostcaller",
+        "n": 2
+       },
+       {
+        "type": "archer",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "spider",
+        "n": 1
+       },
+       {
+        "type": "spore",
+        "n": 3
+       }
+      ]
+     ]
+    },
+    {
+     "id": "ambush",
+     "name": "매복",
+     "desc": "지하·폭발 개체가 발밑과 근접에서 터진다",
+     "waves": [
+      [
+       {
+        "type": "burrower",
+        "n": 2
+       },
+       {
+        "type": "spore",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "burrower",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "spider",
+        "n": 2
+       },
+       {
+        "type": "burrower",
+        "n": 1
+       },
+       {
+        "type": "spore",
+        "n": 3
+       }
+      ]
+     ]
+    }
+   ],
+   "6": [
+    {
+     "id": "escort",
+     "name": "원거리 호위",
+     "desc": "원거리가 뒤에서 쏘고 근접이 앞을 막는다",
+     "waves": [
+      [
+       {
+        "type": "frostcaller",
+        "n": 2
+       },
+       {
+        "type": "archer",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 3
+       },
+       {
+        "type": "spore",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "frostcaller",
+        "n": 2
+       },
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "spider",
+        "n": 2
+       }
+      ]
+     ]
+    },
+    {
+     "id": "ambush",
+     "name": "매복",
+     "desc": "지하·폭발 개체가 발밑과 근접에서 터진다",
+     "waves": [
+      [
+       {
+        "type": "burrower",
+        "n": 2
+       },
+       {
+        "type": "bomber",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "burrower",
+        "n": 2
+       },
+       {
+        "type": "spore",
+        "n": 2
+       },
+       {
+        "type": "bomber",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "burrower",
+        "n": 2
+       },
+       {
+        "type": "spider",
+        "n": 2
+       },
+       {
+        "type": "bomber",
+        "n": 3
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  "den": {
+   "3": [
+    {
+     "id": "escort",
+     "name": "원거리 호위",
+     "desc": "원거리가 뒤에서 쏘고 근접이 앞을 막는다",
+     "waves": [
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 1
+       },
+       {
+        "type": "wolf",
+        "n": 1
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 1
+       }
+      ]
+     ]
+    },
+    {
+     "id": "breach",
+     "name": "돌파",
+     "desc": "돌파·측면 공격이 직선으로 들어온다",
+     "waves": [
+      [
+       {
+        "type": "boar",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "boar",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "boar",
+        "n": 1
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 1
+       }
+      ]
+     ]
+    }
+   ],
+   "4": [
+    {
+     "id": "siege",
+     "name": "포위",
+     "desc": "근접 무리가 사방에서 조여 온다",
+     "waves": [
+      [
+       {
+        "type": "wolf",
+        "n": 4
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 4
+       },
+       {
+        "type": "shaman",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 3
+       },
+       {
+        "type": "boar",
+        "n": 1
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 1
+       }
+      ]
+     ]
+    },
+    {
+     "id": "escort",
+     "name": "원거리 호위",
+     "desc": "원거리가 뒤에서 쏘고 근접이 앞을 막는다",
+     "waves": [
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       },
+       {
+        "type": "shaman",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 1
+       },
+       {
+        "type": "shaman",
+        "n": 1
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 1
+       }
+      ]
+     ]
+    }
+   ],
+   "5": [
+    {
+     "id": "siege",
+     "name": "포위",
+     "desc": "근접 무리가 사방에서 조여 온다",
+     "waves": [
+      [
+       {
+        "type": "wolf",
+        "n": 4
+       },
+       {
+        "type": "rogue",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 4
+       },
+       {
+        "type": "rogue",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 2
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 1
+       }
+      ]
+     ]
+    },
+    {
+     "id": "ambush",
+     "name": "매복",
+     "desc": "지하·폭발 개체가 발밑과 근접에서 터진다",
+     "waves": [
+      [
+       {
+        "type": "burrower",
+        "n": 2
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "burrower",
+        "n": 2
+       },
+       {
+        "type": "boar",
+        "n": 2
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "burrower",
+        "n": 2
+       },
+       {
+        "type": "bomber",
+        "n": 2
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 1
+       }
+      ]
+     ]
+    }
+   ],
+   "6": [
+    {
+     "id": "breach",
+     "name": "돌파",
+     "desc": "돌파·측면 공격이 직선으로 들어온다",
+     "waves": [
+      [
+       {
+        "type": "boar",
+        "n": 3
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "boar",
+        "n": 3
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       },
+       {
+        "type": "bomber",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "boar",
+        "n": 2
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       },
+       {
+        "type": "shaman",
+        "n": 1
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 2
+       }
+      ]
+     ]
+    },
+    {
+     "id": "escort",
+     "name": "원거리 호위",
+     "desc": "원거리가 뒤에서 쏘고 근접이 앞을 막는다",
+     "waves": [
+      [
+       {
+        "type": "archer",
+        "n": 3
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 3
+       },
+       {
+        "type": "shaman",
+        "n": 1
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "shaman",
+        "n": 1
+       },
+       {
+        "type": "wolf",
+        "n": 2
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 2
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  "deep": {
+   "5": [
+    {
+     "id": "siege",
+     "name": "포위",
+     "desc": "근접 무리가 사방에서 조여 온다",
+     "waves": [
+      [
+       {
+        "type": "wolf",
+        "n": 4
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 4
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "wolf",
+        "n": 2
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 1
+       }
+      ]
+     ]
+    },
+    {
+     "id": "escort",
+     "name": "원거리 호위",
+     "desc": "원거리가 뒤에서 쏘고 근접이 앞을 막는다",
+     "waves": [
+      [
+       {
+        "type": "archer",
+        "n": 3
+       },
+       {
+        "type": "frostcaller",
+        "n": 1
+       },
+       {
+        "type": "spore",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 3
+       },
+       {
+        "type": "frostcaller",
+        "n": 2
+       },
+       {
+        "type": "spore",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "archer",
+        "n": 2
+       },
+       {
+        "type": "shaman",
+        "n": 1
+       },
+       {
+        "type": "spore",
+        "n": 2
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 1
+       }
+      ]
+     ]
+    }
+   ],
+   "6": [
+    {
+     "id": "breach",
+     "name": "돌파",
+     "desc": "돌파·측면 공격이 직선으로 들어온다",
+     "waves": [
+      [
+       {
+        "type": "boar",
+        "n": 3
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "boar",
+        "n": 3
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       },
+       {
+        "type": "bomber",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "boar",
+        "n": 2
+       },
+       {
+        "type": "rogue",
+        "n": 2
+       },
+       {
+        "type": "shieldbearer",
+        "n": 1
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 2
+       }
+      ]
+     ]
+    },
+    {
+     "id": "ambush",
+     "name": "매복",
+     "desc": "지하·폭발 개체가 발밑과 근접에서 터진다",
+     "waves": [
+      [
+       {
+        "type": "burrower",
+        "n": 2
+       },
+       {
+        "type": "bomber",
+        "n": 2
+       },
+       {
+        "type": "spore",
+        "n": 1
+       }
+      ],
+      [
+       {
+        "type": "burrower",
+        "n": 3
+       },
+       {
+        "type": "spider",
+        "n": 2
+       },
+       {
+        "type": "bomber",
+        "n": 2
+       }
+      ],
+      [
+       {
+        "type": "burrower",
+        "n": 2
+       },
+       {
+        "type": "frostcaller",
+        "n": 2
+       },
+       {
+        "type": "spore",
+        "n": 1
+       },
+       {
+        "type": "wolf_alpha",
+        "n": 2
+       }
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "boss_gates": {
+  "note": "관문별 후보 구조(확장용). 후보가 2개 이상이면 회차 시작 시 시드로 하나를 정하고(bossPlan) 거점 상단 줄에 미리 표시한다. 새 보스 제작은 이번 범위 아님",
+  "gates": [
+   {
+    "day": 3,
+    "candidates": [
+     "boss"
+    ]
+   },
+   {
+    "day": 5,
+    "candidates": [
+     "guardian"
+    ]
+   },
+   {
+    "day": 7,
+    "candidates": [
+     "eater"
+    ]
+   }
+  ]
+ },
  "time_slots": [
   "새벽",
   "아침",

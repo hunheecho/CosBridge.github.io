@@ -49,6 +49,9 @@ func refresh() -> void:
 	if r.is_empty():
 		return
 	top.add_child(PUi.header(r))
+	var wf := PRun.world_feature(r)
+	if not wf.is_empty(): # 회차 특징 한 줄(시드 확정, 재접속 재추첨 없음)
+		top.add_child(PUi.rich("[color=#9ea8b8]이번 회차[/color] [b]%s[/b] [color=#9ea8b8]— %s[/color]" % [PGlossaryTip.esc(String(wf.name)), PGlossaryTip.esc(String(wf.line))], 12))
 	if String(r.phase) != "prep":
 		_final_prep(r)
 		return
@@ -93,7 +96,7 @@ func _place_card(r: Dictionary, c: Dictionary) -> Dictionary:
 			if bool(PCatalog.enemy(String(g.type)).get("elite", false)):
 				elite = true
 	var has_risk: bool = c.get("risk", null) != null
-	var gm := (float(M.riskRewardMult) if has_risk else 1.0) * (float(v.goldMult) if v.has("goldMult") else 1.0)
+	var gm := (PRun.risk_reward_mult(r) if has_risk else 1.0) * (float(v.goldMult) if v.has("goldMult") else 1.0)
 	var reward := "금화 %d~%d" % [int(round(float(reg.reward.gold[0]) * gm)), int(round(float(reg.reward.gold[1]) * gm))]
 	var steer := PSortie.steer_state(r, c)
 	var done: bool = bool(c.done)
@@ -119,12 +122,11 @@ func _place_card(r: Dictionary, c: Dictionary) -> Dictionary:
 		vline = "[color=#ffe066]지금 출발하면 · %s[/color] %s" % [PGlossaryTip.term("variant_slot", "%s %s" % [String(slots[mini(slot, slots.size() - 1)]), String(v.name)]), PGlossaryTip.esc(String(v.desc))]
 	else:
 		vline = "[color=#9ea8b8]%s 출발: 기본 편성[/color]" % String(slots[mini(slot, slots.size() - 1)])
-	var SV: Dictionary = PCatalog.world().slot_variants.get(rid, {})
-	var others := []
-	for k in SV:
-		var si := int(String(k))
+	var others := [] # 실제 출발 시간대 기준(Q4: 비용 2 장소의 저녁 변주는 오후로 이동한 슬롯으로 표시)
+	for ov in PRun.slot_variants_list(rid):
+		var si := int(ov.slot)
 		if si != slot:
-			others.append("%s %s" % [String(slots[si]), String(SV[k].name)])
+			others.append("%s %s" % [String(slots[si]), String(ov.name)])
 	if others.size() > 0:
 		vline += " [color=#6a7078]· 다른 시간대: %s[/color]" % PGlossaryTip.esc(" · ".join(others))
 	box.add_child(PUi.rich(vline, 12))
@@ -137,8 +139,10 @@ func _place_card(r: Dictionary, c: Dictionary) -> Dictionary:
 	detail.visible = opened
 	detail.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(O.desc) if not O.is_empty() else String(reg.desc)), 12))
 	if has_risk:
-		PUi.kv(detail, "위험 조건", "[b]%s[/b] [color=#9ea8b8](%s) · 금화 ×%s[/color]" % [PGlossaryTip.esc(String(M.riskText[String(c.risk)])), String(RISK_DESC.get(String(c.risk), "")), str(float(M.riskRewardMult))], 12)
-	PUi.kv(detail, "편성", "[b]%d웨이브 · 전멸(웨이브·대기 포함)[/b]" % waves.size(), 12)
+		PUi.kv(detail, "위험 조건", "[b]%s[/b] [color=#9ea8b8](%s) · 금화 ×%s[/color]" % [PGlossaryTip.esc(String(M.riskText[String(c.risk)])), String(RISK_DESC.get(String(c.risk), "")), str(PRun.risk_reward_mult(r))], 12)
+	var fname := String(c.get("formationName", "기본"))
+	var fdesc := String(c.get("formationDesc", ""))
+	PUi.kv(detail, "편성", "[b]%s · %d웨이브 · 전멸(웨이브·대기 포함)[/b]%s" % [PGlossaryTip.esc(fname), waves.size(), ((" [color=#9ea8b8]— %s[/color]" % PGlossaryTip.esc(fdesc)) if fdesc != "" else "")], 12)
 	PUi.kv(detail, "경험치", "[b]처치 즉시 · 지역 +%s[/b]" % str(PRun.region_bonus_xp(r, rid, false)), 12)
 	for eid in c.enemies:
 		var ed := PCatalog.enemy(String(eid))

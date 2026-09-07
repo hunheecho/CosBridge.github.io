@@ -79,7 +79,7 @@ static func settle_victory(run: Dictionary, sortie: Dictionary, st: CombatState)
 	if bool(sortie.get("mission", false)): # 임무: 재료 대신 종류 지정 3택(금화는 유지, 위험 조건이면 ×1.25)
 		reward.mats = {}
 		if sortie.get("risk", null) != null:
-			reward.gold = int(round(float(reward.gold) * float(PCatalog.mission_rules().riskRewardMult)))
+			reward.gold = int(round(float(reward.gold) * PRun.risk_reward_mult(run)))
 		reward.mission = true
 		reward.missionPick = PSortie.on_mission_win(run, sortie)
 	PRun.apply_encounter_result(run, sortie, "won", reward, float(st.player.hp))
