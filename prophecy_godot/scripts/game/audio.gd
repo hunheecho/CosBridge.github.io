@@ -41,6 +41,14 @@ func _setup() -> void:
 		_pb = pb
 		_ok = true
 
+## 종료 시 생성기 재생을 먼저 멈추고 playback 참조를 놓는다(내보낸 빌드에서 종료 중 AudioServer 정리 뒤 접근을 막기 위해)
+func _exit_tree() -> void:
+	_ok = false
+	_pb = null
+	_voices.clear()
+	if _player != null and is_instance_valid(_player):
+		_player.stop()
+
 func _process(_dt: float) -> void:
 	if not _ok or _pb == null:
 		return
