@@ -185,6 +185,11 @@ E는 1개, 차 있으면 습득 카드 없음(교체는 상점). 일제 공격(�
 | sim:tools | run_sim(전략×시드, 시간 계정), boss_sim/matrix, start_compare, density_report(유지), compare_scenario(유지) | 구현 | 구현(tools/run_sim·boss_sim·start_compare·formation_table; docs/sim) | 포함 |
 | test | 규칙 72(유지) + HTML 170 재작성 + 통합·저장·완주 | 170 | 72 | 포함 |
 | tools:capture | 캡처·영상·회피 시연 | — | 0.3.1 구현 | 유지·확장 |
+| bot:observe | 관측 계층: 화면에 그려지는 것만 담은 읽기 전용 스냅샷(적·예고 도형 sector/corridor/circle/lane·투사체·지역·자기 상태·조작 규칙), attack_id·수정 번호, 숨은 정보(난수·대기열·내부 타이머·미공개 착탄) 제외 | 없음(신규) | 구현(observe.gd; bot_tests 1·3) | 포함 — `prophecy_godot/docs/BOT_FRAMEWORK.md` §2 |
+| bot:skill | 실력 프로필 봇 novice/regular/skilled(가상 조작 모델, `data/bots.json` 시험값): 판단 간격·인식 지연·추적 갱신 지연·주의력·회피 후보/오차·누름 길이(봇 RNG 분리), Q/E·접근은 공통 규칙, 진단 성향 4종 기본 꺼짐. 기존 정책은 불변 | 없음(신규) | 구현(skill_bot.gd, PBot 상속; bot_tests 2·4·5·10) | 포함 — **사람 보정 미완료** |
+| stats:hits | 선택 계측: 공격 관측(시작/고정/활성/종료·결과 4종)·피격 사건(명목/경감/흡수/유효/과잉·전후 상태·당시 인식 위협)·거절 이유·HP 검산·보호막 부여/흡수/만료·피격 태그 9종(당시 조건). PStats 재사용(보유시간 DPS) | 없음(신규) | 구현(hit_recorder.gd + combat_state 훅; bot_tests 6·7) | 포함 — 게임 결과·난수 불변(켜짐/꺼짐 동일) |
+| bot:replay | 입력 기록·재생 `prophecy_replay/1`: 머리말(버전·커밋·데이터 해시·시나리오·seed), 변경 항목만, 일시정지 표식, 120단계 상태 해시 대조, 버전 불일치 거부. 검증 메뉴 '이번 전투 입력 기록'(사람 입력, 로컬) | 없음(신규) | 구현(replay.gd·step_driver 훅·main/title; bot_tests 5d·8·10b) | 포함 |
+| bot:batch | 배치 실행기: 시나리오(기준 늑대25·능선 3일차·습지 4일차·보스 3) × 프로필 × seed, results.jsonl 증분·meta 캐시 키·재개·벽시계 예산·처리량 측정·Wilson CI 보고서 | 없음(신규) | 구현(tools/bot_batch.gd·bot_batch_core.gd; bot_tests 9) | 포함 — 첫 비교 `prophecy_godot/docs/sim/BOT_COMPARE.md` |
 
 ## M. 영구 성장·해금·제작 (godot-0.4.3, `prophecy_godot/data/meta.json` — 손으로 작성한 시험값) — 방향 사용자 합의(D39), 수치 Codex 초안(사용자 승인 아님)
 | ID | 내용 | 설계 | HTML | Godot | 포함 | 검증 |

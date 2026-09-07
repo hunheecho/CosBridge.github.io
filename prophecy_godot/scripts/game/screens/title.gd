@@ -105,7 +105,25 @@ func _verify_panel() -> Control:
 	_bot_check.button_pressed = bool(main.use_bot)
 	_bot_check.add_theme_font_size_override("font_size", 12)
 	row0.add_child(_bot_check)
+	# 봇 프로필: 기존 정책(active/balanced 그대로) 또는 실력 프로필(가상 조작 모델, docs/BOT_FRAMEWORK.md)
+	var prof := OptionButton.new()
+	prof.add_theme_font_size_override("font_size", 12)
+	var ids: Array = ["legacy"]
+	for pid in PSkillBot.profile_ids():
+		ids.append(String(pid))
+	for i in ids.size():
+		var id := String(ids[i])
+		prof.add_item("기존 정책" if id == "legacy" else "%s(%s)" % [id, String(PCatalog.bot_profiles()[id].name)], i)
+	prof.selected = maxi(0, ids.find(String(main.bot_profile)))
+	prof.item_selected.connect(func(i: int): main.set_bot_profile(String(ids[i])))
+	row0.add_child(prof)
 	box.add_child(row0)
+	var rec_check := CheckBox.new()
+	rec_check.text = "이번 전투 입력 기록 (사람 입력만, 로컬 user://recordings, 업로드 없음)"
+	rec_check.button_pressed = bool(main.record_inputs)
+	rec_check.add_theme_font_size_override("font_size", 12)
+	rec_check.toggled.connect(func(v: bool): main.record_inputs = v)
+	box.add_child(rec_check)
 	var ff := PCatalog.first_fight()
 	var ff_txt := "기준 전투 (첫 전투, 0.3.1 D33 · 근교 숲 · 검격 Lv%d · 늑대)" % int(ff.weapon.level)
 	box.add_child(PUi.button(ff_txt, func(): main.start_fight(_bot_check.button_pressed), true, 13))

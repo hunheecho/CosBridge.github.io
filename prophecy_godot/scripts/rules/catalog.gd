@@ -92,6 +92,9 @@ static func glossary() -> Dictionary:
 	_cache["glossary_merged"] = out
 	return out
 static func first_fight() -> Dictionary: return _load("first_fight")
+## 실력 프로필 봇(bots.json, 손으로 작성한 시험값 — 사람 보정 미완료, docs/BOT_FRAMEWORK.md)
+static func bots() -> Dictionary: return _load("bots")
+static func bot_profiles() -> Dictionary: return _load("bots").get("profiles", {})
 
 # ---------- 영구 성장·해금·제작(meta.json, 손으로 작성 — 시험값) ----------
 static func meta() -> Dictionary: return _load("meta")

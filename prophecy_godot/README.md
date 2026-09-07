@@ -21,7 +21,7 @@ WASD/방향키 이동 · Space 회피(짧게/길게 눌러 거리 70~150, 재사
 - **게임패드**(추가 매핑, 실제 패드로는 미확인): 왼쪽 스틱/십자키 이동 · A·B 회피 · X 감속장(Q) · Y E 기술 · Start 일시정지. 키보드와 같은 InputMap 행동이라 규칙은 같다.
 - **터치 오버레이**(모바일 준비, 실기 미검증): 터치 화면이 있거나 환경 변수 `PROPHECY_TOUCH=1`이면 전투 중 왼쪽 가상 스틱(누른 자리가 중심) + 오른쪽 회피(누르는 동안 유지)·Q·E 버튼이 나온다. PC에서는 `PROPHECY_TOUCH=1`로 켜면 마우스 왼쪽 버튼을 터치 1개로 취급한다(멀티터치는 실기 필요). 밑줄 용어는 탭하면 고정, 다시 탭/바깥 탭으로 닫힘.
 - 거점은 마을 그림에서 건물(대장간·상점·장비·통계·기록·휴식)을 클릭/탭해 연다(걷기 없음). 오늘의 출격 2장이 주 버튼. 현재 빌드는 한 줄씩 요약, 전체는 "상세". 창 비율(넓음/기본/좁음)과 안전 영역에 맞춰 여백·열 비율이 바뀐다(`scripts/game/ui/layout.gd`).
-제목 화면 **검증 메뉴**: 기준 전투(0.3.1 D33, 사람/봇) · 시작 기술 첫 전투 비교 · 관문 빌드 보스전 · 봇 회차 데모. 전투 규칙: `docs/RULES.md`.
+제목 화면 **검증 메뉴**: 기준 전투(0.3.1 D33, 사람/봇) · 시작 기술 첫 전투 비교 · 관문 빌드 보스전 · 봇 회차 데모 · 봇 프로필 선택(기존 정책 / novice·regular·skilled 가상 조작 모델) · '이번 전투 입력 기록'(사람 입력만 `user://recordings/`에 로컬 저장, 기본 꺼짐). 전투 규칙: `docs/RULES.md`. 봇 규칙·관측 경계·통계 정의: `docs/BOT_FRAMEWORK.md`.
 제목 화면 **영구 성장**(godot-0.4.3, 별도 시험 프로필): 프로필 종류(기존 시험 사용자 = 0.4.x 콘텐츠 전부 / 새 시험 프로필 = 초안 초기 범위) · 탐험 기록 → 영구 레벨(최대 15) · 특성 4행(행마다 1개, 출발 전 재선택, 새 회차부터 적용) · 도감(잠긴 항목 클릭 → 조건) · 대장간 **제작**(해금 제작법 + 장비/재료/금화). 방향은 사용자 합의, 수치는 시험값(`../docs/DESIGN_DECISIONS.md` D39, `docs/ASSUMPTIONS.md` §영구 성장).
 
 ## 검증 명령(터미널, Godot 콘솔 실행 파일 경로를 `godot`라고 할 때)
@@ -37,6 +37,8 @@ godot --headless --path prophecy_godot -s tests/ui_flow_tests.gd      # 화면 �
 godot --headless --path prophecy_godot -s tests/meta_tests.gd         # 영구 성장·해금·제작(레벨·해금 집합·후보 필터·카드 희석 수치·특성 12·기록 1회·제작·제작 6종 전투 효과) 78 — user:// 프로필을 쓰므로 APPDATA 격리
 godot --headless --path prophecy_godot -s tests/meta_ui_tests.gd      # 영구 성장 화면 계층(실제 main.tscn: 영구 성장·특성·프로필 전환·시작 선택·제작 미리보기/확정·보상 줄) 11 — APPDATA 격리
 godot --headless --path prophecy_godot -s tests/input_tests.gd        # 입력 라우터(키보드 = 0.4.3 동일값·1회 소비)·가상 스틱/멀티터치·배치 헬퍼·거점 마을 60 — APPDATA 격리
+godot --headless --path prophecy_godot -s tests/bot_tests.gd          # 실력 봇 기반(관측 경계·지연·기록 재생·검산·배치 재개·실제 장면 함수 호출) 22 — APPDATA 격리
+PROPHECY_BOT_RUN_ID=<id> [PROPHECY_BOT_MODE=compare|throughput|report] godot --headless --path prophecy_godot -s tools/bot_batch.gd   # 실력 봇 배치(증분 저장·재개·예산) → docs/sim/bot_runs/<id>/, 보고서 docs/sim/BOT_COMPARE.md — docs/BOT_FRAMEWORK.md
 PROPHECY_SHOTS=<폴더> [PROPHECY_TOUCH=1] godot --path prophecy_godot --resolution 1280x720 -s tools/layout_shots.gd   # 창 크기별 배치 캡처 + 넘침 검사(LAYOUT_CHECK)
 godot --headless --path prophecy_godot -s tools/density_report.gd     # 기준 전투 밀도 비교(0.3.1과 같은 36행) → docs/DENSITY_REPORT.md
 godot --headless --path prophecy_godot -s tools/compare_scenario.gd   # HTML 대조 측정(COMPARE_JSON)
@@ -52,6 +54,6 @@ godot --headless --path prophecy_godot --export-release "Windows Desktop" <출�
 
 ## 폴더
 - `data/*.json` 카탈로그(HTML에서 내보냄: config·weapons·growth·enemies·world·missions·balance·glossary) + `first_fight.json`(0.3.1 기준 전투) + `meta.json`(손으로 작성: 영구 레벨·해금 일정·특성 12·제작 6 — Codex 초안 시험값, 사용자 승인 아님). 규칙 코드는 숫자를 갖지 않는다.
-- `scripts/rules/` 순수 규칙(Node·Vector2·입력·그리기 없음, 고정 단계 1/120초): `combat_state.gd`(전투) · `weapons.gd`·`skills.gd`(자동기술·Q/E) · `enemies.gd`·`enemies_new.gd`·`boss.gd`·`boss2.gd`·`objectives.gd` · `growth.gd`·`build.gd`·`formation.gd` · `run.gd`·`sortie.gd`·`events.gd`·`flow.gd`(행동 목록 `PFlow.actions(run)`, UI·봇 공용) · `stats.gd`·`save.gd`(`user://prophecy_save_v1.json`) · `profile.gd`(영구 프로필 `user://prophecy_profile_v1.json`, legacy/trial 공존; 시험·봇 데모는 `prophecy_profile_test_v1.json`) · `bot.gd`·`run_bot.gd` · `catalog.gd`·`geom.gd`·`rng.gd`.
+- `scripts/rules/` 순수 규칙(Node·Vector2·입력·그리기 없음, 고정 단계 1/120초): `combat_state.gd`(전투) · `weapons.gd`·`skills.gd`(자동기술·Q/E) · `enemies.gd`·`enemies_new.gd`·`boss.gd`·`boss2.gd`·`objectives.gd` · `growth.gd`·`build.gd`·`formation.gd` · `run.gd`·`sortie.gd`·`events.gd`·`flow.gd`(행동 목록 `PFlow.actions(run)`, UI·봇 공용) · `stats.gd`·`save.gd`(`user://prophecy_save_v1.json`) · `profile.gd`(영구 프로필 `user://prophecy_profile_v1.json`, legacy/trial 공존; 시험·봇 데모는 `prophecy_profile_test_v1.json`) · `bot.gd`·`run_bot.gd`(기존 봇, 변경 없음) · `observe.gd`·`skill_bot.gd`·`hit_recorder.gd`·`replay.gd`(실력 프로필 봇·관측 경계·계측·입력 기록 — `docs/BOT_FRAMEWORK.md`, 프로필 값 `data/bots.json` 시험값·사람 보정 미완료) · `catalog.gd`·`geom.gd`·`rng.gd`.
 - `scripts/game/` 표시·연결부: `step_driver.gd`(프레임→단계) · `combat_view.gd`(입력·`_draw`) · `render.gd`(도형 그리기) · `audio.gd`(합성음, 자동 로드 `Audio`) · `main.gd`(화면 전환·HUD·자동 진행) · `screens/`·`ui/`(화면·위젯·3택·용어 툴팁·설정 · `input_router.gd` 장치→행동 · `touch_controls.gd` 터치 오버레이 · `layout.gd` 안전 영역·비율 · `village_map.gd` 거점 마을 그림) · `game.gd`(자동 로드·버전).
 - `scenes/main.tscn` 단일 씬. `tests/`, `tools/` 검증용. `docs/` 기록·보고서·캡처(`.gdignore`).

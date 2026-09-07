@@ -80,6 +80,8 @@ var stats_recorded: bool = false
 var settled: String = "" # 정산 1회 가드(F6): "won"|"lost"|"boss_won"|"boss_lost"
 var _in_step: bool = false
 var _next_id: int = 1
+## 선택 계측(PHitRecorder, docs/BOT_FRAMEWORK.md). null이면 아무 훅도 부르지 않는다. 계측은 읽기만 하며 규칙·난수 소비를 바꾸지 않는다
+var recorder = null
 
 static func _new_stats() -> Dictionary:
 	return { "kills": 0, "damage_taken": 0.0, "damage_taken_nominal": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "e_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "level_ups": 0, "max_alive": 0, "max_dash_states": 0, "max_bite_states": 0, "chest_gold": 0, "boss_damage": 0.0, "absorbed": 0.0, "healed": 0.0, "elite_kills": 0, "saving_kills": 0, "equip_procs": {}, "tier_spawned": {}, "tier_kills": {}, "max_enemy_projectiles": 0, "max_enemy_zones": 0, "max_webs": 0, "field_hits": 0 }
@@ -270,6 +272,7 @@ func note_attack(e: Dictionary, phase: String) -> void:
 		m.prepared += 1
 		e.prepared = true
 		e.acted = true
+		e.attack_n = int(e.get("attack_n", 0)) + 1 # 공격 인스턴스 번호(관측·계측용 attack_id = e<id>#<n>). 규칙·난수에 쓰지 않는다
 		attack_log.append([snapped(t, 0.0001), e.id, String(e.state)])
 	elif phase == "execute":
 		m.executed += 1
@@ -727,15 +730,23 @@ func check_low_shield_start() -> void:
 func damage_player(amount: float, src: String, attacker = null) -> bool:
 	var p := player
 	if p.dead or status != "running" or intro > 0.0:
+		if recorder != null:
+			recorder.on_reject(self, amount, src, attacker, "inactive")
 		return false
 	if not boss.is_empty() and bool(boss.dead):
+		if recorder != null:
+			recorder.on_reject(self, amount, src, attacker, "boss_dead")
 		return false
 	if p.dodge_active:
 		stats.perfect_dodges += 1
 		text(p.x, p.y - 30.0, "회피!", "#7ef2ff")
 		ev("perfect")
+		if recorder != null:
+			recorder.on_reject(self, amount, src, attacker, "dodge_invuln")
 		return false
 	if p.hit_prot > 0.0:
+		if recorder != null:
+			recorder.on_reject(self, amount, src, attacker, "hit_protection")
 		return false
 	apply_player_damage(amount, src, attacker)
 	p.hit_prot = float(cfg.player.hit_protect)
@@ -748,6 +759,9 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 	var EQ: Dictionary = build.equip
 	var direct_hit := src != "zone"
 	var nominal := amount
+	var rec_hp0: float = p.hp
+	var rec_sh0: float = p.shield
+	var rec_prot0: float = p.hit_prot
 	if attacker != null and float(attacker.get("tier_dmg", 1.0)) != 1.0: # 등급 피해 배율(세계 변화, 시험값). 자격 판정용 명목값에도 포함
 		amount = round(amount * float(attacker.tier_dmg) * 10.0) / 10.0
 		nominal = amount
@@ -779,6 +793,9 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 	if rest > 0.0:
 		p.hp -= effective
 		stats.damage_taken += effective
+	if recorder != null:
+		recorder.on_hit(self, { "src": src, "attacker": attacker, "nominal": nominal, "requested": amount, "absorbed": rec_sh0 - p.shield, "effective": effective, "overkill": rest - effective,
+			"hp_before": rec_hp0, "hp_after": p.hp, "shield_before": rec_sh0, "shield_after": p.shield, "hit_prot_before": rec_prot0, "big_hit": big_hit })
 	if big_hit and EQ.has("reprisal") and p.hp > 0.0 and reprisal_cd <= 0.0: # 반격 방패: 버틴 큰 타격 뒤 Q/E 남은 재사용 -1초(내부 재사용)
 		reprisal_cd = float(EQ.reprisal.cd)
 		p.special_cd = maxf(0.0, float(p.special_cd) - float(EQ.reprisal.cdReduce))
@@ -810,6 +827,8 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 func zone_damage(amount: float) -> void:
 	var p := player
 	if p.dead or p.dodge_active or intro > 0.0 or (not boss.is_empty() and bool(boss.dead)):
+		if recorder != null:
+			recorder.on_reject(self, amount, "zone", null, "dodge_invuln" if (p.dodge_active and not p.dead) else "inactive")
 		return
 	apply_player_damage(amount, "zone")
 
@@ -1553,6 +1572,8 @@ func check_objective() -> void:
 ## 고정 단계 1회. 종료 뒤에는 표시용 효과만 진행한다(전투 시간·재사용 시간은 멈춘다)
 func step(input: Dictionary, dt: float) -> void:
 	step_n += 1
+	if recorder != null:
+		recorder.on_step_begin(self, input)
 	if status != "running":
 		update_effects(dt)
 		for e in enemies:
@@ -1613,6 +1634,8 @@ func step(input: Dictionary, dt: float) -> void:
 	if status != "running":
 		delayed = [] # 종료 뒤에는 지연 효과를 실행하지 않는다(람다가 st를 참조해 순환 참조 → 해제)
 	_in_step = false
+	if recorder != null:
+		recorder.on_step_end(self)
 
 ## 레벨업 선택 적용 뒤: 파생 수치 재계산·무기 목록 갱신(타이머 유지)
 func rebuild(b: Dictionary) -> void:

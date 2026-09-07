@@ -1,0 +1,26 @@
+{
+  "schema": "prophecy_bots/1",
+  "version": "skillbot-0.1",
+  "note": "실력 프로필 시험값(지시문 prophecy-bot-balance-framework-20260907 §5). 가상 조작 모델이며 실제 초보/평균/상위 플레이어 분포가 아니다. 사람 보정 미완료. 게임 수치(회피·무적·재사용)는 바꾸지 않고 읽어서 쓴다.",
+  "profiles": {
+    "novice": { "name": "서툰(가상)", "decide_ms": 150, "recog_ms": [350, 550], "track_ms": 150, "attention": 2, "dodge_dirs": 8, "angle_err_deg": 15, "press": "max", "doc": "판단 150ms · 새 위협 인식 350~550ms · 추적 갱신 150ms · 고려 위험 2 · 회피 방향 8후보 ±15° · 회피는 항상 최대 거리 시도" },
+    "regular": { "name": "보통(가상)", "decide_ms": 100, "recog_ms": [200, 350], "track_ms": 100, "attention": 4, "dodge_dirs": 8, "angle_err_deg": 8, "press": "smart", "doc": "판단 100ms · 인식 200~350ms · 추적 100ms · 고려 위험 4 · 8후보 ±8° · 누름 길이 짧음/중간/김(빠져나갈 거리로 선택)" },
+    "skilled": { "name": "능숙(가상)", "decide_ms": 50, "recog_ms": [120, 220], "track_ms": 50, "attention": 8, "dodge_dirs": 16, "angle_err_deg": 3, "press": "smart", "doc": "판단 50ms · 인식 120~220ms · 추적 50ms · 고려 위험 8 · 16후보 ±3° · 누름 길이 짧음/중간/김" }
+  },
+  "common": {
+    "note": "모든 프로필 공통 규칙(실력 축과 분리: 전투 성향·기술 이해도는 이번 비교에서 동일).",
+    "q_min_near": 3, "near_dist": 200, "boss_q_dist": 180, "e_min_near": 2, "e_range": 200,
+    "keep_dist": 55, "safety_margin": 6, "zone_margin": 24,
+    "warn_react_prog": 0.4, "shown_react_sec": 0.9,
+    "warn_est_sec": 0.6, "lock_est_sec": 0.15, "walk_factor": 0.8,
+    "press_short_max": 75, "press_medium_max": 115, "press_slack_frac": 0.5,
+    "escape_sample_px": 10, "escape_max_px": 150
+  },
+  "traits": {
+    "note": "선택 진단 성향(기본 실력 비교와 별도, 기본 전부 꺼짐). 필요할 때 하나씩 켠다: PSkillBot.new(profile, seed, {\"traits\": {\"nearest_only\": true}}).",
+    "greedy_attack": { "default": false, "doc": "공격 지속 욕심: 위협이 warn 단계이고 적이 사거리 안이면 회피를 lock까지 미룬다" },
+    "nearest_only": { "default": false, "doc": "가장 가까운 위협만 보기: 주의력을 거리순 1개로 제한" },
+    "long_dodge": { "default": false, "doc": "과도한 긴 회피: 누름 길이를 항상 최대로" },
+    "hoard_qe": { "default": false, "doc": "Q/E 아끼기: Q는 체력 50% 미만에서만, E는 200 안 4마리 이상에서만" }
+  }
+}

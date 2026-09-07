@@ -403,3 +403,37 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 | 빌드 실행 확인 | 같은 PC, APPDATA 격리, 패키지 exe로 `PROPHECY_UI_SMOKE`(새 회차→…→관문→저장→계속하기→검증 메뉴 빠른 전투): **종료 코드 0, 스크립트 오류 0, PNG 25장**. 실제 사람 플레이 없음 |
 | 미커밋(의도) | 루트 `index.html`·`CNAME`·`wash.jpg` 삭제(Codex 정리, 복원·커밋 모두 안 함), `icon.svg.import` 편집기 재작성. `project.godot`의 stretch aspect는 UI 준비에서 `expand`로 바뀌어 커밋됨 |
 | 재현 순서(Codex) | ① d5cb11c(또는 프로젝트 ZIP) 체크아웃 ② `--headless --path prophecy_godot --import` ③ §16-1의 10개 스위트(`tests/*.gd`, APPDATA 격리) + `tools/density_report.gd`(결과 열 비교) + `tools/compare_scenario.gd` ④ `PROPHECY_SIM_SEEDS=1,2 tools/run_sim.gd` 등 `docs/sim/*.md`와 대조(같은 OS에서만 완전 재현) ⑤ 창: `PROPHECY_UI_SMOKE=<폴더> [PROPHECY_UI_FULL=1 PROPHECY_UI_SPEED=5] --path prophecy_godot` ⑥ ZIP 해시 대조. 검수 폴더의 `audit_probes.gd`는 `tests/tmp/`에 복사해 실행하면 6항목 모두 기대값 |
+
+## 17. 실력별 전투 봇·밸런스 측정 기반 첫 납품 (2026-09-07, godot-0.5.0 fabdaa3 위, Windows 로컬)
+지시문: 외부 `prophecy-bot-balance-framework-20260907.md`(Codex). 공식 문서 **`docs/BOT_FRAMEWORK.md`**(봇 규칙·관측 경계·프로필 시험값·통계/태그·기록 형식·배치·보정 상태), 첫 비교 `docs/sim/BOT_COMPARE.md`(run `compare1`), 처리량 `docs/sim/bot_runs/throughput1/meta.json`. 게임 수치·기존 봇 정책(`bot.gd`)·D33 기준 전투는 바꾸지 않았다. **가상 조작 모델·사람 보정 미완료.**
+
+### 17-1. 추가한 것
+| 파일 | 내용 |
+|---|---|
+| `scripts/rules/observe.gd`(PObserve) · `skill_bot.gd`(PSkillBot, PBot 상속) · `hit_recorder.gd`(PHitRecorder) · `replay.gd`(PReplay) · `data/bots.json` | 관측 경계 스냅샷, 프로필 novice/regular/skilled(지시문 §5 값 그대로: 판단 150/100/50ms·인식 350~550/200~350/120~220ms·추적 150/100/50ms·주의 2/4/8·후보 8/8/16·오차 ±15/8/3°·누름 최대/짧음-중간-김), 선택 계측(공격 관측·피격·거절·검산·보호막 분리·태그 9종), 입력 기록/재생(prophecy_replay/1) |
+| `combat_state.gd` 훅 4곳 + `recorder` 필드, `note_attack`·`enemies.gd` 늑대 준비 시작의 `attack_n` 카운터 | recorder가 null이면 아무 훅도 실행되지 않는다. 카운터는 관측·계측 전용(규칙·난수 무관) |
+| `step_driver.gd` 훅, `main.gd`·`screens/title.gd` | 검증 메뉴 봇 프로필 선택(기존 정책/novice/regular/skilled), '이번 전투 입력 기록' 체크(사람 입력만 `user://recordings/`) |
+| `tools/bot_batch.gd` → `bot_batch_core.gd`(PBotBatch) | 시나리오 6종(기준 늑대25·능선 3일차·습지 4일차·보스 3) × 프로필 × seed, results.jsonl 증분·meta 캐시 키·재개·예산·처리량·보고서(Wilson CI·seed 짝·태그·지연·DPS) |
+| `tests/bot_tests.gd` 22 | 지시문 §12 1~10(10은 main.tscn 함수 호출, 사람 입력·합성 이벤트 없음) |
+| 문서 | `docs/BOT_FRAMEWORK.md`, `README.md`·`docs/PROJECT_CONTEXT.md`·`HANDOFF.md` 연결, `docs/CONTENT_MATRIX.md` L절 5행(bot:observe·bot:skill·stats:hits·bot:replay·bot:batch) |
+
+### 17-2. 검증 (이 PC, APPDATA 격리, 봇·스크립트 — 사람 입력 없음)
+| 항목 | 결과 |
+|---|---|
+| `tests/bot_tests.gd` | **22/22**, 종료 0 |
+| 기존 스위트 | run_tests 72 · port_tests 76 · boss_tests 34 · run_layer_tests 64 · world_tests 31 · content_tests 28 · meta_tests 78 · ui_flow_tests 14 · meta_ui_tests 11 · input_tests 60 = **468/468**, 종료 0 |
+| 기준 전투 보존 | `tools/density_report.gd` 재생성 42행(36 + 평균 6) 결과 열 동일(µs 열 제외, 커밋된 보고서 그대로 둠) |
+| 처리량(§10 레벨 2, regular) | 기준 전투 10 + 가시갈기 5 = 15전투 18.3초, **50 전투/분**, 전투당 평균 기준 1.31초·보스 0.98초, 최장 시뮬 34.9초, 최대 메모리 86.6MB, results.jsonl 30KB. 45전투(기준 평균 기준) 예상 59초 — 실제 능선·습지 전투는 65마리라 전투당 10~17초(§17-3) |
+| 첫 비교(§10 레벨 3, run compare1) | 3시나리오 × 3프로필 × 5seed = 45 + 보스 3 × 3 × 3 = 27 + balanced 기준행 24 = **96전투**, 벽시계 약 7.5분(예산 1500초 안), 미구현 0, 검산(HP·보호막) 96/96 통과. 표·태그·지연은 `docs/sim/BOT_COMPARE.md` |
+| 재생 | 저장된 재생 파일 표본을 같은 시나리오 초기 상태에 재생해 120단계 해시·결과 일치(같은 PC). 첫 실행에서 `String.num(20)`이 작은 실수를 잘라 1/6 불일치 → `var_to_str`(17유효자리)로 바꾸고 배치를 다시 실행 |
+| 스냅샷 비용 | 판단 단계 전체 스냅샷 ≈115µs, 지각용 부분 스냅샷 ≈56µs; 기준 전투 단계당 active 봇 433µs → skilled 봇 572µs → +계측 606µs(같은 PC) |
+
+### 17-3. 관찰(요약, 사람 승률 아님)
+- 기준 전투(늑대 25): 세 프로필 5/5 승, 받은 피해 novice 67 → regular 17 → skilled 5, novice 피격 28회 중 24회 `not_perceived`(인식 지연 > 물기 예고 0.35초). balanced 기준행 3/5.
+- 능선 3일차·습지 4일차(검 Lv1 고정, 65마리): novice·regular 0/5, skilled 2/5·1/5 + 시간초과 2·3. 생존 시간은 실력 순으로 늘지만 총피해가 적 체력 합에 못 미쳐 승패는 뒤집히지 않는다(무기·성장 축은 별도 표).
+- 보스 3종 × 프리셋: 전 프로필 3/3 승(피격은 novice만). 표본 3.
+- 설계 결정(구현자): 추적 예고에 대한 공통 반응 문턱(진행률 0.4, 표시 초 0.9) — 첫 실행에서 skilled가 궁수 조준선을 항상 즉시 비켜 정체(stalled)했기 때문. 모든 프로필 동일 규칙, 공개 정보만.
+
+### 17-4. 하지 않은 것·미검증
+- 사람 기록 없음(보정 미완료). OS 간 재생 일치 미검증. 무기 비교(§10-4)·9보스·전체 런 확장은 시나리오 목록 추가로 이후 진행. 재생 파일(`bot_runs/*/replays/`)은 Git에 넣지 않았다(같은 run_id·커밋으로 재생성).
+- 지시문과 다른 점: attack_id 카운터를 `enemies.gd` 늑대 준비 시작 2곳에도 두었다(늑대는 `note_attack`을 쓰지 않으므로; 규칙·난수 무관, 72/72·밀도 보고서 동일). 관측의 선 예고(궁수·주술사 조준선)는 화면에 폭이 없어 폭 40(PBot과 같은 가정)을 쓴다.
