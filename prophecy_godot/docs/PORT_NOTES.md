@@ -308,3 +308,30 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 - 검증(이 PC, APPDATA를 별도 폴더로 격리): run_tests 72/72 · port_tests 76/76(+7) · boss_tests 34/34 · run_layer_tests 62/62(+8) · ui_flow_tests 14/14(신설) · 밀도 보고서 36행 결과 열 동일 · Codex 프로브 6항목 모두 기대값. 회차 봇 전체 시뮬은 최종 통합 시점에 다시 비교한다(지시문 §7).
 - 검수 로그의 `Failed to read the root certificate store`는 엔진 환경 메시지(게임 스크립트 오류 아님). headless 종료 시 ObjectDB 누수 경고는 테스트 스크립트가 main 씬을 제거하는 경로에서 남는 것으로, 종료 코드는 0이며 장시간 누적 영향은 미측정.
 - 실제 사람 키보드·마우스 플레이는 여전히 없음.
+
+## 15. UI·모바일 준비 (2026-09-07, 지시문 §6)
+사용자 방향(합의): 마을 홈 구성(클릭 가능한 마을 배경 + 당장 고를 출격 2곳 + 날짜/5칸/관문 정보 + 간결한 현재 빌드), 시설까지 걸어가지 않음, 도트 배경 대량 제작 없음, 설명을 모두 펼치지 않음(핵심 한 줄 + 용어 툴팁/고정), PC 마우스와 모바일 터치 열기/닫기 함께, PC/모바일 규칙·데이터 공유, 장치 무관 행동 입력, 가로 안전 영역·큰 터치 대상·비율별 배치, 왼손 이동 + 오른손 유지 회피·Q·E 동시 입력 확장 지점, hover만으로 닿는 상세를 필수 경로로 쓰지 않음. **범위는 공통 구조 + 입력·UI 준비까지이며 실제 Android/iOS 빌드·실기 성능은 미검증이다(이 절은 '모바일 실행 확인'을 주장하지 않는다).**
+
+### 15-1. 준비한 것 (구현자 선택은 "구현자"로 표시)
+| 항목 | 파일 | 내용 |
+|---|---|---|
+| 장치 무관 행동 입력 | `scripts/game/ui/input_router.gd` (PInputRouter), `combat_view.gd` | 키보드·게임패드 InputMap + 가상 터치 상태 → PStepDriver가 이미 쓰는 형식(mx·my·dodge_press·dodge_held·special·skill_e). 누름은 이벤트 순간 `driver.note_*_press()`로 기록해 다음 단계에서 1번 소비(기존 계약), 유지·이동은 프레임 시작 `poll()`. 가상 상태가 비어 있으면 0.4.3 인라인 코드와 같은 값(-1/0/1 합). 구현자: 이동 벡터 크기는 CombatState가 정규화하므로 스틱 기울기는 방향만 반영(속도 조절 없음) |
+| 게임패드 매핑(덤) | `project.godot` [input] | 왼쪽 스틱(축 0/1)·십자키(11~14) 이동, A(0)·B(1) 회피, X(2) Q, Y(3) E, Start(6) 일시정지. 실제 패드로는 확인하지 않음 |
+| 터치 오버레이 | `scripts/game/ui/touch_controls.gd` (PTouchControls) | 가로 화면: 왼쪽 45% 끌기 영역의 가상 스틱(누른 자리 중심, 반지름 64, 데드존 0.2 뒤 0..1 재매핑) + 오른쪽 회피(지름 96, 누르는 동안 유지)·Q·E(지름 76). 터치 index마다 잡은 조작을 기억 → 스틱 이동이 잡고 있는 회피를 풀지 않음. 재사용 채움 = HUD와 같은 식. 켜지는 조건: `DisplayServer.is_touchscreen_available()` 또는 `PROPHECY_TOUCH=1`(PC 시험: 마우스 왼쪽을 터치 1개로). 봇·정지·비전투에서는 받지 않음. 구현자: `emulate_touch_from_mouse` 프로젝트 설정 대신 오버레이 안에서 마우스를 취급(전역 입력 동작 불변) |
+| 안전 영역·비율 배치 | `scripts/game/ui/layout.gd` (PLayout), `screen_base.gd`, `main.gd _layout_hud`, `choice_overlay.gd`, `glossary_tip.gd` | `project.godot`: stretch canvas_items · aspect **expand**(창이 넓거나 높으면 canvas가 늘어남, 960×640보다 작아지지 않음) · handheld orientation landscape. `safe_rect()` = DisplayServer 안전 영역(화면 px) → 창 위치·stretch 변환으로 canvas 좌표(순수 계산 `map_safe`는 headless 시험). 비율 묶음 wide ≥ 2.0 / standard / narrow < 1.5 → 열 비율(0.6/0.57/0.55)·마을 높이(200/180/220). 화면 여백 = 14·10 + 안전 영역 밖, HUD 왼쪽 묶음은 안전 영역 시작·목적/설정 줄은 안전 영역 끝·경기장은 HUD 아래 가운데(960×640에서는 0.4.3과 같은 좌표), 3택 패널·툴팁도 안전 영역 안. 터치면 버튼 최소 높이 44, 주 버튼 56 |
+| 거점 마을 홈 | `screens/base.gd`, `scripts/game/ui/village_map.gd` (PVillageMap) | 왼쪽: 벡터 도형 마을(대장간·상점·장비·통계·기록·휴식 건물, 각 ≥72px 투명 Button + `_draw` 실루엣, 걷기 없음) + 오늘의 출격 2장(주 버튼 큰 크기, 상세는 접힘). 오른쪽: 현재 빌드 한 줄씩(자동기술 3 슬롯·Q/E·장비 3·요약 수치) + "상세" 토글(기존 장비·성장·통계·기록 패널) + 다가오는 보스 + 오늘(미처리 레벨업·하루 종료 확인 창·저장 후 종료·기록). 상단 줄(PUi.header: 날짜·시간대 5칸·관문·체력·금화·세계 변화)과 회차 특징 줄 유지. 휴식은 건물 버튼(라벨 "휴식 → 다음 시간대", PRun.can_rest로 비활성). 최종 준비(boss_prep)·하루 종료 확인·`_open_endday`·`start_sortie_card` 경로 그대로 → `PROPHECY_UI_SMOKE` 자동 진행 유지. 구현자: 건물 배치·모양·"통계·기록" 건물이 통계 화면을 열고 기록은 오늘 카드의 버튼인 점은 임시안 |
+| 툴팁 터치 경로 | `glossary_tip.gd` | 고정된 용어를 다시 클릭/탭 → 그 툴팁(과 뒤에 연 것) 닫힘, 바깥 탭(InputEventScreenTouch도) → 모두 닫힘, 터치면 × 버튼 36px·안내 문구. hover 감사: `screens/*.gd`·`ui/*.gd`·`render.gd`에 hover 전용 처리는 툴팁 층뿐이며 그것도 클릭 고정 경로가 있음(hover 필수 경로 없음) |
+| 시험·도구 | `tests/input_tests.gd`(60), `tools/layout_shots.gd` | 아래 15-2 |
+
+### 15-2. 검증 (이 PC, Windows, APPDATA 격리, 사람 입력 없음)
+- headless: run_tests 72/72 · port_tests 76/76 · boss_tests 34/34 · run_layer_tests 64/64 · ui_flow_tests 14/14 · world_tests 30/30 · content_tests 28/28 · **input_tests 60/60(신설)** — 모두 종료 0, 스크립트 오류 0. `tools/density_report.gd` 36행 결과 열 동일(µs 열만 다름, 파일은 되돌림).
+- input_tests 내용: A 키보드 경로 = 0.4.3 인라인 코드와 같은 값(대기·대각·좌우 상쇄·해제) · B 누름 1회 소비(한 프레임 5단계에 회피 1회, echo 무시, 실제 Space 키 InputMap, Q·E) · C 스틱 벡터(데드존·끝·밖 자르기·재매핑 0.5·대각 정규화) · D 라우터 합성(키보드+가상, reset) · E 터치 오버레이 21항목(영역·버튼 크기·비겹침·스틱 잡기·끌기·터치 1 회피 유지 중 터치 0 스틱 이동에도 유지·프레임 뒤 1회 소비·뗌·E/Q 탭·스틱 1개·빈 곳·정지 중 무시·정지 시 해제·재사용 채움) · F 배치(비율 묶음 5, 안전 영역 매핑 노치 80px·없음·전체·비정상 방어) · G 실제 main.tscn 거점 마을(건물 5 ≥72px, 휴식 라벨/활성, 건물→상점/대장간/통계/장비 화면, 휴식→시간 1칸, 상세 토글, 하루 종료 확인 창·Esc).
+- 창(사람 경로 회귀): `PROPHECY_DODGE_DEMO` **전/후 동일** `DEMO_RESULT dists [70.0, 86.5, 150.0, 150.0], dodges 4, x 656.5, cd_left 0`(종료 0), `PROPHECY_TOUCH=1`을 켠 채로도 동일. `PROPHECY_CAPTURE` 전/후 CAPTURE_SUMMARY 한 줄 완전 동일(PAUSE_CHECK 5개 true, 종료 0, PNG 7). `PROPHECY_UI_SMOKE`(비전체, 속도 5) "UI_SMOKE done" 종료 0·스크립트 오류 0·PNG 25(거점 마을·툴팁·상점·대장간·장비·통계·하루 종료 확인·관문 준비·계속하기 포함).
+- 창 크기별(`tools/layout_shots.gd`, `PROPHECY_TOUCH=1`): 960×640(canvas 960×640 standard) · 1280×720(1137×640 standard) · 2340×1080(1386×640 wide, 실제 창 크기 확인) · 1170×540(같은 비율 wide) · 1024×768(960×720 narrow). 각각 제목·거점·거점 상세·툴팁·상점·장비·3택·하루 종료 확인·전투(터치 오버레이 표시)·일시정지 캡처, LAYOUT_CHECK(본문·상단 줄 가로 넘침 없음, HUD 목적 줄·설정 줄·막대·경기장 위치) 모두 ok, fails=0. 캡처는 이 PC의 임시 폴더에만 두었다(커밋하지 않음).
+- 확인한 pre-existing 현상(이번 변경과 무관, 0.4.0 캡처 `docs/captures/0.4.0_run_bot/20_tooltip.png`와 동일): 마우스 없이 `tips._on_click()`으로 고정한 툴팁 패널 테두리가 화면 아래까지 늘어남(내용은 정상).
+
+### 15-3. 하지 않은 것 · 미검증
+- **실제 Android/iOS 내보내기·실기 실행·멀티터치·노치 안전 영역·성능 전부 미검증.** `DisplayServer.get_display_safe_area()` 매핑은 합성값 시험(F2)뿐. 실제 게임패드 미확인.
+- 사람 키보드·마우스·터치 플레이 없음(모든 창 검증은 스크립트가 화면 함수를 부른 것, §12-4와 같은 구분).
+- 터치 오버레이의 마우스 취급은 손가락 1개 상당(동시 입력은 headless 합성 시험 E7~E11로만 확인).
+- 스틱 기울기 크기 → 속도 조절, 오버레이 위치·크기 사용자 설정, 세로 화면, 거점 건물 그림의 최종 모양은 다루지 않았다.

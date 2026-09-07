@@ -17,7 +17,10 @@ HTML 프로토타입(`../prophecy_action_prototype`, v0.8.0, 커밋 ee10fc7)에�
 Godot 없이 플레이하려면 `../prophecy_godot_build/`의 Windows 빌드 ZIP을 사용합니다(§`docs/PORT_NOTES.md` §12에 빌드 커밋·해시). 사람이 키보드로 플레이한 확인은 아직 없습니다(봇 자동 진행·헤드리스 검증만).
 
 ## 조작
-WASD/방향키 이동 · Space 회피(짧게/길게 눌러 거리 70~150, 재사용 1.5초) · Q 감속장 · **E 수동 기술**(습득 후) · 자동 공격(보유 자동기술이 사거리 안의 적에게 자동 발동) · Esc 일시정지/메뉴 닫기 · Enter 기본 버튼 · F3 검증 패널. 밑줄 친 용어는 마우스를 올리면 설명, 클릭하면 고정(전투 중 고정 시 일시정지).
+WASD/방향키 이동 · Space 회피(짧게/길게 눌러 거리 70~150, 재사용 1.5초) · Q 감속장 · **E 수동 기술**(습득 후) · 자동 공격(보유 자동기술이 사거리 안의 적에게 자동 발동) · Esc 일시정지/메뉴 닫기 · Enter 기본 버튼 · F3 검증 패널. 밑줄 친 용어는 마우스를 올리면 설명, 클릭하면 고정(전투 중 고정 시 일시정지). 고정된 용어를 다시 클릭하거나 바깥을 클릭하면 닫힘.
+- **게임패드**(추가 매핑, 실제 패드로는 미확인): 왼쪽 스틱/십자키 이동 · A·B 회피 · X 감속장(Q) · Y E 기술 · Start 일시정지. 키보드와 같은 InputMap 행동이라 규칙은 같다.
+- **터치 오버레이**(모바일 준비, 실기 미검증): 터치 화면이 있거나 환경 변수 `PROPHECY_TOUCH=1`이면 전투 중 왼쪽 가상 스틱(누른 자리가 중심) + 오른쪽 회피(누르는 동안 유지)·Q·E 버튼이 나온다. PC에서는 `PROPHECY_TOUCH=1`로 켜면 마우스 왼쪽 버튼을 터치 1개로 취급한다(멀티터치는 실기 필요). 밑줄 용어는 탭하면 고정, 다시 탭/바깥 탭으로 닫힘.
+- 거점은 마을 그림에서 건물(대장간·상점·장비·통계·기록·휴식)을 클릭/탭해 연다(걷기 없음). 오늘의 출격 2장이 주 버튼. 현재 빌드는 한 줄씩 요약, 전체는 "상세". 창 비율(넓음/기본/좁음)과 안전 영역에 맞춰 여백·열 비율이 바뀐다(`scripts/game/ui/layout.gd`).
 제목 화면 **검증 메뉴**: 기준 전투(0.3.1 D33, 사람/봇) · 시작 기술 첫 전투 비교 · 관문 빌드 보스전 · 봇 회차 데모. 전투 규칙: `docs/RULES.md`.
 
 ## 검증 명령(터미널, Godot 콘솔 실행 파일 경로를 `godot`라고 할 때)
@@ -30,6 +33,8 @@ godot --headless --path prophecy_godot -s tests/run_layer_tests.gd    # 회차 �
 godot --headless --path prophecy_godot -s tests/world_tests.gd        # 세계 변화(붉은 달) 30
 godot --headless --path prophecy_godot -s tests/content_tests.gd      # 반복 콘텐츠(회차 특징·사전 편성·강적의 흔적·보스 계획·밀도 비교 회차) 28
 godot --headless --path prophecy_godot -s tests/ui_flow_tests.gd      # 화면 계층(실제 main.tscn: 전투 중 종료 체크포인트·HUD 보호막) 14 — user:// 저장을 쓰므로 APPDATA를 별도 폴더로 두고 실행
+godot --headless --path prophecy_godot -s tests/input_tests.gd        # 입력 라우터(키보드 = 0.4.3 동일값·1회 소비)·가상 스틱/멀티터치·배치 헬퍼·거점 마을 60 — APPDATA 격리
+PROPHECY_SHOTS=<폴더> [PROPHECY_TOUCH=1] godot --path prophecy_godot --resolution 1280x720 -s tools/layout_shots.gd   # 창 크기별 배치 캡처 + 넘침 검사(LAYOUT_CHECK)
 godot --headless --path prophecy_godot -s tools/density_report.gd     # 기준 전투 밀도 비교(0.3.1과 같은 36행) → docs/DENSITY_REPORT.md
 godot --headless --path prophecy_godot -s tools/compare_scenario.gd   # HTML 대조 측정(COMPARE_JSON)
 PROPHECY_SIM_SEEDS=1,2 godot --headless --path prophecy_godot -s tools/run_sim.gd        # 회차 봇 전략 7종 → docs/sim/RUN_SIM.md
@@ -45,5 +50,5 @@ godot --headless --path prophecy_godot --export-release "Windows Desktop" <출�
 ## 폴더
 - `data/*.json` 카탈로그(HTML에서 내보냄: config·weapons·growth·enemies·world·missions·balance·glossary) + `first_fight.json`(0.3.1 기준 전투). 규칙 코드는 숫자를 갖지 않는다.
 - `scripts/rules/` 순수 규칙(Node·Vector2·입력·그리기 없음, 고정 단계 1/120초): `combat_state.gd`(전투) · `weapons.gd`·`skills.gd`(자동기술·Q/E) · `enemies.gd`·`enemies_new.gd`·`boss.gd`·`boss2.gd`·`objectives.gd` · `growth.gd`·`build.gd`·`formation.gd` · `run.gd`·`sortie.gd`·`events.gd`·`flow.gd`(행동 목록 `PFlow.actions(run)`, UI·봇 공용) · `stats.gd`·`save.gd`(`user://prophecy_save_v1.json`) · `bot.gd`·`run_bot.gd` · `catalog.gd`·`geom.gd`·`rng.gd`.
-- `scripts/game/` 표시·연결부: `step_driver.gd`(프레임→단계) · `combat_view.gd`(입력·`_draw`) · `render.gd`(도형 그리기) · `audio.gd`(합성음, 자동 로드 `Audio`) · `main.gd`(화면 전환·HUD·자동 진행) · `screens/`·`ui/`(화면·위젯·3택·용어 툴팁·설정) · `game.gd`(자동 로드·버전).
+- `scripts/game/` 표시·연결부: `step_driver.gd`(프레임→단계) · `combat_view.gd`(입력·`_draw`) · `render.gd`(도형 그리기) · `audio.gd`(합성음, 자동 로드 `Audio`) · `main.gd`(화면 전환·HUD·자동 진행) · `screens/`·`ui/`(화면·위젯·3택·용어 툴팁·설정 · `input_router.gd` 장치→행동 · `touch_controls.gd` 터치 오버레이 · `layout.gd` 안전 영역·비율 · `village_map.gd` 거점 마을 그림) · `game.gd`(자동 로드·버전).
 - `scenes/main.tscn` 단일 씬. `tests/`, `tools/` 검증용. `docs/` 기록·보고서·캡처(`.gdignore`).

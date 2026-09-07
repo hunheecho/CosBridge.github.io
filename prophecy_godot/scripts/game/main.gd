@@ -32,6 +32,8 @@ var choice: PChoiceOverlay
 var tips: PGlossaryTip
 var settings_panel: PSettingsPanel
 var glossary_paused := false
+var touch: PTouchControls               # 터치 오버레이(터치 화면 또는 PROPHECY_TOUCH=1일 때만 켜짐, HUD 아래 자식)
+var _hud_base: Dictionary = {}          # HUD 노드 이름 → 설계 기준(960×640) offset_left/right
 
 func _ready() -> void:
 	view.finished.connect(_on_finished)
@@ -47,6 +49,11 @@ func _ready() -> void:
 	overlay_root.add_child(settings_panel)
 	settings_panel.closed.connect(_on_settings_closed)
 	_make_screens()
+	touch = PTouchControls.new()
+	hud.add_child(touch) # HUD와 같이 전투 중에만 보인다
+	touch.bind(view, view.router)
+	get_viewport().size_changed.connect(_layout_hud)
+	_layout_hud()
 	$UI/Pause/VBox/ResumeBtn.pressed.connect(func(): set_pause(false))
 	$UI/Pause/VBox/ControlsBtn.pressed.connect(func(): show_controls(true))
 	$UI/Pause/VBox/SettingsBtn.pressed.connect(func(): open_settings())
@@ -100,6 +107,8 @@ func show(name: String) -> void:
 	var combat := name == "combat"
 	view.visible = combat or name == "result"
 	hud.visible = combat
+	if combat:
+		_layout_hud() # 경기장 크기(st.arena_w/h)에 맞춰 가운데 배치
 	if not combat:
 		pause_panel.visible = false
 		controls_panel.visible = false
@@ -720,7 +729,8 @@ func _update_hud() -> void:
 	var dcd: float = float(P.dodge.cooldown)
 	$UI/HUD/Dodge.value = (1.0 - clampf(p.dodge_cd / dcd, 0.0, 1.0)) * 100.0
 	var guide := "길이=거리" if String(P.dodge.mode) == "hold" else "고정 %d" % int(P.dodge.distance)
-	$UI/HUD/DodgeText.text = "Space 회피 · " + ("회피 중 %d" % int(p.dodge_dist) if p.dodge_active else (guide if p.dodge_cd <= 0.0 else "%.1f초" % p.dodge_cd))
+	var dodge_key := "회피 · " if (touch != null and touch.enabled) else "Space 회피 · " # 터치 오버레이가 켜지면 버튼 이름 없이
+	$UI/HUD/DodgeText.text = dodge_key + ("회피 중 %d" % int(p.dodge_dist) if p.dodge_active else (guide if p.dodge_cd <= 0.0 else "%.1f초" % p.dodge_cd))
 	var qcd: float = float(st.build.special_cd) if st.build.has("special_cd") else float(P.slowfield.cooldown)
 	$UI/HUD/Q.value = (1.0 - clampf(p.special_cd / maxf(0.01, qcd), 0.0, 1.0)) * 100.0
 	$UI/HUD/QText.text = "Q 감속장 " + ("준비" if p.special_cd <= 0.0 else "%.1f초" % p.special_cd) + (" · 전개 %.1f초" % st.field.ttl if not st.field.is_empty() else "")
@@ -763,6 +773,45 @@ func _update_hud() -> void:
 				var x := bar.offset_left + (bar.offset_right - bar.offset_left) * float(ph[i])
 				tk.offset_left = x - 1.0
 				tk.offset_right = x + 1.0
+
+## HUD·전투 화면 배치(PLayout): 창 크기·안전 영역이 바뀌면 HUD 왼쪽 묶음은 안전 영역 시작에, 목적·설정 줄은 안전 영역 끝에, 경기장은 HUD 아래 가운데에 둔다.
+## 설계 크기 960×640(안전 영역 = 전체)에서는 main.tscn의 offset 그대로(0.4.3과 같은 화면).
+func _layout_hud() -> void:
+	var vp := get_viewport()
+	var vis: Rect2 = vp.get_visible_rect()
+	var safe: Rect2 = PLayout.safe_rect(vp)
+	if _hud_base.is_empty():
+		for n in ["HP", "Shield", "HPText", "Dodge", "DodgeText", "Q", "QText", "E", "EText", "Objective", "Demo", "Settings"]:
+			var c0: Control = hud.get_node(n)
+			_hud_base[n] = Vector2(c0.offset_left, c0.offset_right)
+	var dx: float = safe.position.x - vis.position.x
+	for n in _hud_base:
+		var c: Control = hud.get_node(String(n))
+		var base: Vector2 = _hud_base[n]
+		c.offset_left = base.x + dx
+		c.offset_right = base.y + dx
+	var bar: Control = $UI/HUD/Bar
+	bar.offset_left = vis.position.x
+	bar.offset_right = vis.end.x
+	var obj: Control = $UI/HUD/Objective
+	obj.offset_right = safe.end.x - 4.0
+	var demo: Control = $UI/HUD/Demo
+	demo.offset_right = safe.end.x - 4.0
+	var stg: Control = $UI/HUD/Settings
+	stg.offset_top = safe.end.y - 18.0
+	stg.offset_bottom = safe.end.y
+	stg.offset_right = safe.end.x - 4.0
+	var boss: Control = $UI/HUD/Boss
+	boss.offset_left = vis.position.x + (vis.size.x - 480.0) / 2.0
+	boss.offset_right = boss.offset_left + 480.0
+	var aw := 960.0
+	var ah := 600.0
+	if view.st != null:
+		aw = float(view.st.arena_w)
+		ah = float(view.st.arena_h)
+	view.position = Vector2(round(vis.position.x + (vis.size.x - aw) / 2.0), round(vis.position.y + 40.0 + maxf(0.0, (vis.size.y - 40.0 - ah) / 2.0)))
+	if touch != null:
+		touch.layout(safe)
 
 func _cfg_text(st: CombatState) -> String:
 	if st.cfg.has("weapon"):

@@ -1,8 +1,10 @@
 class_name PBaseScreen
 extends PScreen
-## 거점(HTML base/finalPrep): 상단 줄(날짜·시간대·보스·체력·금화) + 오늘의 장소 카드 2장(요약 + 상세 보기) + 거점 행동 + 장비·성장 패널.
+## 거점(HTML base/finalPrep) — 마을 홈 구성(사용자 긍정 평가 방향, 2026-09-07): 상단 줄(날짜·시간대 5칸·관문·체력·금화·세계 변화, PUi.header) + 회차 특징 한 줄,
+## 왼쪽 = 클릭/탭 가능한 마을 그림(PVillageMap: 대장간·상점·장비·통계·기록·휴식, 걷기 없음) + 오늘의 출격 카드 2장(큰 버튼, 상세는 접힘),
+## 오른쪽 = 간결한 현재 빌드(자동기술 3 슬롯·Q/E·장비 3, 한 줄씩; 전체 패널은 "상세" 토글 뒤) + 다가오는 보스 + 하루 종료·저장.
 ## phase == boss_prep 이면 최종 준비(보스 카드 전체 정보·입장). 하루 종료는 확인 창(PRun.preview_next_day)을 거친다.
-## 모든 수치는 PRun/PSortie/PBuild가 준 값(실제 적용 빌드)이다.
+## 모든 수치는 PRun/PSortie/PBuild가 준 값(실제 적용 빌드)이다. 열 비율·마을 높이는 PLayout(화면 비율 묶음)이 준다.
 
 const RISK_DESC := { "reinforce": "지원병 총량 ×1.5", "escort": "첫 웨이브에 정예 1 추가", "hazard": "주기적 바닥 붕괴(안전 통로 있음)" }
 const BOSS_DESC := {
@@ -12,8 +14,10 @@ const BOSS_DESC := {
 }
 
 var _detail_open: Dictionary = {}   # card id → bool
+var _build_detail_open := false     # 오른쪽 빌드 요약의 "상세" 토글
 var _confirm: Control
 var _confirm_box: VBoxContainer
+var village: PVillageMap = null     # 마을 그림(refresh마다 새로 만든다)
 
 func _build() -> void:
 	_confirm = Control.new()
@@ -55,25 +59,111 @@ func refresh() -> void:
 	if String(r.phase) != "prep":
 		_final_prep(r)
 		return
-	var cols := two_cols(0.56)
+	var bk := bucket()
+	var cols := two_cols(PLayout.left_ratio(bk))
 	var left: VBoxContainer = cols.left
 	var right: VBoxContainer = cols.right
-	left.add_child(PUi.rich("[b]오늘의 장소[/b] [color=#9ea8b8]2곳 · 출발 시간대에 편성·사건·보상 확정 · 승리 후 %s 1회[/color]" % PGlossaryTip.term("deep", "더 깊이"), 16))
+	# 왼쪽: 마을(시설은 건물을 눌러 연다) + 오늘의 출격 2장
+	village = PVillageMap.new()
+	village.custom_minimum_size = Vector2(0, PLayout.village_height(bk))
+	village.picked.connect(_on_village_pick)
+	village.set_state("rest", PRun.can_rest(r), _rest_label(r))
+	left.add_child(village)
+	left.add_child(PUi.rich("[color=#6a7078]건물을 누르면 바로 열립니다(시간 소모 없음) · %s[/color]" % _rest_note(r), 11))
+	left.add_child(PUi.rich("[b]오늘의 출격[/b] [color=#9ea8b8]2곳 · 출발 시간대에 편성·사건·보상 확정 · 승리 후 %s 1회[/color]" % PGlossaryTip.term("deep", "더 깊이"), 16))
 	var first_btn: Button = null
+	var row := PUi.hbox(10)
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN
 	for c in PSortie.cards_for(r):
 		var res := _place_card(r, c)
-		left.add_child(res.panel)
+		(res.panel as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		(res.panel as Control).size_flags_stretch_ratio = 1.0
+		row.add_child(res.panel)
 		if first_btn == null and res.button != null and not (res.button as Button).disabled:
 			first_btn = res.button
+	left.add_child(row)
 	_merchant_card(r, left)
-	_actions_card(r, left)
 	_services_card(r, left)
-	left.add_child(_boss_card(r, false))
-	right.add_child(PUi.equip_panel(r))
-	right.add_child(PUi.build_panel(r))
-	_stats_compact(r, right)
-	_log_card(r, right)
+	# 오른쪽: 간결한 빌드 + 보스 + 오늘의 행동
+	right.add_child(_build_summary(r))
+	right.add_child(_boss_card(r, false))
+	_actions_card(r, right)
+	if _build_detail_open:
+		right.add_child(PUi.equip_panel(r))
+		right.add_child(PUi.build_panel(r))
+		_stats_compact(r, right)
+		_log_card(r, right)
 	default_button = first_btn
+
+## 마을 건물 → 화면(같은 main 함수). 휴식은 오늘의 버튼과 같은 규칙(PRun.rest)
+func _on_village_pick(id: String) -> void:
+	match id:
+		"forge": main.show("forge")
+		"shop": main.show("shop")
+		"equip": main.show("equip")
+		"stats": main.show("stats")
+		"rest": main.rest()
+
+func _rest_label(r: Dictionary) -> String:
+	if PRun.has_service(r, "free_rest"):
+		return "휴식 (무료권)"
+	return "휴식 → %s" % PRun.next_slot_name(r)
+
+func _rest_note(r: Dictionary) -> String:
+	var can_rest := PRun.can_rest(r)
+	var full: bool = float(r.hp) >= float(PBuild.derive(r).hp_max)
+	var t := "휴식: "
+	if PRun.has_service(r, "free_rest"):
+		t += "무료 휴식권 · 시간 소모 없음 · "
+	else:
+		t += "시간 1칸 · "
+	t += ("체력 가득(시간만 넘김)" if full else "체력 완전 회복")
+	if not can_rest:
+		t += " · 남은 칸 없음"
+	return t
+
+## 간결한 현재 빌드(한 줄씩): 자동기술 3 슬롯 · Q/E · 장비 3 · 요약 수치. 전체 패널(장비·성장·통계·기록)은 "상세" 토글
+func _build_summary(r: Dictionary) -> Control:
+	var b := PBuild.derive(r)
+	var g: Dictionary = r.growth
+	var S: Dictionary = PCatalog.growth().SLOTS
+	var pend := int(g.pendingLevelUps)
+	var c := PUi.card("현재 빌드 [color=#9ea8b8]Lv %d · 경험치 %d/%d[/color]%s" % [int(g.level), int(floor(float(g.xp))), PGrowth.xp_need(int(g.level)), (" [color=#ff8c73]미처리 레벨업 %d[/color]" % pend) if pend > 0 else ""], PUi.CARD, 14)
+	var box: VBoxContainer = c.box
+	var weapons: Array = b.weapons
+	for i in int(S.weapons):
+		if i < weapons.size():
+			var wd: Dictionary = weapons[i]
+			var mods := []
+			for mid in wd.mods:
+				mods.append(String(wd.def.mods[String(mid)].name))
+			box.add_child(PUi.rich("[color=#9ea8b8]자동 %d[/color] [b]%s[/b] Lv%d/%d [color=#9ea8b8]%s[/color]" % [i + 1, PGlossaryTip.term("w:" + String(wd.id), String(wd.name)), int(wd.level), int(S.weaponMax), ("개조: " + ", ".join(mods)) if mods.size() > 0 else "개조 없음"], 12))
+		else:
+			box.add_child(PUi.rich("[color=#9ea8b8]자동 %d[/color] [color=#6a7078]빈 슬롯 (레벨업·상점)[/color]" % (i + 1), 12))
+	var qe := []
+	for slot in ["q", "e"]:
+		var sk = g.skills.get(slot)
+		if sk == null:
+			qe.append("[b]E[/b] [color=#6a7078]비어 있음[/color]")
+			continue
+		var d: Dictionary = PCatalog.skills()[String(sk.id)]
+		var term_id := "slowfield" if slot == "q" else "e:" + String(sk.id)
+		qe.append("[b]%s[/b] %s Lv%d%s" % [String(d.key), PGlossaryTip.term(term_id, String(d.name)), int(sk.level), (" · " + String(d.variants[String(sk.variant)].name)) if sk.get("variant", null) != null else ""])
+	box.add_child(PUi.rich("[color=#9ea8b8]수동[/color] " + " · ".join(qe), 12))
+	for sl in PCatalog.world().equip_slots:
+		var slot := String(sl)
+		var id = r.equipment.get(slot, null)
+		box.add_child(PUi.rich("[color=#9ea8b8]%s[/color] %s" % [PUi.slot_name(slot), (PUi.equip_line(String(id)) if id != null else "[color=#6a7078]비어 있음[/color]")], 12))
+	box.add_child(PUi.rich("[color=#9ea8b8]최대 체력 %d · 이동 ×%s · %s %d/%d · %s %d/%d%s[/color]" % [int(float(b.hp_max)), PUi.fmt(float(b.speed_mult)), PGlossaryTip.term("common", "공용"), PGrowth.common_count(g), int(S.commons), PGlossaryTip.term("passive", "패시브"), PGrowth.passive_count(g), int(S.passives), (" · %s %d단계" % [PGlossaryTip.term("forge", "강화"), int(b.forge)]) if int(b.forge) > 0 else ""], 11))
+	var toggle := PUi.button(("상세 닫기 ▾" if _build_detail_open else "상세 보기 ▸ (장비·성장·통계·기록)"), func(): _toggle_build_detail(), true, 12)
+	toggle.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	toggle.custom_minimum_size = Vector2(0, PLayout.button_min_height())
+	box.add_child(toggle)
+	return c.panel
+
+func _toggle_build_detail() -> void:
+	_build_detail_open = not _build_detail_open
+	refresh()
 
 # ---------- 오늘의 장소 카드 ----------
 func _place_card(r: Dictionary, c: Dictionary) -> Dictionary:
@@ -163,7 +253,8 @@ func _place_card(r: Dictionary, c: Dictionary) -> Dictionary:
 	var label := ("출격 (%d칸 · %s 출발)" % [int(c.timeCost), String(slots[mini(slot, slots.size() - 1)])]) if can else why
 	if int(c.attempts) > 0 and not done:
 		label += " · 시도 %d" % int(c.attempts)
-	var btn := PUi.button(label, func(): main.start_sortie_card(cid), can, 15)
+	var btn := PUi.button(label, func(): main.start_sortie_card(cid), can, 16)
+	btn.custom_minimum_size = Vector2(0, PLayout.primary_button_height()) # 주 행동: 큰 버튼(터치 대상)
 	box.add_child(btn)
 	return { "panel": card.panel, "button": btn }
 
@@ -189,29 +280,15 @@ func _merchant_card(r: Dictionary, into: VBoxContainer) -> void:
 	box.add_child(PUi.button("상인에게 (상점)", func(): main.show("shop"), true, 12))
 	into.add_child(c.panel)
 
+## 오늘의 행동(오른쪽 열): 미처리 레벨업 · 하루 종료(확인 창) · 저장 후 종료 · 기록. 시설·휴식은 마을 건물로 연다
 func _actions_card(r: Dictionary, into: VBoxContainer) -> void:
-	var c := PUi.card("거점")
+	var c := PUi.card("오늘", PUi.CARD, 14)
 	var box: VBoxContainer = c.box
 	var pend := int(r.growth.pendingLevelUps)
 	if pend > 0:
-		box.add_child(PUi.button("미처리 레벨업 선택 (%d)" % pend, func(): main.offer_pending_level_ups(), true, 15))
-	var row := PUi.hbox(6)
-	row.add_child(PUi.button("상점", func(): main.show("shop"), true, 14))
-	row.add_child(PUi.button("대장간", func(): main.show("forge"), true, 14))
-	row.add_child(PUi.button("장비", func(): main.show("equip"), true, 14))
-	row.add_child(PUi.button("통계", func(): main.show("stats"), true, 14))
-	row.add_child(PUi.button("기록", func(): main.show("log"), true, 14))
-	box.add_child(row)
-	box.add_child(PUi.rich("[color=#6a7078]상점·대장간·장비 교체는 시간을 쓰지 않습니다.[/color]", 11))
-	var can_rest := PRun.can_rest(r)
-	var full: bool = float(r.hp) >= float(PBuild.derive(r).hp_max)
-	var rest_txt := ""
-	if PRun.has_service(r, "free_rest"):
-		rest_txt = "휴식 (무료 휴식권 · 시간 소모 없음)"
-	else:
-		rest_txt = "휴식 → %s" % PRun.next_slot_name(r)
-	rest_txt += "  " + ("체력 가득 · 시간만 넘김" if full else "체력 완전 회복") + ("" if can_rest else " · 남은 칸 없음")
-	box.add_child(PUi.button(rest_txt, func(): main.rest(), can_rest, 14))
+		var lv := PUi.button("미처리 레벨업 선택 (%d)" % pend, func(): main.offer_pending_level_ups(), true, 15)
+		lv.custom_minimum_size = Vector2(0, PLayout.button_min_height())
+		box.add_child(lv)
 	var nx := PRun.preview_next_day(r)
 	var next_txt := ""
 	if nx.has("boss"):
@@ -221,8 +298,17 @@ func _actions_card(r: Dictionary, into: VBoxContainer) -> void:
 		for p in nx.places:
 			ps.append("%s%s" % [String(p.name), "(정예)" if bool(p.elite) else ""])
 		next_txt = " · ".join(ps)
-	box.add_child(PUi.button("하루 종료 → %d일차  %s내일: %s" % [int(r.day) + 1, ("(남은 %d칸 버림) · " % int(r.hours)) if int(r.hours) > 0 else "", next_txt], func(): _open_endday(), true, 14))
-	box.add_child(PUi.button("저장 후 종료", func(): main.save_quit(), true, 13))
+	var endb := PUi.button("하루 종료 → %d일차  %s내일: %s" % [int(r.day) + 1, ("(남은 %d칸 버림) · " % int(r.hours)) if int(r.hours) > 0 else "", next_txt], func(): _open_endday(), true, 14)
+	endb.custom_minimum_size = Vector2(0, PLayout.button_min_height())
+	box.add_child(endb)
+	var row := PUi.hbox(6)
+	var sq := PUi.button("저장 후 종료", func(): main.save_quit(), true, 13)
+	sq.custom_minimum_size = Vector2(0, PLayout.button_min_height())
+	row.add_child(sq)
+	var lg := PUi.button("기록", func(): main.show("log"), true, 13)
+	lg.custom_minimum_size = Vector2(0, PLayout.button_min_height())
+	row.add_child(lg)
+	box.add_child(row)
 	into.add_child(c.panel)
 
 func _services_card(r: Dictionary, into: VBoxContainer) -> void:
@@ -331,7 +417,7 @@ func _final_prep(r: Dictionary) -> void:
 		if stages > 1 and int(r.get("stage", 0)) < stages - 1:
 			note += " 승리하면 그날의 시간대가 %s부터 시작됩니다." % String(PRun.time_slots()[0])
 	top.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % note, 12))
-	var cols := two_cols(0.55)
+	var cols := two_cols(PLayout.left_ratio(bucket()))
 	var left: VBoxContainer = cols.left
 	var right: VBoxContainer = cols.right
 	var wn := []
@@ -351,6 +437,7 @@ func _final_prep(r: Dictionary) -> void:
 	var prep := PUi.card("준비")
 	var pb: VBoxContainer = prep.box
 	var enter := PUi.button("이번 빌드로 보스 다시 도전" if cleared else "보스에게 간다 (입장)", func(): main.start_boss(), PRun.can_start_boss(r), 16)
+	enter.custom_minimum_size = Vector2(0, PLayout.primary_button_height())
 	pb.add_child(enter)
 	default_button = enter
 	var row := PUi.hbox(6)

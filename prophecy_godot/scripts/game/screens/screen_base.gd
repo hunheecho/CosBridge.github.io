@@ -10,6 +10,8 @@ var body: VBoxContainer
 var bottom: HBoxContainer
 var scroll: ScrollContainer
 var default_button: Button = null
+var _margin: MarginContainer          # 여백 = 기본(14·10) + 안전 영역 밖(PLayout.margins)
+var _bucket := ""                      # 마지막 refresh 때의 화면 비율 묶음(wide/standard/narrow)
 
 func setup(m: Node) -> void:
 	main = m
@@ -22,10 +24,8 @@ func setup(m: Node) -> void:
 	add_child(bg)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 14)
-	margin.add_theme_constant_override("margin_right", 14)
-	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_bottom", 10)
+	_margin = margin
+	_apply_safe_margins()
 	add_child(margin)
 	root = PUi.vbox(8)
 	margin.add_child(root)
@@ -50,8 +50,27 @@ func refresh() -> void:
 
 func on_enter() -> void:
 	default_button = null
+	_apply_safe_margins()
+	_bucket = bucket()
 	refresh()
 	scroll.scroll_vertical = 0
+
+## 화면 비율 묶음(PLayout): 화면들이 열 비율·마을 높이를 고를 때 쓴다
+func bucket() -> String:
+	return PLayout.bucket_of(get_viewport()) if is_inside_tree() else "standard"
+
+func _apply_safe_margins() -> void:
+	if _margin == null or not is_inside_tree():
+		return
+	PLayout.apply_margins(_margin, get_viewport(), 14, 10)
+
+## 창 크기 변경: 여백 갱신, 비율 묶음이 바뀐 보이는 화면은 다시 만든다
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED and is_inside_tree() and _margin != null:
+		_apply_safe_margins()
+		if visible and _bucket != "" and bucket() != _bucket:
+			_bucket = bucket()
+			refresh()
 
 ## Esc: 화면 안의 하위 상태를 닫았으면 true
 func on_escape() -> bool:

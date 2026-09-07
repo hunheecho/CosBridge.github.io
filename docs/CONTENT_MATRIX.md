@@ -169,7 +169,11 @@ E는 1개, 차 있으면 습득 카드 없음(교체는 상점). 일제 공격(�
 | ui:levelup | 3택 카드(실제 파생값 설명·태그·슬롯), 건너뛰기, 재선택권 | 구현 | 구현(main.gd·screens/·ui/; PROPHECY_UI_SMOKE 실제 창) | 포함 |
 | ui:after | 전투 승리(보상·심층 미리보기·귀환)/패배/사건/보스 준비·패배·승리/회차 결과·통계(4 보기) | 구현 | 구현(main.gd·screens/·ui/; PROPHECY_UI_SMOKE 실제 창) | 포함 |
 | ui:shop | 상점·방문 상인·장비 비교·교체 흐름·대장간 | 구현 | 구현(main.gd·screens/·ui/; PROPHECY_UI_SMOKE 실제 창) | 포함 |
-| ui:glossary | 밑줄 용어 중첩 툴팁(클릭 고정·Esc·화면 안 배치·전투 중 고정 시 정지) 31+생성 항목 | 구현 | 구현(main.gd·screens/·ui/; PROPHECY_UI_SMOKE 실제 창) | 포함 |
+| ui:glossary | 밑줄 용어 중첩 툴팁(클릭 고정·Esc·화면 안 배치·전투 중 고정 시 정지) 31+생성 항목. 2026-09-07: 고정 용어 재클릭/탭·바깥 탭으로 닫기(터치 열기/닫기 경로), 안전 영역 안 배치 | 구현 | 구현(ui/glossary_tip.gd; 실제 창 캡처) | 포함 |
+| ui:village | 거점 마을 홈(사용자 긍정 평가 구성): 클릭/탭 가능한 마을 그림(대장간·상점·장비·통계·기록·휴식 건물, 벡터 도형, 걷기 없음·픽셀아트 없음) + 오늘의 출격 2장(큰 버튼) + 상단 줄(날짜·5칸·관문·체력·금화·세계 변화·회차 특징) + 간결한 빌드(자동기술 3·Q/E·장비 3 한 줄씩, 전체는 "상세") | 없음 | 구현(screens/base.gd·ui/village_map.gd; input_tests G, PROPHECY_UI_SMOKE, layout_shots) | 포함(사용자 합의 방향, 건물 배치·모양은 구현자 임시안) |
+| input:router | 장치 무관 행동 입력: 키보드·게임패드 InputMap + 가상 터치 상태 → PStepDriver 형식(mx·my·dodge_press/held·special·skill_e). 키보드 경로는 0.4.3과 같은 값, 누름은 다음 단계에서 1회 소비. 게임패드 매핑(왼쪽 스틱/십자키·A/B 회피·X Q·Y E·Start) | 없음 | 구현(ui/input_router.gd, combat_view.gd; input_tests A·B·D, DODGE_DEMO/CAPTURE 동일 결과) | 포함(구현자; 실제 패드 미확인) |
+| input:touch | 가로 화면 터치 오버레이: 왼쪽 가상 스틱(데드존 0.2, 누른 자리 중심) + 오른쪽 회피(유지)·Q·E(≥72px), 터치 index별 추적(왼손 이동 + 오른손 유지 회피 동시), 재사용 채움, 터치 화면 또는 PROPHECY_TOUCH=1에서만 표시 | 없음 | 구현(ui/touch_controls.gd; input_tests E, PROPHECY_TOUCH=1 창 캡처) | 포함(구현자; 실제 Android/iOS 실기 미검증) |
+| ui:layout | 안전 영역(DisplayServer 안전 영역 → canvas)·비율 묶음(wide ≥2.0 / standard / narrow <1.5)·여백·열 비율·터치 버튼 높이. project.godot: canvas_items·expand·가로 고정. HUD·3택·툴팁·화면 여백이 안전 영역을 따름 | 없음 | 구현(ui/layout.gd, screen_base.gd, main.gd _layout_hud; input_tests F, tools/layout_shots.gd 960×640·1280×720·2340×1080·1170×540·1024×768) | 포함(구현자; 노치 실기 미검증) |
 | gfx:temp | 플레이어 자세(대기·걷기·회피·휘두르기·피격), 적 12종 실루엣·준비/고정/실행/빈틈 구분, 보스 3, 바닥·바위·나무·그림자, 궤적·피격·사망, 감속장·상태 표시 | 구현(벡터) | 구현(render.gd 벡터; 캡처 검토) | 포함(자체 벡터, 외부 에셋 없음) |
 | sfx | 타격·피격·기술·경고·회피·처치·감속장·보스·승패, 음량·음소거 저장 | 구현(WebAudio 합성) | 구현(audio.gd 합성, Audio 자동 로드; 출력 청취는 미확인) | 포함(AudioStreamGenerator 합성, 외부 파일 없음) |
 

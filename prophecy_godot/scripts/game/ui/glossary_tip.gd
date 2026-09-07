@@ -1,7 +1,8 @@
 class_name PGlossaryTip
 extends Control
 ## 용어 사전 툴팁 층(GAME_SPEC §19.11, HTML glossary.js 이식). 본문의 {{id}}는 밑줄 링크([url=id])가 되고,
-## 마우스를 올리면 툴팁(short + body), 클릭하면 고정(중첩 가능, 최대 4단계), Esc·바깥 클릭으로 닫힌다. 툴팁은 항상 창 안에 놓인다.
+## 마우스를 올리면 툴팁(short + body), 클릭하면 고정(중첩 가능, 최대 4단계), Esc·바깥 클릭으로 닫힌다. 툴팁은 항상 안전 영역(PLayout.safe_rect) 안에 놓인다.
+## 터치(hover 없음): 밑줄 용어를 탭하면 고정 툴팁이 열리고, 같은 용어를 다시 탭하거나 바깥을 탭하면 닫힌다(마우스도 같은 규칙). hover만으로 닿는 정보는 없다.
 ## 전투 중에는 고정(클릭)한 툴팁이 있을 때만 정지한다(pin_count_changed 신호를 main이 받는다). 마우스 이동만으로는 정지하지 않는다.
 ## 용어 데이터는 data/glossary.json(PCatalog.glossary())만 읽는다.
 
@@ -89,7 +90,8 @@ func _make_tip(id: String, pinned: bool) -> PanelContainer:
 	head.add_child(name_l)
 	if pinned:
 		var close := PUi.button("×", func(): _close_from(p), true, 12)
-		close.custom_minimum_size = Vector2(22, 22)
+		var cs: float = 36.0 if PLayout.is_touch() else 22.0 # 터치면 닫기 대상도 크게
+		close.custom_minimum_size = Vector2(cs, cs)
 		close.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		head.add_child(close)
 	v.add_child(head)
@@ -103,25 +105,30 @@ func _make_tip(id: String, pinned: bool) -> PanelContainer:
 		v.add_child(PUi.rich("[color=#9ea8b8]관련:[/color] " + " · ".join(parts), 11))
 	if not pinned:
 		v.add_child(PUi.rich("[color=#6a7078]클릭하면 고정 · Esc로 닫기[/color]", 10))
+	elif PLayout.is_touch():
+		v.add_child(PUi.rich("[color=#6a7078]용어를 다시 누르거나 바깥을 누르면 닫힘[/color]", 10))
 	add_child(p)
 	return p
 
+func _bounds() -> Rect2:
+	return PLayout.safe_rect(get_viewport()) if is_inside_tree() else Rect2(0.0, 0.0, PLayout.BASE_W, PLayout.BASE_H)
+
 func _place(p: PanelContainer, at: Vector2) -> void:
-	var vs := get_viewport_rect().size
+	var b := _bounds()
 	var sz := p.get_combined_minimum_size()
 	sz.x = maxf(sz.x, TIP_W)
 	var x := at.x + 8.0
 	var y := at.y + 18.0
-	if x + sz.x > vs.x - 8.0:
-		x = maxf(8.0, vs.x - 8.0 - sz.x)
-	if y + sz.y > vs.y - 8.0:
-		y = maxf(8.0, at.y - 8.0 - sz.y)
-	if y < 8.0:
-		y = 8.0
+	if x + sz.x > b.end.x - 8.0:
+		x = maxf(b.position.x + 8.0, b.end.x - 8.0 - sz.x)
+	if y + sz.y > b.end.y - 8.0:
+		y = maxf(b.position.y + 8.0, at.y - 8.0 - sz.y)
+	if y < b.position.y + 8.0:
+		y = b.position.y + 8.0
 	p.position = Vector2(x, y)
 
 func _clamp_all() -> void:
-	var vs := get_viewport_rect().size
+	var b := _bounds()
 	var all := []
 	if not _hover.is_empty():
 		all.append(_hover.panel)
@@ -131,8 +138,8 @@ func _clamp_all() -> void:
 		var p: PanelContainer = pp
 		var sz := p.size
 		var pos := p.position
-		pos.x = clampf(pos.x, 8.0, maxf(8.0, vs.x - 8.0 - sz.x))
-		pos.y = clampf(pos.y, 8.0, maxf(8.0, vs.y - 8.0 - sz.y))
+		pos.x = clampf(pos.x, b.position.x + 8.0, maxf(b.position.x + 8.0, b.end.x - 8.0 - sz.x))
+		pos.y = clampf(pos.y, b.position.y + 8.0, maxf(b.position.y + 8.0, b.end.y - 8.0 - sz.y))
 		p.position = pos
 
 func _pinned_has(id: String) -> bool:
@@ -171,7 +178,11 @@ func _on_click(meta: Variant) -> void:
 	if not has_term(id):
 		return
 	_link_click_frame = Engine.get_process_frames()
-	if _pinned_has(id):
+	if _pinned_has(id): # 이미 고정된 용어를 다시 클릭/탭 → 그 툴팁(과 그 뒤에 연 것)을 닫는다(터치의 열기/닫기 경로)
+		for t in _pinned:
+			if String(t.id) == id:
+				_close_from(t.panel)
+				return
 		return
 	var at := get_viewport().get_mouse_position()
 	if not _hover.is_empty() and String(_hover.id) == id:
@@ -231,6 +242,9 @@ func _inside_any(pos: Vector2) -> bool:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and (event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT):
+		if not _pinned.is_empty() and not _inside_any(event.position):
+			_outside_click_frame = Engine.get_process_frames()
+	elif event is InputEventScreenTouch and event.pressed: # 터치(마우스 에뮬레이션이 꺼져 있어도) 바깥 탭 = 닫기
 		if not _pinned.is_empty() and not _inside_any(event.position):
 			_outside_click_frame = Engine.get_process_frames()
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE and has_any():

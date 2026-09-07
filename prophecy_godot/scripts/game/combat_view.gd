@@ -1,6 +1,6 @@
 extends Node2D
 ## 전투 화면: 고정 단계로 규칙(CombatState)을 진행하고, _draw()는 상태를 읽기만 한다(그리는 동안 상태 변경 없음).
-## 입력 장치 → 게임 행동 변환은 여기서만 한다. 봇 모드에서는 PBot이 같은 행동 형식을 만든다.
+## 입력 장치 → 게임 행동 변환은 PInputRouter(router)가 맡는다(키보드·게임패드 InputMap + 가상 터치 상태 → PStepDriver 형식). 봇 모드에서는 PBot이 같은 행동 형식을 만든다.
 ## 그리기는 PRender(render.gd)가 맡고(예고 도형 = 실제 판정), 소리는 PAudio(자동 로드 /root/Audio가 있으면 그것, 없으면 자식으로 만든다)가 st.events를 읽어 낸다.
 
 signal finished(summary: Dictionary)
@@ -8,6 +8,7 @@ signal finished(summary: Dictionary)
 var st: CombatState
 var bot: PBot = null
 var driver := PStepDriver.new()
+var router := PInputRouter.new() # 장치 → 행동(키보드 경로는 0.4.3과 동일한 값, 터치 오버레이가 가상 상태를 넣는다)
 var paused: bool = false
 var running: bool = false
 var frame_count: int = 0
@@ -53,6 +54,7 @@ func _begin(skip_events: bool) -> void:
 func set_paused(v: bool) -> void:
 	paused = v
 	driver.reset() # 일시정지 중 생긴 입력은 재개 시 폐기. 재개 후 회피는 새 누름이 필요하다
+	router.reset() # 가상 스틱·유지 상태도 폐기(손가락이 그대로여도 다시 눌러야 한다)
 
 func steps_this_frame() -> int:
 	return driver.steps_last_frame
@@ -92,16 +94,12 @@ func perf_summary() -> Dictionary:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
 		driver.reset() # 포커스 상실: 대기 입력 폐기(눌린 키 상태는 엔진이 해제한다)
+		router.reset()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not running or paused or bot != null:
 		return
-	if event.is_action_pressed("dodge") and not event.is_echo():
-		driver.note_dodge_press() # 프레임 사이의 짧은 탭도 기록된다(다음 단계에서 1번 소비)
-	if event.is_action_pressed("slowfield") and not event.is_echo():
-		driver.note_special_press()
-	if event.is_action_pressed("skill_e") and not event.is_echo():
-		driver.note_e_press()
+	router.handle_event(event, driver) # 프레임 사이의 짧은 탭도 기록된다(다음 단계에서 1번 소비)
 
 func _process(delta: float) -> void:
 	if not running or st == null or paused:
@@ -111,15 +109,10 @@ func _process(delta: float) -> void:
 	var my := 0.0
 	var held := false
 	if bot == null:
-		if Input.is_action_pressed("move_left"):
-			mx -= 1.0
-		if Input.is_action_pressed("move_right"):
-			mx += 1.0
-		if Input.is_action_pressed("move_up"):
-			my -= 1.0
-		if Input.is_action_pressed("move_down"):
-			my += 1.0
-		held = Input.is_action_pressed("dodge")
+		var a := router.poll() # 키보드·게임패드 + 가상 터치(없으면 키보드만: 0.4.3과 같은 값)
+		mx = float(a.mx)
+		my = float(a.my)
+		held = bool(a.held)
 	var t0 := Time.get_ticks_usec()
 	var n_steps := driver.frame(st, delta * time_scale, mx, my, held, bot)
 	var sim_us := Time.get_ticks_usec() - t0
