@@ -25,16 +25,67 @@ static func from_waves(waves: Array, override: Dictionary, region_id: String, st
 			godot_counts[type] = int(godot_counts.get(type, 0)) + total
 			for i in total:
 				units.append(type)
+	var tiers := assign_tiers(units, st.opts.get("tier_mix", { "normal": 1.0 }))
 	var xp_map := {}
 	var kill_mult: float = float(st.opts.get("xp_kill_mult", 0.3)) # 처치 경험치 배율(사용자 채택 ×0.3, D08). 회차가 run.balance로 넘긴다
 	for type in html_counts:
 		var unit := PGrowth.xp_value_unit(type, false, region_id, kill_mult)
 		xp_map[type] = round(unit * float(html_counts[type]) / float(maxi(1, int(godot_counts[type]))) * 10000.0) / 10000.0
-	return { "units": units, "alive_cap": int(D.alive_cap), "group": int(D.group), "interval": float(D.interval), "type_caps": D.get("type_alive_cap", {}).duplicate(), "xp_map": xp_map, "html_counts": html_counts, "godot_counts": godot_counts, "multiplier": mult, "xp_default_scale": 1.0 / mult }
+	return { "units": units, "tiers": tiers, "alive_cap": int(D.alive_cap), "group": int(D.group), "interval": float(D.interval), "type_caps": D.get("type_alive_cap", {}).duplicate(), "xp_map": xp_map, "html_counts": html_counts, "godot_counts": godot_counts, "multiplier": mult, "xp_default_scale": 1.0 / mult, "tier_counts": tier_counts(tiers) }
+
+## 등급 배정(세계 변화, 사용자 합의 2026-09-07): 종류별로 정수 편성. mix 비율 순서(normal→red→apex)로 등장 순서의 앞쪽이 낮은 등급, 뒤쪽이 높은 등급.
+## 정예·구조물·보스는 항상 "normal"(등급은 정예와 별개). 경험치 단위값은 등급과 무관(예산 고정).
+static func assign_tiers(units: Array, mix: Dictionary) -> Array:
+	var order := ["normal", "red", "apex"]
+	var per_type := {}
+	for i in units.size():
+		var t := String(units[i])
+		if not per_type.has(t):
+			per_type[t] = []
+		(per_type[t] as Array).append(i)
+	var tiers := []
+	tiers.resize(units.size())
+	for i in units.size():
+		tiers[i] = "normal"
+	for t in per_type:
+		var d := PCatalog.enemy(t)
+		var idxs: Array = per_type[t]
+		if bool(d.get("elite", false)) or bool(d.get("boss", false)) or bool(d.get("structure", false)):
+			continue
+		var n := idxs.size()
+		var counts := {}
+		var assigned := 0
+		var last_key := "normal"
+		for k in order: # 정수 배정: 비율×n 반올림, 마지막 등급이 나머지를 받는다
+			if not mix.has(k) or float(mix[k]) <= 0.0:
+				continue
+			counts[k] = int(round(float(mix[k]) * float(n)))
+			assigned += counts[k]
+			last_key = k
+		counts[last_key] = int(counts.get(last_key, 0)) + (n - assigned)
+		var pos := 0
+		for k in order:
+			if not counts.has(k):
+				continue
+			for j in int(counts[k]):
+				if pos < n:
+					tiers[idxs[pos]] = k
+					pos += 1
+	return tiers
+
+static func tier_counts(tiers: Array) -> Dictionary:
+	var out := {}
+	for t in tiers:
+		out[String(t)] = int(out.get(String(t), 0)) + 1
+	return out
 
 ## 편성 요약 문자열(HUD·보고서)
 static func describe(f: Dictionary) -> String:
 	var parts := []
 	for type in f.get("godot_counts", {}):
 		parts.append("%s %d" % [String(PCatalog.enemy(type).name), int(f.godot_counts[type])])
-	return "%s · 전체 %d · 동시 %d · 묶음 %d · 간격 %.1f초" % [", ".join(parts), (f.units as Array).size(), int(f.alive_cap), int(f.group), float(f.interval)]
+	var tc: Dictionary = f.get("tier_counts", {})
+	var tier_txt := ""
+	if int(tc.get("red", 0)) > 0 or int(tc.get("apex", 0)) > 0:
+		tier_txt = " · 붉은 %d · 변이 %d" % [int(tc.get("red", 0)), int(tc.get("apex", 0))]
+	return "%s · 전체 %d · 동시 %d · 묶음 %d · 간격 %.1f초%s" % [", ".join(parts), (f.units as Array).size(), int(f.alive_cap), int(f.group), float(f.interval), tier_txt]

@@ -6,6 +6,65 @@
   "exported_by": "tools/port_export_data.js",
   "godot_rules_from": "first_fight.json(godot-0.3.1, D33/D34/D35)"
  },
+ "world_stages": {
+  "note": "사용자 합의: 변화 전 → 3일차 관문 뒤 붉은 달(일반+붉은) → 5일차 관문 뒤 일반 퇴장(붉은+상위 변이). 실제 관문 완료(bossesDone)에서만 도출. 배율·비율은 시험값",
+  "tiers": {
+   "normal": {
+    "name": "일반",
+    "hp": 1,
+    "dmg": 1
+   },
+   "red": {
+    "name": "붉은 개체",
+    "prefix": "붉은 ",
+    "hp": 1.25,
+    "dmg": 1.1,
+    "tint": "#d24a3a",
+    "mark": "red"
+   },
+   "apex": {
+    "name": "상위 변이",
+    "prefix": "변이 ",
+    "hp": 1.6,
+    "dmg": 1.2,
+    "tint": "#8a3fc9",
+    "mark": "apex"
+   }
+  },
+  "stages": [
+   {
+    "id": 0,
+    "name": "변화 전",
+    "mix": {
+     "normal": 1
+    }
+   },
+   {
+    "id": 1,
+    "name": "붉은 달",
+    "after_boss": "boss",
+    "mix": {
+     "normal": 0.6,
+     "red": 0.4
+    }
+   },
+   {
+    "id": 2,
+    "name": "붉은 달 · 상위 변이",
+    "after_boss": "guardian",
+    "mix": {
+     "red": 0.6,
+     "apex": 0.4
+    }
+   }
+  ],
+  "mix_note": "비율 60:40은 첫 후보. 종류별 정수 편성(등장 순서 뒤쪽이 높은 등급). 정예·구조물·보스 소환은 등급 배정 제외",
+  "risk_elite_from_stage": 2,
+  "risk_elite_extra": 1,
+  "risk_elite_note": "2단계부터 위험 임무 출격의 마지막 웨이브에 정예(늑대 우두머리) +1 — 일부 위험 전투에만(잠정). 정예 경험치 단위값은 XP_VALUE 그대로 예산에 더해진다",
+  "excludes_day_hp_set": true,
+  "exclude_note": "세계 변화가 켜진 회차에서는 날짜 체력 세트(dayA 등)를 적용하지 않는다(중복 강화 금지)"
+ },
  "time_slots": [
   "새벽",
   "아침",

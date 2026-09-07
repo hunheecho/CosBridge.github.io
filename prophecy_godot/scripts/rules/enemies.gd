@@ -310,7 +310,7 @@ static func update_spore(st: CombatState, e: Dictionary, dt: float) -> void:
 		"swell":
 			e.state_t += dt * tf
 			if float(e.state_t) >= float(d.swell):
-				st.add_zone("spore", e.x, e.y, float(d.cloudR), float(d.cloudTtl), float(d.cloudDamage))
+				st.add_zone("spore", e.x, e.y, float(d.cloudR), float(d.cloudTtl), float(d.cloudDamage) * float(e.get("tier_dmg", 1.0)))
 				st.ev("spore")
 				st.note_attack(e, "execute")
 				e.state = "recover"

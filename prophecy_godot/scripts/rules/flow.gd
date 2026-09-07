@@ -26,6 +26,7 @@ static func encounter_opts(run: Dictionary, sortie: Dictionary, extra: Dictionar
 		"mission": ({ "cardId": String(sortie.get("cardId", "")), "objective": String(sortie.objective), "risk": risk } if mission else {}),
 		"pool": pool, "chest": true, "xp_kill_mult": PRun.kill_xp_mult(run), "lab_text": PRun.layout_text(run), "run": run,
 		"density": PCatalog.density_set(String(run.get("densitySet", ""))), # 밀도 세트(Q1 비교 후보). 기본 ""=일괄 ×5
+		"tier_mix": PRun.tier_mix(run), "world_stage": PRun.world_stage(run), # 세계 변화 등급 비율(관문 완료에서 도출)
 	}
 	if sortie.get("eventFight", null) != null:
 		var fo := PEvents.fight_opts(run, sortie)

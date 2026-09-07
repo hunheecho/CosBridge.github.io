@@ -193,6 +193,30 @@ static func layout_region(region_id: String, run: Dictionary) -> Dictionary:
 		return L[lid].regions[region_id]
 	return {}
 
+## 세계 변화 단계(사용자 합의 2026-09-07): 실제 관문 완료(bossesDone)에서만 도출한다. 날짜만 지나도 바뀌지 않고, 재도전·계속하기·보상 대기에서도 같은 값(파생값이라 두 번 전환되지 않음)
+static func world_stage(run: Dictionary) -> int:
+	if not bool(run.get("worldStages", true)):
+		return 0
+	var S: Array = PCatalog.world_stages().get("stages", [])
+	var done: Array = run.get("bossesDone", [])
+	var stage := 0
+	for i in range(1, S.size()):
+		var ab := String(S[i].get("after_boss", ""))
+		if ab != "" and done.has(ab):
+			stage = i
+		else:
+			break
+	return stage
+
+static func world_stage_def(run: Dictionary) -> Dictionary:
+	var S: Array = PCatalog.world_stages().get("stages", [])
+	var i := world_stage(run)
+	return S[i] if i < S.size() else { "id": 0, "name": "변화 전", "mix": { "normal": 1.0 } }
+
+## 등급 비율(종류별 정수 편성은 PFormation이 한다)
+static func tier_mix(run: Dictionary) -> Dictionary:
+	return (world_stage_def(run).get("mix", { "normal": 1.0 }) as Dictionary).duplicate()
+
 ## 지역의 적 종류(날짜 편성 기준, 등장 순)
 static func region_enemies(region_id: String, run: Dictionary) -> Array:
 	var out := []
@@ -255,6 +279,17 @@ static func encounter_waves(region_id: String, deep: bool, run: Dictionary, sort
 					break
 			if not found:
 				last.append({ "type": "wolf_alpha", "n": 1 })
+	var WS := PCatalog.world_stages()
+	if not WS.is_empty() and world_stage(run) >= int(WS.get("risk_elite_from_stage", 99)) and sortie.get("risk", null) != null and bool(sortie.get("mission", false)):
+		var lastw: Array = waves[waves.size() - 1] # 2단계부터 위험 임무: 정예 +1(잠정, 일부 위험 전투에만)
+		var added := false
+		for g in lastw:
+			if String(g.type) == "wolf_alpha":
+				g.n = int(g.n) + int(WS.get("risk_elite_extra", 1))
+				added = true
+				break
+		if not added:
+			lastw.append({ "type": "wolf_alpha", "n": int(WS.get("risk_elite_extra", 1)) })
 	if not deep:
 		return waves
 	for w in waves: # 더 깊이: 웨이브마다 +1, 마지막에 정예 추가(없다면)
@@ -284,6 +319,8 @@ static func hp_mult_for(run: Dictionary, region_id: String, deep: bool) -> Dicti
 	var arr: Array = sets[sid] if sets.has(sid) else sets.none
 	var idx := mini(6, day)
 	var dm: float = float(arr[idx]) if idx < arr.size() else 1.0
+	if bool(run.get("worldStages", true)) and bool(PCatalog.world_stages().get("excludes_day_hp_set", true)):
+		dm = 1.0 # 세계 변화(등급)와 날짜 체력 세트는 중복 적용하지 않는다
 	var v: float = float(c.hp.get(region_id, 1.0)) * (float(c.get("deepMult", 1.0)) if deep else 1.0) * dm
 	var EDM: Dictionary = W().elite_day_mult
 	var em: float = float(EDM.mult) if day >= int(EDM.from) else 1.0
@@ -577,9 +614,14 @@ static func boss_victory(run: Dictionary, stats: Dictionary) -> Dictionary:
 	if boss_id == "boss" and run.get("bossClear", null) == null:
 		run.bossClear = rec
 	run.lastBossClear = rec
+	var stage_before := world_stage(run)
 	if not (run.bossesDone as Array).has(boss_id):
 		(run.bossesDone as Array).append(boss_id)
 	add_log(run, "%s 처치 (%s초)" % [String(cfg.name), str(rec.time)])
+	if world_stage(run) != stage_before: # 세계 변화는 관문 완료에서 도출되므로 기록만 남긴다(전환은 정확히 1회)
+		rec.worldStage = world_stage(run)
+		rec.worldStageName = String(world_stage_def(run).name)
+		add_log(run, "세계 변화: %s" % rec.worldStageName)
 	var last: bool = int(run.get("stage", 0)) >= stage_count(run) - 1
 	if last: # 마지막 보스: 회차 종료, 다음 보스 없음, 추가 성장 없음
 		run.phase = "cleared"

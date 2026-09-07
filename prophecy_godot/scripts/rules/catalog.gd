@@ -51,6 +51,10 @@ static func shop() -> Dictionary: return _load("world").shop
 static func regions() -> Array: return _load("world").regions
 static func materials() -> Dictionary: return _load("world").materials
 static func density() -> Dictionary: return _load("world").density
+static func world_stages() -> Dictionary: return _load("world").get("world_stages", {})
+static func tier(id: String) -> Dictionary:
+	var T: Dictionary = world_stages().get("tiers", {})
+	return T[id] if T.has(id) else { "name": "일반", "hp": 1.0, "dmg": 1.0 }
 ## 밀도 세트 override(Q1 비교 후보): 이름이 없거나 기본 세트면 {}(density 루트 값 그대로)
 static func density_set(name: String) -> Dictionary:
 	var D: Dictionary = _load("world").density

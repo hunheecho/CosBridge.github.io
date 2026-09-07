@@ -97,6 +97,8 @@ E는 1개, 차 있으면 습득 카드 없음(교체는 상점). 일제 공격(�
 | wd:merchant | 2·4·6일차 점심부터: 장비 1(15% 할인) + 무료 휴식권 40 | 합의(D21) | 구현 | 구현(run.gd·formation.gd·world.json; run_layer_tests·port_tests·FORMATION_TABLE) | 포함 | |
 | wd:regions | 지역 보상 금화 30~45/35~50/50~70/70~100/100~140, 재료(v0.8에서 임무는 3택 대체, 재료는 레거시 판매만) | 시험값 | 구현 | 구현(run.gd·formation.gd·world.json; run_layer_tests·port_tests·FORMATION_TABLE) | 포함 | 재료 시스템은 v0.8에서 축소(재료 판매만 남음) → 그대로 |
 | wd:hp_mult | 지역 체력 후보 base/candE/A~D, 날짜 후보 none/dayA, 정예 4일차 ×1.25 | 후보(D07·D13) | 구현 | 구현(run.gd·formation.gd·world.json; run_layer_tests·port_tests·FORMATION_TABLE) | 포함(F3 후보, 기본 base·none, C5) | |
+| wd:world_stages | 세계 변화 두 단계: 변화 전 → 첫 관문 뒤 붉은 달(일반+붉은 60:40) → 두 번째 관문 뒤 일반 퇴장(붉은+변이 60:40). 관문 완료(bossesDone)에서 도출, day 증가로 전환 없음. 등급은 정예와 별개, 경험치 예산 불변, 날짜 체력 세트 제외 | 사용자 합의(D38), 배율·비율 Codex 시험값 | 없음(신규) | 구현(run.gd world_stage·formation.gd assign_tiers·combat_state.gd tier; world_tests) | 포함 | world_tests |
+| m:tiers | 등급 붉은(체력 ×1.25·피해 ×1.10)·상위 변이(×1.60·×1.20): 종류의 행동·속도·예고 공유, 체력·피해만 배율. 표시 tint + 삼각 표식·링. 2단계 위험 임무 정예 +1 | Codex 시험값 | 없음(신규) | 구현(combat_state.gd spawn_enemy/damage_player·render.gd tier_mark) | 포함 | world_tests |
 | wd:arena | 지역 전장: 기본 숲(장애물 없음), 공터(바위2·나무2), 기둥 숲(바위3·나무1); 배치안 classic/trial | 시험값 | 구현 | 구현(run.gd·formation.gd·world.json; run_layer_tests·port_tests·FORMATION_TABLE) | 포함(지역별 배치는 시험값: 숲=공터(D33), 능선=기둥, 습지=숲, 굴=기둥, 심층=공터) | 지형 검증 161~170 |
 
 ## H. 회차·경제 (run.js/sortie.js/flow.js/events.js, GAME_SPEC §19) — 사용자 합의 D14~D24, 세부 구현자

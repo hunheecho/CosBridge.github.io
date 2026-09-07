@@ -1036,8 +1036,31 @@ static func body_col(e: Dictionary, color: String, alpha: float) -> Color:
 		return C("#bcd6e6", alpha)
 	return C(color, alpha)
 
+## 등급 색(세계 변화): 정의 색과 등급 tint를 섞는다(임시 그래픽). 색만으로 구분하지 않도록 draw_enemy가 표식도 그린다
 static func def_color(e: Dictionary, fallback: String) -> String:
-	return String(e.def.get("color", fallback))
+	var base := String(e.def.get("color", fallback))
+	var tier := String(e.get("tier", "normal"))
+	if tier == "normal":
+		return base
+	var TD := PCatalog.tier(tier)
+	var c := C(base).lerp(C(String(TD.get("tint", "#d24a3a"))), 0.55)
+	return "#" + c.to_html(false)
+
+## 등급 표식(임시 도형): 붉은 개체 = 머리 위 붉은 삼각 + 테두리 링, 상위 변이 = 보라 이중 삼각 + 굵은 링
+static func tier_mark(ci: Node2D, e: Dictionary) -> void:
+	var tier := String(e.get("tier", "normal"))
+	if tier == "normal" or bool(e.dead) or bool(e.get("hidden", false)):
+		return
+	var TD := PCatalog.tier(tier)
+	var col := C(String(TD.get("tint", "#d24a3a")))
+	var ex: float = e.x
+	var ey: float = e.y
+	var r: float = e.r
+	ci.draw_arc(Vector2(ex, ey), r + 3.0, 0.0, TAU, 24, Color(col, 0.85), 2.0 if tier == "red" else 3.5)
+	var ty: float = ey - r - 22.0
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(ex, ty - 6.0), Vector2(ex - 5.0, ty + 2.0), Vector2(ex + 5.0, ty + 2.0)]), col)
+	if tier == "apex":
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(ex, ty - 13.0), Vector2(ex - 5.0, ty - 5.0), Vector2(ex + 5.0, ty - 5.0)]), col)
 
 static func draw_archer(ci: Node2D, st: CombatState, e: Dictionary) -> void:
 	var d: Dictionary = e.def
@@ -1374,6 +1397,7 @@ static func draw_enemy(ci: Node2D, st: CombatState, e: Dictionary) -> void:
 		return
 	if bool(e.get("hidden", false)):
 		return
+	tier_mark(ci, e)
 	var ex: float = e.x
 	var ey: float = e.y
 	var r: float = e.r

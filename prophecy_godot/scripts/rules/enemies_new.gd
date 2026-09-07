@@ -533,7 +533,7 @@ static func update_frostcaller(st: CombatState, e: Dictionary, dt: float) -> voi
 					var pt: Array = pts[i]
 					var z := st.add_zone("frostzone", float(pt[0]), float(pt[1]), float(d.zoneR), float(delays[i]), 0.0)
 					z.order = i + 1
-					z.dmg = float(d.damage)
+					z.dmg = float(d.damage) * float(e.get("tier_dmg", 1.0)) # 등급 피해 배율(장판은 attacker가 없어 생성 시 적용)
 					z.owner = e
 				st.note_attack(e, "execute")
 				e.cast_t = float(d.castInterval)

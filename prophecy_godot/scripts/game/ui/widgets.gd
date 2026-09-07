@@ -166,6 +166,9 @@ static func header(run: Dictionary) -> Control:
 	var when := "완료" if nb.is_empty() else ("%d일 뒤" % left if left > 0 else "오늘")
 	var lbl := ("보스 %d/%d · %s" % [int(run.get("stage", 0)) + 1, stages, String(nbc.name)]) if stages > 1 and not nb.is_empty() else "보스"
 	h.add_child(rich_nowrap("[color=#9ea8b8]%s[/color] [b]%s%s[/b]" % [lbl, ("[color=#ff8c73]" if left <= 1 and not nb.is_empty() else ""), when + ("[/color]" if left <= 1 and not nb.is_empty() else "")], 14))
+	var ws := PRun.world_stage(run)
+	if ws > 0:
+		h.add_child(rich_nowrap("[color=#d24a3a][b]%s[/b][/color]" % PGlossaryTip.esc(String(PRun.world_stage_def(run).name)), 14))
 	h.add_child(rich_nowrap("[color=#9ea8b8]체력[/color] [b]%d / %d[/b]" % [int(float(run.hp)), int(float(b.hp_max))], 14))
 	h.add_child(rich_nowrap("[color=#9ea8b8]금화[/color] [color=#ffd966][b]%d[/b][/color]" % int(run.gold), 14))
 	var sp := spacer()
