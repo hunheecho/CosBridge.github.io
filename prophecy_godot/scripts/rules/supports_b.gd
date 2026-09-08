@@ -367,6 +367,15 @@ static func hit_cause(st: CombatState, src: String, attacker) -> String:
 		reach = float(s.get("thornRange", reach))
 	if PGeom.dist(p.x, p.y, float(att.x), float(att.y)) <= float(att.get("r", 0.0)) + float(p.r) + reach:
 		return "enemy_melee"
+	# **인형 곁에서 때리는 적도 근접이다.**
+	# 예전에는 '플레이어와 공격자의 거리'만 봤다. 인형은 기본 120px 떨어진 곳에 서므로
+	# 유인된 적이 인형을 때려도 판정이 원거리로 떨어져 **인형이 대신 맞을 기회 자체가 없었다**
+	# (2026-09-09 자체 교차 검수: 인형 60px면 가로채고 200px면 0회).
+	# 인형 쪽 거리로 한 번 더 본다 — 가로채기 여부는 그 뒤 _doll_intercept가 따로 정한다.
+	var d := doll_of(st)
+	if not d.is_empty() and (d.lured as Dictionary).has(att.get("id", -1)):
+		if PGeom.dist(float(d.x), float(d.y), float(att.x), float(att.y)) <= float(att.get("r", 0.0)) + float(d.r) + reach:
+			return "enemy_melee"
 	return "enemy_projectile"
 
 ## 가시 반격. 기본은 때린 방향의 좁은 부채꼴, '집중 가시'는 더 좁고 강하게, '가시 폭발'은 주변 원형
