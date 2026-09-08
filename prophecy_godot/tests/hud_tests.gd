@@ -14,6 +14,10 @@ extends SceneTree
 ##  I. 표시 계층이 전투 결과를 바꾸지 않는지(같은 시드 · HUD 갱신 유무로 결과 동일, st.rng 미사용)
 ## 키보드·마우스 입력 합성은 하지 않는다.
 
+## 이름 잘림 검사에 쓰는 실제 칸 값(PWidgets.build_icon_row의 개조 칸 = mod_px 26 + 34, PIconTile STYLE_MOD 글자 11)
+const MOD_TILE_W := 26.0 + 34.0
+const MOD_TILE_FS := 11
+
 var results := []
 
 func ok(name: String, cond: bool, extra: String = "") -> void:
@@ -63,7 +67,7 @@ func _run() -> void:
 	var cov := PIcons.coverage()
 	var have: Array = cov.have
 	var missing: Array = cov.missing
-	ok("아이콘 표 로드: 임시 20종이 모두 실제 게임 ID로 매핑됨", (PIcons.data().map as Dictionary).size() == 20 and have.size() == 20, "map=%d have=%d" % [(PIcons.data().map as Dictionary).size(), have.size()])
+	ok("아이콘 표 로드: 매핑된 그림이 모두 실제 게임 ID를 가리킨다", (PIcons.data().map as Dictionary).size() == have.size() and have.size() > 0, "map=%d have=%d" % [(PIcons.data().map as Dictionary).size(), have.size()])
 	var W := PCatalog.weapons()
 	var all_w := true
 	for wid in W:
@@ -77,6 +81,46 @@ func _run() -> void:
 			all_m = false
 	ok("주요 개조 6종(교차·잔류·분열·귀환·부채·수정) 아이콘 있음", all_m)
 	ok("회피·Q 감속장·E 수호 결계·공용 메아리 아이콘 있음", PIcons.has("action:dodge") and PIcons.has("skill:slowfield") and PIcons.has("skill:q") and PIcons.has("skill:e:ward") and PIcons.has("common:echo"))
+	# 개조 전부(30종) — 우선순위 1. 하나라도 빠지면 어떤 개조인지 이름으로 적는다
+	var mod_missing := []
+	for wid2 in W:
+		for mid in W[wid2].mods:
+			var mk := PIcons.mod_key(String(wid2), String(mid))
+			if not PIcons.has(mk):
+				mod_missing.append(mk)
+	ok("개조 전부 아이콘 있음(%d종)" % (30 - mod_missing.size()), mod_missing.is_empty(), str(mod_missing))
+	# E 기술 5종 + 변형 전부 — 우선순위 1
+	var SKA := PCatalog.skills()
+	var skill_missing := []
+	for sid in SKA:
+		var base := "skill:slowfield" if String(sid) == "slowfield" else PIcons.e_key(String(sid))
+		if not PIcons.has(base):
+			skill_missing.append(base)
+		for vid in (SKA[sid].get("variants", {}) as Dictionary):
+			if not PIcons.has(PIcons.e_key(String(sid), String(vid))):
+				skill_missing.append(PIcons.e_key(String(sid), String(vid)))
+	ok("E 기술과 변형 전부 아이콘 있음", skill_missing.is_empty(), str(skill_missing))
+	# 공용·패시브·장비·보상
+	var rest_missing := []
+	for cid in PCatalog.commons():
+		if not PIcons.has("common:" + String(cid)):
+			rest_missing.append("common:" + String(cid))
+	for pid in PCatalog.passives():
+		if not PIcons.has("passive:" + String(pid)):
+			rest_missing.append("passive:" + String(pid))
+	for eid in PCatalog.equipment():
+		if not PIcons.has("equip:" + String(eid)):
+			rest_missing.append("equip:" + String(eid))
+	for rid in PCatalog.boss_rewards():
+		if not PIcons.has("reward:" + String(rid)):
+			rest_missing.append("reward:" + String(rid))
+	ok("공용·패시브·장비·보상 전부 아이콘 있음", rest_missing.is_empty(), str(rest_missing))
+	# 매핑된 그림 파일이 실제로 불러와지는가(png128 주 · png64 작은 칸). 없으면 화면에 자리표시만 나온다
+	var no_tex := []
+	for k3 in PIcons.data().map:
+		if PIcons.texture(String(k3), true) == null or PIcons.texture(String(k3), false) == null:
+			no_tex.append(String(k3))
+	ok("매핑된 아이콘 그림이 모두 실제로 불러와짐(128·64)", no_tex.is_empty(), str(no_tex))
 	# 서로 다른 ID가 같은 그림 파일을 가리키면 오인이 생긴다(별칭으로 같은 효과를 가리키는 것은 정상)
 	var files := {}
 	var dup := ""
@@ -86,18 +130,66 @@ func _run() -> void:
 			dup = f
 		files[f] = k
 	ok("한 그림 파일이 두 효과에 배정되지 않음(오인 금지)", dup == "", dup)
-	# 아이콘이 없는 ID는 has()=false여야 하고, 이름은 카탈로그의 실제 한국어 이름이어야 한다
-	var no_icon_ok: bool = not PIcons.has(PIcons.mod_key("sword", "crescent")) and PIcons.name_of(PIcons.mod_key("sword", "crescent")) == String(W.sword.mods.crescent.name)
-	ok("미제작 개조는 아이콘 없음 + 실제 이름 반환(다른 아이콘 대체 안 함)", no_icon_ok, PIcons.name_of(PIcons.mod_key("sword", "crescent")))
+	# 아이콘이 없는 ID는 has()=false이고 다른 효과의 그림으로 대체되지 않아야 한다.
+	# 지금은 표시 대상 누락이 0이라 실제 게임 ID로는 이 길을 밟을 수 없으므로, 게임에 없는 가짜 ID로 '대체 금지' 규칙만 확인한다.
+	var fake := "mod:sword:__없는개조__"
+	var no_icon_ok: bool = not PIcons.has(fake) and PIcons.texture(fake, true) == null and PIcons.name_of(fake) == fake
+	ok("아이콘 없는 ID는 다른 효과의 그림으로 대체되지 않고 자리표시로 남는다", no_icon_ok, fake)
 	var missing_named := true
 	for m in missing:
 		if String(m.name) == "" or String(m.name) == String(m.key):
 			missing_named = false
-	ok("누락 목록이 기계 판독 형태(키·종류·실제 이름) %d건" % missing.size(), missing.size() > 0 and missing_named, "예: " + (str(missing[0]) if missing.size() > 0 else "-"))
+	ok("누락 목록은 기계 판독 형태(키·종류·실제 이름)를 지킨다 — 지금 누락 %d건" % missing.size(), missing_named, "예: " + (str(missing[0]) if missing.size() > 0 else "없음"))
 	ok("누락 목록 문서 생성(docs/sim/ICON_COVERAGE.md)", PIcons.write_coverage_doc())
+	# 이름이 …로 잘려 서로 구별되지 않는 묶음이 없어야 한다(사용자 지시).
+	# 실제 칸 폭·글자 크기로 잘라 보고, 한 줄로 겹치면 두 줄(wrap_title)로 풀리는지까지 확인한다.
+	var groups := {}
+	for wid3 in W: # 한 화면에 함께 나오는 묶음: 무기별 개조 4칸
+		var g := []
+		for mid2 in W[wid3].mods:
+			g.append(PIcons.name_of(PIcons.mod_key(String(wid3), String(mid2))))
+		groups["개조 · " + String(W[wid3].name)] = g
+	var eg := []
+	for sid2 in SKA:
+		eg.append(PIcons.name_of("skill:slowfield" if String(sid2) == "slowfield" else PIcons.e_key(String(sid2))))
+		for vid2 in (SKA[sid2].get("variants", {}) as Dictionary):
+			eg.append(PIcons.name_of(PIcons.e_key(String(sid2), String(vid2))))
+	groups["E 기술·변형"] = eg
+	var eq := []
+	for eid2 in PCatalog.equipment():
+		eq.append(String(PCatalog.equipment_def(String(eid2)).name))
+	groups["장비"] = eq
+	var pv := []
+	for pid2 in PCatalog.passives():
+		pv.append(String(PCatalog.passives()[pid2].name))
+	groups["패시브"] = pv
+	var one_line_dup := []   # 한 줄만 쓰면 겹치는 묶음(두 줄로 풀려야 한다)
+	var two_line_dup := []   # 두 줄로도 겹치는 묶음(고쳐야 한다)
+	for gname in groups:
+		var seen1 := {}
+		var seen2 := {}
+		for nm in groups[gname]:
+			var one := PIconTile._fit(String(nm), MOD_TILE_W - 6.0, MOD_TILE_FS)
+			if seen1.has(one) and not one_line_dup.has(gname):
+				one_line_dup.append("%s: %s" % [String(gname), one])
+			seen1[one] = true
+			var two := " ".join(PIconTile._fit_lines(String(nm), MOD_TILE_W - 6.0, MOD_TILE_FS, 2))
+			if seen2.has(two):
+				two_line_dup.append("%s: %s" % [String(gname), two])
+			seen2[two] = true
+	ok("같은 화면 묶음 안에서 두 줄까지 쓰면 이름이 서로 구별된다(잘림으로 뭉개지지 않음)", two_line_dup.is_empty(), str(two_line_dup))
+	# 개조 칸(PWidgets.build_icon_row)은 두 줄을 쓰므로, 개조 이름은 …없이 전부 보여야 한다
+	var mod_cut := []
+	for wid4 in W:
+		for mid3 in W[wid4].mods:
+			var nm2 := PIcons.name_of(PIcons.mod_key(String(wid4), String(mid3)))
+			if " ".join(PIconTile._fit_lines(nm2, MOD_TILE_W - 6.0, MOD_TILE_FS, 2)).find("…") >= 0:
+				mod_cut.append(nm2)
+	ok("개조 이름은 개조 칸 두 줄에 …없이 전부 들어간다", mod_cut.is_empty(), str(mod_cut))
+	ok("한 줄만 쓰는 칸에서 겹치는 이름은 변형 이름뿐이며, 그 칸은 기술 기본 이름만 쓴다(전투 HUD)", one_line_dup.all(func(x): return String(x).begins_with("E 기술·변형")), str(one_line_dup))
 	# 흑백 아이콘은 같은 그림에서 만든다(다른 그림으로 바꾸지 않는다)
 	var gray := PIcons.texture_gray("skill:slowfield", true)
-	ok("재사용 대기용 흑백 아이콘이 같은 키에서 만들어짐(없는 키는 null)", gray != null and PIcons.texture_gray("mod:sword:crescent", true) == null)
+	ok("재사용 대기용 흑백 아이콘이 같은 키에서 만들어짐(없는 키는 null)", gray != null and PIcons.texture_gray(fake, true) == null)
 
 	# ---------- 화면 계층 준비 ----------
 	var packed: PackedScene = load("res://scenes/main.tscn")

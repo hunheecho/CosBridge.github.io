@@ -105,6 +105,11 @@ func _ready() -> void:
 	if OS.get_environment("PROPHECY_MOD_DEMO") != "": # 개조 연출 연속 프레임(영상 아님)
 		_mod_dir = OS.get_environment("PROPHECY_MOD_DEMO")
 		_mod_demo = true
+	if OS.get_environment("PROPHECY_CLIP") != "": # 실제 속도 영상 클립(Movie Maker와 함께 쓴다)
+		_clip_id = OS.get_environment("PROPHECY_CLIP")
+		_clip_sec = float(OS.get_environment("PROPHECY_CLIP_SEC")) if OS.get_environment("PROPHECY_CLIP_SEC") != "" else 8.0
+		_clip_fps = float(OS.get_environment("PROPHECY_CLIP_FPS")) if OS.get_environment("PROPHECY_CLIP_FPS") != "" else 30.0
+		_clip_mode = true
 	if OS.get_environment("PROPHECY_UI_SMOKE") != "":
 		_auto_dir = OS.get_environment("PROPHECY_UI_SMOKE")
 		_auto_full = OS.get_environment("PROPHECY_UI_FULL") != "" # 최종 보스·회차 결과·새 회차까지 봇으로 계속
@@ -1127,6 +1132,8 @@ func _process(_dt: float) -> void:
 		_capture_tick()
 	if _mod_demo:
 		_mod_demo_tick()
+	if _clip_mode:
+		_clip_tick()
 	if _movie_mode:
 		_movie_tick()
 	if _auto:
@@ -1396,6 +1403,166 @@ func _mod_demo_tick() -> void:
 	_mod_shots += 1
 	var name := "mod_%02d_t%0.2f_%s" % [_mod_shots, view.st.t, tag]
 	_snap_to(_mod_dir, name)
+
+# ---------- 실제 속도 영상 클립(PROPHECY_CLIP=<이름>) ----------
+## 실제 속도로 재생되는 영상 파일을 만들기 위한 장면 준비다. Godot Movie Maker와 함께 쓴다:
+##   PROPHECY_CLIP=mixed PROPHECY_CLIP_SEC=8 godot --path prophecy_godot --resolution 1280x720 \
+##       --write-movie docs/captures/<파일>.avi --fixed-fps 30
+## 규칙을 바꾸지 않는다: 판정·수명·피해·시간 배율(time_scale = 1 그대로)은 건드리지 않고 **어떤 장면을 띄울지**만 고른다.
+## 방패병 정면/측후방 클립만 사람 입력을 대신하는 조작(ClipBot)을 쓴다 — 규칙 우회가 아니라 이동 입력이다.
+## 길이는 프레임 수로 세므로(--fixed-fps와 같은 값) Movie Maker에서 정확히 그 초만큼 나온다.
+const CLIPS := {
+	"hud": { "desc": "조작 3칸(Space 회피 · Q 감속장 · E 중력핵) 상태 전환", "kind": "sortie", "region": "forest", "day": 1, "build": "stage1", "e": "gravity" },
+	"mixed": { "desc": "일반 혼합 전투(습지 4일차)", "kind": "sortie", "region": "marsh", "day": 4, "build": "stage2", "e": "gravity" },
+	"elite": { "desc": "특수 정예(칼날 장인 · 역병술사 · 사슬 파괴자)", "kind": "elites", "build": "stage2", "types": ["elite_blademaster", "elite_plaguecaller", "elite_chainbreaker"] },
+	"shield_front": { "desc": "방패병 정면(막힘)", "kind": "shield", "build": "stage1", "drive": "front" },
+	"shield_flank": { "desc": "방패병 측후방(돌아 들어가기)", "kind": "shield", "build": "stage1", "drive": "flank" },
+	"mission_seal": { "desc": "봉인 임무", "kind": "sortie", "region": "ridge", "day": 3, "build": "stage2", "objective": "seal" },
+	"mission_altar": { "desc": "제단 임무", "kind": "sortie", "region": "marsh", "day": 4, "build": "stage2", "objective": "altars" },
+	"guardian_cover": { "desc": "수호자 엄폐 대응", "kind": "boss", "boss": "guardian", "build": "stage2" },
+	"mod_spear_off": { "desc": "개조 전: 관통창(개조 없음)", "kind": "modcmp", "weapons": [{ "id": "spear", "level": 3, "mods": [] }] },
+	"mod_spear_on": { "desc": "개조 후: 관통창 + 귀환 검기", "kind": "modcmp", "weapons": [{ "id": "spear", "level": 3, "mods": ["returning"] }] },
+	"mod_frost_off": { "desc": "개조 전: 서리 수정(개조 없음)", "kind": "modcmp", "weapons": [{ "id": "frost", "level": 3, "mods": [] }] },
+	"mod_frost_on": { "desc": "개조 후: 서리 수정 + 서리 부채 · 깨지는 수정", "kind": "modcmp", "weapons": [{ "id": "frost", "level": 3, "mods": ["fan", "shatter"] }] },
+}
+
+## 방패병 클립 전용 조작(사람 입력 자리): 정면에서 버티거나, 뒤로 돌아 들어간다. 규칙은 건드리지 않는다
+class ClipBot extends PBot:
+	var mode := "front"
+	var ang := 0.0
+	func _init(m: String) -> void:
+		super("balanced")
+		mode = m
+	func step_input(st: CombatState) -> Dictionary:
+		var inp := super.step_input(st)
+		var tg := {}
+		for e in st.alive_targets():
+			if String(e.type) == "shieldbearer":
+				tg = e
+				break
+		if tg.is_empty():
+			return inp
+		var p := st.player
+		var want_x: float = float(tg.x)
+		var want_y: float = float(tg.y)
+		if mode == "flank":
+			ang += 1.7 * PBot.STEP # 초당 약 97도로 상대 주위를 돈다
+			want_x += cos(ang) * 74.0
+			want_y += sin(ang) * 74.0
+		else:
+			want_x -= 78.0 # 정면(왼쪽)에서 버틴다
+		var dx: float = want_x - p.x
+		var dy: float = want_y - p.y
+		var d: float = sqrt(dx * dx + dy * dy)
+		if d > 6.0:
+			inp.mx = dx / d
+			inp.my = dy / d
+		else:
+			inp.mx = 0.0
+			inp.my = 0.0
+		return inp
+
+var _clip_mode := false
+var _clip_id := ""
+var _clip_sec := 8.0
+var _clip_fps := 30.0
+var _clip_frames := 0
+var _clip_started := false
+
+## 클립용 회차: 관문 프리셋(balance.json lab.BUILDS)에서 필요한 부분만 바꾼다
+func _clip_run(c: Dictionary) -> Dictionary:
+	var preset: Dictionary = PCatalog.lab().BUILDS[String(c.get("build", "stage2"))]
+	var gw: Dictionary = preset.growth
+	var ws: Array = c.get("weapons", [])
+	var first := String(ws[0].id) if not ws.is_empty() else String((gw.weapons as Array)[0].id)
+	var run := PRun.new_run(int(c.get("seed", 7)), first)
+	run.day = int(c.get("day", 4))
+	var g: Dictionary = run.growth
+	if ws.is_empty():
+		var out := []
+		for w in gw.weapons:
+			out.append({ "id": String(w.id), "level": int(w.level), "mods": (w.mods as Array).duplicate() if w.has("mods") else [] })
+		g.weapons = out
+		var cm := {}
+		for k in gw.get("commons", {}):
+			cm[String(k)] = int(gw.commons[k])
+		g.commons = cm
+	else:
+		g.weapons = ws.duplicate(true)
+		g.commons = {}
+	if c.has("e"):
+		g.skills.e = { "id": String(c.e), "level": 2, "variant": null }
+	elif gw.has("e"):
+		g.skills.e = { "id": String(gw.e.id), "level": int(gw.e.level), "variant": (String(gw.e.variant) if gw.e.get("variant", null) != null else null) }
+	g.level = 6
+	run.hp = float(PRun.build(run).hp_max)
+	return run
+
+func _clip_start() -> void:
+	_clip_started = true
+	if not CLIPS.has(_clip_id):
+		printerr("CLIP 이름 없음: ", _clip_id, " (있는 것: ", CLIPS.keys(), ")")
+		get_tree().quit(3)
+		return
+	var c: Dictionary = CLIPS[_clip_id]
+	var run := _clip_run(c)
+	var kind := String(c.kind)
+	var st: CombatState
+	var bot: PBot = make_bot("balanced")
+	match kind:
+		"boss":
+			var b := PRun.build(run)
+			st = CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": 7, "boss": true, "boss_id": String(c.boss),
+				"boss_hp": float(PCatalog.boss_def(String(c.boss)).hp), "arena": "clearing", "region_id": "boss",
+				"xp_kill_mult": PRun.kill_xp_mult(run), "run": run })
+		"elites", "shield":
+			var b2 := PRun.build(run)
+			st = CombatState.new({ "build": b2, "hp": float(b2.hp_max), "seed": 7, "waves": [], "arena": "clearing", "region_id": "lab", "act": 2, "run": run })
+			st.spawn_hold = true # 클립 길이 동안 새 등장·승리 판정 없이 그 장면만 보여 준다
+			var px: float = float(st.player.x)
+			var py: float = float(st.player.y)
+			if kind == "shield":
+				# 3기를 떨어뜨려 세운다: 1기만 두면 1~2초 만에 쓰러져 나머지 시간이 빈 화면이 된다.
+				# 체력·방어 판정은 그대로이고 '몇 마리를 세우느냐'만 고른 것이다
+				st.spawn_enemy("shieldbearer", px + 210.0, py)
+				st.spawn_enemy("shieldbearer", px + 250.0, py - 130.0)
+				st.spawn_enemy("shieldbearer", px + 250.0, py + 130.0)
+				bot = ClipBot.new(String(c.get("drive", "front")))
+			else:
+				var i := 0
+				for tp in c.types:
+					st.spawn_enemy(String(tp), px + 190.0 + float(i) * 70.0, py - 60.0 + float(i) * 60.0)
+					i += 1
+				for j in 3:
+					st.spawn_enemy("wolf", px + 150.0, py - 90.0 + float(j) * 90.0)
+		_:
+			var sortie := { "regionId": String(c.get("region", "marsh")), "deep": false, "encounters": 0,
+				"seed": 7 * 131 + int(run.day) * 17, "day": int(run.day), "slot": 0, "variant": null }
+			if c.has("objective"):
+				sortie.mission = true
+				sortie.objective = String(c.objective)
+				sortie.cardId = "clip"
+			st = CombatState.new(PFlow.encounter_opts(run, sortie))
+	fight_kind = "lab"
+	use_bot = true
+	lab_label = "영상 클립: " + String(c.desc)
+	_view_start(st, bot)
+	show("combat")
+	_refresh_combat_texts()
+	print("CLIP start=", _clip_id, " sec=", _clip_sec, " fps=", _clip_fps, " ", String(c.desc))
+
+func _clip_tick() -> void:
+	if not _clip_started:
+		_clip_frames += 1
+		if _clip_frames >= 12: # 첫 몇 프레임은 창·배치가 잡히는 시간
+			_clip_frames = 0
+			_clip_start()
+		return
+	_clip_frames += 1
+	if float(_clip_frames) >= _clip_sec * _clip_fps:
+		var tt: float = view.st.t if view.st != null else -1.0
+		print("CLIP done=", _clip_id, " frames=", _clip_frames, " combat_t=", snapped(tt, 0.01), " screen=", screen)
+		get_tree().quit()
 
 # ---------- 회차 화면 자동 진행(PROPHECY_UI_SMOKE=<폴더> / 봇 회차 데모): 프레임 수로만 진행 ----------
 var _auto := false

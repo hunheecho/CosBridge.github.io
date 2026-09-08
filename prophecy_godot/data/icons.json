@@ -1,7 +1,8 @@
 {
  "schema": "prophecy.icons.v1",
- "source": "prophecy-ui-build-readability-20260908/icons (임시 기호 20종, 최종 아트 아님)",
+ "source": "assets/icons/manifest_source.json (프로젝트 안에서 코드로 그린 벡터 101종, 최종 아트 아님)",
  "note": "게임 ID -> 아이콘 파일. 여기에 없는 ID는 절대 다른 효과의 아이콘으로 대체하지 않고 중립 자리표시 기호 + 실제 한국어 이름으로 그린다.",
+ "generator": "tools/icon_gen.gd — manifest_source.json을 고치고 이 도구를 다시 돌려 svg/png/매핑을 함께 만든다(손으로 고치지 않는다)",
  "dir64": "res://assets/icons/png64",
  "dir128": "res://assets/icons/png128",
  "dir_svg": "res://assets/icons/svg",
@@ -125,6 +126,492 @@
    "name": "메아리",
    "color": "#B5B4F1",
    "kind": "common"
+  },
+  "mod:blades:dual": {
+   "file": "mod_blades_dual",
+   "name": "세 번째 칼날",
+   "color": "#A7C9FA",
+   "kind": "mod"
+  },
+  "mod:blades:launch": {
+   "file": "mod_blades_launch",
+   "name": "사출 칼날",
+   "color": "#A7C9FA",
+   "kind": "mod"
+  },
+  "mod:blades:serrated": {
+   "file": "mod_blades_serrated",
+   "name": "톱날",
+   "color": "#A7C9FA",
+   "kind": "mod"
+  },
+  "mod:bow:pierce": {
+   "file": "mod_bow_pierce",
+   "name": "관통 화살",
+   "color": "#B9D393",
+   "kind": "mod"
+  },
+  "mod:bow:ricochet": {
+   "file": "mod_bow_ricochet",
+   "name": "도탄 화살",
+   "color": "#B9D393",
+   "kind": "mod"
+  },
+  "mod:bow:spread": {
+   "file": "mod_bow_spread",
+   "name": "갈래 사격",
+   "color": "#B9D393",
+   "kind": "mod"
+  },
+  "mod:daggers:bleed": {
+   "file": "mod_daggers_bleed",
+   "name": "출혈 칼날",
+   "color": "#D4A1E7",
+   "kind": "mod"
+  },
+  "mod:daggers:flank": {
+   "file": "mod_daggers_flank",
+   "name": "측면 연무",
+   "color": "#D4A1E7",
+   "kind": "mod"
+  },
+  "mod:daggers:pursuit": {
+   "file": "mod_daggers_pursuit",
+   "name": "추격 칼날",
+   "color": "#D4A1E7",
+   "kind": "mod"
+  },
+  "mod:ember:reignite": {
+   "file": "mod_ember_reignite",
+   "name": "재점화",
+   "color": "#FFAE62",
+   "kind": "mod"
+  },
+  "mod:ember:scatter": {
+   "file": "mod_ember_scatter",
+   "name": "불씨 산개",
+   "color": "#FFAE62",
+   "kind": "mod"
+  },
+  "mod:ember:trail": {
+   "file": "mod_ember_trail",
+   "name": "화염 띠",
+   "color": "#FFAE62",
+   "kind": "mod"
+  },
+  "mod:frost:ground": {
+   "file": "mod_frost_ground",
+   "name": "차가운 바닥",
+   "color": "#90E5F4",
+   "kind": "mod"
+  },
+  "mod:hammer:aftershock": {
+   "file": "mod_hammer_aftershock",
+   "name": "여진",
+   "color": "#D3B59A",
+   "kind": "mod"
+  },
+  "mod:hammer:pull": {
+   "file": "mod_hammer_pull",
+   "name": "끌어당기는 망치",
+   "color": "#D3B59A",
+   "kind": "mod"
+  },
+  "mod:hammer:shockwave": {
+   "file": "mod_hammer_shockwave",
+   "name": "전방 충격파",
+   "color": "#D3B59A",
+   "kind": "mod"
+  },
+  "mod:mine:chain": {
+   "file": "mod_mine_chain",
+   "name": "연결 폭발",
+   "color": "#D9AFF0",
+   "kind": "mod"
+  },
+  "mod:mine:frosttrap": {
+   "file": "mod_mine_frosttrap",
+   "name": "서리 함정",
+   "color": "#D9AFF0",
+   "kind": "mod"
+  },
+  "mod:mine:lure": {
+   "file": "mod_mine_lure",
+   "name": "유인 룬",
+   "color": "#D9AFF0",
+   "kind": "mod"
+  },
+  "mod:orb:conduct": {
+   "file": "mod_orb_conduct",
+   "name": "전도 표식",
+   "color": "#D0B3FF",
+   "kind": "mod"
+  },
+  "mod:orb:fork": {
+   "file": "mod_orb_fork",
+   "name": "분기 번개",
+   "color": "#D0B3FF",
+   "kind": "mod"
+  },
+  "mod:orb:loop": {
+   "file": "mod_orb_loop",
+   "name": "순환 전류",
+   "color": "#D0B3FF",
+   "kind": "mod"
+  },
+  "mod:spear:brand": {
+   "file": "mod_spear_brand",
+   "name": "꿰뚫는 표식",
+   "color": "#F4C66D",
+   "kind": "mod"
+  },
+  "mod:sword:crescent": {
+   "file": "mod_sword_crescent",
+   "name": "날아가는 검광",
+   "color": "#EEE4CA",
+   "kind": "mod"
+  },
+  "skill:gust": {
+   "file": "skill_gust",
+   "name": "돌풍",
+   "color": "#A8E6D0",
+   "kind": "skill"
+  },
+  "skill:bladestorm": {
+   "file": "skill_bladestorm",
+   "name": "칼날 폭풍",
+   "color": "#C9D6E8",
+   "kind": "skill"
+  },
+  "skill:strike": {
+   "file": "skill_strike",
+   "name": "낙뢰",
+   "color": "#FFE479",
+   "kind": "skill"
+  },
+  "skill:gravity": {
+   "file": "skill_gravity",
+   "name": "중력핵",
+   "color": "#C9A0FF",
+   "kind": "skill"
+  },
+  "skill:e:slowfield:echo": {
+   "file": "skill_slowfield_echo",
+   "name": "감속장 · 시간의 잔향",
+   "color": "#72D9D2",
+   "kind": "skill_variant"
+  },
+  "skill:e:slowfield:follow": {
+   "file": "skill_slowfield_follow",
+   "name": "감속장 · 동행하는 시간",
+   "color": "#72D9D2",
+   "kind": "skill_variant"
+  },
+  "skill:e:slowfield:split": {
+   "file": "skill_slowfield_split",
+   "name": "감속장 · 분할된 시간",
+   "color": "#72D9D2",
+   "kind": "skill_variant"
+  },
+  "skill:e:strike:chain": {
+   "file": "skill_strike_chain",
+   "name": "낙뢰 · 연쇄 낙뢰",
+   "color": "#FFE479",
+   "kind": "skill_variant"
+  },
+  "skill:e:strike:storm": {
+   "file": "skill_strike_storm",
+   "name": "낙뢰 · 뇌우 지대",
+   "color": "#FFE479",
+   "kind": "skill_variant"
+  },
+  "skill:e:ward:fortress": {
+   "file": "skill_ward_fortress",
+   "name": "수호 결계 · 이동 요새",
+   "color": "#8DBEFF",
+   "kind": "skill_variant"
+  },
+  "skill:e:ward:pulse": {
+   "file": "skill_ward_pulse",
+   "name": "수호 결계 · 공격 결계",
+   "color": "#8DBEFF",
+   "kind": "skill_variant"
+  },
+  "skill:e:gust:whirl": {
+   "file": "skill_gust_whirl",
+   "name": "돌풍 · 회오리",
+   "color": "#A8E6D0",
+   "kind": "skill_variant"
+  },
+  "skill:e:gust:windpath": {
+   "file": "skill_gust_windpath",
+   "name": "돌풍 · 바람길",
+   "color": "#A8E6D0",
+   "kind": "skill_variant"
+  },
+  "skill:e:bladestorm:advancing": {
+   "file": "skill_bladestorm_advancing",
+   "name": "칼날 폭풍 · 전진하는 폭풍",
+   "color": "#C9D6E8",
+   "kind": "skill_variant"
+  },
+  "skill:e:bladestorm:condensed": {
+   "file": "skill_bladestorm_condensed",
+   "name": "칼날 폭풍 · 응축된 폭풍",
+   "color": "#C9D6E8",
+   "kind": "skill_variant"
+  },
+  "skill:e:gravity:collapse": {
+   "file": "skill_gravity_collapse",
+   "name": "중력핵 · 붕괴",
+   "color": "#C9A0FF",
+   "kind": "skill_variant"
+  },
+  "skill:e:gravity:orbit": {
+   "file": "skill_gravity_orbit",
+   "name": "중력핵 · 궤도 포획",
+   "color": "#C9A0FF",
+   "kind": "skill_variant"
+  },
+  "common:burn": {
+   "file": "common_burn",
+   "name": "불붙은 공격",
+   "color": "#FF9A5A",
+   "kind": "common"
+  },
+  "common:ember": {
+   "file": "common_ember",
+   "name": "잔불 걸음",
+   "color": "#FFB877",
+   "kind": "common"
+  },
+  "common:flare": {
+   "file": "common_flare",
+   "name": "불꽃 파열",
+   "color": "#FFCF6B",
+   "kind": "common"
+  },
+  "common:frost": {
+   "file": "common_frost",
+   "name": "얼음 파편",
+   "color": "#8FD8F0",
+   "kind": "common"
+  },
+  "common:reach": {
+   "file": "common_reach",
+   "name": "긴 사거리",
+   "color": "#A9D8B8",
+   "kind": "common"
+  },
+  "common:saving": {
+   "file": "common_saving",
+   "name": "시간 저축",
+   "color": "#C8C2F2",
+   "kind": "common"
+  },
+  "common:stasis": {
+   "file": "common_stasis",
+   "name": "정지된 칼날",
+   "color": "#9FB6E8",
+   "kind": "common"
+  },
+  "common:wide": {
+   "file": "common_wide",
+   "name": "넓어진 공격",
+   "color": "#E0CBA0",
+   "kind": "common"
+  },
+  "passive:exploit": {
+   "file": "passive_exploit",
+   "name": "빈틈 포착",
+   "color": "#F2A2A2",
+   "kind": "passive"
+  },
+  "passive:focus": {
+   "file": "passive_focus",
+   "name": "집중",
+   "color": "#9FD5F0",
+   "kind": "passive"
+  },
+  "passive:haste": {
+   "file": "passive_haste",
+   "name": "가속",
+   "color": "#A6E3B0",
+   "kind": "passive"
+  },
+  "passive:mastery": {
+   "file": "passive_mastery",
+   "name": "무기 숙련",
+   "color": "#F0D08A",
+   "kind": "passive"
+  },
+  "passive:mobility": {
+   "file": "passive_mobility",
+   "name": "기동력",
+   "color": "#A8D8F5",
+   "kind": "passive"
+  },
+  "passive:persistence": {
+   "file": "passive_persistence",
+   "name": "지속력",
+   "color": "#C6B9F0",
+   "kind": "passive"
+  },
+  "passive:toughness": {
+   "file": "passive_toughness",
+   "name": "강인함",
+   "color": "#C3C9D2",
+   "kind": "passive"
+  },
+  "passive:vitality": {
+   "file": "passive_vitality",
+   "name": "건강",
+   "color": "#F2A8C0",
+   "kind": "passive"
+  },
+  "equip:bloodmoon_sword": {
+   "file": "equip_bloodmoon_sword",
+   "name": "혈월검",
+   "color": "#E8A0A0",
+   "kind": "equip"
+  },
+  "equip:ember_sword": {
+   "file": "equip_ember_sword",
+   "name": "잔불검",
+   "color": "#FFAE62",
+   "kind": "equip"
+  },
+  "equip:hunter_sword": {
+   "file": "equip_hunter_sword",
+   "name": "사냥꾼의 검",
+   "color": "#F0D08A",
+   "kind": "equip"
+  },
+  "equip:pioneer_spear": {
+   "file": "equip_pioneer_spear",
+   "name": "개척자의 창",
+   "color": "#F0D08A",
+   "kind": "equip"
+  },
+  "equip:chrono_staff": {
+   "file": "equip_chrono_staff",
+   "name": "시간술사의 지팡이",
+   "color": "#B9B4F0",
+   "kind": "equip"
+  },
+  "equip:echo_staff": {
+   "file": "equip_echo_staff",
+   "name": "잔향의 지팡이",
+   "color": "#B5B4F1",
+   "kind": "equip"
+  },
+  "equip:caster_shield": {
+   "file": "equip_caster_shield",
+   "name": "시전자의 방패",
+   "color": "#A9C3E8",
+   "kind": "equip"
+  },
+  "equip:emergency_shield": {
+   "file": "equip_emergency_shield",
+   "name": "비상 방패",
+   "color": "#F0C08A",
+   "kind": "equip"
+  },
+  "equip:iron_shield": {
+   "file": "equip_iron_shield",
+   "name": "철벽 방패",
+   "color": "#A9C3E8",
+   "kind": "equip"
+  },
+  "equip:relay_shield": {
+   "file": "equip_relay_shield",
+   "name": "연계 방패",
+   "color": "#A9C3E8",
+   "kind": "equip"
+  },
+  "equip:reprisal_shield": {
+   "file": "equip_reprisal_shield",
+   "name": "반격 방패",
+   "color": "#E8B4B4",
+   "kind": "equip"
+  },
+  "equip:time_shield": {
+   "file": "equip_time_shield",
+   "name": "시간의 방패",
+   "color": "#B9B4F0",
+   "kind": "equip"
+  },
+  "equip:expedition_armor": {
+   "file": "equip_expedition_armor",
+   "name": "원정대의 갑옷",
+   "color": "#C4B79E",
+   "kind": "equip"
+  },
+  "equip:guardian_armor": {
+   "file": "equip_guardian_armor",
+   "name": "수호자의 갑옷",
+   "color": "#A9C3E8",
+   "kind": "equip"
+  },
+  "equip:moon_armor": {
+   "file": "equip_moon_armor",
+   "name": "월광 갑옷",
+   "color": "#B7C7EC",
+   "kind": "equip"
+  },
+  "equip:traveler_armor": {
+   "file": "equip_traveler_armor",
+   "name": "여행자의 경갑",
+   "color": "#C4B79E",
+   "kind": "equip"
+  },
+  "equip:renewal_coat": {
+   "file": "equip_renewal_coat",
+   "name": "재생의 여행복",
+   "color": "#A9D8B8",
+   "kind": "equip"
+  },
+  "equip:vitality_coat": {
+   "file": "equip_vitality_coat",
+   "name": "생명력의 외투",
+   "color": "#F2A8C0",
+   "kind": "equip"
+  },
+  "reward:clone": {
+   "file": "reward_clone",
+   "name": "시간의 복제",
+   "color": "#C8C2F2",
+   "kind": "reward"
+  },
+  "reward:resonance": {
+   "file": "reward_resonance",
+   "name": "무기 공명",
+   "color": "#A7C9FA",
+   "kind": "reward"
+  },
+  "reward:seed": {
+   "file": "reward_seed",
+   "name": "연쇄의 씨앗",
+   "color": "#A9D8B8",
+   "kind": "reward"
+  },
+  "reward:tempo": {
+   "file": "reward_tempo",
+   "name": "시간의 박자",
+   "color": "#B9B4F0",
+   "kind": "reward"
+  },
+  "reward:vigor": {
+   "file": "reward_vigor",
+   "name": "불굴의 심장",
+   "color": "#F5A45A",
+   "kind": "reward"
+  },
+  "reward:volley": {
+   "file": "reward_volley",
+   "name": "일제 공격",
+   "color": "#F5D77A",
+   "kind": "reward"
   }
  },
  "alias": {

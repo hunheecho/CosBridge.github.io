@@ -216,16 +216,30 @@ static func write_coverage_doc(path: String = "res://docs/sim/ICON_COVERAGE.md")
 		if not by_kind.has(k):
 			by_kind[k] = []
 		(by_kind[k] as Array).append(m)
+	# 적용 목록도 종류별로 묶는다(무엇이 이미 있는지 눈으로 확인할 수 있게)
+	var have_by_kind := {}
+	for key in c.have:
+		var e := entry(String(key))
+		var hk := String(e.get("kind", "기타"))
+		if not have_by_kind.has(hk):
+			have_by_kind[hk] = []
+		(have_by_kind[hk] as Array).append({ "key": String(key), "name": name_of(String(key)), "file": String(e.get("file", "")) })
+	for hk in have_by_kind:
+		(have_by_kind[hk] as Array).sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return String(a.key) < String(b.key))
 	var lines: Array = []
 	lines.append("# 아이콘 적용 범위(ICON_COVERAGE)")
 	lines.append("")
-	lines.append("자동 생성(scripts/game/ui/icons.gd `PIcons.write_coverage_doc`). 임시 아이콘 20종 기준.")
+	lines.append("자동 생성(scripts/game/ui/icons.gd `PIcons.write_coverage_doc`). 그림 정본은 `assets/icons/manifest_source.json`,")
+	lines.append("만드는 도구는 `tools/icon_gen.gd`(프로젝트 안에서 코드로 그린 벡터 → svg·png128·png64·data/icons.json). 최종 아트는 아니다.")
 	lines.append("아이콘이 없는 항목은 다른 효과의 아이콘을 재사용하지 않고 중립 자리표시 기호 + 실제 이름으로 표시한다.")
 	lines.append("")
 	lines.append("- 표시 대상 ID: %d" % int(c.total))
 	lines.append("- 아이콘 있음: %d" % (c.have as Array).size())
 	lines.append("- 누락: %d" % (c.missing as Array).size())
 	lines.append("")
+	if (c.missing as Array).is_empty():
+		lines.append("누락 없음. 표시 대상 ID가 늘어나면 이 문서에 다시 나타난다.")
+		lines.append("")
 	for k in by_kind:
 		lines.append("## 누락 · %s (%d)" % [String(k), (by_kind[k] as Array).size()])
 		lines.append("")
@@ -233,6 +247,14 @@ static func write_coverage_doc(path: String = "res://docs/sim/ICON_COVERAGE.md")
 		lines.append("| --- | --- |")
 		for m in by_kind[k]:
 			lines.append("| `%s` | %s |" % [String(m.key), String(m.name)])
+		lines.append("")
+	for k2 in have_by_kind:
+		lines.append("## 적용 · %s (%d)" % [String(k2), (have_by_kind[k2] as Array).size()])
+		lines.append("")
+		lines.append("| ID | 이름 | 그림 파일 |")
+		lines.append("| --- | --- | --- |")
+		for h in have_by_kind[k2]:
+			lines.append("| `%s` | %s | `%s` |" % [String(h.key), String(h.name), String(h.file)])
 		lines.append("")
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:

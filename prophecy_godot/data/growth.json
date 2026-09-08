@@ -461,13 +461,17 @@
         1.3,
         1.6
       ],
-      "desc": "범위(260) 안 적 무리 중심에 1.2초 동안 작은 적을 끌어모음(반지름 140), 초당 피해",
-      "long": "레벨: 피해·끌어당김. 보스는 끌리지 않고 피해만.",
+      "desc": "범위(260) 안 적 무리 중심에 1.2초 동안 작은 적을 끌어모음(반지름 140), 초당 피해 + 끝날 때 폭발(피해 2배, 반지름 100)",
+      "long": "레벨: 피해·끌어당김. 보스는 끌리지 않고 피해만 받는다(마무리 폭발은 보스에게도 들어간다).",
+      "tune": {
+        "base_collapse_mult": 2
+      },
+      "tune_note": "중력핵 조절값(scripts/rules/skills.gd gravity_tune). base_collapse_mult = 변형이 없어도 끝날 때 터지는 마무리 폭발 배수(0이면 없음). 2026-09-08 측정으로 고른 시험값이며 최종 밸런스 승인이 아니다 — 고른 이유는 docs/sim/GRAVITY_TUNE_DECISION.md, 측정 표는 docs/sim/GRAVITY_PROBE.md. 지정하지 않은 값(dur 1.2 · radius 140 · pull_base 90 · tick 0.25 · collapse_r 100 · collapse_mult 3 · boss_mult 1)은 예전 그대로다.",
       "variants": {
         "collapse": {
           "name": "붕괴",
           "impl": true,
-          "desc": "끝날 때 폭발(피해 3배, 반지름 100)"
+          "desc": "끝날 때 폭발이 더 세다(피해 3배, 반지름 100)"
         },
         "orbit": {
           "name": "궤도 포획",
