@@ -265,6 +265,15 @@
         ],
         "note": "측정 도구라 'N/N PASS' 요약이 없다. 결과 JSON 한 줄과 종료 코드 0으로 판정한다(통과 판정이 아니라 기록이 남았는지 확인)."
       }
+    },
+    "combo_probe": {
+      "env": {},
+      "script": "tools/combo_probe.gd",
+      "timeout_sec": 3600,
+      "desc": "대표 조합 측정(주무기+보조 2). 모든 조합이 아니라 사용자가 지정한 7개만. 부분 실행은 PROPHECY_SUBSET=\"combo=bow_blades_bell;bot=novice;seed=1\"",
+      "verdict": {
+        "success_pattern": "COMBO_PROBE_JSON"
+      }
     }
   },
   "groups": {

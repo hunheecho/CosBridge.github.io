@@ -629,7 +629,10 @@ static func on_hit(st: CombatState, e: Dictionary, opt: Dictionary, _dmg: float)
 	PSupport.on_enemy_hit(st, e, opt, _dmg)
 	if bool(sr.get("direct", true)) and sr.has("weapon_id"):
 		# 전도 표식: 번개 외 무기의 직접 공격이 표식 적을 치면 작은 전기 폭발(구체 피해의 40%)
-		if float(e.conduct) > 0.0 and String(sr.weapon_id) != "orb" and not bool(opt.get("no_conduct", false)):
+		# 감전 후속 타격. **발동 자격은 PSupport.eligible 한 곳이 정한다** —
+		# 장판 틱·독·출혈·반사·지뢰 폭발·감전 후속 자신으로는 터지지 않는다(순환 금지, 지시 5절).
+		if float(e.conduct) > 0.0 and String(sr.weapon_id) != "orb" and not bool(opt.get("no_conduct", false)) \
+				and PSupport.eligible("shock_bonus", PSupport.cause_of(st, { "weapon": String(sr.get("weapon_id", "")) })):
 			var orb := {}
 			for w in st.weapons:
 				if String(w.id) == "orb":

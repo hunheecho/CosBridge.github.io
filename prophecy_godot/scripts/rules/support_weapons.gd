@@ -49,7 +49,8 @@ static func cause_of(st: CombatState, opt: Dictionary = {}) -> String:
 			return "main_direct"
 		"echo": return "main_extra"     # 공용 '메아리'가 만든 주무기 추가 타격
 		"volley": return "main_extra"
-		"orbit", "mine": return "support_direct"
+		"orbit": return "support_direct" # 회전 칼날 접촉
+		"mine": return "mine_blast"      # 지뢰 폭발은 직접 타격이 아니다(감전 후속을 부르지 않는다)
 		"zone": return "zone_tick"
 		"dot": return "dot"
 	return c
