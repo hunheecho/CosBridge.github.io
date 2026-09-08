@@ -181,6 +181,11 @@
       "timeout_sec": 600,
       "desc": "장애물 충돌·접촉 탈출 규칙"
     },
+    "spore_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "포자 괴물 접근·정지 예고·개체별 접촉 피해·피격 보호 처리 순서(docs/SPORE_FIX.md)"
+    },
     "slots_tests": {
       "env": {},
       "timeout_sec": 600,
@@ -271,6 +276,7 @@
     "all": [
       "run_tests",
       "collision_tests",
+      "spore_tests",
       "slots_tests",
       "support_tests",
       "terrain_tests",
@@ -299,6 +305,7 @@
     "rules": [
       "run_tests",
       "collision_tests",
+      "spore_tests",
       "slots_tests",
       "support_tests",
       "terrain_tests",

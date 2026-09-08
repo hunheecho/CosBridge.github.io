@@ -879,7 +879,20 @@ func damage_player(amount: float, src: String, attacker = null) -> bool:
 ## 기본은 마지막 피격 뒤 cfg.player.hit_protect 동안 모든 피해를 막는 하나의 보호막이다.
 ## 개체별 접촉 피해(여러 개체와 동시에 겹칠 수 있는 것)를 이 공통 보호에서 빼려면 **여기만** 고친다.
 ## 공통 보호를 전역으로 없애지는 않는다 — 다른 공격의 연타 보호는 그대로 둔다.
-func hit_protected(_src: String, _attacker) -> bool:
+##
+## 면제 목록(2026-09-08, docs/SPORE_FIX.md):
+##  - "spore:contact" — 포자 몸 접촉 피해. 여러 포자와 동시에 겹치면 개체 수만큼 중첩되어야 하는데,
+##    공통 보호가 하나뿐이라 첫 피해가 나머지를 모두 지웠다.
+##    대신 포자 개체별 재타격 간격(PEnemies.spore_contact)이 연타를 막는다.
+##    **면제는 읽기만이다** — 접촉 피해도 들어간 뒤에는 공통 보호를 세운다(damage_player).
+##    그래서 같은 프레임에 뒤따르는 다른 공격은 여전히 막힌다(처리 순서는 SPORE_FIX.md).
+## 다른 출처(늑대 물기·돌진, 화살, 보스 등)는 예전 그대로 이 보호를 받는다.
+## 정본 상수는 PEnemies.SPORE_CONTACT_SRC다. 여기서 상수로 읽지 않고 글자를 그대로 쓰는 이유는
+## PEnemies가 CombatState를 형으로 쓰기 때문에 상수 참조가 순환 참조 파싱 오류를 내기 때문이다.
+## 두 값이 어긋나지 않는지는 tests/spore_tests.gd가 단언한다.
+func hit_protected(src: String, _attacker) -> bool:
+	if src == "spore:contact":
+		return false
 	return player.hit_prot > 0.0
 
 func apply_player_damage(amount: float, src: String, attacker = null) -> void:

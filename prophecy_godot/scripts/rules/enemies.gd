@@ -1,7 +1,8 @@
 class_name PEnemies
 extends RefCounted
 ## 적 행동 분배: 늑대·늑대 우두머리(godot-0.3.1 규칙, D33/D35 보존) · 궁수·포자(HTML combat.js) · 신규 8종(PEnemiesNew, HTML enemies.js).
-## 공통: 준비(예고) → 확정 → 실행 → 빈틈. 이동 중 접촉 피해 없음. 감속장은 준비·실행·빈틈 진행(tf)을 늦추고 냉기는 이동만 늦춘다.
+## 공통: 준비(예고) → 확정 → 실행 → 빈틈. 감속장은 준비·실행·빈틈 진행(tf)을 늦추고 냉기는 이동만 늦춘다.
+## 접촉 피해: 원칙적으로 없다. **포자 괴물만 예외**(2026-09-08 사용자 확정, 아래 '포자 괴물' 절 참고).
 
 ## 늑대 계열(0.3.1 규칙) 판별: bite·dash 블록을 가진 정의(first_fight.json에는 godot_rules 키가 없다)
 static func is_wolf(d: Dictionary) -> bool:
@@ -68,7 +69,9 @@ static func threats(st: CombatState, e: Dictionary, out: Array) -> void:
 			out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": e.dir, "len": 2000.0, "w": 40.0, "prog": 1.0, "locked": true })
 	elif e.type == "spore":
 		if e.state == "swell":
-			out.append({ "kind": "circle", "e": e, "x": e.x, "y": e.y, "r": float(d.cloudR), "prog": float(e.state_t) / float(d.swell), "locked": float(e.state_t) / float(d.swell) > 0.6 })
+			# 예고 원은 **준비를 시작한 자리**에 고정한다(플레이어를 따라가지 않는다). 실제 구름도 같은 자리에 생긴다
+			var c := spore_swell_center(e)
+			out.append({ "kind": "circle", "e": e, "x": c[0], "y": c[1], "r": float(d.cloudR), "prog": float(e.state_t) / float(d.swell), "locked": float(e.state_t) / float(d.swell) > 0.6 })
 	else:
 		PEnemiesNew.threats(st, e, out)
 
@@ -308,27 +311,99 @@ static func update_archer(st: CombatState, e: Dictionary, dt: float) -> void:
 				e.state = "approach"
 				e.state_t = 0.0
 
-# ---------- 포자 괴물 (HTML updateSpore) ----------
+# ---------- 포자 괴물 (HTML updateSpore + 2026-09-08 결함 수정) ----------
+## **수정 전 결함**(사용자가 직접 플레이하고 확정): 포자가 폭발이 닿지 않는 거리에서 멈춰,
+## 플레이어가 가만히 있어도 공격을 맞지 않았다. enemies.json의 engageDist(130)가 cloudR(80)보다 커서
+## 구름이 플레이어에게 절대 닿지 않았고, 예고 중에도 따라오지 않으니 서 있기만 하면 무해했다.
+##
+## **확정된 수정**(사용자 결정, 시험값은 data/pacing.json "spore"):
+##  1. 폭발 반경의 절반까지 **충분히 접근한 뒤** 준비한다(접근 거리 = cloudR × approach_frac).
+##  2. 준비를 시작하면 **그 자리에 멈추고** 폭발 중심을 고정해 범위를 예고한다.
+##  3. 예고 중에는 플레이어를 따라가지 않는다 — 구름은 고정된 중심에 생긴다.
+##  4. 몸이 겹치면 **포자 개체별 접촉 피해**가 있다(이 파일에서 유일한 접촉 피해 예외).
+##  5. 여러 포자와 겹치면 개체 수만큼 중첩된다(공통 피격 보호 면제, CombatState.hit_protected).
+##  6. 개체별 접촉 재타격 간격(contact_interval)으로 매 프레임 피해를 막는다.
+##  7. 회피 무적은 그대로 적용된다(damage_player 최상단에서 걸러진다).
+##
+## **같은 프레임 처리 순서**(docs/SPORE_FIX.md): 접촉 피해는 그 포자의 갱신 **맨 처음**에 계산된다.
+## CombatState.update_enemies가 st.enemies 순서대로 돌므로 목록에서 앞선 개체가 먼저 때린다.
+## 접촉 피해는 공통 보호를 **읽지 않고** 세우기만 한다 → 뒤따르는 일반 공격은 막히고, 반대로
+## 일반 공격이 먼저 들어와 보호가 서 있어도 접촉 피해는 그대로 들어간다. 구름(장판) 피해는
+## 프레임 끝의 update_zones에서 zone_tick(0.5초)으로 따로 계산된다(기존 그대로).
+
+## 접촉 피해 출처 이름(정본). CombatState.hit_protected()가 이 값 하나만 공통 보호에서 뺀다.
+## 그쪽은 순환 참조(파싱) 때문에 상수 대신 같은 글자를 직접 쓴다 — 두 값이 같은지는 tests/spore_tests.gd가 단언한다
+const SPORE_CONTACT_SRC := "spore:contact"
+
+## 수정 전 동작 재현(대조군 전용, 게임 기본값 아님): 접근 거리 = engageDist, 폭발 중심 미고정, 접촉 피해 없음
+static var spore_legacy := OS.get_environment("PROPHECY_SPORE_LEGACY") != ""
+
+## 포자 시험값 겹쳐쓰기(data/pacing.json "spore"). 없으면 아래 기본값 — 규칙 코드에 숫자를 두지 않는 관례대로 표가 정본이다
+static func spore_cfg() -> Dictionary:
+	return PCatalog.pacing().get("spore", {})
+
+## 준비를 시작하는 중심 간 거리. 폭발 반경의 절반이 기본이며, 몸 크기(포자+플레이어 반지름)보다
+## 가깝게는 요구하지 않는다 — 실제 판정(몸)과 예고 표시가 어긋나지 않게 한다
+static func spore_engage_dist(st: CombatState, e: Dictionary) -> float:
+	var d: Dictionary = e.def
+	if spore_legacy:
+		return float(d.engageDist)
+	var frac := float(spore_cfg().get("approach_frac", 0.5))
+	return maxf(float(d.cloudR) * frac, float(e.r) + float(st.player.r))
+
+## 예고·폭발의 중심(준비 시작 시 고정된 자리). 준비 중이 아니거나 대조군이면 지금 몸 위치
+static func spore_swell_center(e: Dictionary) -> Array:
+	if not spore_legacy and e.has("swell_x"):
+		return [float(e.swell_x), float(e.swell_y)]
+	return [float(e.x), float(e.y)]
+
+## 개체별 접촉 피해. 몸이 겹치면 contact_damage, 같은 포자에게는 contact_interval 안에 다시 맞지 않는다.
+## 공통 피격 보호는 면제(hit_protected)라 여러 포자가 겹치면 개체 수만큼 중첩된다. 회피 무적은 그대로 막는다
+static func spore_contact(st: CombatState, e: Dictionary, dt: float) -> void:
+	if spore_legacy:
+		return
+	var tf := st.time_factor(e)
+	if float(e.get("contact_cd", 0.0)) > 0.0:
+		e.contact_cd = maxf(0.0, float(e.get("contact_cd", 0.0)) - dt * tf)
+	var p := st.player
+	if float(e.get("contact_cd", 0.0)) > 0.0:
+		return
+	if PGeom.dist(e.x, e.y, p.x, p.y) > float(e.r) + float(p.r):
+		return
+	# 재타격 간격은 **닿는 순간** 선다(막혔는지와 무관). 늑대 물기가 회피당해도 그 공격을 소모하는 것과 같은 규칙이며,
+	# 회피 무적 중에 매 프레임 '회피!'가 뜨는 연타도 이것으로 막는다.
+	# 계측은 apply_player_damage가 metrics.taken["spore:contact"]에 자동으로 남긴다
+	e.contact_cd = float(spore_cfg().get("contact_interval", 1.0))
+	st.damage_player(float(spore_cfg().get("contact_damage", 3.0)), SPORE_CONTACT_SRC, e)
+
 static func update_spore(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
 	var p := st.player
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var dist := PGeom.dist(e.x, e.y, p.x, p.y)
+	spore_contact(st, e, dt) # 상태와 무관한 몸 접촉. 이 포자 갱신의 맨 처음(처리 순서 고정)
 	match e.state:
 		"approach":
-			st.approach(e, p.x, p.y, float(d.speed) * sm, dt)
-			if dist <= float(d.engageDist) and st.may_attack(e, dt):
+			var engage := spore_engage_dist(st, e)
+			if dist > engage: # 충분히 접근할 때까지만 따라간다 — 붙은 뒤에는 밀고 들어가지 않는다
+				st.approach(e, p.x, p.y, float(d.speed) * sm, dt)
+			if dist <= engage and st.may_attack(e, dt):
 				e.state = "swell"
 				e.state_t = 0.0
 				e.ready_t = -1.0
+				e.swell_x = e.x # 준비를 시작한 자리에 폭발 중심을 고정(예고 = 실제)
+				e.swell_y = e.y
 				st.note_attack(e, "prepare")
 		"swell":
 			e.state_t += dt * tf
 			if float(e.state_t) >= float(d.swell):
-				st.add_zone("spore", e.x, e.y, float(d.cloudR), float(d.cloudTtl), float(d.cloudDamage) * float(e.get("tier_dmg", 1.0)))
+				var c := spore_swell_center(e)
+				st.add_zone("spore", c[0], c[1], float(d.cloudR), float(d.cloudTtl), float(d.cloudDamage) * float(e.get("tier_dmg", 1.0)))
 				st.ev("spore")
 				st.note_attack(e, "execute")
+				e.erase("swell_x")
+				e.erase("swell_y")
 				e.state = "recover"
 				e.state_t = 0.0
 		"recover":
