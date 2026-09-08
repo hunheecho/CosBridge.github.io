@@ -19,6 +19,9 @@ const SEED := 7
 ## 검사할 자동기술과 개조(데이터 정본 data/weapons.json 순서)
 const SKILLS := ["sword", "spear", "daggers", "bow", "hammer", "blades", "orb", "frost", "ember", "mine"]
 
+## 부분 실행 축: skill(자동기술 id) · mode(normal·lowfps·pause·refresh)
+## 예) PROPHECY_ONLY="skill:ember,sword" 또는 PROPHECY_QUICK=1
+var sub := PSubset.new()
 var rows := []
 var notes := []
 
@@ -81,7 +84,8 @@ func run_one(skill: String, mods: Array, commons: Dictionary, use_e: bool, mode:
 
 func _init() -> void:
 	var WD: Dictionary = PCatalog.weapons()
-	for skill in SKILLS:
+	var skills: Array = sub.pick("skill", SKILLS)
+	for skill in skills:
 		var def: Dictionary = WD[skill]
 		var mods := []   # data/weapons.json의 mods는 id를 키로 하는 사전이다
 		for mid in (def.get("mods", {}) as Dictionary):
@@ -97,13 +101,14 @@ func _init() -> void:
 		# (4) 일제 공격(E 사용)
 		rows.append(run_one(skill, [], {}, true))
 		# (5) 저프레임 · 일시정지 후 재개 · 전투 중 성장 반영
-		for md_mode in ["lowfps", "pause", "refresh"]:
+		for md_mode in sub.pick("mode", ["lowfps", "pause", "refresh"]):
 			rows.append(run_one(skill, [], {}, false, md_mode))
 	print("ATTACK_AUDIT_JSON " + JSON.stringify(rows))
 
 	var md := "# 자동기술 추가 공격·중복 공격 검사\n\n"
 	md += "생성: `tools/attack_audit.gd` (%s, Godot %s). 고정 표적 3마리(죽지 않음)·%.0f초·시드 %d·이동 없음.\n" % [OS.get_name(), Engine.get_version_info().string, SECONDS, SEED]
 	md += "적이 죽어 발사가 멈추는 상황과 중복 발사를 섞지 않으려고 표적 체력을 크게 두었다.\n\n"
+	md += sub.describe(not sub.partial()) + "\n\n"
 	md += "원인 구분: **base** 기본 발사 · **echo** 공용 메아리의 지연 추가 공격 · **volley** E 사용 시 일제 공격 · **zone** 장판 주기 피해 · **dot** 지속 피해 틱.\n\n"
 	md += "## 기본 발사 주기 대조 (무개조)\n\n"
 	md += "| 자동기술 | 종류 | 간격(초) | 이론 발사 수 | 실제 base 발사 | 판정 |\n|---|---|---|---:|---:|---|\n"
@@ -149,7 +154,7 @@ func _init() -> void:
 			float(d.get("zone", 0.0)), float(d.get("dot", 0.0)), total]
 	md += "\n## 일시정지·저프레임·전투 중 성장 반영에서의 중복 여부 (무개조)\n\n"
 	md += "| 자동기술 | 정상 base | 저프레임(1/20초) | 일시정지 후 재개 | 전투 중 성장 반영 | 일제 공격 사용 시 volley |\n|---|---:|---:|---:|---:|---:|\n"
-	for skill2 in SKILLS:
+	for skill2 in skills:
 		var by := {}
 		for r2 in rows:
 			if String(r2.skill) != skill2 or not (r2.mods as Array).is_empty() or not (r2.commons as Dictionary).is_empty():
@@ -202,7 +207,7 @@ func _init() -> void:
 		md += "\n## 결과: 확인이 필요한 항목\n\n"
 		for nt in notes:
 			md += "- %s\n" % nt
-	var fh := FileAccess.open("res://docs/sim/ATTACK_AUDIT.md", FileAccess.WRITE)
+	var fh := FileAccess.open(("res://docs/sim/ATTACK_AUDIT.md" if not sub.partial() else "res://docs/sim/ATTACK_AUDIT_PARTIAL.md"), FileAccess.WRITE)
 	fh.store_string(md)
 	fh.close()
 	quit()

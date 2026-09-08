@@ -225,6 +225,25 @@
       "env": {},
       "timeout_sec": 900,
       "desc": "실제 프레임 경로의 중복 발사·중복 소비"
+    },
+    "heal_audit": {
+      "env": {
+        "PROPHECY_LEGACY_PLACES": "1"
+      },
+      "timeout_sec": 900,
+      "desc": "회복 경제 실측(하루 실제 손실 대비 회복약·휴식). 통과 판정이 아니라 기록",
+      "env_reason": "옛 지역 일정으로 회차를 돌린다(회차 봇 기준선과 같은 조건).",
+      "script": "tools/heal_audit.gd",
+      "verdict": {
+        "success_pattern": "HEAL_AUDIT_JSON ",
+        "summary_patterns": [],
+        "forbid_patterns": [
+          "SCRIPT ERROR",
+          "Parse Error",
+          "Compile Error"
+        ],
+        "note": "측정 도구라 'N/N PASS' 요약이 없다. 결과 JSON 한 줄과 종료 코드 0으로 판정한다(통과 판정이 아니라 기록이 남았는지 확인)."
+      }
     }
   },
   "groups": {

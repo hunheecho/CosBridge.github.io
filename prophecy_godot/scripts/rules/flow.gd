@@ -492,6 +492,31 @@ static func actions(run: Dictionary) -> Array:
 			bool(Fw.open) and bool(Fw.affordable),
 			("보스 %d 처치 후 개방" % int(Fw.afterBoss)) if not bool(Fw.open) else ("" if bool(Fw.affordable) else "금화 부족"), Fw))
 
+	# 새 지출처도 공용 행동 목록에 넣는다. 화면에만 있으면 봇이 쓸 수 없어
+	# "금화가 남는다"는 측정이 '봇이 살 수 없는 것'을 남은 돈으로 세게 된다(2026-09-08).
+	var rf := PRun.stock_refresh_cost(run)
+	if rf > 0:
+		var rf_ok := PRun.stock_refresh_reason(run) == ""
+		out.append(_act("shop_refresh", "shop_refresh", "재고 새로고침 (%d)" % rf, rf_ok,
+			PRun.stock_refresh_reason(run), { "cost": rf }))
+	for cid in PConsumables.prep_ids():
+		var cprice := PConsumables.price(String(cid))
+		var creason := PConsumables.buy_reason(run, String(cid))
+		out.append(_act("buy_consumable:" + String(cid), "buy_consumable",
+			"%s 구매 (%d)" % [PConsumables.name_of(String(cid)), cprice], creason == "", creason,
+			{ "id": String(cid), "price": cprice }))
+		if PConsumables.count(run, String(cid)) > 0 and PConsumables.armed(run) != String(cid):
+			var sreason := PConsumables.select_reason(run, String(cid))
+			out.append(_act("arm_consumable:" + String(cid), "arm_consumable",
+				"%s 장착" % PConsumables.name_of(String(cid)), sreason == "", sreason, { "id": String(cid) }))
+	var pot := PConsumables.potion_def()
+	if not pot.is_empty():
+		var preason := PConsumables.buy_reason(run, "potion")
+		out.append(_act("buy_potion", "buy_potion", "회복약 구매 (%d)" % int(pot.price),
+			preason == "", preason, { "price": int(pot.price) }))
+		out.append(_act("use_potion", "use_potion", "회복약 사용 (+%d)" % int(pot.heal),
+			PConsumables.can_use_potion(run), "" if PConsumables.can_use_potion(run) else "쓸 수 없음",
+			{ "heal": int(pot.heal) }))
 	var no_offer: bool = g.get("pendingOffer", null) == null
 	var mc := PRun.mod_change_cost(run)
 	for w in g.weapons:

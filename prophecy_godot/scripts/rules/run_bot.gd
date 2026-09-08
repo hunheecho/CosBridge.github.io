@@ -141,6 +141,11 @@ func _perform(act: Dictionary, sortie: Dictionary = {}) -> Variant:
 		"buy_skill": return PRun.buy_skill(run)
 		"buy_merchant_service": return PRun.buy_merchant_service(run)
 		"forge_upgrade": return PRun.forge_upgrade(run, String(act.get("data", {}).get("weaponId", "")))
+		"shop_refresh": return PRun.refresh_stock_paid(run)
+		"buy_consumable": return PConsumables.buy(run, String(act.get("data", {}).get("id", "")))
+		"arm_consumable": return PConsumables.select(run, String(act.get("data", {}).get("id", "")))
+		"buy_potion": return PConsumables.buy(run, "potion")
+		"use_potion": return PConsumables.use_potion(run) > 0.0
 		"equip": return PRun.equip_item(run, String(d.id))
 		"unequip":
 			PRun.unequip_item(run, String(d.slot))
@@ -385,12 +390,47 @@ func _shop_bot() -> void:
 				_note_buy("skill")
 				did = true
 		if not did:
-			var fg := _find(acts, "forge_upgrade")
+			# 강화 행동 id가 자동기술별로 나뉘었다(forge_upgrade:<기술>). 종류로 찾고,
+			# 그중 지금 가장 많이 쓰는 자동기술(성장에서 첫 번째)에 투자한다
+			var fgs := _of_kind(acts, "forge_upgrade")
+			var fg := {}
+			if not fgs.is_empty():
+				fg = fgs[0]
+				var first_id := String((run.growth.weapons as Array)[0].id) if (run.growth.weapons as Array).size() > 0 else ""
+				for a in fgs:
+					if String(a.data.get("weaponId", "")) == first_id:
+						fg = a
+						break
 			if not fg.is_empty() and g0 - int(fg.data.cost) >= RESERVE:
 				if bool(_perform(fg)):
 					L.forge = int(run.forge)
 					_note_buy("forge")
 					did = true
+		# 회복약: 체력이 절반 아래면 산다(휴식 대신 시간을 아끼는 선택). 하루 상한은 규칙이 막는다
+		if not did and float(run.hp) < float(PRun.build(run).hp_max) * 0.5:
+			var bp := _find(acts, "buy_potion")
+			if not bp.is_empty() and g0 - int(bp.data.price) >= RESERVE and bool(_perform(bp)):
+				_note_buy("potion")
+				did = true
+			if not did:
+				var up := _find(acts, "use_potion")
+				if not up.is_empty() and bool(_perform(up)):
+					_note_buy("potion_use")
+					did = true
+		# 출격 준비물: 장착한 것이 없으면 하나 산다(가장 싼 것). 위험한 출격 전 선택 준비물이라 매번 사지는 않는다
+		if not did and PConsumables.armed(run) == "":
+			var arm := _of_kind(acts, "arm_consumable")
+			if not arm.is_empty() and bool(_perform(arm[0])):
+				_note_buy("prep_arm")
+				did = true
+			if not did:
+				var buys := _of_kind(acts, "buy_consumable")
+				buys.sort_custom(func(a, b): return int(a.data.price) < int(b.data.price))
+				for a in buys:
+					if g0 - int(a.data.price) >= RESERVE and bool(_perform(a)):
+						_note_buy("prep_buy")
+						did = true
+						break
 		if not did:
 			var cands := []
 			for a in _of_kind(acts, "buy_equipment"):
@@ -478,7 +518,7 @@ func _choose_sortie(acts: Array) -> Dictionary:
 
 # ---------- 회차 전체 ----------
 func _new_log() -> Dictionary:
-	return { "takenByDay": [], "matsByDay": [], "combatSecByDay": [], "restsByDay": [], "powerByDay": [], "spentByDay": [], "firstBuy": {}, "gateBuilds": [], "goldEarnedByDay": [], "goldSpent": 0,
+	return { "dayRows": [], "takenByDay": [], "matsByDay": [], "combatSecByDay": [], "restsByDay": [], "powerByDay": [], "spentByDay": [], "firstBuy": {}, "gateBuilds": [], "goldEarnedByDay": [], "goldSpent": 0,
 		"equipBought": [], "skillsBought": 0, "swaps": 0, "forge": 0, "deepRewards": [], "daysLostToDefeat": 0, "steered": 0, "encounters": 0, "losses": 0, "timeouts": 0, "rests": 0,
 		"deeps": 0, "cards": 0, "cardsInCombat": 0, "deepPicks": 0, "missions": 0, "missionPicks": 0, "eventCount": 0, "eventChoices": [], "eventFights": 0, "levelUpsByDay": [],
 		"weapon2": null, "weapon3": null, "eSkill": null, "events": [], "spawned": 0, "executed": 0, "dba": 0, "killedN": 0, "taken": 0.0, "bossTaken": 0.0, "bossPatterns": {},
@@ -525,6 +565,8 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 			break
 		var day_start: int = int(run.day)
 		var day := day_start
+		var hp_day_start := float(run.hp)          # 회복 경제 실측: 하루 시작 체력
+		var potion_start := int((run.get("potionBuy", {}) as Dictionary).get("count", 0))
 		var gold_start: int = int(run.gold) + int(L.goldSpent)
 		var lv_start: int = int(run.growth.level)
 		var taken_start := float(L.taken)
@@ -603,6 +645,17 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 		(L.goldEarnedByDay as Array).append(int(run.gold) + int(L.goldSpent) - gold_start)
 		L.steered = int(run.growth.get("picks", {}).get("steered", 0))
 		(L.takenByDay as Array).append(int(round(float(L.taken) - taken_start)))
+		# 하루 한 줄: 시작·끝 체력, 실제 손실(전투에서 잃은 양), 회복(끝 − 시작 + 손실), 휴식·회복약 횟수
+		var lost_today := float(L.taken) - taken_start
+		(L.dayRows as Array).append({
+			"day": day_start, "startHp": snapped(hp_day_start, 0.1), "endHp": snapped(float(run.hp), 0.1),
+			"hpMax": snapped(float(PRun.build(run).hp_max), 0.1),
+			"lost": snapped(lost_today, 0.1),
+			"healed": snapped(maxf(0.0, float(run.hp) - hp_day_start + lost_today), 0.1),
+			"rest": int(L.rests) - rest_start,
+			"potion": int((run.get("potionBuy", {}) as Dictionary).get("count", 0)) - potion_start,
+			"fights": int(L.encounters),
+		})
 		(L.matsByDay as Array).append({ "day": day_start, "mats": (run.mats as Dictionary).duplicate(), "gold": int(run.gold), "equipment": (run.equipment as Dictionary).duplicate(), "bag": (run.bag as Array).duplicate() }) # 제작 재료 도달 시점 측정(craft_economy)
 		(L.combatSecByDay as Array).append(int(round(float(T.combat) - combat_start)))
 		(L.restsByDay as Array).append(int(L.rests) - rest_start)

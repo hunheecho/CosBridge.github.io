@@ -20,6 +20,9 @@ const GAME_SEC := 20.0
 const SEED := 7
 const SKILLS := ["sword", "spear", "daggers", "bow", "hammer", "blades", "orb", "frost", "ember", "mine"]
 
+## 부분 실행 축: skill(자동기술 id) · fps(120·20·8)
+## 예) PROPHECY_ONLY="skill:ember" 또는 PROPHECY_QUICK=1
+var sub := PSubset.new()
 var rows := []
 var notes := []
 
@@ -80,7 +83,8 @@ func run_frames(skill: String, fps: float, pause_every: float, pause_len: float,
 	}
 
 func _init() -> void:
-	for skill in SKILLS:
+	var skills: Array = sub.pick("skill", SKILLS)
+	for skill in skills:
 		rows.append(run_frames(skill, 120.0, 0.0, 0.0, false))   # 기준: 화면 120프레임
 		rows.append(run_frames(skill, 20.0, 0.0, 0.0, false))    # 저프레임 20
 		rows.append(run_frames(skill, 8.0, 0.0, 0.0, false))     # 아주 낮은 프레임 8(한 프레임에 여러 단계)
@@ -95,11 +99,12 @@ func _init() -> void:
 	var md := "# 실제 프레임 경로에서의 중복 발사 검사\n\n"
 	md += "생성: `tools/frame_path_audit.gd` (%s, Godot %s). 고정 표적 3마리·게임 시간 %.0f초·시드 %d.\n" % [OS.get_name(), Engine.get_version_info().string, GAME_SEC, SEED]
 	md += "화면이 쓰는 연결부 `PStepDriver.frame()`을 그대로 쓴다(한 프레임에 여러 고정 단계 처리, 누름 1회 소비, 일시정지 시 reset).\n\n"
+	md += sub.describe(not sub.partial()) + "\n\n"
 	md += "`tools/attack_audit.gd`는 규칙에 dt를 직접 넣는 **가변 dt 스트레스**이고, 이 도구는 **실제 입력 경로** 검증이다. 둘은 목적이 다르다.\n\n"
 	md += "## 같은 게임 시간에서 프레임률만 바꿨을 때의 발사 수\n\n"
 	md += "모든 조건에서 **고정 단계 수를 %d개로 맞춰**(게임 시간 %.0f초) 돌린다. 프레임률만 다르고 진행한 게임 시간은 같다.\n\n" % [int(round(GAME_SEC / STEP)), GAME_SEC]
 	md += "| 자동기술 | 120프레임 | 20프레임 | 8프레임 | 60프레임+일시정지 | 판정 |\n|---|---|---|---|---|---|\n"
-	for skill in SKILLS:
+	for skill in skills:
 		var by := {}
 		for r in rows:
 			if String(r.skill) == skill:
@@ -144,7 +149,7 @@ func _init() -> void:
 		md += "\n## 결과: 확인이 필요한 항목\n\n"
 		for nt in notes:
 			md += "- %s\n" % nt
-	var f := FileAccess.open("res://docs/sim/FRAME_PATH_AUDIT.md", FileAccess.WRITE)
+	var f := FileAccess.open(("res://docs/sim/FRAME_PATH_AUDIT.md" if not sub.partial() else "res://docs/sim/FRAME_PATH_AUDIT_PARTIAL.md"), FileAccess.WRITE)
 	f.store_string(md)
 	f.close()
 	quit(1 if not notes.is_empty() else 0)

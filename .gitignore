@@ -2,3 +2,6 @@
 *.tmp
 # 실력 봇 배치의 입력 기록(전투마다 수십 KB, 같은 run_id·커밋으로 재생성 가능): Git에는 결과 행·meta·요약만 둔다
 prophecy_godot/docs/sim/bot_runs/*/replays/
+
+# 부분 실행 보고서(측정 범위가 좁아 전체 결과와 섞으면 안 된다)
+prophecy_godot/docs/sim/*_PARTIAL.md

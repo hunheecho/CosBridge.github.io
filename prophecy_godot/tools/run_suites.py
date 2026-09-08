@@ -346,7 +346,9 @@ def run_one(name: str, spec: dict, rules: dict, engine: str, project: Path,
     if spec.get("kind") == "scene":    # 테스트 스크립트가 아니라 실제 장면을 띄우는 실행
         cmd = [engine, "--headless", "--path", str(project)] + list(spec.get("args", []))
     else:
-        cmd = [engine, "--headless", "--path", str(project), "-s", f"tests/{name}.gd"]
+        # 기본은 tests/<이름>.gd. 도구(tools/)를 스위트로 등록할 때는 명세에 script 경로를 적는다
+        script = str(spec.get("script", f"tests/{name}.gd"))
+        cmd = [engine, "--headless", "--path", str(project), "-s", script]
     rec["cmd"] = " ".join(cmd)
     rec["env_applied"] = {k: v for k, v in (spec.get("env") or {}).items()}
     proc = None
