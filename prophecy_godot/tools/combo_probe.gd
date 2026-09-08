@@ -123,13 +123,25 @@ func run_one(combo: Dictionary, seed_v: int, bot_id: String) -> Dictionary:
 		"taken": snapped(float(st.stats.damage_taken), 0.1), "hp_left": snapped(float(st.player.hp), 0.1),
 		"support": sup, "loadout": loadout }
 
-func fmt_metrics(d: Dictionary, watch: Array) -> String:
+## 아직 계측이 연결되지 않은 보조. 0으로 나와도 **콘텐츠가 약한 것이 아니라 재지 못한 것**이다.
+## PSupport.METER_MAP에 항목이 없으면 그 보조는 세는 계수기가 아예 없다.
+func unmetered(ids: Array) -> Array:
+	var out := []
+	for id in ids:
+		if not PSupport.METER_MAP.has(String(id)):
+			out.append(String(id))
+	return out
+
+func fmt_metrics(d: Dictionary, watch: Array, combo: Dictionary) -> String:
 	var parts := []
 	for k in watch:
 		var v := 0.0
 		for sid in d:
 			v += float((d[sid] as Dictionary).get(String(k), 0.0))
 		parts.append("%s %s" % [String(k), str(snapped(v, 0.1))])
+	var um := unmetered(combo.get("supports", []))
+	if not um.is_empty():
+		parts.append("**%s 계측 미연결**" % "·".join(um))
 	return " · ".join(parts) if parts.size() > 0 else "-"
 
 func _init() -> void:
@@ -178,11 +190,13 @@ func _init() -> void:
 			md += "| %s | %s | %d | %s | %s | %.1f | %d | %.0f | %.0f | %.0f | %s |\n" % [
 				String(r.combo), String(r.bot), int(r.seed), " / ".join(r.loadout), String(r.status), float(r.sec),
 				int(r.kills), float(r.dealt), float(r.taken), float(r.hp_left),
-				fmt_metrics(r.support, combo.get("watch", []))]
+				fmt_metrics(r.support, combo.get("watch", []), combo)]
 		md += "\n## 조합이 보려는 것\n\n| 조합 | 무엇을 보려는가 | 읽는 지표 |\n|---|---|---|\n"
 		for c in COMBOS:
 			md += "| %s | %s | %s |\n" % [String(c.id), String(c.why), ", ".join(c.watch)]
-		md += "\n**봇 실력을 나눠 본다.** 실력 봇(skilled)은 잘 피해서 받는 피해가 0에 가까워 방어 지표를 잴 수 없다.\n"
+		md += "\n**계측 미연결과 0을 구분한다.** 표에 `계측 미연결`이라고 적힌 보조는 세는 계수기가 아직 없다.\n"
+		md += "그 보조의 지표가 0인 것은 **일을 안 했다는 뜻이 아니라 재지 못했다는 뜻**이다. 약하다고 적지 않는다.\n\n"
+		md += "**봇 실력을 나눠 본다.** 실력 봇(skilled)은 잘 피해서 받는 피해가 0에 가까워 방어 지표를 잴 수 없다.\n"
 		md += "초보 봇(novice) 줄이 방울 차단·갑각 경감·인형 대신 맞기를 재는 줄이다. 두 줄을 같이 봐야 한다.\n\n"
 		md += "**지표가 0일 때 두 경우를 구분한다.** 발동 자체가 0이면 봇이 그 효과를 쓸 줄 모르는 것일 수 있고,\n"
 		md += "발동은 되는데 결과가 작으면 콘텐츠 수치 문제일 수 있다. 0을 곧바로 '약하다'로 적지 않는다.\n"
