@@ -247,4 +247,8 @@ Q(감속장)는 `time_factor`로 보스의 **준비·이동·실행·빈틈 전�
 5. **방패병(§7)은 이 작업 범위 밖**이다(`scripts/rules/enemies_new.gd`, 다른 작업 소유). 종말의 집행관의 호위는 그 방패병을 그대로 쓴다 — 방패병의 방어/개방 비율이 바뀌면 집행관 전투도 함께 바뀐다.
 6. 사람 플레이 검증 없음. 화면 표시·소리는 새로 만들지 않았다(상태 이름과 예고 도형을 재사용했으므로 `render.gd`·`observe.gd`는 손대지 않아도 된다).
 7. **부수 효과: `data/boss_behavior.json`이 새로 생기면서 `PReplay.data_hash()`(`res://data/*.json` 전체 해시)가 바뀐다.** 이전에 기록해 둔 재현 기록(`docs/sim/bot_runs/`)을 다시 돌리면 "데이터 해시 불일치"가 난다. 기록을 다시 뜨거나, 해시 검사를 건너뛰고 비교해야 한다. `tests/port_tests.gd`·`tests/bot_tests.gd`는 그대로 통과한다(각각 76/76, 60/60).
-8. 확인한 시험: `boss_tests` 43/43 · `boss3_tests` 125/125 · `boss_pace_tests` 10/10 · `run_tests` 72/72 · `port_tests` 76/76 · `bot_tests` 60/60 (전부 종료 코드 0). 보스와 무관한 나머지 묶음(`content_tests` 등)은 원래 매우 오래 걸려 이 작업에서 끝까지 돌리지 못했다 — **미확인**.
+8. 확인한 시험: `boss_tests` 43/43 · `boss3_tests` 125/125 · `boss_pace_tests` 10/10 · `run_tests` 72/72 · `port_tests` 76/76 · `bot_tests` 60/60 · `acts_tests` 23/23 (전부 종료 코드 0).
+9. **이 작업 전부터 실패하던 시험 2건(이번 변경이 원인이 아니다).** 같은 워크트리에서 `scripts/rules/boss*.gd`를 073f74f로 되돌리고 `data/boss_behavior.json`을 지운 뒤 다시 돌려 확인했다.
+   - `world_tests` **29/31** — "관문 승리 기록에 세계 변화 1회 기록(worldStage 1)", "같은 전투 재정산은 거부되고 단계 1 유지". 073f74f에서도 **똑같이 29/31**이다(직접 확인).
+   - `content_tests` — "1일차 숲 카드는 기본 편성", "첫 전투 편성 보존: 늑대 25", "2일차 숲 카드 40시드"가 실패하고 `PSortie.start`에서 `SCRIPT ERROR: Invalid access to property or key 'id'`로 중단된다. 이 세 검사는 `PRun.new_run` → `PSortie.cards_for` → `PFlow.make_encounter` 경로이며 **보스 코드가 닿지 않는다**(보스 난수는 `CombatState` 안에서만 진행되고, 실패 지점 전에는 전투가 시작되지도 않는다). `run.gd`·`sortie.gd`·`world.json` 소유자가 볼 항목이다. 073f74f 대조 실행은 이 시험이 매우 느려 끝까지 돌리지 못했다 — **경로 근거로만 판단했고 대조 측정은 미완료**.
+10. 나머지 묶음(`endless_tests` · `run_layer_tests` · `input_tests` · `theme_tests`)은 이 작업에서 돌리지 못했다 — **미확인**.
