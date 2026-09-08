@@ -76,6 +76,7 @@ func _init() -> void:
 	executor_tests()
 	executor_variation_tests()
 	chain_tests()
+	break_candidate_tests()
 	var pass_n := 0
 	for r in results:
 		if r[0]:
@@ -814,3 +815,36 @@ func executor_variation_tests() -> void:
 	ok("집행관: 화면·봇이 보는 예고 도형이 보스 이동과 무관하게 선 위치 그대로다", beam_ok, str(thr.size()))
 	run_until(st, func(): return String(bz.state) == "recover", 2.0)
 	ok("집행관: 절단선 뒤 빈틈은 그대로 %.1f초" % float(SL.recover), is_equal_approx(float(bz.recover_dur), float(SL.recover)), "%.2f" % float(bz.recover_dur))
+
+# ---------- 지형 파괴 자격이 후보 규칙을 새게 하지 않는가 ----------
+## 시선이 막히면 후보에서 빠지던 행동(돌파·굴착·발톱)은, **파괴 자격을 받은 그 행동일 때만** 되살아난다.
+## 자격이 없으면 개편 전과 똑같이 빠져야 한다 — 모든 공격을 벽 관통으로 만들지 않았다는 확인이다.
+## 파괴가 실제로 일어나는지·무엇이 부서지는지는 tests/boss_break_tests.gd가 본다.
+func break_candidate_tests() -> void:
+	var pairs := [["gate_warden", "breach"], ["excavation_behemoth", "burrow"], ["blood_hunt_king", "claw"]]
+	for pr in pairs:
+		var bid := String(pr[0])
+		var pat := String(pr[1])
+		var st := CombatState.new({ "build": build(), "seed": 11, "arena": "clearing", "boss": true, "boss_id": bid,
+			"region_id": "boss", "xp_kill_mult": 0.3, "boss_hp": 1000000.0 })
+		run_until(st, func(): return String(st.boss.state) != "intro", 3.0)
+		var bz: Dictionary = st.boss
+		# 보스와 플레이어 사이에 돌을 놓아 시선을 막는다(파괴 자격은 주지 않는다)
+		var p := st.player
+		p.x = float(bz.x)
+		p.y = float(bz.y) + 200.0
+		st.obstacles.append({ "id": "mid", "type": "rock", "x": float(bz.x), "y": float(bz.y) + 100.0, "r": 40.0, "canopy": false })
+		bz.break_want = false
+		var names0 := []
+		for c in PBoss3.candidates(st, bz):
+			names0.append(String(c[0]))
+		ok("%s: 파괴 자격이 없으면 시선이 막힌 %s는 후보에서 빠진다" % [bid, pat], not names0.has(pat), str(names0))
+		bz.break_want = true
+		var names1 := []
+		for c in PBoss3.candidates(st, bz):
+			names1.append(String(c[0]))
+		var only_that := names1.has(pat)
+		for n in names1: # 자격은 그 행동 하나만 되살린다(다른 시선 검사 행동까지 열리지 않는다)
+			if not names0.has(String(n)) and String(n) != pat:
+				only_that = false
+		ok("%s: 파괴 자격을 받은 %s만 후보로 되살아난다" % [bid, pat], only_that, str(names1))

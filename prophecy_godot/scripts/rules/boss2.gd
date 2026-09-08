@@ -101,6 +101,9 @@ static func choose(st: CombatState, e: Dictionary) -> String:
 	var d := PGeom.dist(e.x, e.y, p.x, p.y)
 	if int(e.actions) == 0:
 		return "shock" if String(e.boss_id) == "guardian" else "lanes"
+	var cov := PBoss.cover_take(st, e) # 엄폐 대응(지형 파괴)이 예약돼 있으면 그것이 먼저
+	if cov != "":
+		return cov
 	var forced := PBoss.chain_take(st, e) # 연계로 예약된 후속 행동이 먼저
 	if forced != "":
 		return forced
@@ -348,6 +351,8 @@ static func update_marks(st: CombatState, e: Dictionary, _dt: float) -> void:
 		if bool(mk.done) or st.t < float(mk.explode_at):
 			continue
 		mk.done = true
+		# 먹는 자의 지형 파괴: **표식 폭발이 그 자리를 통째로 먹는다**. 공개된 표식 원 안의 엄폐물이 피해 판정보다 **먼저** 사라진다
+		PBoss.break_do(st, e, PTerrain.pick_circle(st.arena_w, st.arena_h, st.obstacles, float(mk.x), float(mk.y), float(mk.r), PBoss.breaker_of(e).get("types", [])), "eater:mark")
 		if PGeom.dist(float(mk.x), float(mk.y), p.x, p.y) <= float(mk.r) + p.r:
 			st.damage_player(dmg, "boss_mark")
 		st.fx({ "kind": "burst", "x": float(mk.x), "y": float(mk.y), "r": float(mk.r), "ttl": 0.35, "color": "#c080ff" })

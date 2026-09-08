@@ -460,6 +460,109 @@ static func reachable_all(w: float, h: float, obs: Array, start: Dictionary, poi
 		out.append(_reach(g, fl.mark, r, px, py, max_px))
 	return out
 
+# ---------- 파괴 가능한 전투 장애물 / 파괴할 수 없는 외곽 경계 ----------
+## 사용자 확정 사항: 보스가 지형을 부술 수 있게 하되 **부술 수 있는 것과 없는 것을 데이터로 나눈다.**
+## 규칙은 data/boss_behavior.json의 terrain 절이 정본이고 여기에는 숫자를 두지 않는다.
+## 항목이 없으면 모든 장애물이 "boundary"(= 아무도 못 부순다) → 개편 전과 같다.
+## 실제로 지우는 곳은 CombatState.break_obstacle 한 곳뿐이다(그림만 지우는 길이 없다).
+static func break_rules() -> Dictionary:
+	return PBoss.behavior().get("terrain", {})
+
+## 장애물 하나의 구실. "cover" = 파괴 가능한 전투 장애물 / "boundary" = 파괴할 수 없는 외곽 경계
+static func role_of(w: float, h: float, ob: Dictionary) -> String:
+	var R := break_rules()
+	if R.is_empty():
+		return "boundary"
+	if (R.get("boundaryIds", []) as Array).has(String(ob.get("id", ""))):
+		return "boundary"
+	if not (R.get("breakTypes", []) as Array).has(String(ob.get("type", ""))):
+		return "boundary"
+	# 전장 벽에 붙어 경계선을 이루는 장애물은 부수면 경계에 구멍이 난다 → 외곽 경계로 본다
+	var m := float(R.get("edgeMargin", 0.0))
+	var x := float(ob.x)
+	var y := float(ob.y)
+	var r := float(ob.r)
+	if x - r <= m or y - r <= m or x + r >= w - m or y + r >= h - m:
+		return "boundary"
+	return "cover"
+
+## 이 종류로 부술 수 있는가(보스별 types 제한까지 본다. types가 비면 규칙의 breakTypes 그대로)
+static func breakable(w: float, h: float, ob: Dictionary, types: Array = []) -> bool:
+	if role_of(w, h, ob) != "cover":
+		return false
+	if types.is_empty():
+		return true
+	return types.has(String(ob.get("type", "")))
+
+# ---------- 파괴 판정 모양(보스마다 다르다) ----------
+## 아래 다섯 개가 보스 9종의 파괴 판정을 만든다. 전부 "장애물 목록에서 고르기"만 하고 아무것도 지우지 않는다.
+## 고른 결과를 실제로 지우는 것은 CombatState.break_obstacle이다.
+
+## 원 안(착지 충격·표식 폭발·포자 착탄). 표면이 원에 닿으면 고른다
+static func pick_circle(w: float, h: float, obs: Array, x: float, y: float, rad: float, types: Array = []) -> Array:
+	var out: Array = []
+	for i in obs.size():
+		var ob: Dictionary = obs[i]
+		if not breakable(w, h, ob, types):
+			continue
+		if PGeom.dist(x, y, float(ob.x), float(ob.y)) <= rad + float(ob.r):
+			out.append(i)
+	return out
+
+## 선분 위(굴착 관통·얼음길·돌파 경로). pad = 선의 두께 절반
+static func pick_segment(w: float, h: float, obs: Array, x0: float, y0: float, x1: float, y1: float, pad: float, types: Array = []) -> Array:
+	var out: Array = []
+	for i in obs.size():
+		var ob: Dictionary = obs[i]
+		if not breakable(w, h, ob, types):
+			continue
+		if PGeom.seg_circle(x0, y0, x1, y1, float(ob.x), float(ob.y), float(ob.r) + pad):
+			out.append(i)
+	return out
+
+## 부채꼴 안(발톱 휩쓸기). 중심이 부채꼴 안이거나 표면이 닿으면 고른다
+static func pick_arc(w: float, h: float, obs: Array, x: float, y: float, ang: float, rad: float, half: float, types: Array = []) -> Array:
+	var out: Array = []
+	for i in obs.size():
+		var ob: Dictionary = obs[i]
+		if not breakable(w, h, ob, types):
+			continue
+		if PGeom.in_arc(x, y, rad, ang, half, float(ob.x), float(ob.y), float(ob.r)):
+			out.append(i)
+	return out
+
+## 세로 절단선 위(집행관). 전장 높이 전체를 지나는 폭 width의 띠
+static func pick_column(w: float, h: float, obs: Array, cx: float, width: float, types: Array = []) -> Array:
+	var out: Array = []
+	for i in obs.size():
+		var ob: Dictionary = obs[i]
+		if not breakable(w, h, ob, types):
+			continue
+		if absf(float(ob.x) - cx) <= width / 2.0 + float(ob.r):
+			out.append(i)
+	return out
+
+## 두 점을 잇는 선을 막는 장애물의 번호(가장 먼저 걸리는 것). 없으면 -1.
+## pad = 그 보스 공격의 반폭(예: 충격파 폭 70이면 35). 가는 시선은 트였는데 두꺼운 공격만 장애물에 먹히는
+## 경우를 같은 함수로 잡는다 — 사람이 겪은 "돌 뒤에 서 있으면 한 대도 안 맞는다"가 바로 이 경우였다.
+static func blocking_index(obs: Array, ax: float, ay: float, bx: float, by: float, pad: float = 0.0) -> int:
+	var best := -1
+	var bt := INF
+	for i in obs.size():
+		var ob: Dictionary = obs[i]
+		var tt := PGeom.seg_circle_t(ax, ay, bx, by, float(ob.x), float(ob.y), float(ob.r) + pad)
+		if tt >= 0.0 and tt < bt:
+			bt = tt
+			best = i
+	return best
+
+## 시작 지점에서 걸어 닿는 자유 칸 수(파괴 전후 이동 가능 영역 비교용).
+## 장애물을 지우기만 하므로 이 값은 줄어들 수 없다 — 줄어들면 파편이 새 장애물이 됐다는 뜻이고 시험이 잡는다.
+static func reach_cells(w: float, h: float, obs: Array, start: Dictionary, r: float = PLAYER_R) -> int:
+	var g := _grid(w, h, obs)
+	var fl := _flood(g, r, float(start.x), float(start.y))
+	return int(fl.count)
+
 ## 부분 실행(PSubset)으로 만든 보고서는 파일 이름에 _PARTIAL을 붙인다.
 ## 전체 실행 결과 파일을 부분 결과가 덮어써서 나중에 전체 측정처럼 읽히는 일을 막는다
 static func report_path(base: String, partial: bool) -> String:

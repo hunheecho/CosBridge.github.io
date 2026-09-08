@@ -467,6 +467,7 @@ func guardian_tests() -> void:
 		if not spot.is_empty():
 			break
 	var saw_repos := false
+	var saw_break := false
 	var blocked_end := true
 	if not spot.is_empty():
 		for i in int(8.0 / STEP):
@@ -476,8 +477,14 @@ func guardian_tests() -> void:
 			st.player.hp = st.player.hp_max
 			if String(bz.state) == "reposition":
 				saw_repos = true
+			if String(bz.state) == "breakrock":
+				saw_break = true
 		blocked_end = st.los_blocked(float(bz.x), float(bz.y), st.player.x, st.player.y)
-	ok("수호자: 돌 뒤에 계속 서 있으면 우회해 시선을 확보한다(8초 안)", not spot.is_empty() and saw_repos and not blocked_end, "우회 %s · 끝에 시선 막힘 %s" % [str(saw_repos), str(blocked_end)])
+	# 2026-09-09: 수호자에게도 성격에 맞는 지형 파괴(봉인 파쇄)가 생겼다. 부술 수 있는 돌이면 파쇄가,
+	# 부술 수 없으면(외곽 경계·남길 최소 수) 우회가 선택된다. 둘 중 무엇이든 **시선이 실제로 트여야** 통과다.
+	ok("수호자: 돌 뒤에 계속 서 있으면 대응해 시선을 확보한다(8초 안)",
+		not spot.is_empty() and (saw_repos or saw_break) and not blocked_end,
+		"우회 %s · 봉인 파쇄 %s · 끝에 시선 막힘 %s · 부순 장애물 %d" % [str(saw_repos), str(saw_break), str(blocked_end), (st.metrics.get("broken", []) as Array).size()])
 	ok("수호자 우회는 예고 상태가 아니다(무예고 처벌 아님 — 몸만 움직이고 무적도 없다)", not PBoss.is_warn_state("reposition") and not PBoss2.is_committed({ "boss_id": "guardian", "state": "reposition" }))
 	ok("우회·엄폐물 파괴 상태에 화면 문구가 있다", PCatalog.boss_action_text().has("reposition") and PCatalog.boss_action_text().has("breakrock"))
 	# ② 양갈래: 각도 변주가 예고(aim_angle)와 실제 발사 각(dir)에 똑같이 들어간다

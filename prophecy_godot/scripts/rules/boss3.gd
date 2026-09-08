@@ -78,6 +78,7 @@ static func init(st: CombatState, e: Dictionary) -> void:
 	e.slashes = []
 	e.slash_idx = 0
 	e.guard_t = 0.0
+	e.dash_ob = {}
 	e.face = atan2(st.player.y - e.y, st.player.x - e.x)
 	e.summon_budget = int(cfg.summon.budget) if cfg.has("summon") else 0
 	e.last_summon = -999.0
@@ -99,7 +100,8 @@ static func _last(e: Dictionary) -> String:
 	var h: Array = e.history
 	return String(h[h.size() - 1]) if h.size() > 0 else ""
 
-## 돌진 경로(임의 시작점): 벽·장애물까지 실제 종료점(예고와 실제가 같은 계산). 반환 {len, end:[x,y]}
+## 돌진 경로(임의 시작점): 벽·장애물까지 실제 종료점(예고와 실제가 같은 계산). 반환 {len, end:[x,y], ob}
+## ob = 경로를 잘라 세운 장애물({}이면 벽이나 끝까지 감). 성문 파수장의 '돌파 충돌 파괴'가 이것을 쓴다
 static func path_from(st: CombatState, x0: float, y0: float, r: float, ang: float, max_dist: float) -> Dictionary:
 	var dx := cos(ang) * max_dist
 	var dy := sin(ang) * max_dist
@@ -113,9 +115,11 @@ static func path_from(st: CombatState, x0: float, y0: float, r: float, ang: floa
 		var ty: float = (wy - y0) / dy if wy != y1 else 1.0
 		t = maxf(0.0, minf(t, minf(tx, ty)))
 	var sw := st.sweep_circle(x0, y0, x1, y1, r)
+	var ob: Dictionary = {}
 	if sw[1] >= 0 and sw[0] < t:
 		t = sw[0]
-	return { "len": max_dist * t, "end": [x0 + dx * t, y0 + dy * t] }
+		ob = st.obstacles[int(sw[1])]
+	return { "len": max_dist * t, "end": [x0 + dx * t, y0 + dy * t], "ob": ob }
 
 ## 부채꼴 직접 공격(장애물 가림 적용). 맞으면 true
 static func arc_attack(st: CombatState, e: Dictionary, ang: float, R: float, half: float, dmg: float, src: String, color: String = "") -> bool:
@@ -161,6 +165,7 @@ static func lock_dash(st: CombatState, e: Dictionary, dist: float) -> void:
 	var path := path_from(st, e.x, e.y, e.r, float(e.dir), dist)
 	e.dash_len = float(path.len)
 	e.dash_end = path.end
+	e.dash_ob = path.get("ob", {}) # 돌파를 세운 장애물(성문 파수장의 충돌 파괴 대상)
 	e.dash_dist = 0.0
 	e.hit_done = false
 	st.ev("boss_lock")
@@ -183,7 +188,8 @@ static func candidates(st: CombatState, e: Dictionary) -> Array:
 		"gate_warden":
 			if d <= float(cfg.guard.maxDist):
 				cands.append(["guard", float(W.guard)])
-			if d <= float(cfg.breach.maxDist) and los and (d >= float(cfg.breach.minDist) or _hop_ok(e, "breach")):
+			# 시선이 막혀 후보에서 빠지던 행동은, 그 보스의 지형 파괴가 지목한 행동일 때만 되살린다(PBoss.los_ok)
+			if d <= float(cfg.breach.maxDist) and PBoss.los_ok(e, los, "breach") and (d >= float(cfg.breach.minDist) or _hop_ok(e, "breach")):
 				cands.append(["breach", float(W.breach)])
 			if los and (d >= float(cfg.bolts.minDist) or _hop_ok(e, "bolts")):
 				cands.append(["bolts", float(W.bolts)])
@@ -202,7 +208,7 @@ static func candidates(st: CombatState, e: Dictionary) -> Array:
 			if can_summon(st, e) and (not busy or allow.has("summon")):
 				cands.append(["summon", float(W.summon)])
 		"excavation_behemoth":
-			if d <= float(cfg.burrow.maxDist) and los and (d >= float(cfg.burrow.minDist) or _hop_ok(e, "burrow")):
+			if d <= float(cfg.burrow.maxDist) and PBoss.los_ok(e, los, "burrow") and (d >= float(cfg.burrow.minDist) or _hop_ok(e, "burrow")):
 				cands.append(["burrow", float(W.burrow)])
 			cands.append(["rockfall", float(W.rockfall)])
 			if can_summon(st, e):
@@ -216,7 +222,7 @@ static func candidates(st: CombatState, e: Dictionary) -> Array:
 				cands.append(["dash", float(W.dash)])
 		"blood_hunt_king":
 			# 발톱은 준비 중에 달려들 수 있으므로 후보 거리를 개편값으로 넓힐 수 있다(사거리 자체는 그대로)
-			if d <= PBoss.pat_num(e, cfg, "claw", "maxDist", 220.0) and los:
+			if d <= PBoss.pat_num(e, cfg, "claw", "maxDist", 220.0) and PBoss.los_ok(e, los, "claw"):
 				cands.append(["claw", float(W.claw)])
 			if d <= float(cfg.dash.maxDist) and los and (d >= float(cfg.dash.minDist) or _hop_ok(e, "dash")):
 				cands.append(["dash", float(W.dash)])
@@ -245,6 +251,9 @@ static func choose(st: CombatState, e: Dictionary) -> String:
 			"frost_stalker": return "bolt"
 			"blood_hunt_king": return "dash"
 			"doom_executor": return "slash"
+	var cov := PBoss.cover_take(st, e) # 엄폐 대응(지형 파괴)이 예약돼 있으면 그것이 먼저
+	if cov != "":
+		return cov
 	var forced := PBoss.chain_take(st, e) # 연계로 예약된 후속 행동이 먼저
 	if forced != "":
 		return forced
@@ -447,6 +456,11 @@ static func update_warden(st: CombatState, e: Dictionary, dt: float, adv: float,
 				st.note_attack(e, "execute")
 		"breach":
 			if dash_step(st, e, float(B.speed), float(B.damage), "boss_breach", dt, tf):
+				# 성문 파수장의 지형 파괴: **방패로 들이받아 부순다**. 예고된 돌파 선을 세운 그 장애물 하나만
+				var bob: Dictionary = e.get("dash_ob", {})
+				if not bob.is_empty():
+					PBoss.break_do(st, e, [st.obstacles.find(bob)], "gate_warden:breach")
+					e.dash_ob = {}
 				if int(e.phase) >= 2:
 					e.state = "bsweep_aim"
 					e.state_t = 0.0
@@ -615,6 +629,9 @@ static func update_marks(st: CombatState, e: Dictionary) -> void:
 			keep.append(mk)
 			continue
 		mk.done = true
+		# 포자 어미의 지형 파괴: **포자 부식**. 예고된 착탄 원 안의 **나무만** 삭아 무너진다(바위는 삭지 않는다).
+		# 피해 판정보다 먼저 일어나므로 화면에서 먼저 읽힌다
+		PBoss.break_do(st, e, PTerrain.pick_circle(st.arena_w, st.arena_h, st.obstacles, float(mk.x), float(mk.y), float(mk.r), PBoss.breaker_of(e).get("types", [])), "spore_matriarch:shot")
 		if PGeom.dist(float(mk.x), float(mk.y), p.x, p.y) <= float(mk.r) + p.r:
 			st.damage_player(float(S.damage), "boss_spore_shot", e)
 		st.fx({ "kind": "burst", "x": float(mk.x), "y": float(mk.y), "r": float(mk.r), "ttl": 0.35, "color": "#c080ff" })
@@ -644,6 +661,10 @@ static func update_behemoth(st: CombatState, e: Dictionary, dt: float, adv: floa
 				e.state = "burrow_lock"
 				e.state_t = 0.0
 				e.dir = e.aim_angle
+				# 굴착 거수의 지형 파괴: **멈추지 않고 관통한다**. 방향을 확정하는 순간 경로 위의 엄폐물이 먼저 부서지고,
+				# 그 뒤에 길어진 경로를 예고로 보여 준 다음(lock 0.4초) 돌파가 시작된다 — 파괴가 피해 판정보다 먼저 읽힌다
+				PBoss.break_do(st, e, PTerrain.pick_segment(st.arena_w, st.arena_h, st.obstacles, e.x, e.y,
+					e.x + cos(float(e.dir)) * float(B.dist), e.y + sin(float(e.dir)) * float(B.dist), e.r, PBoss.breaker_of(e).get("types", [])), "excavation_behemoth:burrow")
 				# 두 방향을 순서대로 미리 확정(2단계~): 첫 경로 끝에서 그 순간 플레이어 방향
 				var plan: Array = []
 				var p1 := path_from(st, e.x, e.y, e.r, float(e.dir), float(B.dist))
@@ -816,6 +837,14 @@ static func update_stalker(st: CombatState, e: Dictionary, dt: float, adv: float
 		"path_lock":
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(I.lock):
+				# 서리 추적자의 지형 파괴: **얼려서 깨뜨린다**. 예고된 세 줄이 지나는 엄폐물이 피해 판정보다 먼저 부서진다
+				var bk: Array = []
+				for la in e.lanes:
+					for bi in PTerrain.pick_segment(st.arena_w, st.arena_h, st.obstacles, e.x, e.y,
+						e.x + cos(float(la)) * float(I.len), e.y + sin(float(la)) * float(I.len), float(I.width) / 2.0, PBoss.breaker_of(e).get("types", [])):
+						if not bk.has(bi):
+							bk.append(bi)
+				PBoss.break_do(st, e, bk, "frost_stalker:icepath")
 				var hit := false
 				for a in e.lanes:
 					if not hit and PGeom.in_beam(e.x, e.y, float(a), float(I.len), float(I.width), p.x, p.y, p.r) and not st.los_blocked(e.x, e.y, p.x, p.y):
@@ -900,6 +929,8 @@ static func update_hunt_king(st: CombatState, e: Dictionary, dt: float, adv: flo
 		"claw_lock":
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(C.lock):
+				# 핏빛 사냥왕의 지형 파괴: **숨은 곳째 찢는다**. 예고된 부채꼴 안의 엄폐물이 피해 판정보다 먼저 사라진다
+				PBoss.break_do(st, e, PTerrain.pick_arc(st.arena_w, st.arena_h, st.obstacles, e.x, e.y, float(e.dir), float(C.radius), PGeom.deg(float(C.arcDeg)) / 2.0, PBoss.breaker_of(e).get("types", [])), "blood_hunt_king:claw")
 				arc_attack(st, e, float(e.dir), float(C.radius), PGeom.deg(float(C.arcDeg)) / 2.0, float(C.damage), "boss_claw")
 				to_recover(st, e, float(C.recover))
 		"dash_aim":
@@ -976,6 +1007,8 @@ static func update_executor(st: CombatState, e: Dictionary, dt: float, adv: floa
 			if float(e.state_t) >= float(SL.lock):
 				var sl: Dictionary = e.slashes[int(e.slash_idx)]
 				var half: float = float(SL.width) / 2.0
+				# 종말의 집행관의 지형 파괴: **세로 절단선이 지형째 가른다**. 예고된 선 위의 엄폐물이 피해 판정보다 먼저 갈라진다
+				PBoss.break_do(st, e, PTerrain.pick_column(st.arena_w, st.arena_h, st.obstacles, float(sl.x), float(SL.width), PBoss.breaker_of(e).get("types", [])), "doom_executor:slash")
 				if absf(p.x - float(sl.x)) <= half + p.r:
 					st.damage_player(float(SL.damage), "boss_slash", e)
 				sl.fired = true

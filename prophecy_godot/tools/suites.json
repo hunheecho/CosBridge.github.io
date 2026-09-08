@@ -49,6 +49,11 @@
       "timeout_sec": 900,
       "desc": "보스 공격 개시 빈도·연계 회귀"
     },
+    "boss_break_tests": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "보스 9종 지형 파괴 규칙(파괴 가능/외곽 경계·충돌 제거·갇힘 없음·예고 순서)"
+    },
     "bot_tests": {
       "env": {},
       "timeout_sec": 900,
@@ -234,8 +239,8 @@
     },
     "boss_cover_probe": {
       "env": {},
-      "timeout_sec": 900,
-      "desc": "보스 엄폐 대응 비교 계측(돌 뒤 정지 정책). 통과 판정이 아니라 기록"
+      "timeout_sec": 2400,
+      "desc": "보스 9종 엄폐 해소·지형 파괴·보스전 시간 계측(돌 뒤 정지 + 불씨 정령만). 통과 판정이 아니라 기록"
     },
     "prep_shop_tests": {
       "env": {},
@@ -310,6 +315,7 @@
       "boss_tests",
       "boss3_tests",
       "boss_pace_tests",
+      "boss_break_tests",
       "bot_tests",
       "balance_tests",
       "hud_tests",
@@ -350,7 +356,8 @@
     "boss": [
       "boss_tests",
       "boss3_tests",
-      "boss_pace_tests"
+      "boss_pace_tests",
+      "boss_break_tests"
     ],
     "ui": [
       "hud_tests",
