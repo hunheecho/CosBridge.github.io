@@ -101,6 +101,12 @@ static func enemies() -> Dictionary:
 		if not out.has(k):
 			var b: Dictionary = bosses_new().bosses[k]
 			out[k] = { "name": String(b.name), "role": String(b.title), "r": float(b.r), "hp": float(b.hp), "speed": float(b.speed), "color": String(b.color), "boss": true, "readme": "신규 관문 보스(bosses_new.json, 시험값)" }
+	# 신규 일반 3종(흡혈 박쥐·불씨 도마뱀·도약 두꺼비)과 일반 정예 확장은 data/pacing.json의
+	# enemy_tuning에 정의가 있고 PEnemiesNew가 만든다. **여기서 합쳐야** 전투가 시작되기 전
+	# 편성 조회·경험치·시험 경로에서도 같은 사전을 본다(전에는 전투 첫 프레임에야 등록됐다).
+	for k in PEnemiesNew.extra_defs(out):
+		if not out.has(k):
+			out[k] = PEnemiesNew.extra_defs(out)[k]
 	_cache["enemies_merged"] = out
 	return out
 ## 신규 보스 6종(bosses_new.json, 손으로 작성 — 시험값). enemies.json의 기존 3종 정의는 그대로 두고 아래 boss_defs/boss_hp_sets가 합친다

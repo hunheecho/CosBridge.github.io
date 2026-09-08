@@ -44,7 +44,10 @@ static func xp_value_unit(type: String, summoned: bool, region_id: String, kill_
 	var tp := PCatalog.theme_places()
 	if tp.has(region_id):
 		mult = float(tp[region_id].get("xp_mult", 1.0))
-	var base: float = float(v.summoned) if summoned else float(v.get(type, 5.0))
+	# 신규 종류는 data/pacing.json의 xp_value_extra에서 읽는다(생성 파일 growth.json을 고치지 않는다).
+	# 이 겹쳐쓰기가 없으면 새 적이 전부 기본 5로 떨어져 편성의 경험치 예산이 조용히 어긋난다
+	var extra: Dictionary = PCatalog.pacing().get("xp_value_extra", {})
+	var base: float = float(v.summoned) if summoned else float(extra.get(type, v.get(type, 5.0)))
 	return round(base * mult * kill_mult * 100.0) / 100.0
 
 # ---------- 조회 ----------
