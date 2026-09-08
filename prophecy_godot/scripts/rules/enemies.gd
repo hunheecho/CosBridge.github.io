@@ -81,6 +81,21 @@ static func zone_threats(st: CombatState, out: Array) -> void:
 			out.append({ "kind": "zone", "x": z.x, "y": z.y, "r": z.r })
 	PEnemiesNew.zone_threats(st, out)
 
+## **지원 연결선**(위협이 아니다 — threats와 일부러 분리했다. 봇의 회피 계산에 섞이면 안 되기 때문이다).
+## 지금 누가 누구를 치료하고 있는지를 화면·계측이 읽을 수 있게 내보낸다. 그리는 것은 render.gd 담당이며
+## 무엇을 그려야 하는지는 docs/ENEMY_FEEDBACK.md에 적었다.
+## out에 { kind:"heal_link", e(시전자), target(대상), x,y(시전자), tx,ty(대상), prog(0~1 시전 진행), ratio(회복 비율) } 추가
+static func support_links(st: CombatState, out: Array) -> void:
+	for e in st.enemies:
+		if e.dead:
+			continue
+		var tg := PEnemiesNew.heal_link_target(e)
+		if tg.is_empty():
+			continue
+		out.append({ "kind": "heal_link", "e": e, "target": tg, "x": e.x, "y": e.y, "tx": tg.x, "ty": tg.y,
+			"prog": clampf(float(e.state_t) / maxf(0.001, float((e.def as Dictionary).healCast)), 0.0, 1.0),
+			"ratio": PEnemiesNew.dv(e, "healRatio", 0.0) })
+
 # ---------- 늑대·늑대 우두머리 (docs/RULES.md §늑대: 가까우면 물기, 적당한 거리·재사용 가능·자리 확보 시 돌진) ----------
 static func dash_states_count(st: CombatState) -> int:
 	var n := 0
@@ -282,7 +297,7 @@ static func update_archer(st: CombatState, e: Dictionary, dt: float) -> void:
 			elif dist > float(d.keepMax):
 				st.approach(e, p.x, p.y, float(d.speed) * sm, dt)
 			e.state_t += dt * tf
-			if dist <= float(d.keepMax) + 40.0 and float(e.state_t) >= 0.3 and st.may_attack(e, dt):
+			if dist <= float(d.keepMax) + 40.0 and float(e.state_t) >= 0.3 and PEnemiesNew.may_start(st, e, dt):
 				e.state = "aim"
 				e.state_t = 0.0
 				e.ready_t = -1.0
@@ -388,7 +403,7 @@ static func update_spore(st: CombatState, e: Dictionary, dt: float) -> void:
 			var engage := spore_engage_dist(st, e)
 			if dist > engage: # 충분히 접근할 때까지만 따라간다 — 붙은 뒤에는 밀고 들어가지 않는다
 				st.approach(e, p.x, p.y, float(d.speed) * sm, dt)
-			if dist <= engage and st.may_attack(e, dt):
+			if dist <= engage and PEnemiesNew.may_start(st, e, dt):
 				e.state = "swell"
 				e.state_t = 0.0
 				e.ready_t = -1.0

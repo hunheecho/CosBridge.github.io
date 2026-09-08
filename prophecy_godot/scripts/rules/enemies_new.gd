@@ -7,7 +7,7 @@ extends RefCounted
 ## 상호작용: 감속장은 준비·실행·빈틈 진행(tf)을 늦추고, 냉기는 이동만 늦춘다. 넉백은 돌진·잠복·도약 중에는 무시(combat_state.knock_enemy), 방패병은 50%(def.knockMult).
 ## 면역(최소 범위): 잠복충·균열 채굴자의 지하 구간(hidden)은 직접 공격·투사체 대상이 되지 않는다(바닥 효과는 적용). 그 외 면역 없음.
 ## 피해 감소(방패·깃발)는 shield_mult 한 곳에서만 계산하고, 여러 효과가 겹쳐도 곱하지 않는다(가장 강한 하나만).
-## 개체별 추가 필드(snake_case, 지연 초기화): face, preview, charge_len, charge_end, charge_blocked, charge_dist, hit_done, heal_t, hex_t, cast_target, cast_pts, cast_t,
+## 개체별 추가 필드(snake_case, 지연 초기화): face, preview, charge_len, charge_end, charge_blocked, charge_dist, hit_done, heal_t, hex_t, rune_t, act_t, rune_at, cast_target, cast_pts, cast_t,
 ##   burrow_cd, emerge_at, web_t, web_at, side, base_dir, exploded, block_fx_t,
 ##   정예: shot_left, blocked_sec, leap_at, leap_from, pods, chain_len, chain_d, pull_from, slam_at, plant_left, order_left, order_t, banner_ref,
 ##   지휘받는 쪽: rally_t, ordered(leash_boost는 rally_t가 끝나면 PEnemies.update가 1.0으로 되돌린다). 구조물: banner_ttl, banner_r, ring_t, rubble_ttl, trail_t
@@ -15,7 +15,7 @@ extends RefCounted
 const COMMITTED := {
 	"boar": ["charge_aim", "charge_lock", "charge"],
 	"shieldbearer": ["bash_aim", "bash"],
-	"shaman": ["cast", "hex_aim"],
+	"shaman": ["cast", "hex_aim", "hex_lock", "rune_aim"],
 	"bomber": ["fuse"],
 	"burrower": ["dive", "under", "warn", "emerge", "bite_aim"],
 	"spider": ["web_aim", "bite_aim"],
@@ -41,6 +41,92 @@ static func has(type: String) -> bool:
 
 static func is_elite(type: String) -> bool:
 	return ELITE_TYPES.has(type)
+
+# ---------- 동시 위험 공격 상한(적 생존 수와 분리) ----------
+## 왜 있는가(2026-09-09, 사람 관찰 "전투 말미가 지루하다"에 대한 계측 결과)
+##   tools/tail_probe.gd로 재 보니 원인은 멧돼지의 행동이 아니라 **종류별 동시 생존 상한**이었다.
+##   예: 2막 t2c_boar_archer는 동시 상한이 15인데 멧돼지 2 + 궁수 3 = **최대 5마리**만 살 수 있어
+##   전장이 3분의 1도 차지 않고, 남은 45마리가 2~3마리씩 찔끔 나온다(자리가 비어 있던 시간 74초/77초).
+##   그 상한을 올리려면 "적이 많아지면 위험 공격도 그만큼 많아진다"는 문제를 먼저 갈라야 한다.
+##   그래서 **적 생존 수**(편성·소환 담당)와 **동시 위험 공격 수**(적 규칙 = 여기)를 분리한다.
+##
+## 무엇을 하는가: 지금 예고~실행 중인 적이 상한이면 **새 공격을 시작하지 않는다**.
+##   이미 시작한 공격은 절대 끊지 않고(예고가 사라지는 일이 없다), 적을 지우거나 자동 처치하지도 않는다.
+##   상한은 계측으로 관측한 **오늘의 최고치**를 그대로 뒀다 — 지금 압박을 줄이는 값이 아니라,
+##   종류별 상한을 올렸을 때 위험이 같이 부풀지 않게 막는 천장이다. 값은 data/pacing.json "danger_limit".
+##
+## 세는 것과 막는 것은 다르다
+##   - **센다**: 신규 8종·특수 정예(COMMITTED) + 늑대 계열·궁수·포자(LEGACY_DANGER)
+##   - **막는다**: 신규 8종·궁수·포자·특수 정예만. **늑대 계열은 막지 않는다**
+##     (0.3.1 규칙과 승인된 첫 전투 D33을 그대로 보존해야 하기 때문. 늑대 돌진은 원래 wolf.dash.max_concurrent가 따로 제한한다)
+##   - 보스전(mode == "boss")에서는 적용하지 않는다. 그쪽은 overlap_limit·wolf_may_attack이 이미 담당한다
+const LEGACY_DANGER := {
+	"wolf": ["crouch", "lock", "dash", "bite_track", "bite_lock", "bite_hit"],
+	"wolf_alpha": ["crouch", "lock", "dash", "bite_track", "bite_lock", "bite_hit"],
+	"archer": ["aim", "lock"],
+	"spore": ["swell"],
+}
+
+static func danger_cfg() -> Dictionary:
+	return PCatalog.pacing().get("danger_limit", {})
+
+## 이 적이 지금 위험 공격(예고~실행) 중인가. is_committed보다 넓다(늑대·궁수·포자까지 센다)
+static func danger_busy(o: Dictionary) -> bool:
+	var t := String(o.type)
+	if COMMITTED.has(t):
+		return (COMMITTED[t] as Array).has(String(o.state))
+	if LEGACY_DANGER.has(t):
+		return (LEGACY_DANGER[t] as Array).has(String(o.state))
+	return false
+
+## 지금 위험 공격 중인 적 수(자기 자신·보스·구조물 제외)
+static func danger_count(st: CombatState, e: Dictionary) -> int:
+	var n := 0
+	for o in st.enemies:
+		if o == e or bool(o.dead) or bool(o.get("boss", false)) or bool(o.get("structure", false)):
+			continue
+		if danger_busy(o):
+			n += 1
+	return n
+
+## 그 막의 동시 위험 공격 상한. 표가 없으면 사실상 무제한(기존 동작 그대로)
+static func danger_max(st: CombatState) -> int:
+	var C := danger_cfg()
+	var by: Dictionary = C.get("by_act", {})
+	var k := str(clampi(int(st.act), 1, 3))
+	if by.has(k):
+		return int(by[k])
+	return int(C.get("max_concurrent", 9999))
+
+## 새 위험 공격을 시작해도 되는가: 기존 동시 제한(CombatState.may_attack) + 동시 위험 공격 상한.
+## may_attack은 한 단계에 한 번만 물어야 하므로(대기 시간이 두 배로 깎인다) 상한을 **먼저** 본다
+static func may_start(st: CombatState, e: Dictionary, dt: float) -> bool:
+	if bool(danger_cfg().get("enabled", false)) and String(st.mode) != "boss" and danger_count(st, e) >= danger_max(st):
+		e.ready_t = -1.0
+		return false
+	return st.may_attack(e, dt)
+
+# ---------- 적 정의 겹쳐쓰기(data/pacing.json "enemy_tuning") ----------
+## data/enemies.json은 내보내기 산출물이라 손으로 고치지 않는다. 손으로 정한 값은 data/pacing.json에 두고
+## 규칙 코드가 항목별로 덮어 읽는다(포자의 PEnemies.spore_cfg()와 같은 방식). 규칙 코드에 숫자를 두지 않는 관례 그대로다.
+static func tuning(type: String) -> Dictionary:
+	return PCatalog.pacing().get("enemy_tuning", {}).get(type, {})
+
+## 적 정의 값 하나를 겹쳐쓰기 우선으로 읽는다. 표에도 정의에도 없으면 fallback
+static func dv(e: Dictionary, key: String, fallback: float = 0.0) -> float:
+	var t := tuning(String(e.type))
+	if t.has(key):
+		return float(t[key])
+	var d: Dictionary = e.def
+	return float(d[key]) if d.has(key) else fallback
+
+## 겹쳐쓰기 우선 사전 항목(치료 우선순위 표처럼 값이 사전인 것)
+static func dvd(e: Dictionary, key: String) -> Dictionary:
+	var t := tuning(String(e.type))
+	if t.has(key):
+		return t[key]
+	var d: Dictionary = e.def
+	return d[key] if d.has(key) else {}
 
 static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 	match String(e.type):
@@ -130,7 +216,7 @@ static func update_boar(st: CombatState, e: Dictionary, dt: float) -> void:
 			st.approach(e, p.x, p.y, float(d.speed) * sm, dt)
 			# 코앞이 막혀 있으면 돌파하지 않는다
 			if dist <= float(d.engageDist) and dist >= float(d.minDist) and not st.los_blocked(e.x, e.y, p.x, p.y) \
-				and float(PBoss.dash_path(st, e, atan2(p.y - e.y, p.x - e.x), float(d.chargeDist))["len"]) >= float(d.minDist) and st.may_attack(e, dt):
+				and float(PBoss.dash_path(st, e, atan2(p.y - e.y, p.x - e.x), float(d.chargeDist))["len"]) >= float(d.minDist) and may_start(st, e, dt):
 				e.state = "charge_aim"
 				e.state_t = 0.0
 				e.ready_t = -1.0
@@ -198,7 +284,9 @@ static func update_boar(st: CombatState, e: Dictionary, dt: float) -> void:
 			_recover_tick(e, adv)
 
 # ---------- B. 방패병: 정면 방어 ----------
-## 2026-09-08 사용자 확정: 정면 감소 70% → 85%(def.frontMult 0.15), 정면 각 120도 유지.
+## 2026-09-09 사용자 확정: 정면 감소 **85% → 70%**(pacing.json enemy_tuning.shieldbearer.frontMult 0.30), 정면 각 120도 유지.
+##   — 앞선 2026-09-08 확정(70% → 85%, enemies.json frontMult 0.15)을 사람이 직접 플레이한 뒤 되돌린 것이다.
+##   — **일반 방패병 전용 수치다.** 정예 검사(elite_blademaster)의 방패 자세는 guardMult(0.0 = 완전 차단)로 따로 있다.
 ## 접근 중과 방패치기 **준비 중(bash_aim)**에는 방패를 유지하고, 실제 방패치기(bash)와 그 뒤 빈틈(recover)에만 연다.
 ## 방향 전환은 느리게 유지(turnRate 2.2 rad/s)해 측·후방 공략이 답이 되게 한다. 판정 점검은 docs/SHIELDBEARER.md.
 static func update_shieldbearer(st: CombatState, e: Dictionary, dt: float) -> void:
@@ -218,7 +306,7 @@ static func update_shieldbearer(st: CombatState, e: Dictionary, dt: float) -> vo
 	match String(e.state):
 		"approach":
 			st.approach(e, p.x, p.y, float(d.speed) * sm, dt)
-			if dist <= float(d.engageDist) + e.r and absf(diff) < PGeom.deg(50.0) and st.may_attack(e, dt):
+			if dist <= float(d.engageDist) + e.r and absf(diff) < PGeom.deg(50.0) and may_start(st, e, dt):
 				e.state = "bash_aim"
 				e.state_t = 0.0
 				e.ready_t = -1.0
@@ -252,8 +340,10 @@ static func guard_closed(e: Dictionary) -> bool:
 			return String(e.state) == "guard"
 	return false
 
-## 방패 판정: 방패가 닫혀 있고 공격 **출처**가 정면 부채꼴 안이면 frontMult(방패병 0.15 = 85% 감소,
-## 정예 검사 guardMult 0.0 = 정면 직접 피해 완전 차단). 출처 위치가 없는 바닥·추가·기술·지속 피해는 정상.
+## 방패 판정: 방패가 닫혀 있고 공격 **출처**가 정면 부채꼴 안이면 감소 배율을 적용한다.
+##   - 일반 방패병: frontMult = **0.30(70% 감소, 2026-09-09 사용자 확정)** — pacing.json enemy_tuning이 정본
+##   - 정예 검사: guardMult = 0.0(정면 직접 피해 **완전 차단**) — 전혀 다른 값이며 위와 섞지 않는다
+## 출처 위치가 없는 바닥·추가·기술·지속 피해는 정상(우회). 측·후면과 방패를 내린 시간에도 감소가 없다.
 ## 감소는 **한 번만** 적용한다: 여러 방어 효과가 겹치면 곱하지 않고 가장 강한 하나(min)만 쓴다.
 static func shield_mult(st: CombatState, e: Dictionary, opt: Dictionary) -> float:
 	var m := 1.0
@@ -261,9 +351,11 @@ static func shield_mult(st: CombatState, e: Dictionary, opt: Dictionary) -> floa
 		var d: Dictionary = e.def
 		var from: Dictionary = opt.get("from", st.player)
 		var a: float = atan2(float(from.y) - e.y, float(from.x) - e.x)
-		var half: float = PGeom.deg(float(d.get("guardDeg", d.get("frontDeg", 0.0)))) / 2.0
+		var deg_key := "guardDeg" if d.has("guardDeg") else "frontDeg"
+		var mult_key := "guardMult" if d.has("guardMult") else "frontMult"
+		var half: float = PGeom.deg(dv(e, deg_key, 0.0)) / 2.0
 		if half > 0.0 and absf(PGeom.ang_diff(float(e.face), a)) <= half:
-			m = minf(m, float(d.get("guardMult", d.get("frontMult", 1.0))))
+			m = minf(m, dv(e, mult_key, 1.0))
 	if _rally_guard(st, e) and _blockable(opt): # 군단 기수 깃발의 방어 지원(중복 아님: 더 강한 쪽만)
 		m = minf(m, float(PCatalog.enemy("elite_standard").get("banner", {}).get("guardMult", 1.0)))
 	# 출격 준비물 '파쇄 기름': 방어 감소에 하한을 둔다. min으로 고른 결과에 **한 번만** 적용하고 곱하지 않는다
@@ -275,24 +367,59 @@ static func _blockable(opt: Dictionary) -> bool:
 	var sr: Dictionary = opt.get("src", {})
 	return bool(sr.get("direct", true)) and not bool(sr.get("extra", false)) and not bool(sr.get("skill", false)) and not opt.has("dot")
 
-# ---------- C. 주술사: 치료 시전(우선 처치 대상) ----------
-## 치료 대상: 자기·보스·주술사·지하 제외, 사거리 안에서 잃은 비율이 가장 큰 아군. 없으면 {}
+# ---------- C. 주술사: 강한 아군 우선 치료 + 공격 두 패턴 ----------
+## 2026-09-09 사용자 피드백 반영. 세 행동(치료 · 세 갈래 저주탄 · 저주 문양)은 **하나의 행동 상태를 공유**한다:
+## 한 행동을 끝내면 공용 간격(actGap)이 지나야 다음을 시작하므로 동시에·연달아 몰아 쓰지 않는다.
+## 정예급 연계(예고 → 확정 → 곧바로 다음 예고)는 일반 주술사에게 넣지 않았다 — 세 행동 모두 예고 → 확정 → 실행 → 빈틈 한 벌이다.
+## 수치는 data/pacing.json enemy_tuning.shaman이 정본이다(enemies.json은 내보내기 산출물이라 손대지 않는다).
+
+## 치료 대상 우선순위 등급(클수록 먼저). 특수 정예 → 일반 정예·우두머리 → 주력 적 → 일반 잡몹.
+## 역할은 pacing.json enemy_hp.roles 표를 그대로 쓴다(약한 무리 swarm만 잡몹).
+static func heal_rank(e: Dictionary, o: Dictionary) -> int:
+	var t := String(o.type)
+	if is_elite(t):
+		return int(dv(e, "heal_rank_special_elite", 3.0))
+	if bool(o.get("elite", false)) or bool((o.def as Dictionary).get("elite", false)):
+		return int(dv(e, "heal_rank_elite", 2.0))
+	var by_role: Dictionary = dvd(e, "heal_rank_by_role")
+	var role := String(PPacing.roles().get(t, ""))
+	if by_role.has(role):
+		return int(by_role[role])
+	return int(dv(e, "heal_rank_default", 0.0))
+
+## 치료 대상: 자기·보스·다른 주술사·지하·구조물 제외, **다치지 않은 적은 제외**(가득 찬 강적을 붙잡고
+## 다른 다친 아군을 무시하지 않는다). 사거리 안에서 우선순위 등급이 가장 높은 아군을 고르고,
+## 같은 등급 안에서는 **잃은 체력의 절대값**이 큰 쪽을 고른다. 무작위 선택도, 잃은 비율만 보는 선택도 하지 않는다. 없으면 {}
 static func heal_target(st: CombatState, e: Dictionary) -> Dictionary:
-	var d: Dictionary = e.def
 	var best := {}
-	var bs := 0.0
+	var best_rank := -1
+	var best_miss := -1.0
+	var reach := dv(e, "healRange", 0.0)
 	for o in st.enemies:
 		if o == e or bool(o.dead) or bool(o.boss) or bool((o.def as Dictionary).get("boss", false)) or String(o.type) == "shaman" or bool(o.get("hidden", false)):
 			continue
+		if bool(o.get("structure", false)): # 깃발·돌무더기·제단은 싸우는 아군이 아니다
+			continue
 		if float(o.hp) >= float(o.hp_max):
 			continue
-		if PGeom.dist(o.x, o.y, e.x, e.y) > float(d.healRange):
+		if PGeom.dist(o.x, o.y, e.x, e.y) > reach:
 			continue
-		var miss: float = 1.0 - float(o.hp) / float(o.hp_max)
-		if miss > bs:
-			bs = miss
+		var rk := heal_rank(e, o)
+		var miss: float = float(o.hp_max) - float(o.hp)
+		if rk > best_rank or (rk == best_rank and miss > best_miss):
+			best_rank = rk
+			best_miss = miss
 			best = o
 	return best
+
+## 지금 이 주술사가 치료 중인 대상(없으면 {}). 화면·계측이 읽는 관측 자료 — PEnemies.support_links가 이것으로 선을 만든다
+static func heal_link_target(e: Dictionary) -> Dictionary:
+	if String(e.type) != "shaman" or String(e.state) != "cast":
+		return {}
+	var tgv = e.get("cast_target")
+	if tgv == null or typeof(tgv) != TYPE_DICTIONARY or bool(tgv.dead):
+		return {}
+	return tgv
 
 static func update_shaman(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
@@ -304,14 +431,23 @@ static func update_shaman(st: CombatState, e: Dictionary, dt: float) -> void:
 	if not e.has("heal_t"):
 		e.heal_t = 2.0
 		e.hex_t = 1.5
+		e.rune_t = 3.0
+		e.act_t = 0.0
 	match String(e.state):
 		"approach":
 			keep_distance(st, e, d, dt, sm)
 			e.heal_t = float(e.heal_t) - dt
 			e.hex_t = float(e.hex_t) - dt
+			e.rune_t = float(e.rune_t) - dt
+			e.act_t = float(e.act_t) - dt
+			if float(e.act_t) > 0.0: # 세 행동이 공유하는 간격 — 치료와 공격을 동시에 몰아 쓰지 않는다
+				return
+			var may: bool = may_start(st, e, dt) # 한 단계에 한 번만 묻는다(여러 번 물으면 대기 시간이 두 배로 깎인다)
+			if not may:
+				return
 			if float(e.heal_t) <= 0.0:
 				var tg := heal_target(st, e)
-				if not tg.is_empty() and st.may_attack(e, dt):
+				if not tg.is_empty():
 					e.state = "cast"
 					e.state_t = 0.0
 					e.cast_target = tg
@@ -319,23 +455,36 @@ static func update_shaman(st: CombatState, e: Dictionary, dt: float) -> void:
 					st.note_attack(e, "prepare")
 					st.text(e.x, e.y - e.r - 26.0, "치료 시전", "#e9b6ff")
 					return
-			if float(e.hex_t) <= 0.0 and dist <= float(d.keepMax) + 40.0 and not st.los_blocked(e.x, e.y, p.x, p.y) and st.may_attack(e, dt):
+			if float(e.rune_t) <= 0.0 and dist <= dv(e, "runeRange", 0.0):
+				# 문양 위치는 **예고를 시작하는 지금** 확정한다. 그 뒤로는 플레이어를 따라가지 않는다
+				var pos := st.nearest_valid_pos(p.x, p.y, 0.0, 120.0)
+				e.rune_at = pos if not pos.is_empty() else [p.x, p.y]
+				e.state = "rune_aim"
+				e.state_t = 0.0
+				e.ready_t = -1.0
+				st.note_attack(e, "prepare")
+				st.text(e.x, e.y - e.r - 26.0, "저주 문양", "#e9b6ff")
+				st.ev("hazard_warn")
+				return
+			if float(e.hex_t) <= 0.0 and dist <= float(d.keepMax) + 40.0 and not st.los_blocked(e.x, e.y, p.x, p.y):
 				e.state = "hex_aim"
 				e.state_t = 0.0
 				e.ready_t = -1.0
 				st.note_attack(e, "prepare")
+				st.text(e.x, e.y - e.r - 26.0, "세 갈래 저주탄", "#e9b6ff")
 		"cast":
 			var tgv = e.get("cast_target")
 			e.state_t += adv
-			if tgv == null or bool(tgv.dead) or PGeom.dist(float(tgv.x), float(tgv.y), e.x, e.y) > float(d.healRange) + 40.0:
+			if tgv == null or bool(tgv.dead) or PGeom.dist(float(tgv.x), float(tgv.y), e.x, e.y) > dv(e, "healRange", 0.0) + 40.0:
 				e.cast_target = null
 				e.heal_t = float(d.healInterval) * 0.5
+				e.act_t = dv(e, "actGap", 0.0)
 				to_recover(st, e, 0.6, false)
 				return
 			if float(e.state_t) >= float(d.healCast):
 				var tg: Dictionary = tgv
 				var before: float = tg.hp
-				tg.hp = minf(float(tg.hp_max), float(tg.hp) + float(tg.hp_max) * float(d.healRatio))
+				tg.hp = minf(float(tg.hp_max), float(tg.hp) + float(tg.hp_max) * dv(e, "healRatio", 0.0))
 				var amt: float = float(tg.hp) - before
 				st.metrics.heals += 1
 				st.metrics.heal_amount += amt
@@ -344,23 +493,49 @@ static func update_shaman(st: CombatState, e: Dictionary, dt: float) -> void:
 				st.ev("orb")
 				st.note_attack(e, "execute")
 				e.heal_t = float(d.healInterval)
+				e.act_t = dv(e, "actGap", 0.0)
 				e.cast_target = null
 				to_recover(st, e, float(d.recover))
-		"hex_aim":
+		"hex_aim": # 예고: 조준선이 플레이어를 따라간다
 			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 			e.state_t += adv
 			if float(e.state_t) >= float(d.hexAim):
-				e.dir = e.aim_angle
-				var ang: float = e.dir
-				var pr_hex := { "owner": "enemy", "kind": "hex", "shooter": e, "x": e.x + cos(ang) * (e.r + 4.0), "y": e.y + sin(ang) * (e.r + 4.0), "vx": cos(ang) * float(d.hexSpeed), "vy": sin(ang) * float(d.hexSpeed), "r": float(d.hexR), "dmg": float(d.hexDamage), "ttl": 4.0, "angle": ang, "dead": false, "hits": {} }
-				CombatState.stamp_projectile(e, pr_hex)
-				st.projectiles.append(pr_hex)
+				e.state = "hex_lock"
+				e.state_t = 0.0
+				e.dir = e.aim_angle # 방향 확정 — 여기서부터 따라가지 않는다. 옆으로 이동하면 피할 수 있다
+				st.ev("lock")
+		"hex_lock": # 확정 뒤 짧은 고정 시간, 그다음 세 갈래로 발사
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "hexLock", 0.0):
+				var n: int = int(dv(e, "hexCount", 1.0))
+				var step: float = PGeom.deg(dv(e, "hexSpreadDeg", 0.0))
+				for i in n:
+					# 가운데 탄은 확정 시점의 플레이어 방향 그대로다(가만히 선 플레이어를 양옆으로 빗겨 쏘지 않는다)
+					_hex_bolt(st, e, d, float(e.dir) + (float(i) - float(n - 1) / 2.0) * step)
 				st.ev("shoot")
 				st.note_attack(e, "execute")
 				e.hex_t = float(d.hexInterval)
+				e.act_t = dv(e, "actGap", 0.0)
 				to_recover(st, e, float(d.recover), false)
+		"rune_aim": # 바닥 문양: 위치는 시작 때 이미 고정이라 예고 원이 플레이어를 따라오지 않는다
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "runeAim", 0.0):
+				var at: Array = e.rune_at
+				circle_hit(st, e, float(at[0]), float(at[1]), dv(e, "runeR", 0.0), dv(e, "runeDamage", 0.0), "shaman_rune")
+				st.ev("spore")
+				e.rune_t = dv(e, "runeInterval", 0.0)
+				e.act_t = dv(e, "actGap", 0.0)
+				e.erase("rune_at")
+				to_recover(st, e, dv(e, "runeRecover", 0.0))
 		"recover":
 			_recover_tick(e, adv)
+
+## 저주탄 한 발(기존 hex 투사체와 같은 종류·같은 발당 피해)
+static func _hex_bolt(st: CombatState, e: Dictionary, d: Dictionary, ang: float) -> void:
+	var pr := { "owner": "enemy", "kind": "hex", "shooter": e, "x": e.x + cos(ang) * (float(e.r) + 4.0), "y": e.y + sin(ang) * (float(e.r) + 4.0),
+		"vx": cos(ang) * float(d.hexSpeed), "vy": sin(ang) * float(d.hexSpeed), "r": float(d.hexR), "dmg": float(d.hexDamage), "ttl": 4.0, "angle": ang, "dead": false, "hits": {} }
+	CombatState.stamp_projectile(e, pr)
+	st.projectiles.append(pr)
 
 ## 막기 연출(사용자 확정): **실제 방어 판정이 일어난 순간에만** 방패 타격 효과·금속음·짧은 '방어' 표시.
 ## damage_enemy가 피해를 적용한 직후 같은 opt로 다시 물어보므로(shield_mult는 부작용 없는 조회) 판정과 연출이 어긋나지 않는다.
@@ -400,7 +575,7 @@ static func update_bomber(st: CombatState, e: Dictionary, dt: float) -> void:
 	match String(e.state):
 		"approach":
 			st.approach(e, p.x, p.y, float(d.speed) * sm, dt)
-			if dist <= float(d.engageDist) + e.r and st.may_attack(e, dt):
+			if dist <= float(d.engageDist) + e.r and may_start(st, e, dt):
 				e.state = "fuse"
 				e.state_t = 0.0
 				e.ready_t = -1.0
@@ -437,12 +612,12 @@ static func update_burrower(st: CombatState, e: Dictionary, dt: float) -> void:
 	match String(e.state):
 		"approach":
 			st.approach(e, p.x, p.y, float(d.speed) * sm, dt)
-			if dist <= float(d.engageDist) and float(e.burrow_cd) <= 0.0 and st.may_attack(e, dt):
+			if dist <= float(d.engageDist) and float(e.burrow_cd) <= 0.0 and may_start(st, e, dt):
 				e.state = "dive"
 				e.state_t = 0.0
 				e.ready_t = -1.0
 				st.note_attack(e, "prepare")
-			elif dist <= float(d.biteRange) + e.r and st.may_attack(e, dt):
+			elif dist <= float(d.biteRange) + e.r and may_start(st, e, dt):
 				e.state = "bite_aim"
 				e.state_t = 0.0
 				e.ready_t = -1.0
@@ -528,13 +703,13 @@ static func update_spider(st: CombatState, e: Dictionary, dt: float) -> void:
 			else:
 				keep_distance(st, e, d, dt, sm)
 			e.web_t = float(e.web_t) - dt
-			if dist <= float(d.biteRange) + e.r and st.may_attack(e, dt):
+			if dist <= float(d.biteRange) + e.r and may_start(st, e, dt):
 				e.state = "bite_aim"
 				e.state_t = 0.0
 				e.ready_t = -1.0
 				st.note_attack(e, "prepare")
 				return
-			if float(e.web_t) <= 0.0 and dist <= float(d.keepMax) + 60.0 and st.may_attack(e, dt): # 플레이어 진행 방향 앞(70)에 예고. 예고 위치는 시작 때 확정
+			if float(e.web_t) <= 0.0 and dist <= float(d.keepMax) + 60.0 and may_start(st, e, dt): # 플레이어 진행 방향 앞(70)에 예고. 예고 위치는 시작 때 확정
 				var ax: float = p.x + cos(float(p.face)) * 70.0
 				var ay: float = p.y + sin(float(p.face)) * 70.0
 				var pos := st.nearest_valid_pos(ax, ay, 0.0, 120.0)
@@ -587,7 +762,7 @@ static func update_frostcaller(st: CombatState, e: Dictionary, dt: float) -> voi
 		"approach":
 			keep_distance(st, e, d, dt, sm)
 			e.cast_t = float(e.cast_t) - dt
-			if float(e.cast_t) <= 0.0 and dist <= float(d.keepMax) + 60.0 and st.may_attack(e, dt): # 위치는 시전 시작 때 확정: 플레이어 위치 + 진행 방향으로 3개
+			if float(e.cast_t) <= 0.0 and dist <= float(d.keepMax) + 60.0 and may_start(st, e, dt): # 위치는 시전 시작 때 확정: 플레이어 위치 + 진행 방향으로 3개
 				var ang: float = float(p.face) if bool(p.moving) else st.rng.range_f(0.0, TAU)
 				var pts := []
 				for i in 3:
@@ -650,7 +825,7 @@ static func update_rogue(st: CombatState, e: Dictionary, dt: float) -> void:
 				var tx: float = p.x - n[0] * 30.0 + (-n[1]) * side * float(d.flankOffset)
 				var ty: float = p.y - n[1] * 30.0 + n[0] * side * float(d.flankOffset)
 				st.approach(e, tx, ty, float(d.speed) * sm, dt)
-			if dist <= float(d.engageDist) + e.r and st.may_attack(e, dt):
+			if dist <= float(d.engageDist) + e.r and may_start(st, e, dt):
 				e.state = "slash1_aim"
 				e.state_t = 0.0
 				e.ready_t = -1.0
@@ -711,7 +886,7 @@ static func elite_may_start(st: CombatState, e: Dictionary, dt: float) -> bool:
 	if elite_busy(st, e):
 		e.ready_t = -1.0
 		return false
-	return st.may_attack(e, dt)
+	return may_start(st, e, dt)
 
 ## 예고 시작 공통 처리(계측·표시)
 static func elite_begin(st: CombatState, e: Dictionary, state: String, label: String = "", color: String = "#ffb0b0") -> void:
@@ -1503,9 +1678,17 @@ static func threats(st: CombatState, e: Dictionary, out: Array) -> void:
 	elif type == "shieldbearer" and state == "bash_aim":
 		var prog: float = float(e.state_t) / float(d.aim)
 		out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.face, "r": float(d.bashRange) + float(d.lunge) + 20.0, "half": PGeom.deg(float(d.bashDeg)) / 2.0 + 0.2, "prog": prog, "locked": prog > 0.6 })
-	elif type == "shaman" and state == "hex_aim":
+	elif type == "shaman" and state == "hex_aim": # 예고: 아직 따라온다(확정 전)
 		var prog: float = float(e.state_t) / float(d.hexAim)
-		out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "len": 2000.0, "w": 40.0, "prog": prog, "locked": prog > 0.7 })
+		out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "len": 2000.0, "w": 40.0, "prog": prog, "locked": false })
+	elif type == "shaman" and state == "hex_lock": # 확정: 세 갈래가 각각 고정된 선으로 보인다(가운데가 플레이어 방향)
+		var n: int = int(dv(e, "hexCount", 1.0))
+		var step: float = PGeom.deg(dv(e, "hexSpreadDeg", 0.0))
+		for i in n:
+			out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": float(e.dir) + (float(i) - float(n - 1) / 2.0) * step, "len": 2000.0, "w": 40.0, "prog": 1.0, "locked": true, "center": i == n / 2 })
+	elif type == "shaman" and state == "rune_aim" and e.has("rune_at"): # 바닥 문양: 위치가 처음부터 확정이라 첫 프레임부터 locked
+		var at: Array = e.rune_at
+		out.append({ "kind": "circle", "e": e, "x": float(at[0]), "y": float(at[1]), "r": dv(e, "runeR", 0.0), "prog": float(e.state_t) / maxf(0.001, dv(e, "runeAim", 0.0)), "locked": true })
 	elif type == "bomber" and state == "fuse":
 		out.append({ "kind": "circle", "e": e, "x": e.x, "y": e.y, "r": float(d.blastR), "prog": float(e.state_t) / float(d.fuse), "locked": true })
 	elif type == "burrower" and state == "warn" and e.has("emerge_at"):

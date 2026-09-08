@@ -4,7 +4,9 @@ extends SceneTree
 ##      (직접: godot --headless --path prophecy_godot -s tests/elites_tests.gd)
 ##
 ## 무엇을 보는가
-##  - 방패병: 정면 감소 85%(100 → 15)가 실제 수치로 나오는지, 각도 경계·방어 유지/해제 구간·우회 관계·중복 없음.
+##  - 방패병: 정면 감소 **70%(100 → 30)**가 실제 수치로 나오는지, 각도 경계·방어 유지/해제 구간·우회 관계·중복 없음.
+##    (2026-09-09 사용자 확정으로 85% → 70%. 정예 검사의 방패 자세 0%는 전혀 다른 값이며 아래 작업 2에서 따로 본다.)
+##  - 주술사: 강한 다친 아군 우선 치료 · 가득 찬 강적 제외 · 세 갈래 저주탄 · 저주 문양 · 치료와 공격의 공용 간격.
 ##  - 정예 7종: 행동 순서 · 예고 시간 · 확정 뒤 추적 없음 · 빈틈 길이 · 피해 · 상한(구름·돌무더기·명령 예산).
 ## 사용자 확정값과 시험값을 구분해 이름에 적는다. 봇 승패는 통과 조건이 아니다(측정은 tests/elites_bot_measure.gd).
 
@@ -103,9 +105,10 @@ func _init() -> void:
 
 	# ================= 작업 1. 방패병(사용자 확정) =================
 	var SB: Dictionary = E.shieldbearer
-	ok("사용자 확정: 방패병 정면 피해 감소 85%(frontMult 0.15), 정면 각 120도 유지",
-		is_equal_approx(float(SB.frontMult), 0.15) and is_equal_approx(float(SB.frontDeg), 120.0),
-		"frontMult %.2f · frontDeg %.0f" % [float(SB.frontMult), float(SB.frontDeg)])
+	var SB_T := PEnemiesNew.tuning("shieldbearer") # 손으로 정한 값은 data/pacing.json이 정본(enemies.json은 내보내기 산출물)
+	ok("사용자 확정(2026-09-09): 방패병 정면 피해 감소 **70%**(frontMult 0.30), 정면 각 120도 유지",
+		is_equal_approx(float(SB_T.frontMult), 0.30) and is_equal_approx(float(SB.frontDeg), 120.0),
+		"frontMult %.2f(겹쳐쓰기) · frontDeg %.0f" % [float(SB_T.frontMult), float(SB.frontDeg)])
 
 	var st1 := lab()
 	var sb := put(st1, "shieldbearer", 600.0, 300.0)
@@ -113,14 +116,14 @@ func _init() -> void:
 	var front := probe(st1, sb, 0.0)
 	var side := probe(st1, sb, PI / 2.0)
 	var back := probe(st1, sb, PI)
-	ok("사용자 확정: 유효 정면 직접 피해 100 → 15 (측면·후면은 100 그대로)",
-		is_equal_approx(front, 15.0) and is_equal_approx(side, 100.0) and is_equal_approx(back, 100.0),
+	ok("사용자 확정: 유효 정면 직접 피해 100 → 30 (측면·후면은 100 그대로)",
+		is_equal_approx(front, 30.0) and is_equal_approx(side, 100.0) and is_equal_approx(back, 100.0),
 		"정면 %.1f / 측면 %.1f / 후면 %.1f" % [front, side, back])
 
 	var edge_in := probe(st1, sb, PGeom.deg(59.0))
 	var edge_out := probe(st1, sb, PGeom.deg(61.0))
 	ok("정면 각도 경계(±60도)에서 판정이 흔들리지 않는다: 59도 감소 · 61도 정상",
-		is_equal_approx(edge_in, 15.0) and is_equal_approx(edge_out, 100.0),
+		is_equal_approx(edge_in, 30.0) and is_equal_approx(edge_out, 100.0),
 		"59도 %.1f / 61도 %.1f" % [edge_in, edge_out])
 
 	# 우회 관계(현재 동작 그대로 유지 — 측정해서 남긴다)
@@ -138,7 +141,7 @@ func _init() -> void:
 		guard_states[s] = probe(st1, sb, 0.0)
 	sb.state = "approach"
 	ok("사용자 확정: 접근 중·방패치기 **준비 중**에는 방어 유지, 실제 방패치기와 그 뒤 빈틈에만 해제",
-		is_equal_approx(float(guard_states.approach), 15.0) and is_equal_approx(float(guard_states.bash_aim), 15.0)
+		is_equal_approx(float(guard_states.approach), 30.0) and is_equal_approx(float(guard_states.bash_aim), 30.0)
 		and is_equal_approx(float(guard_states.bash), 100.0) and is_equal_approx(float(guard_states.recover), 150.0),
 		"접근 %.1f / 준비 %.1f / 방패치기 %.1f / 빈틈 %.1f(빈틈은 노출 배율 1.5배가 곱해진 값)" % [float(guard_states.approach), float(guard_states.bash_aim), float(guard_states.bash), float(guard_states.recover)])
 
@@ -178,7 +181,7 @@ func _init() -> void:
 	ok("막기 연출: 실제 방어 판정에서만 방패 타격·금속음·'방어' 표시가 나온다(측면 타격에는 없다)",
 		has_block_text and has_metal and blocked_flag and not side_text and not (st_fx.events as Array).has("shatter"))
 
-	# 다른 방어 효과와 중복 적용되지 않는다(깃발 지원 0.85 × 방패 0.15 = 0.1275가 아니라, 강한 쪽 하나만)
+	# 다른 방어 효과와 중복 적용되지 않는다(깃발 지원 0.85 × 방패 0.30 = 0.255가 아니라, 강한 쪽 하나만)
 	var st_dbl := lab()
 	var sb4 := put(st_dbl, "shieldbearer", 600.0, 300.0)
 	sb4.face = 0.0
@@ -187,8 +190,8 @@ func _init() -> void:
 	bn.banner_ttl = 60.0
 	var both := probe(st_dbl, sb4, 0.0)
 	var only_banner := probe(st_dbl, sb4, PI)
-	ok("피해 감소가 겹쳐 적용되지 않는다: 깃발 지원(0.85) + 방패 정면(0.15)에서 15.0(=0.15만), 후면은 85.0(=0.85만)",
-		is_equal_approx(both, 15.0) and is_equal_approx(only_banner, 85.0),
+	ok("피해 감소가 겹쳐 적용되지 않는다: 깃발 지원(0.85) + 방패 정면(0.30)에서 30.0(=0.30만), 후면은 85.0(=0.85만)",
+		is_equal_approx(both, 30.0) and is_equal_approx(only_banner, 85.0),
 		"정면 %.1f / 후면 %.1f" % [both, only_banner])
 
 	# 출처 방향 규칙(문서와 코드가 같은지 확인)
@@ -204,7 +207,7 @@ func _init() -> void:
 	var fallback: float = 100000.0 - float(sb5.hp)
 	sb5.hp = no_from_hp
 	ok("출처 방향 규칙: opt.from(공격이 시작된 점)으로 판정하고, from이 없으면 플레이어 **현재 위치**로 대체한다",
-		is_equal_approx(from_player, 15.0) and is_equal_approx(from_behind, 100.0) and is_equal_approx(fallback, 15.0),
+		is_equal_approx(from_player, 30.0) and is_equal_approx(from_behind, 100.0) and is_equal_approx(fallback, 30.0),
 		"플레이어쪽 %.1f / 뒤쪽 %.1f / from 없음 %.1f" % [from_player, from_behind, fallback])
 
 	# 실제 무기 경로: 부채꼴 근접은 시전 위치, 투사체는 '충돌 직전' 위치를 출처로 쓴다(같은 무기·같은 배율로 비교)
@@ -221,9 +224,182 @@ func _init() -> void:
 	var prj := PWeapons.proj(st_w, wsw, { "kind": "arrow", "x": sbw.x + 40.0, "y": sbw.y, "vx": -400.0, "vy": 0.0, "r": 4.0, "speed": 400.0 })
 	PWeapons.on_projectile_hit(st_w, prj, sbw)
 	var proj_lost: float = 100000.0 - float(sbw.hp)
-	ok("무기 경로 확인: 근접 부채꼴은 시전 위치(플레이어 뒤 → 후면 = 감소 없음), 투사체는 충돌 직전 위치(정면에서 날아옴 → 15%만)",
-		arc_lost > 0.0 and near(proj_lost / maxf(arc_lost, 0.001), 0.15, 0.01),
+	ok("무기 경로 확인: 근접 부채꼴은 시전 위치(플레이어 뒤 → 후면 = 감소 없음), 투사체는 충돌 직전 위치(정면에서 날아옴 → 30%만)",
+		arc_lost > 0.0 and near(proj_lost / maxf(arc_lost, 0.001), 0.30, 0.01),
 		"근접 %.1f / 투사체 %.1f (비 %.3f)" % [arc_lost, proj_lost, proj_lost / maxf(arc_lost, 0.001)])
+
+	# ================= 작업 1-2. 주술사(사용자 피드백 2026-09-09) =================
+	var SH_T := PEnemiesNew.tuning("shaman")
+	ok("시험값: 치료량 30%% → **20%%**(healRatio 0.20)", is_equal_approx(float(SH_T.healRatio), 0.20),
+		"healRatio %.2f(겹쳐쓰기)" % float(SH_T.healRatio))
+
+	# --- 치료 대상 우선순위: 특수 정예 → 일반 정예·우두머리 → 주력 적 → 일반 잡몹 ---
+	var st_h := lab()
+	var sh := put(st_h, "shaman", 600.0, 300.0)
+	var t_fang := put(st_h, "elite_fang", 640.0, 300.0)
+	var t_alpha := put(st_h, "wolf_alpha", 660.0, 300.0)
+	var t_wolf := put(st_h, "wolf", 680.0, 300.0)
+	var t_spider := put(st_h, "spider", 700.0, 300.0)
+	# 잃은 체력의 절대값은 **낮은 순위 쪽이 훨씬 크게** 만들어 둔다 — 그래도 순위가 이겨야 한다
+	t_fang.hp = float(t_fang.hp_max) - 1.0
+	t_alpha.hp = float(t_alpha.hp_max) - 2.0
+	t_wolf.hp = float(t_wolf.hp_max) - 20.0
+	t_spider.hp = 1.0
+	var pick1 := PEnemiesNew.heal_target(st_h, sh)
+	t_fang.dead = true
+	var pick2 := PEnemiesNew.heal_target(st_h, sh)
+	t_alpha.dead = true
+	var pick3 := PEnemiesNew.heal_target(st_h, sh)
+	t_wolf.dead = true
+	var pick4 := PEnemiesNew.heal_target(st_h, sh)
+	ok("사용자 지시: 치료 우선순위 = 특수 정예 → 일반 정예·우두머리 → 주력 적 → 일반 잡몹(잃은 체력이 더 커도 순위가 이긴다)",
+		pick1 == t_fang and pick2 == t_alpha and pick3 == t_wolf and pick4 == t_spider,
+		"%s → %s → %s → %s" % [String(pick1.get("type", "없음")), String(pick2.get("type", "없음")), String(pick3.get("type", "없음")), String(pick4.get("type", "없음"))])
+
+	# 같은 순위 안에서는 **잃은 체력의 절대값**이 큰 쪽(잃은 비율이 아니다)
+	var st_a := lab()
+	var sh_a := put(st_a, "shaman", 600.0, 300.0)
+	var a_wolf := put(st_a, "wolf", 640.0, 300.0)      # 최대 체력이 작다 → 비율은 크고 절대값은 작다
+	var a_shield := put(st_a, "shieldbearer", 660.0, 300.0) # 최대 체력이 크다 → 비율은 작고 절대값은 크다
+	a_wolf.hp = float(a_wolf.hp_max) - 20.0
+	a_shield.hp = float(a_shield.hp_max) - 30.0
+	var pick_abs := PEnemiesNew.heal_target(st_a, sh_a)
+	ok("같은 순위 안에서는 **잃은 체력의 절대값**이 큰 쪽을 고른다(잃은 비율로 고르지 않는다)",
+		pick_abs == a_shield,
+		"늑대 잃음 20(비율 %.2f) / 방패병 잃음 30(비율 %.2f) → %s" % [20.0 / float(a_wolf.hp_max), 30.0 / float(a_shield.hp_max), String(pick_abs.get("type", "없음"))])
+
+	# 가득 찬 강적은 대상이 아니다 + 자기·다른 주술사·보스는 제외(기존 규칙 유지)
+	var st_f := lab()
+	var sh_f := put(st_f, "shaman", 600.0, 300.0)
+	var f_fang := put(st_f, "elite_fang", 640.0, 300.0) # 체력 가득
+	var f_wolf := put(st_f, "wolf", 660.0, 300.0)
+	f_wolf.hp = float(f_wolf.hp_max) - 5.0
+	var pick_full := PEnemiesNew.heal_target(st_f, sh_f)
+	sh_f.hp = float(sh_f.hp_max) - 30.0
+	var sh_f2 := put(st_f, "shaman", 620.0, 300.0)
+	sh_f2.hp = float(sh_f2.hp_max) - 30.0
+	var boss_f := put(st_f, "boss", 700.0, 300.0)
+	boss_f.hp = float(boss_f.hp_max) - 500.0
+	var pick_excl := PEnemiesNew.heal_target(st_f, sh_f)
+	ok("가득 찬 강적을 붙잡고 다친 아군을 무시하지 않는다 + 자기·다른 주술사·보스는 대상 제외(기존 규칙 유지)",
+		pick_full == f_wolf and pick_excl == f_wolf and not f_fang.dead,
+		"가득 찬 정예 있어도 %s / 자기·주술사·보스 제외 뒤에도 %s" % [String(pick_full.get("type", "없음")), String(pick_excl.get("type", "없음"))])
+
+	# 치료량 20%와 관측 자료(누구를 치료 중인지)
+	var st_c := lab()
+	var sh_c := put(st_c, "shaman", 600.0, 300.0)
+	var c_wolf := put(st_c, "wolf", 640.0, 300.0)
+	c_wolf.hp = 1.0
+	sh_c.heal_t = 0.0
+	sh_c.hex_t = 99.0
+	sh_c.rune_t = 99.0
+	sh_c.act_t = 0.0
+	until(st_c, sh_c, "cast", 4.0)
+	var links := []
+	PEnemies.support_links(st_c, links)
+	var hp_before: float = c_wolf.hp
+	play(st_c, float(PCatalog.enemy("shaman").healCast) + 0.2)
+	var healed: float = float(c_wolf.hp) - hp_before
+	ok("치료량은 대상 최대 체력의 20%%이고, **지금 누구를 치료 중인지**가 관측 자료(PEnemies.support_links)로 나온다",
+		near(healed, float(c_wolf.hp_max) * 0.20, 0.5) and links.size() == 1 and links[0].target == c_wolf and String(links[0].kind) == "heal_link",
+		"회복 %.1f(최대 %.1f의 20%% = %.1f) · 연결선 %d개" % [healed, float(c_wolf.hp_max), float(c_wolf.hp_max) * 0.2, links.size()])
+
+	# 시전 중단(기존 대응 유지)
+	var st_i := lab()
+	var sh_i := put(st_i, "shaman", 600.0, 300.0)
+	var i_wolf := put(st_i, "wolf", 640.0, 300.0)
+	i_wolf.hp = 1.0
+	sh_i.heal_t = 0.0
+	sh_i.hex_t = 99.0
+	sh_i.rune_t = 99.0
+	sh_i.act_t = 0.0
+	until(st_i, sh_i, "cast", 4.0)
+	sh_i.hp = 100000.0
+	sh_i.hp_max = 100000.0
+	st_i.damage_enemy(sh_i, 30.0, { "src": { "direct": true } })
+	ok("강한 타격(12 이상)으로 치료 시전이 끊긴다(기존 대응 유지)",
+		String(sh_i.state) == "recover" and sh_i.get("cast_target") == null and int(st_i.metrics.interrupts) == 1,
+		"상태 %s · 중단 %d회" % [String(sh_i.state), int(st_i.metrics.interrupts)])
+
+	# --- 공격 A. 세 갈래 저주탄 ---
+	var st_x := lab()
+	var sh_x := put(st_x, "shaman", st_x.player.x + 250.0, st_x.player.y)
+	sh_x.heal_t = 99.0
+	sh_x.rune_t = 99.0
+	sh_x.hex_t = 0.0
+	sh_x.act_t = 0.0
+	until(st_x, sh_x, "hex_lock", 6.0)
+	var lock_dir: float = sh_x.dir
+	var want_dir: float = atan2(st_x.player.y - sh_x.y, st_x.player.x - sh_x.x)
+	st_x.player.y += 260.0 # 확정 뒤에 크게 움직인다 — 따라오면 안 된다
+	play(st_x, float(SH_T.hexLock) + 0.1)
+	var bolts := []
+	for pr in st_x.projectiles:
+		if String(pr.kind) == "hex":
+			bolts.append(float(pr.angle))
+	bolts.sort()
+	var step_deg := PGeom.deg(float(SH_T.hexSpreadDeg))
+	var center_ok: bool = bolts.size() == 3 and near(PGeom.ang_diff(lock_dir, float(bolts[1])), 0.0, 0.01)
+	ok("공격 A: 한 발 평타 → **세 갈래 저주탄**이고, **가운데 탄은 조준 확정 시점의 플레이어 방향**이다",
+		center_ok and near(PGeom.ang_diff(lock_dir, want_dir), 0.0, 0.01),
+		"탄 %d발 · 확정 방향 %.1f도 · 확정 시점 플레이어 방향 %.1f도" % [bolts.size(), lock_dir * 180.0 / PI, want_dir * 180.0 / PI])
+	var spread_ok: bool = bolts.size() == 3 and near(absf(PGeom.ang_diff(float(bolts[0]), float(bolts[1]))), step_deg, 0.01) and near(absf(PGeom.ang_diff(float(bolts[2]), float(bolts[1]))), step_deg, 0.01)
+	ok("공격 A: 예고(hex_aim)는 따라오지만 확정(hex_lock) 뒤에는 방향이 고정된다 — 옆으로 이동해 피할 수 있다",
+		spread_ok and near(PGeom.ang_diff(lock_dir, float(bolts[1])), 0.0, 0.01),
+		"±%.0f도 · 크게 움직인 뒤에도 가운데 탄 %.1f도(확정 %.1f도)" % [step_deg * 180.0 / PI, float(bolts[1]) * 180.0 / PI, lock_dir * 180.0 / PI])
+
+	# --- 공격 B. 저주 문양 ---
+	var st_r := lab()
+	var sh_r := put(st_r, "shaman", st_r.player.x + 250.0, st_r.player.y)
+	sh_r.heal_t = 99.0
+	sh_r.hex_t = 99.0
+	sh_r.rune_t = 0.0
+	sh_r.act_t = 0.0
+	until(st_r, sh_r, "rune_aim", 4.0)
+	var rune_at0: Array = (sh_r.rune_at as Array).duplicate()
+	var px0: float = st_r.player.x
+	var py0: float = st_r.player.y
+	st_r.player.x += 240.0 # 예고 중 크게 이동 — 문양이 따라오면 안 된다
+	play(st_r, float(SH_T.runeAim) * 0.5)
+	var th_r := []
+	PEnemies.threats(st_r, sh_r, th_r)
+	var fixed_ok: bool = near(float((sh_r.rune_at as Array)[0]), float(rune_at0[0]), 0.001) and near(float((sh_r.rune_at as Array)[1]), float(rune_at0[1]), 0.001)
+	var shown_ok: bool = th_r.size() == 1 and String(th_r[0].kind) == "circle" and bool(th_r[0].locked) \
+		and near(float(th_r[0].x), float(rune_at0[0]), 0.001) and near(float(th_r[0].r), float(SH_T.runeR), 0.001)
+	ok("공격 B: 저주 문양은 **예고를 시작한 자리에 고정**된다(예고가 끝날 때까지 플레이어를 따라다니지 않는다)",
+		fixed_ok and near(float(rune_at0[0]), px0, 1.0) and near(float(rune_at0[1]), py0, 1.0),
+		"예고 시작 자리 (%.0f, %.0f) · 플레이어 240 이동 뒤 문양 (%.0f, %.0f)" % [float(rune_at0[0]), float(rune_at0[1]), float((sh_r.rune_at as Array)[0]), float((sh_r.rune_at as Array)[1])])
+	ok("공격 B: 문양이 고정되는 시점(첫 프레임부터 locked)과 실제 폭발 범위(반지름 %.0f)가 예고 도형으로 보인다" % float(SH_T.runeR),
+		shown_ok, "예고 도형 %d개" % th_r.size())
+
+	# --- 치료와 공격이 행동 상태를 공유한다 ---
+	var st_g := lab()
+	var sh_g := put(st_g, "shaman", st_g.player.x + 250.0, st_g.player.y)
+	var g_wolf := put(st_g, "wolf", sh_g.x + 40.0, sh_g.y)
+	g_wolf.hp = 1.0
+	g_wolf.state = "bite_recover" # 늑대가 스스로 움직여 사거리를 벗어나지 않게 묶어 둔다
+	g_wolf.state_t = -1000.0
+	sh_g.heal_t = 0.0
+	sh_g.hex_t = 0.0
+	sh_g.rune_t = 0.0
+	sh_g.act_t = 0.0
+	play(st_g, 1.0 / 120.0)
+	var first_state := String(sh_g.state)
+	var multi := first_state != "approach" # 셋이 동시에 시작되지 않고 하나만 시작한다
+	# 첫 행동이 끝나 approach로 돌아온 시각 → 다음 행동이 시작된 시각
+	until(st_g, sh_g, "approach", 12.0)
+	var gap_t0: float = st_g.t
+	var n_gap := int(round(12.0 / STEP))
+	var gap_t1 := -1.0
+	for i in n_gap:
+		st_g.step({}, STEP)
+		st_g.player.hp = st_g.player.hp_max
+		if String(sh_g.state) != "approach":
+			gap_t1 = st_g.t
+			break
+	ok("치료·저주탄·문양은 **행동 상태를 공유**한다: 한 번에 하나만 시작하고, 다음 행동까지 공용 간격(%.1f초) 이상 쉰다" % float(SH_T.actGap),
+		multi and gap_t1 > 0.0 and (gap_t1 - gap_t0) >= float(SH_T.actGap) - 0.05,
+		"첫 행동 %s · 다음 행동까지 %.2f초" % [first_state, gap_t1 - gap_t0])
 
 	# ================= 작업 2. 특수 정예 7종 =================
 	var TYPES := ["elite_archer", "elite_blademaster", "elite_fang", "elite_plaguecaller", "elite_chainbreaker", "elite_standard", "elite_miner"]
@@ -356,7 +532,7 @@ func _init() -> void:
 	var g_front := probe(stb3, bl3, float(bl3.face))
 	var g_side := probe(stb3, bl3, float(bl3.face) + PI / 2.0)
 	var g_ground := probe(stb3, bl3, float(bl3.face), { "src": { "direct": false, "extra": true, "tag": "common:ember" } })
-	ok("B 방패 자세: 정면 직접 피해 **완전 차단**(0) — 일반 방패병 85% 감소(15)와 구분. 측면·바닥은 그대로",
+	ok("B 방패 자세: 정면 직접 피해 **완전 차단**(0) — 일반 방패병 70% 감소(30)와 구분. 측면·바닥은 그대로",
 		is_equal_approx(g_front, 0.0) and is_equal_approx(g_side, 100.0) and is_equal_approx(g_ground, 100.0),
 		"정면 %.1f / 측면 %.1f / 바닥 %.1f" % [g_front, g_side, g_ground])
 
@@ -586,6 +762,7 @@ func _init() -> void:
 	ok("정예 7종 모두 봇·화면이 읽는 예고 도형을 내보낸다(예고 없는 공격 없음)", no_threat.is_empty(), str(no_threat))
 
 	placement_tests()
+	encounter_count_tests()
 
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
@@ -865,3 +1042,84 @@ func placement_tests() -> void:
 	var nt2 := PSortie.elite_notice(run3, { "regionId": "t2a_pilgrim", "formationId": "t2a_risk" })
 	ok("카드 표시에 강적 이름과 보상 종류가 함께 나온다: %s" % String(nt2.text),
 		bool(nt2.present) and String(nt2.text).contains("강적 출현") and String(nt2.text).contains("보상"))
+
+# ================= 작업 4. 특수 정예 조우 빈도(실제 회차의 하루 카드로 센다) =================
+## 사용자 지시: "편성표에 이름이 있다는 것만으로 완료로 치지 마라. 대표 실제 회차(여러 시드)를 돌려
+## 종류별 조우 수를 세어 표로 남겨라." 그래서 **실제 카드 생성기**(PSortie.cards_for)를 시드별·날짜별로
+## 그대로 돌리고, 각 카드의 강적 예고(PSortie.elite_notice)를 센다. 카드를 고르면 그 강적을 만난다.
+## 전투를 끝까지 돌리지 않는 이유는 여기서 보려는 것이 '만날 기회가 실제로 있는가'이기 때문이다
+## (정예의 행동·처치 시간은 tests/elite_placement_measure.gd·tests/elites_bot_measure.gd가 따로 잰다).
+const ENC_SEEDS := [1, 2, 3, 4, 5, 6, 7, 8]
+
+func encounter_count_tests() -> void:
+	var by_type := {}      # 정예 종류 → 예고된 카드 수
+	var by_act := {}       # 막 → [강적 카드, 전체 카드]
+	var days := [1, 2, 3, 4, 5, 6, 7, 8, 9]
+	# 경로는 시드마다 다르게 잡는다(기본 경로만 보면 다른 테마의 정예를 영영 못 본다 — 실제로 이 검사가 그 구멍을 찾아냈다)
+	var themes_of := { 1: [], 2: [], 3: [] }
+	for tid in PCatalog.themes():
+		var t: Dictionary = PCatalog.themes()[tid]
+		(themes_of[int(t.act)] as Array).append(String(tid))
+	for a in themes_of:
+		(themes_of[a] as Array).sort()
+	for s in ENC_SEEDS:
+		var route := []
+		for a in [1, 2, 3]:
+			var lst: Array = themes_of[a]
+			route.append(String(lst[int(s) % lst.size()]))
+		for d in days:
+			var run := PRun.new_run(int(s), "sword", "", { "route": route })
+			run.day = int(d)
+			run.stage = (0 if int(d) <= 3 else (1 if int(d) <= 7 else 2))
+			var act: int = run.stage + 1
+			if not by_act.has(act):
+				by_act[act] = [0, 0]
+			for c in PSortie.cards_for(run):
+				(by_act[act] as Array)[1] = int((by_act[act] as Array)[1]) + 1
+				var nt := PSortie.elite_notice(run, c)
+				if not bool(nt.present):
+					continue
+				(by_act[act] as Array)[0] = int((by_act[act] as Array)[0]) + 1
+				for tp in (nt.types as Array):
+					by_type[String(tp)] = int(by_type.get(String(tp), 0)) + 1
+
+	# 표를 사람이 읽게 남긴다(수치는 전부 측정값)
+	print("")
+	print("[특수 정예 조우 빈도] 시드 %s · 1~9일 · 실제 카드 생성기" % str(ENC_SEEDS))
+	print("| 정예 | 예고된 카드 수 |")
+	print("|---|---:|")
+	for tp in PEnemiesNew.ELITE_TYPES:
+		print("| %s | %d |" % [String(PCatalog.enemy(String(tp)).name), int(by_type.get(String(tp), 0))])
+	var acts := by_act.keys()
+	acts.sort()
+	for a in acts:
+		var row: Array = by_act[a]
+		print("%d막: 전체 카드 %d장 중 강적 예고 %d장(%.0f%%)" % [int(a), int(row[1]), int(row[0]), float(row[0]) / float(maxi(1, int(row[1]))) * 100.0])
+	print("")
+
+	var never := []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		if int(by_type.get(String(tp), 0)) <= 0:
+			never.append(String(tp))
+	ok("특수 정예 7종이 모두 **실제 회차의 카드**에 나온다(편성표에 이름만 있는 종류가 없다)",
+		never.is_empty(), "한 번도 안 나온 종류: %s" % (str(never) if not never.is_empty() else "없음"))
+
+	var all_cards := 0
+	var elite_cards := 0
+	for a in acts:
+		var row: Array = by_act[a]
+		elite_cards += int(row[0])
+		all_cards += int(row[1])
+	var frac := float(elite_cards) / float(maxi(1, all_cards))
+	ok("일반 경로에서도 존재를 알 수 있을 만큼 만나되(0이 아님), 모든 일반 전투에 의무로 넣지는 않는다(절반 미만)",
+		frac > 0.05 and frac < 0.5, "전체 카드 %d장 중 강적 예고 %d장(%.0f%%)" % [all_cards, elite_cards, frac * 100.0])
+
+	# --- 역할 읽기 자료(외형은 render.gd 담당, 자료는 여기가 정본) ---
+	var rd_bad := []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		var row: Dictionary = PCatalog.elite_def(String(tp)).get("read", {})
+		for f in ["held", "silhouette", "tell", "role_text", "distance"]:
+			if String(row.get(f, "")).strip_edges() == "":
+				rd_bad.append("%s.%s" % [String(tp), String(f)])
+	ok("정예 7종 모두 **역할을 읽을 수 있게 하는 자료**가 있다(무엇을 들었는지·예고에서 어디가 커지는지·어느 거리를 잡아야 하는지)",
+		rd_bad.is_empty(), str(rd_bad))
