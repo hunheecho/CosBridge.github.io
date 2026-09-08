@@ -181,6 +181,12 @@
       "timeout_sec": 600,
       "desc": "장애물 충돌·접촉 탈출 규칙"
     },
+    "terrain_tests": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "랜덤 지형 추첨(상한·하한·통로 폭·고립·목표 도달·재현성)과 시작 위치(KD-3)",
+      "env_reason": "환경 변수 없이 전체 축(전장 17 × 시드 12)으로 돈다. PROPHECY_SUBSET=2처럼 축을 줄이면 부분 실행이 되고, 그 사실이 첫 줄에 남는다."
+    },
     "elites_tests": {
       "env": {},
       "timeout_sec": 600,
@@ -231,6 +237,7 @@
     "all": [
       "run_tests",
       "collision_tests",
+      "terrain_tests",
       "port_tests",
       "boss_tests",
       "boss3_tests",
@@ -256,6 +263,7 @@
     "rules": [
       "run_tests",
       "collision_tests",
+      "terrain_tests",
       "port_tests",
       "balance_tests",
       "acts_tests",
