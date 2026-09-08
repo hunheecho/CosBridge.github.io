@@ -15,6 +15,14 @@ extends Control
 
 const MANUAL := ["dodge", "q", "e"]
 
+## 색은 여기서만 정한다. 체력은 붉은 계열로 전장에서 가장 먼저 눈에 들어와야 하고(사용자 지시),
+## 보호막은 파란 계열로 같은 막대에 섞지 않는다. 시험이 이 관계를 그대로 확인한다.
+const HP_FILL := Color(0.82, 0.20, 0.20, 0.96)
+const HP_BACK := Color(0.16, 0.06, 0.07, 0.92)
+const HP_EDGE := Color(0.55, 0.24, 0.24, 0.9)
+const SHIELD_FILL := Color(0.42, 0.72, 1.0, 0.95)
+const SHIELD_BACK := Color(0.08, 0.12, 0.20, 0.9)
+
 var st: CombatState = null
 var touch_mode := false                 # 터치일 때 키 라벨을 숨긴다(터치 버튼은 PTouchControls가 그린다)
 
@@ -65,22 +73,22 @@ class PHealth extends Control:
 		var w: float = size.x
 		var bar_h: float = 26.0
 		# 체력 막대: 어두운 바탕 + 빨간 채움
-		PRender.rrect(self, 0.0, 0.0, w, bar_h, 5.0, Color(0.16, 0.06, 0.07, 0.92))
+		PRender.rrect(self, 0.0, 0.0, w, bar_h, 5.0, PCombatHud.HP_BACK)
 		var k: float = clampf(hp / maxf(1.0, hp_max), 0.0, 1.0)
 		if k > 0.0:
-			PRender.rrect(self, 0.0, 0.0, maxf(4.0, w * k), bar_h, 5.0, Color(0.82, 0.20, 0.20, 0.96))
-		draw_rect(Rect2(0.0, 0.0, w, bar_h), Color(0.55, 0.24, 0.24, 0.9), false, 1.0)
+			PRender.rrect(self, 0.0, 0.0, maxf(4.0, w * k), bar_h, 5.0, PCombatHud.HP_FILL)
+		draw_rect(Rect2(0.0, 0.0, w, bar_h), PCombatHud.HP_EDGE, false, 1.0)
 		# 큰 숫자(체력만). 보호막은 절대 여기에 더하지 않는다
-		PRender.txt(self, 8.0, bar_h - 7.0, "%d" % int(ceil(hp)), 20, Color(1, 1, 1, 0.98), -1, true)
+		PRender.txt(self, 8.0, bar_h - 6.0, "%d" % int(ceil(hp)), 22, Color(1, 1, 1, 0.98), -1, true)
 		PRender.txt(self, w - 8.0, bar_h - 9.0, "/ %d" % int(hp_max), 13, Color(0.94, 0.86, 0.86, 0.97), 1, true)
 		if shield <= 0.0:
 			return
 		# 보호막: 체력 막대와 색·위치·글자를 모두 분리한다
 		var sy: float = bar_h + 2.0
 		var sh: float = 7.0
-		PRender.rrect(self, 0.0, sy, w, sh, 3.0, Color(0.08, 0.12, 0.20, 0.9))
+		PRender.rrect(self, 0.0, sy, w, sh, 3.0, PCombatHud.SHIELD_BACK)
 		var sk: float = clampf(shield / maxf(1.0, shield_max), 0.0, 1.0)
-		PRender.rrect(self, 0.0, sy, maxf(3.0, w * sk), sh, 3.0, Color(0.42, 0.72, 1.0, 0.95))
+		PRender.rrect(self, 0.0, sy, maxf(3.0, w * sk), sh, 3.0, PCombatHud.SHIELD_FILL)
 		PRender.txt(self, w - 2.0, sy + sh + 10.0, "보호막 %d" % int(ceil(shield)), 12, Color(0.66, 0.84, 1.0, 0.98), 1, true)
 
 # ---------- 구성 ----------

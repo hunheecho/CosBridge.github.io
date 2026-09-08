@@ -120,6 +120,76 @@ static func fmt(n: float) -> String:
 		return str(int(v))
 	return str(v)
 
+## 데이터의 서비스 이름은 '무료 휴식권'이지만, 화면에서는 '무료'가 아니라 '시간 소모 없음'으로 적는다.
+## 사는 값이 100금이라 '무료'는 값을 오해하게 만든다(사용자 지시 2026-09-09). 이름 자체(data/missions.json)는 규칙 담당 몫이라 표시만 통일한다.
+static func rest_ticket_name() -> String: return "휴식권"
+static func rest_ticket_note() -> String: return "시간 소모 없음"
+
+## 한국어 조사(을/를 · 은/는 · 이/가): 마지막 글자의 받침으로 고른다. 이름을 문장에 그대로 넣기 위한 표시 도우미
+static func josa(word: String, with_batchim: String, without: String) -> String:
+	if word.is_empty():
+		return without
+	var code := word.unicode_at(word.length() - 1)
+	if code < 0xAC00 or code > 0xD7A3:
+		return without
+	return with_batchim if (code - 0xAC00) % 28 != 0 else without
+
+## 장착·해제 전후로 실제로 바뀌는 파생 수치(PBuild.derive 결과 두 개를 비교한다 — 여기서 계산하지 않는다)
+static func diff_text(before: Dictionary, after: Dictionary) -> String:
+	var parts := []
+	parts.append("최대 체력 [b]%d → %d[/b]" % [int(float(before.hp_max)), int(float(after.hp_max))])
+	parts.append("이동 [b]×%s → ×%s[/b]" % [fmt(float(before.speed_mult)), fmt(float(after.speed_mult))])
+	if float(before.shield) != float(after.shield):
+		parts.append("시작 보호막 %d → %d" % [int(float(before.shield)), int(float(after.shield))])
+	if float(before.range_mult) != float(after.range_mult):
+		parts.append("사거리 ×%s → ×%s" % [fmt(float(before.range_mult)), fmt(float(after.range_mult))])
+	return " · ".join(parts)
+
+## 무기 한 번의 공격이 실제로 어떻게 나가는가: "6 × 3연타 (간격 0.09초)"처럼 연타 수·간격까지 적는다.
+## "피해 6"만 적으면 실제 화력을 절반 이하로 읽게 된다(사용자 지시 2026-09-09).
+## 값은 PBuild.weapon_stats가 준 파생 수치를 읽기만 한다 — 여기서 곱하거나 더하지 않는다.
+static func weapon_damage_text(wd: Dictionary) -> String:
+	var dmg := fmt(float(wd.get("damage", 0.0)))
+	var hits := int(wd.get("hits", 1))
+	var count := int(wd.get("count", 1))
+	var hops := int(wd.get("hops", 1))
+	var gap := float(wd.get("hitGap", 0.0))
+	if hits > 1:
+		return "%s × %d연타%s" % [dmg, hits, (" (간격 %s초)" % fmt(gap)) if gap > 0.0 else ""]
+	if count > 1:
+		return "%s × 칼날 %d개%s" % [dmg, count, (" (같은 적 %s초마다)" % fmt(gap)) if gap > 0.0 else ""]
+	if hops > 1:
+		return "%s · 최대 %d번 튕김" % [dmg, hops]
+	return dmg
+
+## 공격 구조 · 주기 · 사거리 한 줄
+static func weapon_stats_text(wd: Dictionary) -> String:
+	var parts := [weapon_damage_text(wd), "주기 %s초" % fmt(float(wd.get("interval", 0.0)))]
+	if float(wd.get("range", 0.0)) > 0.0:
+		parts.append("사거리 %d" % int(round(float(wd.range))))
+	return " · ".join(parts)
+
+## 카탈로그 기본값(회차 밖·상점 후보)용 공격 구조 한 줄. base 사전을 그대로 읽는다
+static func weapon_base_text(base: Dictionary) -> String:
+	return weapon_stats_text(base)
+
+## 아이콘 칸을 누를 수 있게 만든다: 그리기는 PIconTile 그대로, 위에 같은 크기의 평평한 Button을 씌운다.
+## PC 클릭·터치 탭·키보드 포커스가 모두 같은 경로로 들어온다(사용자 지시: 같은 정보에 두 방식 모두로 닿는다).
+static func icon_pick(tile: PIconTile, cb: Callable, hint: String = "") -> Button:
+	var b := Button.new()
+	b.flat = true
+	b.focus_mode = Control.FOCUS_ALL
+	b.custom_minimum_size = tile.custom_minimum_size
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.tooltip_text = hint
+	if cb.is_valid():
+		b.pressed.connect(cb)
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	b.add_child(tile)
+	return b
+
 static func mats_text(mats: Dictionary) -> String:
 	var parts := []
 	var M := PCatalog.materials()
@@ -216,8 +286,7 @@ static func build_panel(run: Dictionary) -> Control:
 		var mods := []
 		for mid in wd.mods:
 			mods.append(String(wd.def.mods[String(mid)].name))
-		var rng_txt := (" · 사거리 %d" % int(round(float(wd.range)))) if float(wd.range) > 0.0 else ""
-		box.add_child(rich("  [b]%s[/b] Lv%d/%d [color=#9ea8b8]피해 %s · 주기 %s초%s[/color] · %s %d/%d: %s" % [PGlossaryTip.term("w:" + String(wd.id), String(wd.name)), int(wd.level), int(S.weaponMax), fmt(float(wd.damage)), fmt(float(wd.interval)), rng_txt, PGlossaryTip.term("mod", "개조"), mods.size(), int(S.weaponMods), (", ".join(mods) if mods.size() > 0 else "없음")], 14))
+		box.add_child(rich("  [b]%s[/b] Lv%d/%d [color=#9ea8b8]%s[/color] · %s %d/%d: %s" % [PGlossaryTip.term("w:" + String(wd.id), String(wd.name)), int(wd.level), int(S.weaponMax), weapon_stats_text(wd), PGlossaryTip.term("mod", "개조"), mods.size(), int(S.weaponMods), (", ".join(mods) if mods.size() > 0 else "없음")], 14))
 	for i in int(S.weapons) - (b.weapons as Array).size():
 		box.add_child(rich("  [color=#6a7078]빈 자동기술 슬롯[/color]", 14))
 	box.add_child(rich("[b]수동 기술[/b]", 15))
@@ -284,7 +353,8 @@ static func stats_table(a: Dictionary, title: String) -> Control:
 # ---------- 아이콘 기반 빌드 표시(전투 HUD와 같은 구성 요소) ----------
 ## 자동기술 3칸 + 각 칸 아래 개조 2칸. 소속은 위치로만 나타낸다(공용 증강 아이콘을 기술마다 복제하지 않는다).
 ## highlight = 방금 바뀐 칸("w<i>" 또는 "w<i>:m<j>")을 잠깐 강조한다(선택 직후 어떤 칸이 바뀌었는지 보이게).
-static func build_icon_row(run: Dictionary, icon_px: float = 44.0, mod_px: float = 26.0, highlight: String = "") -> Control:
+## on_pick(kind, id)가 valid면 각 칸이 눌리는 버튼이 된다(kind = "weapon"|"mod", id = 무기 id 또는 "무기:개조").
+static func build_icon_row(run: Dictionary, icon_px: float = 44.0, mod_px: float = 26.0, highlight: String = "", on_pick: Callable = Callable()) -> Control:
 	var b := PBuild.derive(run)
 	var S: Dictionary = PCatalog.growth().SLOTS
 	var weapons: Array = b.weapons
@@ -309,7 +379,11 @@ static func build_icon_row(run: Dictionary, icon_px: float = 44.0, mod_px: float
 		if highlight == "w%d" % i:
 			tile.now_t = 0.0
 			tile.flash_t = 0.0
-		col.add_child(tile)
+		var wid_here := String(weapons[i].id) if i < weapons.size() else ""
+		if on_pick.is_valid() and wid_here != "":
+			col.add_child(icon_pick(tile, func(): on_pick.call("weapon", wid_here), tile.title))
+		else:
+			col.add_child(tile)
 		var mrow := hbox(4)
 		mrow.alignment = BoxContainer.ALIGNMENT_CENTER
 		mrow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -317,21 +391,60 @@ static func build_icon_row(run: Dictionary, icon_px: float = 44.0, mod_px: float
 			var mt := PIconTile.new("", PIconTile.STYLE_MOD)
 			mt.set_icon_px(mod_px, mod_px + 34.0, 2) # 개조 이름이 …로 뭉개지지 않게 두 줄까지
 			mt.wrap_title = true
+			var mid_here := ""
 			if i < weapons.size() and j < mods.size():
-				mt.key = PIcons.mod_key(String(weapons[i].id), String(mods[j]))
+				mid_here = String(mods[j])
+				mt.key = PIcons.mod_key(wid_here, mid_here)
 			else:
 				mt.empty = true
 			if highlight == "w%d:m%d" % [i, j]:
 				mt.now_t = 0.0
 				mt.flash_t = 0.0
-			mrow.add_child(mt)
+			if on_pick.is_valid() and mid_here != "":
+				var pair := "%s:%s" % [wid_here, mid_here]
+				mrow.add_child(icon_pick(mt, func(): on_pick.call("mod", pair), PIcons.name_of(mt.key)))
+			else:
+				mrow.add_child(mt)
 		col.add_child(mrow)
 		h.add_child(col)
 	return h
 
-## 장비 3칸(자동기술과 다른 영역임이 보이도록 제목 줄 + 테두리 카드로 감싼다)
-static func equip_icon_row(run: Dictionary, icon_px: float = 32.0) -> Control:
-	var c := card("%s [color=#9ea8b8]무기 · 방어구 · 방패[/color]" % PGlossaryTip.term("equipment", "장비"), CARD_OFF, 15)
+## 수동 기술 3칸(Space · Q · E) 아이콘. 전투 HUD와 같은 순서·같은 아이콘을 거점에서도 쓴다.
+## on_pick(kind, id)가 valid면 눌리는 버튼이 된다(kind = "manual", id = "dodge"|"q"|"e").
+static func manual_icon_row(run: Dictionary, icon_px: float = 32.0, on_pick: Callable = Callable()) -> Control:
+	var g: Dictionary = run.growth
+	var h := hbox(6)
+	h.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	for spec in [["dodge", "action:dodge", "Space", "회피"], ["q", "skill:slowfield", "Q", ""], ["e", "", "E", ""]]:
+		var slot := String(spec[0])
+		var t := PIconTile.new(String(spec[1]), PIconTile.STYLE_MANUAL)
+		t.key_label = String(spec[2])
+		t.title = String(spec[3])
+		t.set_icon_px(icon_px, icon_px + 46.0, 2)
+		t.wrap_title = true
+		if slot != "dodge":
+			var sk = g.skills.get(slot)
+			if sk == null:
+				t.empty = true
+				t.title = "비어 있음"
+			else:
+				var d: Dictionary = PCatalog.skills()[String(sk.id)]
+				t.key = "skill:slowfield" if slot == "q" else PIcons.e_key(String(sk.id), sk.get("variant", null))
+				t.title = String(d.name)
+				t.sub = "Lv%d" % int(sk.level)
+		if on_pick.is_valid() and not t.empty:
+			h.add_child(icon_pick(t, func(): on_pick.call("manual", slot), t.title))
+		else:
+			h.add_child(t)
+	return h
+
+## 장비 3칸(자동기술과 다른 영역임이 보이도록 제목 줄 + 테두리 카드로 감싼다).
+## on_pick(kind, id)가 valid면 각 칸이 눌리는 버튼이 된다(kind = "equip", id = 슬롯 이름).
+static func equip_icon_row(run: Dictionary, icon_px: float = 32.0, on_pick: Callable = Callable()) -> Control:
+	var slot_names := []
+	for sl0 in PCatalog.world().equip_slots:
+		slot_names.append(slot_name(String(sl0))) # 칸 이름과 제목이 어긋나지 않게 같은 곳에서 읽는다
+	var c := card("%s [color=#9ea8b8]%s[/color]" % [PGlossaryTip.term("equipment", "장비"), " · ".join(slot_names)], CARD_OFF, 15)
 	var box: VBoxContainer = c.box
 	var row := hbox(6)
 	row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -344,12 +457,16 @@ static func equip_icon_row(run: Dictionary, icon_px: float = 32.0) -> Control:
 		t.sub = "" # 슬롯 이름은 카드 제목(무기 · 방어구 · 방패)이 말한다 — 이름 줄을 두 줄로 쓴다
 		t.set_icon_px(icon_px, icon_px + 46.0, 2)
 		t.wrap_title = true
-		row.add_child(t)
+		if on_pick.is_valid():
+			row.add_child(icon_pick(t, func(): on_pick.call("equip", slot), t.title))
+		else:
+			row.add_child(t)
 	box.add_child(row)
 	return c.panel
 
 ## 공용 증강·패시브 보조 줄(한 항목당 아이콘 1개). 어느 기술에 적용되는지는 빌드 상세에서만 연결해 보여 준다
-static func common_icon_row(run: Dictionary, icon_px: float = 24.0) -> Control:
+## on_pick(kind, id)가 valid면 각 칸이 눌리는 버튼이 된다(kind = "common"|"passive").
+static func common_icon_row(run: Dictionary, icon_px: float = 24.0, on_pick: Callable = Callable()) -> Control:
 	var g: Dictionary = run.growth
 	var h := hbox(4)
 	h.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -357,20 +474,29 @@ static func common_icon_row(run: Dictionary, icon_px: float = 24.0) -> Control:
 	var n := 0
 	for k in g.get("commons", {}):
 		if int(g.commons[k]) > 0:
-			var t := PIconTile.new("common:" + String(k), PIconTile.STYLE_SMALL)
+			var cid := String(k)
+			var t := PIconTile.new("common:" + cid, PIconTile.STYLE_SMALL)
 			t.set_icon_px(icon_px, icon_px, 0)
 			t.badge = str(int(g.commons[k])) if int(g.commons[k]) > 1 else ""
-			h.add_child(t)
+			if on_pick.is_valid():
+				h.add_child(icon_pick(t, func(): on_pick.call("common", cid), String(PCatalog.commons()[cid].name)))
+			else:
+				h.add_child(t)
 			n += 1
 	for k in g.get("passives", {}):
 		if int(g.passives[k]) > 0:
-			var t2 := PIconTile.new("passive:" + String(k), PIconTile.STYLE_SMALL)
+			var pid := String(k)
+			var t2 := PIconTile.new("passive:" + pid, PIconTile.STYLE_SMALL)
 			t2.set_icon_px(icon_px, icon_px, 0)
 			t2.badge = str(int(g.passives[k]))
-			h.add_child(t2)
+			if on_pick.is_valid():
+				h.add_child(icon_pick(t2, func(): on_pick.call("passive", pid), String(PCatalog.passives()[pid].name)))
+			else:
+				h.add_child(t2)
 			n += 1
 	if n == 0:
-		h.add_child(rich("[color=#6a7078]공용 증강·패시브 없음[/color]", 11))
+		# 이 줄은 폭을 최소로 잡는 HBox 안에 있다. 줄바꿈이 켜져 있으면 한 글자씩 세로로 접혀 큰 빈칸이 생긴다
+		h.add_child(rich_nowrap("[color=#6a7078]공용 증강·패시브 없음[/color]", 11))
 	return h
 
 ## 아이콘 1칸(선택 카드·상점에서 항목 하나를 크게 보일 때)

@@ -137,7 +137,7 @@ static func weapon_body(wid: String) -> String:
 	var out: Array = []
 	out.append("[b]기본 공격[/b]")
 	var base: Dictionary = d.get("base", {})
-	out.append("피해 %s · 주기 %s초%s" % [PUi.fmt(float(base.get("damage", 0.0))), PUi.fmt(float(base.get("interval", 0.0))), (" · 사거리 %d" % int(float(base.get("range", 0.0)))) if float(base.get("range", 0.0)) > 0.0 else ""])
+	out.append(PUi.weapon_base_text(base)) # 연타 수·간격까지: "피해 6"처럼 실제 화력을 절반으로 읽게 하지 않는다
 	out.append("[b]현재 개조[/b]")
 	if owned.is_empty():
 		out.append("[color=#6a7078]%s[/color]" % ("아직 없음" if not run.is_empty() else "회차 밖 — 보유 개조 없음"))
@@ -156,7 +156,7 @@ static func weapon_body(wid: String) -> String:
 			out.append("[color=#9ea8b8]%s[/color]" % String(line))
 	if not ws.is_empty():
 		out.append("[b]수치[/b] [color=#9ea8b8]지금 내 빌드[/color]")
-		out.append("Lv%d · 피해 [b]%s[/b] · 주기 [b]%s초[/b]%s" % [level, PUi.fmt(float(ws.damage)), PUi.fmt(float(ws.interval)), (" · 사거리 [b]%d[/b]" % int(round(float(ws.range)))) if float(ws.get("range", 0.0)) > 0.0 else ""])
+		out.append("Lv%d · [b]%s[/b]" % [level, PUi.weapon_stats_text(ws)])
 	return "\n".join(out)
 
 ## 툴팁 층이 붙어 있는 화면에서 진행 중인 회차를 읽는다(읽기 전용, 없으면 {})

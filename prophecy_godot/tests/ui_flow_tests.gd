@@ -52,6 +52,262 @@ func _view_walk(main: Node, dir: Vector2, frames: int = 30) -> float:
 	main.view.router.set_virtual_move(Vector2.ZERO)
 	return PGeom.dist(x0, y0, st.player.x, st.player.y)
 
+# ---------- 거점 UI 재구성(2026-09-09): 문구를 세지 않고 실제 버튼을 눌러 확인한다 ----------
+## 여기서 확인하는 것
+##  ① 시간이 남으면 출격·일반 탐험 버튼이 실제로 눌리고 시간이 준다(남은 시간 1~5칸 전부)
+##  ② 일반 탐험은 완료 카드 안의 보충 설명이 아니라 자기 영역에 있다
+##  ③ 시간이 없으면 '다음 날로'가 한 곳에만 크게 있고, 상점은 실제로 열리며 휴식 버튼은 숨지 않는다(휴식권이 있으면 눌린다)
+##  ④ 휴식·판매·구매는 확인 창을 거치고, 취소하면 체력·시간·금화·가방이 그대로다
+##  ⑤ 구매 확인 창에서 '지금 장착'과 '가방에 넣기'가 모두 동작한다
+##  ⑥ 상세 설명은 버튼을 눌러야 열린다(마우스를 올리기만 해서는 열리지 않는다)
+##  ⑦ 판매 확정은 중복 클릭해도 한 번만 반영된다
+func _town_ui_tests(main: Node) -> void:
+	PSave.clear()
+	main.new_run_opts = {}
+	main.start_run("sword")
+	var r: Dictionary = main.run
+	r.gold = 2000
+	main.sortie = {}
+	main.show("base")
+	await process_frame
+	var bs: Node = main.screens["base"]
+	# ① 출격 버튼이 실제로 눌린다
+	var go := _vis_enabled_button(bs, "출격 (")
+	var h0: int = int(r.hours)
+	var went := false
+	if go != null:
+		go.pressed.emit()
+		await process_frame
+		went = main.screen == "combat" and int(r.hours) < h0
+		main.view.running = false
+	ok("거점: 시간이 남으면 '출격' 버튼이 실제로 눌리고 전투가 시작된다", went, "hours %d → %d · screen=%s" % [h0, int(r.hours), main.screen])
+	# ② 오늘 카드를 다 끝낸 뒤 남는 시간: '일반 탐험'이 자기 영역에서 눌린다
+	main.sortie = {}
+	main.run.phase = "prep"
+	main.run.hours = 2
+	for c in PSortie.cards_for(main.run):
+		c.done = true
+	main.show("base")
+	await process_frame
+	bs = main.screens["base"]
+	var rname := PPacing.repeat_label()
+	var rep := _vis_enabled_button(bs, rname)
+	ok("거점: 완료 뒤 남는 시간에 '%s' 버튼이 보이고 눌린다" % rname, rep != null, "없거나 비활성")
+	var ctext := _card_text(rep) if rep != null else ""
+	ok("'%s'은 완료 카드 밑의 보충 설명이 아니라 자기 영역에 있다" % rname,
+		rep != null and ctext.find("오늘 완료") < 0 and ctext.find("임무 보상·사건·이용권은 없습니다") >= 0, ctext.substr(0, 120))
+	if rep != null:
+		var hb: int = int(main.run.hours)
+		rep.pressed.emit()
+		await process_frame
+		ok("'%s' 버튼을 누르면 전투가 시작되고 시간 1칸이 준다" % rname,
+			main.screen == "combat" and bool(main.sortie.get("repeat", false)) and int(main.run.hours) == hb - 1,
+			"screen=%s hours=%d→%d" % [main.screen, hb, int(main.run.hours)])
+		ok("일반 탐험 전투에는 사건·임무 보상이 없다", main.sortie.get("event", null) == null and not bool(main.sortie.get("mission", false)) and String(main.sortie.get("objective", "clear")) == "clear")
+		main.view.running = false
+	else:
+		ok("'%s' 버튼을 누르면 전투가 시작되고 시간 1칸이 준다" % rname, false, "버튼을 못 찾음")
+		ok("일반 탐험 전투에는 사건·임무 보상이 없다", false, "버튼을 못 찾음")
+	# 남은 시간 1~5칸 어디에서도 '나갈 수 없는' 상태가 생기지 않는지 실제 버튼으로 훑는다
+	var stuck := []
+	for h in [1, 2, 3, 4, 5]:
+		main.sortie = {}
+		main.run.phase = "prep"
+		main.run.hours = h
+		for c2 in PSortie.cards_for(main.run):
+			c2.done = true
+		main.show("base")
+		await process_frame
+		var b3 := _vis_button(main.screens["base"], rname)
+		if b3 == null or b3.disabled:
+			stuck.append("%d칸: %s" % [h, "버튼 없음" if b3 == null else b3.text])
+	ok("오늘 카드를 다 끝낸 뒤 남은 시간 1~5칸 어디서나 '%s'이 눌린다(시간이 남는데 못 나가는 상태 없음)" % rname, stuck.is_empty(), "; ".join(stuck))
+	# ③ 시간이 없을 때
+	main.sortie = {}
+	main.run.phase = "prep"
+	main.run.hours = 0
+	main.run.services = {}
+	main.show("base")
+	await process_frame
+	bs = main.screens["base"]
+	var nextday := _vis_enabled_button(bs, "다음 날로")
+	ok("시간이 없으면 '다음 날로'가 크게 보인다", nextday != null and nextday.get_theme_font_size("font_size") >= 18, "" if nextday == null else "%s size=%d" % [nextday.text, nextday.get_theme_font_size("font_size")])
+	ok("'다음 날로'와 '하루 종료'를 여러 곳에 흩어놓지 않는다(한 곳뿐)",
+		_count_buttons(bs, "다음 날로") == 1 and _count_buttons(bs, "하루 종료 →") == 0,
+		"다음날로 %d · 하루종료 %d" % [_count_buttons(bs, "다음 날로"), _count_buttons(bs, "하루 종료 →")])
+	var vshop: Button = bs.village.button("shop")
+	ok("시간이 없어도 상점 버튼은 그대로 눌린다", vshop != null and not vshop.disabled)
+	if vshop != null:
+		vshop.pressed.emit()
+		await process_frame
+		ok("시간이 없어도 상점 화면이 실제로 열린다", main.screen == "shop", main.screen)
+		main.go_base()
+		await process_frame
+	else:
+		ok("시간이 없어도 상점 화면이 실제로 열린다", false, "버튼 없음")
+	bs = main.screens["base"]
+	# 휴식은 규칙(PRun.can_rest)이 시간 1칸을 요구한다. 버튼을 숨기지는 않고 이유와 함께 남긴다
+	var vrest: Button = bs.village.button("rest")
+	ok("시간이 없어도 휴식 버튼은 화면에 남는다(규칙이 막을 때만 비활성)", vrest != null and vrest.is_visible_in_tree() and vrest.disabled)
+	main.run.services = { "free_rest": 1 }
+	main.run.hp = 40.0
+	main.show("base")
+	await process_frame
+	bs = main.screens["base"]
+	vrest = bs.village.button("rest")
+	ok("휴식권이 있으면 시간이 0칸이어도 휴식 버튼이 눌린다", vrest != null and not vrest.disabled and vrest.text.find(PUi.rest_ticket_name()) >= 0, "" if vrest == null else vrest.text)
+	# ④ 휴식 확인 창: 소모·회복 전후를 적고, 취소하면 아무것도 바뀌지 않는다
+	var hp_max := int(float(PBuild.derive(main.run).hp_max))
+	vrest.pressed.emit()
+	await process_frame
+	bs = main.screens["base"]
+	var rest_ok := _vis_button(bs, "휴식한다")
+	ok("휴식은 확인 창을 거치고 소모·회복 전후 체력을 적는다",
+		rest_ok != null and _vis_text(bs, "%d → %d" % [40, hp_max]) >= 1 and _vis_text(bs, PUi.rest_ticket_note()) >= 1,
+		"창=%s" % str(rest_ok != null))
+	var gold_b: int = int(main.run.gold)
+	var hp_b: float = float(main.run.hp)
+	var tickets: int = int(main.run.services.get("free_rest", 0))
+	_vis_button(bs, "취소 (Esc)").pressed.emit()
+	await process_frame
+	ok("휴식을 취소하면 체력·휴식권·금화가 그대로다",
+		is_equal_approx(float(main.run.hp), hp_b) and int(main.run.services.get("free_rest", 0)) == tickets and int(main.run.gold) == gold_b)
+	main.screens["base"].village.button("rest").pressed.emit()
+	await process_frame
+	_vis_button(main.screens["base"], "휴식한다").pressed.emit()
+	await process_frame
+	ok("휴식을 확정하면 체력이 회복되고 휴식권 1장이 준다",
+		float(main.run.hp) > hp_b and int(main.run.services.get("free_rest", 0)) == tickets - 1,
+		"hp %.0f → %.0f · 권 %d" % [hp_b, float(main.run.hp), int(main.run.services.get("free_rest", 0))])
+	# ⑥ 거점 '현재 빌드' 아이콘: 눌러야 짧은 정보가 열리고, 긴 조건은 '상세 설명'을 한 번 더 눌러야 나온다
+	main.run.hours = 3
+	main.show("base")
+	await process_frame
+	bs = main.screens["base"]
+	var wbtn := _tile_button(bs, PIcons.weapon_key("sword"))
+	ok("거점 '현재 빌드'의 무기 아이콘이 눌리는 버튼이다(PC 클릭·터치 탭 같은 경로)", wbtn != null)
+	wbtn.mouse_entered.emit()
+	await process_frame
+	ok("아이콘에 마우스를 올리기만 하면 아무것도 열리지 않는다", not bs.confirm_open())
+	wbtn.pressed.emit()
+	await process_frame
+	bs = main.screens["base"]
+	ok("아이콘을 누르면 짧은 정보와 관련 행동이 열린다",
+		bs.confirm_open() and _vis_text(bs, "붙은 개조") >= 1 and _vis_button(bs, "상세 설명") != null and _vis_button(bs, "대장간에서") != null)
+	ok("긴 조건·후보 목록은 '상세 설명'을 눌러야 나온다", _vis_text(bs, "아직 붙지 않은 개조 후보") == 0)
+	_vis_button(bs, "상세 설명").pressed.emit()
+	await process_frame
+	bs = main.screens["base"]
+	ok("'상세 설명'을 누르면 소제목으로 나뉜 긴 설명이 열린다(한 문단으로 이어 붙이지 않는다)",
+		_vis_text(bs, "아직 붙지 않은 개조 후보") == 1 and _vis_text(bs, "기본값") == 1)
+	var g_keep: int = int(main.run.gold)
+	_vis_button(bs, "닫기 (Esc)").pressed.emit()
+	await process_frame
+	ok("아이콘 창을 닫아도 회차 상태가 바뀌지 않는다", not main.screens["base"].confirm_open() and int(main.run.gold) == g_keep)
+	# 무기 표기: 연타 수가 빠진 "피해 6"을 쓰지 않는다
+	var rd: Dictionary = PRun.new_run(1, "sword")
+	rd.growth.weapons = [{ "id": "daggers", "level": 1, "mods": [] }]
+	var wsd: Dictionary = PBuild.derive(rd).weapons[0]
+	ok("연타가 있는 무기는 '6 × 3연타'처럼 실제 공격 구조를 보여 준다(연타 수가 빠진 '피해 6' 금지)",
+		PUi.weapon_damage_text(wsd).find("× 3연타") >= 0 and PUi.weapon_stats_text(wsd).find("간격") >= 0, PUi.weapon_stats_text(wsd))
+	# ⑤⑥⑦ 장비 화면: 고른 창에 장착·상세·판매가 모이고, 상세는 눌러야 열린다
+	for sl in PCatalog.world().equip_slots:
+		main.run.equipment[String(sl)] = null
+	main.run.bag = ["guardian_armor"]
+	main.show("equip")
+	await process_frame
+	var es: Node = main.screens["equip"]
+	var sel := _vis_button(es, "선택")
+	ok("장비 목록은 고르는 버튼만 두고 판매·전후 수치를 줄마다 반복하지 않는다",
+		sel != null and _vis_text(es, "판매 +") == 0 and _vis_text(es, "장착하면") == 0, "선택=%s" % str(sel != null))
+	# 마우스를 올리기만 해서는 아무것도 열리지 않는다
+	sel.mouse_entered.emit()
+	await process_frame
+	ok("마우스를 올리기만 하면 상세·행동 창이 열리지 않는다", not es.confirm_open())
+	sel.pressed.emit()
+	await process_frame
+	es = main.screens["equip"]
+	ok("장비를 고른 창에 장착·상세 설명·판매가 모여 있다",
+		_vis_button(es, "지금 장착") != null and _vis_button(es, "상세 설명") != null and _vis_button(es, "판매 (+") != null)
+	ok("상세 설명은 버튼을 눌러야 열린다(누르기 전에는 긴 조건이 없다)", _vis_text(es, "교체 규칙") == 0)
+	_vis_button(es, "상세 설명").pressed.emit()
+	await process_frame
+	es = main.screens["equip"]
+	ok("상세 설명을 누르면 소제목으로 나뉜 긴 설명이 열린다", _vis_text(es, "교체 규칙") == 1 and _vis_text(es, "되팔 때") == 1)
+	# 판매 확인 창: 받을 금액 · 취소하면 그대로 · 중복 클릭해도 한 번만
+	var price := PRun.sell_price("guardian_armor")
+	var g0: int = int(main.run.gold)
+	var bag0: int = (main.run.bag as Array).size()
+	_vis_button(es, "판매 (+").pressed.emit()
+	await process_frame
+	es = main.screens["equip"]
+	ok("판매는 받을 금액을 적은 확인 창을 거친다",
+		_vis_button(es, "판매한다") != null and _vis_text(es, "판매할까요?") == 1 and _vis_text(es, "+%d금" % price) >= 1)
+	_vis_button(es, "취소 (Esc)").pressed.emit()
+	await process_frame
+	ok("판매를 취소하면 금화·가방이 그대로다", int(main.run.gold) == g0 and (main.run.bag as Array).size() == bag0)
+	es = main.screens["equip"]
+	_vis_button(es, "선택").pressed.emit()
+	await process_frame
+	es = main.screens["equip"]
+	_vis_button(es, "판매 (+").pressed.emit()
+	await process_frame
+	es = main.screens["equip"]
+	var yes := _vis_button(es, "판매한다")
+	yes.pressed.emit()
+	yes.pressed.emit() # 중복 클릭
+	await process_frame
+	ok("판매 확정은 중복 클릭해도 한 번만 반영된다(금화·가방 복제 없음)",
+		int(main.run.gold) == g0 + price and (main.run.bag as Array).size() == bag0 - 1,
+		"gold %d → %d · 가방 %d → %d" % [g0, int(main.run.gold), bag0, (main.run.bag as Array).size()])
+	# ⑤ 상점: 구매 → '지금 장착 / 가방에 넣기'
+	main.run.gold = 2000
+	main.show("shop")
+	await process_frame
+	var ss: Node = main.screens["shop"]
+	var stock_ids: Array = PRun.stock(main.run).equipment
+	var e0 := String(stock_ids[0])
+	var slot0 := String(PCatalog.equipment_def(e0).slot)
+	var buy := _vis_enabled_button(ss, "구매 (")
+	ok("상점: 장비는 '구매' 버튼 하나로 시작한다(구매 후 장착/보관을 미리 나눠 두지 않는다)",
+		buy != null and _vis_text(ss, "구매 후 장착") == 0, "" if buy == null else buy.text)
+	buy.pressed.emit()
+	await process_frame
+	ss = main.screens["shop"]
+	ok("구매를 누르면 '지금 장착 / 가방에 넣기'가 뜬다",
+		_vis_button(ss, "지금 장착") != null and _vis_button(ss, "가방에 넣기") != null and _vis_text(ss, "살까요?") == 1)
+	var g1: int = int(main.run.gold)
+	_vis_button(ss, "취소 (Esc)").pressed.emit()
+	await process_frame
+	ok("구매를 취소하면 금화·가방이 그대로다", int(main.run.gold) == g1 and not PRun.owns_equip(main.run, e0))
+	ss = main.screens["shop"]
+	_vis_enabled_button(ss, "구매 (").pressed.emit()
+	await process_frame
+	ss = main.screens["shop"]
+	_vis_button(ss, "지금 장착").pressed.emit()
+	await process_frame
+	ok("'지금 장착'을 누르면 그 부위에 실제로 장착되고 금화가 준다",
+		main.run.equipment.get(slot0, null) != null and String(main.run.equipment[slot0]) == e0 and int(main.run.gold) < g1,
+		"%s=%s gold=%d" % [slot0, str(main.run.equipment.get(slot0, null)), int(main.run.gold)])
+	ss = main.screens["shop"]
+	var g2: int = int(main.run.gold)
+	var bag_n: int = (main.run.bag as Array).size()
+	var buy2 := _vis_enabled_button(ss, "구매 (")
+	if buy2 != null:
+		buy2.pressed.emit()
+		await process_frame
+		ss = main.screens["shop"]
+		_vis_button(ss, "가방에 넣기").pressed.emit()
+		await process_frame
+		ok("'가방에 넣기'를 누르면 가방에 들어가고 장착은 그대로다",
+			(main.run.bag as Array).size() == bag_n + 1 and String(main.run.equipment[slot0]) == e0 and int(main.run.gold) < g2,
+			"가방 %d → %d" % [bag_n, (main.run.bag as Array).size()])
+	else:
+		ok("'가방에 넣기'를 누르면 가방에 들어가고 장착은 그대로다", false, "살 수 있는 재고가 없음")
+	main.run = {}
+	main.sortie = {}
+	PSave.clear()
+
 func _move_tests(main: Node) -> void:
 	PSave.clear()
 	main.new_run_opts = {}
@@ -174,6 +430,76 @@ func _sibling_button(btn: Button, part: String) -> Button:
 		if ch is Button and (ch as Button).text.find(part) >= 0:
 			return ch as Button
 	return null
+
+## 지금 실제로 보이는 Button만 찾는다(닫아 둔 확인 창의 옛 버튼을 잡지 않게)
+func _vis_button(node: Node, part: String) -> Button:
+	if node is Control and not (node as Control).is_visible_in_tree():
+		return null
+	if node is Button and (node as Button).text.find(part) >= 0:
+		return node as Button
+	for ch in node.get_children():
+		var f := _vis_button(ch, part)
+		if f != null:
+			return f
+	return null
+
+## 보이면서 눌리는 Button(비활성 카드의 같은 이름 버튼을 건너뛴다)
+func _vis_enabled_button(node: Node, part: String) -> Button:
+	if node is Control and not (node as Control).is_visible_in_tree():
+		return null
+	if node is Button and (node as Button).text.find(part) >= 0 and not (node as Button).disabled:
+		return node as Button
+	for ch in node.get_children():
+		var f := _vis_enabled_button(ch, part)
+		if f != null:
+			return f
+	return null
+
+## 지금 보이는 글자에서 needle이 몇 번 나오는가(숨은 층은 세지 않는다)
+func _vis_text(node: Node, needle: String) -> int:
+	if node is Control and not (node as Control).is_visible_in_tree():
+		return 0
+	var n := 0
+	if node is RichTextLabel and String((node as RichTextLabel).text).find(needle) >= 0:
+		n += 1
+	if node is Label and String((node as Label).text).find(needle) >= 0:
+		n += 1
+	if node is Button and String((node as Button).text).find(needle) >= 0:
+		n += 1
+	for c in node.get_children():
+		n += _vis_text(c, needle)
+	return n
+
+## 아이콘 칸(PIconTile)을 감싼 버튼 찾기: 아이콘을 실제로 누를 수 있는지 확인하는 경로
+func _tile_button(node: Node, key: String) -> Button:
+	if node is Button:
+		for ch in node.get_children():
+			if ch is PIconTile and String((ch as PIconTile).key) == key:
+				return node as Button
+	for c in node.get_children():
+		var b := _tile_button(c, key)
+		if b != null:
+			return b
+	return null
+
+## 이 버튼이 들어 있는 카드(가장 가까운 PanelContainer) 안의 글자 전부
+func _card_text(btn: Node) -> String:
+	var n: Node = btn
+	while n != null and not (n is PanelContainer):
+		n = n.get_parent()
+	return _all_text(n) if n != null else ""
+
+func _all_text(node: Node) -> String:
+	var s := ""
+	if node is RichTextLabel:
+		s += String((node as RichTextLabel).text) + "\n"
+	if node is Label:
+		s += String((node as Label).text) + "\n"
+	if node is Button:
+		s += String((node as Button).text) + "\n"
+	for c in node.get_children():
+		s += _all_text(c)
+	return s
 
 func _reopen(main: Node) -> void: # 저장 파일만 남기고 다시 연 상황 = 제목 → 계속하기(추가 저장 없음)
 	main.view.running = false
@@ -298,38 +624,6 @@ func _run() -> void:
 	main.start_sortie_card(String(rep_ids[0]).replace("sortie:", ""))
 	ok("일반 탐험 출격이 실제로 진행되고 시간 1칸을 쓴다", not main.sortie.is_empty() and bool(main.sortie.get("repeat", false)) and int(r7.hours) == h_before - 1)
 	main.view.running = false
-	# 같은 상황을 실제 거점 화면으로: 카드 안의 '일반 탐험' 버튼을 찾아 눌러 본다(규칙 함수 직접 호출 아님)
-	main.run.hours = 2
-	main.run.phase = "prep"
-	main.sortie = {}
-	for c2 in PSortie.cards_for(main.run):
-		c2.done = true
-	main.show("base")
-	await process_frame
-	var base_screen: Node = main.screens["base"]
-	var rep_btn := _find_button(base_screen, PPacing.repeat_label())
-	ok("거점 화면: 완료한 장소 카드 안에 '일반 탐험' 버튼이 실제로 보인다", rep_btn != null and rep_btn.is_visible_in_tree() and not rep_btn.disabled, ("없음" if rep_btn == null else rep_btn.text))
-	var rep_n := _count_buttons(base_screen, PPacing.repeat_label())
-	var inside: bool = rep_btn != null and _sibling_button(rep_btn, "오늘 완료") != null # 같은 카드 상자 안(= 새 카드 더미가 아니다)
-	ok("새 카드 더미가 아니라 완료한 기존 장소 카드 안에 들어간다", inside and rep_n == 2, "일반 탐험 버튼 %d개 · 같은 카드 안=%s" % [rep_n, str(inside)])
-	if rep_btn != null:
-		var hb2: int = int(main.run.hours)
-		rep_btn.pressed.emit() # 실제 버튼 누름
-		await process_frame
-		ok("거점 화면 버튼을 누르면 전투가 시작되고 시간 1칸이 줄어든다", main.screen == "combat" and not main.sortie.is_empty() and bool(main.sortie.get("repeat", false)) and int(main.run.hours) == hb2 - 1,
-			"screen=%s hours=%d→%d" % [main.screen, hb2, int(main.run.hours)])
-		ok("일반 탐험 전투에는 사건·임무 보상이 없다", main.sortie.get("event", null) == null and not bool(main.sortie.get("mission", false)) and String(main.sortie.get("objective", "clear")) == "clear")
-		main.view.running = false
-	else:
-		ok("거점 화면 버튼을 누르면 전투가 시작되고 시간 1칸이 줄어든다", false, "버튼을 못 찾음")
-		ok("일반 탐험 전투에는 사건·임무 보상이 없다", false, "버튼을 못 찾음")
-	# 시간이 없으면 같은 버튼이 이유와 함께 비활성이어야 한다(카드는 그대로, 선택지만 잠긴다)
-	main.run.hours = 0
-	main.sortie = {}
-	main.show("base")
-	await process_frame
-	var off_btn := _find_button(main.screens["base"], PPacing.repeat_label())
-	ok("시간이 없으면 '일반 탐험' 버튼은 이유와 함께 비활성", off_btn != null and off_btn.disabled and off_btn.text.find("시간 부족") >= 0, ("없음" if off_btn == null else off_btn.text))
 	main.run.hours = 2
 	# 제단 이름·짧은 효과 / 개조 변경권 용어
 	ok("제단 이름이 효과를 말한다(적 치유·소환·저주)", String(PCatalog.enemy("altar_heal").name) == "적 치유 제단" and String(PCatalog.enemy("altar_reinforce").name) == "소환 제단" and String(PCatalog.enemy("altar_hazard").name) == "저주 제단")
@@ -340,6 +634,7 @@ func _run() -> void:
 	var ev_ids := PEvents.options(r7, r7.pendingSortie).map(func(o): return String(o.id))
 	ok("무료 보급 사건에는 '지나친다'가 없다(이득만 있는 선택)", not ev_ids.has("leave") and ev_ids.has("loot"), str(ev_ids))
 	r7.pendingSortie = null
+	await _town_ui_tests(main)
 	_move_tests(main)
 	main.queue_free()
 	await process_frame

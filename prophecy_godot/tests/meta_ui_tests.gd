@@ -105,8 +105,18 @@ func _run() -> void:
 		sbtn.pressed.emit()
 		await process_frame
 		ok("상점 카드 상세를 펼치면 되팔 값·규칙이 나온다", _count_text(main.screens["shop"], "되팔 때") == 1)
-	# 장비 화면: 해제/장착 시 실제 변화량
-	ok("장비 화면이 장착·해제 시 바뀌는 값을 보여 준다", _count_text(main.screens["equip"], "해제하면") >= 1 or _count_text(main.screens["equip"], "장착하면") >= 1)
+	# 장비 화면(2026-09-09 재구성): 목록은 고르는 버튼만 두고, 장착·해제·상세·판매는 고른 창에 모인다
+	main.show("equip")
+	await process_frame
+	var eq_scr: Node = main.screens["equip"]
+	var eq_pick := _find_button(eq_scr, "선택")
+	ok("장비 목록은 줄마다 판매·전후 수치를 반복하지 않는다", eq_pick != null and _count_text(eq_scr, "판매 +") == 0)
+	if eq_pick != null:
+		eq_pick.pressed.emit()
+		await process_frame
+		eq_scr = main.screens["equip"]
+	ok("장비를 고른 창이 장착·해제 시 바뀌는 값과 행동을 한곳에 모은다",
+		(_count_text(eq_scr, "해제하면") >= 1 or _count_text(eq_scr, "장착하면") >= 1) and _find_button(eq_scr, "판매 (+") != null and _find_button(eq_scr, "상세 설명") != null)
 	# ---------- 상점: 유료 새로고침·잠금·준비물·회복약(2026-09-08) ----------
 	main.run.gold = 2000
 	main.show("shop")

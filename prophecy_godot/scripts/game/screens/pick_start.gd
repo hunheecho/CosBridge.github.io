@@ -45,8 +45,7 @@ func refresh() -> void:
 		for mid in d.mods:
 			if bool(d.mods[mid].impl) and (p.is_empty() or PProfile.run_unlock_ok({ "unlocks": PProfile.unlocked(p) }, "mods", id, String(mid))):
 				mods.append(String(d.mods[mid].name))
-		var rng_txt := (" · 사거리 %d" % int(round(float(ws.range)))) if float(ws.range) > 0.0 else ""
-		box.add_child(PUi.rich("[color=#9ea8b8]기본 피해 %s · 주기 %s초%s · 개조 후보: %s[/color]" % [PUi.fmt(float(ws.damage)), PUi.fmt(float(ws.interval)), rng_txt, ", ".join(mods)], 12))
+		box.add_child(PUi.rich("[color=#9ea8b8]기본 %s · 개조 후보: %s[/color]" % [PUi.weapon_stats_text(ws), ", ".join(mods)], 12))
 		box.add_child(PUi.spacer())
 		var btn := PUi.button("이 자동기술로 시작", func(): main.start_run(id), true, 14)
 		box.add_child(btn)

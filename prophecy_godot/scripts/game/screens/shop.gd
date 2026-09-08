@@ -13,6 +13,8 @@ func on_enter() -> void:
 	super.on_enter()
 
 func on_escape() -> bool:
+	if super.on_escape(): # 확인 창이 열려 있으면 먼저 닫는다(아무것도 바뀌지 않는다)
+		return true
 	if _detail != "":
 		_detail = ""
 		refresh()
@@ -21,6 +23,7 @@ func on_escape() -> bool:
 
 func refresh() -> void:
 	clear_all()
+	close_confirm()
 	var r := run()
 	if r.is_empty():
 		return
@@ -46,11 +49,10 @@ func refresh() -> void:
 			var mrow := PUi.hbox(10)
 			if m.get("equipment", null) != null:
 				mrow.add_child(_equip_card(r, String(m.equipment), "merchant"))
-			# '무료'는 쓸 때 시간이 들지 않는다는 뜻이다. 사는 값(100)은 아래에 크게 적는다(무료로 받은 권에는 청구하지 않는다)
-			var sc := PUi.card("무료 휴식권 [color=#9ea8b8]서비스 · 구매 유료[/color]", PUi.CARD_ON if PRun.can_buy_merchant_service(r) else PUi.CARD)
+			# 이 권은 '무료'가 아니다: 쓸 때 시간이 들지 않을 뿐이고 사는 값은 100금이다(사용자 지시 2026-09-09)
+			var sc := PUi.card("%s [color=#9ea8b8]%s[/color]" % [PUi.rest_ticket_name(), PUi.rest_ticket_note()], PUi.CARD_ON if PRun.can_buy_merchant_service(r) else PUi.CARD)
 			var sb: VBoxContainer = sc.box
-			sb.add_child(PUi.rich(PGlossaryTip.esc(String(PCatalog.services().free_rest.desc)), 12))
-			sb.add_child(PUi.rich("[color=#9ea8b8]'무료' = 쓸 때 시간 [b]0칸[/b](보통 휴식은 1칸). 사는 값은 아래.[/color]", 12))
+			sb.add_child(PUi.rich("체력을 완전히 회복하고 [b]시간 0칸[/b]을 씁니다(보통 휴식은 1칸).", 12))
 			sb.add_child(PUi.rich("구매 금화 [color=%s][b]%d[/b][/color]%s" % ["#ff8c73" if int(r.gold) < int(m.servicePrice) else "#ffd966", int(m.servicePrice), (" [color=#ff8c73](%d 부족)[/color]" % (int(m.servicePrice) - int(r.gold))) if int(r.gold) < int(m.servicePrice) else ""], 15))
 			var sold_sv: bool = (m.sold as Array).has("service")
 			sb.add_child(PUi.button("판매됨" if sold_sv else "구매 (%d)" % int(m.servicePrice), func(): main.buy_merchant_service(), PRun.can_buy_merchant_service(r), 13))
@@ -72,14 +74,14 @@ func refresh() -> void:
 		var srow := PUi.hbox(8)
 		srow.add_child(PUi.rich("[color=#9ea8b8]%s(장착)[/color] %s" % [PUi.slot_name(slot), PUi.equip_line(String(eid))], 14))
 		var sid := String(eid)
-		srow.add_child(PUi.button("판매 +%d" % PRun.sell_price(sid), func(): main.sell_equipment(sid), true, 12))
+		srow.add_child(PUi.button("판매 +%d" % PRun.sell_price(sid), func(): open_sell_confirm(sid), true, 12))
 		sbox.add_child(srow)
 	for id in r.bag:
 		any = true
 		var bid := String(id)
 		var brow := PUi.hbox(8)
 		brow.add_child(PUi.rich("[color=#9ea8b8]가방 · %s[/color] %s" % [PUi.slot_name(String(PCatalog.equipment_def(bid).slot)), PUi.equip_line(bid)], 14))
-		brow.add_child(PUi.button("판매 +%d" % PRun.sell_price(bid), func(): main.sell_equipment(bid), true, 12))
+		brow.add_child(PUi.button("판매 +%d" % PRun.sell_price(bid), func(): open_sell_confirm(bid), true, 12))
 		sbox.add_child(brow)
 	if not any:
 		sbox.add_child(PUi.rich("[color=#6a7078]팔 장비 없음[/color]", 12))
@@ -185,7 +187,7 @@ func _potion_card(r: Dictionary) -> Control:
 	box.add_child(PUi.rich("금화 [color=%s][b]%d[/b][/color]%s" % ["#ff8c73" if int(r.gold) < PConsumables.price("potion") else "#ffd966", PConsumables.price("potion"), (" [color=#9ea8b8]· %s[/color]" % why) if why != "" else ""], 15))
 	box.add_child(PUi.spacer())
 	box.add_child(PUi.button("회복약 구매", func(): _act(PConsumables.buy(r, "potion"), PConsumables.buy_reason(r, "potion")), can, 14))
-	box.add_child(PUi.rich("[color=#6a7078]완전 회복은 휴식(시간 1칸) 또는 무료 휴식권(%d금, 시간 0칸).[/color]" % PRun.merchant_service_price("free_rest"), 12))
+	box.add_child(PUi.rich("[color=#6a7078]완전 회복은 휴식(시간 1칸) 또는 %s(%d금 · %s).[/color]" % [PUi.rest_ticket_name(), PRun.merchant_service_price("free_rest"), PUi.rest_ticket_note()], 12))
 	return p
 
 func _equip_card(r: Dictionary, id: String, from: String) -> Control:
@@ -218,10 +220,11 @@ func _equip_card(r: Dictionary, id: String, from: String) -> Control:
 	var extra := (" [color=#9ea8b8](상인 할인 %d%%)[/color]" % int(round(float(PCatalog.shop().merchantDiscount) * 100.0))) if from == "merchant" else ""
 	box.add_child(PUi.rich("금화 [color=%s][b]%d[/b][/color]%s%s%s" % ["#ff8c73" if int(r.gold) < price else "#ffd966", price, reason, extra, " [color=#ffe066]할인권 적용[/color]" if (PRun.has_service(r, "shop_discount") and not sold) else ""], 15))
 	box.add_child(PUi.spacer())
-	var row := PUi.hbox(6)
-	row.add_child(PUi.button("구매 후 장착", func(): main.buy_equipment(id, true, from), can, 14))
-	row.add_child(PUi.button("구매 후 보관", func(): main.buy_equipment(id, false, from), can, 14))
-	box.add_child(row)
+	# 구매는 확인 창을 거치고, 그 자리에서 '지금 장착 / 가방에 넣기'를 고른다(사용자 지시 2026-09-09).
+	# 취소하면 금화·가방·장착이 그대로다. 확정은 한 번만 실행되므로 중복 클릭으로 두 번 사지 않는다.
+	var buy := PUi.button("구매 (%d금)" % price, func(): _open_buy(id, from), can, 15)
+	buy.custom_minimum_size = Vector2(0, PLayout.button_min_height())
+	box.add_child(buy)
 	# 상세: 구현 설명·현재 슬롯·판매가처럼 매번 읽을 필요 없는 것
 	var open_now: bool = _detail == id
 	box.add_child(PUi.button("상세 닫기 ▼" if open_now else "상세 보기 ▶", func(): _detail = ("" if open_now else id); refresh(), true, 12))
@@ -234,10 +237,36 @@ func _equip_card(r: Dictionary, id: String, from: String) -> Control:
 		PUi.kv(box, "규칙", "재고는 날마다 정해지고 다시 열어도 같습니다. 같은 장비는 두 번 살 수 없습니다.", 12)
 	return p
 
+## 구매 확인 창: 값·효과·장착 시 변화·교체되는 장비를 보여 주고, 사면서 바로 어디에 둘지 고른다
+func _open_buy(id: String, from: String) -> void:
+	var r := run()
+	var nm := String(PCatalog.equipment_def(id).name)
+	var price := PRun.equip_price_for(r, id, from)
+	open_confirm("%s%s %d금에 살까요?" % [PGlossaryTip.esc(nm), PUi.josa(nm, "을", "를"), price], _buy_body.bind(r, id, price),
+		[{ "text": "지금 장착", "cb": func(): main.buy_equipment(id, true, from) },
+		 { "text": "가방에 넣기", "cb": func(): main.buy_equipment(id, false, from) }])
+
+func _buy_body(box: VBoxContainer, r: Dictionary, id: String, price: int) -> void:
+	var d: Dictionary = PCatalog.equipment_def(id)
+	var slot := String(d.slot)
+	PUi.kv(box, "값", "[color=#ffd966][b]%d금[/b][/color] [color=#9ea8b8](금화 %d → %d)[/color]" % [price, int(r.gold), int(r.gold) - price], 15)
+	PUi.kv(box, "부위", "[b]%s[/b]" % PUi.slot_name(slot), 14)
+	box.add_child(PUi.rich(PGlossaryTip.esc(String(d.short)), 14))
+	PUi.kv(box, "지금 장착하면", _change_text(r, id), 13)
+	var cur = r.equipment.get(slot, null)
+	if cur != null:
+		box.add_child(PUi.rich("[color=#9ea8b8]지금 낀 %s은(는) 가방으로 갑니다.[/color]" % PGlossaryTip.esc(PRun.equip_name(String(cur))), 13))
+	var note := _compare_note(r, d)
+	if note != "":
+		box.add_child(PUi.rich(note, 13))
+	box.add_child(PUi.rich("[color=#9ea8b8]취소하면 금화·가방·장착이 그대로입니다.[/color]", 12))
+
 ## 장착했을 때 실제로 바뀌는 값(격리 사본에 장착해 PBuild.derive 전후를 비교한다 — 규칙은 건드리지 않는다)
 func _change_text(r: Dictionary, id: String) -> String:
 	var before := PBuild.derive(r)
 	var dup: Dictionary = r.duplicate(true)
+	if not (dup.bag as Array).has(id):
+		(dup.bag as Array).append(id) # 사본에만 넣는다: 아직 사지 않은 재고를 '가방에 없음' 오류 없이 미리 비교하기 위해서다
 	PRun.equip_item(dup, id)
 	var after := PBuild.derive(dup)
 	var parts := []

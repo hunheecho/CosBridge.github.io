@@ -8,6 +8,8 @@ var _craft := ""             # 미리보기 중인 제작법 id("" = 없음)
 var _formula_open := false   # 가격 계산식·규칙 설명을 펼쳤는가(기본 접힘 — 사람 플레이 뒤 요구 2026-09-08)
 
 func on_escape() -> bool:
+	if super.on_escape(): # 확인 창이 열려 있으면 먼저 닫는다
+		return true
 	if not _swap.is_empty() or _craft != "" or _formula_open:
 		_swap = {}
 		_craft = ""
@@ -267,7 +269,7 @@ func _swap_view(r: Dictionary) -> void:
 				for m in d.mods:
 					if bool(d.mods[m].impl):
 						mods.append(String(d.mods[m].name))
-				box.add_child(PUi.rich("[color=#9ea8b8]Lv%d 피해 %s · 주기 %s초 · 개조 후보: %s[/color]" % [int(q.level), PUi.fmt(float(ws.damage)), PUi.fmt(float(ws.interval)), ", ".join(mods)], 11))
+				box.add_child(PUi.rich("[color=#9ea8b8]Lv%d %s · 개조 후보: %s[/color]" % [int(q.level), PUi.weapon_stats_text(ws), ", ".join(mods)], 11))
 			box.add_child(PUi.spacer())
 			box.add_child(PUi.button("이 기술로", func(): _swap_pick(id), true, 13))
 			row.add_child(p)
@@ -332,7 +334,7 @@ func _swap_view(r: Dictionary) -> void:
 			mods_out.append(String(m))
 		tmp2.growth.weapons[index] = { "id": new_id, "level": int(q.level), "mods": mods_out }
 		var after: Dictionary = PBuild.derive(tmp2).weapons[index]
-		PUi.kv(cbox, "수치", "피해 %s → %s · 주기 %s → %s초" % [PUi.fmt(float(before.damage)), PUi.fmt(float(after.damage)), PUi.fmt(float(before.interval)), PUi.fmt(float(after.interval))], 13)
+		PUi.kv(cbox, "수치", "[b]%s[/b]  →  [b]%s[/b]" % [PUi.weapon_stats_text(before), PUi.weapon_stats_text(after)], 13)
 	if warns.size() > 0:
 		var wn := []
 		for w in warns:

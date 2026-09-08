@@ -286,8 +286,8 @@ static func preview_line(run: Dictionary, c: Dictionary) -> String:
 			var mods0: int = (w0.get("mods", []) as Array).size() if not w0.is_empty() else 0
 			var mods1: int = (w1.get("mods", []) as Array).size()
 			if w0.is_empty():
-				return "새 슬롯 · 피해 %s · 주기 %s초" % [PUi.fmt(float(w1.damage)), PUi.fmt(float(w1.interval))]
-			return "피해 %s → %s · 개조 %d → %d" % [PUi.fmt(float(w0.damage)), PUi.fmt(float(w1.damage)), mods0, mods1]
+				return "새 슬롯 · %s" % PUi.weapon_stats_text(w1)
+			return "%s → %s · 개조 %d → %d" % [PUi.weapon_damage_text(w0), PUi.weapon_damage_text(w1), mods0, mods1]
 		"passive", "common":
 			var parts: Array = []
 			if not is_equal_approx(float(before.hp_max), float(after.hp_max)):
