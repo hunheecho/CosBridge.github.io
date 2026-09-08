@@ -136,16 +136,9 @@ func _build_summary(r: Dictionary) -> Control:
 	var pend := int(g.pendingLevelUps)
 	var c := PUi.card("현재 빌드 [color=#9ea8b8]Lv %d · 경험치 %d/%d[/color]%s" % [int(g.level), int(floor(float(g.xp))), PGrowth.xp_need(int(g.level)), (" [color=#ff8c73]미처리 레벨업 %d[/color]" % pend) if pend > 0 else ""], PUi.CARD, 14)
 	var box: VBoxContainer = c.box
-	var weapons: Array = b.weapons
-	for i in int(S.weapons):
-		if i < weapons.size():
-			var wd: Dictionary = weapons[i]
-			var mods := []
-			for mid in wd.mods:
-				mods.append(String(wd.def.mods[String(mid)].name))
-			box.add_child(PUi.rich("[color=#9ea8b8]자동 %d[/color] [b]%s[/b] Lv%d/%d [color=#9ea8b8]%s[/color]" % [i + 1, PGlossaryTip.term("w:" + String(wd.id), String(wd.name)), int(wd.level), int(S.weaponMax), ("개조: " + ", ".join(mods)) if mods.size() > 0 else "개조 없음"], 12))
-		else:
-			box.add_child(PUi.rich("[color=#9ea8b8]자동 %d[/color] [color=#6a7078]빈 슬롯 (레벨업·상점)[/color]" % (i + 1), 12))
+	# 긴 문장 대신 전투 HUD와 같은 아이콘 구성(자동기술 3칸 + 각 칸 아래 개조 2칸). 방금 고른 칸은 잠깐 강조된다
+	box.add_child(PUi.build_icon_row(r, 44.0, 26.0, main.take_pick_highlight()))
+	box.add_child(PUi.common_icon_row(r, 24.0))
 	var qe := []
 	for slot in ["q", "e"]:
 		var sk = g.skills.get(slot)
@@ -156,10 +149,7 @@ func _build_summary(r: Dictionary) -> Control:
 		var term_id := "slowfield" if slot == "q" else "e:" + String(sk.id)
 		qe.append("[b]%s[/b] %s Lv%d%s" % [String(d.key), PGlossaryTip.term(term_id, String(d.name)), int(sk.level), (" · " + String(d.variants[String(sk.variant)].name)) if sk.get("variant", null) != null else ""])
 	box.add_child(PUi.rich("[color=#9ea8b8]수동[/color] " + " · ".join(qe), 12))
-	for sl in PCatalog.world().equip_slots:
-		var slot := String(sl)
-		var id = r.equipment.get(slot, null)
-		box.add_child(PUi.rich("[color=#9ea8b8]%s[/color] %s" % [PUi.slot_name(slot), (PUi.equip_line(String(id)) if id != null else "[color=#6a7078]비어 있음[/color]")], 12))
+	box.add_child(PUi.equip_icon_row(r, 32.0)) # 장비는 자동기술 칸과 다른 영역(테두리 카드)으로 분리한다
 	box.add_child(PUi.rich("[color=#9ea8b8]최대 체력 %d · 이동 ×%s · %s %d/%d · %s %d/%d%s[/color]" % [int(float(b.hp_max)), PUi.fmt(float(b.speed_mult)), PGlossaryTip.term("common", "공용"), PGrowth.common_count(g), int(S.commons), PGlossaryTip.term("passive", "패시브"), PGrowth.passive_count(g), int(S.passives), (" · %s %d단계" % [PGlossaryTip.term("forge", "강화"), int(b.forge)]) if int(b.forge) > 0 else ""], 11))
 	var toggle := PUi.button(("상세 닫기 ▾" if _build_detail_open else "상세 보기 ▸ (장비·성장·통계·기록)"), func(): _toggle_build_detail(), true, 12)
 	toggle.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN

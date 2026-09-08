@@ -95,7 +95,11 @@ func _equip_card(r: Dictionary, id: String, from: String) -> Control:
 	var p: PanelContainer = c.panel
 	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var box: VBoxContainer = c.box
-	box.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s[/color]" % [PGlossaryTip.term("eq:" + id, String(d.name)), PUi.slot_name(String(d.slot))], 15))
+	var head := PUi.hbox(8)
+	head.add_child(PUi.icon_of("equip:" + id, 34.0, "", "", 0.0, 0)) # 장비 아이콘(임시 아이콘 없음 → 중립 자리표시 + 아래 실제 이름)
+	head.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s[/color]
+금화 [color=%s][b]%d[/b][/color]" % [PGlossaryTip.term("eq:" + id, String(d.name)), PUi.slot_name(String(d.slot)), "#ff8c73" if int(r.gold) < price else "#ffd966", price], 15))
+	box.add_child(head)
 	box.add_child(PUi.rich(PGlossaryTip.esc(String(d.short)), 13))
 	box.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(d.desc)), 11))
 	var cur = r.equipment.get(String(d.slot), null)
@@ -155,7 +159,13 @@ func _skill_card(r: Dictionary, st: Dictionary) -> Control:
 	var is_w: bool = String(sk.kind) == "weapon"
 	var d: Dictionary = PCatalog.weapons()[String(sk.id)] if is_w else PCatalog.skills()[String(sk.id)]
 	var term_id := ("w:" if is_w else "e:") + String(sk.id)
-	box.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s · Lv1 · 개조 없음[/color]" % [PGlossaryTip.term(term_id, String(d.name)), "새 자동기술" if is_w else "새 E 기술"], 15))
+	var head2 := PUi.hbox(8)
+	head2.add_child(PUi.icon_of(PIcons.weapon_key(String(sk.id)) if is_w else PIcons.e_key(String(sk.id)), 40.0, "", "", 0.0, 0))
+	head2.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s · Lv1 · 개조 없음[/color]
+금화 [color=%s][b]%d[/b][/color]" % [PGlossaryTip.term(term_id, String(d.name)), "새 자동기술" if is_w else "새 E 기술", "#ff8c73" if int(r.gold) < int(sk.price) else "#ffd966", int(sk.price)], 15))
+	box.add_child(head2)
+	box.add_child(PUi.rich("[color=#9ea8b8]현재 빌드에 이렇게 들어갑니다(아이콘 위치 = 붙는 슬롯):[/color]", 11))
+	box.add_child(PUi.build_icon_row(r, 34.0, 22.0))
 	box.add_child(PUi.rich(PGlossaryTip.esc(String(d.desc)), 13))
 	var why := ""
 	if sold:

@@ -280,3 +280,107 @@ static func stats_table(a: Dictionary, title: String) -> Control:
 		cats.append("%s %s" % [String(PStats.CATS.get(String(k), k)), str(a.cats[k])])
 	v.add_child(rich("[color=#9ea8b8]분류별: %s[/color]" % " · ".join(cats), 11))
 	return v
+
+# ---------- 아이콘 기반 빌드 표시(전투 HUD와 같은 구성 요소) ----------
+## 자동기술 3칸 + 각 칸 아래 개조 2칸. 소속은 위치로만 나타낸다(공용 증강 아이콘을 기술마다 복제하지 않는다).
+## highlight = 방금 바뀐 칸("w<i>" 또는 "w<i>:m<j>")을 잠깐 강조한다(선택 직후 어떤 칸이 바뀌었는지 보이게).
+static func build_icon_row(run: Dictionary, icon_px: float = 44.0, mod_px: float = 26.0, highlight: String = "") -> Control:
+	var b := PBuild.derive(run)
+	var S: Dictionary = PCatalog.growth().SLOTS
+	var weapons: Array = b.weapons
+	var h := hbox(10)
+	h.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	h.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	for i in int(S.weapons):
+		var col := vbox(3)
+		col.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		var tile := PIconTile.new("", PIconTile.STYLE_AUTO)
+		tile.set_icon_px(icon_px, icon_px + 30.0, 2)
+		var mods: Array = []
+		if i < weapons.size():
+			var wd: Dictionary = weapons[i]
+			tile.key = PIcons.weapon_key(String(wd.id))
+			tile.title = String(wd.name)
+			tile.sub = "Lv%d/%d" % [int(wd.level), int(S.weaponMax)]
+			mods = wd.get("mods", [])
+		else:
+			tile.empty = true
+			tile.title = "빈 슬롯"
+		if highlight == "w%d" % i:
+			tile.now_t = 0.0
+			tile.flash_t = 0.0
+		col.add_child(tile)
+		var mrow := hbox(4)
+		mrow.alignment = BoxContainer.ALIGNMENT_CENTER
+		mrow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		for j in int(S.weaponMods):
+			var mt := PIconTile.new("", PIconTile.STYLE_MOD)
+			mt.set_icon_px(mod_px, mod_px + 22.0, 1)
+			if i < weapons.size() and j < mods.size():
+				mt.key = PIcons.mod_key(String(weapons[i].id), String(mods[j]))
+			else:
+				mt.empty = true
+			if highlight == "w%d:m%d" % [i, j]:
+				mt.now_t = 0.0
+				mt.flash_t = 0.0
+			mrow.add_child(mt)
+		col.add_child(mrow)
+		h.add_child(col)
+	return h
+
+## 장비 3칸(자동기술과 다른 영역임이 보이도록 제목 줄 + 테두리 카드로 감싼다)
+static func equip_icon_row(run: Dictionary, icon_px: float = 32.0) -> Control:
+	var c := card("%s [color=#9ea8b8]자동기술 슬롯과 다른 영역[/color]" % PGlossaryTip.term("equipment", "장비"), CARD_OFF, 13)
+	var box: VBoxContainer = c.box
+	var row := hbox(6)
+	row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	for sl in PCatalog.world().equip_slots:
+		var slot := String(sl)
+		var id = run.equipment.get(slot, null)
+		var t := PIconTile.new(("equip:" + String(id)) if id != null else "", PIconTile.STYLE_EQUIP)
+		t.empty = id == null
+		t.title = String(PCatalog.equipment_def(String(id)).name) if id != null else slot_name(slot)
+		t.sub = slot_name(slot) if id != null else ""
+		t.set_icon_px(icon_px, icon_px + 34.0, 2)
+		row.add_child(t)
+	box.add_child(row)
+	return c.panel
+
+## 공용 증강·패시브 보조 줄(한 항목당 아이콘 1개). 어느 기술에 적용되는지는 빌드 상세에서만 연결해 보여 준다
+static func common_icon_row(run: Dictionary, icon_px: float = 24.0) -> Control:
+	var g: Dictionary = run.growth
+	var h := hbox(4)
+	h.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	h.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var n := 0
+	for k in g.get("commons", {}):
+		if int(g.commons[k]) > 0:
+			var t := PIconTile.new("common:" + String(k), PIconTile.STYLE_SMALL)
+			t.set_icon_px(icon_px, icon_px, 0)
+			t.badge = str(int(g.commons[k])) if int(g.commons[k]) > 1 else ""
+			h.add_child(t)
+			n += 1
+	for k in g.get("passives", {}):
+		if int(g.passives[k]) > 0:
+			var t2 := PIconTile.new("passive:" + String(k), PIconTile.STYLE_SMALL)
+			t2.set_icon_px(icon_px, icon_px, 0)
+			t2.badge = str(int(g.passives[k]))
+			h.add_child(t2)
+			n += 1
+	if n == 0:
+		h.add_child(rich("[color=#6a7078]공용 증강·패시브 없음[/color]", 11))
+	return h
+
+## 아이콘 1칸(선택 카드·상점에서 항목 하나를 크게 보일 때)
+## lines = -1이면 자동(이름/보조 유무로 결정), 0이면 글자 없이 아이콘만(옆에 이미 이름이 적혀 있을 때)
+static func icon_of(key: String, px: float, title: String = "", sub: String = "", width: float = 0.0, lines: int = -1) -> PIconTile:
+	var t := PIconTile.new(key, PIconTile.STYLE_AUTO)
+	t.title = title
+	t.sub = sub
+	var n: int = lines
+	if n < 0:
+		n = 1 if (title != "" or key != "") else 0
+		if sub != "":
+			n = 2
+	t.set_icon_px(px, maxf(px, width), n)
+	return t

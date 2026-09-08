@@ -152,7 +152,7 @@ func drain(st: CombatState) -> void:
 	_ev_idx = n
 
 # ---------- 합성 ----------
-const NAMES := ["hit", "crit", "kill", "hurt", "lock", "bite_lock", "dodge", "perfect", "special", "chest", "win", "lose", "wave", "group", "shoot", "spore", "explode", "shatter", "burst", "bite", "boss_howl", "boss_roar", "boss_land", "boss_sweep", "boss_lock", "orb", "swing", "levelup", "skill_e", "hazard_warn", "hazard_arm", "reinforce", "rescued", "saving", "dash_hit", "timeout", "ui"]
+const NAMES := ["hit", "crit", "kill", "hurt", "lock", "bite_lock", "dodge", "perfect", "special", "chest", "win", "lose", "wave", "group", "shoot", "spore", "explode", "shatter", "burst", "bite", "boss_howl", "boss_roar", "boss_land", "boss_sweep", "boss_lock", "orb", "swing", "levelup", "skill_e", "hazard_warn", "hazard_arm", "reinforce", "rescued", "saving", "dash_hit", "timeout", "ui", "ready_dodge", "ready_q", "ready_e"]
 
 func _has_sound(snd: String) -> bool:
 	return NAMES.has(snd)
@@ -315,4 +315,14 @@ static func _synth(snd: String) -> PackedFloat32Array:
 			b = _noise(b, 0.0, 0.07, 0.05, 2500.0, 16)
 		"ui":
 			b = _tone(b, 0.0, 700.0, 0.04, "square", 0.06)
+		# 준비 완료 신호(회피/Q/E): false→true 전환에 딱 1번. 음색·음높이를 서로 다르게 해 소리만으로도 구분되게 한다.
+		# 소리를 꺼도 테두리 점등·쿨다운 숫자로 같은 정보를 읽을 수 있다(PCombatHud).
+		"ready_dodge": # 짧은 삼각파 위로(가벼운 발놀림)
+			b = _tone(b, 0.0, 620.0, 0.07, "triangle", 0.10, 900.0)
+		"ready_q": # 두 음 사인(낮→높, 장 개시)
+			b = _tone(b, 0.0, 440.0, 0.07, "sine", 0.10)
+			b = _tone(b, 0.06, 660.0, 0.09, "sine", 0.10)
+		"ready_e": # 사각파 두 번 두드림(무거운 기술)
+			b = _tone(b, 0.0, 330.0, 0.06, "square", 0.09)
+			b = _tone(b, 0.09, 330.0, 0.08, "square", 0.09)
 	return b
