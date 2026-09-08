@@ -289,6 +289,11 @@
       "verdict": {
         "success_pattern": "COMBO_PROBE_JSON"
       }
+    },
+    "support_a_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "보조무기 A조 4종(추격 까마귀·수호 방울·잔영 분신·바람 정령)과 개조 12개"
     }
   },
   "groups": {
@@ -321,7 +326,8 @@
       "elites_tests",
       "prep_shop_tests",
       "palette_tests",
-      "hit_feel_tests"
+      "hit_feel_tests",
+      "support_a_tests"
     ],
     "rules": [
       "run_tests",
@@ -338,7 +344,8 @@
       "theme_tests",
       "endless_tests",
       "meta_tests",
-      "elites_tests"
+      "elites_tests",
+      "support_a_tests"
     ],
     "boss": [
       "boss_tests",

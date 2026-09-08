@@ -1,115 +1,1010 @@
 [
-{"id":"weapon_sword","name":"검","kind":"weapon","key":"sword","color":"#EEE4CA","shape":"<path d='M20 44L45 10 53 8 54 17 29 49Z' fill='currentColor' stroke='none'/><path d='M17 38L34 51M24 46L14 57M10 53L18 61'/>"},
-{"id":"weapon_spear","name":"관통창","kind":"weapon","key":"spear","color":"#F4C66D","shape":"<path d='M13 54L42 24'/><path d='M35 28L42 10 55 7 52 21Z' fill='currentColor' stroke='none'/><path d='M19 48L11 46M24 43L16 41'/>"},
-{"id":"weapon_daggers","name":"쌍검","kind":"weapon","key":"daggers","color":"#D4A1E7","shape":"<path d='M15 40L27 10 31 33 22 46ZM39 44L49 17 55 39 45 50Z' fill='currentColor' stroke='none'/><path d='M12 42L27 48M18 46L13 56M35 45L49 52M42 50L37 59'/>"},
-{"id":"weapon_bow","name":"추적궁","kind":"weapon","key":"bow","color":"#B9D393","shape":"<path d='M20 10Q49 31 20 54L28 32Z'/><path d='M12 32L55 32M47 24L55 32 47 40'/><path d='M15 26L20 32 15 38'/>"},
-{"id":"weapon_hammer","name":"전투망치","kind":"weapon","key":"hammer","color":"#D3B59A","shape":"<path d='M29 33L20 56'/><path d='M20 10L50 22 43 40 13 28Z' fill='currentColor' stroke='none'/><path d='M12 48L6 52M38 53L43 58'/>"},
-{"id":"weapon_blades","name":"회전 칼날","kind":"weapon","key":"blades","color":"#A7C9FA","shape":"<circle cx='32' cy='32' r='6'/><path d='M31 24L22 7 44 13 38 25M40 33L58 29 46 49 37 41M29 40L17 54 13 32 24 32' fill='currentColor' stroke='none'/>"},
-{"id":"weapon_orb","name":"번개 구체","kind":"weapon","key":"orb","color":"#D0B3FF","shape":"<circle cx='32' cy='32' r='21'/><path d='M36 10L20 34 31 34 27 54 46 27 34 27Z' fill='currentColor' stroke='none'/><path d='M8 16L4 10M53 52L58 58'/>"},
-{"id":"weapon_frost","name":"서리 수정","kind":"weapon","key":"frost","color":"#90E5F4","shape":"<path d='M32 7L47 28 32 57 17 28Z' fill='currentColor' fill-opacity='.2'/><path d='M32 7L32 57M17 28L47 28M10 14L10 21M6 17L14 17M52 41L52 49M48 45L56 45'/>"},
-{"id":"weapon_ember","name":"불씨 정령","kind":"weapon","key":"ember","color":"#FFAE62","shape":"<path d='M34 7C39 24 51 27 49 41 48 53 38 58 29 55 10 50 13 30 23 22 20 37 27 36 28 27Z' fill='currentColor' fill-opacity='.25'/><path d='M29 42L29 43M39 42L39 43M27 50Q33 54 39 50'/>"},
-{"id":"weapon_mine","name":"룬 지뢰","kind":"weapon","key":"mine","color":"#D9AFF0","shape":"<path d='M32 8L53 20 53 44 32 56 11 44 11 20Z'/><path d='M32 18L43 32 32 46 21 32Z' fill='currentColor' fill-opacity='.25'/><path d='M32 24L32 40M25 32L39 32'/>"},
-{"id":"action_dodge","name":"회피","kind":"action","key":"dodge","color":"#F0DFC2","shape":"<path d='M34 12L46 17 40 35 53 39 53 48 26 48 23 40Z' fill='currentColor' fill-opacity='.25'/><path d='M9 25L24 25M5 35L19 35M10 46L18 46'/>"},
-{"id":"skill_slowfield","name":"감속장","kind":"skill","key":"slowfield","color":"#72D9D2","shape":"<ellipse cx='32' cy='46' rx='25' ry='10'/><circle cx='32' cy='27' r='18'/><path d='M32 14L32 27 42 31M12 27L16 27M48 27L52 27'/><path d='M21 49L43 49'/>"},
-{"id":"skill_ward","name":"수호 결계","kind":"skill","key":"ward","color":"#8DBEFF","shape":"<path d='M8 46A24 24 0 0 1 56 46L8 46Z' fill='currentColor' fill-opacity='.16'/><path d='M32 18L43 22 42 34 32 43 22 34 21 22Z' fill='currentColor' fill-opacity='.25'/><path d='M26 30L31 35 39 25M7 52L57 52'/>"},
-{"id":"mod_sword_cross","name":"교차 검격","kind":"mod","key":"sword:cross","color":"#EEE4CA","shape":"<path d='M13 13L50 50M50 13L13 50' stroke-width='7'/><path d='M8 21L20 9M43 55L55 43'/>"},
-{"id":"mod_sword_scar","name":"잔류 검흔","kind":"mod","key":"sword:scar","color":"#EEE4CA","shape":"<path d='M13 45Q22 13 52 12Q30 23 26 48Z' fill='currentColor' fill-opacity='.25'/><path d='M30 52Q35 39 47 34M37 56Q43 46 54 43' stroke-dasharray='3 5'/>"},
-{"id":"mod_spear_split","name":"분열 창날","kind":"mod","key":"spear:split","color":"#F4C66D","shape":"<path d='M8 32L29 32M29 32L52 12M29 32L52 52M43 12L52 12 52 21M43 52L52 52 52 43' stroke-width='5'/><circle cx='29' cy='32' r='4' fill='currentColor' stroke='none'/>"},
-{"id":"mod_spear_returning","name":"귀환 검기","kind":"mod","key":"spear:returning","color":"#F4C66D","shape":"<path d='M10 22L47 22M40 14L49 22 40 30M48 34Q47 49 29 49L15 49M23 41L14 49 23 57'/>"},
-{"id":"mod_frost_fan","name":"서리 부채","kind":"mod","key":"frost:fan","color":"#90E5F4","shape":"<path d='M32 54L27 26 32 7 37 26ZM24 50L7 31 7 15 21 25ZM40 50L57 31 57 15 43 25Z' fill='currentColor' fill-opacity='.25'/>"},
-{"id":"mod_frost_shatter","name":"깨지는 수정","kind":"mod","key":"frost:shatter","color":"#90E5F4","shape":"<path d='M29 11L17 29 27 32 23 49M36 12L46 28 34 34 40 49M30 21L36 28 29 38'/><path d='M9 14L14 21M5 40L13 37M49 15L54 10M50 43L57 48M30 54L29 59'/>"},
-{"id":"common_echo","name":"메아리","kind":"common","key":"echo","color":"#B5B4F1","shape":"<path d='M12 37L29 17 27 46Z' fill='currentColor' fill-opacity='.25'/><path d='M36 22Q49 32 36 42M44 14Q65 32 44 50'/>"},
-{"id":"mod_blades_dual","name":"세 번째 칼날","kind":"mod","key":"blades:dual","color":"#A7C9FA","shape":"<circle cx='32' cy='32' r='5' fill='currentColor' stroke='none'/><path d='M32 27L25 8 41 12Z' fill='currentColor' fill-opacity='.3'/><path d='M37 35L56 31 48 46Z' fill='currentColor' fill-opacity='.3'/><path d='M27 35L17 52 9 38Z' fill='currentColor' fill-opacity='.3'/>"},
-{"id":"mod_blades_launch","name":"사출 칼날","kind":"mod","key":"blades:launch","color":"#A7C9FA","shape":"<circle cx='23' cy='38' r='13'/><path d='M35 27L54 10M45 9L55 9 55 19'/><path d='M33 20L45 17 42 29Z' fill='currentColor' fill-opacity='.35'/>"},
-{"id":"mod_blades_serrated","name":"톱날","kind":"mod","key":"blades:serrated","color":"#A7C9FA","shape":"<path d='M8 40L15 27 22 40 29 27 36 40 43 27 50 40 56 30'/><path d='M8 50H54'/>"},
-{"id":"mod_bow_pierce","name":"관통 화살","kind":"mod","key":"bow:pierce","color":"#B9D393","shape":"<circle cx='24' cy='32' r='10'/><circle cx='38' cy='32' r='10'/><path d='M4 32H58M47 24L58 32 47 40'/>"},
-{"id":"mod_bow_ricochet","name":"도탄 화살","kind":"mod","key":"bow:ricochet","color":"#B9D393","shape":"<path d='M6 16L28 34 12 48'/><path d='M28 34L54 18M45 14L55 17 52 27'/><circle cx='28' cy='34' r='4' fill='currentColor' stroke='none'/>"},
-{"id":"mod_bow_spread","name":"갈래 사격","kind":"mod","key":"bow:spread","color":"#B9D393","shape":"<path d='M6 32H24M24 32L52 13M24 32H56M24 32L52 51'/><path d='M43 11L54 11 52 21ZM47 26L58 32 47 38ZM43 53L54 53 52 43Z' fill='currentColor' stroke='none'/>"},
-{"id":"mod_daggers_bleed","name":"출혈 칼날","kind":"mod","key":"daggers:bleed","color":"#D4A1E7","shape":"<path d='M20 6L28 28 20 40 12 28Z' fill='currentColor' fill-opacity='.3'/><path d='M20 40V50'/><path d='M44 24C48 32 51 36 51 41A7 7 0 0 1 37 41C37 36 40 32 44 24Z' fill='currentColor' fill-opacity='.3'/>"},
-{"id":"mod_daggers_flank","name":"측면 연무","kind":"mod","key":"daggers:flank","color":"#D4A1E7","shape":"<path d='M40 12A22 22 0 1 0 46 44' stroke-dasharray='4 5'/><path d='M34 6L44 12 34 18Z' fill='currentColor' stroke='none'/><path d='M24 26L34 22 30 34Z' fill='currentColor' fill-opacity='.35'/><path d='M18 34L26 40'/>"},
-{"id":"mod_daggers_pursuit","name":"추격 칼날","kind":"mod","key":"daggers:pursuit","color":"#D4A1E7","shape":"<path d='M6 48L20 34M14 52L28 38'/><path d='M20 26L34 21 30 36Z' fill='currentColor' fill-opacity='.35'/><path d='M38 20L56 10M46 8L57 10 55 21' fill='none'/>"},
-{"id":"mod_ember_reignite","name":"재점화","kind":"mod","key":"ember:reignite","color":"#FFAE62","shape":"<path d='M34 22C38 32 46 34 44 43 43 51 36 54 30 52 18 48 21 36 27 31 25 40 30 39 31 33Z' fill='currentColor' fill-opacity='.3'/><path d='M12 30A21 21 0 0 1 28 9'/><path d='M22 6L31 9 27 17Z' fill='currentColor' stroke='none'/>"},
-{"id":"mod_ember_scatter","name":"불씨 산개","kind":"mod","key":"ember:scatter","color":"#FFAE62","shape":"<path d='M30 20c4 8 10 9 8 17-1 6-7 8-12 6-9-4-7-13-2-17-1 6 3 6 4 1Z' fill='currentColor' fill-opacity='.35'/><path d='M50 12c2 4 5 5 4 9-1 3-4 4-6 3-5-2-4-7-1-9 0 3 2 3 3 0Z' fill='currentColor' fill-opacity='.35'/><path d='M55 40c2 3 4 4 3 7-1 2-3 3-5 2-4-2-3-6-1-7 0 2 2 2 3-1Z' fill='currentColor' fill-opacity='.35'/><path d='M13 48c2 3 4 4 3 7-1 2-3 3-5 2-4-2-3-6-1-7 0 2 2 2 3-1Z' fill='currentColor' fill-opacity='.35'/><path d='M40 18L47 14M44 34L50 37M22 46L17 47' stroke-dasharray='2 3'/>"},
-{"id":"mod_ember_trail","name":"화염 띠","kind":"mod","key":"ember:trail","color":"#FFAE62","shape":"<path d='M5 46Q17 32 29 46T55 44'/><path d='M18 32C20 25 24 23 24 15 29 20 31 25 28 32Z' fill='currentColor' fill-opacity='.3'/><path d='M40 30C42 23 46 21 46 13 51 18 53 23 50 30Z' fill='currentColor' fill-opacity='.3'/>"},
-{"id":"mod_frost_ground","name":"차가운 바닥","kind":"mod","key":"frost:ground","color":"#90E5F4","shape":"<ellipse cx='32' cy='42' rx='25' ry='11' fill='currentColor' fill-opacity='.18'/><path d='M32 28V54M21 34L43 48M43 34L21 48'/><path d='M14 12V22M9 17H19M48 10V20M43 15H53'/>"},
-{"id":"mod_hammer_aftershock","name":"여진","kind":"mod","key":"hammer:aftershock","color":"#D3B59A","shape":"<path d='M20 8L44 18 38 31 14 21Z' fill='currentColor' fill-opacity='.3'/><path d='M26 28L19 44'/><path d='M10 50Q32 40 54 50' stroke-dasharray='3 4'/><path d='M4 58Q32 46 60 58' stroke-dasharray='3 4'/>"},
-{"id":"mod_hammer_pull","name":"끌어당기는 망치","kind":"mod","key":"hammer:pull","color":"#D3B59A","shape":"<path d='M18 8L42 18 36 31 12 21Z' fill='currentColor' fill-opacity='.3'/><path d='M24 28L18 42'/><path d='M58 52L40 46M42 38L40 46 48 51'/><path d='M6 58L24 50M22 42L24 50 16 55'/>"},
-{"id":"mod_hammer_shockwave","name":"전방 충격파","kind":"mod","key":"hammer:shockwave","color":"#D3B59A","shape":"<path d='M8 12L30 21 25 34 3 25Z' fill='currentColor' fill-opacity='.3'/><path d='M16 31L10 46'/><path d='M36 14Q48 32 36 50M47 9Q62 32 47 55'/>"},
-{"id":"mod_mine_chain","name":"연결 폭발","kind":"mod","key":"mine:chain","color":"#D9AFF0","shape":"<circle cx='13' cy='45' r='7'/><circle cx='32' cy='18' r='7'/><circle cx='51' cy='45' r='7'/><path d='M17 39L28 24M36 24L47 39M20 47H44' stroke-dasharray='3 4'/>"},
-{"id":"mod_mine_frosttrap","name":"서리 함정","kind":"mod","key":"mine:frosttrap","color":"#D9AFF0","shape":"<path d='M32 10L50 21V43L32 54 14 43V21Z'/><path d='M32 19V45M22 25L42 39M42 25L22 39'/>"},
-{"id":"mod_mine_lure","name":"유인 룬","kind":"mod","key":"mine:lure","color":"#D9AFF0","shape":"<path d='M32 20L43 32 32 44 21 32Z' fill='currentColor' fill-opacity='.3'/><circle cx='32' cy='32' r='18' stroke-dasharray='3 5'/><circle cx='7' cy='12' r='3' fill='currentColor' stroke='none'/><circle cx='57' cy='15' r='3' fill='currentColor' stroke='none'/><circle cx='10' cy='54' r='3' fill='currentColor' stroke='none'/><path d='M10 15L18 22M53 18L45 24M13 51L20 44'/>"},
-{"id":"mod_orb_conduct","name":"전도 표식","kind":"mod","key":"orb:conduct","color":"#D0B3FF","shape":"<circle cx='32' cy='32' r='15' stroke-dasharray='4 4'/><path d='M35 17L24 34 32 34 28 48 41 30 33 30Z' fill='currentColor' fill-opacity='.4'/><path d='M7 10L13 16M57 10L51 16M7 54L13 48M57 54L51 48'/>"},
-{"id":"mod_orb_fork","name":"분기 번개","kind":"mod","key":"orb:fork","color":"#D0B3FF","shape":"<path d='M31 5L18 27 27 27 19 48'/><path d='M27 27L46 18M35 33L52 40M30 41L45 53'/><circle cx='27' cy='27' r='4' fill='currentColor' stroke='none'/>"},
-{"id":"mod_orb_loop","name":"순환 전류","kind":"mod","key":"orb:loop","color":"#D0B3FF","shape":"<path d='M51 27A21 21 0 1 1 39 11'/><path d='M32 5L42 11 33 18Z' fill='currentColor' stroke='none'/><path d='M35 22L26 38 33 38 29 52 43 34 35 34Z' fill='currentColor' fill-opacity='.4'/>"},
-{"id":"mod_spear_brand","name":"꿰뚫는 표식","kind":"mod","key":"spear:brand","color":"#F4C66D","shape":"<path d='M7 53L33 27'/><path d='M27 31L38 12 53 7 48 22Z' fill='currentColor' fill-opacity='.4'/><circle cx='22' cy='42' r='10' stroke-dasharray='3 4'/><path d='M18 42h8M22 38v8'/>"},
-{"id":"mod_sword_crescent","name":"날아가는 검광","kind":"mod","key":"sword:crescent","color":"#EEE4CA","shape":"<path d='M40 6Q60 26 45 56Q47 28 31 13Z' fill='currentColor' fill-opacity='.32'/><path d='M4 16H26M2 30H20M6 44H24'/>"},
-{"id":"skill_gust","name":"돌풍","kind":"skill","key":"gust","color":"#A8E6D0","shape":"<path d='M6 18H34A8 8 0 1 0 27 10'/><path d='M6 32H45A9 9 0 1 1 36 41'/><path d='M6 46H28A7 7 0 1 0 22 54'/>"},
-{"id":"skill_bladestorm","name":"칼날 폭풍","kind":"skill","key":"bladestorm","color":"#C9D6E8","shape":"<circle cx='32' cy='32' r='5' fill='currentColor' stroke='none'/><path d='M32 27L25 9 42 14Z' fill='currentColor' fill-opacity='.3'/><path d='M37 35L55 42 41 53Z' fill='currentColor' fill-opacity='.3'/><path d='M26 35L9 41 15 24Z' fill='currentColor' fill-opacity='.3'/><path d='M50 18A22 22 0 0 1 54 30' stroke-dasharray='3 4'/>"},
-{"id":"skill_strike","name":"낙뢰","kind":"skill","key":"strike","color":"#FFE479","shape":"<ellipse cx='32' cy='53' rx='17' ry='6' stroke-dasharray='3 4'/><path d='M37 5L19 31 30 31 26 50 46 24 34 24Z' fill='currentColor' fill-opacity='.35'/><path d='M8 14L14 20M56 14L50 20'/>"},
-{"id":"skill_gravity","name":"중력핵","kind":"skill","key":"gravity","color":"#C9A0FF","shape":"<circle cx='32' cy='32' r='8' fill='currentColor' fill-opacity='.45'/><circle cx='32' cy='32' r='19' stroke-dasharray='4 4'/><path d='M32 3V14M27 9L32 14 37 9M32 61V50M27 55L32 50 37 55M3 32H14M9 27L14 32 9 37M61 32H50M55 27L50 32 55 37'/>"},
-{"id":"skill_slowfield_echo","name":"감속장 · 시간의 잔향","kind":"skill_variant","key":"slowfield:echo","color":"#72D9D2","shape":"<circle cx='26' cy='30' r='15'/><path d='M26 19V30L34 34'/><path d='M44 18Q54 32 44 46' stroke-dasharray='3 4'/><path d='M52 12Q66 32 52 52' stroke-dasharray='3 4'/><path d='M10 52H44'/>"},
-{"id":"skill_slowfield_follow","name":"감속장 · 동행하는 시간","kind":"skill_variant","key":"slowfield:follow","color":"#72D9D2","shape":"<circle cx='24' cy='30' r='15'/><path d='M24 19V30L32 34'/><path d='M42 30H58M50 22L58 30 50 38'/><path d='M10 52H40' stroke-dasharray='3 4'/>"},
-{"id":"skill_slowfield_split","name":"감속장 · 분할된 시간","kind":"skill_variant","key":"slowfield:split","color":"#72D9D2","shape":"<circle cx='19' cy='28' r='13'/><circle cx='45' cy='38' r='13'/><path d='M19 19V28L25 31M45 30V38L51 41'/><path d='M30 12L36 6M34 20L42 14' stroke-dasharray='2 4'/>"},
-{"id":"skill_strike_chain","name":"낙뢰 · 연쇄 낙뢰","kind":"skill_variant","key":"strike:chain","color":"#FFE479","shape":"<path d='M24 5L11 26 19 26 14 44 30 22 21 22Z' fill='currentColor' fill-opacity='.35'/><path d='M44 16L35 33 41 33 37 47 49 29 42 29Z' fill='currentColor' fill-opacity='.3'/><path d='M22 48Q34 56 46 50' stroke-dasharray='3 4'/>"},
-{"id":"skill_strike_storm","name":"낙뢰 · 뇌우 지대","kind":"skill_variant","key":"strike:storm","color":"#FFE479","shape":"<path d='M16 24A11 11 0 0 1 38 20A9 9 0 0 1 46 26H18Z' fill='currentColor' fill-opacity='.25'/><path d='M34 28L24 44 31 44 27 58 41 40 33 40Z' fill='currentColor' fill-opacity='.4'/><ellipse cx='32' cy='54' rx='20' ry='6' stroke-dasharray='3 4'/>"},
-{"id":"skill_ward_fortress","name":"수호 결계 · 이동 요새","kind":"skill_variant","key":"ward:fortress","color":"#8DBEFF","shape":"<path d='M32 8L48 14V32C48 43 40 51 32 55 24 51 16 43 16 32V14Z' fill='currentColor' fill-opacity='.22'/><path d='M24 24H40M24 34H40'/><path d='M52 26H62M56 20L62 26 56 32'/><path d='M12 26H2M8 20L2 26 8 32'/>"},
-{"id":"skill_ward_pulse","name":"수호 결계 · 공격 결계","kind":"skill_variant","key":"ward:pulse","color":"#8DBEFF","shape":"<path d='M32 14L44 19V33C44 41 38 47 32 50 26 47 20 41 20 33V19Z' fill='currentColor' fill-opacity='.22'/><path d='M32 24V38M25 31H39'/><path d='M9 12Q2 32 9 52M55 12Q62 32 55 52' stroke-dasharray='3 4'/>"},
-{"id":"skill_gust_whirl","name":"돌풍 · 회오리","kind":"skill_variant","key":"gust:whirl","color":"#A8E6D0","shape":"<path d='M32 32a6 6 0 1 1 6-6 12 12 0 0 1-12 12 20 20 0 0 1-20-20'/><path d='M44 12A24 24 0 0 1 52 30' stroke-dasharray='3 4'/><path d='M14 48H50M22 56H44'/>"},
-{"id":"skill_gust_windpath","name":"돌풍 · 바람길","kind":"skill_variant","key":"gust:windpath","color":"#A8E6D0","shape":"<path d='M6 20H32A7 7 0 1 0 26 13'/><path d='M6 34H40A8 8 0 1 1 32 42'/><circle cx='14' cy='50' r='4' fill='currentColor' fill-opacity='.4'/><circle cx='32' cy='50' r='4' fill='currentColor' fill-opacity='.4'/><circle cx='50' cy='50' r='4' fill='currentColor' fill-opacity='.4'/>"},
-{"id":"skill_bladestorm_advancing","name":"칼날 폭풍 · 전진하는 폭풍","kind":"skill_variant","key":"bladestorm:advancing","color":"#C9D6E8","shape":"<circle cx='26' cy='32' r='5' fill='currentColor' stroke='none'/><path d='M26 27L20 11 35 15Z' fill='currentColor' fill-opacity='.3'/><path d='M21 36L7 44 8 27Z' fill='currentColor' fill-opacity='.3'/><path d='M31 38L40 51 26 53Z' fill='currentColor' fill-opacity='.3'/><path d='M42 32H60M52 24L60 32 52 40'/>"},
-{"id":"skill_bladestorm_condensed","name":"칼날 폭풍 · 응축된 폭풍","kind":"skill_variant","key":"bladestorm:condensed","color":"#C9D6E8","shape":"<circle cx='32' cy='32' r='4' fill='currentColor' stroke='none'/><path d='M32 28L27 16 38 19Z' fill='currentColor' fill-opacity='.35'/><path d='M36 34L48 40 37 45Z' fill='currentColor' fill-opacity='.35'/><path d='M27 34L16 42 15 29Z' fill='currentColor' fill-opacity='.35'/><path d='M32 4V12M32 60V52M4 32H12M60 32H52M12 12L18 18M52 52L46 46M12 52L18 46M52 12L46 18'/>"},
-{"id":"skill_gravity_collapse","name":"중력핵 · 붕괴","kind":"skill_variant","key":"gravity:collapse","color":"#C9A0FF","shape":"<circle cx='32' cy='32' r='7' fill='currentColor' fill-opacity='.5'/><path d='M32 2L36 18 32 22 28 18ZM62 32L46 36 42 32 46 28ZM32 62L28 46 32 42 36 46ZM2 32L18 28 22 32 18 36Z' fill='currentColor' fill-opacity='.3'/><path d='M11 11L21 21M53 11L43 21M53 53L43 43M11 53L21 43'/>"},
-{"id":"skill_gravity_orbit","name":"중력핵 · 궤도 포획","kind":"skill_variant","key":"gravity:orbit","color":"#C9A0FF","shape":"<circle cx='32' cy='32' r='8' fill='currentColor' fill-opacity='.45'/><ellipse cx='32' cy='32' rx='27' ry='12' transform='rotate(-25 32 32)'/><circle cx='51' cy='21' r='4.5' fill='currentColor' stroke='none'/><circle cx='13' cy='43' r='3.5' fill='currentColor' stroke='none'/>"},
-{"id":"common_burn","name":"불붙은 공격","kind":"common","key":"burn","color":"#FF9A5A","shape":"<path d='M14 46L38 20' stroke-width='5'/><path d='M8 52L16 44M10 40L20 50'/><path d='M42 12C46 22 54 24 52 33 51 41 44 44 38 42 26 38 29 26 35 21 33 30 38 29 39 23Z' fill='currentColor' fill-opacity='.3'/>"},
-{"id":"common_ember","name":"잔불 걸음","kind":"common","key":"ember","color":"#FFB877","shape":"<path d='M18 14c3 6 8 7 7 13-1 5-6 7-10 5-7-3-5-11-1-14-1 6 2 5 3 1Z' fill='currentColor' fill-opacity='.35'/><path d='M36 34c3 6 8 7 7 13-1 5-6 7-10 5-7-3-5-11-1-14-1 6 2 5 3 1Z' fill='currentColor' fill-opacity='.35'/><circle cx='52' cy='52' r='4' fill='currentColor' fill-opacity='.35'/><path d='M10 56H30' stroke-dasharray='3 4'/>"},
-{"id":"common_flare","name":"불꽃 파열","kind":"common","key":"flare","color":"#FFCF6B","shape":"<path d='M32 4L39 20 55 14 47 30 60 40 43 41 40 58 32 44 24 58 21 41 4 40 17 30 9 14 25 20Z' fill='currentColor' fill-opacity='.28'/><circle cx='32' cy='33' r='6' fill='currentColor' stroke='none'/>"},
-{"id":"common_frost","name":"얼음 파편","kind":"common","key":"frost","color":"#8FD8F0","shape":"<path d='M24 6L34 26 20 34 12 20Z' fill='currentColor' fill-opacity='.25'/><path d='M44 28L54 44 40 52 34 38Z' fill='currentColor' fill-opacity='.25'/><path d='M8 44L16 52M52 10L58 16'/>"},
-{"id":"common_reach","name":"긴 사거리","kind":"common","key":"reach","color":"#A9D8B8","shape":"<path d='M8 12V52M56 12V52'/><path d='M8 32H56M46 24L56 32 46 40M18 24L8 32 18 40'/>"},
-{"id":"common_saving","name":"시간 저축","kind":"common","key":"saving","color":"#C8C2F2","shape":"<path d='M18 8H42L30 26 42 44 18 44 30 26Z' fill='currentColor' fill-opacity='.25'/><path d='M14 8H46M14 44H46'/><path d='M46 54H62M54 46V62'/>"},
-{"id":"common_stasis","name":"정지된 칼날","kind":"common","key":"stasis","color":"#9FB6E8","shape":"<path d='M14 44L38 14' stroke-width='5'/><path d='M8 50L18 40'/><path d='M44 24V48M56 24V48' stroke-width='5'/>"},
-{"id":"common_wide","name":"넓어진 공격","kind":"common","key":"wide","color":"#E0CBA0","shape":"<path d='M32 54A34 34 0 0 1 6 22' /><path d='M32 54A34 34 0 0 0 58 22'/><path d='M32 54V22M32 22L24 32M32 22L40 32'/><path d='M8 14L4 26 16 24M56 14L60 26 48 24' fill='currentColor' stroke='none'/>"},
-{"id":"passive_exploit","name":"빈틈 포착","kind":"passive","key":"exploit","color":"#F2A2A2","shape":"<circle cx='32' cy='32' r='17'/><path d='M32 6V18M32 46V58M6 32H18M46 32H58'/><path d='M26 40L34 28 28 28 36 18' stroke-width='4'/>"},
-{"id":"passive_focus","name":"집중","kind":"passive","key":"focus","color":"#9FD5F0","shape":"<circle cx='32' cy='32' r='22' stroke-dasharray='5 5'/><circle cx='32' cy='32' r='12'/><circle cx='32' cy='32' r='4.5' fill='currentColor' stroke='none'/>"},
-{"id":"passive_haste","name":"가속","kind":"passive","key":"haste","color":"#A6E3B0","shape":"<path d='M14 14L30 32 14 50M32 14L48 32 32 50' stroke-width='5'/><path d='M4 22H12M2 32H10M4 42H12'/>"},
-{"id":"passive_mastery","name":"무기 숙련","kind":"passive","key":"mastery","color":"#F0D08A","shape":"<path d='M20 46L44 12 52 10 52 19 28 51Z' fill='currentColor' fill-opacity='.3'/><path d='M17 40L30 52M24 48L12 58'/><path d='M42 48L48 54 60 40' stroke-width='4'/>"},
-{"id":"passive_mobility","name":"기동력","kind":"passive","key":"mobility","color":"#A8D8F5","shape":"<circle cx='38' cy='12' r='6'/><path d='M40 22L28 34 36 44 34 56'/><path d='M28 34L14 30M40 26L52 32'/><path d='M4 46H18M6 54H22' stroke-dasharray='3 4'/>"},
-{"id":"passive_persistence","name":"지속력","kind":"passive","key":"persistence","color":"#C6B9F0","shape":"<circle cx='20' cy='22' r='13'/><path d='M20 13V22L27 26'/><path d='M8 46H50M42 39L52 46 42 53' stroke-width='4'/><path d='M20 46V53M32 46V53M44 46V53' stroke-dasharray='2 3'/>"},
-{"id":"passive_toughness","name":"강인함","kind":"passive","key":"toughness","color":"#C3C9D2","shape":"<path d='M32 6L52 13V32C52 44 42 53 32 58 22 53 12 44 12 32V13Z' fill='currentColor' fill-opacity='.22'/><circle cx='22' cy='22' r='2.5' fill='currentColor' stroke='none'/><circle cx='42' cy='22' r='2.5' fill='currentColor' stroke='none'/><circle cx='22' cy='40' r='2.5' fill='currentColor' stroke='none'/><circle cx='42' cy='40' r='2.5' fill='currentColor' stroke='none'/>"},
-{"id":"passive_vitality","name":"건강","kind":"passive","key":"vitality","color":"#F2A8C0","shape":"<path d='M32 54C10 38 8 24 18 17 26 11 32 20 32 20S38 11 46 17C56 24 54 38 32 54Z' fill='currentColor' fill-opacity='.28'/><path d='M14 32H24L28 24 34 40 38 32H50'/>"},
-{"id":"equip_bloodmoon_sword","name":"혈월검","kind":"equip","key":"bloodmoon_sword","color":"#E8A0A0","shape":"<path d='M18 44L40 14 47 12 47 20 25 50Z' fill='currentColor' fill-opacity='.28'/><path d='M15 39L26 50M20 47L10 58'/><path d='M61 26A14 14 0 1 1 44 9 11 11 0 0 0 61 26Z' fill='currentColor' fill-opacity='.45'/>"},
-{"id":"equip_ember_sword","name":"잔불검","kind":"equip","key":"ember_sword","color":"#FFAE62","shape":"<path d='M18 44L40 14 47 12 47 20 25 50Z' fill='currentColor' fill-opacity='.28'/><path d='M15 39L26 50M20 47L10 58'/><path d='M50 30c5 9 11 11 9 19-2 7-9 9-15 7-10-4-8-15-2-19-1 7 4 6 5 0Z' fill='currentColor' fill-opacity='.45'/>"},
-{"id":"equip_hunter_sword","name":"사냥꾼의 검","kind":"equip","key":"hunter_sword","color":"#F0D08A","shape":"<path d='M18 44L40 14 47 12 47 20 25 50Z' fill='currentColor' fill-opacity='.28'/><path d='M15 39L26 50M20 47L10 58'/><circle cx='47' cy='42' r='12'/><path d='M47 27v7M47 50v7M32 42h7M55 42h7'/>"},
-{"id":"equip_pioneer_spear","name":"개척자의 창","kind":"equip","key":"pioneer_spear","color":"#F0D08A","shape":"<path d='M12 52L36 28'/><path d='M30 32L40 14 53 9 49 23Z' fill='currentColor' fill-opacity='.28'/><path d='M12 57V22L38 29 12 36' fill='currentColor' fill-opacity='.4'/>"},
-{"id":"equip_chrono_staff","name":"시간술사의 지팡이","kind":"equip","key":"chrono_staff","color":"#B9B4F0","shape":"<path d='M18 56L38 22'/><circle cx='43' cy='14' r='9' fill='currentColor' fill-opacity='.28'/><path d='M43 8V14L48 17'/><path d='M6 34A13 13 0 0 0 21 49' stroke-dasharray='3 4'/>"},
-{"id":"equip_echo_staff","name":"잔향의 지팡이","kind":"equip","key":"echo_staff","color":"#B5B4F1","shape":"<path d='M18 56L38 22'/><circle cx='43' cy='14' r='9' fill='currentColor' fill-opacity='.28'/><path d='M56 4Q64 14 57 25' stroke-dasharray='3 3'/><path d='M30 4Q22 14 29 25' stroke-dasharray='3 3'/>"},
-{"id":"equip_caster_shield","name":"시전자의 방패","kind":"equip","key":"caster_shield","color":"#A9C3E8","shape":"<path d='M32 8L50 15V33C50 44 41 52 32 56 23 52 14 44 14 33V15Z' fill='currentColor' fill-opacity='.18'/><path d='M38 2L22 30 32 30 26 60 46 26 35 26Z' fill='currentColor' fill-opacity='.55'/>"},
-{"id":"equip_emergency_shield","name":"비상 방패","kind":"equip","key":"emergency_shield","color":"#F0C08A","shape":"<path d='M32 8L50 15V33C50 44 41 52 32 56 23 52 14 44 14 33V15Z' fill='currentColor' fill-opacity='.18'/><path d='M22 10L30 24 20 32 30 40 22 54' stroke-width='4'/><path d='M40 20V36' stroke-width='5'/><circle cx='40' cy='45' r='3' fill='currentColor' stroke='none'/>"},
-{"id":"equip_iron_shield","name":"철벽 방패","kind":"equip","key":"iron_shield","color":"#A9C3E8","shape":"<path d='M12 10H52V40C52 48 44 54 32 58 20 54 12 48 12 40Z' fill='currentColor' fill-opacity='.3'/><path d='M12 24H52M32 10V57'/><circle cx='19' cy='16' r='2.4' fill='currentColor' stroke='none'/><circle cx='45' cy='16' r='2.4' fill='currentColor' stroke='none'/><circle cx='19' cy='40' r='2.4' fill='currentColor' stroke='none'/><circle cx='45' cy='40' r='2.4' fill='currentColor' stroke='none'/>"},
-{"id":"equip_relay_shield","name":"연계 방패","kind":"equip","key":"relay_shield","color":"#A9C3E8","shape":"<path d='M21 10L34 15V30C34 38 28 44 21 48 14 44 8 38 8 30V15Z' fill='currentColor' fill-opacity='.18'/><path d='M43 18L56 23V38C56 45 50 51 43 55 36 51 30 45 30 38V23Z' fill='currentColor' fill-opacity='.32'/><path d='M22 30A6 6 0 0 1 28 24H33M42 34A6 6 0 0 1 36 40H31' stroke-width='4'/>"},
-{"id":"equip_reprisal_shield","name":"반격 방패","kind":"equip","key":"reprisal_shield","color":"#E8B4B4","shape":"<circle cx='32' cy='33' r='18' fill='currentColor' fill-opacity='.22'/><path d='M32 15V5M46 19L53 12M18 19L11 12M50 33h10M4 33h10M46 47l7 7M18 47l-7 7M32 51v10'/><path d='M42 23L24 41M24 41h9M24 41v-9'/>"},
-{"id":"equip_time_shield","name":"시간의 방패","kind":"equip","key":"time_shield","color":"#B9B4F0","shape":"<circle cx='32' cy='32' r='22' fill='currentColor' fill-opacity='.2'/><path d='M32 16V32L44 39' stroke-width='4'/><path d='M32 4v7M32 53v7M4 32h7M53 32h7'/>"},
-{"id":"equip_expedition_armor","name":"원정대의 갑옷","kind":"equip","key":"expedition_armor","color":"#C4B79E","shape":"<path d='M24 8L32 14 40 8 48 14V36C48 47 40 54 32 58 24 54 16 47 16 36V14Z' fill='currentColor' fill-opacity='.22'/><path d='M48 22H61V45H48Z' fill='currentColor' fill-opacity='.4'/><path d='M52 17V22M57 17V22M48 33H61'/>"},
-{"id":"equip_guardian_armor","name":"수호자의 갑옷","kind":"equip","key":"guardian_armor","color":"#A9C3E8","shape":"<path d='M14 14L32 8 50 14 55 26 46 29V51C46 56 40 59 32 59 24 59 18 56 18 51V29L9 26Z' fill='currentColor' fill-opacity='.24'/><path d='M32 22L43 27V38C43 44 38 49 32 51 26 49 21 44 21 38V27Z' fill='currentColor' fill-opacity='.5'/>"},
-{"id":"equip_moon_armor","name":"월광 갑옷","kind":"equip","key":"moon_armor","color":"#B7C7EC","shape":"<path d='M22 12L32 18 42 12 50 18V38C50 48 42 55 32 59 22 55 14 48 14 38V18Z' fill='currentColor' fill-opacity='.16'/><path d='M53 30A21 21 0 1 1 30 9 17 17 0 0 0 53 30Z' fill='currentColor' fill-opacity='.5'/>"},
-{"id":"equip_traveler_armor","name":"여행자의 경갑","kind":"equip","key":"traveler_armor","color":"#C4B79E","shape":"<path d='M20 8L32 21 44 8 53 15 45 25V53H37L32 31 27 53H19V25L11 15Z' fill='currentColor' fill-opacity='.26'/><path d='M13 38H51' stroke-width='5'/>"},
-{"id":"equip_renewal_coat","name":"재생의 여행복","kind":"equip","key":"renewal_coat","color":"#A9D8B8","shape":"<path d='M26 6L32 12 38 6 50 14 44 26V58H20V26L14 14Z' fill='currentColor' fill-opacity='.18'/><path d='M32 12V58'/><path d='M40 42c13-13 21-10 21-10s2 13-10 18c-7 3-11-8-11-8Z' fill='currentColor' fill-opacity='.5'/>"},
-{"id":"equip_vitality_coat","name":"생명력의 외투","kind":"equip","key":"vitality_coat","color":"#F2A8C0","shape":"<path d='M26 6L32 12 38 6 50 14 44 26V58H20V26L14 14Z' fill='currentColor' fill-opacity='.18'/><path d='M32 12V58'/><path d='M45 52C31 42 30 30 38 26 44 22 45 31 45 31S47 22 53 26C61 30 59 42 45 52Z' fill='currentColor' fill-opacity='.5'/>"},
-{"id":"reward_clone","name":"시간의 복제","kind":"reward","key":"clone","color":"#C8C2F2","shape":"<circle cx='24' cy='18' r='8'/><path d='M10 50v-6a14 14 0 0 1 28 0v6Z' fill='currentColor' fill-opacity='.28'/><circle cx='44' cy='24' r='7' stroke-dasharray='3 3'/><path d='M32 54v-6a13 13 0 0 1 24-6' stroke-dasharray='3 3'/>"},
-{"id":"reward_resonance","name":"무기 공명","kind":"reward","key":"resonance","color":"#A7C9FA","shape":"<path d='M18 48L34 16M46 48L30 16' stroke-width='4'/><path d='M8 20Q2 32 8 44M56 20Q62 32 56 44' stroke-dasharray='3 4'/>"},
-{"id":"reward_seed","name":"연쇄의 씨앗","kind":"reward","key":"seed","color":"#A9D8B8","shape":"<path d='M32 52C18 44 16 30 24 22c6-6 14-2 14-2s6 8 0 16c-4 6-6 10-6 16Z' fill='currentColor' fill-opacity='.3'/><path d='M32 52V34'/><path d='M42 12a6 6 0 0 1 8 8l-4 4M54 24a6 6 0 0 1-8 8' stroke-width='3'/>"},
-{"id":"reward_tempo","name":"시간의 박자","kind":"reward","key":"tempo","color":"#B9B4F0","shape":"<path d='M24 8H40L50 54H14Z' fill='currentColor' fill-opacity='.25'/><path d='M32 48L46 16'/><circle cx='40' cy='30' r='4' fill='currentColor' stroke='none'/>"},
-{"id":"reward_vigor","name":"불굴의 심장","kind":"reward","key":"vigor","color":"#F5A45A","shape":"<path d='M20 16c6 10 14 11 12 22-2 9-11 12-19 9-13-5-10-20-3-25-2 9 5 8 6 1Z' fill='currentColor' fill-opacity='.22'/><path d='M44 16c6 10 14 11 12 22-2 9-11 12-19 9-13-5-10-20-3-25-2 9 5 8 6 1Z' fill='currentColor' fill-opacity='.22'/><path d='M32 56C18 45 17 33 25 28 31 24 32 32 32 32S34 24 40 28C48 33 46 45 32 56Z' fill='currentColor' fill-opacity='.55'/>"},
-{"id":"reward_volley","name":"일제 공격","kind":"reward","key":"volley","color":"#F5D77A","shape":"<path d='M4 16H40M4 32H48M4 48H40'/><path d='M34 8L48 16 34 24ZM42 24L56 32 42 40ZM34 40L48 48 34 56Z' fill='currentColor' stroke='none'/>"},
-{"id":"weapon_plague","name":"역병 나비","kind":"weapon","key":"plague","color":"#7FD46B","shape":"<path d='M32 18L32 48'/><path d='M31 22C21 8 7 14 11 27 14 38 25 40 31 33Z' fill='currentColor' fill-opacity='.25'/><path d='M33 22C43 8 57 14 53 27 50 38 39 40 33 33Z' fill='currentColor' fill-opacity='.25'/><path d='M30 17L24 9M34 17L40 9'/>"},
-{"id":"weapon_thorns","name":"가시 갑각","kind":"weapon","key":"thorns","color":"#9FB3C8","shape":"<path d='M32 12L50 21V35C50 45 42 52 32 55 22 52 14 45 14 35V21Z' fill='currentColor' fill-opacity='.2'/><path d='M32 12L50 21V35C50 45 42 52 32 55 22 52 14 45 14 35V21Z'/><path d='M32 12L32 2M50 21L59 15M14 21L5 15M18 46L11 53M46 46L53 53'/>"},
-{"id":"weapon_doll","name":"도깨비 인형","kind":"weapon","key":"doll","color":"#E86A5C","shape":"<circle cx='32' cy='18' r='10'/><path d='M26 10L21 2M38 10L43 2'/><path d='M28 16L28 20M36 16L36 20'/><path d='M32 28L32 50M17 36H47M32 50L24 60M32 50L40 60'/>"},
-{"id":"mod_plague_wide","name":"넓은 전염","kind":"mod","key":"plague:wide","color":"#7FD46B","shape":"<circle cx='32' cy='32' r='5' fill='currentColor' stroke='none'/><circle cx='32' cy='32' r='22' stroke-dasharray='3 5'/><path d='M32 23V12M28 16L32 10 36 16'/><path d='M32 41V52M28 48L32 54 36 48'/><path d='M23 32H12M16 28L10 32 16 36'/><path d='M41 32H52M48 28L54 32 48 36'/>"},
-{"id":"mod_plague_deep","name":"깊은 맹독","kind":"mod","key":"plague:deep","color":"#7FD46B","shape":"<path d='M32 6C40 21 46 30 46 38A14 14 0 0 1 18 38C18 30 24 21 32 6Z' fill='currentColor' fill-opacity='.28'/><path d='M32 6C40 21 46 30 46 38A14 14 0 0 1 18 38C18 30 24 21 32 6Z'/><path d='M25 33L32 40 39 33M25 44L32 51 39 44'/>"},
-{"id":"mod_plague_burst","name":"역병 파열","kind":"mod","key":"plague:burst","color":"#7FD46B","shape":"<path d='M32 20 38 27 47 24 44 33 51 40 42 42 40 51 32 46 24 51 22 42 13 40 20 33 17 24 26 27Z' fill='currentColor' fill-opacity='.3'/><path d='M32 20 38 27 47 24 44 33 51 40 42 42 40 51 32 46 24 51 22 42 13 40 20 33 17 24 26 27Z'/><path d='M32 8V2M56 20L60 16M8 20L4 16'/>"},
-{"id":"mod_thorns_focused","name":"집중 가시","kind":"mod","key":"thorns:focused","color":"#9FB3C8","shape":"<path d='M32 3L39 40 32 53 25 40Z' fill='currentColor' fill-opacity='.3'/><path d='M32 3L39 40 32 53 25 40Z'/><path d='M13 45L23 40M51 45L41 40M17 57L26 49M47 57L38 49'/>"},
-{"id":"mod_thorns_burst","name":"가시 폭발","kind":"mod","key":"thorns:burst","color":"#9FB3C8","shape":"<circle cx='32' cy='32' r='12' fill='currentColor' fill-opacity='.2'/><circle cx='32' cy='32' r='12'/><path d='M32 20 37 7 27 7Z' fill='currentColor' stroke='none'/><path d='M32 44 27 57 37 57Z' fill='currentColor' stroke='none'/><path d='M20 32 7 27 7 37Z' fill='currentColor' stroke='none'/><path d='M44 32 57 37 57 27Z' fill='currentColor' stroke='none'/>"},
-{"id":"mod_thorns_venom","name":"독가시","kind":"mod","key":"thorns:venom","color":"#9FB3C8","shape":"<path d='M12 55L38 21'/><path d='M38 21L46 9 34 15Z' fill='currentColor' stroke='none'/><path d='M50 29C54 37 57 41 57 44A6 6 0 0 1 45 44C45 41 46 37 50 29Z' fill='currentColor' fill-opacity='.35'/><path d='M50 29C54 37 57 41 57 44A6 6 0 0 1 45 44C45 41 46 37 50 29Z'/>"},
-{"id":"mod_doll_tough","name":"질긴 인형","kind":"mod","key":"doll:tough","color":"#E86A5C","shape":"<circle cx='32' cy='13' r='8'/><path d='M32 21V53M19 31H45M26 53L20 61M38 53L44 61'/><path d='M17 26Q32 37 47 26M17 45Q32 34 47 45'/>"},
-{"id":"mod_doll_firework","name":"폭죽 인형","kind":"mod","key":"doll:firework","color":"#E86A5C","shape":"<path d='M23 31H41V56H23Z' fill='currentColor' fill-opacity='.25'/><path d='M23 31H41V56H23Z'/><path d='M32 31V22'/><path d='M32 16V6M23 20L16 12M41 20L48 12M19 29L9 25M45 29L55 25'/>"},
-{"id":"mod_doll_fleeing","name":"도망치는 인형","kind":"mod","key":"doll:fleeing","color":"#E86A5C","shape":"<circle cx='41' cy='13' r='6'/><path d='M39 20L32 34 42 43 45 57M32 34L21 30M42 43L29 54'/><path d='M4 21H18M2 32H14M6 43H16'/>"}
+  {
+    "id": "weapon_sword",
+    "name": "검",
+    "kind": "weapon",
+    "key": "sword",
+    "color": "#EEE4CA",
+    "shape": "<path d='M20 44L45 10 53 8 54 17 29 49Z' fill='currentColor' stroke='none'/><path d='M17 38L34 51M24 46L14 57M10 53L18 61'/>"
+  },
+  {
+    "id": "weapon_spear",
+    "name": "관통창",
+    "kind": "weapon",
+    "key": "spear",
+    "color": "#F4C66D",
+    "shape": "<path d='M13 54L42 24'/><path d='M35 28L42 10 55 7 52 21Z' fill='currentColor' stroke='none'/><path d='M19 48L11 46M24 43L16 41'/>"
+  },
+  {
+    "id": "weapon_daggers",
+    "name": "쌍검",
+    "kind": "weapon",
+    "key": "daggers",
+    "color": "#D4A1E7",
+    "shape": "<path d='M15 40L27 10 31 33 22 46ZM39 44L49 17 55 39 45 50Z' fill='currentColor' stroke='none'/><path d='M12 42L27 48M18 46L13 56M35 45L49 52M42 50L37 59'/>"
+  },
+  {
+    "id": "weapon_bow",
+    "name": "추적궁",
+    "kind": "weapon",
+    "key": "bow",
+    "color": "#B9D393",
+    "shape": "<path d='M20 10Q49 31 20 54L28 32Z'/><path d='M12 32L55 32M47 24L55 32 47 40'/><path d='M15 26L20 32 15 38'/>"
+  },
+  {
+    "id": "weapon_hammer",
+    "name": "전투망치",
+    "kind": "weapon",
+    "key": "hammer",
+    "color": "#D3B59A",
+    "shape": "<path d='M29 33L20 56'/><path d='M20 10L50 22 43 40 13 28Z' fill='currentColor' stroke='none'/><path d='M12 48L6 52M38 53L43 58'/>"
+  },
+  {
+    "id": "weapon_blades",
+    "name": "회전 칼날",
+    "kind": "weapon",
+    "key": "blades",
+    "color": "#A7C9FA",
+    "shape": "<circle cx='32' cy='32' r='6'/><path d='M31 24L22 7 44 13 38 25M40 33L58 29 46 49 37 41M29 40L17 54 13 32 24 32' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "weapon_orb",
+    "name": "번개 구체",
+    "kind": "weapon",
+    "key": "orb",
+    "color": "#D0B3FF",
+    "shape": "<circle cx='32' cy='32' r='21'/><path d='M36 10L20 34 31 34 27 54 46 27 34 27Z' fill='currentColor' stroke='none'/><path d='M8 16L4 10M53 52L58 58'/>"
+  },
+  {
+    "id": "weapon_frost",
+    "name": "서리 수정",
+    "kind": "weapon",
+    "key": "frost",
+    "color": "#90E5F4",
+    "shape": "<path d='M32 7L47 28 32 57 17 28Z' fill='currentColor' fill-opacity='.2'/><path d='M32 7L32 57M17 28L47 28M10 14L10 21M6 17L14 17M52 41L52 49M48 45L56 45'/>"
+  },
+  {
+    "id": "weapon_ember",
+    "name": "불씨 정령",
+    "kind": "weapon",
+    "key": "ember",
+    "color": "#FFAE62",
+    "shape": "<path d='M34 7C39 24 51 27 49 41 48 53 38 58 29 55 10 50 13 30 23 22 20 37 27 36 28 27Z' fill='currentColor' fill-opacity='.25'/><path d='M29 42L29 43M39 42L39 43M27 50Q33 54 39 50'/>"
+  },
+  {
+    "id": "weapon_mine",
+    "name": "룬 지뢰",
+    "kind": "weapon",
+    "key": "mine",
+    "color": "#D9AFF0",
+    "shape": "<path d='M32 8L53 20 53 44 32 56 11 44 11 20Z'/><path d='M32 18L43 32 32 46 21 32Z' fill='currentColor' fill-opacity='.25'/><path d='M32 24L32 40M25 32L39 32'/>"
+  },
+  {
+    "id": "action_dodge",
+    "name": "회피",
+    "kind": "action",
+    "key": "dodge",
+    "color": "#F0DFC2",
+    "shape": "<path d='M34 12L46 17 40 35 53 39 53 48 26 48 23 40Z' fill='currentColor' fill-opacity='.25'/><path d='M9 25L24 25M5 35L19 35M10 46L18 46'/>"
+  },
+  {
+    "id": "skill_slowfield",
+    "name": "감속장",
+    "kind": "skill",
+    "key": "slowfield",
+    "color": "#72D9D2",
+    "shape": "<ellipse cx='32' cy='46' rx='25' ry='10'/><circle cx='32' cy='27' r='18'/><path d='M32 14L32 27 42 31M12 27L16 27M48 27L52 27'/><path d='M21 49L43 49'/>"
+  },
+  {
+    "id": "skill_ward",
+    "name": "수호 결계",
+    "kind": "skill",
+    "key": "ward",
+    "color": "#8DBEFF",
+    "shape": "<path d='M8 46A24 24 0 0 1 56 46L8 46Z' fill='currentColor' fill-opacity='.16'/><path d='M32 18L43 22 42 34 32 43 22 34 21 22Z' fill='currentColor' fill-opacity='.25'/><path d='M26 30L31 35 39 25M7 52L57 52'/>"
+  },
+  {
+    "id": "mod_sword_cross",
+    "name": "교차 검격",
+    "kind": "mod",
+    "key": "sword:cross",
+    "color": "#EEE4CA",
+    "shape": "<path d='M13 13L50 50M50 13L13 50' stroke-width='7'/><path d='M8 21L20 9M43 55L55 43'/>"
+  },
+  {
+    "id": "mod_sword_scar",
+    "name": "잔류 검흔",
+    "kind": "mod",
+    "key": "sword:scar",
+    "color": "#EEE4CA",
+    "shape": "<path d='M13 45Q22 13 52 12Q30 23 26 48Z' fill='currentColor' fill-opacity='.25'/><path d='M30 52Q35 39 47 34M37 56Q43 46 54 43' stroke-dasharray='3 5'/>"
+  },
+  {
+    "id": "mod_spear_split",
+    "name": "분열 창날",
+    "kind": "mod",
+    "key": "spear:split",
+    "color": "#F4C66D",
+    "shape": "<path d='M8 32L29 32M29 32L52 12M29 32L52 52M43 12L52 12 52 21M43 52L52 52 52 43' stroke-width='5'/><circle cx='29' cy='32' r='4' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "mod_spear_returning",
+    "name": "귀환 검기",
+    "kind": "mod",
+    "key": "spear:returning",
+    "color": "#F4C66D",
+    "shape": "<path d='M10 22L47 22M40 14L49 22 40 30M48 34Q47 49 29 49L15 49M23 41L14 49 23 57'/>"
+  },
+  {
+    "id": "mod_frost_fan",
+    "name": "서리 부채",
+    "kind": "mod",
+    "key": "frost:fan",
+    "color": "#90E5F4",
+    "shape": "<path d='M32 54L27 26 32 7 37 26ZM24 50L7 31 7 15 21 25ZM40 50L57 31 57 15 43 25Z' fill='currentColor' fill-opacity='.25'/>"
+  },
+  {
+    "id": "mod_frost_shatter",
+    "name": "깨지는 수정",
+    "kind": "mod",
+    "key": "frost:shatter",
+    "color": "#90E5F4",
+    "shape": "<path d='M29 11L17 29 27 32 23 49M36 12L46 28 34 34 40 49M30 21L36 28 29 38'/><path d='M9 14L14 21M5 40L13 37M49 15L54 10M50 43L57 48M30 54L29 59'/>"
+  },
+  {
+    "id": "common_echo",
+    "name": "메아리",
+    "kind": "common",
+    "key": "echo",
+    "color": "#B5B4F1",
+    "shape": "<path d='M12 37L29 17 27 46Z' fill='currentColor' fill-opacity='.25'/><path d='M36 22Q49 32 36 42M44 14Q65 32 44 50'/>"
+  },
+  {
+    "id": "mod_blades_dual",
+    "name": "세 번째 칼날",
+    "kind": "mod",
+    "key": "blades:dual",
+    "color": "#A7C9FA",
+    "shape": "<circle cx='32' cy='32' r='5' fill='currentColor' stroke='none'/><path d='M32 27L25 8 41 12Z' fill='currentColor' fill-opacity='.3'/><path d='M37 35L56 31 48 46Z' fill='currentColor' fill-opacity='.3'/><path d='M27 35L17 52 9 38Z' fill='currentColor' fill-opacity='.3'/>"
+  },
+  {
+    "id": "mod_blades_launch",
+    "name": "사출 칼날",
+    "kind": "mod",
+    "key": "blades:launch",
+    "color": "#A7C9FA",
+    "shape": "<circle cx='23' cy='38' r='13'/><path d='M35 27L54 10M45 9L55 9 55 19'/><path d='M33 20L45 17 42 29Z' fill='currentColor' fill-opacity='.35'/>"
+  },
+  {
+    "id": "mod_blades_serrated",
+    "name": "톱날",
+    "kind": "mod",
+    "key": "blades:serrated",
+    "color": "#A7C9FA",
+    "shape": "<path d='M8 40L15 27 22 40 29 27 36 40 43 27 50 40 56 30'/><path d='M8 50H54'/>"
+  },
+  {
+    "id": "mod_bow_pierce",
+    "name": "관통 화살",
+    "kind": "mod",
+    "key": "bow:pierce",
+    "color": "#B9D393",
+    "shape": "<circle cx='24' cy='32' r='10'/><circle cx='38' cy='32' r='10'/><path d='M4 32H58M47 24L58 32 47 40'/>"
+  },
+  {
+    "id": "mod_bow_ricochet",
+    "name": "도탄 화살",
+    "kind": "mod",
+    "key": "bow:ricochet",
+    "color": "#B9D393",
+    "shape": "<path d='M6 16L28 34 12 48'/><path d='M28 34L54 18M45 14L55 17 52 27'/><circle cx='28' cy='34' r='4' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "mod_bow_spread",
+    "name": "갈래 사격",
+    "kind": "mod",
+    "key": "bow:spread",
+    "color": "#B9D393",
+    "shape": "<path d='M6 32H24M24 32L52 13M24 32H56M24 32L52 51'/><path d='M43 11L54 11 52 21ZM47 26L58 32 47 38ZM43 53L54 53 52 43Z' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "mod_daggers_bleed",
+    "name": "출혈 칼날",
+    "kind": "mod",
+    "key": "daggers:bleed",
+    "color": "#D4A1E7",
+    "shape": "<path d='M20 6L28 28 20 40 12 28Z' fill='currentColor' fill-opacity='.3'/><path d='M20 40V50'/><path d='M44 24C48 32 51 36 51 41A7 7 0 0 1 37 41C37 36 40 32 44 24Z' fill='currentColor' fill-opacity='.3'/>"
+  },
+  {
+    "id": "mod_daggers_flank",
+    "name": "측면 연무",
+    "kind": "mod",
+    "key": "daggers:flank",
+    "color": "#D4A1E7",
+    "shape": "<path d='M40 12A22 22 0 1 0 46 44' stroke-dasharray='4 5'/><path d='M34 6L44 12 34 18Z' fill='currentColor' stroke='none'/><path d='M24 26L34 22 30 34Z' fill='currentColor' fill-opacity='.35'/><path d='M18 34L26 40'/>"
+  },
+  {
+    "id": "mod_daggers_pursuit",
+    "name": "추격 칼날",
+    "kind": "mod",
+    "key": "daggers:pursuit",
+    "color": "#D4A1E7",
+    "shape": "<path d='M6 48L20 34M14 52L28 38'/><path d='M20 26L34 21 30 36Z' fill='currentColor' fill-opacity='.35'/><path d='M38 20L56 10M46 8L57 10 55 21' fill='none'/>"
+  },
+  {
+    "id": "mod_ember_reignite",
+    "name": "재점화",
+    "kind": "mod",
+    "key": "ember:reignite",
+    "color": "#FFAE62",
+    "shape": "<path d='M34 22C38 32 46 34 44 43 43 51 36 54 30 52 18 48 21 36 27 31 25 40 30 39 31 33Z' fill='currentColor' fill-opacity='.3'/><path d='M12 30A21 21 0 0 1 28 9'/><path d='M22 6L31 9 27 17Z' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "mod_ember_scatter",
+    "name": "불씨 산개",
+    "kind": "mod",
+    "key": "ember:scatter",
+    "color": "#FFAE62",
+    "shape": "<path d='M30 20c4 8 10 9 8 17-1 6-7 8-12 6-9-4-7-13-2-17-1 6 3 6 4 1Z' fill='currentColor' fill-opacity='.35'/><path d='M50 12c2 4 5 5 4 9-1 3-4 4-6 3-5-2-4-7-1-9 0 3 2 3 3 0Z' fill='currentColor' fill-opacity='.35'/><path d='M55 40c2 3 4 4 3 7-1 2-3 3-5 2-4-2-3-6-1-7 0 2 2 2 3-1Z' fill='currentColor' fill-opacity='.35'/><path d='M13 48c2 3 4 4 3 7-1 2-3 3-5 2-4-2-3-6-1-7 0 2 2 2 3-1Z' fill='currentColor' fill-opacity='.35'/><path d='M40 18L47 14M44 34L50 37M22 46L17 47' stroke-dasharray='2 3'/>"
+  },
+  {
+    "id": "mod_ember_trail",
+    "name": "화염 띠",
+    "kind": "mod",
+    "key": "ember:trail",
+    "color": "#FFAE62",
+    "shape": "<path d='M5 46Q17 32 29 46T55 44'/><path d='M18 32C20 25 24 23 24 15 29 20 31 25 28 32Z' fill='currentColor' fill-opacity='.3'/><path d='M40 30C42 23 46 21 46 13 51 18 53 23 50 30Z' fill='currentColor' fill-opacity='.3'/>"
+  },
+  {
+    "id": "mod_frost_ground",
+    "name": "차가운 바닥",
+    "kind": "mod",
+    "key": "frost:ground",
+    "color": "#90E5F4",
+    "shape": "<ellipse cx='32' cy='42' rx='25' ry='11' fill='currentColor' fill-opacity='.18'/><path d='M32 28V54M21 34L43 48M43 34L21 48'/><path d='M14 12V22M9 17H19M48 10V20M43 15H53'/>"
+  },
+  {
+    "id": "mod_hammer_aftershock",
+    "name": "여진",
+    "kind": "mod",
+    "key": "hammer:aftershock",
+    "color": "#D3B59A",
+    "shape": "<path d='M20 8L44 18 38 31 14 21Z' fill='currentColor' fill-opacity='.3'/><path d='M26 28L19 44'/><path d='M10 50Q32 40 54 50' stroke-dasharray='3 4'/><path d='M4 58Q32 46 60 58' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "mod_hammer_pull",
+    "name": "끌어당기는 망치",
+    "kind": "mod",
+    "key": "hammer:pull",
+    "color": "#D3B59A",
+    "shape": "<path d='M18 8L42 18 36 31 12 21Z' fill='currentColor' fill-opacity='.3'/><path d='M24 28L18 42'/><path d='M58 52L40 46M42 38L40 46 48 51'/><path d='M6 58L24 50M22 42L24 50 16 55'/>"
+  },
+  {
+    "id": "mod_hammer_shockwave",
+    "name": "전방 충격파",
+    "kind": "mod",
+    "key": "hammer:shockwave",
+    "color": "#D3B59A",
+    "shape": "<path d='M8 12L30 21 25 34 3 25Z' fill='currentColor' fill-opacity='.3'/><path d='M16 31L10 46'/><path d='M36 14Q48 32 36 50M47 9Q62 32 47 55'/>"
+  },
+  {
+    "id": "mod_mine_chain",
+    "name": "연결 폭발",
+    "kind": "mod",
+    "key": "mine:chain",
+    "color": "#D9AFF0",
+    "shape": "<circle cx='13' cy='45' r='7'/><circle cx='32' cy='18' r='7'/><circle cx='51' cy='45' r='7'/><path d='M17 39L28 24M36 24L47 39M20 47H44' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "mod_mine_frosttrap",
+    "name": "서리 함정",
+    "kind": "mod",
+    "key": "mine:frosttrap",
+    "color": "#D9AFF0",
+    "shape": "<path d='M32 10L50 21V43L32 54 14 43V21Z'/><path d='M32 19V45M22 25L42 39M42 25L22 39'/>"
+  },
+  {
+    "id": "mod_mine_lure",
+    "name": "유인 룬",
+    "kind": "mod",
+    "key": "mine:lure",
+    "color": "#D9AFF0",
+    "shape": "<path d='M32 20L43 32 32 44 21 32Z' fill='currentColor' fill-opacity='.3'/><circle cx='32' cy='32' r='18' stroke-dasharray='3 5'/><circle cx='7' cy='12' r='3' fill='currentColor' stroke='none'/><circle cx='57' cy='15' r='3' fill='currentColor' stroke='none'/><circle cx='10' cy='54' r='3' fill='currentColor' stroke='none'/><path d='M10 15L18 22M53 18L45 24M13 51L20 44'/>"
+  },
+  {
+    "id": "mod_orb_conduct",
+    "name": "전도 표식",
+    "kind": "mod",
+    "key": "orb:conduct",
+    "color": "#D0B3FF",
+    "shape": "<circle cx='32' cy='32' r='15' stroke-dasharray='4 4'/><path d='M35 17L24 34 32 34 28 48 41 30 33 30Z' fill='currentColor' fill-opacity='.4'/><path d='M7 10L13 16M57 10L51 16M7 54L13 48M57 54L51 48'/>"
+  },
+  {
+    "id": "mod_orb_fork",
+    "name": "분기 번개",
+    "kind": "mod",
+    "key": "orb:fork",
+    "color": "#D0B3FF",
+    "shape": "<path d='M31 5L18 27 27 27 19 48'/><path d='M27 27L46 18M35 33L52 40M30 41L45 53'/><circle cx='27' cy='27' r='4' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "mod_orb_loop",
+    "name": "순환 전류",
+    "kind": "mod",
+    "key": "orb:loop",
+    "color": "#D0B3FF",
+    "shape": "<path d='M51 27A21 21 0 1 1 39 11'/><path d='M32 5L42 11 33 18Z' fill='currentColor' stroke='none'/><path d='M35 22L26 38 33 38 29 52 43 34 35 34Z' fill='currentColor' fill-opacity='.4'/>"
+  },
+  {
+    "id": "mod_spear_brand",
+    "name": "꿰뚫는 표식",
+    "kind": "mod",
+    "key": "spear:brand",
+    "color": "#F4C66D",
+    "shape": "<path d='M7 53L33 27'/><path d='M27 31L38 12 53 7 48 22Z' fill='currentColor' fill-opacity='.4'/><circle cx='22' cy='42' r='10' stroke-dasharray='3 4'/><path d='M18 42h8M22 38v8'/>"
+  },
+  {
+    "id": "mod_sword_crescent",
+    "name": "날아가는 검광",
+    "kind": "mod",
+    "key": "sword:crescent",
+    "color": "#EEE4CA",
+    "shape": "<path d='M40 6Q60 26 45 56Q47 28 31 13Z' fill='currentColor' fill-opacity='.32'/><path d='M4 16H26M2 30H20M6 44H24'/>"
+  },
+  {
+    "id": "skill_gust",
+    "name": "돌풍",
+    "kind": "skill",
+    "key": "gust",
+    "color": "#A8E6D0",
+    "shape": "<path d='M6 18H34A8 8 0 1 0 27 10'/><path d='M6 32H45A9 9 0 1 1 36 41'/><path d='M6 46H28A7 7 0 1 0 22 54'/>"
+  },
+  {
+    "id": "skill_bladestorm",
+    "name": "칼날 폭풍",
+    "kind": "skill",
+    "key": "bladestorm",
+    "color": "#C9D6E8",
+    "shape": "<circle cx='32' cy='32' r='5' fill='currentColor' stroke='none'/><path d='M32 27L25 9 42 14Z' fill='currentColor' fill-opacity='.3'/><path d='M37 35L55 42 41 53Z' fill='currentColor' fill-opacity='.3'/><path d='M26 35L9 41 15 24Z' fill='currentColor' fill-opacity='.3'/><path d='M50 18A22 22 0 0 1 54 30' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "skill_strike",
+    "name": "낙뢰",
+    "kind": "skill",
+    "key": "strike",
+    "color": "#FFE479",
+    "shape": "<ellipse cx='32' cy='53' rx='17' ry='6' stroke-dasharray='3 4'/><path d='M37 5L19 31 30 31 26 50 46 24 34 24Z' fill='currentColor' fill-opacity='.35'/><path d='M8 14L14 20M56 14L50 20'/>"
+  },
+  {
+    "id": "skill_gravity",
+    "name": "중력핵",
+    "kind": "skill",
+    "key": "gravity",
+    "color": "#C9A0FF",
+    "shape": "<circle cx='32' cy='32' r='8' fill='currentColor' fill-opacity='.45'/><circle cx='32' cy='32' r='19' stroke-dasharray='4 4'/><path d='M32 3V14M27 9L32 14 37 9M32 61V50M27 55L32 50 37 55M3 32H14M9 27L14 32 9 37M61 32H50M55 27L50 32 55 37'/>"
+  },
+  {
+    "id": "skill_slowfield_echo",
+    "name": "감속장 · 시간의 잔향",
+    "kind": "skill_variant",
+    "key": "slowfield:echo",
+    "color": "#72D9D2",
+    "shape": "<circle cx='26' cy='30' r='15'/><path d='M26 19V30L34 34'/><path d='M44 18Q54 32 44 46' stroke-dasharray='3 4'/><path d='M52 12Q66 32 52 52' stroke-dasharray='3 4'/><path d='M10 52H44'/>"
+  },
+  {
+    "id": "skill_slowfield_follow",
+    "name": "감속장 · 동행하는 시간",
+    "kind": "skill_variant",
+    "key": "slowfield:follow",
+    "color": "#72D9D2",
+    "shape": "<circle cx='24' cy='30' r='15'/><path d='M24 19V30L32 34'/><path d='M42 30H58M50 22L58 30 50 38'/><path d='M10 52H40' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "skill_slowfield_split",
+    "name": "감속장 · 분할된 시간",
+    "kind": "skill_variant",
+    "key": "slowfield:split",
+    "color": "#72D9D2",
+    "shape": "<circle cx='19' cy='28' r='13'/><circle cx='45' cy='38' r='13'/><path d='M19 19V28L25 31M45 30V38L51 41'/><path d='M30 12L36 6M34 20L42 14' stroke-dasharray='2 4'/>"
+  },
+  {
+    "id": "skill_strike_chain",
+    "name": "낙뢰 · 연쇄 낙뢰",
+    "kind": "skill_variant",
+    "key": "strike:chain",
+    "color": "#FFE479",
+    "shape": "<path d='M24 5L11 26 19 26 14 44 30 22 21 22Z' fill='currentColor' fill-opacity='.35'/><path d='M44 16L35 33 41 33 37 47 49 29 42 29Z' fill='currentColor' fill-opacity='.3'/><path d='M22 48Q34 56 46 50' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "skill_strike_storm",
+    "name": "낙뢰 · 뇌우 지대",
+    "kind": "skill_variant",
+    "key": "strike:storm",
+    "color": "#FFE479",
+    "shape": "<path d='M16 24A11 11 0 0 1 38 20A9 9 0 0 1 46 26H18Z' fill='currentColor' fill-opacity='.25'/><path d='M34 28L24 44 31 44 27 58 41 40 33 40Z' fill='currentColor' fill-opacity='.4'/><ellipse cx='32' cy='54' rx='20' ry='6' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "skill_ward_fortress",
+    "name": "수호 결계 · 이동 요새",
+    "kind": "skill_variant",
+    "key": "ward:fortress",
+    "color": "#8DBEFF",
+    "shape": "<path d='M32 8L48 14V32C48 43 40 51 32 55 24 51 16 43 16 32V14Z' fill='currentColor' fill-opacity='.22'/><path d='M24 24H40M24 34H40'/><path d='M52 26H62M56 20L62 26 56 32'/><path d='M12 26H2M8 20L2 26 8 32'/>"
+  },
+  {
+    "id": "skill_ward_pulse",
+    "name": "수호 결계 · 공격 결계",
+    "kind": "skill_variant",
+    "key": "ward:pulse",
+    "color": "#8DBEFF",
+    "shape": "<path d='M32 14L44 19V33C44 41 38 47 32 50 26 47 20 41 20 33V19Z' fill='currentColor' fill-opacity='.22'/><path d='M32 24V38M25 31H39'/><path d='M9 12Q2 32 9 52M55 12Q62 32 55 52' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "skill_gust_whirl",
+    "name": "돌풍 · 회오리",
+    "kind": "skill_variant",
+    "key": "gust:whirl",
+    "color": "#A8E6D0",
+    "shape": "<path d='M32 32a6 6 0 1 1 6-6 12 12 0 0 1-12 12 20 20 0 0 1-20-20'/><path d='M44 12A24 24 0 0 1 52 30' stroke-dasharray='3 4'/><path d='M14 48H50M22 56H44'/>"
+  },
+  {
+    "id": "skill_gust_windpath",
+    "name": "돌풍 · 바람길",
+    "kind": "skill_variant",
+    "key": "gust:windpath",
+    "color": "#A8E6D0",
+    "shape": "<path d='M6 20H32A7 7 0 1 0 26 13'/><path d='M6 34H40A8 8 0 1 1 32 42'/><circle cx='14' cy='50' r='4' fill='currentColor' fill-opacity='.4'/><circle cx='32' cy='50' r='4' fill='currentColor' fill-opacity='.4'/><circle cx='50' cy='50' r='4' fill='currentColor' fill-opacity='.4'/>"
+  },
+  {
+    "id": "skill_bladestorm_advancing",
+    "name": "칼날 폭풍 · 전진하는 폭풍",
+    "kind": "skill_variant",
+    "key": "bladestorm:advancing",
+    "color": "#C9D6E8",
+    "shape": "<circle cx='26' cy='32' r='5' fill='currentColor' stroke='none'/><path d='M26 27L20 11 35 15Z' fill='currentColor' fill-opacity='.3'/><path d='M21 36L7 44 8 27Z' fill='currentColor' fill-opacity='.3'/><path d='M31 38L40 51 26 53Z' fill='currentColor' fill-opacity='.3'/><path d='M42 32H60M52 24L60 32 52 40'/>"
+  },
+  {
+    "id": "skill_bladestorm_condensed",
+    "name": "칼날 폭풍 · 응축된 폭풍",
+    "kind": "skill_variant",
+    "key": "bladestorm:condensed",
+    "color": "#C9D6E8",
+    "shape": "<circle cx='32' cy='32' r='4' fill='currentColor' stroke='none'/><path d='M32 28L27 16 38 19Z' fill='currentColor' fill-opacity='.35'/><path d='M36 34L48 40 37 45Z' fill='currentColor' fill-opacity='.35'/><path d='M27 34L16 42 15 29Z' fill='currentColor' fill-opacity='.35'/><path d='M32 4V12M32 60V52M4 32H12M60 32H52M12 12L18 18M52 52L46 46M12 52L18 46M52 12L46 18'/>"
+  },
+  {
+    "id": "skill_gravity_collapse",
+    "name": "중력핵 · 붕괴",
+    "kind": "skill_variant",
+    "key": "gravity:collapse",
+    "color": "#C9A0FF",
+    "shape": "<circle cx='32' cy='32' r='7' fill='currentColor' fill-opacity='.5'/><path d='M32 2L36 18 32 22 28 18ZM62 32L46 36 42 32 46 28ZM32 62L28 46 32 42 36 46ZM2 32L18 28 22 32 18 36Z' fill='currentColor' fill-opacity='.3'/><path d='M11 11L21 21M53 11L43 21M53 53L43 43M11 53L21 43'/>"
+  },
+  {
+    "id": "skill_gravity_orbit",
+    "name": "중력핵 · 궤도 포획",
+    "kind": "skill_variant",
+    "key": "gravity:orbit",
+    "color": "#C9A0FF",
+    "shape": "<circle cx='32' cy='32' r='8' fill='currentColor' fill-opacity='.45'/><ellipse cx='32' cy='32' rx='27' ry='12' transform='rotate(-25 32 32)'/><circle cx='51' cy='21' r='4.5' fill='currentColor' stroke='none'/><circle cx='13' cy='43' r='3.5' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "common_burn",
+    "name": "불붙은 공격",
+    "kind": "common",
+    "key": "burn",
+    "color": "#FF9A5A",
+    "shape": "<path d='M14 46L38 20' stroke-width='5'/><path d='M8 52L16 44M10 40L20 50'/><path d='M42 12C46 22 54 24 52 33 51 41 44 44 38 42 26 38 29 26 35 21 33 30 38 29 39 23Z' fill='currentColor' fill-opacity='.3'/>"
+  },
+  {
+    "id": "common_flare",
+    "name": "불꽃 파열",
+    "kind": "common",
+    "key": "flare",
+    "color": "#FFCF6B",
+    "shape": "<path d='M32 4L39 20 55 14 47 30 60 40 43 41 40 58 32 44 24 58 21 41 4 40 17 30 9 14 25 20Z' fill='currentColor' fill-opacity='.28'/><circle cx='32' cy='33' r='6' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "common_reach",
+    "name": "긴 사거리",
+    "kind": "common",
+    "key": "reach",
+    "color": "#A9D8B8",
+    "shape": "<path d='M8 12V52M56 12V52'/><path d='M8 32H56M46 24L56 32 46 40M18 24L8 32 18 40'/>"
+  },
+  {
+    "id": "common_saving",
+    "name": "시간 저축",
+    "kind": "common",
+    "key": "saving",
+    "color": "#C8C2F2",
+    "shape": "<path d='M18 8H42L30 26 42 44 18 44 30 26Z' fill='currentColor' fill-opacity='.25'/><path d='M14 8H46M14 44H46'/><path d='M46 54H62M54 46V62'/>"
+  },
+  {
+    "id": "common_stasis",
+    "name": "정지된 칼날",
+    "kind": "common",
+    "key": "stasis",
+    "color": "#9FB6E8",
+    "shape": "<path d='M14 44L38 14' stroke-width='5'/><path d='M8 50L18 40'/><path d='M44 24V48M56 24V48' stroke-width='5'/>"
+  },
+  {
+    "id": "common_wide",
+    "name": "넓어진 공격",
+    "kind": "common",
+    "key": "wide",
+    "color": "#E0CBA0",
+    "shape": "<path d='M32 54A34 34 0 0 1 6 22' /><path d='M32 54A34 34 0 0 0 58 22'/><path d='M32 54V22M32 22L24 32M32 22L40 32'/><path d='M8 14L4 26 16 24M56 14L60 26 48 24' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "passive_exploit",
+    "name": "빈틈 포착",
+    "kind": "passive",
+    "key": "exploit",
+    "color": "#F2A2A2",
+    "shape": "<circle cx='32' cy='32' r='17'/><path d='M32 6V18M32 46V58M6 32H18M46 32H58'/><path d='M26 40L34 28 28 28 36 18' stroke-width='4'/>"
+  },
+  {
+    "id": "passive_focus",
+    "name": "집중",
+    "kind": "passive",
+    "key": "focus",
+    "color": "#9FD5F0",
+    "shape": "<circle cx='32' cy='32' r='22' stroke-dasharray='5 5'/><circle cx='32' cy='32' r='12'/><circle cx='32' cy='32' r='4.5' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "passive_haste",
+    "name": "가속",
+    "kind": "passive",
+    "key": "haste",
+    "color": "#A6E3B0",
+    "shape": "<path d='M14 14L30 32 14 50M32 14L48 32 32 50' stroke-width='5'/><path d='M4 22H12M2 32H10M4 42H12'/>"
+  },
+  {
+    "id": "passive_mastery",
+    "name": "무기 숙련",
+    "kind": "passive",
+    "key": "mastery",
+    "color": "#F0D08A",
+    "shape": "<path d='M20 46L44 12 52 10 52 19 28 51Z' fill='currentColor' fill-opacity='.3'/><path d='M17 40L30 52M24 48L12 58'/><path d='M42 48L48 54 60 40' stroke-width='4'/>"
+  },
+  {
+    "id": "passive_mobility",
+    "name": "기동력",
+    "kind": "passive",
+    "key": "mobility",
+    "color": "#A8D8F5",
+    "shape": "<circle cx='38' cy='12' r='6'/><path d='M40 22L28 34 36 44 34 56'/><path d='M28 34L14 30M40 26L52 32'/><path d='M4 46H18M6 54H22' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "passive_persistence",
+    "name": "지속력",
+    "kind": "passive",
+    "key": "persistence",
+    "color": "#C6B9F0",
+    "shape": "<circle cx='20' cy='22' r='13'/><path d='M20 13V22L27 26'/><path d='M8 46H50M42 39L52 46 42 53' stroke-width='4'/><path d='M20 46V53M32 46V53M44 46V53' stroke-dasharray='2 3'/>"
+  },
+  {
+    "id": "passive_toughness",
+    "name": "강인함",
+    "kind": "passive",
+    "key": "toughness",
+    "color": "#C3C9D2",
+    "shape": "<path d='M32 6L52 13V32C52 44 42 53 32 58 22 53 12 44 12 32V13Z' fill='currentColor' fill-opacity='.22'/><circle cx='22' cy='22' r='2.5' fill='currentColor' stroke='none'/><circle cx='42' cy='22' r='2.5' fill='currentColor' stroke='none'/><circle cx='22' cy='40' r='2.5' fill='currentColor' stroke='none'/><circle cx='42' cy='40' r='2.5' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "passive_vitality",
+    "name": "건강",
+    "kind": "passive",
+    "key": "vitality",
+    "color": "#F2A8C0",
+    "shape": "<path d='M32 54C10 38 8 24 18 17 26 11 32 20 32 20S38 11 46 17C56 24 54 38 32 54Z' fill='currentColor' fill-opacity='.28'/><path d='M14 32H24L28 24 34 40 38 32H50'/>"
+  },
+  {
+    "id": "equip_bloodmoon_sword",
+    "name": "혈월검",
+    "kind": "equip",
+    "key": "bloodmoon_sword",
+    "color": "#E8A0A0",
+    "shape": "<path d='M18 44L40 14 47 12 47 20 25 50Z' fill='currentColor' fill-opacity='.28'/><path d='M15 39L26 50M20 47L10 58'/><path d='M61 26A14 14 0 1 1 44 9 11 11 0 0 0 61 26Z' fill='currentColor' fill-opacity='.45'/>"
+  },
+  {
+    "id": "equip_ember_sword",
+    "name": "잔불검",
+    "kind": "equip",
+    "key": "ember_sword",
+    "color": "#FFAE62",
+    "shape": "<path d='M18 44L40 14 47 12 47 20 25 50Z' fill='currentColor' fill-opacity='.28'/><path d='M15 39L26 50M20 47L10 58'/><path d='M50 30c5 9 11 11 9 19-2 7-9 9-15 7-10-4-8-15-2-19-1 7 4 6 5 0Z' fill='currentColor' fill-opacity='.45'/>"
+  },
+  {
+    "id": "equip_hunter_sword",
+    "name": "사냥꾼의 검",
+    "kind": "equip",
+    "key": "hunter_sword",
+    "color": "#F0D08A",
+    "shape": "<path d='M18 44L40 14 47 12 47 20 25 50Z' fill='currentColor' fill-opacity='.28'/><path d='M15 39L26 50M20 47L10 58'/><circle cx='47' cy='42' r='12'/><path d='M47 27v7M47 50v7M32 42h7M55 42h7'/>"
+  },
+  {
+    "id": "equip_pioneer_spear",
+    "name": "개척자의 창",
+    "kind": "equip",
+    "key": "pioneer_spear",
+    "color": "#F0D08A",
+    "shape": "<path d='M12 52L36 28'/><path d='M30 32L40 14 53 9 49 23Z' fill='currentColor' fill-opacity='.28'/><path d='M12 57V22L38 29 12 36' fill='currentColor' fill-opacity='.4'/>"
+  },
+  {
+    "id": "equip_chrono_staff",
+    "name": "시간술사의 지팡이",
+    "kind": "equip",
+    "key": "chrono_staff",
+    "color": "#B9B4F0",
+    "shape": "<path d='M18 56L38 22'/><circle cx='43' cy='14' r='9' fill='currentColor' fill-opacity='.28'/><path d='M43 8V14L48 17'/><path d='M6 34A13 13 0 0 0 21 49' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "equip_echo_staff",
+    "name": "잔향의 지팡이",
+    "kind": "equip",
+    "key": "echo_staff",
+    "color": "#B5B4F1",
+    "shape": "<path d='M18 56L38 22'/><circle cx='43' cy='14' r='9' fill='currentColor' fill-opacity='.28'/><path d='M56 4Q64 14 57 25' stroke-dasharray='3 3'/><path d='M30 4Q22 14 29 25' stroke-dasharray='3 3'/>"
+  },
+  {
+    "id": "equip_caster_shield",
+    "name": "시전자의 방패",
+    "kind": "equip",
+    "key": "caster_shield",
+    "color": "#A9C3E8",
+    "shape": "<path d='M32 8L50 15V33C50 44 41 52 32 56 23 52 14 44 14 33V15Z' fill='currentColor' fill-opacity='.18'/><path d='M38 2L22 30 32 30 26 60 46 26 35 26Z' fill='currentColor' fill-opacity='.55'/>"
+  },
+  {
+    "id": "equip_emergency_shield",
+    "name": "비상 방패",
+    "kind": "equip",
+    "key": "emergency_shield",
+    "color": "#F0C08A",
+    "shape": "<path d='M32 8L50 15V33C50 44 41 52 32 56 23 52 14 44 14 33V15Z' fill='currentColor' fill-opacity='.18'/><path d='M22 10L30 24 20 32 30 40 22 54' stroke-width='4'/><path d='M40 20V36' stroke-width='5'/><circle cx='40' cy='45' r='3' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "equip_iron_shield",
+    "name": "철벽 방패",
+    "kind": "equip",
+    "key": "iron_shield",
+    "color": "#A9C3E8",
+    "shape": "<path d='M12 10H52V40C52 48 44 54 32 58 20 54 12 48 12 40Z' fill='currentColor' fill-opacity='.3'/><path d='M12 24H52M32 10V57'/><circle cx='19' cy='16' r='2.4' fill='currentColor' stroke='none'/><circle cx='45' cy='16' r='2.4' fill='currentColor' stroke='none'/><circle cx='19' cy='40' r='2.4' fill='currentColor' stroke='none'/><circle cx='45' cy='40' r='2.4' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "equip_relay_shield",
+    "name": "연계 방패",
+    "kind": "equip",
+    "key": "relay_shield",
+    "color": "#A9C3E8",
+    "shape": "<path d='M21 10L34 15V30C34 38 28 44 21 48 14 44 8 38 8 30V15Z' fill='currentColor' fill-opacity='.18'/><path d='M43 18L56 23V38C56 45 50 51 43 55 36 51 30 45 30 38V23Z' fill='currentColor' fill-opacity='.32'/><path d='M22 30A6 6 0 0 1 28 24H33M42 34A6 6 0 0 1 36 40H31' stroke-width='4'/>"
+  },
+  {
+    "id": "equip_reprisal_shield",
+    "name": "반격 방패",
+    "kind": "equip",
+    "key": "reprisal_shield",
+    "color": "#E8B4B4",
+    "shape": "<circle cx='32' cy='33' r='18' fill='currentColor' fill-opacity='.22'/><path d='M32 15V5M46 19L53 12M18 19L11 12M50 33h10M4 33h10M46 47l7 7M18 47l-7 7M32 51v10'/><path d='M42 23L24 41M24 41h9M24 41v-9'/>"
+  },
+  {
+    "id": "equip_time_shield",
+    "name": "시간의 방패",
+    "kind": "equip",
+    "key": "time_shield",
+    "color": "#B9B4F0",
+    "shape": "<circle cx='32' cy='32' r='22' fill='currentColor' fill-opacity='.2'/><path d='M32 16V32L44 39' stroke-width='4'/><path d='M32 4v7M32 53v7M4 32h7M53 32h7'/>"
+  },
+  {
+    "id": "equip_expedition_armor",
+    "name": "원정대의 갑옷",
+    "kind": "equip",
+    "key": "expedition_armor",
+    "color": "#C4B79E",
+    "shape": "<path d='M24 8L32 14 40 8 48 14V36C48 47 40 54 32 58 24 54 16 47 16 36V14Z' fill='currentColor' fill-opacity='.22'/><path d='M48 22H61V45H48Z' fill='currentColor' fill-opacity='.4'/><path d='M52 17V22M57 17V22M48 33H61'/>"
+  },
+  {
+    "id": "equip_guardian_armor",
+    "name": "수호자의 갑옷",
+    "kind": "equip",
+    "key": "guardian_armor",
+    "color": "#A9C3E8",
+    "shape": "<path d='M14 14L32 8 50 14 55 26 46 29V51C46 56 40 59 32 59 24 59 18 56 18 51V29L9 26Z' fill='currentColor' fill-opacity='.24'/><path d='M32 22L43 27V38C43 44 38 49 32 51 26 49 21 44 21 38V27Z' fill='currentColor' fill-opacity='.5'/>"
+  },
+  {
+    "id": "equip_moon_armor",
+    "name": "월광 갑옷",
+    "kind": "equip",
+    "key": "moon_armor",
+    "color": "#B7C7EC",
+    "shape": "<path d='M22 12L32 18 42 12 50 18V38C50 48 42 55 32 59 22 55 14 48 14 38V18Z' fill='currentColor' fill-opacity='.16'/><path d='M53 30A21 21 0 1 1 30 9 17 17 0 0 0 53 30Z' fill='currentColor' fill-opacity='.5'/>"
+  },
+  {
+    "id": "equip_traveler_armor",
+    "name": "여행자의 경갑",
+    "kind": "equip",
+    "key": "traveler_armor",
+    "color": "#C4B79E",
+    "shape": "<path d='M20 8L32 21 44 8 53 15 45 25V53H37L32 31 27 53H19V25L11 15Z' fill='currentColor' fill-opacity='.26'/><path d='M13 38H51' stroke-width='5'/>"
+  },
+  {
+    "id": "equip_renewal_coat",
+    "name": "재생의 여행복",
+    "kind": "equip",
+    "key": "renewal_coat",
+    "color": "#A9D8B8",
+    "shape": "<path d='M26 6L32 12 38 6 50 14 44 26V58H20V26L14 14Z' fill='currentColor' fill-opacity='.18'/><path d='M32 12V58'/><path d='M40 42c13-13 21-10 21-10s2 13-10 18c-7 3-11-8-11-8Z' fill='currentColor' fill-opacity='.5'/>"
+  },
+  {
+    "id": "equip_vitality_coat",
+    "name": "생명력의 외투",
+    "kind": "equip",
+    "key": "vitality_coat",
+    "color": "#F2A8C0",
+    "shape": "<path d='M26 6L32 12 38 6 50 14 44 26V58H20V26L14 14Z' fill='currentColor' fill-opacity='.18'/><path d='M32 12V58'/><path d='M45 52C31 42 30 30 38 26 44 22 45 31 45 31S47 22 53 26C61 30 59 42 45 52Z' fill='currentColor' fill-opacity='.5'/>"
+  },
+  {
+    "id": "reward_clone",
+    "name": "시간의 복제",
+    "kind": "reward",
+    "key": "clone",
+    "color": "#C8C2F2",
+    "shape": "<circle cx='24' cy='18' r='8'/><path d='M10 50v-6a14 14 0 0 1 28 0v6Z' fill='currentColor' fill-opacity='.28'/><circle cx='44' cy='24' r='7' stroke-dasharray='3 3'/><path d='M32 54v-6a13 13 0 0 1 24-6' stroke-dasharray='3 3'/>"
+  },
+  {
+    "id": "reward_resonance",
+    "name": "무기 공명",
+    "kind": "reward",
+    "key": "resonance",
+    "color": "#A7C9FA",
+    "shape": "<path d='M18 48L34 16M46 48L30 16' stroke-width='4'/><path d='M8 20Q2 32 8 44M56 20Q62 32 56 44' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "reward_seed",
+    "name": "연쇄의 씨앗",
+    "kind": "reward",
+    "key": "seed",
+    "color": "#A9D8B8",
+    "shape": "<path d='M32 52C18 44 16 30 24 22c6-6 14-2 14-2s6 8 0 16c-4 6-6 10-6 16Z' fill='currentColor' fill-opacity='.3'/><path d='M32 52V34'/><path d='M42 12a6 6 0 0 1 8 8l-4 4M54 24a6 6 0 0 1-8 8' stroke-width='3'/>"
+  },
+  {
+    "id": "reward_tempo",
+    "name": "시간의 박자",
+    "kind": "reward",
+    "key": "tempo",
+    "color": "#B9B4F0",
+    "shape": "<path d='M24 8H40L50 54H14Z' fill='currentColor' fill-opacity='.25'/><path d='M32 48L46 16'/><circle cx='40' cy='30' r='4' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "reward_vigor",
+    "name": "불굴의 심장",
+    "kind": "reward",
+    "key": "vigor",
+    "color": "#F5A45A",
+    "shape": "<path d='M20 16c6 10 14 11 12 22-2 9-11 12-19 9-13-5-10-20-3-25-2 9 5 8 6 1Z' fill='currentColor' fill-opacity='.22'/><path d='M44 16c6 10 14 11 12 22-2 9-11 12-19 9-13-5-10-20-3-25-2 9 5 8 6 1Z' fill='currentColor' fill-opacity='.22'/><path d='M32 56C18 45 17 33 25 28 31 24 32 32 32 32S34 24 40 28C48 33 46 45 32 56Z' fill='currentColor' fill-opacity='.55'/>"
+  },
+  {
+    "id": "reward_volley",
+    "name": "일제 공격",
+    "kind": "reward",
+    "key": "volley",
+    "color": "#F5D77A",
+    "shape": "<path d='M4 16H40M4 32H48M4 48H40'/><path d='M34 8L48 16 34 24ZM42 24L56 32 42 40ZM34 40L48 48 34 56Z' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "weapon_plague",
+    "name": "역병 나비",
+    "kind": "weapon",
+    "key": "plague",
+    "color": "#7FD46B",
+    "shape": "<path d='M32 18L32 48'/><path d='M31 22C21 8 7 14 11 27 14 38 25 40 31 33Z' fill='currentColor' fill-opacity='.25'/><path d='M33 22C43 8 57 14 53 27 50 38 39 40 33 33Z' fill='currentColor' fill-opacity='.25'/><path d='M30 17L24 9M34 17L40 9'/>"
+  },
+  {
+    "id": "weapon_thorns",
+    "name": "가시 갑각",
+    "kind": "weapon",
+    "key": "thorns",
+    "color": "#9FB3C8",
+    "shape": "<path d='M32 12L50 21V35C50 45 42 52 32 55 22 52 14 45 14 35V21Z' fill='currentColor' fill-opacity='.2'/><path d='M32 12L50 21V35C50 45 42 52 32 55 22 52 14 45 14 35V21Z'/><path d='M32 12L32 2M50 21L59 15M14 21L5 15M18 46L11 53M46 46L53 53'/>"
+  },
+  {
+    "id": "weapon_doll",
+    "name": "도깨비 인형",
+    "kind": "weapon",
+    "key": "doll",
+    "color": "#E86A5C",
+    "shape": "<circle cx='32' cy='18' r='10'/><path d='M26 10L21 2M38 10L43 2'/><path d='M28 16L28 20M36 16L36 20'/><path d='M32 28L32 50M17 36H47M32 50L24 60M32 50L40 60'/>"
+  },
+  {
+    "id": "mod_plague_wide",
+    "name": "넓은 전염",
+    "kind": "mod",
+    "key": "plague:wide",
+    "color": "#7FD46B",
+    "shape": "<circle cx='32' cy='32' r='5' fill='currentColor' stroke='none'/><circle cx='32' cy='32' r='22' stroke-dasharray='3 5'/><path d='M32 23V12M28 16L32 10 36 16'/><path d='M32 41V52M28 48L32 54 36 48'/><path d='M23 32H12M16 28L10 32 16 36'/><path d='M41 32H52M48 28L54 32 48 36'/>"
+  },
+  {
+    "id": "mod_plague_deep",
+    "name": "깊은 맹독",
+    "kind": "mod",
+    "key": "plague:deep",
+    "color": "#7FD46B",
+    "shape": "<path d='M32 6C40 21 46 30 46 38A14 14 0 0 1 18 38C18 30 24 21 32 6Z' fill='currentColor' fill-opacity='.28'/><path d='M32 6C40 21 46 30 46 38A14 14 0 0 1 18 38C18 30 24 21 32 6Z'/><path d='M25 33L32 40 39 33M25 44L32 51 39 44'/>"
+  },
+  {
+    "id": "mod_plague_burst",
+    "name": "역병 파열",
+    "kind": "mod",
+    "key": "plague:burst",
+    "color": "#7FD46B",
+    "shape": "<path d='M32 20 38 27 47 24 44 33 51 40 42 42 40 51 32 46 24 51 22 42 13 40 20 33 17 24 26 27Z' fill='currentColor' fill-opacity='.3'/><path d='M32 20 38 27 47 24 44 33 51 40 42 42 40 51 32 46 24 51 22 42 13 40 20 33 17 24 26 27Z'/><path d='M32 8V2M56 20L60 16M8 20L4 16'/>"
+  },
+  {
+    "id": "mod_thorns_focused",
+    "name": "집중 가시",
+    "kind": "mod",
+    "key": "thorns:focused",
+    "color": "#9FB3C8",
+    "shape": "<path d='M32 3L39 40 32 53 25 40Z' fill='currentColor' fill-opacity='.3'/><path d='M32 3L39 40 32 53 25 40Z'/><path d='M13 45L23 40M51 45L41 40M17 57L26 49M47 57L38 49'/>"
+  },
+  {
+    "id": "mod_thorns_burst",
+    "name": "가시 폭발",
+    "kind": "mod",
+    "key": "thorns:burst",
+    "color": "#9FB3C8",
+    "shape": "<circle cx='32' cy='32' r='12' fill='currentColor' fill-opacity='.2'/><circle cx='32' cy='32' r='12'/><path d='M32 20 37 7 27 7Z' fill='currentColor' stroke='none'/><path d='M32 44 27 57 37 57Z' fill='currentColor' stroke='none'/><path d='M20 32 7 27 7 37Z' fill='currentColor' stroke='none'/><path d='M44 32 57 37 57 27Z' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "mod_thorns_venom",
+    "name": "독가시",
+    "kind": "mod",
+    "key": "thorns:venom",
+    "color": "#9FB3C8",
+    "shape": "<path d='M12 55L38 21'/><path d='M38 21L46 9 34 15Z' fill='currentColor' stroke='none'/><path d='M50 29C54 37 57 41 57 44A6 6 0 0 1 45 44C45 41 46 37 50 29Z' fill='currentColor' fill-opacity='.35'/><path d='M50 29C54 37 57 41 57 44A6 6 0 0 1 45 44C45 41 46 37 50 29Z'/>"
+  },
+  {
+    "id": "mod_doll_tough",
+    "name": "질긴 인형",
+    "kind": "mod",
+    "key": "doll:tough",
+    "color": "#E86A5C",
+    "shape": "<circle cx='32' cy='13' r='8'/><path d='M32 21V53M19 31H45M26 53L20 61M38 53L44 61'/><path d='M17 26Q32 37 47 26M17 45Q32 34 47 45'/>"
+  },
+  {
+    "id": "mod_doll_firework",
+    "name": "폭죽 인형",
+    "kind": "mod",
+    "key": "doll:firework",
+    "color": "#E86A5C",
+    "shape": "<path d='M23 31H41V56H23Z' fill='currentColor' fill-opacity='.25'/><path d='M23 31H41V56H23Z'/><path d='M32 31V22'/><path d='M32 16V6M23 20L16 12M41 20L48 12M19 29L9 25M45 29L55 25'/>"
+  },
+  {
+    "id": "mod_doll_fleeing",
+    "name": "도망치는 인형",
+    "kind": "mod",
+    "key": "doll:fleeing",
+    "color": "#E86A5C",
+    "shape": "<circle cx='41' cy='13' r='6'/><path d='M39 20L32 34 42 43 45 57M32 34L21 30M42 43L29 54'/><path d='M4 21H18M2 32H14M6 43H16'/>"
+  },
+  {
+    "id": "weapon_crow",
+    "name": "추격 까마귀",
+    "kind": "weapon",
+    "key": "crow",
+    "color": "#8E93A8",
+    "shape": "<path d='M10 44Q24 22 44 20L55 12 51 26Q51 38 39 46L24 51 12 51Z' fill='currentColor' stroke='none'/><circle cx='46' cy='25' r='1.8' fill='currentColor' stroke='none'/><path d='M6 57Q16 51 27 55' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "mod_crow_hunt",
+    "name": "집중 사냥",
+    "kind": "mod",
+    "key": "crow:hunt",
+    "color": "#8E93A8",
+    "shape": "<circle cx='45' cy='19' r='9'/><path d='M45 12V26M38 19H52'/><path d='M10 52V42M21 52V33M32 52V24' stroke-width='6'/>"
+  },
+  {
+    "id": "mod_crow_switch",
+    "name": "먹잇감 전환",
+    "kind": "mod",
+    "key": "crow:switch",
+    "color": "#8E93A8",
+    "shape": "<circle cx='13' cy='43' r='8' stroke-dasharray='3 3'/><path d='M8 38L18 48M18 38L8 48'/><circle cx='50' cy='22' r='9'/><path d='M50 15V29M43 22H57'/><path d='M22 33Q32 18 40 17M34 13L42 17 37 24'/>"
+  },
+  {
+    "id": "mod_crow_twin",
+    "name": "쌍둥이 까마귀",
+    "kind": "mod",
+    "key": "crow:twin",
+    "color": "#8E93A8",
+    "shape": "<path d='M5 29Q15 15 29 15L38 9 35 20Q35 27 26 32L14 36 7 35Z' fill='currentColor' stroke='none'/><path d='M27 55Q37 43 50 43L59 37 56 47Q56 53 48 57L36 59 29 59Z' fill='currentColor' fill-opacity='.5' stroke='none'/>"
+  },
+  {
+    "id": "weapon_bell",
+    "name": "수호 방울",
+    "kind": "weapon",
+    "key": "bell",
+    "color": "#FFD24D",
+    "shape": "<path d='M20 42Q20 21 32 18Q44 21 44 42Z' fill='currentColor' fill-opacity='.25'/><path d='M20 42Q20 21 32 18Q44 21 44 42Z'/><path d='M15 42H49M32 11V18'/><circle cx='32' cy='48' r='3.4'/><path d='M10 26Q6 32 10 39M54 26Q58 32 54 39'/>"
+  },
+  {
+    "id": "mod_bell_layered",
+    "name": "겹울림",
+    "kind": "mod",
+    "key": "bell:layered",
+    "color": "#FFD24D",
+    "shape": "<path d='M23 39Q23 22 32 19Q41 22 41 39Z' fill='currentColor' fill-opacity='.25'/><path d='M23 39Q23 22 32 19Q41 22 41 39Z'/><path d='M18 39H46M32 13V19'/><circle cx='32' cy='45' r='3'/><path d='M8 50Q7 31 17 27' stroke-dasharray='3 3'/><path d='M56 50Q57 31 47 27' stroke-dasharray='3 3'/>"
+  },
+  {
+    "id": "mod_bell_guard",
+    "name": "근접 수호",
+    "kind": "mod",
+    "key": "bell:guard",
+    "color": "#FFD24D",
+    "shape": "<path d='M32 8L51 15V32Q51 47 32 56Q13 47 13 32V15Z' fill='currentColor' fill-opacity='.2'/><path d='M32 8L51 15V32Q51 47 32 56Q13 47 13 32V15Z'/><path d='M22 31L29 38 43 22'/>"
+  },
+  {
+    "id": "mod_bell_reflect",
+    "name": "되돌림",
+    "kind": "mod",
+    "key": "bell:reflect",
+    "color": "#FFD24D",
+    "shape": "<path d='M13 10V54' stroke-width='6'/><path d='M50 20H23M29 14L22 20 29 26'/><path d='M23 44H53M47 38L54 44 47 50'/>"
+  },
+  {
+    "id": "mod_echo_cross",
+    "name": "교차 잔영",
+    "kind": "mod",
+    "key": "echo:cross",
+    "color": "#AFA6E6",
+    "shape": "<circle cx='21' cy='18' r='6'/><path d='M14 53L18 29H26L30 53Z' fill='currentColor' fill-opacity='.3'/><circle cx='45' cy='24' r='5' stroke-dasharray='3 3'/><path d='M39 55L42 35H50L53 55Z' stroke-dasharray='3 4'/><path d='M9 9L24 24M55 9L40 24' stroke-dasharray='2 3'/>"
+  },
+  {
+    "id": "mod_echo_residual",
+    "name": "잔류 잔영",
+    "kind": "mod",
+    "key": "echo:residual",
+    "color": "#AFA6E6",
+    "shape": "<circle cx='13' cy='27' r='3' stroke-dasharray='2 2'/><path d='M7 52L10 36H17L20 52Z' stroke-dasharray='2 3'/><circle cx='31' cy='24' r='4'/><path d='M24 52L27 33H35L38 52Z' fill='currentColor' fill-opacity='.22'/><circle cx='49' cy='21' r='5'/><path d='M42 52L45 30H53L56 52Z' fill='currentColor' fill-opacity='.45'/>"
+  },
+  {
+    "id": "mod_echo_chase",
+    "name": "추격 잔영",
+    "kind": "mod",
+    "key": "echo:chase",
+    "color": "#AFA6E6",
+    "shape": "<circle cx='14' cy='19' r='5' stroke-dasharray='3 3'/><path d='M8 48L11 30H19L22 48Z' stroke-dasharray='3 4'/><circle cx='48' cy='37' r='9'/><path d='M48 30V44M41 37H55'/><path d='M24 29Q35 22 40 28M33 21L42 27 33 32'/>"
+  },
+  {
+    "id": "weapon_wind",
+    "name": "바람 정령",
+    "kind": "weapon",
+    "key": "wind",
+    "color": "#8FE0C4",
+    "shape": "<path d='M12 32L44 13V51Z' fill='currentColor' fill-opacity='.2'/><path d='M12 32L44 13M12 32L44 51'/><path d='M48 19H59M50 32H61M48 45H59'/>"
+  },
+  {
+    "id": "mod_wind_broad",
+    "name": "넓은 돌풍",
+    "kind": "mod",
+    "key": "wind:broad",
+    "color": "#8FE0C4",
+    "shape": "<path d='M11 32L53 6V58Z' fill='currentColor' fill-opacity='.18'/><path d='M11 32L53 6M11 32L53 58M11 32L55 32'/>"
+  },
+  {
+    "id": "mod_wind_focused",
+    "name": "압축 돌풍",
+    "kind": "mod",
+    "key": "wind:focused",
+    "color": "#8FE0C4",
+    "shape": "<path d='M11 32L53 22V42Z' fill='currentColor' fill-opacity='.28'/><path d='M11 32L53 22M11 32L53 42'/><path d='M18 32H48M42 26L50 32 42 38' stroke-width='5'/>"
+  },
+  {
+    "id": "mod_wind_lingering",
+    "name": "잔바람",
+    "kind": "mod",
+    "key": "wind:lingering",
+    "color": "#8FE0C4",
+    "shape": "<path d='M6 18H36M6 31H44M6 44H28' stroke-dasharray='4 5'/><circle cx='47' cy='45' r='10' stroke-dasharray='3 4'/><path d='M47 38V45L53 49'/>"
+  }
 ]
