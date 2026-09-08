@@ -36,6 +36,8 @@
 | `--group all --jobs 2` | 여러 회 | 실행마다 0~3개 스위트에서 발생 |
 | `--group all --jobs 4` slots_v2_full | 1회 | 0회 — 25개 스위트 전부 정상 종료 |
 | `--suites run_tests,slots_tests,support_tests,collision_tests,balance_tests --jobs 5` | 1회 | **1회**(balance_tests, 단언 46/46 통과 뒤 종료 실패) |
+| `--group all --jobs 1` integ_full (30개 스위트) | 1회 | **1회**(main_weapon_tests, 단언 41/41 통과 뒤 종료 실패) |
+| 담당별 병렬 작업 중 `--group all --jobs 3` (다른 작업 공간) | 2회 | 3회·3회 — 걸린 스위트가 실행마다 다름(balance/ui_flow/theme, acts/world/palette) |
 
 **2026-09-08 21:21 추가 관측(`20260908_212122`, 랜덤 지형 작업의 회귀 실행).** `--suites terrain_tests,run_tests,collision_tests,theme_tests,ui_flow_tests,world_tests --jobs 1`
 
