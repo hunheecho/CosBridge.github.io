@@ -91,7 +91,9 @@ func _init() -> void:
 	# 2026-09-08 성장 개편: 레벨 배율 1/1.35/1.8/2.35/3.0, 대장간은 기술별 강화(run.forgeBySkill).
 	# 이 빌드는 옛 전체 강화(forge:2)만 있고 회차가 아니라 growth 전용이라, 대장간 배율은 옛 저장 호환 경로로 그 기술에 붙는다.
 	# 창 Lv3 = 14 × 1.8(레벨) × 1.2(강화2 = 옛 저장 호환) × 1.2(숙련2) = 36.29
-	ok("빌드 파생: 창 Lv3 피해 14×1.8(레벨)×1.2(강화2·옛 저장 호환)×1.2(숙련2)=36.29, 주기 0.7×0.92, 폭 44×1.25", is_equal_approx(snapped(float(s0.damage), 0.01), 36.29) and is_equal_approx(snapped(float(s0.interval), 0.001), 0.644) and is_equal_approx(float(s0.width), 55.0), "dmg %.2f int %.3f w %.1f" % [float(s0.damage), float(s0.interval), float(s0.width)])
+	# 2026-09-08 주무기 구분: 창의 기본 폭은 이제 손으로 정한 값(data/main_weapons.json, 44 → 14)이다.
+	# 이 줄이 지키는 규칙은 "'넓어진 공격'이 창의 폭에 한 번 곱해진다"이고 그 규칙은 그대로다 — 기준값만 옮겼다(docs/MAIN_WEAPONS.md §6).
+	ok("빌드 파생: 창 Lv3 피해 14×1.8(레벨)×1.2(강화2·옛 저장 호환)×1.2(숙련2)=36.29, 주기 0.7×0.92, 폭 14×1.25", is_equal_approx(snapped(float(s0.damage), 0.01), 36.29) and is_equal_approx(snapped(float(s0.interval), 0.001), 0.644) and is_equal_approx(float(s0.width), 17.5), "dmg %.2f int %.3f w %.1f" % [float(s0.damage), float(s0.interval), float(s0.width)])
 	st = mk({ "weapons": [{ "id": "sword", "level": 5 }], "commons": { "wide": 2, "reach": 2 } })
 	s0 = st.build.weapons[0]
 	ok("검 Lv5 배율 3.0(성장 개편), 넓어진 2단계: 각도 110×1.5=165 반지름 95×1.5×1.25", is_equal_approx(float(s0.damage), 36.0) and is_equal_approx(float(s0.arc_deg), 165.0) and is_equal_approx(float(s0.range), 95.0 * 1.5 * 1.25), "%.1f %.1f %.1f" % [float(s0.damage), float(s0.arc_deg), float(s0.range)])
