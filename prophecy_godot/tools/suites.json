@@ -317,6 +317,15 @@
       "env": {},
       "timeout_sec": 600,
       "desc": "보조무기 A조 4종(추격 까마귀·수호 방울·잔영 분신·바람 정령)과 개조 12개"
+    },
+    "support_scene_probe": {
+      "env": {},
+      "script": "tools/support_scene_probe.gd",
+      "timeout_sec": 1800,
+      "verdict": {
+        "success_pattern": "SUPPORT_SCENE_JSON"
+      },
+      "desc": "보조 12종이 대표 장면에서 실제로 발동하는가(코드 반영과 동작 검증을 구분). 부분 실행 PROPHECY_SUBSET=\"support=doll;seed=1\""
     }
   },
   "groups": {
