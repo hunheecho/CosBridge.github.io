@@ -433,6 +433,49 @@ func push_out(o: Dictionary) -> void:
 	o.x = clampf(o.x, o.r, arena_w - o.r)
 	o.y = clampf(o.y, o.r, arena_h - o.r)
 
+## 장애물 파괴 API — 보스의 파괴 행동이 지형을 바꾸는 **유일한 출구**다. 다른 어떤 곳도 obstacles를 지우지 않는다.
+## 여기서 지키는 것(사용자 확정 지형 규칙):
+##  ① 파괴할 수 없는 **외곽 경계**는 거절한다(PTerrain.role_of. 규칙은 data/boss_behavior.json의 terrain).
+##  ② **필수 목표·출구**(봉인·우리·출구·포로)와 **제단 구조물** 옆(goalGuard)은 거절한다.
+##  ③ 전장에 남길 최소 장애물 수(keepMin)와 한 전투 상한(maxPerFight)을 지킨다 —
+##     플레이어를 잠시 보호하는 엄폐가 통째로 사라지지 않게.
+##  ④ **그림만 지우지 않는다.** obstacles 목록에서 빼므로 충돌(move_swept·push_out·valid_pos)과
+##     시야(los_blocked)·투사체 차단이 같은 프레임에 함께 사라진다.
+##  ⑤ **파편을 새 장애물로 만들지 않는다.** 이 함수는 obstacles에 무엇도 더하지 않으므로
+##     이동 가능 영역은 넓어지기만 한다(줄어들 수 없다 = 플레이어가 갇힐 수 없다).
+## why = "<보스>:<패턴>". 기록은 metrics.broken(계측·시험용, 규칙에 영향 없음).
+## 반환 true = 실제로 부쉈다.
+func break_obstacle(i: int, why: String) -> bool:
+	if i < 0 or i >= obstacles.size():
+		return false
+	var ob: Dictionary = obstacles[i]
+	var R: Dictionary = PTerrain.break_rules()
+	if R.is_empty():
+		return false
+	if PTerrain.role_of(arena_w, arena_h, ob) != "cover":
+		return false
+	var keep_min: int = int(R.get("keepMin", 0))
+	if obstacles.size() <= keep_min:
+		return false
+	var done: Array = metrics.get("broken", [])
+	if done.size() >= int(R.get("maxPerFight", 99)):
+		return false
+	# 필수 목표·출구·제단은 잘못 부수지 않는다(장애물이 아니어도 그 옆의 장애물을 지우지 않는다)
+	var guard := float(R.get("goalGuard", 0.0))
+	for o in objects:
+		if PGeom.dist(float(ob.x), float(ob.y), float(o.x), float(o.y)) <= float(ob.r) + float(o.r) + guard:
+			return false
+	for e in enemies:
+		if bool(e.get("structure", false)) and not bool(e.dead) and PGeom.dist(float(ob.x), float(ob.y), float(e.x), float(e.y)) <= float(ob.r) + float(e.r) + guard:
+			return false
+	obstacles.remove_at(i)
+	fx({ "kind": "burst", "x": float(ob.x), "y": float(ob.y), "r": float(ob.r) * 1.6, "ttl": 0.35, "color": "#8a6b45" })
+	fx({ "kind": "death", "x": float(ob.x), "y": float(ob.y), "r": float(ob.r), "ttl": 0.5 })
+	ev("shatter")
+	done.append({ "id": String(ob.id), "type": String(ob.type), "x": float(ob.x), "y": float(ob.y), "r": float(ob.r), "t": t, "why": why })
+	metrics["broken"] = done
+	return true
+
 ## 접촉 중 탈출 규칙(2026-09-08). 플레이어와 적에 **같은 규칙**을 쓴다.
 ## 이미 닿아(또는 겹쳐) 있는 장애물에 대해서는 그 장애물에서 **멀어지거나 접선 방향으로 가는**
 ## 이동을 막지 않는다. 안쪽으로 파고드는 이동은 그대로 막는다.
