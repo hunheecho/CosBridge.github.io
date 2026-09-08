@@ -1171,6 +1171,8 @@ func damage_enemy(e: Dictionary, amount: float, opt = {}, knock_c: float = 0.0, 
 		if PBuild.has_common(build, "stasis") and in_field(e):
 			e.stasis = mini(int(cfg.stasis.maxStacks), int(e.stasis) + 1)
 	if o.has("chill"):
+		if float(e.chill) <= 0.0:
+			PSupport.meter(self, "frost", "slows")   # 새로 둔화가 걸린 횟수(이미 걸린 적의 갱신은 세지 않는다)
 		e.chill = maxf(float(e.chill), float(o.chill) * dm * tdd)
 	if o.has("bleed") and sr.has("weapon"):
 		var dps := float(sr.weapon.damage) * 0.3

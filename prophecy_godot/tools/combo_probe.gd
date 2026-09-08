@@ -128,7 +128,7 @@ func run_one(combo: Dictionary, seed_v: int, bot_id: String) -> Dictionary:
 func unmetered(ids: Array) -> Array:
 	var out := []
 	for id in ids:
-		if not PSupport.METER_MAP.has(String(id)):
+		if not PSupport.is_metered(String(id)):
 			out.append(String(id))
 	return out
 

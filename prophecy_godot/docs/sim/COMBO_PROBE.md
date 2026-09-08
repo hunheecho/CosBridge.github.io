@@ -13,48 +13,48 @@
 
 | 조합 | 봇 | 시드 | 편성 | 결과 | 걸린 시간 | 처치 | 준 피해 | 받은 피해 | 남은 체력 | 역할 지표 |
 |---|---|---:|---|---|---:|---:|---:|---:|---:|---|
-| daggers_orb_echo | skilled | 1 | 쌍검 Lv5+출혈 칼날+측면 연무 / 번개 구체 Lv3+분기 번개 / 잔영 분신 Lv3+교차 잔영 | won | 25.4 | 35 | 1840 | 24 | 76 | shock_procs 0.0 · copies 21.0 · copy_dmg 36.6 |
-| daggers_orb_echo | skilled | 2 | 쌍검 Lv5+출혈 칼날+측면 연무 / 번개 구체 Lv3+분기 번개 / 잔영 분신 Lv3+교차 잔영 | won | 28.7 | 35 | 1840 | 0 | 100 | shock_procs 0.0 · copies 22.0 · copy_dmg 0.0 |
-| daggers_orb_echo | skilled | 3 | 쌍검 Lv5+출혈 칼날+측면 연무 / 번개 구체 Lv3+분기 번개 / 잔영 분신 Lv3+교차 잔영 | won | 24.8 | 35 | 1840 | 10 | 90 | shock_procs 0.0 · copies 19.0 · copy_dmg 145.2 |
-| daggers_orb_echo | novice | 1 | 쌍검 Lv5+출혈 칼날+측면 연무 / 번개 구체 Lv3+분기 번개 / 잔영 분신 Lv3+교차 잔영 | won | 28.1 | 35 | 1840 | 12 | 88 | shock_procs 0.0 · copies 24.0 · copy_dmg 42.1 |
-| daggers_orb_echo | novice | 2 | 쌍검 Lv5+출혈 칼날+측면 연무 / 번개 구체 Lv3+분기 번개 / 잔영 분신 Lv3+교차 잔영 | won | 31.5 | 35 | 1840 | 38 | 62 | shock_procs 0.0 · copies 24.0 · copy_dmg 3.5 |
-| daggers_orb_echo | novice | 3 | 쌍검 Lv5+출혈 칼날+측면 연무 / 번개 구체 Lv3+분기 번개 / 잔영 분신 Lv3+교차 잔영 | won | 27.3 | 35 | 1840 | 14 | 86 | shock_procs 0.0 · copies 18.0 · copy_dmg 0.0 |
-| hammer_frost_doll | skilled | 1 | 전투망치 Lv5+전방 충격파+여진 / 서리 수정 Lv3+서리 부채 / 도깨비 인형 Lv3+질긴 인형 | won | 28.4 | 35 | 1840 | 0 | 100 | slows 0.0 · taunted 10.0 · soaked 0.0 |
-| hammer_frost_doll | skilled | 2 | 전투망치 Lv5+전방 충격파+여진 / 서리 수정 Lv3+서리 부채 / 도깨비 인형 Lv3+질긴 인형 | won | 30.9 | 35 | 1840 | 20 | 80 | slows 0.0 · taunted 11.0 · soaked 0.0 |
-| hammer_frost_doll | skilled | 3 | 전투망치 Lv5+전방 충격파+여진 / 서리 수정 Lv3+서리 부채 / 도깨비 인형 Lv3+질긴 인형 | won | 20.1 | 35 | 1840 | 0 | 100 | slows 0.0 · taunted 3.0 · soaked 0.0 |
-| hammer_frost_doll | novice | 1 | 전투망치 Lv5+전방 충격파+여진 / 서리 수정 Lv3+서리 부채 / 도깨비 인형 Lv3+질긴 인형 | won | 28.2 | 35 | 1840 | 50 | 50 | slows 0.0 · taunted 8.0 · soaked 0.0 |
-| hammer_frost_doll | novice | 2 | 전투망치 Lv5+전방 충격파+여진 / 서리 수정 Lv3+서리 부채 / 도깨비 인형 Lv3+질긴 인형 | won | 32.6 | 35 | 1840 | 38 | 62 | slows 0.0 · taunted 14.0 · soaked 0.0 |
-| hammer_frost_doll | novice | 3 | 전투망치 Lv5+전방 충격파+여진 / 서리 수정 Lv3+서리 부채 / 도깨비 인형 Lv3+질긴 인형 | won | 34.0 | 35 | 1840 | 60 | 40 | slows 0.0 · taunted 11.0 · soaked 0.0 |
-| spear_wind_mine | skilled | 1 | 관통창 Lv5+귀환 검기+분열 창날 / 바람 정령 Lv3+넓은 돌풍 / 룬 지뢰 Lv3+연결 폭발 | won | 22.8 | 35 | 1840 | 14 | 86 | push_dist 566.1 · fires 6.0 |
-| spear_wind_mine | skilled | 2 | 관통창 Lv5+귀환 검기+분열 창날 / 바람 정령 Lv3+넓은 돌풍 / 룬 지뢰 Lv3+연결 폭발 | won | 27.5 | 35 | 1840 | 0 | 100 | push_dist 1443.7 · fires 6.0 |
-| spear_wind_mine | skilled | 3 | 관통창 Lv5+귀환 검기+분열 창날 / 바람 정령 Lv3+넓은 돌풍 / 룬 지뢰 Lv3+연결 폭발 | won | 24.6 | 35 | 1840 | 0 | 100 | push_dist 1151.6 · fires 9.0 |
-| spear_wind_mine | novice | 1 | 관통창 Lv5+귀환 검기+분열 창날 / 바람 정령 Lv3+넓은 돌풍 / 룬 지뢰 Lv3+연결 폭발 | won | 23.9 | 35 | 1840 | 66 | 34 | push_dist 1170.0 · fires 7.0 |
-| spear_wind_mine | novice | 2 | 관통창 Lv5+귀환 검기+분열 창날 / 바람 정령 Lv3+넓은 돌풍 / 룬 지뢰 Lv3+연결 폭발 | won | 26.8 | 35 | 1840 | 52 | 48 | push_dist 1795.9 · fires 9.0 |
-| spear_wind_mine | novice | 3 | 관통창 Lv5+귀환 검기+분열 창날 / 바람 정령 Lv3+넓은 돌풍 / 룬 지뢰 Lv3+연결 폭발 | won | 25.6 | 35 | 1840 | 34 | 66 | push_dist 936.0 · fires 3.0 |
-| sword_plague_crow | skilled | 1 | 검 Lv5+교차 검격+날아가는 검광 / 역병 나비 Lv3+넓은 전염 / 추격 까마귀 Lv3+집중 사냥 | won | 23.8 | 35 | 1840 | 0 | 100 | spreads 12.0 · bursts 0.0 · marks 5.0 |
-| sword_plague_crow | skilled | 2 | 검 Lv5+교차 검격+날아가는 검광 / 역병 나비 Lv3+넓은 전염 / 추격 까마귀 Lv3+집중 사냥 | won | 24.4 | 35 | 1840 | 0 | 100 | spreads 14.0 · bursts 0.0 · marks 6.0 |
-| sword_plague_crow | skilled | 3 | 검 Lv5+교차 검격+날아가는 검광 / 역병 나비 Lv3+넓은 전염 / 추격 까마귀 Lv3+집중 사냥 | won | 26.3 | 35 | 1840 | 0 | 100 | spreads 16.0 · bursts 0.0 · marks 9.0 |
-| sword_plague_crow | novice | 1 | 검 Lv5+교차 검격+날아가는 검광 / 역병 나비 Lv3+넓은 전염 / 추격 까마귀 Lv3+집중 사냥 | won | 28.6 | 35 | 1840 | 14 | 86 | spreads 9.0 · bursts 0.0 · marks 8.0 |
-| sword_plague_crow | novice | 2 | 검 Lv5+교차 검격+날아가는 검광 / 역병 나비 Lv3+넓은 전염 / 추격 까마귀 Lv3+집중 사냥 | won | 24.1 | 35 | 1840 | 14 | 86 | spreads 11.0 · bursts 0.0 · marks 7.0 |
-| sword_plague_crow | novice | 3 | 검 Lv5+교차 검격+날아가는 검광 / 역병 나비 Lv3+넓은 전염 / 추격 까마귀 Lv3+집중 사냥 | won | 26.4 | 35 | 1840 | 0 | 100 | spreads 7.0 · bursts 0.0 · marks 8.0 |
-| bow_blades_bell | skilled | 1 | 추적궁 Lv5+갈래 사격+도탄 화살 / 회전 칼날 Lv3+세 번째 칼날 / 수호 방울 Lv3+겹울림 | won | 23.9 | 35 | 1840 | 0 | 100 | blocked 0.0 · blocked_dmg 0.0 |
-| bow_blades_bell | skilled | 2 | 추적궁 Lv5+갈래 사격+도탄 화살 / 회전 칼날 Lv3+세 번째 칼날 / 수호 방울 Lv3+겹울림 | won | 21.9 | 35 | 1840 | 0 | 100 | blocked 0.0 · blocked_dmg 0.0 |
-| bow_blades_bell | skilled | 3 | 추적궁 Lv5+갈래 사격+도탄 화살 / 회전 칼날 Lv3+세 번째 칼날 / 수호 방울 Lv3+겹울림 | won | 24.9 | 35 | 1840 | 0 | 100 | blocked 0.0 · blocked_dmg 0.0 |
-| bow_blades_bell | novice | 1 | 추적궁 Lv5+갈래 사격+도탄 화살 / 회전 칼날 Lv3+세 번째 칼날 / 수호 방울 Lv3+겹울림 | won | 26.3 | 35 | 1840 | 0 | 100 | blocked 1.0 · blocked_dmg 10.0 |
-| bow_blades_bell | novice | 2 | 추적궁 Lv5+갈래 사격+도탄 화살 / 회전 칼날 Lv3+세 번째 칼날 / 수호 방울 Lv3+겹울림 | won | 27.8 | 35 | 1840 | 38 | 62 | blocked 0.0 · blocked_dmg 0.0 |
-| bow_blades_bell | novice | 3 | 추적궁 Lv5+갈래 사격+도탄 화살 / 회전 칼날 Lv3+세 번째 칼날 / 수호 방울 Lv3+겹울림 | won | 27.6 | 35 | 1840 | 14 | 86 | blocked 1.0 · blocked_dmg 10.0 |
-| daggers_thorns_bell | skilled | 1 | 쌍검 Lv5+출혈 칼날+측면 연무 / 가시 갑각 Lv3+집중 가시 / 수호 방울 Lv3+겹울림 | won | 38.1 | 35 | 1840 | 9 | 91 | reduced_dmg 3.4 · reflects 1.0 · blocked 0.0 |
-| daggers_thorns_bell | skilled | 2 | 쌍검 Lv5+출혈 칼날+측면 연무 / 가시 갑각 Lv3+집중 가시 / 수호 방울 Lv3+겹울림 | won | 33.2 | 35 | 1840 | 0 | 100 | reduced_dmg 0.0 · reflects 0.0 · blocked 0.0 |
-| daggers_thorns_bell | skilled | 3 | 쌍검 Lv5+출혈 칼날+측면 연무 / 가시 갑각 Lv3+집중 가시 / 수호 방울 Lv3+겹울림 | won | 28.4 | 35 | 1840 | 10 | 90 | reduced_dmg 3.9 · reflects 1.0 · blocked 0.0 |
-| daggers_thorns_bell | novice | 1 | 쌍검 Lv5+출혈 칼날+측면 연무 / 가시 갑각 Lv3+집중 가시 / 수호 방울 Lv3+겹울림 | won | 35.1 | 35 | 1840 | 45 | 56 | reduced_dmg 17.5 · reflects 5.0 · blocked 0.0 |
-| daggers_thorns_bell | novice | 2 | 쌍검 Lv5+출혈 칼날+측면 연무 / 가시 갑각 Lv3+집중 가시 / 수호 방울 Lv3+겹울림 | won | 31.7 | 35 | 1840 | 26 | 74 | reduced_dmg 10.2 · reflects 3.0 · blocked 0.0 |
-| daggers_thorns_bell | novice | 3 | 쌍검 Lv5+출혈 칼날+측면 연무 / 가시 갑각 Lv3+집중 가시 / 수호 방울 Lv3+겹울림 | won | 32.8 | 35 | 1840 | 48 | 53 | reduced_dmg 18.5 · reflects 5.0 · blocked 0.0 |
-| sword_ember_mine | skilled | 1 | 검 Lv5+교차 검격+날아가는 검광 / 불씨 정령 Lv3+불씨 산개 / 룬 지뢰 Lv3+연결 폭발 | won | 24.3 | 35 | 1840 | 0 | 100 | fires 0.0 · dmg 0.0 |
-| sword_ember_mine | skilled | 2 | 검 Lv5+교차 검격+날아가는 검광 / 불씨 정령 Lv3+불씨 산개 / 룬 지뢰 Lv3+연결 폭발 | won | 24.5 | 35 | 1840 | 0 | 100 | fires 0.0 · dmg 0.0 |
-| sword_ember_mine | skilled | 3 | 검 Lv5+교차 검격+날아가는 검광 / 불씨 정령 Lv3+불씨 산개 / 룬 지뢰 Lv3+연결 폭발 | won | 25.4 | 35 | 1840 | 0 | 100 | fires 0.0 · dmg 0.0 |
-| sword_ember_mine | novice | 1 | 검 Lv5+교차 검격+날아가는 검광 / 불씨 정령 Lv3+불씨 산개 / 룬 지뢰 Lv3+연결 폭발 | won | 25.4 | 35 | 1840 | 12 | 88 | fires 0.0 · dmg 0.0 |
-| sword_ember_mine | novice | 2 | 검 Lv5+교차 검격+날아가는 검광 / 불씨 정령 Lv3+불씨 산개 / 룬 지뢰 Lv3+연결 폭발 | won | 27.6 | 35 | 1840 | 40 | 60 | fires 0.0 · dmg 0.0 |
-| sword_ember_mine | novice | 3 | 검 Lv5+교차 검격+날아가는 검광 / 불씨 정령 Lv3+불씨 산개 / 룬 지뢰 Lv3+연결 폭발 | won | 25.5 | 35 | 1840 | 40 | 60 | fires 0.0 · dmg 0.0 |
+| daggers_orb_echo | skilled | 1 | 쌍검 Lv5+출혈 칼날+측면 연무 / 번개 구체 Lv3+분기 번개 / 잔영 분신 Lv3+교차 잔영 | won | 24.2 | 51 | 1840 | 0 | 100 | shock_procs 32.0 · copies 20.0 · copy_dmg 0.0 |
+| daggers_orb_echo | skilled | 2 | 쌍검 Lv5+출혈 칼날+측면 연무 / 번개 구체 Lv3+분기 번개 / 잔영 분신 Lv3+교차 잔영 | won | 25.2 | 50 | 1840 | 14 | 86 | shock_procs 31.0 · copies 20.0 · copy_dmg 10.8 |
+| daggers_orb_echo | skilled | 3 | 쌍검 Lv5+출혈 칼날+측면 연무 / 번개 구체 Lv3+분기 번개 / 잔영 분신 Lv3+교차 잔영 | won | 32.8 | 54 | 1840 | 10 | 90 | shock_procs 36.0 · copies 22.0 · copy_dmg 9.6 |
+| daggers_orb_echo | novice | 1 | 쌍검 Lv5+출혈 칼날+측면 연무 / 번개 구체 Lv3+분기 번개 / 잔영 분신 Lv3+교차 잔영 | won | 27.6 | 52 | 1840 | 0 | 100 | shock_procs 36.0 · copies 22.0 · copy_dmg 22.1 |
+| daggers_orb_echo | novice | 2 | 쌍검 Lv5+출혈 칼날+측면 연무 / 번개 구체 Lv3+분기 번개 / 잔영 분신 Lv3+교차 잔영 | won | 27.3 | 51 | 1840 | 38 | 62 | shock_procs 35.0 · copies 19.0 · copy_dmg 32.4 |
+| daggers_orb_echo | novice | 3 | 쌍검 Lv5+출혈 칼날+측면 연무 / 번개 구체 Lv3+분기 번개 / 잔영 분신 Lv3+교차 잔영 | won | 28.0 | 54 | 1840 | 48 | 52 | shock_procs 36.0 · copies 20.0 · copy_dmg 32.4 |
+| hammer_frost_doll | skilled | 1 | 전투망치 Lv5+전방 충격파+여진 / 서리 수정 Lv3+서리 부채 / 도깨비 인형 Lv3+질긴 인형 | won | 29.4 | 35 | 1840 | 0 | 100 | slows 0.0 · taunted 8.0 · soaked 0.0 |
+| hammer_frost_doll | skilled | 2 | 전투망치 Lv5+전방 충격파+여진 / 서리 수정 Lv3+서리 부채 / 도깨비 인형 Lv3+질긴 인형 | won | 33.3 | 35 | 1840 | 0 | 100 | slows 0.0 · taunted 12.0 · soaked 0.0 |
+| hammer_frost_doll | skilled | 3 | 전투망치 Lv5+전방 충격파+여진 / 서리 수정 Lv3+서리 부채 / 도깨비 인형 Lv3+질긴 인형 | won | 19.5 | 35 | 1840 | 0 | 100 | slows 0.0 · taunted 3.0 · soaked 0.0 |
+| hammer_frost_doll | novice | 1 | 전투망치 Lv5+전방 충격파+여진 / 서리 수정 Lv3+서리 부채 / 도깨비 인형 Lv3+질긴 인형 | won | 30.7 | 35 | 1840 | 24 | 76 | slows 0.0 · taunted 10.0 · soaked 0.0 |
+| hammer_frost_doll | novice | 2 | 전투망치 Lv5+전방 충격파+여진 / 서리 수정 Lv3+서리 부채 / 도깨비 인형 Lv3+질긴 인형 | won | 27.7 | 35 | 1840 | 36 | 64 | slows 0.0 · taunted 9.0 · soaked 0.0 |
+| hammer_frost_doll | novice | 3 | 전투망치 Lv5+전방 충격파+여진 / 서리 수정 Lv3+서리 부채 / 도깨비 인형 Lv3+질긴 인형 | won | 27.7 | 35 | 1840 | 46 | 54 | slows 0.0 · taunted 11.0 · soaked 0.0 |
+| spear_wind_mine | skilled | 1 | 관통창 Lv5+귀환 검기+분열 창날 / 바람 정령 Lv3+넓은 돌풍 / 룬 지뢰 Lv3+연결 폭발 | won | 25.0 | 35 | 1840 | 0 | 100 | push_dist 449.1 · fires 5.0 |
+| spear_wind_mine | skilled | 2 | 관통창 Lv5+귀환 검기+분열 창날 / 바람 정령 Lv3+넓은 돌풍 / 룬 지뢰 Lv3+연결 폭발 | won | 27.1 | 35 | 1840 | 0 | 100 | push_dist 1560.7 · fires 7.0 |
+| spear_wind_mine | skilled | 3 | 관통창 Lv5+귀환 검기+분열 창날 / 바람 정령 Lv3+넓은 돌풍 / 룬 지뢰 Lv3+연결 폭발 | won | 23.7 | 35 | 1840 | 0 | 100 | push_dist 1073.0 · fires 7.0 |
+| spear_wind_mine | novice | 1 | 관통창 Lv5+귀환 검기+분열 창날 / 바람 정령 Lv3+넓은 돌풍 / 룬 지뢰 Lv3+연결 폭발 | won | 25.0 | 35 | 1840 | 24 | 76 | push_dist 1357.5 · fires 8.0 |
+| spear_wind_mine | novice | 2 | 관통창 Lv5+귀환 검기+분열 창날 / 바람 정령 Lv3+넓은 돌풍 / 룬 지뢰 Lv3+연결 폭발 | won | 25.4 | 35 | 1840 | 38 | 62 | push_dist 1795.9 · fires 9.0 |
+| spear_wind_mine | novice | 3 | 관통창 Lv5+귀환 검기+분열 창날 / 바람 정령 Lv3+넓은 돌풍 / 룬 지뢰 Lv3+연결 폭발 | won | 25.0 | 35 | 1840 | 24 | 76 | push_dist 936.0 · fires 4.0 |
+| sword_plague_crow | skilled | 1 | 검 Lv5+교차 검격+날아가는 검광 / 역병 나비 Lv3+넓은 전염 / 추격 까마귀 Lv3+집중 사냥 | won | 23.8 | 35 | 1840 | 0 | 100 | spreads 12.0 · bursts 0.0 · marks 6.0 |
+| sword_plague_crow | skilled | 2 | 검 Lv5+교차 검격+날아가는 검광 / 역병 나비 Lv3+넓은 전염 / 추격 까마귀 Lv3+집중 사냥 | won | 24.9 | 35 | 1840 | 0 | 100 | spreads 12.0 · bursts 0.0 · marks 6.0 |
+| sword_plague_crow | skilled | 3 | 검 Lv5+교차 검격+날아가는 검광 / 역병 나비 Lv3+넓은 전염 / 추격 까마귀 Lv3+집중 사냥 | won | 26.8 | 35 | 1840 | 0 | 100 | spreads 12.0 · bursts 0.0 · marks 8.0 |
+| sword_plague_crow | novice | 1 | 검 Lv5+교차 검격+날아가는 검광 / 역병 나비 Lv3+넓은 전염 / 추격 까마귀 Lv3+집중 사냥 | won | 27.6 | 35 | 1840 | 0 | 100 | spreads 8.0 · bursts 0.0 · marks 10.0 |
+| sword_plague_crow | novice | 2 | 검 Lv5+교차 검격+날아가는 검광 / 역병 나비 Lv3+넓은 전염 / 추격 까마귀 Lv3+집중 사냥 | won | 25.4 | 35 | 1840 | 14 | 86 | spreads 4.0 · bursts 0.0 · marks 7.0 |
+| sword_plague_crow | novice | 3 | 검 Lv5+교차 검격+날아가는 검광 / 역병 나비 Lv3+넓은 전염 / 추격 까마귀 Lv3+집중 사냥 | won | 26.7 | 35 | 1840 | 10 | 90 | spreads 7.0 · bursts 0.0 · marks 6.0 |
+| bow_blades_bell | skilled | 1 | 추적궁 Lv5+갈래 사격+도탄 화살 / 회전 칼날 Lv3+세 번째 칼날 / 수호 방울 Lv3+겹울림 | won | 20.6 | 35 | 1840 | 0 | 100 | blocked 0.0 · blocked_dmg 0.0 |
+| bow_blades_bell | skilled | 2 | 추적궁 Lv5+갈래 사격+도탄 화살 / 회전 칼날 Lv3+세 번째 칼날 / 수호 방울 Lv3+겹울림 | won | 25.8 | 35 | 1840 | 0 | 100 | blocked 0.0 · blocked_dmg 0.0 |
+| bow_blades_bell | skilled | 3 | 추적궁 Lv5+갈래 사격+도탄 화살 / 회전 칼날 Lv3+세 번째 칼날 / 수호 방울 Lv3+겹울림 | won | 24.2 | 35 | 1840 | 0 | 100 | blocked 0.0 · blocked_dmg 0.0 |
+| bow_blades_bell | novice | 1 | 추적궁 Lv5+갈래 사격+도탄 화살 / 회전 칼날 Lv3+세 번째 칼날 / 수호 방울 Lv3+겹울림 | won | 27.1 | 35 | 1840 | 0 | 100 | blocked 0.0 · blocked_dmg 0.0 |
+| bow_blades_bell | novice | 2 | 추적궁 Lv5+갈래 사격+도탄 화살 / 회전 칼날 Lv3+세 번째 칼날 / 수호 방울 Lv3+겹울림 | won | 25.5 | 35 | 1840 | 52 | 48 | blocked 0.0 · blocked_dmg 0.0 |
+| bow_blades_bell | novice | 3 | 추적궁 Lv5+갈래 사격+도탄 화살 / 회전 칼날 Lv3+세 번째 칼날 / 수호 방울 Lv3+겹울림 | won | 26.0 | 35 | 1840 | 0 | 100 | blocked 1.0 · blocked_dmg 10.0 |
+| daggers_thorns_bell | skilled | 1 | 쌍검 Lv5+출혈 칼날+측면 연무 / 가시 갑각 Lv3+집중 가시 / 수호 방울 Lv3+겹울림 | won | 33.9 | 35 | 1840 | 9 | 91 | reduced_dmg 3.4 · reflects 1.0 · blocked 0.0 |
+| daggers_thorns_bell | skilled | 2 | 쌍검 Lv5+출혈 칼날+측면 연무 / 가시 갑각 Lv3+집중 가시 / 수호 방울 Lv3+겹울림 | won | 33.4 | 35 | 1840 | 10 | 90 | reduced_dmg 3.9 · reflects 1.0 · blocked 0.0 |
+| daggers_thorns_bell | skilled | 3 | 쌍검 Lv5+출혈 칼날+측면 연무 / 가시 갑각 Lv3+집중 가시 / 수호 방울 Lv3+겹울림 | won | 27.3 | 35 | 1840 | 10 | 90 | reduced_dmg 3.9 · reflects 1.0 · blocked 0.0 |
+| daggers_thorns_bell | novice | 1 | 쌍검 Lv5+출혈 칼날+측면 연무 / 가시 갑각 Lv3+집중 가시 / 수호 방울 Lv3+겹울림 | won | 33.4 | 35 | 1840 | 34 | 66 | reduced_dmg 13.6 · reflects 4.0 · blocked 0.0 |
+| daggers_thorns_bell | novice | 2 | 쌍검 Lv5+출혈 칼날+측면 연무 / 가시 갑각 Lv3+집중 가시 / 수호 방울 Lv3+겹울림 | won | 34.3 | 35 | 1840 | 26 | 74 | reduced_dmg 10.2 · reflects 3.0 · blocked 0.0 |
+| daggers_thorns_bell | novice | 3 | 쌍검 Lv5+출혈 칼날+측면 연무 / 가시 갑각 Lv3+집중 가시 / 수호 방울 Lv3+겹울림 | won | 30.6 | 35 | 1840 | 48 | 53 | reduced_dmg 18.5 · reflects 5.0 · blocked 0.0 |
+| sword_ember_mine | skilled | 1 | 검 Lv5+교차 검격+날아가는 검광 / 불씨 정령 Lv3+불씨 산개 / 룬 지뢰 Lv3+연결 폭발 | won | 23.1 | 35 | 1840 | 0 | 100 | fires 39.0 · dmg 0.0 |
+| sword_ember_mine | skilled | 2 | 검 Lv5+교차 검격+날아가는 검광 / 불씨 정령 Lv3+불씨 산개 / 룬 지뢰 Lv3+연결 폭발 | won | 24.1 | 35 | 1840 | 0 | 100 | fires 45.0 · dmg 0.0 |
+| sword_ember_mine | skilled | 3 | 검 Lv5+교차 검격+날아가는 검광 / 불씨 정령 Lv3+불씨 산개 / 룬 지뢰 Lv3+연결 폭발 | won | 26.9 | 35 | 1840 | 0 | 100 | fires 48.0 · dmg 0.0 |
+| sword_ember_mine | novice | 1 | 검 Lv5+교차 검격+날아가는 검광 / 불씨 정령 Lv3+불씨 산개 / 룬 지뢰 Lv3+연결 폭발 | won | 23.4 | 35 | 1840 | 12 | 88 | fires 42.0 · dmg 0.0 |
+| sword_ember_mine | novice | 2 | 검 Lv5+교차 검격+날아가는 검광 / 불씨 정령 Lv3+불씨 산개 / 룬 지뢰 Lv3+연결 폭발 | won | 22.1 | 35 | 1840 | 26 | 74 | fires 36.0 · dmg 0.0 |
+| sword_ember_mine | novice | 3 | 검 Lv5+교차 검격+날아가는 검광 / 불씨 정령 Lv3+불씨 산개 / 룬 지뢰 Lv3+연결 폭발 | won | 23.5 | 35 | 1840 | 26 | 74 | fires 42.0 · dmg 0.0 |
 
 ## 조합이 보려는 것
 
@@ -67,6 +67,9 @@
 | bow_blades_bell | 근접·투사체 대응을 보완해도 남는 위험 | blocked, blocked_dmg |
 | daggers_thorns_bell | 방어 중복과 반격 상한 | reduced_dmg, reflects, blocked |
 | sword_ember_mine | 실제 이동·전투 위치의 차이 | fires, dmg |
+
+**계측 미연결과 0을 구분한다.** 표에 `계측 미연결`이라고 적힌 보조는 세는 계수기가 아직 없다.
+그 보조의 지표가 0인 것은 **일을 안 했다는 뜻이 아니라 재지 못했다는 뜻**이다. 약하다고 적지 않는다.
 
 **봇 실력을 나눠 본다.** 실력 봇(skilled)은 잘 피해서 받는 피해가 0에 가까워 방어 지표를 잴 수 없다.
 초보 봇(novice) 줄이 방울 차단·갑각 경감·인형 대신 맞기를 재는 줄이다. 두 줄을 같이 봐야 한다.

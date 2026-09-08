@@ -210,6 +210,15 @@ const METER_MAP := {
 	"doll":   { "fires": "placed", "taunted": "lured", "soaked": "absorbed", "soaked_dmg": "absorbed_dmg" },
 }
 
+## 내부 계수기 없이 **PSupport.meter를 직접 부르는** 보조. 기존 5종이 여기 속한다.
+## (A조·B조는 자기 계수기를 쓰고 sync_meters가 이름을 옮긴다 — METER_MAP 쪽이다.)
+const METERED_DIRECT := ["blades", "orb", "frost", "ember", "mine"]
+
+## 이 보조의 역할 지표가 실제로 세어지는가. 측정 도구가 "0"과 "재지 못함"을 가르는 데 쓴다.
+## **여기 없는 보조의 0은 '약하다'가 아니라 '재지 못했다'는 뜻이다.**
+static func is_metered(id: String) -> bool:
+	return METER_MAP.has(id) or METERED_DIRECT.has(id)
+
 static func sync_meters(st: CombatState) -> void:
 	for id in METER_MAP:
 		var src: Dictionary = st.support.get(id, {})

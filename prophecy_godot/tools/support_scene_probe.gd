@@ -94,7 +94,7 @@ func run_one(sid: String, seed_v: int) -> Dictionary:
 	for k in std:
 		std_sum += float(std[k])
 	return { "support": sid, "seed": seed_v, "status": String(st.status), "sec": snapped(st.t, 0.01),
-		"metered": not keys.is_empty(), "fired": fired, "std_sum": snapped(std_sum, 0.1),
+		"metered": PSupport.is_metered(sid), "fired": fired, "std_sum": snapped(std_sum, 0.1),
 		"std": std, "inner": inner.duplicate() }
 
 func _init() -> void:
