@@ -4,7 +4,14 @@ extends RefCounted
 ## 그리기 순서(GAME_SPEC §11): 숲 바닥 → 장애물 → 바닥 지역 → 상자·목표 객체·회복 구슬 → 사거리 → 무기 몸체 → 내 공격 잔상(반투명)
 ##   → 적/플레이어(y 정렬) → 수관(가까우면 투명) → 적 예고선(최상단) → 투사체 → 불꽃·숫자. HUD는 그리지 않는다(main.gd의 Control HUD).
 ## 예고 도형 = 실제 판정 영역: 늑대 물기 부채꼴(def.bite.reach·arc_deg)·돌진 통로(폭 2(e.r+p.r), 길이 dash_speed×dash_time)는 combat_view 0.3.1과 같은 기하.
-## 모든 함수는 static이며 첫 인자로 CanvasItem(ci: Node2D)을 받는다. 장식(풀·낙엽·돌)은 make_decor()로 시드에서 1회 만들어 캐시한다(st.rng 사용 안 함).
+## 모든 함수는 static이며 첫 인자로 그릴 대상(ci)을 받는다. 전투 화면은 Node2D, HUD 아이콘 칸(PIconTile)은 Control이라 공용 도우미(txt·rrect·stroke_circle 등)는 CanvasItem을 받는다.
+## 장식(풀·낙엽·돌)은 make_decor()로 시드에서 1회 만들어 캐시한다(st.rng 사용 안 함).
+##
+## 개조 식별(사용자 지시 §12): 개조가 만든 효과는 fx의 "mod" 필드로 구분해 실루엣·움직임을 다르게 그린다.
+##   split_node(첫 명중 지점의 분기 결절) · shard(mod=split) 두 갈래 파편 · beam(returning=true) 되돌아오는 검기(선두 갈매기 + 뒤로 끌리는 잔상)
+##   · arc(mod=cross) 빗금 실루엣 · scar_mark(점선 = 무해한 잔상) vs scar(채워진 부채꼴 = 실제 피해 순간) · bolt(mod=fan) 양옆 2발 · shatter_burst + shard(mod=shatter)
+## 규칙 보호: 보이게 하려고 실제 사거리·수명·판정 폭을 늘리지 않는다. 장식용 잔상은 점선·윤곽만 써서 위험 범위(채워진 붉은 예고)와 섞이지 않게 한다.
+## 적 예고선은 항상 플레이어 효과 위에 그린다(draw 순서: draw_player_effects → 개체 → draw_telegraphs).
 
 const VS := 1.25 # 캐릭터 시각 배율(판정 반지름과 별개)
 const IDENT := Transform2D.IDENTITY
@@ -21,7 +28,7 @@ static func rgba(r: int, g: int, b: int, a: float) -> Color:
 static func font() -> Font:
 	return ThemeDB.fallback_font
 
-static func txt(ci: Node2D, x: float, y: float, s: String, size: int, color: Color, align: int = 0, outline: bool = false) -> void:
+static func txt(ci: CanvasItem, x: float, y: float, s: String, size: int, color: Color, align: int = 0, outline: bool = false) -> void:
 	# align: 0 = 가운데, -1 = 왼쪽, 1 = 오른쪽. y는 기준선
 	var f := font()
 	var w: float = f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
@@ -42,7 +49,7 @@ static func ellipse_pts(cx: float, cy: float, rx: float, ry: float, rot: float =
 		pts[i] = Vector2(cx + ex * cr - ey * sr, cy + ex * sr + ey * cr)
 	return pts
 
-static func fill_ellipse(ci: Node2D, cx: float, cy: float, rx: float, ry: float, color: Color, rot: float = 0.0, n: int = 20) -> void:
+static func fill_ellipse(ci: CanvasItem, cx: float, cy: float, rx: float, ry: float, color: Color, rot: float = 0.0, n: int = 20) -> void:
 	ci.draw_colored_polygon(ellipse_pts(cx, cy, rx, ry, rot, n), color)
 
 static func arc_pts(cx: float, cy: float, r: float, a0: float, a1: float, n: int) -> PackedVector2Array:
@@ -58,10 +65,10 @@ static func sector_pts(cx: float, cy: float, r: float, a0: float, a1: float, n: 
 	pts.append_array(arc_pts(cx, cy, r, a0, a1, n))
 	return pts
 
-static func fill_sector(ci: Node2D, cx: float, cy: float, r: float, a0: float, a1: float, color: Color, n: int = 18) -> void:
+static func fill_sector(ci: CanvasItem, cx: float, cy: float, r: float, a0: float, a1: float, color: Color, n: int = 18) -> void:
 	ci.draw_colored_polygon(sector_pts(cx, cy, r, a0, a1, n), color)
 
-static func stroke_sector(ci: Node2D, cx: float, cy: float, r: float, a0: float, a1: float, color: Color, width: float, n: int = 18) -> void:
+static func stroke_sector(ci: CanvasItem, cx: float, cy: float, r: float, a0: float, a1: float, color: Color, width: float, n: int = 18) -> void:
 	var pts := sector_pts(cx, cy, r, a0, a1, n)
 	pts.append(Vector2(cx, cy))
 	ci.draw_polyline(pts, color, width)
@@ -94,10 +101,10 @@ static func strip_polygon(path: PackedVector2Array, width: float) -> PackedVecto
 static func circle_n(r: float) -> int:
 	return clampi(int(r * 0.6), 12, 64)
 
-static func stroke_circle(ci: Node2D, cx: float, cy: float, r: float, color: Color, width: float) -> void:
+static func stroke_circle(ci: CanvasItem, cx: float, cy: float, r: float, color: Color, width: float) -> void:
 	ci.draw_arc(Vector2(cx, cy), r, 0.0, TAU, circle_n(r), color, width)
 
-static func dashed_circle(ci: Node2D, cx: float, cy: float, r: float, color: Color, width: float, dash: float, gap: float, phase: float = 0.0) -> void:
+static func dashed_circle(ci: CanvasItem, cx: float, cy: float, r: float, color: Color, width: float, dash: float, gap: float, phase: float = 0.0) -> void:
 	var per: float = (dash + gap) / maxf(1.0, r)
 	var n: int = maxi(4, int(TAU / per))
 	var seg := PackedVector2Array()
@@ -111,7 +118,7 @@ static func dashed_circle(ci: Node2D, cx: float, cy: float, r: float, color: Col
 		seg.append(Vector2(cx + cos(a1) * r, cy + sin(a1) * r))
 	ci.draw_multiline(seg, color, width)
 
-static func dashed_line(ci: Node2D, a: Vector2, b: Vector2, color: Color, width: float, dash: float, gap: float) -> void:
+static func dashed_line(ci: CanvasItem, a: Vector2, b: Vector2, color: Color, width: float, dash: float, gap: float) -> void:
 	ci.draw_dashed_line(a, b, color, width, dash + gap, true)
 
 static func shadow(ci: Node2D, x: float, y: float, rx: float, ry: float) -> void:
@@ -120,7 +127,7 @@ static func shadow(ci: Node2D, x: float, y: float, rx: float, ry: float) -> void
 static func xf(pos: Vector2, rot: float, sc: Vector2) -> Transform2D:
 	return Transform2D(rot, sc, 0.0, pos)
 
-static func rrect(ci: Node2D, x: float, y: float, w: float, h: float, r: float, color: Color) -> void:
+static func rrect(ci: CanvasItem, x: float, y: float, w: float, h: float, r: float, color: Color) -> void:
 	# 둥근 사각형(간이): 사각형 + 네 모서리 원
 	ci.draw_rect(Rect2(x + r, y, w - 2.0 * r, h), color)
 	ci.draw_rect(Rect2(x, y + r, w, h - 2.0 * r), color)
@@ -567,6 +574,8 @@ static func draw_player_effects(ci: Node2D, st: CombatState) -> void:
 				if bool(f.get("enemy", false)):
 					fill_sector(ci, fx, fy, r, ang - half, ang + half, rgba(255, 120, 80, 0.35 * k))
 					ci.draw_arc(Vector2(fx, fy), r * (0.6 + 0.4 * (1.0 - k)), ang - half, ang + half, 18, rgba(255, 220, 200, 0.9 * k), 4.0 * k + 1.0)
+				elif String(f.get("mod", "")) == "cross":
+					mod_cross_arc(ci, fx, fy, r, ang, half, k)
 				else:
 					fill_sector(ci, fx, fy, r, ang - half, ang + half, rgba(150, 205, 255, 0.28 * k))
 					for i in 3:
@@ -576,10 +585,23 @@ static func draw_player_effects(ci: Node2D, st: CombatState) -> void:
 			"beam":
 				var L: float = f.len
 				var W: float = f.w
+				var returning: bool = bool(f.get("returning", false))
 				ci.draw_set_transform(Vector2(float(f.x), float(f.y)), float(f.angle), Vector2.ONE)
-				ci.draw_rect(Rect2(0.0, -W / 2.0, L, W), rgba(160, 220, 255, 0.35 * k))
-				ci.draw_rect(Rect2(0.0, -2.0, L * (0.6 + 0.4 * (1.0 - k)), 4.0), Color(1, 1, 1, 0.8 * k))
-				ci.draw_colored_polygon(PackedVector2Array([Vector2(L, 0.0), Vector2(L - 18.0, -W / 2.0), Vector2(L - 18.0, W / 2.0)]), rgba(200, 240, 255, 0.6 * k))
+				# 실제 판정 폭(W)은 그대로. 나가는 검기와 돌아오는 검기는 선두 모양·잔상 방향으로 구분한다(같은 선을 두 번 깜박이지 않는다)
+				if returning:
+					ci.draw_rect(Rect2(0.0, -W / 2.0, L, W), rgba(244, 198, 109, 0.22 * k))
+					# 뒤로 끌리는 잔상: 진행 방향(0 → L) 반대편 꼬리를 계단식으로 옅게
+					for i in 4:
+						var seg: float = L * (0.18 + 0.2 * float(i))
+						ci.draw_rect(Rect2(seg, -W / 2.0 + 2.0, L * 0.10, W - 4.0), rgba(244, 198, 109, (0.30 - 0.06 * float(i)) * k))
+					# 선두 = 두 겹 갈매기(돌아오는 방향을 가리킨다)
+					for i in 2:
+						var d0: float = float(i) * 12.0
+						ci.draw_polyline(PackedVector2Array([Vector2(L - 22.0 - d0, -W / 2.0), Vector2(L - d0, 0.0), Vector2(L - 22.0 - d0, W / 2.0)]), rgba(255, 230, 160, (0.95 - 0.35 * float(i)) * k), 3.0)
+				else:
+					ci.draw_rect(Rect2(0.0, -W / 2.0, L, W), rgba(160, 220, 255, 0.35 * k))
+					ci.draw_rect(Rect2(0.0, -2.0, L * (0.6 + 0.4 * (1.0 - k)), 4.0), Color(1, 1, 1, 0.8 * k))
+					ci.draw_colored_polygon(PackedVector2Array([Vector2(L, 0.0), Vector2(L - 18.0, -W / 2.0), Vector2(L - 18.0, W / 2.0)]), rgba(200, 240, 255, 0.6 * k))
 				ci.draw_set_transform_matrix(IDENT)
 			"dagger":
 				var side: int = int(f.get("side", 0))
@@ -589,8 +611,53 @@ static func draw_player_effects(ci: Node2D, st: CombatState) -> void:
 				var a0: float = float(f.angle) - half * s0
 				var a1: float = float(f.angle) + half * s1
 				ci.draw_arc(Vector2(float(f.x), float(f.y)), float(f.r) * 0.9, minf(a0, a1), maxf(a0, a1), 12, Color(1, 1, 1, 0.9 * k), 3.0)
-			"scar":
-				fill_sector(ci, float(f.x), float(f.y), float(f.r), float(f.angle) - float(f.half), float(f.angle) + float(f.half), rgba(255, 120, 120, 0.35 * k))
+			"scar": # 잔류 검흔의 '피해가 들어가는 순간'(발동 표시가 아니라 실제 후속 타격 시점)
+				var sx: float = f.x
+				var sy: float = f.y
+				var sr: float = f.r
+				var sa: float = f.angle
+				var sh: float = f.half
+				fill_sector(ci, sx, sy, sr, sa - sh, sa + sh, rgba(238, 228, 202, 0.30 * k))
+				# 선두 호를 짧고 두껍게 — 앞선 점선 흔적(scar_mark)과 확실히 다른 실루엣
+				ci.draw_arc(Vector2(sx, sy), sr * (0.72 + 0.28 * (1.0 - k)), sa - sh, sa + sh, 20, rgba(255, 245, 220, 0.95 * k), 5.0 * k + 2.0)
+			"scar_mark": # 남아 있는 흔적(무해한 장식): 채우지 않고 점선 윤곽만 — 위험 범위 표시와 혼동되지 않게
+				var mx: float = f.x
+				var my: float = f.y
+				var mr: float = f.r
+				var ma: float = f.angle
+				var mh: float = f.half
+				var edge := arc_pts(mx, my, mr, ma - mh, ma + mh, 16)
+				for i in range(0, edge.size() - 1, 2):
+					ci.draw_line(edge[i], edge[i + 1], rgba(238, 228, 202, 0.42 * k), 1.5)
+				ci.draw_line(Vector2(mx, my), Vector2(mx + cos(ma - mh) * mr, my + sin(ma - mh) * mr), rgba(238, 228, 202, 0.22 * k), 1.0)
+				ci.draw_line(Vector2(mx, my), Vector2(mx + cos(ma + mh) * mr, my + sin(ma + mh) * mr), rgba(238, 228, 202, 0.22 * k), 1.0)
+			"split_node": # 분열 창날: 실제 첫 명중 지점의 분기 결절 + 두 방향의 짧은 안내 궤적(판정 없음 = 점선)
+				var nx: float = f.x
+				var ny: float = f.y
+				var na: float = f.angle
+				var grow: float = 1.0 - k
+				stroke_circle(ci, nx, ny, 5.0 + 7.0 * grow, rgba(244, 198, 109, 0.95 * k), 2.5)
+				ci.draw_circle(Vector2(nx, ny), 3.0, rgba(255, 236, 190, 0.95 * k))
+				for da in [-0.6, 0.6]:
+					var a2: float = na + float(da)
+					var p0 := Vector2(nx + cos(a2) * 10.0, ny + sin(a2) * 10.0)
+					var p1 := Vector2(nx + cos(a2) * (26.0 + 34.0 * grow), ny + sin(a2) * (26.0 + 34.0 * grow))
+					dashed_line(ci, p0, p1, rgba(244, 198, 109, 0.7 * k), 2.0, 5.0, 4.0)
+					ci.draw_polyline(PackedVector2Array([p1 - Vector2(cos(a2 + 0.5), sin(a2 + 0.5)) * 7.0, p1, p1 - Vector2(cos(a2 - 0.5), sin(a2 - 0.5)) * 7.0]), rgba(255, 236, 190, 0.85 * k), 2.0)
+			"shatter_burst": # 깨지는 수정: 파열 순간(표시 전용). 실제 적중은 아래 파편이 맡는다
+				var bx: float = f.x
+				var by: float = f.y
+				var gr: float = 1.0 - k
+				for i in 6:
+					var a3: float = float(i) * TAU / 6.0 + 0.26
+					var r0: float = 4.0 + 6.0 * gr
+					var r1: float = 12.0 + 20.0 * gr
+					ci.draw_line(Vector2(bx + cos(a3) * r0, by + sin(a3) * r0), Vector2(bx + cos(a3) * r1, by + sin(a3) * r1), rgba(144, 229, 244, 0.9 * k), 2.5)
+				var hexp := PackedVector2Array()
+				for i in 7:
+					var a4: float = float(i) * TAU / 6.0
+					hexp.append(Vector2(bx + cos(a4) * (9.0 + 12.0 * gr), by + sin(a4) * (9.0 + 12.0 * gr)))
+				ci.draw_polyline(hexp, rgba(210, 245, 255, 0.85 * k), 2.0)
 			"impact":
 				var r: float = f.r
 				var c := Vector2(float(f.x), float(f.y))
@@ -651,6 +718,22 @@ static func draw_player_effects(ci: Node2D, st: CombatState) -> void:
 				var c := Vector2(float(f.x), float(f.y))
 				stroke_circle(ci, c.x, c.y, float(f.r) * (0.7 + 0.3 * (1.0 - k)), rgba(210, 235, 255, 0.85 * k), 7.0 * k + 2.0)
 				ci.draw_circle(c, float(f.r), rgba(150, 205, 255, 0.18 * k))
+
+## 교차 검격의 두 번째 궤적: 겹쳐도 방향이 읽히도록 채움 대신 빗금(교차 해칭) + 한쪽 선두만 두껍게 그린다.
+## 실제 판정(부채꼴 r·half)은 기본 검격과 같고 여기서 늘리지 않는다.
+static func mod_cross_arc(ci: CanvasItem, cx: float, cy: float, r: float, ang: float, half: float, k: float) -> void:
+	var col := rgba(238, 228, 202, 0.85 * k)
+	fill_sector(ci, cx, cy, r, ang - half, ang + half, rgba(238, 228, 202, 0.14 * k))
+	# 빗금 5줄(기본 검격의 동심 호와 다른 실루엣)
+	for i in 5:
+		var q: float = float(i) / 4.0
+		var a: float = ang - half + half * 2.0 * q
+		var r0: float = r * (0.25 + 0.15 * q)
+		ci.draw_line(Vector2(cx + cos(a) * r0, cy + sin(a) * r0), Vector2(cx + cos(a) * r, cy + sin(a) * r), rgba(238, 228, 202, 0.5 * k), 2.0)
+	# 선두(진행 방향 쪽 가장자리)만 두껍게 = 어느 쪽에서 들어온 궤적인지 읽힌다
+	var lead := arc_pts(cx, cy, r * (0.7 + 0.3 * (1.0 - k)), ang - half, ang + half, 18)
+	ci.draw_polyline(lead, col, 4.0 * k + 1.5)
+	ci.draw_line(Vector2(cx, cy), Vector2(cx + cos(ang + half) * r, cy + sin(ang + half) * r), col, 2.5)
 
 # ---------- 상태 아이콘 ----------
 static func status_icon(ci: Node2D, x: float, y: float, kind: String) -> void:
@@ -2294,10 +2377,17 @@ static func draw_projectiles(ci: Node2D, st: CombatState) -> void:
 				ci.draw_set_transform_matrix(IDENT)
 				continue
 			if kind == "bolt":
+				var bang: float = atan2(vy, vx)
+				# 서리 부채: 세 발이 각각 어느 방향으로 가는지 읽히도록 진행 방향 꼬리를 그린다(양옆 2발만 길고 갈매기 표식)
+				var side_mod: bool = String(pr.get("mod", "")) == "fan"
+				var tail: float = 28.0 if side_mod else 16.0
+				ci.draw_line(Vector2(x - cos(bang) * tail, y - sin(bang) * tail), c, rgba(144, 229, 244, 0.55 if side_mod else 0.3), 3.0 if side_mod else 2.0)
 				ci.draw_circle(c, 6.0, C("#bfefff"))
 				for i in 3:
 					var a: float = float(i) * PI / 3.0 + st.t * 6.0
 					ci.draw_line(Vector2(x - cos(a) * 7.0, y - sin(a) * 7.0), Vector2(x + cos(a) * 7.0, y + sin(a) * 7.0), rgba(160, 230, 255, 0.7), 2.0)
+				if side_mod:
+					ci.draw_polyline(PackedVector2Array([Vector2(x - cos(bang + 0.45) * 13.0, y - sin(bang + 0.45) * 13.0), c, Vector2(x - cos(bang - 0.45) * 13.0, y - sin(bang - 0.45) * 13.0)]), rgba(200, 245, 255, 0.85), 2.0)
 				continue
 			if kind == "blade":
 				for i in 3:
@@ -2329,6 +2419,20 @@ static func draw_projectiles(ci: Node2D, st: CombatState) -> void:
 			ci.draw_set_transform(c, float(pr.get("angle", atan2(vy, vx))), Vector2.ONE)
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(r2 * 1.6, 0), Vector2(0, -r2), Vector2(-r2 * 1.4, 0), Vector2(0, r2)]), rgba(200, 240, 255, 0.95))
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r2 * 1.4, 0), Vector2(-r2 * 2.6, -r2 * 0.5), Vector2(-r2 * 2.6, r2 * 0.5)]), rgba(191, 239, 255, 0.45))
+			ci.draw_set_transform_matrix(IDENT)
+		elif kind == "shard" and String(pr.get("mod", "")) == "split":
+			# 분열 창날의 파편: 창 금색 뾰족 실루엣 + 갈라져 나온 방향의 꼬리(어느 갈래인지 읽힌다)
+			var sa: float = atan2(vy, vx)
+			ci.draw_set_transform(c, sa, Vector2.ONE)
+			ci.draw_line(Vector2(-22.0, 0.0), Vector2(0.0, 0.0), rgba(244, 198, 109, 0.5), 2.0)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(9.0, 0.0), Vector2(-4.0, -4.0), Vector2(-2.0, 0.0), Vector2(-4.0, 4.0)]), C("#f4c66d"))
+			ci.draw_set_transform_matrix(IDENT)
+		elif kind == "shard" and String(pr.get("mod", "")) == "shatter":
+			# 깨지는 수정의 파편: 서리 청록 결정 조각 + 파열 지점 쪽 꼬리(파열 순간과 실제 적중을 잇는다)
+			var sa2: float = atan2(vy, vx)
+			ci.draw_set_transform(c, sa2, Vector2.ONE)
+			ci.draw_line(Vector2(-18.0, 0.0), Vector2(0.0, 0.0), rgba(144, 229, 244, 0.45), 2.0)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(6.0, 0.0), Vector2(0.0, -4.0), Vector2(-5.0, 0.0), Vector2(0.0, 4.0)]), C("#90e5f4"))
 			ci.draw_set_transform_matrix(IDENT)
 		else:
 			ci.draw_circle(c, 4.0, C("#bfefff"))

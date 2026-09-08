@@ -54,8 +54,13 @@ func refresh() -> void:
 	var mc := PRun.mod_change_cost(r)
 	var vc := PRun.variant_change_cost(r)
 	var no_offer: bool = g.get("pendingOffer", null) == null
-	var cc := PUi.card("%s·%s 변경 [color=#9ea8b8]같은 기술의 다른 후보 3택 · %d금 또는 %s[/color]" % [PGlossaryTip.term("mod", "개조"), PGlossaryTip.term("variant", "변형"), int(SH.modChange), PGlossaryTip.term("voucher", "교체권")])
+	var vouchers: int = int(r.get("services", {}).get("mod_swap", 0))
+	# 이름 통일(§6.8): 이 기능은 어디서나 '개조 변경권'. 기술 자체를 바꾸는 '기술 교체'와 다른 이름을 쓴다.
+	# 버튼 글자는 실제 결제 경로와 같다 — 변경권이 있으면 '변경권 사용', 없으면 '<금액>G로 변경'.
+	var vname := PGlossaryTip.term("voucher", "개조 변경권")
+	var cc := PUi.card("%s·%s 변경 [color=#9ea8b8]같은 기술의 다른 후보 3택 · 보유 %s %d장[/color]" % [PGlossaryTip.term("mod", "개조"), PGlossaryTip.term("variant", "변형"), vname, vouchers])
 	var cbox: VBoxContainer = cc.box
+	cbox.add_child(PUi.rich("[color=#9ea8b8]%s 1장 = 개조 1개를 같은 기술의 다른 효과로 바꿉니다(기술 자체를 바꾸는 '%s'와 다릅니다).[/color]" % [vname, PGlossaryTip.term("swap", "기술 교체")], 11))
 	var any := false
 	for w in g.weapons:
 		var wid := String(w.id)
@@ -64,9 +69,16 @@ func refresh() -> void:
 			any = true
 			var mid := String(m)
 			var row := PUi.hbox(8)
+			var mrow := PUi.hbox(6)
+			mrow.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			mrow.add_child(PUi.icon_of(PIcons.weapon_key(wid), 28.0, "", "", 0.0, 0))
+			mrow.add_child(PUi.icon_of(PIcons.mod_key(wid, mid), 28.0, "", "", 0.0, 0))
+			row.add_child(mrow)
 			row.add_child(PUi.rich("[b]%s[/b]: %s" % [PGlossaryTip.esc(String(wd.name)), PGlossaryTip.esc(String(wd.mods[mid].name))], 13))
-			var ok: bool = no_offer and (bool(mc.voucher) or int(r.gold) >= int(mc.gold))
-			row.add_child(PUi.button("변경 (%s)" % ("교체권" if bool(mc.voucher) else "%d금" % int(mc.gold)), func(): main.mod_change(wid, mid), ok, 12))
+			var has_cand: bool = not PFlow._mod_candidates(r.duplicate(true), wid, mid).is_empty()
+			var ok: bool = no_offer and has_cand and (bool(mc.voucher) or int(r.gold) >= int(mc.gold))
+			var label := "후보 없음" if not has_cand else ("변경권 사용" if bool(mc.voucher) else "%dG로 변경" % int(mc.gold))
+			row.add_child(PUi.button(label, func(): main.mod_change(wid, mid), ok, 12))
 			cbox.add_child(row)
 	if not any:
 		cbox.add_child(PUi.rich("[color=#6a7078]변경할 개조 없음[/color]", 12))
@@ -76,21 +88,22 @@ func refresh() -> void:
 		var row2 := PUi.hbox(8)
 		row2.add_child(PUi.rich("[b]E %s[/b]: %s" % [PGlossaryTip.esc(String(ed.name)), PGlossaryTip.esc(String(ed.variants[String(e.variant)].name))], 13))
 		var ok2: bool = no_offer and (bool(vc.voucher) or int(r.gold) >= int(vc.gold))
-		row2.add_child(PUi.button("변경 (%s)" % ("교체권" if bool(vc.voucher) else "%d금" % int(vc.gold)), func(): main.variant_change(), ok2, 12))
+		row2.add_child(PUi.button(("변경권 사용" if bool(vc.voucher) else "%dG로 변경" % int(vc.gold)), func(): main.variant_change(), ok2, 12))
 		cbox.add_child(row2)
 	else:
 		cbox.add_child(PUi.rich("[color=#6a7078]E 변형 없음[/color]", 12))
-	cbox.add_child(PUi.rich("[color=#9ea8b8]후보가 없으면 아무것도 차감되지 않습니다. 3택에서 '받지 않음'을 고르면 원래 개조가 유지되고 비용은 돌려받습니다.[/color]", 11))
+	cbox.add_child(PUi.rich("[color=#9ea8b8]바꿀 후보가 없으면 아무것도 차감되지 않습니다. 3택에서 '받지 않음'을 고르면 원래 개조가 그대로 남고 %s(또는 금화)이 그대로 돌아옵니다.[/color]" % vname, 11))
 	left.add_child(cc.panel)
 	# 기술 교체
 	var SW: Dictionary = SH.swap
-	var sc := PUi.card("보유 %s [color=#9ea8b8]%d + (레벨−1)×%d + 개조×%d[/color]" % [PGlossaryTip.term("swap", "기술 교체"), int(SW.base), int(SW.perLevel), int(SW.perMod)])
+	var sc := PUi.card("보유 %s [color=#9ea8b8]기술 자체를 다른 기술로 바꿉니다[/color]" % PGlossaryTip.term("swap", "기술 교체"))
 	var sbox: VBoxContainer = sc.box
 	for i in (g.weapons as Array).size():
 		var w: Dictionary = g.weapons[i]
 		var q := PRun.swap_quote(r, "weapon", i)
 		var row := PUi.hbox(8)
-		row.add_child(PUi.rich("[b]%s[/b] Lv%d · 개조 %d [color=#9ea8b8]→ 교체 %d금 (레벨·개조 수 보존, 새 개조는 새 기술에서 선택)[/color]" % [PGlossaryTip.esc(String(PCatalog.weapon(String(w.id)).name)), int(w.level), (w.mods as Array).size(), int(q.price)], 13))
+		row.add_child(PUi.icon_of(PIcons.weapon_key(String(w.id)), 28.0, "", "", 0.0, 0))
+		row.add_child(PUi.rich("[b]%s[/b] Lv%d · 개조 %d [color=#9ea8b8]→ 교체[/color] [color=#ffd966][b]%d금[/b][/color] [color=#9ea8b8](레벨·개조 수 보존, 새 개조는 새 기술에서 선택)[/color]" % [PGlossaryTip.esc(String(PCatalog.weapon(String(w.id)).name)), int(w.level), (w.mods as Array).size(), int(q.price)], 13))
 		var has_opt: bool = (q.options as Array).size() > 0
 		var idx := i
 		row.add_child(PUi.button(("교체" if bool(q.affordable) else "%d 부족" % (int(q.price) - int(r.gold))) if has_opt else "후보 없음", func(): _swap_open("weapon", idx), has_opt and bool(q.affordable), 12))
@@ -105,6 +118,7 @@ func refresh() -> void:
 	else:
 		sbox.add_child(PUi.rich("[color=#6a7078]E 없음[/color]", 12))
 	sbox.add_child(PUi.rich("[color=#9ea8b8]교체하면 옛 기술은 남지 않습니다. 확정 전까지 금화는 차감되지 않습니다.[/color]", 11))
+	sbox.add_child(PUi.rich("[color=#6a7078]가격 계산식(상세): %d + (레벨−1)×%d + 개조 수×%d[/color]" % [int(SW.base), int(SW.perLevel), int(SW.perMod)], 11))
 	right.add_child(sc.panel)
 	right.add_child(_craft_card(r))
 	right.add_child(PUi.build_panel(r))
@@ -276,6 +290,15 @@ func _swap_view(r: Dictionary) -> void:
 	var warns := [] if is_e else PRun.swap_warnings(r, slot, index, new_id)
 	var cc := PUi.card("")
 	var cbox: VBoxContainer = cc.box
+	# 현재 → 교체 후를 같은 아이콘·이름·배치로(선택 중인 결과를 이미 보유한 효과처럼 보이지 않게 '→'로 분리)
+	var irow := PUi.hbox(8)
+	irow.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	irow.add_child(PUi.icon_of(("skill:e:" + String(q.current.id)) if is_e else PIcons.weapon_key(String(q.current.id)), 40.0, cur_name, "현재", 110.0))
+	irow.add_child(PUi.rich("[b]→[/b]", 20))
+	irow.add_child(PUi.icon_of(("skill:e:" + new_id) if is_e else PIcons.weapon_key(new_id), 40.0, String(d2.name), "교체 후", 110.0))
+	for m in chosen:
+		irow.add_child(PUi.icon_of(("skill:e:%s:%s" % [new_id, String(m)]) if is_e else PIcons.mod_key(new_id, String(m)), 28.0, "", "", 0.0, 0))
+	cbox.add_child(irow)
 	PUi.kv(cbox, "바뀌는 것", "[b]%s Lv%d → %s Lv%d[/b]" % [PGlossaryTip.esc(cur_name), int(q.level), PGlossaryTip.esc(String(d2.name)), int(q.level)], 13)
 	PUi.kv(cbox, "변형" if is_e else "개조", "[b]%s[/b]%s" % [(", ".join(chosen_names) if chosen_names.size() > 0 else "없음"), (" [color=#9ea8b8](후보가 %d개뿐이라 %d개는 비어 있음 · 비용은 동일)[/color]" % [need, int(q.modCount) - need]) if int(q.modCount) > need else ""], 13)
 	PUi.kv(cbox, "비용", "[color=#ffd966][b]%d[/b][/color] [color=#9ea8b8](남는 금화 %d)[/color]" % [int(q.price), int(r.gold) - int(q.price)], 13)

@@ -24,6 +24,7 @@ var _stick_pos := Vector2.ZERO
 var _btn_idx: Dictionary = { "dodge": -1, "special": -1, "e": -1 }
 var _btn_pos: Dictionary = {}
 var _zone := Rect2()
+var reserve_top := 0.0         # 상단에 빌드 HUD가 놓인 높이(px). 스틱 끌기 영역이 빌드 아이콘과 겹치지 않게 그만큼 내린다
 var _safe := Rect2(0.0, 0.0, PLayout.BASE_W, PLayout.BASE_H)
 
 func _ready() -> void:
@@ -43,7 +44,7 @@ func bind(v: Node, r: PInputRouter) -> void:
 ## 안전 영역 기준 배치: 왼쪽 45%(HUD 아래)가 스틱 영역, 오른쪽 아래 모서리에 회피(큰 원)·Q(왼쪽)·E(위)
 func layout(safe: Rect2) -> void:
 	_safe = safe
-	var top: float = safe.position.y + HUD_H
+	var top: float = safe.position.y + HUD_H + reserve_top
 	_zone = Rect2(safe.position.x, top, safe.size.x * STICK_ZONE_W, maxf(0.0, safe.end.y - top))
 	var bx: float = safe.end.x - 28.0 - BTN_DODGE_R
 	var by: float = safe.end.y - 28.0 - BTN_DODGE_R
@@ -147,6 +148,18 @@ func release_all() -> void:
 		router.reset()
 
 ## 재사용 대기 채움 0..1(1 = 준비됨). HUD(_update_hud)와 같은 식
+## 남은 재사용 대기(초). 표시 전용
+func _cd_left(kind: String) -> float:
+	var st: CombatState = view.st
+	if st == null:
+		return 0.0
+	var p: Dictionary = st.player
+	match kind:
+		"dodge": return maxf(0.0, float(p.dodge_cd))
+		"special": return maxf(0.0, float(p.special_cd))
+		"e": return maxf(0.0, float(p.get("e_cd", 0.0)))
+	return 0.0
+
 static func cooldown_fill(st: CombatState) -> Dictionary:
 	var p: Dictionary = st.player
 	var P: Dictionary = st.cfg.player
@@ -202,3 +215,8 @@ func _draw() -> void:
 			draw_circle(c, r - 8.0, Color(1, 1, 1, 0.12))
 		var size: int = 16 if kind == "dodge" else 18
 		draw_string(f, Vector2(c.x - r, c.y + size * 0.35), String(labels[kind]), HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, size, Color(1, 1, 1, 0.95 if usable else 0.45))
+		# 남은 초(소리 없이도 준비 상태를 읽을 수 있게): 대기 중일 때만
+		if usable and ready < 1.0 and view.st != null:
+			var left: float = _cd_left(kind)
+			if left > 0.05:
+				draw_string(f, Vector2(c.x - r, c.y + r - 4.0), "%.1f" % left, HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, 13, Color(1, 1, 1, 0.85))

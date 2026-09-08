@@ -41,6 +41,9 @@ var last_profile_award: Dictionary = {} # 마지막 정산의 영구 기록·해
 const TEST_PROFILE_PATH := "user://prophecy_profile_test_v1.json" # PROPHECY_UI_SMOKE·봇 데모는 실제 프로필을 건드리지 않는다
 var touch: PTouchControls               # 터치 오버레이(터치 화면 또는 PROPHECY_TOUCH=1일 때만 켜짐, HUD 아래 자식)
 var _hud_base: Dictionary = {}          # HUD 노드 이름 → 설계 기준(960×640) offset_left/right
+var build_hud: PCombatHud               # 하단 빌드 HUD(자동기술 3칸+개조·공용·장비·회피/Q/E). 표시 전용
+var build_detail: PBuildDetail          # 빌드 상세(전투 중에는 공통 일시정지 경로로 연다)
+var _detail_paused := false             # 빌드 상세 때문에 우리가 멈춘 상태인지
 
 func _ready() -> void:
 	if OS.get_environment("PROPHECY_UI_SMOKE") != "":
@@ -59,11 +62,24 @@ func _ready() -> void:
 	overlay_root.add_child(settings_panel)
 	settings_panel.closed.connect(_on_settings_closed)
 	_make_screens()
+	build_detail = PBuildDetail.new()
+	overlay_root.add_child(build_detail)
+	build_detail.closed.connect(_on_detail_closed)
+	# 하단 빌드 HUD: 실제 저장 빌드(st.build)를 읽어 자동기술 3칸·개조·공용·장비·회피/Q/E를 그린다(표시 전용)
+	build_hud = PCombatHud.new()
+	build_hud.touch_mode = PLayout.is_touch()
+	hud.add_child(build_hud)
+	build_hud.ready_signal.connect(_on_ability_ready)
+	_hide_legacy_ability_bars()
 	touch = PTouchControls.new()
 	hud.add_child(touch) # HUD와 같이 전투 중에만 보인다
 	touch.bind(view, view.router)
 	get_viewport().size_changed.connect(_layout_hud)
 	_layout_hud()
+	# 일시정지 화면에서도 같은 빌드 상세를 연다(마우스만 쓰는 경우·터치)
+	var detail_btn := PUi.button("빌드 상세 (Tab)", func(): open_build_detail(), true, 14)
+	$UI/Pause/VBox.add_child(detail_btn)
+	$UI/Pause/VBox.move_child(detail_btn, 2)
 	$UI/Pause/VBox/ResumeBtn.pressed.connect(func(): set_pause(false))
 	$UI/Pause/VBox/ControlsBtn.pressed.connect(func(): show_controls(true))
 	$UI/Pause/VBox/SettingsBtn.pressed.connect(func(): open_settings())
@@ -85,6 +101,9 @@ func _ready() -> void:
 	if OS.get_environment("PROPHECY_CAPTURE") != "":
 		_capture_dir = OS.get_environment("PROPHECY_CAPTURE")
 		_capture_mode = true
+	if OS.get_environment("PROPHECY_MOD_DEMO") != "": # 개조 연출 연속 프레임(영상 아님)
+		_mod_dir = OS.get_environment("PROPHECY_MOD_DEMO")
+		_mod_demo = true
 	if OS.get_environment("PROPHECY_UI_SMOKE") != "":
 		_auto_dir = OS.get_environment("PROPHECY_UI_SMOKE")
 		_auto_full = OS.get_environment("PROPHECY_UI_FULL") != "" # 최종 보스·회차 결과·새 회차까지 봇으로 계속
@@ -119,6 +138,10 @@ func show(name: String) -> void:
 	hud.visible = combat
 	if combat:
 		_layout_hud() # 경기장 크기(st.arena_w/h)에 맞춰 가운데 배치
+		if build_hud != null and view.st != null:
+			build_hud.sync_ready_silent(view.st) # 화면 진입 = 이미 준비된 기술에 알림을 다시 터뜨리지 않는다
+	elif build_detail != null and build_detail.is_open():
+		build_detail.close()
 	if not combat:
 		pause_panel.visible = false
 		controls_panel.visible = false
@@ -370,6 +393,31 @@ func apply_swap(slot: String, index: int, new_id: String, mods: Array) -> void:
 	show("forge")
 
 # ---------- 3택 ----------
+var last_pick_highlight := ""   # 방금 선택으로 바뀐 빌드 칸("w<i>" / "w<i>:m<j>"). 화면이 한 번 읽고 비운다
+
+## 선택 뒤 회차 상태에서 그 후보가 들어간 칸을 찾는다(표시 전용). 못 찾으면 ""
+func _slot_of_choice(c: Dictionary) -> String:
+	var r := cur_run()
+	if r.is_empty():
+		return ""
+	var ws: Array = r.growth.weapons
+	var wid := String(c.get("id", ""))
+	for i in ws.size():
+		if String(ws[i].id) != wid:
+			continue
+		if String(c.get("kind", "")) == "weapon_mod":
+			var mods: Array = ws[i].mods
+			var idx: int = mods.find(String(c.get("mod", "")))
+			return "w%d:m%d" % [i, idx] if idx >= 0 else "w%d" % i
+		return "w%d" % i
+	return ""
+
+## 화면이 강조 표시를 한 번만 쓰도록 읽고 비운다
+func take_pick_highlight() -> String:
+	var h := last_pick_highlight
+	last_pick_highlight = ""
+	return h
+
 func open_choice(off: Variant) -> void:
 	if off == null or typeof(off) != TYPE_DICTIONARY:
 		return
@@ -394,7 +442,10 @@ func offer_pending_level_ups() -> bool:
 func _after_choice() -> void:
 	save_run()
 	if screen == "combat" and view.st != null:
-		view.st.rebuild(PBuild.derive(run))
+		view.st.rebuild(PBuild.derive(run)) # HUD가 옛 캐시를 읽지 않게 실제 빌드를 다시 만든다
+		if build_hud != null:
+			build_hud.update_from(view.st)
+			build_hud.highlight_slot(take_pick_highlight()) # 방금 들어간 칸만 잠깐 강조
 		close_choice()
 		if int(run.growth.pendingLevelUps) > 0:
 			offer_pending_level_ups()
@@ -416,6 +467,7 @@ func _on_pick(key: String) -> void:
 	for c in off.choices:
 		if String(c.key) == key:
 			PFlow.resolve_offer(run, off, c)
+			last_pick_highlight = _slot_of_choice(c) # 선택 직후 바뀐 칸만 잠깐 강조(빌드 표시가 옛 캐시를 읽지 않게 항상 새 회차 상태에서 계산)
 			_after_choice()
 			return
 
@@ -790,7 +842,20 @@ func _on_tip_pins(n: int) -> void:
 			view.set_paused(false)
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Tab: 빌드 상세 열기·닫기(전투 중이면 공통 일시정지 경로). 3택·설정이 열려 있으면 받지 않는다
+	if event is InputEventKey and event.is_pressed() and not event.is_echo() and (event as InputEventKey).keycode == KEY_TAB:
+		if not choice.is_open() and not settings_panel.visible and not controls_panel.visible:
+			if build_detail.is_open():
+				build_detail.close()
+			else:
+				open_build_detail()
+			get_viewport().set_input_as_handled()
+			return
 	if event.is_action_pressed("pause"):
+		if build_detail != null and build_detail.is_open():
+			build_detail.close()
+			get_viewport().set_input_as_handled()
+			return
 		if choice.is_open():
 			get_viewport().set_input_as_handled()
 			return
@@ -827,7 +892,79 @@ func _unhandled_input(event: InputEvent) -> void:
 			if b != null and is_instance_valid(b) and b.is_visible_in_tree() and not b.disabled:
 				b.pressed.emit()
 
+# ---------- 빌드 상세(전투 중에는 공통 일시정지·입력 초기화 경로) ----------
+func open_build_detail() -> void:
+	if build_detail == null or build_detail.is_open():
+		return
+	var b: Dictionary = {}
+	var report: Dictionary = {}
+	var where := ""
+	if screen == "combat" and view.st != null:
+		b = view.st.build
+		report = view.st.mod_report()
+		where = "전투 중 · 이번 전투 기록"
+	elif not cur_run().is_empty():
+		b = PBuild.derive(cur_run())
+		where = "거점"
+	else:
+		return
+	build_detail.open_with(b, report, where)
+	if screen == "combat" and view.running and not view.paused:
+		_detail_paused = true
+		view.set_paused(true) # 공통 일시정지 경로(대기 입력·가상 스틱도 초기화된다)
+
+func _on_detail_closed() -> void:
+	if _detail_paused:
+		_detail_paused = false
+		if screen == "combat" and not pause_panel.visible and not choice.is_open() and not glossary_paused:
+			view.set_paused(false)
+	if build_hud != null and view.st != null:
+		build_hud.sync_ready_silent(view.st) # 화면을 닫고 돌아올 때 이미 준비된 기술에 알림이 다시 터지지 않게
+
 # ---------- HUD ----------
+## 상단 띠의 옛 회피/Q/E 막대: 하단 아이콘 묶음이 같은 정보를 더 잘 보여 주므로 숨긴다(값 계산은 그대로 두어 시험 계약을 깨지 않는다)
+func _hide_legacy_ability_bars() -> void:
+	for n in ["Dodge", "DodgeText", "Q", "QText", "E", "EText"]:
+		var c: Control = hud.get_node_or_null(n)
+		if c != null:
+			c.visible = false
+	# 빈 자리에 날짜·시간대·세계 변화 한 줄(상단은 체력·보호막 / 날짜·시간대·세계 변화 / 남은 적·보스 체력만 둔다)
+	var day := Label.new()
+	day.name = "Day"
+	day.add_theme_font_size_override("font_size", 13)
+	day.add_theme_color_override("font_color", Color(0.80, 0.85, 0.92))
+	day.clip_text = true
+	day.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	day.offset_left = 224.0
+	day.offset_top = 6.0
+	day.offset_right = 690.0
+	day.offset_bottom = 34.0
+	day.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.add_child(day)
+
+## 상단 날짜 줄: 날짜 · 시간대 · 세계 변화(개발용 설정·긴 효과 설명은 넣지 않는다)
+func _day_line(st: CombatState) -> String:
+	var r := cur_run()
+	if r.is_empty() or st.cfg.has("weapon"):
+		return ""
+	var slots := PRun.time_slots()
+	var cur := PRun.slot_index(r)
+	var slot_name := String(slots[cur]) if cur >= 0 and cur < slots.size() else ""
+	var out := "%s%d일차" % [(PRun.act_label(r).split(" · ")[0] + " · ") if PRun.act_label(r) != "" else "", int(r.get("day", 1))]
+	if slot_name != "":
+		out += " · " + slot_name
+	if PRun.world_stage(r) > 0:
+		out += " · " + String(PRun.world_stage_def(r).name)
+	return out
+
+## 회피/Q/E 준비 완료(false→true) 1회 신호: 능력별로 다른 짧은 소리 + 테두리 점등(PCombatHud가 그린다).
+## 계속 깜박이거나 반복 선언하지 않는다. 일시정지·저장 복구·화면 재구성은 sync_ready_silent로 조용히 맞춘다.
+func _on_ability_ready(ability: String) -> void:
+	if screen != "combat" or view.st == null or not view.running:
+		return
+	if view.audio != null:
+		view.audio.play(String(PCombatHud.READY_SOUND.get(ability, "")))
+
 func _settings_line(st: CombatState) -> String:
 	if st.cfg.has("weapon"):
 		return Game.settings_short(st.cfg) + ("  · 봇 조작" if view.bot != null else "")
@@ -879,6 +1016,11 @@ func _update_hud() -> void:
 	else:
 		e_bar.value = 0.0
 		$UI/HUD/EText.text = "E 없음"
+	if build_hud != null:
+		build_hud.update_from(st) # 하단 빌드 HUD(자동기술·개조·공용·장비·회피/Q/E)
+	var day_l: Label = hud.get_node_or_null("Day")
+	if day_l != null:
+		day_l.text = _day_line(st)
 	var obj_l: Label = $UI/HUD/Objective
 	if st.mode == "boss":
 		obj_l.text = "보스전 · 소환 %d · %.1f초" % [PBoss.summoned_alive(st), st.t]
@@ -917,7 +1059,7 @@ func _layout_hud() -> void:
 	var vis: Rect2 = vp.get_visible_rect()
 	var safe: Rect2 = PLayout.safe_rect(vp)
 	if _hud_base.is_empty():
-		for n in ["HP", "Shield", "HPText", "Dodge", "DodgeText", "Q", "QText", "E", "EText", "Objective", "Demo", "Settings"]:
+		for n in ["HP", "Shield", "HPText", "Dodge", "DodgeText", "Q", "QText", "E", "EText", "Day", "Objective", "Demo", "Settings"]:
 			var c0: Control = hud.get_node(n)
 			_hud_base[n] = Vector2(c0.offset_left, c0.offset_right)
 	var dx: float = safe.position.x - vis.position.x
@@ -946,7 +1088,12 @@ func _layout_hud() -> void:
 		aw = float(view.st.arena_w)
 		ah = float(view.st.arena_h)
 	view.position = Vector2(round(vis.position.x + (vis.size.x - aw) / 2.0), round(vis.position.y + 40.0 + maxf(0.0, (vis.size.y - 40.0 - ah) / 2.0)))
+	var reserve := 0.0
+	if build_hud != null:
+		build_hud.touch_mode = PLayout.is_touch()
+		reserve = build_hud.relayout(safe) # 터치일 때는 빌드 줄을 상단에 두고 그 높이를 돌려준다
 	if touch != null:
+		touch.reserve_top = reserve # 손가락 끌기 영역이 빌드 아이콘과 겹치지 않게 내린다
 		touch.layout(safe)
 
 func _cfg_text(st: CombatState) -> String:
@@ -959,6 +1106,8 @@ func _process(_dt: float) -> void:
 		_demo_tick(_dt)
 	if _capture_mode:
 		_capture_tick()
+	if _mod_demo:
+		_mod_demo_tick()
 	if _movie_mode:
 		_movie_tick()
 	if _auto:
@@ -1151,6 +1300,84 @@ func _capture_tick() -> void:
 		await get_tree().create_timer(0.5).timeout
 		get_tree().quit()
 
+# ---------- 개조 연출 확인용 연속 프레임 저장(PROPHECY_MOD_DEMO=<폴더>) ----------
+## 분열 창날 · 귀환 검기 · 서리 부채 · 깨지는 수정이 실제로 화면에 나온 프레임만 연속 저장한다(영상 아님 — 연속 프레임 PNG).
+## 규칙은 건드리지 않는다: 고정 빌드의 검증 전투를 봇으로 돌리고, 개조 표시 효과(split_node·beam(returning)·shatter_burst·fan 탄)가 살아 있는 프레임을 고른다.
+var _mod_demo := false
+var _mod_dir := ""
+var _mod_shots := 0
+var _mod_started := false
+const MOD_DEMO_MAX := 40
+
+func _mod_demo_start() -> void:
+	_mod_started = true
+	use_bot = true
+	_lab_last = { "kind": "start", "arg": "spear" }
+	lab_run = PRun.new_run(1, "spear")
+	var g: Dictionary = lab_run.growth
+	g.weapons = [{ "id": "spear", "level": 3, "mods": ["split", "returning"] }, { "id": "frost", "level": 3, "mods": ["fan", "shatter"] }]
+	g.level = 8
+	lab_run.cards = null
+	var card: Dictionary = PSortie.cards_for(lab_run)[0]
+	var s := PSortie.start(lab_run, String(card.id))
+	var st := PFlow.make_encounter(lab_run, s)
+	fight_kind = "lab"
+	lab_label = "개조 연출 확인: 관통창(분열·귀환) + 서리 수정(부채·깨짐)"
+	_view_start(st, make_bot("balanced"))
+	show("combat")
+	_refresh_combat_texts()
+
+## 지금 화면에 개조 표시 효과가 있으면 그 이름
+func _mod_fx_now() -> String:
+	if view.st == null:
+		return ""
+	var names: Array = []
+	for f in view.st.effects:
+		var k := String(f.kind)
+		if k == "split_node":
+			names.append("분열")
+		elif k == "beam" and bool(f.get("returning", false)):
+			names.append("귀환")
+		elif k == "shatter_burst":
+			names.append("수정파열")
+		elif k == "scar_mark":
+			names.append("검흔")
+	for pr in view.st.projectiles:
+		if bool(pr.get("dead", false)):
+			continue
+		if String(pr.get("mod", "")) == "fan":
+			names.append("부채")
+		elif String(pr.get("mod", "")) == "split":
+			names.append("분열파편")
+		elif String(pr.get("mod", "")) == "shatter":
+			names.append("수정파편")
+	if names.is_empty():
+		return ""
+	var uniq: Array = []
+	for n in names:
+		if not uniq.has(n):
+			uniq.append(String(n))
+	return "+".join(uniq)
+
+func _mod_demo_tick() -> void:
+	if not _mod_started:
+		if _cap_frame < 10:
+			_cap_frame += 1
+			return
+		_mod_demo_start()
+		return
+	if screen != "combat" or view.st == null:
+		return
+	var tag := _mod_fx_now()
+	if tag == "" or _mod_shots >= MOD_DEMO_MAX:
+		if view.st.t > 40.0 or _mod_shots >= MOD_DEMO_MAX:
+			print("MOD_DEMO done shots=", _mod_shots, " t=", snapped(view.st.t, 0.01))
+			get_tree().quit()
+		return
+	_mod_shots += 1
+	var name := "mod_%02d_t%0.2f_%s" % [_mod_shots, view.st.t, tag]
+	_snap_to(_mod_dir, name)
+
 # ---------- 회차 화면 자동 진행(PROPHECY_UI_SMOKE=<폴더> / 봇 회차 데모): 프레임 수로만 진행 ----------
 var _auto := false
 var _auto_snap := false
@@ -1321,7 +1548,9 @@ func _auto_tick() -> void:
 					return
 				if _auto_step("p4", func(): _auto_shot("23_settings"); settings_panel.close(); debug_panel.visible = true):
 					return
-				if _auto_step("p5", func(): _auto_shot("24_debug_run"); debug_panel.visible = false; set_pause(false)):
+				if _auto_step("p5", func(): _auto_shot("24_debug_run"); debug_panel.visible = false; open_build_detail()):
+					return
+				if _auto_step("p6", func(): _auto_shot("27_build_detail"); build_detail.close(); set_pause(false)):
 					return
 		"reward":
 			_auto_shot("12_reward")

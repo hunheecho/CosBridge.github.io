@@ -1,0 +1,135 @@
+{
+ "schema": "prophecy.icons.v1",
+ "source": "prophecy-ui-build-readability-20260908/icons (임시 기호 20종, 최종 아트 아님)",
+ "note": "게임 ID -> 아이콘 파일. 여기에 없는 ID는 절대 다른 효과의 아이콘으로 대체하지 않고 중립 자리표시 기호 + 실제 한국어 이름으로 그린다.",
+ "dir64": "res://assets/icons/png64",
+ "dir128": "res://assets/icons/png128",
+ "dir_svg": "res://assets/icons/svg",
+ "map": {
+  "weapon:sword": {
+   "file": "weapon_sword",
+   "name": "검",
+   "color": "#EEE4CA",
+   "kind": "weapon"
+  },
+  "weapon:spear": {
+   "file": "weapon_spear",
+   "name": "관통창",
+   "color": "#F4C66D",
+   "kind": "weapon"
+  },
+  "weapon:daggers": {
+   "file": "weapon_daggers",
+   "name": "쌍검",
+   "color": "#D4A1E7",
+   "kind": "weapon"
+  },
+  "weapon:bow": {
+   "file": "weapon_bow",
+   "name": "추적궁",
+   "color": "#B9D393",
+   "kind": "weapon"
+  },
+  "weapon:hammer": {
+   "file": "weapon_hammer",
+   "name": "전투망치",
+   "color": "#D3B59A",
+   "kind": "weapon"
+  },
+  "weapon:blades": {
+   "file": "weapon_blades",
+   "name": "회전 칼날",
+   "color": "#A7C9FA",
+   "kind": "weapon"
+  },
+  "weapon:orb": {
+   "file": "weapon_orb",
+   "name": "번개 구체",
+   "color": "#D0B3FF",
+   "kind": "weapon"
+  },
+  "weapon:frost": {
+   "file": "weapon_frost",
+   "name": "서리 수정",
+   "color": "#90E5F4",
+   "kind": "weapon"
+  },
+  "weapon:ember": {
+   "file": "weapon_ember",
+   "name": "불씨 정령",
+   "color": "#FFAE62",
+   "kind": "weapon"
+  },
+  "weapon:mine": {
+   "file": "weapon_mine",
+   "name": "룬 지뢰",
+   "color": "#D9AFF0",
+   "kind": "weapon"
+  },
+  "action:dodge": {
+   "file": "action_dodge",
+   "name": "회피",
+   "color": "#F0DFC2",
+   "kind": "action"
+  },
+  "skill:slowfield": {
+   "file": "skill_slowfield",
+   "name": "감속장",
+   "color": "#72D9D2",
+   "kind": "skill"
+  },
+  "skill:ward": {
+   "file": "skill_ward",
+   "name": "수호 결계",
+   "color": "#8DBEFF",
+   "kind": "skill"
+  },
+  "mod:sword:cross": {
+   "file": "mod_sword_cross",
+   "name": "교차 검격",
+   "color": "#EEE4CA",
+   "kind": "mod"
+  },
+  "mod:sword:scar": {
+   "file": "mod_sword_scar",
+   "name": "잔류 검흔",
+   "color": "#EEE4CA",
+   "kind": "mod"
+  },
+  "mod:spear:split": {
+   "file": "mod_spear_split",
+   "name": "분열 창날",
+   "color": "#F4C66D",
+   "kind": "mod"
+  },
+  "mod:spear:returning": {
+   "file": "mod_spear_returning",
+   "name": "귀환 검기",
+   "color": "#F4C66D",
+   "kind": "mod"
+  },
+  "mod:frost:fan": {
+   "file": "mod_frost_fan",
+   "name": "서리 부채",
+   "color": "#90E5F4",
+   "kind": "mod"
+  },
+  "mod:frost:shatter": {
+   "file": "mod_frost_shatter",
+   "name": "깨지는 수정",
+   "color": "#90E5F4",
+   "kind": "mod"
+  },
+  "common:echo": {
+   "file": "common_echo",
+   "name": "메아리",
+   "color": "#B5B4F1",
+   "kind": "common"
+  }
+ },
+ "alias": {
+  "skill:q": "skill:slowfield",
+  "skill:e:ward": "skill:ward",
+  "w:sword": "weapon:sword"
+ }
+}
