@@ -37,9 +37,13 @@ func _init() -> void:
 				bad.append(tid + ":arena:" + String(p.arena))
 		for f in (t.formations.normal as Array) + (t.formations.risk as Array):
 			for c in f.comp:
-				if PCatalog.enemy(String(c.type)).is_empty() or bool(PCatalog.enemy(String(c.type)).get("elite", false)):
+				# 아직 만들어지지 않은 예정 종류(bat·lizard·toad)는 데이터에 미리 들어 있어도 된다.
+				# 편성 생성이 그 종류를 조용히 건너뛰고 비중을 나머지에 나눠 주는지는 아래 '미구현 종류' 검사에서 본다.
+				if PRun.planned_type(String(c.type)):
+					continue
+				if not PRun.enemy_ready(String(c.type)) or bool(PCatalog.enemies()[String(c.type)].get("elite", false)):
 					bad.append(tid + ":type:" + String(c.type))
-	ok("테마 9종: 막마다 3, 장소 2(1칸·2칸), 일반 편성 3 + 위험 1, 전장 존재, 일반 적만(정예는 elites 필드)", T.size() == 9 and per_act[1] == 3 and per_act[2] == 3 and per_act[3] == 3 and bad.is_empty(), str(bad))
+	ok("테마 9종: 막마다 3, 장소 2(1칸·2칸), 일반 편성 3 + 위험 1, 전장 존재, 일반 적만(정예는 elites·common_elite 필드)", T.size() == 9 and per_act[1] == 3 and per_act[2] == 3 and per_act[3] == 3 and bad.is_empty(), str(bad))
 	var impl := []
 	for act in [1, 2, 3]:
 		impl.append(PRun.themes_for_act(act))
@@ -87,11 +91,10 @@ func _init() -> void:
 	ok("첫날 새벽 숲길 출격 = 늑대 25·동시 12·경험치 예산 9.0(D33 보존), 전장 공터", String(c_first.formationId) == "t1a_first" and (st_first.formation.units as Array).size() == 25 and int(st_first.formation.godot_counts.wolf) == 25 and int(st_first.formation.alive_cap) == 12 and is_equal_approx(snapped(xp_first, 0.01), 9.0) and st_first.arena_id == "clearing", "units %d cap %d xp %.2f" % [(st_first.formation.units as Array).size(), int(st_first.formation.alive_cap), xp_first])
 	var st1 := PFlow.make_encounter(r5, sortie_of(r5, p1, 1, "t1a_wolves"))
 	var f1: Dictionary = st1.formation
-	# 종류별 동시 생존 상한이 **동시 상한의 비율**로 바뀌었다(2026-09-09, 전투 말미 늘어짐 수정).
-	# 궁수는 12 × 0.4 = 5. 편성표의 옛 고정값 3보다 작아지지는 않는다.
 	# **D33 기준 전투(t1a_first, 늑대 25·동시 12)는 이 규칙을 타지 않는다** — 바로 위 검사가 그대로 통과한다.
-	# 총 등장 수(25)·비율(0.8/0.2)·경험치 예산은 그대로다. 바뀐 것은 한꺼번에 몇 마리가 살아 있는가뿐이다.
-	ok("숲길 '늑대 무리 + 궁수'(1일차): 전체 25 = 날짜 예산표(사용자 결정 25), 늑대 20·궁수 5(0.8/0.2), 동시 12(1막 상한), 궁수 상한 5(동시 상한 비례), 배율 1(밀도 세트 무시)", (f1.units as Array).size() == 25 and int(f1.godot_counts.wolf) == 20 and int(f1.godot_counts.archer) == 5 and int(f1.alive_cap) == 12 and int(f1.type_caps.get("archer", 0)) == 5 and is_equal_approx(float(f1.multiplier), 1.0), str(f1.godot_counts) + " cap %d 궁수상한 %d" % [int(f1.alive_cap), int(f1.type_caps.get("archer", 0))])
+	# 2026-09-09 편성 개편: 숲길 ①은 '포위 탈출 · 늑대 + 멧돼지'(뒤에서 궁수). 총 수·동시 상한은 그대로,
+	# 종류별 상한은 동시 상한 비례(PPacing.type_alive_cap)라 궁수 5다(고정 3이 아니다).
+	ok("숲길 ①(1일차): 전체 25 = 날짜 예산표(사용자 결정 25), 늑대 15·멧돼지 6·궁수 4, 동시 12(1막 상한), 궁수 상한 5(동시 상한 비례), 배율 1(밀도 세트 무시)", (f1.units as Array).size() == 25 and int(f1.godot_counts.wolf) == 15 and int(f1.godot_counts.boar) == 6 and int(f1.godot_counts.archer) == 4 and int(f1.alive_cap) == 12 and int(f1.type_caps.get("archer", 0)) == 5 and is_equal_approx(float(f1.multiplier), 1.0), str(f1.godot_counts) + " cap %d 궁수상한 %d" % [int(f1.alive_cap), int(f1.type_caps.get("archer", 0))])
 	r5.densitySet = "roles"
 	var st1b := PFlow.make_encounter(r5, sortie_of(r5, p1, 1, "t1a_wolves"))
 	ok("밀도 세트 roles를 골라도 테마 템플릿 수는 같다(이중 적용 없음)", (st1b.formation.units as Array).size() == 25)

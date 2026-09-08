@@ -107,6 +107,10 @@ static func generate(run: Dictionary, day: int) -> Array:
 		out[out.size() - 1].formationId = String(fm.id)
 		out[out.size() - 1].formationName = String(fm.name)
 		out[out.size() - 1].formationDesc = String(fm.get("desc", ""))
+		out[out.size() - 1].formationKind = String(fm.get("kind", ""))
+	# 특수 정예 결투 배정(할 일 4·5): 하루의 카드가 모두 정해진 뒤 한 장에만 붙인다.
+	# **난수를 쓰지 않는다** — 자리표로 정하므로 시드·저장이 그대로 재현되고, 카드에 저장하므로 복구해도 같은 강적이다.
+	PRun.assign_duel(run, day, out)
 	return out
 
 ## 편성 대안 선택: 대안이 1개(기본뿐)면 rng를 소비하지 않는다(첫날 숲 카드는 0.4.2와 동일). 직전에 같은 지역에서 쓴 편성은 제외
@@ -136,6 +140,8 @@ static func elite_notice(run: Dictionary, c: Dictionary) -> Dictionary:
 		for g in w:
 			if not bool(PCatalog.enemy(String(g.type)).get("elite", false)) or int(g.n) <= 0:
 				continue
+			if PRun.is_common_elite(String(g.type)): # 일반 정예는 특수 정예 예고·추가 금화의 대상이 아니다
+				continue
 			n += int(g.n)
 			if not types.has(String(g.type)):
 				types.append(String(g.type))
@@ -148,6 +154,11 @@ static func elite_notice(run: Dictionary, c: Dictionary) -> Dictionary:
 
 ## 강적을 잡았을 때 추가로 받는 것(카드에 미리 보여 줄 짧은 문구). 중복 지급 금지 규칙을 그대로 읽는다:
 ## 이미 정예 조건부 재료를 주는 장소는 그 재료를 말하고, 그렇지 않은 장소만 추가 금화를 말한다.
+## 출격 **전에** 보여 줄 결투 예고("마지막에 강적이 나타난다"). 카드에 저장된 duelType 을 그대로 읽으므로
+## 표시와 실제가 어긋날 수 없다. 표시는 다른 담당이 그리고 여기서는 자료만 내보낸다.
+static func duel_notice(run: Dictionary, c: Dictionary) -> Dictionary:
+	return PRun.duel_notice(run, String(c.get("regionId", "")), String(c.get("duelType", "")))
+
 static func elite_reward_text(run: Dictionary, region_id: String) -> String:
 	var cfg: Dictionary = PCatalog.pacing().get("elite_reward", {})
 	var skip := String(cfg.get("skip_if_mat", ""))
@@ -207,6 +218,7 @@ static func repeat_cards(run: Dictionary) -> Array:
 			"rewardKind": null, "rewardTarget": "", "fallbackGold": 0, "timeCost": cost, "repeat": true,
 			"enemies": (c.enemies as Array).duplicate(), "first": false, "done": false, "attempts": int(c.get("repeatAttempts", 0)), "linked": false,
 			"formationId": String(c.get("formationId", "base")), "formationName": String(c.get("formationName", "기본")), "formationDesc": String(c.get("formationDesc", "")),
+			"formationKind": String(c.get("formationKind", "")), "duelType": "", "duelName": "", # 반복 탐험에는 결투를 붙이지 않는다(추가 보상 반복 지급 금지)
 			"variantSlot": null, "variantName": null, "label": PPacing.repeat_label() })
 	return out
 
@@ -233,6 +245,8 @@ static func start(run: Dictionary, id: String) -> Dictionary:
 	s.cardId = String(c.id)
 	s.formationId = String(c.get("formationId", "base"))
 	s.formationName = String(c.get("formationName", "기본"))
+	s.formationKind = String(c.get("formationKind", ""))
+	s.duelType = String(c.get("duelType", "")) # 카드에 저장된 결투 상대(저장·복구해도 같다)
 	if not run.has("lastFormation") or run.lastFormation == null:
 		run.lastFormation = {}
 	run.lastFormation[String(c.regionId)] = s.formationId

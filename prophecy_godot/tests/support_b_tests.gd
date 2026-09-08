@@ -433,6 +433,7 @@ func section_cleanup() -> void:
 	PSupport.fire(st, wep(st, "doll"), put(st, "wolf", st.player.x + 150.0, st.player.y), false)
 	ok("인형이 세워져 있다", not PSupportB.doll_of(st).is_empty())
 	st.status = "won"
+	st.mark_duel_done_for_test() # 결투가 예정된 편성이면 그것도 이긴 것으로 본다(승리 정산 규칙과 앞뒤를 맞춘다)
 	ok("전투가 끝나면 남은 인형이 사라진다", PSupportB.doll_of(st).is_empty())
 
 	var st2 := lab([["doll", 1, []]])

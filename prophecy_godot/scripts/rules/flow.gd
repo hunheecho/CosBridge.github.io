@@ -27,6 +27,7 @@ static func encounter_opts(run: Dictionary, sortie: Dictionary, extra: Dictionar
 		"pool": pool, "chest": true, "xp_kill_mult": PRun.kill_xp_mult(run), "lab_text": PRun.layout_text(run), "run": run,
 		"density": (PRun.theme_density_override(region, String(sortie.get("formationId", "")), int(PRun.act_of(run).get("id", 1)), String(run.get("aliveCapSet", ""))) if PRun.is_theme_place(region) else PCatalog.density_set(String(run.get("densitySet", "")))), # 테마 장소는 템플릿 상한(배율 이중 적용 없음), 그 외 밀도 세트
 		"tier_mix": PRun.tier_mix(run), "world_stage": PRun.world_stage(run), "act": int(PRun.act_of(run).get("id", 1)), # 막(정예 체력·역할별 고정 체력표) # 세계 변화 등급 비율(관문 완료에서 도출)
+		"duel": PRun.duel_cfg(), # 특수 정예 결투 설정(전환 조건·연출 시간·고유 소환). 결투 상대 자체는 waves 안에 duel 표시로 들어 있다
 	}
 	if sortie.get("eventFight", null) != null:
 		var fo := PEvents.fight_opts(run, sortie)
@@ -68,9 +69,12 @@ static func settle_victory(run: Dictionary, sortie: Dictionary, st: CombatState)
 		return {}
 	st.settled = "won"
 	consume_buff(run, st)
+	if st.duel_stage != "" and st.duel_stage != "done": # 특수 정예전이 끝나기 전에는 출격 승리를 먼저 처리하지 않는다
+		push_error("특수 정예전 미완료 상태의 승리 정산: " + st.duel_stage)
+		return {}
 	var elite_killed: bool = st.status == "won" and st.objective == "elite"
 	for e in st.enemies:
-		if bool(e.elite) and bool(e.dead):
+		if bool(e.elite) and bool(e.dead) and not PRun.is_common_elite(String(e.type)): # 일반 정예는 특수 정예 추가 금화 대상이 아니다
 			elite_killed = true
 	var reward := PRun.roll_reward(run, sortie, st.rng, { "chestGold": int(st.stats.chest_gold), "eliteKilled": elite_killed })
 	if sortie.get("eventFight", null) != null: # 사건 추가 전투: 전리품 없음, 서비스만

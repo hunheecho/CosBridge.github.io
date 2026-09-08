@@ -62,6 +62,7 @@ func fake_win(run: Dictionary, sortie: Dictionary, dmg: Dictionary = {}, extra: 
 	st.spawn_hold = true
 	st.step({}, STEP)
 	st.status = "won"
+	st.mark_duel_done_for_test() # 결투가 예정된 편성이면 그것도 이긴 것으로 본다(승리 정산 규칙과 앞뒤를 맞춘다)
 	st.player.hp = 80.0
 	for k in dmg:
 		st.metrics.dmg[String(k)] = float(dmg[k])

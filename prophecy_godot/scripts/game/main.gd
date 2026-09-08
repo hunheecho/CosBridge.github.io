@@ -449,6 +449,27 @@ func close_choice() -> void:
 		view.set_paused(false)
 
 ## 전투 중 레벨업: 미처리 선택이 있으면 하나씩 제시
+## **특수 정예 결투 전 성장 선택 문.**
+## 규칙 계층은 화면이 자리를 잡지 않으면 그냥 지나간다(봇·검사에서 멈춰 서지 않게 하는 안전 기본값).
+## 사람이 하는 화면에서는 여기서 자리를 잡고, 밀린 레벨업을 다 처리한 뒤에 문을 연다.
+## 잡지 않으면 강적이 성장 선택 없이 바로 나온다.
+func _duel_gate_tick() -> void:
+	if screen != "combat" or view == null or view.st == null:
+		return
+	var st: CombatState = view.st
+	if String(st.duel_stage) != "growth":
+		return
+	if not st.duel_gate_held:
+		st.hold_duel_gate()
+	if st.duel_gate:
+		return
+	if choice != null and choice.visible:
+		return # 이미 3택이 떠 있다
+	if int(run.growth.pendingLevelUps) > 0 and not run.is_empty():
+		offer_pending_level_ups()
+		return
+	st.open_duel_gate()
+
 func offer_pending_level_ups() -> bool:
 	if run.is_empty() or int(run.growth.pendingLevelUps) <= 0:
 		return false
@@ -1132,6 +1153,7 @@ func _cfg_text(st: CombatState) -> String:
 	return _settings_line(st) + " · 원본 " + Game.HTML_SOURCE
 
 func _process(_dt: float) -> void:
+	_duel_gate_tick()
 	if _demo_mode:
 		_demo_tick(_dt)
 	if _capture_mode:
