@@ -613,3 +613,14 @@ tools/compare_scenario.gd      HTML 대조 측정(COMPARE_JSON 출력)
 - 아이콘 81종 미제작(임시 기호 + 실제 이름으로 표시, 목록은 `docs/sim/ICON_COVERAGE.md`).
 - 27경로 전수 재실행·정복자 0/50 비교·무한 구간 보상은 이번 범위 밖.
 - `data/boss_behavior.json` 추가로 `PReplay.data_hash()`가 바뀌어 이전에 저장된 재생 기록은 데이터 해시 불일치로 표시된다(규칙 오류 아님).
+
+### 21-6. 최종 커밋·빌드·해시
+| 항목 | 값 |
+|---|---|
+| **최종 코드 커밋** | **3501e09** (브랜치 `claude/prophecy-action-prototype-hehbeo`, 로컬, push 안 함) |
+| 구성 커밋 | 073f74f(개조 계측 훅) → 4223afd(밸런스 코어) → c0c31eb(실측 체력표·회귀 45) → b48c9a4(UI 병합 6ce9b09) → 5acd0e2(UI·규칙 연동) → 569f709(비교 도구·D44) → 542188e(보스 행동 병합 5f3a14a) → 81fa26a(보스 체력 재측정 조정) → ceeb62a(0.7.0·캡처·UI 경로 검증) → 3501e09(§21 최종 수치) |
+| Windows 빌드 | `prophecy_godot_build/prophecy_godot_windows_godot-0.7.0_3501e09.zip` (안: `prophecy_godot/prophecy_godot.exe` 110,617,824 B + `실행_안내.txt`). exe SHA-256 `7b061f4cbf43d6fb20591cddac1b6554020c5900159a149e93dda8878e110a33`, ZIP SHA-256 `5f59965d5e23609a2063e6bd41755c1342b5e1e0af639918bd506dfbff6a3a17` |
+| 프로젝트 ZIP | `prophecy_godot_build/prophecy_godot_project_godot-0.7.0_3501e09.zip` = `git archive HEAD prophecy_godot` (551 파일). SHA-256 `b1d3355e9857e6e91a5443f6e0abda79366731e70a84bad407b1a7c5178fde93` |
+| 패키지 exe 실행 확인 | 같은 PC, APPDATA 격리, `PROPHECY_UI_SMOKE`: **종료 코드 0, 스크립트 오류 0, PNG 23장**(제목→새 회차→마을→전투→상점/대장간/장비/통계→하루 종료→4일차 관문→검증 메뉴). 사람 플레이 없음 |
+| 재현 순서 | ① 3501e09 체크아웃 ② `--headless --path prophecy_godot --import` ③ 21-3의 18개 스위트(APPDATA 격리; run_layer·world·content·ui_flow는 `PROPHECY_LEGACY_PLACES=1`) ④ `tools/density_report.gd`(결과 열 비교) ⑤ `tools/growth_checkpoints.gd` · `tools/boss_time_check.gd` · `tools/balance_compare.gd`(`PROPHECY_PACING`으로 변형 전환) ⑥ `--export-release "Windows Desktop"`(내보내기 템플릿은 실제 APPDATA에 있어야 한다) |
+| 미커밋(의도) | 루트 `index.html`·`CNAME`·`wash.jpg` 삭제, `icon.svg.import`, `.claude/` |
