@@ -104,7 +104,8 @@ static func _new_stats() -> Dictionary:
 
 static func _new_metrics() -> Dictionary:
 	return { "dmg": {}, "taken": {}, "taken_hits": {}, "enemies": {}, "hits": {}, "patterns": {}, "absorbed": 0.0, "interrupts": 0, "webs": 0, "heals": 0, "heal_amount": 0.0, "far_frac": -1.0,
-		"cause_dmg": {}, "cause_hits": {}, "cause_fires": {} }
+		"cause_dmg": {}, "cause_hits": {}, "cause_fires": {},
+		"support": {} } # 보조무기별 역할 지표(차단·경감·반격·유인·둔화·밀어냄·전염 등). PSupport.meter가 쌓는다
 
 ## 첫 전투(godot-0.3.1 D33 기준 전투): first_fight.json 설정 그대로. RNG 소비 순서·늑대 규칙·검격 타이밍이 0.3.1과 같다
 static func first_fight(config: Dictionary, seed_v: int = 1) -> CombatState:

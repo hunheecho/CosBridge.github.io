@@ -162,3 +162,29 @@ static func on_enemy_death(st: CombatState, e: Dictionary, opt: Dictionary) -> v
 ## 이미 방향이 확정된 공격·돌진은 이 값으로 바뀌지 않는다 — 부르는 쪽이 확정 전에만 묻는다
 static func lure_target(st: CombatState, e: Dictionary) -> Dictionary:
 	return PSupportB.lure_target(st, e)
+
+# ---------- 5. 역할 지표 ----------
+## 보조무기의 역할별 지표를 쌓는다. 피해만으로는 방울·갑각·인형·서리·바람이 일을 했는지 알 수 없기 때문이다.
+## st.metrics.support[보조 id][지표 이름]에 더한다. 규칙에는 영향이 없다(계측 전용).
+##
+## 표준 지표 이름(대표 조합 측정이 이 이름을 읽는다 — 새로 만들지 말고 여기 있는 것을 써라):
+##   fires 발동 · hits 적중 · dmg 준 피해
+##   blocked 차단 횟수 · blocked_dmg 막은 피해            (수호 방울)
+##   reduced_dmg 경감한 피해 · reflects 반격 · reflect_dmg 반격 피해  (가시 갑각)
+##   taunted 유인한 적 · soaked 대신 받은 공격 · soaked_dmg          (도깨비 인형)
+##   slows 둔화 적용 · slow_sec 둔화 시간                            (서리 수정·잔바람)
+##   push_dist 밀어낸 거리                                           (바람 정령)
+##   spreads 전염 · bursts 파열 · dot_dmg 독 피해                    (역병 나비)
+##   marks 표적 지정 · mark_keeps 표적 유지 프레임                   (추격 까마귀)
+##   copies 모방 발동 · copy_dmg 모방 피해                           (잔영 분신)
+##   shock_procs 감전 후속 발동 · shock_dmg                          (번개 구체)
+static func meter(st: CombatState, id: String, key: String, amount: float = 1.0) -> void:
+	var M: Dictionary = st.metrics.support
+	if not M.has(id):
+		M[id] = {}
+	var d: Dictionary = M[id]
+	d[key] = float(d.get(key, 0.0)) + amount
+
+## 쌓인 지표 조회(없으면 0)
+static func metered(st: CombatState, id: String, key: String) -> float:
+	return float((st.metrics.support.get(id, {}) as Dictionary).get(key, 0.0))

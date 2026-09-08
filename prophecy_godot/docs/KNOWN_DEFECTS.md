@@ -34,6 +34,8 @@
 | `--group all --jobs 1` 20260908_222126 | 1회 | 1회(theme_tests) |
 | `--suites collision_tests,elites_tests --jobs 2` | 3회 | **1회**(elites_tests) |
 | `--group all --jobs 2` | 여러 회 | 실행마다 0~3개 스위트에서 발생 |
+| `--group all --jobs 4` slots_v2_full | 1회 | 0회 — 25개 스위트 전부 정상 종료 |
+| `--suites run_tests,slots_tests,support_tests,collision_tests,balance_tests --jobs 5` | 1회 | **1회**(balance_tests, 단언 46/46 통과 뒤 종료 실패) |
 
 **2026-09-08 21:21 추가 관측(`20260908_212122`, 랜덤 지형 작업의 회귀 실행).** `--suites terrain_tests,run_tests,collision_tests,theme_tests,ui_flow_tests,world_tests --jobs 1`
 
@@ -56,6 +58,10 @@
 - 같은 스위트를 단독으로 다시 돌리면 통과한다(boss_pace_tests도 단독 재실행에서 통과). **재현이 불규칙하다.**
 - 특정 스위트에 묶이지 않는다. 실제 장면을 띄우지 않는 `collision_tests`에서도 난다.
 - 여러 스위트가 `ObjectDB instance was leaked at exit` 경고를 함께 낸다.
+
+**2026-09-08 23:18 추가.** 5개 동시 실행에서 `balance_tests`가 **단언 46/46을 전부 통과한 뒤** 종료 코드 3221225477로 끝났다.
+바로 앞 실행(25개 스위트, 동시 4)에서는 종료 실패가 하나도 없었다. 같은 코드·같은 자료에서 결과가 갈리므로
+**실행 내용이 아니라 종료 시점의 정리 순서** 쪽 문제로 보인다. 그래도 아직 재현 조건을 못 잡았다.
 
 **아직 모르는 것.** 무엇이 원인인지. 지금까지 걸린 스위트가 `ui_flow_tests`·`content_tests`·`theme_tests`·`balance_tests`·`boss_pace_tests`·`input_tests`·`collision_tests`·`elites_tests`로 **특정 스위트에 묶이지 않는다.** 실제 장면을 띄우지 않는 스위트에서도 난다.
 한 실행에 보통 **한 개**가 걸리고, 다음 실행에서는 다른 스위트가 걸린다 — 무작위에 가깝다. 표본이 늘어도 규칙이 보이지 않는다.
