@@ -242,6 +242,10 @@ func _fight(sortie: Dictionary, pre: CombatState = null) -> CombatState:
 		L.dba = int(L.dba) + int(m.get("died_before_attack", 0))
 		L.killedN = int(L.killedN) + int(m.get("killed", 0))
 	L.taken = float(L.taken) + float(sm.damage_taken)
+	L.supportOnlySec = float(L.get("supportOnlySec", 0.0)) + float(sm.get("support_only_sec", 0.0)) # 편성 측정(지시 4)
+	L.thinTailSec = float(L.get("thinTailSec", 0.0)) + float(sm.get("thin_tail_sec", 0.0))
+	L.noTargetSec = float(L.get("noTargetSec", 0.0)) + float(sm.get("no_target_sec", 0.0))
+	L.maxAlive = maxi(int(L.get("maxAlive", 0)), int(sm.get("max_alive", 0)))
 	T.screens = float(T.screens) + float(MENU.encounter)
 	clock += float(MENU.encounter)
 	if st.status == "running":
@@ -790,6 +794,9 @@ func _finish(seed: int, start: String) -> Dictionary:
 	L.engine = String(Engine.get_version_info().string)
 	L.statsVerify = PStats.verify(run)
 	L.run_state = run # 체크포인트 측정용: 그 시점의 실제 회차 상태(빌드 전체). 보고서에는 넣지 않는다
+	L.supportOnlySec = round(float(L.get("supportOnlySec", 0.0)) * 10.0) / 10.0
+	L.thinTailSec = round(float(L.get("thinTailSec", 0.0)) * 10.0) / 10.0
+	L.noTargetSec = round(float(L.get("noTargetSec", 0.0)) * 10.0) / 10.0
 	L.restForced = int(run.get("stats", {}).get("rest_forced", 0))
 	L.restChosen = int(run.get("stats", {}).get("rest_chosen", 0))
 	return L

@@ -112,6 +112,13 @@ E는 1개, 차 있으면 습득 카드 없음(교체는 상점). 일제 공격(�
 | run:boss_plan | 관문별 보스 후보 → 회차 시작 시 계획(bossPlan), 거점 표시 | 사용자 합의(구조만) | 없음(신규) | 구현(run.gd pick_boss_plan·next_boss) | 포함 | content_tests |
 | run:acts | 본편 10일·3막·관문 4/7/10(기본 모드 acts), 막 판정·관문 준비 다음 막 미리보기, 옛 trio 저장 호환, 영구 기록 하루 2/3 | 사용자 결정(D41), 배치·날짜 시험값 | 없음(신규) | 구현(run.gd acts/act_of/act_preview·places_by_mode·profile.gd meta_records_for) | 포함 | acts_tests |
 | wd:themes | 테마 9종(막별 3): 장소 2·편성 템플릿 4·전장·보상 태그·재료·보스, 경로 추첨·고정, 관문 준비 미리보기, 검증 메뉴 경로 지정 | 사용자 결정(D42), 내용 시험값 | 없음(신규) | 구현(data/themes.json·catalog.gd theme_*·run.gd pick_route/template_waves·growth.gd) | 포함 | theme_tests·route_smoke |
+| bal:day_count | 날짜별 일반 전투 총 등장 수 25→75(비용 2칸 +7%), 총 등장 수와 동시 상한 분리, 보상 예산 고정 | 사용자 결정(D44), 중간 값 시험 | 없음 | 구현(data/pacing.json day_total, run.gd template_waves) | 포함 | balance_tests |
+| bal:alive_cap | 막별 동시 생존 상한 12/15/18 + legacy 대조군 | 시험값(D44) | 없음 | 구현(pacing.json alive_cap, run.gd theme_density_override) | 포함 | balance_tests |
+| bal:squads | 혼합 분대 등장(역할 섞기·근접 호위 먼저·묶음당 지원 비율·말미 묶음 확대)·적 장판 상한 | 사용자 평가(D44) | 없음 | 구현(formation.gd mix_squads, combat_state) | 포함 | balance_tests |
+| bal:enemy_hp | 역할별 고정 체력표(기준 DPS × 목표 시간), 등급 교체(일반→붉은→변이), 정예 막별 | 사용자 결정 방향 C(D44), 수치 시험 | 없음 | 구현(pacing.json enemy_hp, combat_state.spawn_enemy) | 포함 | balance_tests·world_tests |
+| bal:gold | 새로 지급하는 금화 ×0.7(판매·환불·잔액 제외, 최종 1회) | 사용자 결정(D44) | 없음 | 구현(pacing.json gold, run.gd roll_reward) | 포함 | balance_tests |
+| run:repeat | 완료 카드의 일반 탐험 재출격(1칸, 임무 보상·사건 없음), 휴식 선택/강제 구분 | 사용자 평가(D44) | 없음 | 구현(sortie.gd repeat_cards, flow.gd actions) | 포함 | balance_tests |
+| ui:build | 기술 3칸+소속 개조 아이콘 HUD, 회피/Q/E 분리, 장비 영역 분리, 개조 발동/적중/피해, 준비 완료 신호 | 사용자 평가(D44) | 없음 | 구현(icons.json·ui/icons.gd·combat_hud.gd·render.gd) | 포함 | hud_tests |
 | run:endless | 무한 모드: 본편 완주 뒤 현재 빌드로 계속, 구간(전투 3+보스)·체력 계단·등급 퇴장·재정비·패배=종료·구간 보스 영구 기록 0.267 | 사용자 결정(D43, 계획서 §10), 수치 시험값 | 없음(신규) | 구현(scripts/rules/endless.gd PEndless, flow.gd actions, base/run_result 화면) | 포함 | endless_tests |
 | meta:conqueror | 정복자: 영구 Lv15 이후 기록 초과분으로 별도 레벨(상한 50), 공격/체력/이동 배분, 출발 시 스냅샷 | 사용자 결정(D43), 경험치 곡선 시험값 | 없음(신규) | 구현(profile.gd conqueror_*, build.gd, screens/meta.gd) | 포함 | endless_tests |
 | ui:density_pick | 검증 메뉴 "밀도 비교 회차": 같은 시드 + 세트 선택 → 새 회차 | 사용자 합의(D40) | 없음 | 구현(title.gd·main.gd new_run_opts) | 포함 | content_tests(new_run opts) |
