@@ -67,17 +67,27 @@ static func dmg_to(st: CombatState, e: Dictionary, w: Dictionary, mult: float, o
 		o.src["mod"] = String(opt.mod) # 개조 귀속(계측 전용)
 	return st.damage_enemy(e, float(w.stats.damage) * mult, o)
 
-## 원형 범위 직접 공격(가림 적용, ground면 무시)
-static func hit_circle(st: CombatState, w: Dictionary, cx: float, cy: float, r: float, mult: float, opt: Dictionary) -> int:
-	var n := 0
+## 원형 범위 직접 공격(가림 적용, ground면 무시). 맞은 적 목록을 돌려준다(전투망치가 밀어내기·경직에 쓴다)
+static func hit_circle(st: CombatState, w: Dictionary, cx: float, cy: float, r: float, mult: float, opt: Dictionary) -> Array:
+	var hit := []
 	for e in st.alive_targets():
 		if PGeom.dist(cx, cy, e.x, e.y) <= r + e.r and (bool(opt.get("ground", false)) or reachable(st, cx, cy, e)):
 			var o := opt.duplicate()
 			o.dir = PGeom.norm(e.x - cx, e.y - cy)
 			o["from"] = { "x": cx, "y": cy }
 			dmg_to(st, e, w, mult, o)
-			n += 1
-	return n
+			hit.append(e)
+	return hit
+
+## 주무기 개조의 손으로 정한 값(data/main_weapons.json modTuning). 없는 항목은 fallback을 그대로 쓴다
+static func mod_tune(s: Dictionary, mid: String, fallback: Dictionary) -> Dictionary:
+	var T: Dictionary = (s.get("def", {}) as Dictionary).get("modTuning", {})
+	if not T.has(mid):
+		return fallback
+	var out: Dictionary = fallback.duplicate()
+	for k in (T[mid] as Dictionary):
+		out[k] = T[mid][k]
+	return out
 
 static func hit_arc(st: CombatState, w: Dictionary, fx0: float, fy0: float, angle: float, R: float, half: float, mult: float, opt: Dictionary) -> int:
 	var n := 0
@@ -170,9 +180,11 @@ static func fire_arc(st: CombatState, w: Dictionary, target: Dictionary, _echoed
 		st.fx({ "kind": "arc", "x": p.x, "y": p.y, "angle": a2, "r": float(s.range), "half": half, "ttl": 0.16, "mod": "cross" })
 		hit_arc(st, w, p.x, p.y, a2, float(s.range), half, 1.0, { "mod": "cross" })
 	if mods.has("crescent"):
+		# 날아가는 검광은 검을 원거리 무기로 바꾸지 않는다. 날아가는 거리는 data/main_weapons.json modTuning이 정한다
+		var ct := mod_tune(s, "crescent", { "speed": 420.0, "travel": 120.0, "dmgMult": 0.6 })
 		var sx: float = p.x + cos(ang) * float(s.range) * 0.8
 		var sy: float = p.y + sin(ang) * float(s.range) * 0.8
-		proj(st, w, { "kind": "crescent", "x": sx, "y": sy, "vx": cos(ang) * 420.0, "vy": sin(ang) * 420.0, "r": 16.0, "ttl": 120.0 / 420.0, "pierce": true, "dmg_mult": 0.6, "angle": ang, "opt": { "direct": false } })
+		proj(st, w, { "kind": "crescent", "x": sx, "y": sy, "vx": cos(ang) * float(ct.speed), "vy": sin(ang) * float(ct.speed), "r": 16.0, "ttl": float(ct.travel) / float(ct.speed), "pierce": true, "dmg_mult": float(ct.dmgMult), "angle": ang, "opt": { "direct": false } })
 	if mods.has("scar"):
 		var cx: float = p.x
 		var cy: float = p.y
@@ -183,6 +195,8 @@ static func fire_arc(st: CombatState, w: Dictionary, target: Dictionary, _echoed
 			hit_arc(st, w, cx, cy, ang, float(s.range), half, 0.5, { "direct": false, "mod": "scar" }))
 	st.ev("swing", { "form": "arc" })
 
+## 관통창: 매우 좁은 직선 하나. 방향은 고른 대상 쪽으로 **한 번** 정할 뿐이고, 발사 뒤 따라가거나 좌우로 훑지 않는다.
+## (자동 방향 보정을 더하면 '적을 일렬로 세워야 한다'는 약점이 사라진다 — 여기서 각도를 손대지 않는 것이 그 규칙이다.)
 static func fire_beam(st: CombatState, w: Dictionary, target: Dictionary, echoed: bool) -> void:
 	var p := st.player
 	var s: Dictionary = w.stats
@@ -205,11 +219,14 @@ static func fire_beam(st: CombatState, w: Dictionary, target: Dictionary, echoed
 				st.text(e.x, e.y - e.r - 30.0, "표식 폭발!", "#ffd166")
 				hit_circle(st, w, e.x, e.y, 60.0, 1.5, { "direct": false })
 	if mods.has("split") and hit.size() > 0:
+		# 분열 창날은 '좁은 폭'이라는 약점을 지우지 않는다. 벌어지는 각·거리는 data/main_weapons.json modTuning이 정한다
+		var pt := mod_tune(s, "split", { "spread": 0.6, "speed": 340.0, "travel": 170.0, "dmgMult": 0.4 })
 		var h: Dictionary = hit[0]
 		st.note_mod("split", "proc")
 		st.fx({ "kind": "split_node", "x": h.x, "y": h.y, "angle": ang, "ttl": 0.25, "mod": "split" }) # 첫 명중 지점의 분기 결절(표시 전용, 판정 없음)
-		for da in [-0.6, 0.6]:
-			proj(st, w, { "kind": "shard", "x": h.x, "y": h.y, "vx": cos(ang + da) * 340.0, "vy": sin(ang + da) * 340.0, "r": 4.0, "ttl": 0.5, "dmg_mult": 0.4, "mod": "split", "opt": { "direct": false, "mod": "split" } })
+		for sgn in [-1.0, 1.0]:
+			var da: float = float(sgn) * float(pt.spread)
+			proj(st, w, { "kind": "shard", "x": h.x, "y": h.y, "vx": cos(ang + da) * float(pt.speed), "vy": sin(ang + da) * float(pt.speed), "r": 4.0, "ttl": float(pt.travel) / float(pt.speed), "dmg_mult": float(pt.dmgMult), "mod": "split", "opt": { "direct": false, "mod": "split" } })
 	if mods.has("returning") and not echoed:
 		var fx0: float = p.x
 		var fy0: float = p.y
@@ -221,10 +238,13 @@ static func fire_beam(st: CombatState, w: Dictionary, target: Dictionary, echoed
 			hit_beam(st, w, ex, ey, ang + PI, L, W, 1.0, { "no_mods": true, "mod": "returning" }))
 	st.ev("swing", { "form": "beam" })
 
+## 쌍검: 매우 짧은 리치·좁은 폭의 3연타. **마지막 일격만 더 무겁다**(data/main_weapons.json base.finalMult, 시험값).
+## 3연타를 다 넣으려면 사거리 안에 계속 붙어 있어야 하므로, 근접 위험을 감수한 만큼 단일 대상 화력이 가장 높다.
 static func fire_melee(st: CombatState, w: Dictionary, target: Dictionary, _echoed: bool) -> void:
 	var s: Dictionary = w.stats
 	var p := st.player
 	var hits: int = int(s.hits)
+	var final_mult: float = float(s.get("finalMult", 1.0))
 	var one := func(i: int):
 		var tg: Dictionary = pick_target(st, w, float(s.range), true) if target.dead else target
 		if tg.is_empty():
@@ -235,28 +255,37 @@ static func fire_melee(st: CombatState, w: Dictionary, target: Dictionary, _echo
 		p.swing_form = "arc"
 		p.swing_angle = ang
 		var half := float(s.arc_deg) * PI / 360.0
+		var last: bool = i == hits - 1
+		var mult: float = final_mult if last else 1.0
 		st.fx({ "kind": "dagger", "x": p.x, "y": p.y, "angle": ang, "r": float(s.range), "half": half, "ttl": 0.12, "side": i })
-		if i == hits - 1 and (s.mods as Array).has("flank"):
+		if last and (s.mods as Array).has("flank"):
 			for da in [PI / 2.0, -PI / 2.0]:
 				st.fx({ "kind": "arc", "x": p.x, "y": p.y, "angle": ang + da, "r": float(s.range) * 1.3, "half": 0.9, "ttl": 0.14 })
-				hit_arc(st, w, p.x, p.y, ang + da, float(s.range) * 1.3, 0.9, 1.0, {})
-		hit_arc(st, w, p.x, p.y, ang, float(s.range), half, 1.0, { "bleed": 2.0 } if (s.mods as Array).has("bleed") else {})
+				hit_arc(st, w, p.x, p.y, ang + da, float(s.range) * 1.3, 0.9, mult, {})
+		hit_arc(st, w, p.x, p.y, ang, float(s.range), half, mult, { "bleed": 2.0 } if (s.mods as Array).has("bleed") else {})
 	one.call(0)
 	for i in range(1, hits):
 		var idx := i
 		later(st, float(s.hit_gap) * float(i), func(): one.call(idx))
 	st.ev("swing", { "form": "melee" })
 
+## 추적궁: 이동하면서도 유지하는 원거리 공격. 대신 **쏜 자리에서 가까운 적에게는 위력이 크게 떨어진다**
+## (data/main_weapons.json base.closeFrom·closeMult, 시험값). 쏜 자리를 화살에 새겨 두고 적중 때 본다.
 static func fire_homing(st: CombatState, w: Dictionary, target: Dictionary, _echoed: bool) -> void:
 	var s: Dictionary = w.stats
 	var p := st.player
 	var ang := atan2(target.y - p.y, target.x - p.x)
 	var angles: Array = [ang - 0.35, ang, ang + 0.35] if (s.mods as Array).has("spread") else [ang]
 	for a in angles:
-		proj(st, w, { "kind": "arrow_h", "x": p.x, "y": p.y, "vx": cos(a) * float(s.speed), "vy": sin(a) * float(s.speed), "r": 5.0, "ttl": (float(s.range) / float(s.speed)) * 1.4, "target": target, "turn": float(s.turn), "speed": float(s.speed), "pierce": (s.mods as Array).has("pierce"), "ricochet": 1 if (s.mods as Array).has("ricochet") else 0, "angle": a })
+		proj(st, w, { "kind": "arrow_h", "x": p.x, "y": p.y, "vx": cos(a) * float(s.speed), "vy": sin(a) * float(s.speed), "r": 5.0, "ttl": (float(s.range) / float(s.speed)) * 1.4, "target": target, "turn": float(s.turn), "speed": float(s.speed), "pierce": (s.mods as Array).has("pierce"), "ricochet": 1 if (s.mods as Array).has("ricochet") else 0, "angle": a,
+			"shot_x": p.x, "shot_y": p.y, "close_from": float(s.get("closeFrom", 0.0)), "close_mult": float(s.get("closeMult", 1.0)) })
 	p.face = ang
 	st.ev("shoot")
 
+## 전투망치: 공격 준비 → 타격 위치 확정 → 내려찍기.
+## ① 준비(base.windup, 시험값) 동안 내려찍을 자리가 점선 원(strikewarn)으로 화면에 보인다.
+## ② 그 자리는 준비 시작에 **확정**되고 이후 대상을 따라가지 않는다 — 적이 걸어 나가면 빗나간다.
+## ③ 피해 원의 중심은 플레이어가 아니라 내려찍은 지점이다(검처럼 몸 주위를 휘두르는 무기가 아니다).
 static func fire_heavy(st: CombatState, w: Dictionary, target: Dictionary, _echoed: bool) -> void:
 	var s: Dictionary = w.stats
 	var p := st.player
@@ -265,16 +294,36 @@ static func fire_heavy(st: CombatState, w: Dictionary, target: Dictionary, _echo
 	var ix: float = p.x + cos(ang) * minf(d, float(s.range))
 	var iy: float = p.y + sin(ang) * minf(d, float(s.range))
 	p.face = ang
+	var wind: float = float(s.get("windup", 0.0))
+	if wind <= 0.0:
+		land_heavy(st, w, ix, iy, ang)
+		return
+	st.fx({ "kind": "strikewarn", "x": ix, "y": iy, "r": float(s.radius), "ttl": wind }) # 예고: 내려찍을 자리(판정 범위와 같은 반지름)
+	st.ev("lock")
+	later(st, wind, func(): land_heavy(st, w, ix, iy, ang))
+
+## 내려찍는 순간: 확정된 자리에 원형 피해 + 밀어내기·경직. 예고한 자리와 판정 자리가 같다
+static func land_heavy(st: CombatState, w: Dictionary, ix: float, iy: float, ang: float) -> void:
+	var s: Dictionary = w.stats
+	var p := st.player
 	p.swing_t = 0.0
 	p.swing_form = "heavy"
 	p.swing_angle = ang
 	if (s.mods as Array).has("pull"):
+		# 끌어당김도 강제 위치 이동이다. 등급 저항을 그대로 쓴다(보스 0 — 예전의 `not e.boss` 예외와 결과가 같다)
+		var ut := mod_tune(s, "pull", { "pullFrom": 90.0, "pullDist": 30.0 })
 		for e in st.alive_targets():
-			if not e.boss and not bool(e.airborne) and PGeom.dist(e.x, e.y, ix, iy) <= 90.0 + e.r:
-				var n := PGeom.norm(ix - e.x, iy - e.y)
-				st.move_swept(e, n[0] * 30.0, n[1] * 30.0)
+			if bool(e.get("structure", false)) or bool(e.get("airborne", false)):
+				continue
+			if PGeom.dist(e.x, e.y, ix, iy) <= float(ut.pullFrom) + e.r:
+				var pull_d := PSupport.knock_dist(float(ut.pullDist), e)
+				if pull_d > 0.0:
+					var n := PGeom.norm(ix - e.x, iy - e.y)
+					st.move_swept(e, n[0] * pull_d, n[1] * pull_d)
 	st.fx({ "kind": "impact", "x": ix, "y": iy, "r": float(s.radius), "ttl": 0.3 })
-	hit_circle(st, w, ix, iy, float(s.radius), 1.0, { "knock": float(s.knock) })
+	var hit := hit_circle(st, w, ix, iy, float(s.radius), 1.0, {})
+	for e in hit:
+		heavy_control(st, e, s, ix, iy, ang)
 	if (s.mods as Array).has("shockwave"):
 		st.fx({ "kind": "beam", "x": ix, "y": iy, "angle": ang, "len": 160.0, "w": 50.0, "ttl": 0.2 })
 		hit_beam(st, w, ix, iy, ang, 160.0, 50.0, 0.6, { "direct": false })
@@ -283,6 +332,32 @@ static func fire_heavy(st: CombatState, w: Dictionary, target: Dictionary, _echo
 			st.fx({ "kind": "impact", "x": ix, "y": iy, "r": float(s.radius), "ttl": 0.3, "after": true })
 			hit_circle(st, w, ix, iy, float(s.radius), 0.5, { "direct": false, "ground": true }))
 	st.ev("boss_land")
+
+## 전투망치의 제압(밀어내기·경직). 등급별 세기는 **직접 쓰지 않고** data/supports.json의 저항표를 쓴다.
+## 보스는 밀어내기·경직 저항이 0이라 위치도 행동도 강제로 바뀌지 않는다(무한 제압 금지).
+static func heavy_control(st: CombatState, e: Dictionary, s: Dictionary, ix: float, iy: float, ang: float) -> void:
+	if bool(e.get("structure", false)) or bool(e.get("airborne", false)):
+		return # 제단·깃발 같은 구조물과 공중의 적은 밀리지도 경직되지도 않는다
+	var push := PSupport.knock_dist(float(s.get("knockDist", 0.0)), e)
+	if push > 0.0:
+		var n := PGeom.norm(e.x - ix, e.y - iy)
+		if is_zero_approx(n[0]) and is_zero_approx(n[1]):
+			n = [cos(ang), sin(ang)] # 착탄점과 겹쳐 있으면 내려찍은 방향으로 민다
+		st.move_swept(e, n[0] * push, n[1] * push, true)
+	var stag := float(s.get("stagger", 0.0)) * PSupport.resist_mult("stagger", e)
+	if stag <= 0.0:
+		return
+	if PEnemies.is_wolf(e.def):
+		# 늑대 계열은 빈틈 길이를 자기 정의값으로만 세기 때문에 여기서 길이를 정할 수 없다.
+		# 대신 '다음 공격을 시작하지 못하는 시간'(grace)으로 같은 길이의 경직을 준다
+		e.grace = maxf(float(e.get("grace", 0.0)), stag)
+	elif (e.def as Dictionary).has("recover") and not st.is_committed(e):
+		# 빈틈 값이 정의에 있는 적만 빈틈에 빠뜨린다(빈틈 상태가 없는 적을 그 상태로 두면 멈춰 버린다).
+		# 이미 방향이 확정된 공격은 끊지 않는다 — 예고한 판정은 그대로 일어난다
+		e.state = "recover"
+		e.state_t = 0.0
+		e.recover_dur = stag
+		st.text(e.x, e.y - e.r - 26.0, "경직!", "#ffd166")
 
 static func fire_chain(st: CombatState, w: Dictionary, target: Dictionary, _echoed: bool) -> void:
 	var s: Dictionary = w.stats
@@ -562,7 +637,11 @@ static func on_projectile_hit(st: CombatState, pr: Dictionary, e: Dictionary) ->
 		st.damage_enemy(e, float(pr.dmg), { "dir": opt.dir, "knock": 10.0, "src": { "extra": true, "direct": false, "tag": String(pr.get("tag", "common:frost")) } })
 		return true
 	var w: Dictionary = pr.weapon
-	dmg_to(st, e, w, float(pr.dmg_mult), opt)
+	var mult: float = float(pr.dmg_mult)
+	# 추적궁 근접 약화: 쏜 자리에서 가까운 적에게 맞으면 위력이 떨어진다(원거리 유지가 이 무기의 값어치다)
+	if float(pr.get("close_from", 0.0)) > 0.0 and PGeom.dist(float(pr.shot_x), float(pr.shot_y), e.x, e.y) < float(pr.close_from):
+		mult *= float(pr.get("close_mult", 1.0))
+	dmg_to(st, e, w, mult, opt)
 	if pr.kind == "bolt":
 		if bool(pr.get("shatter", false)):
 			st.note_mod("shatter", "proc")

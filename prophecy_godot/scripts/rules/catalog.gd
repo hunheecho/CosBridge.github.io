@@ -41,14 +41,28 @@ static func boss_action_text() -> Dictionary:
 static func keys_text() -> String: return String(_load("config").keys_text)
 ## 자동기술 정의: weapons.json(생성 파일) + supports.json(손으로 정한 새 보조 7종)을 합친 사전(1회 캐시).
 ## supports.json 쪽이 같은 id를 가지면 그쪽이 이긴다 — 손으로 정한 값이 생성 값을 덮는다는 뜻이다.
+## 주무기 5종은 main_weapons.json이 **항목만** 겹쳐 쓴다(통째로 바꾸지 않는다 — 이름·태그·개조 목록은 생성 값 그대로).
 static func weapons() -> Dictionary:
 	if _cache.has("weapons_merged"):
 		return _cache["weapons_merged"]
 	var out: Dictionary = (_load("weapons").weapons as Dictionary).duplicate(true)
 	for k in supports().get("weapons", {}):
 		out[k] = (supports().weapons[k] as Dictionary).duplicate(true)
+	for k in main_weapons().get("weapons", {}):
+		out[k] = _overlay(out.get(k, {}), main_weapons().weapons[k])
 	_cache["weapons_merged"] = out
 	return out
+
+## 사전 겹쳐 쓰기: 양쪽 다 사전인 항목은 안으로 들어가 항목별로 덮고, 그 밖에는 새 값이 이긴다
+static func _overlay(base: Dictionary, over: Dictionary) -> Dictionary:
+	var out: Dictionary = base.duplicate(true)
+	for k in over:
+		if typeof(over[k]) == TYPE_DICTIONARY and typeof(out.get(k, null)) == TYPE_DICTIONARY:
+			out[k] = _overlay(out[k], over[k])
+		else:
+			out[k] = over[k]
+	return out
+
 ## 새 구조에서 시작 선택은 주무기만이다. supports.json이 목록을 갖고 있으면 그것을 쓴다(옛 목록은 회전 칼날을 포함한다)
 static func startable() -> Array: return supports().get("startable", _load("weapons").startable)
 static func startable_all() -> Array: return supports().get("startableAll", _load("weapons").startable_all)
@@ -57,6 +71,8 @@ static func startable_all_legacy() -> Array: return _load("weapons").startable_a
 
 # ---------- 주무기·보조무기 분리(data/supports.json) ----------
 static func supports() -> Dictionary: return _load("supports")
+## 주무기 5종의 손으로 정한 값(data/main_weapons.json, 전부 시험값). weapons()가 겹쳐 읽는다
+static func main_weapons() -> Dictionary: return _load("main_weapons")
 ## 자동기술의 역할. 표에 없으면 보조로 본다(새로 추가된 자동기술이 주무기 자리를 말없이 차지하지 않게)
 static func weapon_role(id: String) -> String:
 	return String(supports().get("roles", {}).get(id, "support"))
