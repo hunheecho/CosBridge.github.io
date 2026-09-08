@@ -407,6 +407,17 @@
       "env": {},
       "timeout_sec": 900,
       "desc": "신규 일반 3종(흡혈 박쥐·불씨 도마뱀·도약 두꺼비)과 일반 정예 확장 10종 규칙(예고·확정·빈틈·회복 없음·잔류 장판 없음·착지 안전·확장 행동 실행)"
+    },
+    "squad_tests": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "분대 편성·협공 3종·특수 정예 결투 규칙"
+    },
+    "formation_probe": {
+      "env": {},
+      "script": "tools/formation_probe.gd",
+      "timeout_sec": 1800,
+      "desc": "편성 계측(테마별 협공 3종·분대 투입 순서·한 전투의 등장 종류 수·총 등장 수와 경험치 예산·특수 정예 결투). 합격 판정이 아니라 수치를 남기는 도구다. 부분 실행: PROPHECY_SUBSET=\"act=1;seed=1\" → docs/sim/FORMATION_PROBE_PARTIAL.md"
     }
   },
   "groups": {
@@ -445,7 +456,8 @@
       "support_a_tests",
       "synergy_tests",
       "render_tests",
-      "new_monster_tests"
+      "new_monster_tests",
+      "squad_tests"
     ],
     "rules": [
       "run_tests",
@@ -465,7 +477,8 @@
       "elites_tests",
       "support_a_tests",
       "synergy_tests",
-      "new_monster_tests"
+      "new_monster_tests",
+      "squad_tests"
     ],
     "boss": [
       "boss_tests",

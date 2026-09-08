@@ -89,20 +89,57 @@
     "normal": [
      {
       "id": "t1a_wolves",
-      "name": "늑대 무리 + 궁수",
-      "desc": "늑대가 조여 오고 뒤에서 궁수가 쏜다",
+      "name": "포위 탈출 · 늑대 + 멧돼지",
+      "desc": "늑대가 사방을 조이는 동안 멧돼지의 직선을 비워 빠져나간다",
+      "goal": "늑대가 사방을 조이는 동안 멧돼지의 직선을 비워 빠져나간다",
+      "kind": "swarm",
       "comp": [
        {
         "type": "wolf",
-        "share": 0.8,
+        "share": 0.62,
         "role": "주력"
        },
        {
+        "type": "boar",
+        "share": 0.22,
+        "role": "돌파"
+       },
+       {
         "type": "archer",
-        "share": 0.2,
+        "share": 0.16,
         "role": "지원"
        }
       ],
+      "squad": {
+       "size": 5,
+       "slots": {
+        "wolf": "front",
+        "boar": "flank",
+        "archer": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       },
+       "stage_weight": {
+        "wolf": [
+         0.45,
+         0.3,
+         0.25
+        ],
+        "boar": [
+         0.05,
+         0.45,
+         0.5
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -119,25 +156,79 @@
       "group": 3,
       "interval": 1.0,
       "type_caps": {
+       "boar": 2,
        "archer": 3
+      },
+      "xp_units": {
+       "p1": 55.8,
+       "p2": 80.6,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      },
      {
       "id": "t1a_boar",
-      "name": "늑대 + 멧돼지",
-      "desc": "돌파하는 멧돼지 사이로 늑대가 문다",
+      "name": "막힌 길과 착지 예고 · 거미 + 두꺼비",
+      "desc": "거미줄이 길을 막고 두꺼비가 착지 자리를 예고한다 — 무엇을 먼저 지울지 고른다",
+      "goal": "거미줄이 길을 막고 두꺼비가 착지 자리를 예고한다 — 무엇을 먼저 지울지 고른다",
+      "kind": "coop",
       "comp": [
        {
         "type": "wolf",
-        "share": 0.7,
+        "share": 0.42,
         "role": "주력"
        },
        {
-        "type": "boar",
-        "share": 0.3,
-        "role": "돌파"
+        "type": "spider",
+        "share": 0.28,
+        "role": "통제"
+       },
+       {
+        "type": "toad",
+        "share": 0.22,
+        "role": "도약"
+       },
+       {
+        "type": "archer",
+        "share": 0.08,
+        "role": "지원"
        }
       ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "wolf": "front",
+        "spider": "support",
+        "toad": "flank",
+        "archer": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.5,
+        "flank": 1.3
+       },
+       "stage_weight": {
+        "wolf": [
+         0.4,
+         0.3,
+         0.3
+        ],
+        "spider": [
+         0.35,
+         0.4,
+         0.25
+        ],
+        "toad": [
+         0.1,
+         0.4,
+         0.5
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -154,30 +245,73 @@
       "group": 3,
       "interval": 1.0,
       "type_caps": {
-       "boar": 2
+       "spider": 2,
+       "toad": 3,
+       "archer": 3
+      },
+      "xp_units": {
+       "p1": 70.2,
+       "p2": 101.4,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      },
      {
       "id": "t1a_mixed",
-      "name": "늑대·궁수·멧돼지",
-      "desc": "세 역할이 한 번에",
+      "name": "빈틈과 접근 · 일반 정예 늑대 + 박쥐",
+      "desc": "정예 늑대의 빈틈을 노리는 사이 박쥐가 붙는다 — 반격과 접근 처리 중 하나를 고른다",
+      "goal": "정예 늑대의 빈틈을 노리는 사이 박쥐가 붙는다 — 반격과 접근 처리 중 하나를 고른다",
+      "kind": "strong",
       "comp": [
        {
         "type": "wolf",
-        "share": 0.6,
+        "share": 0.55,
         "role": "주력"
        },
        {
-        "type": "archer",
-        "share": 0.2,
-        "role": "지원"
+        "type": "bat",
+        "share": 0.3,
+        "role": "접근"
        },
        {
-        "type": "boar",
-        "share": 0.2,
-        "role": "돌파"
+        "type": "archer",
+        "share": 0.15,
+        "role": "지원"
        }
       ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "wolf": "front",
+        "bat": "flank",
+        "archer": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.3,
+        "flank": 0.7
+       },
+       "stage_weight": {
+        "wolf": [
+         0.4,
+         0.35,
+         0.25
+        ],
+        "bat": [
+         0.2,
+         0.35,
+         0.45
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
+      "common_elite": {
+       "type": "wolf",
+       "n": 1
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -194,8 +328,13 @@
       "group": 3,
       "interval": 1.0,
       "type_caps": {
-       "archer": 3,
-       "boar": 2
+       "bat": 4,
+       "archer": 3
+      },
+      "xp_units": {
+       "p1": 66.6,
+       "p2": 96.2,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ],
@@ -204,6 +343,19 @@
       "id": "t1a_risk",
       "name": "피의 송곳니 + 소수 늑대",
       "desc": "옆으로 도는 정예 늑대가 이끄는 작은 무리(위험 전투). 안쪽(2칸)에서는 정예 검사가 대신 나온다",
+      "goal": "측면을 도는 강적 앞에서 무리 정리",
+      "kind": "strong",
+      "squad": {
+       "size": 4,
+       "slots": {
+        "wolf": "front"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       }
+      },
       "comp": [
        {
         "type": "wolf",
@@ -228,7 +380,12 @@
       },
       "group": 3,
       "interval": 1.0,
-      "type_caps": {}
+      "type_caps": {},
+      "xp_units": {
+       "p1": 54.0,
+       "p2": 78.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
+      }
      }
     ]
    },
@@ -264,7 +421,11 @@
     "group": 3,
     "interval": 1.0,
     "type_caps": {}
-   }
+   },
+   "special_elites": [
+    "elite_fang",
+    "elite_archer"
+   ]
   },
   "act1_abandoned_fort": {
    "id": "act1_abandoned_fort",
@@ -342,25 +503,57 @@
     "normal": [
      {
       "id": "t1b_shield_archer",
-      "name": "방패병 1줄 + 궁수",
-      "desc": "방패병이 앞을 막고 궁수가 쏜다",
+      "name": "전열 우회 · 방패병 + 궁수",
+      "desc": "방패병이 정면을 막는 동안 뒤의 사격선을 끊는다",
+      "goal": "방패병이 정면을 막는 동안 뒤의 사격선을 끊는다",
+      "kind": "coop",
       "comp": [
        {
         "type": "shieldbearer",
-        "share": 0.3,
+        "share": 0.34,
         "role": "주력"
        },
        {
         "type": "archer",
-        "share": 0.4,
+        "share": 0.3,
         "role": "지원"
        },
        {
         "type": "rogue",
-        "share": 0.3,
+        "share": 0.36,
         "role": "돌파"
        }
       ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "shieldbearer": "front",
+        "archer": "support",
+        "rogue": "flank"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       },
+       "stage_weight": {
+        "shieldbearer": [
+         0.4,
+         0.35,
+         0.25
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ],
+        "rogue": [
+         0.2,
+         0.4,
+         0.4
+        ]
+       }
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -380,24 +573,66 @@
        "shieldbearer": 3,
        "archer": 3,
        "rogue": 3
+      },
+      "xp_units": {
+       "p1": 79.2,
+       "p2": 114.4,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      },
      {
       "id": "t1b_archers",
-      "name": "도적 돌격 + 궁수 사격",
-      "desc": "도적이 먼저 붙고 뒤에서 궁수가 쏜다",
+      "name": "사격대 접근 중 측면 대응 · 궁수 + 도적",
+      "desc": "사격대에 다가가는 동안 옆에서 도적이 붙는다",
+      "goal": "사격대에 다가가는 동안 옆에서 도적이 붙는다",
+      "kind": "swarm",
       "comp": [
        {
         "type": "rogue",
-        "share": 0.6,
+        "share": 0.55,
         "role": "주력"
        },
        {
         "type": "archer",
-        "share": 0.4,
+        "share": 0.33,
         "role": "지원"
+       },
+       {
+        "type": "shieldbearer",
+        "share": 0.12,
+        "role": "차단"
        }
       ],
+      "squad": {
+       "size": 5,
+       "slots": {
+        "rogue": "front",
+        "archer": "support",
+        "shieldbearer": "front"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.3,
+        "flank": 0.7
+       },
+       "stage_weight": {
+        "rogue": [
+         0.45,
+         0.3,
+         0.25
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ],
+        "shieldbearer": [
+         0.1,
+         0.4,
+         0.5
+        ]
+       }
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -415,25 +650,72 @@
       "interval": 1.0,
       "type_caps": {
        "rogue": 3,
-       "archer": 3
+       "archer": 3,
+       "shieldbearer": 3
+      },
+      "xp_units": {
+       "p1": 73.8,
+       "p2": 106.6,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      },
      {
       "id": "t1b_wall",
-      "name": "방패병 2줄 + 소수 궁수",
-      "desc": "두 겹 방진",
+      "name": "정면에 머물지 않고 우회 · 일반 정예 방패병 + 폭탄",
+      "desc": "정예 방패병 정면에 머물면 폭탄이 그 자리로 온다 — 우회할 방향을 먼저 정한다",
+      "goal": "정예 방패병 정면에 머물면 폭탄이 그 자리로 온다 — 우회할 방향을 먼저 정한다",
+      "kind": "strong",
       "comp": [
        {
         "type": "shieldbearer",
-        "share": 0.6,
+        "share": 0.45,
         "role": "주력"
        },
        {
+        "type": "bomber",
+        "share": 0.3,
+        "role": "돌파"
+       },
+       {
         "type": "archer",
-        "share": 0.4,
+        "share": 0.25,
         "role": "지원"
        }
       ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "shieldbearer": "front",
+        "bomber": "flank",
+        "archer": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       },
+       "stage_weight": {
+        "shieldbearer": [
+         0.4,
+         0.35,
+         0.25
+        ],
+        "bomber": [
+         0.15,
+         0.4,
+         0.45
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
+      "common_elite": {
+       "type": "shieldbearer",
+       "n": 1
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -451,7 +733,13 @@
       "interval": 1.0,
       "type_caps": {
        "shieldbearer": 3,
+       "bomber": 3,
        "archer": 3
+      },
+      "xp_units": {
+       "p1": 84.6,
+       "p2": 122.2,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ],
@@ -460,6 +748,20 @@
       "id": "t1b_risk",
       "name": "방진 + 정예 검사",
       "desc": "방진 뒤에서 정예 검사가 돌진한다(위험 전투). 방패 자세는 정면을 완전히 막는다",
+      "goal": "방진 뒤에서 나오는 강적의 정면을 피한다",
+      "kind": "strong",
+      "squad": {
+       "size": 4,
+       "slots": {
+        "shieldbearer": "front",
+        "archer": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       }
+      },
       "comp": [
        {
         "type": "shieldbearer",
@@ -491,6 +793,11 @@
       "type_caps": {
        "shieldbearer": 3,
        "archer": 3
+      },
+      "xp_units": {
+       "p1": 81.0,
+       "p2": 117.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ]
@@ -498,7 +805,11 @@
    "preview": {
     "threat": "방패병 정면 방어·밀치기, 궁수 사격, 도적 측면 베기"
    },
-   "note": "두 번째 구현"
+   "note": "두 번째 구현",
+   "special_elites": [
+    "elite_blademaster",
+    "elite_standard"
+   ]
   },
   "act1_spore_garden": {
    "id": "act1_spore_garden",
@@ -581,95 +892,57 @@
     "normal": [
      {
       "id": "t1c_spore_wolf",
-      "name": "소수 포자 + 늑대",
-      "desc": "늑대를 잡으면 포자 구름이 남는 자리를 피한다",
+      "name": "탈출 공간 확보 · 포자 + 거미",
+      "desc": "포자 구름과 거미줄이 물러설 자리를 지운다 — 나갈 공간을 먼저 만든다",
+      "goal": "포자 구름과 거미줄이 물러설 자리를 지운다 — 나갈 공간을 먼저 만든다",
+      "kind": "coop",
       "comp": [
        {
         "type": "wolf",
-        "share": 0.7,
+        "share": 0.5,
         "role": "주력"
        },
        {
         "type": "spore",
-        "share": 0.3,
-        "role": "지원"
-       }
-      ],
-      "elites": 0,
-      "sizes": {
-       "p1": {
-        "total": 26,
-        "alive_cap": 10,
-        "xp_ref": 9
-       },
-       "p2": {
-        "total": 38,
-        "alive_cap": 12,
-        "xp_ref": 13
-       }
-      },
-      "group": 3,
-      "interval": 1.0,
-      "type_caps": {
-       "spore": 3
-      }
-     },
-     {
-      "id": "t1c_spider_wolf",
-      "name": "거미 1 + 늑대",
-      "desc": "거미줄이 길을 막는다",
-      "comp": [
-       {
-        "type": "wolf",
-        "share": 0.85,
-        "role": "주력"
-       },
-       {
-        "type": "spider",
-        "share": 0.15,
-        "role": "지원"
-       }
-      ],
-      "elites": 0,
-      "sizes": {
-       "p1": {
-        "total": 26,
-        "alive_cap": 10,
-        "xp_ref": 9
-       },
-       "p2": {
-        "total": 38,
-        "alive_cap": 12,
-        "xp_ref": 13
-       }
-      },
-      "group": 3,
-      "interval": 1.0,
-      "type_caps": {
-       "spider": 2
-      }
-     },
-     {
-      "id": "t1c_spore_spider",
-      "name": "늑대 돌입 + 포자·거미 통제",
-      "desc": "늑대가 달려들고 포자와 거미가 물러설 공간을 지운다",
-      "comp": [
-       {
-        "type": "wolf",
-        "share": 0.55,
-        "role": "주력"
-       },
-       {
-        "type": "spore",
-        "share": 0.25,
+        "share": 0.28,
         "role": "통제"
        },
        {
         "type": "spider",
-        "share": 0.2,
+        "share": 0.22,
         "role": "통제"
        }
       ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "wolf": "front",
+        "spore": "support",
+        "spider": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.5,
+        "flank": 1.3
+       },
+       "stage_weight": {
+        "wolf": [
+         0.45,
+         0.3,
+         0.25
+        ],
+        "spore": [
+         0.36,
+         0.36,
+         0.28
+        ],
+        "spider": [
+         0.25,
+         0.4,
+         0.35
+        ]
+       }
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -688,6 +961,183 @@
       "type_caps": {
        "spore": 3,
        "spider": 2
+      },
+      "xp_units": {
+       "p1": 59.4,
+       "p2": 85.8,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
+      }
+     },
+     {
+      "id": "t1c_spider_wolf",
+      "name": "회피 경로의 착지 예고 · 두꺼비 + 포자",
+      "desc": "회피하려는 자리에 두꺼비의 착지 원이 먼저 뜬다",
+      "goal": "회피하려는 자리에 두꺼비의 착지 원이 먼저 뜬다",
+      "kind": "swarm",
+      "comp": [
+       {
+        "type": "wolf",
+        "share": 0.44,
+        "role": "주력"
+       },
+       {
+        "type": "toad",
+        "share": 0.28,
+        "role": "도약"
+       },
+       {
+        "type": "spore",
+        "share": 0.28,
+        "role": "통제"
+       }
+      ],
+      "squad": {
+       "size": 5,
+       "slots": {
+        "wolf": "front",
+        "toad": "flank",
+        "spore": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       },
+       "stage_weight": {
+        "wolf": [
+         0.45,
+         0.3,
+         0.25
+        ],
+        "toad": [
+         0.1,
+         0.45,
+         0.45
+        ],
+        "spore": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "toad": 3,
+       "spore": 3
+      },
+      "xp_units": {
+       "p1": 56.7,
+       "p2": 81.9,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
+      }
+     },
+     {
+      "id": "t1c_spore_spider",
+      "name": "반격과 접근 처리 · 일반 정예 두꺼비 + 박쥐",
+      "desc": "정예 두꺼비의 착지 뒤 반격과 붙어 오는 박쥐 처리 중 하나를 고른다",
+      "goal": "정예 두꺼비의 착지 뒤 반격과 붙어 오는 박쥐 처리 중 하나를 고른다",
+      "kind": "strong",
+      "comp": [
+       {
+        "type": "toad",
+        "share": 0.34,
+        "role": "주력"
+       },
+       {
+        "type": "bat",
+        "share": 0.26,
+        "role": "접근"
+       },
+       {
+        "type": "wolf",
+        "share": 0.25,
+        "role": "돌파"
+       },
+       {
+        "type": "spore",
+        "share": 0.15,
+        "role": "통제"
+       }
+      ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "toad": "front",
+        "bat": "flank",
+        "wolf": "front",
+        "spore": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.3,
+        "flank": 0.7
+       },
+       "stage_weight": {
+        "toad": [
+         0.4,
+         0.35,
+         0.25
+        ],
+        "bat": [
+         0.2,
+         0.35,
+         0.45
+        ],
+        "wolf": [
+         0.35,
+         0.35,
+         0.3
+        ],
+        "spore": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
+      "common_elite": {
+       "type": "toad",
+       "n": 1
+      },
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 26,
+        "alive_cap": 10,
+        "xp_ref": 9
+       },
+       "p2": {
+        "total": 38,
+        "alive_cap": 12,
+        "xp_ref": 13
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "toad": 3,
+       "bat": 4,
+       "spore": 3
+      },
+      "xp_units": {
+       "p1": 62.1,
+       "p2": 89.7,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ],
@@ -696,6 +1146,20 @@
       "id": "t1c_risk",
       "name": "포자 무리 + 군단 기수",
       "desc": "깃발이 무리를 몰아붙인다(위험 전투). 안쪽(2칸)에서는 정예 검사가 대신 나온다",
+      "goal": "깃발이 무리를 몰아붙이는 동안 탈출 공간을 지운다",
+      "kind": "strong",
+      "squad": {
+       "size": 4,
+       "slots": {
+        "spore": "support",
+        "wolf": "front"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       }
+      },
       "comp": [
        {
         "type": "spore",
@@ -727,6 +1191,11 @@
       "interval": 1.0,
       "type_caps": {
        "spore": 3
+      },
+      "xp_units": {
+       "p1": 63.0,
+       "p2": 91.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ]
@@ -734,7 +1203,11 @@
    "preview": {
     "threat": "포자 구름(사망 잔류), 거미줄 감속, 늑대 물기"
    },
-   "note": "세 번째 구현"
+   "note": "세 번째 구현",
+   "special_elites": [
+    "elite_plaguecaller",
+    "elite_miner"
+   ]
   },
   "act2_crimson_ritual": {
    "id": "act2_crimson_ritual",
@@ -817,25 +1290,68 @@
     "normal": [
      {
       "id": "t2a_shield_shaman",
-      "name": "방패병 + 주술사 1",
-      "desc": "치료하는 주술사를 먼저",
+      "name": "화염 피하며 치료 끊기 · 도마뱀 + 주술사",
+      "desc": "도마뱀의 불길을 피하는 동선과 주술사를 끊는 동선이 어긋난다",
+      "goal": "도마뱀의 불길을 피하는 동선과 주술사를 끊는 동선이 어긋난다",
+      "kind": "coop",
       "comp": [
        {
         "type": "shieldbearer",
-        "share": 0.4,
+        "share": 0.34,
         "role": "주력"
        },
        {
+        "type": "lizard",
+        "share": 0.28,
+        "role": "화염"
+       },
+       {
         "type": "wolf",
-        "share": 0.5,
+        "share": 0.26,
         "role": "돌파"
        },
        {
         "type": "shaman",
-        "share": 0.1,
+        "share": 0.12,
         "role": "지원"
        }
       ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "shieldbearer": "front",
+        "lizard": "support",
+        "wolf": "front",
+        "shaman": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.5,
+        "flank": 1.3
+       },
+       "stage_weight": {
+        "shieldbearer": [
+         0.4,
+         0.35,
+         0.25
+        ],
+        "lizard": [
+         0.2,
+         0.4,
+         0.4
+        ],
+        "wolf": [
+         0.4,
+         0.35,
+         0.25
+        ],
+        "shaman": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -853,65 +1369,68 @@
       "interval": 1.0,
       "type_caps": {
        "shieldbearer": 3,
+       "lizard": 2,
        "shaman": 1
-      }
-     },
-     {
-      "id": "t2a_red_wolves",
-      "name": "붉은 늑대 + 포자",
-      "desc": "늑대 무리 뒤에 포자",
-      "comp": [
-       {
-        "type": "wolf",
-        "share": 0.7,
-        "role": "주력"
-       },
-       {
-        "type": "spore",
-        "share": 0.3,
-        "role": "지원"
-       }
-      ],
-      "elites": 0,
-      "sizes": {
-       "p1": {
-        "total": 34,
-        "alive_cap": 11,
-        "xp_ref": 13
-       },
-       "p2": {
-        "total": 48,
-        "alive_cap": 12,
-        "xp_ref": 15
-       }
       },
-      "group": 3,
-      "interval": 1.0,
-      "type_caps": {
-       "spore": 3
+      "xp_units": {
+       "p1": 109.2,
+       "p2": 126.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      },
      {
       "id": "t2a_elite_support",
-      "name": "군단 기수 + 지원병",
-      "desc": "주술사·방패병이 기수를 지킨다. 제단(2칸)에서는 정예 검사가 대신 나온다",
+      "name": "강적 집중과 치료사 우선 · 방패병 + 주술사",
+      "desc": "강적을 먼저 깰지 치료사를 먼저 끊을지 고른다. 제단(2칸)에서는 정예 검사가 대신 나온다",
+      "goal": "강적을 먼저 깰지 치료사를 먼저 끊을지 고른다. 제단(2칸)에서는 정예 검사가 대신 나온다",
+      "kind": "strong",
       "comp": [
        {
         "type": "wolf",
-        "share": 0.55,
+        "share": 0.44,
         "role": "주력"
        },
        {
         "type": "shieldbearer",
-        "share": 0.3,
+        "share": 0.42,
         "role": "돌파"
        },
        {
         "type": "shaman",
-        "share": 0.15,
+        "share": 0.14,
         "role": "지원"
        }
       ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "wolf": "front",
+        "shieldbearer": "front",
+        "shaman": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       },
+       "stage_weight": {
+        "wolf": [
+         0.45,
+         0.3,
+         0.25
+        ],
+        "shieldbearer": [
+         0.25,
+         0.4,
+         0.35
+        ],
+        "shaman": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
       "elites": 1,
       "elite_type": "elite_standard",
       "elite_type_p2": "elite_blademaster",
@@ -932,6 +1451,89 @@
       "type_caps": {
        "shieldbearer": 3,
        "shaman": 1
+      },
+      "xp_units": {
+       "p1": 105.3,
+       "p2": 121.5,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
+      }
+     },
+     {
+      "id": "t2a_red_wolves",
+      "name": "회전 화염과 측면 · 도마뱀 + 도적",
+      "desc": "도마뱀이 화염을 도는 동안 도적이 측면으로 붙는다",
+      "goal": "도마뱀이 화염을 도는 동안 도적이 측면으로 붙는다",
+      "kind": "swarm",
+      "comp": [
+       {
+        "type": "rogue",
+        "share": 0.46,
+        "role": "주력"
+       },
+       {
+        "type": "lizard",
+        "share": 0.3,
+        "role": "화염"
+       },
+       {
+        "type": "wolf",
+        "share": 0.24,
+        "role": "돌파"
+       }
+      ],
+      "squad": {
+       "size": 5,
+       "slots": {
+        "rogue": "front",
+        "lizard": "support",
+        "wolf": "front"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.3,
+        "flank": 0.7
+       },
+       "stage_weight": {
+        "rogue": [
+         0.45,
+         0.3,
+         0.25
+        ],
+        "lizard": [
+         0.2,
+         0.4,
+         0.4
+        ],
+        "wolf": [
+         0.4,
+         0.35,
+         0.25
+        ]
+       }
+      },
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "rogue": 3,
+       "lizard": 2
+      },
+      "xp_units": {
+       "p1": 85.8,
+       "p2": 99.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ],
@@ -940,6 +1542,21 @@
       "id": "t2a_risk",
       "name": "의식 호위대",
       "desc": "주술사 + 방진에 역병 조율사(위험 전투). 제단(2칸)에서는 사슬 집행자가 대신 나온다",
+      "goal": "치료를 끊는 동선과 바닥 통제를 피하는 동선이 어긋난다",
+      "kind": "strong",
+      "squad": {
+       "size": 4,
+       "slots": {
+        "shieldbearer": "front",
+        "shaman": "support",
+        "wolf": "front"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       }
+      },
       "comp": [
        {
         "type": "shieldbearer",
@@ -977,6 +1594,11 @@
       "type_caps": {
        "shieldbearer": 3,
        "shaman": 1
+      },
+      "xp_units": {
+       "p1": 118.3,
+       "p2": 136.5,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ]
@@ -984,7 +1606,11 @@
    "preview": {
     "threat": "주술사 치료·저주, 방패병 밀치기, 붉은 늑대"
    },
-   "note": ""
+   "note": "",
+   "special_elites": [
+    "elite_plaguecaller",
+    "elite_chainbreaker"
+   ]
   },
   "act2_collapsing_mine": {
    "id": "act2_collapsing_mine",
@@ -1067,20 +1693,57 @@
     "normal": [
      {
       "id": "t2b_bomb_rogue",
-      "name": "폭탄 + 도적",
-      "desc": "폭탄이 다가오는 사이 도적이 측면에서",
+      "name": "폭발 회피와 기습 위치 · 잠복충 + 폭탄",
+      "desc": "폭발을 피해 물러선 자리에서 잠복충이 솟는다",
+      "goal": "폭발을 피해 물러선 자리에서 잠복충이 솟는다",
+      "kind": "coop",
       "comp": [
        {
-        "type": "rogue",
-        "share": 0.6,
+        "type": "burrower",
+        "share": 0.36,
         "role": "주력"
        },
        {
         "type": "bomber",
-        "share": 0.4,
+        "share": 0.36,
         "role": "돌파"
+       },
+       {
+        "type": "rogue",
+        "share": 0.28,
+        "role": "측면"
        }
       ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "burrower": "flank",
+        "bomber": "front",
+        "rogue": "flank"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       },
+       "stage_weight": {
+        "burrower": [
+         0.3,
+         0.4,
+         0.3
+        ],
+        "bomber": [
+         0.35,
+         0.35,
+         0.3
+        ],
+        "rogue": [
+         0.25,
+         0.35,
+         0.4
+        ]
+       }
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -1097,67 +1760,80 @@
       "group": 3,
       "interval": 1.0,
       "type_caps": {
-       "rogue": 3,
-       "bomber": 3
+       "burrower": 2,
+       "bomber": 3,
+       "rogue": 3
+      },
+      "xp_units": {
+       "p1": 106.6,
+       "p2": 123.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      },
      {
       "id": "t2b_burrow_shield",
-      "name": "잠복충 + 방패병",
-      "desc": "발밑 기습과 정면 방어",
+      "name": "돌진 회피 직후 근접 · 멧돼지 + 박쥐",
+      "desc": "멧돼지 돌진을 피한 직후 박쥐가 그 자리에 붙는다",
+      "goal": "멧돼지 돌진을 피한 직후 박쥐가 그 자리에 붙는다",
+      "kind": "swarm",
       "comp": [
        {
-        "type": "shieldbearer",
-        "share": 0.5,
+        "type": "boar",
+        "share": 0.34,
         "role": "주력"
        },
        {
-        "type": "burrower",
-        "share": 0.5,
-        "role": "돌파"
-       }
-      ],
-      "elites": 0,
-      "sizes": {
-       "p1": {
-        "total": 34,
-        "alive_cap": 11,
-        "xp_ref": 13
-       },
-       "p2": {
-        "total": 48,
-        "alive_cap": 12,
-        "xp_ref": 15
-       }
-      },
-      "group": 3,
-      "interval": 1.0,
-      "type_caps": {
-       "shieldbearer": 3,
-       "burrower": 2
-      }
-     },
-     {
-      "id": "t2b_bomb_burrow",
-      "name": "폭탄 + 소수 잠복충",
-      "desc": "폭발 위치 유도",
-      "comp": [
-       {
-        "type": "bomber",
-        "share": 0.55,
-        "role": "주력"
-       },
-       {
-        "type": "burrower",
-        "share": 0.25,
-        "role": "돌파"
+        "type": "bat",
+        "share": 0.34,
+        "role": "접근"
        },
        {
         "type": "rogue",
         "share": 0.2,
+        "role": "측면"
+       },
+       {
+        "type": "archer",
+        "share": 0.12,
         "role": "지원"
        }
       ],
+      "squad": {
+       "size": 5,
+       "slots": {
+        "boar": "front",
+        "bat": "flank",
+        "rogue": "flank",
+        "archer": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.3,
+        "flank": 0.7
+       },
+       "stage_weight": {
+        "boar": [
+         0.4,
+         0.35,
+         0.25
+        ],
+        "bat": [
+         0.25,
+         0.35,
+         0.4
+        ],
+        "rogue": [
+         0.25,
+         0.35,
+         0.4
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -1174,9 +1850,98 @@
       "group": 3,
       "interval": 1.0,
       "type_caps": {
-       "bomber": 3,
+       "boar": 2,
+       "bat": 4,
+       "rogue": 3,
+       "archer": 3
+      },
+      "xp_units": {
+       "p1": 130.0,
+       "p2": 150.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
+      }
+     },
+     {
+      "id": "t2b_bomb_burrow",
+      "name": "화염 밖 공간 고르며 출현 추적 · 일반 정예 잠복충 + 도마뱀",
+      "desc": "도마뱀의 불길 밖 공간을 고르면서 정예 잠복충의 출현 자리를 쫓는다",
+      "goal": "도마뱀의 불길 밖 공간을 고르면서 정예 잠복충의 출현 자리를 쫓는다",
+      "kind": "strong",
+      "comp": [
+       {
+        "type": "burrower",
+        "share": 0.4,
+        "role": "주력"
+       },
+       {
+        "type": "lizard",
+        "share": 0.34,
+        "role": "화염"
+       },
+       {
+        "type": "bomber",
+        "share": 0.26,
+        "role": "돌파"
+       }
+      ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "burrower": "flank",
+        "lizard": "support",
+        "bomber": "front"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.5,
+        "flank": 1.3
+       },
+       "stage_weight": {
+        "burrower": [
+         0.3,
+         0.4,
+         0.3
+        ],
+        "lizard": [
+         0.2,
+         0.4,
+         0.4
+        ],
+        "bomber": [
+         0.4,
+         0.35,
+         0.25
+        ]
+       }
+      },
+      "common_elite": {
+       "type": "burrower",
+       "n": 1
+      },
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
        "burrower": 2,
-       "rogue": 3
+       "lizard": 2,
+       "bomber": 3
+      },
+      "xp_units": {
+       "p1": 102.7,
+       "p2": 118.5,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ],
@@ -1185,6 +1950,20 @@
       "id": "t2b_risk",
       "name": "붕괴 구역",
       "desc": "폭탄·잠복충 + 피의 송곳니(위험 전투). 구덩이(2칸)에서는 정예 궁수가 대신 나온다",
+      "goal": "폭발 위치를 유도하며 강적의 접근을 읽는다",
+      "kind": "strong",
+      "squad": {
+       "size": 4,
+       "slots": {
+        "bomber": "front",
+        "burrower": "flank"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       }
+      },
       "comp": [
        {
         "type": "bomber",
@@ -1217,6 +1996,11 @@
       "type_caps": {
        "bomber": 3,
        "burrower": 2
+      },
+      "xp_units": {
+       "p1": 104.0,
+       "p2": 120.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ]
@@ -1224,7 +2008,11 @@
    "preview": {
     "threat": "폭탄 운반체 폭발, 잠복충 발밑 기습, 도적 측면"
    },
-   "note": "두 번째 구현"
+   "note": "두 번째 구현",
+   "special_elites": [
+    "elite_miner",
+    "elite_blademaster"
+   ]
   },
   "act2_frozen_pass": {
    "id": "act2_frozen_pass",
@@ -1307,96 +2095,146 @@
     "normal": [
      {
       "id": "t2c_frost_wolf",
-      "name": "서리술사 1 + 늑대",
-      "desc": "장판을 피하며 늑대를 정리",
+      "name": "봉쇄와 사격 사이 통과 · 서리술사 + 궁수",
+      "desc": "서리 장판이 길을 좁히고 그 통로에 사격선이 겹친다",
+      "goal": "서리 장판이 길을 좁히고 그 통로에 사격선이 겹친다",
+      "kind": "coop",
       "comp": [
        {
         "type": "wolf",
-        "share": 0.85,
-        "role": "주력"
-       },
-       {
-        "type": "frostcaller",
-        "share": 0.15,
-        "role": "지원"
-       }
-      ],
-      "elites": 0,
-      "sizes": {
-       "p1": {
-        "total": 34,
-        "alive_cap": 11,
-        "xp_ref": 13
-       },
-       "p2": {
-        "total": 48,
-        "alive_cap": 12,
-        "xp_ref": 15
-       }
-      },
-      "group": 3,
-      "interval": 1.0,
-      "type_caps": {
-       "frostcaller": 2
-      }
-     },
-     {
-      "id": "t2c_boar_archer",
-      "name": "멧돼지 + 궁수",
-      "desc": "돌파 유도와 사격선",
-      "comp": [
-       {
-        "type": "boar",
-        "share": 0.5,
+        "share": 0.52,
         "role": "주력"
        },
        {
         "type": "archer",
-        "share": 0.5,
+        "share": 0.28,
         "role": "지원"
-       }
-      ],
-      "elites": 0,
-      "sizes": {
-       "p1": {
-        "total": 34,
-        "alive_cap": 11,
-        "xp_ref": 13
-       },
-       "p2": {
-        "total": 48,
-        "alive_cap": 12,
-        "xp_ref": 15
-       }
-      },
-      "group": 3,
-      "interval": 1.0,
-      "type_caps": {
-       "boar": 2,
-       "archer": 3
-      }
-     },
-     {
-      "id": "t2c_frost_boar",
-      "name": "소수 서리술사 + 멧돼지",
-      "desc": "얼음 위의 돌파",
-      "comp": [
-       {
-        "type": "boar",
-        "share": 0.6,
-        "role": "주력"
        },
        {
         "type": "frostcaller",
         "share": 0.2,
+        "role": "봉쇄"
+       }
+      ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "wolf": "front",
+        "archer": "support",
+        "frostcaller": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.5,
+        "flank": 1.3
+       },
+       "stage_weight": {
+        "wolf": [
+         0.45,
+         0.3,
+         0.25
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ],
+        "frostcaller": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "archer": 3,
+       "frostcaller": 2
+      },
+      "xp_units": {
+       "p1": 83.85,
+       "p2": 96.75,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
+      }
+     },
+     {
+      "id": "t2c_boar_archer",
+      "name": "전방 사격과 후방 착지 · 궁수 + 두꺼비",
+      "desc": "앞의 사격선을 피해 물러서면 뒤에 두꺼비가 내려앉는다",
+      "goal": "앞의 사격선을 피해 물러서면 뒤에 두꺼비가 내려앉는다",
+      "kind": "swarm",
+      "comp": [
+       {
+        "type": "boar",
+        "share": 0.34,
+        "role": "주력"
+       },
+       {
+        "type": "archer",
+        "share": 0.32,
         "role": "지원"
        },
        {
+        "type": "toad",
+        "share": 0.24,
+        "role": "도약"
+       },
+       {
         "type": "wolf",
-        "share": 0.2,
+        "share": 0.1,
         "role": "돌파"
        }
       ],
+      "squad": {
+       "size": 5,
+       "slots": {
+        "boar": "front",
+        "archer": "support",
+        "toad": "flank",
+        "wolf": "front"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       },
+       "stage_weight": {
+        "boar": [
+         0.4,
+         0.35,
+         0.25
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ],
+        "toad": [
+         0.1,
+         0.45,
+         0.45
+        ],
+        "wolf": [
+         0.4,
+         0.35,
+         0.25
+        ]
+       }
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -1414,7 +2252,95 @@
       "interval": 1.0,
       "type_caps": {
        "boar": 2,
-       "frostcaller": 2
+       "archer": 3,
+       "toad": 3
+      },
+      "xp_units": {
+       "p1": 123.5,
+       "p2": 142.5,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
+      }
+     },
+     {
+      "id": "t2c_frost_boar",
+      "name": "거미줄 제거하고 추격 · 일반 정예 궁수 + 거미",
+      "desc": "거미줄을 먼저 지우지 않으면 자리를 옮기는 정예 궁수를 따라갈 수 없다",
+      "goal": "거미줄을 먼저 지우지 않으면 자리를 옮기는 정예 궁수를 따라갈 수 없다",
+      "kind": "strong",
+      "comp": [
+       {
+        "type": "archer",
+        "share": 0.36,
+        "role": "주력"
+       },
+       {
+        "type": "spider",
+        "share": 0.28,
+        "role": "통제"
+       },
+       {
+        "type": "wolf",
+        "share": 0.36,
+        "role": "돌파"
+       }
+      ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "archer": "support",
+        "spider": "support",
+        "wolf": "front"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.3,
+        "flank": 0.7
+       },
+       "stage_weight": {
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ],
+        "spider": [
+         0.35,
+         0.4,
+         0.25
+        ],
+        "wolf": [
+         0.4,
+         0.35,
+         0.25
+        ]
+       }
+      },
+      "common_elite": {
+       "type": "archer",
+       "n": 1
+      },
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 34,
+        "alive_cap": 11,
+        "xp_ref": 13
+       },
+       "p2": {
+        "total": 48,
+        "alive_cap": 12,
+        "xp_ref": 15
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "archer": 3,
+       "spider": 2
+      },
+      "xp_units": {
+       "p1": 132.6,
+       "p2": 153.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ],
@@ -1423,6 +2349,21 @@
       "id": "t2c_risk",
       "name": "얼음 사냥",
       "desc": "서리술사·멧돼지 + 균열 채굴자(위험 전투). 분지(2칸)에서는 정예 검사가 대신 나온다",
+      "goal": "얼음 위에서 돌파와 강적의 지하 이동을 함께 본다",
+      "kind": "strong",
+      "squad": {
+       "size": 4,
+       "slots": {
+        "boar": "front",
+        "frostcaller": "support",
+        "wolf": "front"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       }
+      },
       "comp": [
        {
         "type": "boar",
@@ -1460,6 +2401,11 @@
       "type_caps": {
        "boar": 2,
        "frostcaller": 2
+      },
+      "xp_units": {
+       "p1": 124.8,
+       "p2": 144.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ]
@@ -1467,7 +2413,11 @@
    "preview": {
     "threat": "서리 장판 감속, 멧돼지 직선 돌파, 궁수"
    },
-   "note": "세 번째 구현"
+   "note": "세 번째 구현",
+   "special_elites": [
+    "elite_archer",
+    "elite_chainbreaker"
+   ]
   },
   "act3_temporal_abyss": {
    "id": "act3_temporal_abyss",
@@ -1550,103 +2500,68 @@
     "normal": [
      {
       "id": "t3a_archer_burrow",
-      "name": "붉은 궁수 + 잠복충",
-      "desc": "사격선과 발밑 기습",
+      "name": "안전 바닥 이동 · 잠복충 + 서리술사",
+      "desc": "서리 장판이 안전한 바닥을 지우고 그 자리에서 잠복충이 솟는다",
+      "goal": "서리 장판이 안전한 바닥을 지우고 그 자리에서 잠복충이 솟는다",
+      "kind": "coop",
       "comp": [
        {
-        "type": "archer",
-        "share": 0.5,
+        "type": "burrower",
+        "share": 0.44,
         "role": "주력"
        },
        {
-        "type": "burrower",
-        "share": 0.5,
-        "role": "돌파"
-       }
-      ],
-      "elites": 0,
-      "sizes": {
-       "p1": {
-        "total": 40,
-        "alive_cap": 12,
-        "xp_ref": 17
+        "type": "frostcaller",
+        "share": 0.22,
+        "role": "봉쇄"
        },
-       "p2": {
-        "total": 56,
-        "alive_cap": 12,
-        "xp_ref": 19
-       }
-      },
-      "group": 3,
-      "interval": 1.0,
-      "type_caps": {
-       "archer": 3,
-       "burrower": 2
-      }
-     },
-     {
-      "id": "t3a_spore_shaman",
-      "name": "도적 + 포자 통제 + 주술사 1",
-      "desc": "도적이 붙고 포자가 길을 막는 사이 주술사가 회복시킨다",
-      "comp": [
+       {
+        "type": "archer",
+        "share": 0.16,
+        "role": "지원"
+       },
        {
         "type": "rogue",
-        "share": 0.55,
-        "role": "주력"
-       },
-       {
-        "type": "spore",
-        "share": 0.3,
-        "role": "통제"
-       },
-       {
-        "type": "shaman",
-        "share": 0.15,
-        "role": "지원"
+        "share": 0.18,
+        "role": "측면"
        }
       ],
-      "elites": 0,
-      "sizes": {
-       "p1": {
-        "total": 40,
-        "alive_cap": 12,
-        "xp_ref": 17
+      "squad": {
+       "size": 4,
+       "slots": {
+        "burrower": "flank",
+        "frostcaller": "support",
+        "archer": "support",
+        "rogue": "front"
        },
-       "p2": {
-        "total": 56,
-        "alive_cap": 12,
-        "xp_ref": 19
+       "delay": {
+        "front": 0.0,
+        "support": 0.5,
+        "flank": 1.3
+       },
+       "stage_weight": {
+        "burrower": [
+         0.35,
+         0.35,
+         0.3
+        ],
+        "frostcaller": [
+         0.36,
+         0.36,
+         0.28
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ],
+        "rogue": [
+         0.25,
+         0.35,
+         0.4
+        ]
        }
       },
-      "group": 3,
-      "interval": 1.0,
-      "type_caps": {
-       "spore": 3,
-       "shaman": 1,
-       "rogue": 3
-      }
-     },
-     {
-      "id": "t3a_mixed",
-      "name": "잠복충 돌입 + 포자·궁수",
-      "desc": "잠복충이 자리를 옮겨 붙고 포자·궁수가 뒤를 압박한다",
-      "comp": [
-       {
-        "type": "burrower",
-        "share": 0.5,
-        "role": "주력"
-       },
-       {
-        "type": "spore",
-        "share": 0.3,
-        "role": "통제"
-       },
-       {
-        "type": "archer",
-        "share": 0.2,
-        "role": "지원"
-       }
-      ],
       "elites": 0,
       "sizes": {
        "p1": {
@@ -1664,8 +2579,200 @@
       "interval": 1.0,
       "type_caps": {
        "burrower": 2,
+       "frostcaller": 2,
+       "archer": 3,
+       "rogue": 3
+      },
+      "xp_units": {
+       "p1": 136.0,
+       "p2": 152.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
+      }
+     },
+     {
+      "id": "t3a_spore_shaman",
+      "name": "착지와 측면으로 바뀌는 방향 · 두꺼비 + 도적",
+      "desc": "두꺼비의 착지와 도적의 측면이 번갈아 방향을 바꾼다",
+      "goal": "두꺼비의 착지와 도적의 측면이 번갈아 방향을 바꾼다",
+      "kind": "swarm",
+      "comp": [
+       {
+        "type": "rogue",
+        "share": 0.4,
+        "role": "주력"
+       },
+       {
+        "type": "toad",
+        "share": 0.28,
+        "role": "도약"
+       },
+       {
+        "type": "spore",
+        "share": 0.18,
+        "role": "통제"
+       },
+       {
+        "type": "shaman",
+        "share": 0.14,
+        "role": "지원"
+       }
+      ],
+      "squad": {
+       "size": 5,
+       "slots": {
+        "rogue": "front",
+        "toad": "flank",
+        "spore": "support",
+        "shaman": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       },
+       "stage_weight": {
+        "rogue": [
+         0.45,
+         0.3,
+         0.25
+        ],
+        "toad": [
+         0.1,
+         0.45,
+         0.45
+        ],
+        "spore": [
+         0.36,
+         0.36,
+         0.28
+        ],
+        "shaman": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "rogue": 3,
+       "toad": 3,
        "spore": 3,
-       "archer": 3
+       "shaman": 1
+      },
+      "xp_units": {
+       "p1": 150.45,
+       "p2": 168.15,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
+      }
+     },
+     {
+      "id": "t3a_mixed",
+      "name": "출현 추적과 접근 · 일반 정예 잠복충 + 박쥐",
+      "desc": "정예 잠복충의 출현 자리를 쫓는 동안 박쥐가 계속 붙는다",
+      "goal": "정예 잠복충의 출현 자리를 쫓는 동안 박쥐가 계속 붙는다",
+      "kind": "strong",
+      "comp": [
+       {
+        "type": "burrower",
+        "share": 0.4,
+        "role": "주력"
+       },
+       {
+        "type": "bat",
+        "share": 0.26,
+        "role": "접근"
+       },
+       {
+        "type": "archer",
+        "share": 0.2,
+        "role": "지원"
+       },
+       {
+        "type": "spore",
+        "share": 0.14,
+        "role": "통제"
+       }
+      ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "burrower": "front",
+        "bat": "flank",
+        "archer": "support",
+        "spore": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.3,
+        "flank": 0.7
+       },
+       "stage_weight": {
+        "burrower": [
+         0.35,
+         0.35,
+         0.3
+        ],
+        "bat": [
+         0.2,
+         0.35,
+         0.45
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ],
+        "spore": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
+      "common_elite": {
+       "type": "burrower",
+       "n": 1
+      },
+      "elites": 0,
+      "sizes": {
+       "p1": {
+        "total": 40,
+        "alive_cap": 12,
+        "xp_ref": 17
+       },
+       "p2": {
+        "total": 56,
+        "alive_cap": 12,
+        "xp_ref": 19
+       }
+      },
+      "group": 3,
+      "interval": 1.0,
+      "type_caps": {
+       "burrower": 2,
+       "bat": 4,
+       "archer": 3,
+       "spore": 3
+      },
+      "xp_units": {
+       "p1": 141.1,
+       "p2": 157.7,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ],
@@ -1674,6 +2781,21 @@
       "id": "t3a_risk",
       "name": "심연의 파수",
       "desc": "잠복충 전위 뒤로 포자와 궁수. 정예 검사와 균열 채굴자가 함께 온다(위험 전투)",
+      "goal": "잠복 전위 뒤로 두 강적이 자리를 좁힌다",
+      "kind": "strong",
+      "squad": {
+       "size": 4,
+       "slots": {
+        "burrower": "front",
+        "spore": "support",
+        "archer": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       }
+      },
       "comp": [
        {
         "type": "burrower",
@@ -1714,6 +2836,11 @@
        "burrower": 2,
        "spore": 3,
        "archer": 3
+      },
+      "xp_units": {
+       "p1": 141.1,
+       "p2": 157.7,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ]
@@ -1721,7 +2848,11 @@
    "preview": {
     "threat": "잠복충 지연 기습, 포자 구름, 주술사·궁수"
    },
-   "note": ""
+   "note": "",
+   "special_elites": [
+    "elite_miner",
+    "elite_plaguecaller"
+   ]
   },
   "act3_blood_hunt": {
    "id": "act3_blood_hunt",
@@ -1804,20 +2935,57 @@
     "normal": [
      {
       "id": "t3b_wolf_boar",
-      "name": "붉은 늑대 + 상위 멧돼지",
-      "desc": "사방 접근과 직선 돌파",
+      "name": "회피 후 반격 · 도적 + 박쥐",
+      "desc": "치고 빠지는 도적과 박쥐 사이에서 반격할 순간을 고른다",
+      "goal": "치고 빠지는 도적과 박쥐 사이에서 반격할 순간을 고른다",
+      "kind": "coop",
       "comp": [
        {
-        "type": "wolf",
-        "share": 0.7,
+        "type": "rogue",
+        "share": 0.44,
         "role": "주력"
        },
        {
-        "type": "boar",
+        "type": "bat",
         "share": 0.3,
+        "role": "접근"
+       },
+       {
+        "type": "wolf",
+        "share": 0.26,
         "role": "돌파"
        }
       ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "rogue": "front",
+        "bat": "flank",
+        "wolf": "front"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.3,
+        "flank": 0.7
+       },
+       "stage_weight": {
+        "rogue": [
+         0.45,
+         0.3,
+         0.25
+        ],
+        "bat": [
+         0.2,
+         0.35,
+         0.45
+        ],
+        "wolf": [
+         0.4,
+         0.35,
+         0.25
+        ]
+       }
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -1834,25 +3002,68 @@
       "group": 3,
       "interval": 1.0,
       "type_caps": {
-       "boar": 2
+       "rogue": 3,
+       "bat": 4
+      },
+      "xp_units": {
+       "p1": 132.6,
+       "p2": 148.2,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      },
      {
       "id": "t3b_rogue_alpha",
-      "name": "도적 + 피의 송곳니",
-      "desc": "측면 압박이 겹친다. 영역(2칸)에서는 정예 검사가 대신 나온다",
+      "name": "지상 추격과 착지 · 늑대 + 두꺼비",
+      "desc": "지상을 쫓는 늑대와 위에서 내려오는 두꺼비가 겹친다. 영역(2칸)에서는 정예 검사가 대신 나온다",
+      "goal": "지상을 쫓는 늑대와 위에서 내려오는 두꺼비가 겹친다. 영역(2칸)에서는 정예 검사가 대신 나온다",
+      "kind": "strong",
       "comp": [
        {
-        "type": "rogue",
-        "share": 0.6,
+        "type": "wolf",
+        "share": 0.46,
         "role": "주력"
        },
        {
-        "type": "wolf",
-        "share": 0.4,
-        "role": "돌파"
+        "type": "toad",
+        "share": 0.28,
+        "role": "도약"
+       },
+       {
+        "type": "rogue",
+        "share": 0.26,
+        "role": "측면"
        }
       ],
+      "squad": {
+       "size": 5,
+       "slots": {
+        "wolf": "front",
+        "toad": "flank",
+        "rogue": "flank"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       },
+       "stage_weight": {
+        "wolf": [
+         0.45,
+         0.3,
+         0.25
+        ],
+        "toad": [
+         0.1,
+         0.45,
+         0.45
+        ],
+        "rogue": [
+         0.25,
+         0.35,
+         0.4
+        ]
+       }
+      },
       "elites": 1,
       "elite_type": "elite_fang",
       "elite_type_p2": "elite_blademaster",
@@ -1871,25 +3082,79 @@
       "group": 3,
       "interval": 1.0,
       "type_caps": {
+       "toad": 3,
        "rogue": 3
+      },
+      "xp_units": {
+       "p1": 132.6,
+       "p2": 148.2,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      },
      {
       "id": "t3b_wolf_archer",
-      "name": "늑대·궁수 + 군단 기수",
-      "desc": "깃발이 연속 압박을 만든다. 영역(2칸)에서는 정예 검사가 대신 나온다",
+      "name": "측면과 직선 · 도적 + 멧돼지",
+      "desc": "측면으로 도는 도적과 직선으로 미는 멧돼지 사이에서 강적이 무리를 몬다. 영역(2칸)에서는 정예 검사가 대신 나온다",
+      "goal": "측면으로 도는 도적과 직선으로 미는 멧돼지 사이에서 강적이 무리를 몬다. 영역(2칸)에서는 정예 검사가 대신 나온다",
+      "kind": "strong",
       "comp": [
        {
-        "type": "wolf",
-        "share": 0.7,
+        "type": "rogue",
+        "share": 0.4,
         "role": "주력"
        },
        {
+        "type": "boar",
+        "share": 0.28,
+        "role": "돌파"
+       },
+       {
+        "type": "wolf",
+        "share": 0.2,
+        "role": "추격"
+       },
+       {
         "type": "archer",
-        "share": 0.3,
+        "share": 0.12,
         "role": "지원"
        }
       ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "rogue": "flank",
+        "boar": "front",
+        "wolf": "front",
+        "archer": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       },
+       "stage_weight": {
+        "rogue": [
+         0.25,
+         0.35,
+         0.4
+        ],
+        "boar": [
+         0.35,
+         0.35,
+         0.3
+        ],
+        "wolf": [
+         0.45,
+         0.3,
+         0.25
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
       "elites": 1,
       "elite_type": "elite_standard",
       "elite_type_p2": "elite_blademaster",
@@ -1908,7 +3173,14 @@
       "group": 3,
       "interval": 1.0,
       "type_caps": {
+       "rogue": 3,
+       "boar": 2,
        "archer": 3
+      },
+      "xp_units": {
+       "p1": 107.1,
+       "p2": 119.7,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ],
@@ -1917,6 +3189,20 @@
       "id": "t3b_risk",
       "name": "사냥왕의 전위",
       "desc": "야수 무리에 정예 검사와 정예 궁수가 붙는다(위험 전투)",
+      "goal": "야수 무리와 두 강적의 압박이 연달아 온다",
+      "kind": "strong",
+      "squad": {
+       "size": 4,
+       "slots": {
+        "wolf": "front",
+        "boar": "front"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       }
+      },
       "comp": [
        {
         "type": "wolf",
@@ -1950,6 +3236,11 @@
       "interval": 1.0,
       "type_caps": {
        "boar": 2
+      },
+      "xp_units": {
+       "p1": 142.8,
+       "p2": 159.6,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ]
@@ -1957,7 +3248,11 @@
    "preview": {
     "threat": "늑대 물기·돌진, 멧돼지 돌파, 도적 측면, 우두머리"
    },
-   "note": "두 번째 구현"
+   "note": "두 번째 구현",
+   "special_elites": [
+    "elite_fang",
+    "elite_archer"
+   ]
   },
   "act3_twisted_citadel": {
    "id": "act3_twisted_citadel",
@@ -2040,20 +3335,57 @@
     "normal": [
      {
       "id": "t3c_shield_archer",
-      "name": "붉은 방패병 + 상위 궁수",
-      "desc": "방진 뒤 사격",
+      "name": "전열과 회전 화염 사이 돌파 · 방패병 + 도마뱀",
+      "desc": "방패 전열과 도마뱀의 회전 화염 사이로 들어갈 틈을 찾는다",
+      "goal": "방패 전열과 도마뱀의 회전 화염 사이로 들어갈 틈을 찾는다",
+      "kind": "coop",
       "comp": [
        {
         "type": "shieldbearer",
-        "share": 0.5,
+        "share": 0.42,
         "role": "주력"
        },
        {
+        "type": "lizard",
+        "share": 0.3,
+        "role": "화염"
+       },
+       {
         "type": "archer",
-        "share": 0.5,
+        "share": 0.28,
         "role": "지원"
        }
       ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "shieldbearer": "front",
+        "lizard": "support",
+        "archer": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.5,
+        "flank": 1.3
+       },
+       "stage_weight": {
+        "shieldbearer": [
+         0.4,
+         0.35,
+         0.25
+        ],
+        "lizard": [
+         0.2,
+         0.4,
+         0.4
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -2071,30 +3403,83 @@
       "interval": 1.0,
       "type_caps": {
        "shieldbearer": 3,
+       "lizard": 2,
        "archer": 3
+      },
+      "xp_units": {
+       "p1": 153.0,
+       "p2": 171.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      },
      {
       "id": "t3c_shield_shaman",
-      "name": "방패병 + 주술사 1",
-      "desc": "방진과 치료",
+      "name": "강적 우회해 치료 차단 · 일반 정예 방패병 + 주술사",
+      "desc": "정예 방패병을 정면으로 상대하지 않고 돌아 주술사의 치료를 끊는다",
+      "goal": "정예 방패병을 정면으로 상대하지 않고 돌아 주술사의 치료를 끊는다",
+      "kind": "strong",
       "comp": [
        {
         "type": "shieldbearer",
-        "share": 0.55,
+        "share": 0.44,
         "role": "주력"
        },
        {
+        "type": "rogue",
+        "share": 0.3,
+        "role": "측면"
+       },
+       {
         "type": "shaman",
-        "share": 0.1,
+        "share": 0.14,
         "role": "지원"
        },
        {
-        "type": "rogue",
-        "share": 0.35,
-        "role": "돌파"
+        "type": "archer",
+        "share": 0.12,
+        "role": "지원"
        }
       ],
+      "squad": {
+       "size": 4,
+       "slots": {
+        "shieldbearer": "front",
+        "rogue": "flank",
+        "shaman": "support",
+        "archer": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       },
+       "stage_weight": {
+        "shieldbearer": [
+         0.4,
+         0.35,
+         0.25
+        ],
+        "rogue": [
+         0.25,
+         0.35,
+         0.4
+        ],
+        "shaman": [
+         0.36,
+         0.36,
+         0.28
+        ],
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ]
+       }
+      },
+      "common_elite": {
+       "type": "shieldbearer",
+       "n": 1
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -2112,31 +3497,69 @@
       "interval": 1.0,
       "type_caps": {
        "shieldbearer": 3,
+       "rogue": 3,
        "shaman": 1,
-       "rogue": 3
+       "archer": 3
+      },
+      "xp_units": {
+       "p1": 173.4,
+       "p2": 193.8,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      },
      {
       "id": "t3c_frost_archer",
-      "name": "방패 전열 + 서리술사·궁수",
-      "desc": "방패병이 앞을 막고 뒤에서 서리술사와 궁수가 압박한다",
+      "name": "사격·폭발·측면 사이 출구 · 궁수 + 폭탄 + 도적",
+      "desc": "사격선과 폭발 범위와 측면 접근이 동시에 좁혀 오는 자리에서 출구를 찾는다",
+      "goal": "사격선과 폭발 범위와 측면 접근이 동시에 좁혀 오는 자리에서 출구를 찾는다",
+      "kind": "swarm",
       "comp": [
        {
-        "type": "shieldbearer",
-        "share": 0.5,
+        "type": "archer",
+        "share": 0.34,
         "role": "주력"
        },
        {
-        "type": "archer",
-        "share": 0.3,
-        "role": "지원"
+        "type": "bomber",
+        "share": 0.32,
+        "role": "돌파"
        },
        {
-        "type": "frostcaller",
-        "share": 0.2,
-        "role": "지원"
+        "type": "rogue",
+        "share": 0.34,
+        "role": "측면"
        }
       ],
+      "squad": {
+       "size": 5,
+       "slots": {
+        "archer": "support",
+        "bomber": "front",
+        "rogue": "flank"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.3,
+        "flank": 0.7
+       },
+       "stage_weight": {
+        "archer": [
+         0.36,
+         0.36,
+         0.28
+        ],
+        "bomber": [
+         0.35,
+         0.35,
+         0.3
+        ],
+        "rogue": [
+         0.25,
+         0.35,
+         0.4
+        ]
+       }
+      },
       "elites": 0,
       "sizes": {
        "p1": {
@@ -2154,8 +3577,13 @@
       "interval": 1.0,
       "type_caps": {
        "archer": 3,
-       "frostcaller": 2,
-       "shieldbearer": 3
+       "bomber": 3,
+       "rogue": 3
+      },
+      "xp_units": {
+       "p1": 159.8,
+       "p2": 178.6,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ],
@@ -2164,6 +3592,20 @@
       "id": "t3c_risk",
       "name": "집행관의 근위",
       "desc": "방진 뒤에서 사슬 집행자와 역병 조율사가 자리를 좁힌다(위험 전투)",
+      "goal": "방진 뒤 두 강적이 서 있을 자리를 지운다",
+      "kind": "strong",
+      "squad": {
+       "size": 4,
+       "slots": {
+        "shieldbearer": "front",
+        "archer": "support"
+       },
+       "delay": {
+        "front": 0.0,
+        "support": 0.4,
+        "flank": 1.0
+       }
+      },
       "comp": [
        {
         "type": "shieldbearer",
@@ -2198,6 +3640,11 @@
       "type_caps": {
        "shieldbearer": 3,
        "archer": 3
+      },
+      "xp_units": {
+       "p1": 153.0,
+       "p2": 171.0,
+       "note": "개편 **전** 편성의 경험치 예산(XP_VALUE 단위). template_waves 가 ref 를 이 값에 맞춰 되돌린다 — 구성이 바뀌어도 전투 경험치 예산은 그대로다"
       }
      }
     ]
@@ -2205,7 +3652,12 @@
    "preview": {
     "threat": "방패병 방진, 궁수·서리술사 사격·장판, 주술사"
    },
-   "note": "세 번째 구현"
+   "note": "세 번째 구현",
+   "special_elites": [
+    "elite_standard",
+    "elite_blademaster",
+    "elite_chainbreaker"
+   ]
   }
  },
  "arenas": {
@@ -2734,6 +4186,89 @@
    "frostcaller"
   ],
   "max_support_share": 0.5,
-  "elite_placement": "특수 정예 배치(2026-09-08, 시험값). 규칙: ① 1막은 위험 편성에만 넣는다(첫 만남 보호). ② 평범한 편성은 테마당 최대 1개만 정예를 쓴다(현재 27개 중 3개). ③ 비용 2칸(큰 보상) 장소와 더 깊이 탐험에서는 같은 편성이라도 elite_type_p2의 더 강한 정예로 바뀐다 — '강한 정예 1 + 호위'. ④ 3막 위험 편성의 정예 2마리는 elite_types로 서로 다른 두 종류를 쓰고, 장소로 더 올리지 않는다. ⑤ data/elites.json의 avoid_with·acts·requires_allies를 어기지 않는다. ⑥ 어느 경우에도 elites(마리 수)를 바꾸지 않는다 — 총 등장 수·경험치 예산 불변. 검사는 tests/elites_tests.gd."
+  "elite_placement": "특수 정예 배치(2026-09-08, 시험값). 규칙: ① 1막은 위험 편성에만 넣는다(첫 만남 보호). ② 평범한 편성은 테마당 최대 1개만 정예를 쓴다(현재 27개 중 3개). ③ 비용 2칸(큰 보상) 장소와 더 깊이 탐험에서는 같은 편성이라도 elite_type_p2의 더 강한 정예로 바뀐다 — '강한 정예 1 + 호위'. ④ 3막 위험 편성의 정예 2마리는 elite_types로 서로 다른 두 종류를 쓰고, 장소로 더 올리지 않는다. ⑤ data/elites.json의 avoid_with·acts·requires_allies를 어기지 않는다. ⑥ 어느 경우에도 elites(마리 수)를 바꾸지 않는다 — 총 등장 수·경험치 예산 불변. 검사는 tests/elites_tests.gd.",
+  "squad_note": "2026-09-09 개편: 편성마다 목적이 다른 협공 3개(kind = swarm/coop/strong)와 분대(squad)를 둔다. 정예 배치(elites·elite_type·elite_type_p2·elite_types)와 sizes 는 이전과 같다 — 총 등장 수·경험치 예산은 바뀌지 않았다."
+ },
+ "planned_types": {
+  "note": "**아직 구현되지 않은 적 종류**(다른 담당이 만드는 중). 편성 데이터에는 미리 넣어 두되, 카탈로그(data/enemies.json)에 없으면 편성 생성이 그 종류를 조용히 건너뛰고 비중을 같은 편성의 나머지 종류에 나눠 준다 — 총 등장 수·경험치 예산은 그대로다. 구현되면 이 목록에서 빼기만 하면 된다.",
+  "types": [
+   "bat",
+   "lizard",
+   "toad"
+  ],
+  "names": {
+   "bat": "흡혈 박쥐",
+   "lizard": "불씨 도마뱀",
+   "toad": "도약 두꺼비"
+  },
+  "common_elite_note": "일반 정예(common_elite)도 같은 규칙이다. `<종류>_elite` 가 카탈로그에 있고 경험치 단위값(growth.XP_VALUE)이 정의돼 있을 때만 그 한 마리가 정예로 바뀐다. 없으면 그냥 그 종류의 일반 개체로 남는다(수·예산 불변). 늑대 우두머리로 대신 메우지 않는다."
+ },
+ "squad_rule": {
+  "note": "**등장 단위는 분대다**(개별 추첨 → 역할이 갖춰진 묶음). 편성마다 squad 블록이 있고 PFormation.from_waves 가 종류별 총 수를 그대로 둔 채 등장 **순서와 묶음**만 만든다.",
+  "slots": {
+   "front": "앞에서 접근 — 분대의 첫 자리는 항상 front 가 남아 있으면 front 다",
+   "support": "뒤에서 지원 — 한 분대에서 support_share 를 넘지 않는다. 지원만 남는 분대를 만들지 않는다",
+   "flank": "측면·시간차 — 같은 분대 안에서 delay 초 뒤에 도착한다"
+  },
+  "support_share": 0.5,
+  "min_front_per_squad": 1,
+  "stage_note": "stage_weight 가 있으면 종류마다 [초반, 중반, 후반] 비중으로 나눠 구간을 만든다. 없는 편성은 구간을 두지 않는다 — 모든 출격에 세 구간을 강제하지 않는다. 지원 자리는 후반 비중을 낮게 둔다 — 근접이 먼저 사라진 뒤 지원만 남는 시간을 줄이기 위해서다(시험값).",
+  "overlap_note": "다음 분대는 앞 분대의 전멸을 기다리지 않는다. 자리(동시 상한)와 동시 위험 공격 여유(PEnemiesNew.danger_max)가 있으면 겹쳐 투입한다. 전장이 비었는데 적이 남아 있으면 대기를 0으로 줄인다. 적을 지우거나 자동 처치하지 않는다.",
+  "kinds": {
+   "swarm": "무리 처리형 — 약한 적이 충분히 모이는 구간을 남긴다(완성된 빌드를 쓸 기회)",
+   "coop": "협공형 — 두 종류의 목적이 어긋나 하나를 골라야 한다",
+   "strong": "강적형 — 일반 정예 또는 특수 정예가 중심이다"
+  }
+ },
+ "duel": {
+  "note": "**특수 정예 결투**(사용자 확정 2026-09-09). '1대1' = 일반 편성의 적과 증원이 끼어들지 않는 결투이며 특수 정예 **자신의** 소환은 금지가 아니다. 결투 상대는 그 전투의 일반 적 **1마리를 대체**한다 — 총 등장 수와 경험치 예산이 늘지 않는다(ref 를 종류별 단위값 비율로 환산해 옮긴다).",
+  "enabled": true,
+  "day_card_pref": {
+   "1": 1,
+   "2": 0,
+   "3": 1
+  },
+  "day_card_pref_note": "막 안 날짜(1~3)마다 결투 자리가 하나 있고 값은 **선호 카드 순번**이다. 그 자리가 위험 카드면 같은 날의 다른 카드로 옮긴다(위험 카드는 이미 편성 안에 특수 정예가 있다). 후보는 **막 안 날짜**로 고르므로 서로 다른 두 날에서는 반드시 다른 종류가 나온다 — 하루가 통째로 위험 카드여도 한 막에서 서로 다른 두 종류를 만날 기회가 남는다. 난수를 쓰지 않는다.",
+  "deep_extra": true,
+  "deep_note": "더 깊이 탐험은 결투 자리가 아니어도 결투가 붙는다(추가 조우).",
+  "intro_sec": 1.6,
+  "cleanup_max_sec": 4.0,
+  "time_rule": "정리·연출 구간에서는 전투 시간과 모든 재사용 시간이 **함께 멈춘다**(보스 등장 연출과 같은 기준). 연출 길이로 회복이나 재사용 시간을 벌 수 없고, 그 동안 피해도 받지 않는다.",
+  "no_heal": "일반 전투 종료 뒤 자동 체력 회복은 없다.",
+  "growth_gate": true,
+  "growth_gate_note": "성장 선택을 화면이 처리할 수 있게 결투 직전에 한 번 멈춘다. 화면이 CombatState.open_duel_gate() 를 부르면 진행한다. 봇·검사는 자동으로 연다.",
+  "notice": "마지막에 강적이 나타난다",
+  "summon_reward": "none",
+  "summon_reward_note": "귀속 소환물은 경험치·금화를 주지 않는다(무한 보상 파밍 금지). 결투 주체를 쓰러뜨리면 남은 소환물은 **추가 보상 없이** 같은 프레임에 정리된다.",
+  "summon": {
+   "note": "특수 정예가 자기 기술로 부르는 소환수. 출처를 그 정예에게 귀속한다(summon_owner). 일반 편성 증원과 구분되며 결투 중에만 나온다. 없는 정예는 소환하지 않는다. first_delay = 결투 시작 뒤 첫 소환까지의 시간(초). 짧은 결투에서도 고유 기믹이 한 번은 나오게 한다.",
+   "elite_standard": {
+    "type": "wolf",
+    "count": 2,
+    "interval": 11.0,
+    "first_delay": 2.5,
+    "max_alive": 3,
+    "max_total": 6,
+    "warn": 0.8
+   },
+   "elite_plaguecaller": {
+    "type": "spore",
+    "count": 1,
+    "interval": 12.0,
+    "first_delay": 2.5,
+    "max_alive": 2,
+    "max_total": 4,
+    "warn": 0.8
+   },
+   "elite_miner": {
+    "type": "burrower",
+    "count": 1,
+    "interval": 13.0,
+    "first_delay": 2.5,
+    "max_alive": 2,
+    "max_total": 4,
+    "warn": 0.8
+   }
+  }
  }
 }

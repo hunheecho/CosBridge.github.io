@@ -75,6 +75,21 @@ var link_t: float = 0.0             # 특성 '연계 준비': E 사용 뒤 남�
 var level_ups: int = 0
 var xp_gained: float = 0.0
 var formation: Dictionary = {} # {units[], alive_cap, group, interval, type_caps{}, total}
+# ---- 분대 투입(지시 3): 등장 단위는 '역할이 갖춰진 분대'다 ----
+var squads: Array = []          # 편성이 만든 분대 대기열. 각 원소 = { stage, members[{type, slot, delay, tier}] }
+var squad_i: int = 0            # 다음에 낼 분대 번호
+var squad_carry: Array = []     # 종류별 상한에 걸려 다음 분대로 밀린 구성원(버리지 않는다 — 총 등장 수 불변)
+var squad_log: Array = []       # 계측 전용: [{t, stage, members, alive, overlap}] 실제 투입 기록(규칙에 영향 없음)
+# ---- 특수 정예 결투(할 일 4) ----
+var duel: Dictionary = {}       # 설정(data/themes.json duel)
+var duel_type: String = ""      # 결투 상대 종류("" = 결투 없음)
+var duel_stage: String = ""     # "" 없음 | normal(일반 전투) | cleanup(잔여 정리) | growth(성장 선택) | intro(등장 연출) | duel | done
+var duel_enemy = null           # 결투 상대 개체
+var duel_gate: bool = false     # 성장 선택 처리 완료(화면이 open_duel_gate()로 연다)
+var duel_gate_held: bool = false # 화면이 성장 선택을 맡았는가(hold_duel_gate). 잡지 않으면 멈추지 않고 지나간다
+var duel_t: float = 0.0         # 현재 전환 단계 경과(전투 시간 t와 분리)
+var duel_summons: int = 0       # 지금까지 부른 귀속 소환수(총 상한)
+var duel_summon_t: float = 0.0
 var spawn_total: int = 0
 var spawn_count: int = 0       # 지금까지 예약(등장 + 대기)한 수
 var spawn_timer: float = 0.4
@@ -102,7 +117,8 @@ var _next_id: int = 1
 var recorder = null
 
 static func _new_stats() -> Dictionary:
-	return { "kills": 0, "damage_taken": 0.0, "damage_taken_nominal": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "e_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "level_ups": 0, "max_alive": 0, "support_only_sec": 0.0, "thin_tail_sec": 0.0, "no_target_sec": 0.0, "max_dash_states": 0, "max_bite_states": 0, "chest_gold": 0, "boss_damage": 0.0, "absorbed": 0.0, "healed": 0.0, "elite_kills": 0, "saving_kills": 0, "equip_procs": {}, "tier_spawned": {}, "tier_kills": {}, "max_enemy_projectiles": 0, "max_enemy_zones": 0, "max_webs": 0, "field_hits": 0 }
+	return { "kills": 0, "damage_taken": 0.0, "damage_taken_nominal": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "e_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "level_ups": 0, "max_alive": 0, "support_only_sec": 0.0, "thin_tail_sec": 0.0, "no_target_sec": 0.0, "max_dash_states": 0, "max_bite_states": 0, "chest_gold": 0, "boss_damage": 0.0, "absorbed": 0.0, "healed": 0.0, "elite_kills": 0, "saving_kills": 0, "equip_procs": {}, "tier_spawned": {}, "tier_kills": {}, "max_enemy_projectiles": 0, "max_enemy_zones": 0, "max_webs": 0, "field_hits": 0,
+		"squad_pushes": 0, "squad_overlaps": 0, "cap_blocked_sec": 0.0, "danger_blocked_sec": 0.0, "duel_summons": 0, "duel_summons_cleared": 0, "duel_sec": 0.0 }
 
 static func _new_metrics() -> Dictionary:
 	return { "dmg": {}, "taken": {}, "taken_hits": {}, "enemies": {}, "hits": {}, "patterns": {}, "absorbed": 0.0, "interrupts": 0, "webs": 0, "heals": 0, "heal_amount": 0.0, "far_frac": -1.0,
@@ -161,6 +177,7 @@ func _init(o: Dictionary) -> void:
 	chest_enabled = bool(o.get("chest", false))
 	xp_map = o.get("xp_map", {})
 	xp_default_scale = float(o.get("xp_default_scale", 1.0))
+	duel = o.get("duel", {})
 	var P: Dictionary = cfg.player
 	# KD-3(2026-09-08): 테마 경기장 14곳은 시작 위치 키가 player인데 여기서 playerStart만 읽어
 	# 14곳 전부 기본값(전장 중앙)으로 시작했고 그중 5곳은 그 자리가 바위 안이었다.
@@ -257,10 +274,18 @@ func set_formation(f: Dictionary) -> void:
 	spawn_total = (f.units as Array).size()
 	spawn_count = 0
 	spawned_all = spawn_total == 0 and mode == "boss"
+	squads = f.get("squads", [])
+	squad_i = 0
+	squad_carry = []
 	if xp_map.is_empty() and f.has("xp_map"):
 		xp_map = f.xp_map
 	if f.has("xp_default_scale"):
 		xp_default_scale = float(f.xp_default_scale)
+	var du: Dictionary = f.get("duel", {})
+	if not du.is_empty() and mode != "boss": # 결투 상대는 대기열에 없다: 일반 전투가 끝난 뒤 따로 등장한다
+		duel_type = String(du.type)
+		duel_stage = "normal"
+		duel_summon_t = 0.0
 
 # ---------- 도우미 ----------
 ## 개조 발동·적중 기록(표시·통계 전용, 난수 소비 없음). phase = "proc"(효과 실제 생성) | "hit"(그 효과가 적에게 유효 피해)
@@ -761,6 +786,11 @@ func update_spawner(dt: float) -> void:
 			var e := spawn_enemy(String(sp.type), float(sp.x), float(sp.y), bool(sp.get("summoned", false)), String(sp.get("tier", "normal")))
 			if bool(sp.get("summoned", false)):
 				e.grace = float(PCatalog.boss_defs().boss.overlap.summonGrace)
+			if sp.has("slot"):
+				e.slot = String(sp.slot) # 분대에서의 자리(앞·지원·측면). 계측·표시용
+			if bool(sp.get("duel_summon", false)): # 특수 정예가 부른 소환수: 출처를 그 정예에게 귀속한다
+				e.duel_summon = true
+				e.summon_owner = String(sp.get("owner", duel_type))
 	var keep := []
 	for sp in pending:
 		if sp.t > 0.0:
@@ -770,10 +800,17 @@ func update_spawner(dt: float) -> void:
 		return
 	spawned_all = spawn_count >= spawn_total and pending.is_empty()
 	_tick_pace_metrics(dt)
+	if duel_stage != "" and duel_stage != "normal":
+		return # 결투 중에는 **일반 편성 증원이 없다**(고유 소환은 update_duel이 따로 한다)
 	if spawn_hold or spawn_count >= spawn_total:
 		return
 	spawn_timer -= dt
+	if alive_units() == 0 and pending.is_empty() and spawn_timer > 0.0:
+		spawn_timer = 0.0 # 전장이 비었는데 적이 남아 있으면 불필요한 대기를 없앤다
 	if spawn_timer > 0.0:
+		return
+	if not squads.is_empty():
+		_push_squad(dt)
 		return
 	var room: int = int(formation.alive_cap) - alive_units() - pending.size()
 	if room <= 0:
@@ -816,6 +853,254 @@ func update_spawner(dt: float) -> void:
 		chest_spawned = true
 		var pos := edge_pos()
 		chest = { "x": pos[0], "y": pos[1], "r": float(cfg.chest.r), "opened": false, "t": 0.0 }
+
+## 지금 위험 공격(예고~실행) 중인 적 수. 동시 위험 공격 상한(PEnemiesNew.danger_max)과 견준다
+func danger_now() -> int:
+	var n := 0
+	for o in enemies:
+		if o.dead or bool(o.get("boss", false)) or bool(o.get("structure", false)):
+			continue
+		if PEnemiesNew.danger_busy(o):
+			n += 1
+	return n
+
+## 다음 분대 투입(지시 3). **앞 분대의 전멸을 기다리지 않는다** — 자리(동시 상한)와 동시 위험 공격 여유가 있으면 겹쳐 넣는다.
+## 막는 것은 두 가지뿐이다: ① 동시 생존 상한을 넘는 예약 ② 이미 위험 공격이 상한까지 겹친 상태
+## (모든 공격이 한꺼번에 겹쳐 탈출이 불가능해지지 않게). 종류별 상한에 걸린 구성원은 **버리지 않고**
+## 다음 분대로 밀어 순서를 지킨다 — 총 등장 수는 바뀌지 않는다. 적을 지우거나 자동 처치하지 않는다.
+func _push_squad(dt: float) -> void:
+	var alive := alive_units()
+	var room: int = int(formation.alive_cap) - alive - pending.size()
+	if room <= 0:
+		stats.cap_blocked_sec = float(stats.cap_blocked_sec) + dt
+		spawn_timer = 0.2
+		return
+	if alive > 0 and danger_now() >= PEnemiesNew.danger_max(self):
+		stats.danger_blocked_sec = float(stats.danger_blocked_sec) + dt
+		spawn_timer = 0.2
+		return
+	var src: Array = squad_carry.duplicate()
+	var stage := ""
+	var left_total := spawn_total - spawn_count
+	while squad_i < squads.size():
+		var sq: Dictionary = squads[squad_i]
+		if stage == "":
+			stage = String(sq.get("stage", ""))
+		src.append_array(sq.members as Array)
+		squad_i += 1
+		# 전투 말미: 남은 전체가 한 번에 들어갈 수 있으면 마지막 분대들을 합쳐 낸다(한 마리씩 나오는 대기를 없앤다)
+		if not (left_total <= room and squad_i < squads.size()):
+			break
+	if src.is_empty():
+		return
+	var caps: Dictionary = formation.get("type_caps", {})
+	var counts := {}
+	var take := []
+	var rest := []
+	for m in src:
+		var tp := String(m.type)
+		if take.size() >= room:
+			rest.append(m)
+			continue
+		var cap: int = int(caps.get(tp, 9999))
+		if alive_count_of(tp) + int(counts.get(tp, 0)) >= cap:
+			rest.append(m)
+			continue
+		take.append(m)
+		counts[tp] = int(counts.get(tp, 0)) + 1
+	squad_carry = rest
+	if take.is_empty():
+		stats.cap_blocked_sec = float(stats.cap_blocked_sec) + dt
+		spawn_timer = 0.2
+		return
+	queue_squad(take, stage, alive)
+	spawn_count += take.size()
+	spawn_timer = float(formation.interval)
+	if chest_enabled and not chest_spawned and spawn_count > int(formation.group):
+		chest_spawned = true
+		var pos := edge_pos()
+		chest = { "x": pos[0], "y": pos[1], "r": float(cfg.chest.r), "opened": false, "t": 0.0 }
+
+## 분대 하나를 예약한다. 앞·지원은 같은 진입 지점, **측면(flank)은 다른 진입 지점**에서 오고
+## 자리마다 정해진 시간차(delay)만큼 늦게 도착한다 — "늑대가 맞붙을 무렵 멧돼지가 돌진 준비"가 이렇게 생긴다.
+func queue_squad(members: Array, stage: String, alive_before: int) -> void:
+	var base := pick_entry_point()
+	var side := pick_entry_point()
+	var spread: float = float(cfg.spawn.group_spread)
+	var min_pd: float = float(cfg.spawn.min_player_dist)
+	var warn: float = float(cfg.spawn.warn)
+	var names := []
+	for m in members:
+		var type := String(m.type)
+		var slot := String(m.get("slot", "front"))
+		var origin: Array = side if slot == "flank" else base
+		var er: float = float(PCatalog.enemy(type).r) if not cfg.enemies.has(type) else float(cfg.enemies[type].r)
+		var px: float = origin[0] + rng.range_f(-spread, spread)
+		var py: float = origin[1] + rng.range_f(-spread, spread)
+		px = clampf(px, er + 4.0, arena_w - er - 4.0)
+		py = clampf(py, er + 4.0, arena_h - er - 4.0)
+		var vp := nearest_valid_pos(px, py, er)
+		if not vp.is_empty():
+			px = vp[0]
+			py = vp[1]
+		var dp := PGeom.dist(px, py, player.x, player.y)
+		if dp < min_pd * 0.5:
+			var away := PGeom.norm(px - player.x, py - player.y) if dp > 1e-6 else [1.0, 0.0]
+			px = clampf(player.x + away[0] * min_pd * 0.5, er + 4.0, arena_w - er - 4.0)
+			py = clampf(player.y + away[1] * min_pd * 0.5, er + 4.0, arena_h - er - 4.0)
+			vp = nearest_valid_pos(px, py, er)
+			if not vp.is_empty():
+				px = vp[0]
+				py = vp[1]
+		var wait: float = warn + maxf(0.0, float(m.get("delay", 0.0)))
+		pending.append({ "type": type, "x": px, "y": py, "t": wait, "tier": String(m.get("tier", "normal")), "slot": slot })
+		fx({ "kind": "spawnwarn", "x": px, "y": py, "ttl": wait, "type": type })
+		names.append("%s:%s" % [type, slot])
+	stats.squad_pushes = int(stats.squad_pushes) + 1
+	if alive_before > 0:
+		stats.squad_overlaps = int(stats.squad_overlaps) + 1 # 앞 분대가 살아 있는 채로 겹쳐 들어갔다
+	squad_log.append({ "t": snappedf(t, 0.01), "stage": stage, "members": names, "alive": alive_before, "overlap": alive_before > 0 })
+	ev("group")
+
+# ---------- 특수 정예 결투(할 일 4) ----------
+## 전환 조건: 일반 몬스터 생존 0 · 등장 예고 0 · 대기열(미등장 예약) 0 · 일반 전투의 위험 효과 정리.
+## 흐름: normal → cleanup(잔여 위험 정리) → growth(성장 선택) → intro(등장 연출) → duel → done
+func update_duel(dt: float) -> void:
+	if duel_type == "" or duel_stage == "" or duel_stage == "done":
+		return
+	match duel_stage:
+		"normal":
+			if spawn_count >= spawn_total and pending.is_empty() and squad_carry.is_empty() and alive_units() == 0:
+				duel_stage = "cleanup"
+				duel_t = 0.0
+				ev("duel_cleared")
+		"cleanup": # 일반 전투의 위험 효과가 남아 있으면 사라질 때까지 기다린다(전투 시간은 그대로 흐른다)
+			duel_t += dt
+			if enemy_hazards() == 0 or duel_t >= float(duel.get("cleanup_max_sec", 4.0)):
+				_clear_enemy_hazards()
+				duel_stage = "growth"
+				duel_t = 0.0
+				ev("duel_growth")
+		"growth": # 성장 선택 처리. 이 구간부터 전투 시간·재사용 시간이 멈춘다.
+			# **기본은 그냥 통과한다**(봇·검사·아직 연결하지 않은 화면에서 멈춰 서지 않게).
+			# 화면이 성장 선택을 띄우려면 hold_duel_gate()로 자리를 잡고, 처리 뒤 open_duel_gate()로 연다.
+			if duel_gate or not duel_gate_held or not bool(duel.get("growth_gate", true)):
+				duel_stage = "intro"
+				duel_t = 0.0
+				ev("duel_intro")
+		"intro":
+			duel_t += dt
+			if duel_t >= float(duel.get("intro_sec", 1.6)):
+				duel_stage = "duel"
+				duel_t = 0.0
+				_start_duel()
+		"duel":
+			stats.duel_sec = float(stats.duel_sec) + dt
+			_duel_summon_tick(dt)
+			if duel_enemy != null and bool(duel_enemy.dead):
+				_end_duel()
+
+## 전환 구간인가(전투 시간·모든 재사용 시간이 함께 멈추고 피해도 없다 — 보스 등장 연출과 같은 기준)
+func in_transition() -> bool:
+	return duel_stage == "growth" or duel_stage == "intro"
+
+## 화면이 "성장 선택을 내가 처리한다"고 자리를 잡는다. 잡지 않으면 결투 전 멈춤 없이 그대로 진행한다
+## (화면이 아직 연결하지 않았을 때 전투가 영원히 멈추는 것을 막는 안전 기본값이다).
+func hold_duel_gate() -> void:
+	duel_gate_held = true
+
+## 화면이 성장 선택을 끝냈다고 알린다
+func open_duel_gate() -> void:
+	duel_gate = true
+
+## 일반 전투가 남긴 위험 효과 수(적 장판·적 투사체). 플레이어 장판은 세지 않는다
+func enemy_hazards() -> int:
+	var n := 0
+	for z in zones:
+		if PPacing.is_enemy_zone(String(z.type)):
+			n += 1
+	for p in projectiles:
+		if String(p.get("owner", "")) == "enemy" and not bool(p.get("dead", false)):
+			n += 1
+	return n
+
+func _clear_enemy_hazards() -> void:
+	var zk := []
+	for z in zones:
+		if not PPacing.is_enemy_zone(String(z.type)):
+			zk.append(z)
+	zones = zk
+	var pk := []
+	for p in projectiles:
+		if String(p.get("owner", "")) != "enemy":
+			pk.append(p)
+	projectiles = pk
+	delayed = []
+
+func _start_duel() -> void:
+	var p := pick_entry_point()
+	duel_enemy = spawn_enemy(duel_type, p[0], p[1])
+	duel_enemy.duel_boss = true
+	var cs0: Dictionary = (duel.get("summon", {}) as Dictionary).get(duel_type, {})
+	duel_summon_t = float(cs0.get("first_delay", cs0.get("interval", 0.0)))
+	ev("duel_start")
+
+func duel_summon_alive() -> int:
+	var n := 0
+	for e in enemies:
+		if not e.dead and bool(e.get("duel_summon", false)):
+			n += 1
+	for sp in pending:
+		if bool(sp.get("duel_summon", false)):
+			n += 1
+	return n
+
+## 특수 정예가 **자기 기술로** 부르는 소환수. 일반 편성 증원과 구분되도록 출처를 귀속하고,
+## 동시 상한·총 상한을 지킨다(무한 보상 파밍 금지 — 귀속 소환물은 경험치·금화를 주지 않는다)
+func _duel_summon_tick(dt: float) -> void:
+	var cs: Dictionary = (duel.get("summon", {}) as Dictionary).get(duel_type, {})
+	if cs.is_empty() or duel_enemy == null or bool(duel_enemy.dead):
+		return
+	duel_summon_t -= dt
+	if duel_summon_t > 0.0:
+		return
+	duel_summon_t = float(cs.get("interval", 12.0))
+	var room: int = mini(int(cs.get("count", 1)), mini(int(cs.get("max_alive", 2)) - duel_summon_alive(), int(cs.get("max_total", 4)) - duel_summons))
+	if room <= 0:
+		return
+	for i in room:
+		var q := edge_pos()
+		var er := float(PCatalog.enemy(String(cs.type)).r)
+		var vp := nearest_valid_pos(q[0], q[1], er)
+		if not vp.is_empty():
+			q = vp
+		pending.append({ "type": String(cs.type), "x": q[0], "y": q[1], "t": float(cs.get("warn", 0.8)), "summoned": true, "duel_summon": true, "owner": duel_type })
+		fx({ "kind": "spawnwarn", "x": q[0], "y": q[1], "ttl": float(cs.get("warn", 0.8)), "type": String(cs.type) })
+	duel_summons += room
+	stats.duel_summons = int(stats.duel_summons) + room
+	ev("duel_summon")
+
+## 결투 종료(처치 순서 규칙 — tests/squad_tests.gd가 못박는다):
+## ① 결투 주체가 죽은 그 프레임에 승리가 확정된다.
+## ② 귀속된 잔여 소환물은 **추가 보상 없이** 같은 프레임에 정리된다(처치로 세지 않는다).
+## ③ 그래서 처치 직후 남은 소환물 때문에 승리 화면 전에 죽는 일이 없다(같은 프레임의 pending_loss는 승리가 이긴다).
+func _end_duel() -> void:
+	duel_stage = "done"
+	var cleared := 0
+	for e in enemies:
+		if not e.dead and bool(e.get("duel_summon", false)):
+			e.dead = true
+			e.death_t = 0.0
+			cleared += 1
+	var keep := []
+	for sp in pending:
+		if not bool(sp.get("duel_summon", false)):
+			keep.append(sp)
+	pending = keep
+	stats.duel_summons_cleared = int(stats.duel_summons_cleared) + cleared
+	pending_loss = false
+	status = "won"
+	ev("win")
 
 ## 편성 측정(지시 4): 지원 적만 남은 시간 / 살아 있는 적이 1~2마리뿐인 후반 시간 / 다음 등장까지 때릴 대상이 없는 시간.
 ## 읽기만 하는 계측이며 규칙·난수에 영향을 주지 않는다
@@ -882,7 +1167,8 @@ func spawn_enemy(type: String, x: float, y: float, summoned: bool = false, tier:
 func remaining() -> Dictionary:
 	var alive_n := alive_units()
 	var queued: int = maxi(0, spawn_total - spawn_count)
-	return { "total": alive_n + pending.size() + queued, "alive": alive_n, "pending": pending.size(), "queued": queued, "cap": int(formation.get("alive_cap", 0)), "spawn_total": spawn_total, "spawned": spawn_count - pending.size() }
+	var duel_left: int = 1 if (duel_type != "" and duel_stage != "done" and duel_stage != "duel") else 0 # 아직 등장하지 않은 결투 상대
+	return { "total": alive_n + pending.size() + queued + duel_left, "alive": alive_n, "pending": pending.size(), "queued": queued, "cap": int(formation.get("alive_cap", 0)), "spawn_total": spawn_total, "spawned": spawn_count - pending.size(), "duel": duel_left, "duel_stage": duel_stage }
 
 ## 정예 수: 남은 예약 + 대기 + 생존 + 처치 누적
 func elite_count() -> Dictionary:
@@ -910,6 +1196,8 @@ func xp_for(e: Dictionary) -> float:
 	if bool(e.get("structure", false)) or bool(e.get("boss", false)):
 		return 0.0
 	var km: float = float(opts.get("xp_kill_mult", 0.3))
+	if bool(e.get("duel_summon", false)):
+		return 0.0 # 특수 정예가 부른 귀속 소환물은 경험치를 주지 않는다(무한 보상 파밍 금지)
 	if bool(e.get("summoned", false)):
 		return PGrowth.xp_value_unit(String(e.type), true, region_id, km)
 	if xp_map.has(e.type):
@@ -1840,6 +2128,8 @@ func check_objective() -> void:
 			status = "won"
 			ev("win")
 	elif (objective == "clear" or objective == "elite") and spawned_all and pending.is_empty() and alive_units() == 0:
+		if duel_type != "" and duel_stage != "done":
+			return # 특수 정예전이 남아 있다: **일반 전투 종료를 출격 승리로 먼저 처리하지 않는다**(update_duel이 진행한다)
 		status = "won"
 		ev("win")
 
@@ -1865,6 +2155,16 @@ func step(input: Dictionary, dt: float) -> void:
 			boss.state = "approach"
 			boss.state_t = 0.0
 			ev("boss_roar", { "phase": 1 })
+		return
+	if in_transition():
+		# **전환 구간**(성장 선택·강적 등장 연출): 보스 등장 연출과 같은 기준으로 전투 시간과 모든 재사용 시간이
+		# 함께 멈춘다. 그동안 적이 행동하지 않으므로 피해를 받지 않고, 연출 길이로 회복·재사용 시간을 벌 수도 없다.
+		update_duel(dt)
+		for e in enemies:
+			e.anim_t = float(e.get("anim_t", 0.0)) + dt
+			if e.dead:
+				e.death_t += dt
+		update_effects(dt)
 		return
 	_in_step = true
 	t += dt
@@ -1898,6 +2198,7 @@ func step(input: Dictionary, dt: float) -> void:
 	update_pickups(dt)
 	update_chest(dt)
 	update_spawner(dt)
+	update_duel(dt) # 특수 정예 결투 단계 진행(전환·고유 소환·결투 종료)
 	update_effects(dt)
 	check_objective()
 	if status == "running" and pending_loss:
@@ -1952,7 +2253,9 @@ func summary() -> Dictionary:
 		"dodge_mode": String(cfg.player.dodge.mode), "dodge_cooldown": float(cfg.player.dodge.cooldown), "dodge_dists": stats.dodge_dists.duplicate(), "perfect_dodges": stats.perfect_dodges,
 		"formation": String(cfg.formation_id) if cfg.has("formation_id") else String(opts.get("formation_name", "?")), "spawn_total": spawn_total, "spawned": spawn_count, "xp": snapped(stats.xp, 0.0001), "level_ups": stats.level_ups,
 		"max_alive": stats.max_alive, "support_only_sec": snapped(float(stats.support_only_sec), 0.1), "thin_tail_sec": snapped(float(stats.thin_tail_sec), 0.1), "no_target_sec": snapped(float(stats.no_target_sec), 0.1), "max_dash_states": stats.max_dash_states, "max_bite_states": stats.max_bite_states, "tier_spawned": stats.tier_spawned.duplicate(), "tier_kills": stats.tier_kills.duplicate(), "max_enemy_projectiles": stats.max_enemy_projectiles, "max_enemy_zones": stats.max_enemy_zones, "max_webs": stats.max_webs, "world_stage": int(opts.get("world_stage", 0)), "dash_max": int(cfg.enemies.wolf.dash.max_concurrent), "wolf_hp": float(cfg.enemies.wolf.hp),
-		"boss_damage": snapped(stats.boss_damage, 0.1), "patterns": metrics.patterns.duplicate(), "chest_gold": stats.chest_gold, "healed": stats.healed, "region_id": region_id, "arena": arena_id, "objective": objective, "hp_mult": hp_mult.duplicate(), "time_limit": time_limit, "fixed_build": fixed_build, "interrupts": metrics.interrupts, "heals": metrics.heals, "webs": metrics.webs, "far_frac": metrics.far_frac, "equip_procs": stats.equip_procs.duplicate(), "boss_id": boss_id }
+		"squad_pushes": stats.squad_pushes, "squad_overlaps": stats.squad_overlaps, "cap_blocked_sec": snapped(float(stats.cap_blocked_sec), 0.1), "danger_blocked_sec": snapped(float(stats.danger_blocked_sec), 0.1),
+			"duel_type": duel_type, "duel_stage": duel_stage, "duel_sec": snapped(float(stats.duel_sec), 0.1), "duel_summons": stats.duel_summons, "duel_summons_cleared": stats.duel_summons_cleared,
+			"boss_damage": snapped(stats.boss_damage, 0.1), "patterns": metrics.patterns.duplicate(), "chest_gold": stats.chest_gold, "healed": stats.healed, "region_id": region_id, "arena": arena_id, "objective": objective, "hp_mult": hp_mult.duplicate(), "time_limit": time_limit, "fixed_build": fixed_build, "interrupts": metrics.interrupts, "heals": metrics.heals, "webs": metrics.webs, "far_frac": metrics.far_frac, "equip_procs": stats.equip_procs.duplicate(), "boss_id": boss_id }
 	if build.has("growth") and build.growth != null:
 		var g: Dictionary = build.growth
 		var wl := []
