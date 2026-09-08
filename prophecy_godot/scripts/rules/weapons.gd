@@ -716,12 +716,12 @@ static func on_hit(st: CombatState, e: Dictionary, opt: Dictionary, _dmg: float)
 	var b := st.build
 	# 보조무기 훅(까마귀 표적 지정·감전 후속 등). 무엇이 발동할 자격이 있는지는 PSupport.eligible이 정한다
 	PSupport.on_enemy_hit(st, e, opt, _dmg)
-	if bool(sr.get("direct", true)) and sr.has("weapon_id"):
-		# 전도 표식: 번개 외 무기의 직접 공격이 표식 적을 치면 작은 전기 폭발(구체 피해의 40%)
-		# 감전 후속 타격. **발동 자격은 PSupport.eligible 한 곳이 정한다** —
-		# 장판 틱·독·출혈·반사·지뢰 폭발·감전 후속 자신으로는 터지지 않는다(순환 금지, 지시 5절).
+	# 감전 후속 타격. **자격은 PSupport.eligible 한 곳만 본다.**
+	# 예전에는 여기서 `src.direct`를 먼저 검사해, 자격표가 허용하는 main_extra(잔류 검흔·여진·날아가는 검광)가
+	# 자격 심사에 오르지도 못하고 막혔다(2026-09-09 SYN-1). 그 선검사를 없애고 경로 이름으로만 가른다.
+	if sr.has("weapon_id"):
 		if float(e.conduct) > 0.0 and String(sr.weapon_id) != "orb" and not bool(opt.get("no_conduct", false)) \
-				and PSupport.eligible("shock_bonus", PSupport.cause_of(st, { "weapon": String(sr.get("weapon_id", "")) })):
+				and PSupport.eligible("shock_bonus", PSupport.cause_of(st, { "weapon": String(sr.get("weapon_id", "")), "hit": opt })):
 			var orb := {}
 			for w in st.weapons:
 				if String(w.id) == "orb":
@@ -753,8 +753,9 @@ static func on_hit(st: CombatState, e: Dictionary, opt: Dictionary, _dmg: float)
 						for o2 in st.alive_targets():
 							if PGeom.dist(o2.x, o2.y, e.x, e.y) <= dr + o2.r:
 								st.damage_enemy(o2, float(orb.stats.damage) * dm, { "src": src(orb, { "direct": false }), "no_conduct": true })
-		# 무기 공명(보스 보상): 서로 다른 무기 3종이 4초 안에 같은 적 → 폭발(적당 6초 간격)
-		if (b.boss_rewards as Array).has("resonance"):
+		# 무기 공명(보스 보상): 서로 다른 무기 3종이 **직접** 4초 안에 같은 적 → 폭발(적당 6초 간격).
+		# 감전과 달리 여기서는 직접 타격만 센다 — 개조의 추가 타격까지 세면 무기 하나로 3종이 채워진다
+		if bool(sr.get("direct", true)) and (b.boss_rewards as Array).has("resonance"):
 			e.resonance[String(sr.weapon_id)] = st.t
 			var recent := 0
 			for k in e.resonance:
