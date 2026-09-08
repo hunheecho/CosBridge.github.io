@@ -208,7 +208,7 @@ static func _elite_groups(types: Array) -> Array:
 ## 총 등장 수는 날짜 예산표(PPacing.day_total, 사용자 결정 25 → 75)가 정하고 템플릿의 sizes.total은 표가 없을 때의 예비값이다.
 ## 밀도 배율(×5)을 여기에 다시 곱하지 않는다(테마 템플릿은 ref가 있어 PFormation이 배율을 적용하지 않는다).
 ## 경험치 예산(xp_ref)은 개체 수와 무관하게 고정이므로 수가 늘어도 전투당 경험치는 늘지 않는다.
-static func template_waves(tpl: Dictionary, place_key: String, day: int = 0, place_cost: int = 1, deep: bool = false) -> Array:
+static func template_waves(tpl: Dictionary, place_key: String, day: int = 0, place_cost: int = 1, deep: bool = false, duel_type: String = "") -> Array:
 	var sz: Dictionary = tpl.sizes[place_key]
 	var total: int = int(sz.total)
 	if day > 0 and not bool(tpl.get("fixed_total", false)):
@@ -218,17 +218,110 @@ static func template_waves(tpl: Dictionary, place_key: String, day: int = 0, pla
 	var xp_ref: float = float(sz.xp_ref)
 	var wave := []
 	var assigned := 0
-	var first := true
-	var comp: Array = tpl.comp
+	var comp: Array = comp_effective(tpl) # 미구현 종류는 빼고 비중을 나머지에 나눠 준다(총 수·예산 불변)
 	for c in comp:
 		var n: int = int(round(total * float(c.share)))
 		wave.append({ "type": String(c.type), "n": n, "ref": xp_ref * float(c.share) })
 		assigned += n
 	if not wave.is_empty():
 		wave[0].n = int(wave[0].n) + (total - assigned)
+	_pin_budget(wave, tpl, place_key) # 구성이 바뀌어도 전투 경험치 예산은 개편 전 값 그대로
+	_swap_one(wave, common_elite_id(tpl), "common_elite") # 일반 정예 1마리(있을 때만): 일반 적 1마리를 대신한다
+	_swap_one(wave, duel_type, "duel")                    # 결투 상대 1마리: 일반 적 1마리를 대신한다
 	for g in _elite_groups(elite_types_for(tpl, place_key, deep)): # 정예는 마지막. 종류만 템플릿이 정하고 마리 수는 elites 그대로다
 		wave.append(g)
 	return [wave]
+
+## **전투 경험치 예산 고정**(총 등장 수·보상 예산 불변 규칙).
+##
+## 예산은 종류별 단위값(growth.XP_VALUE) × 경험치 기준(ref)의 합이라, 편성 **구성**이 바뀌면
+## 같은 xp_ref 라도 실제 예산이 달라진다. 그래서 각 편성이 개편 **전에** 가지고 있던 예산을
+## data/themes.json 의 xp_units 에 적어 두고, 여기서 ref 전체를 그 값에 맞춰 되돌린다.
+## 미구현 종류를 건너뛰어 비중이 바뀌었을 때도 같은 값이 나온다.
+static func _pin_budget(wave: Array, tpl: Dictionary, place_key: String) -> void:
+	var target: float = float((tpl.get("xp_units", {}) as Dictionary).get(place_key, 0.0))
+	if target <= 0.0 or wave.is_empty():
+		return
+	var XPV: Dictionary = PCatalog.growth().XP_VALUE
+	var cur := 0.0
+	for g in wave:
+		cur += float(XPV.get(String(g.type), 5.0)) * float(g.get("ref", float(g.n)))
+	if cur <= 0.0:
+		return
+	var k: float = target / cur
+	for g in wave:
+		g.ref = float(g.get("ref", float(g.n))) * k
+
+## 이 종류가 지금 카탈로그에 있는가(미구현 예정 종류는 아직 없다).
+## PCatalog.enemy()는 없는 종류에 오류를 찍으므로 여기서는 사전을 직접 본다(예정 종류는 오류가 아니다)
+static func enemy_ready(type: String) -> bool:
+	return type != "" and PCatalog.enemies().has(type)
+
+## 아직 만들어지지 않은 예정 종류인가(data/themes.json planned_types). 보고·검사용
+static func planned_type(type: String) -> bool:
+	return (themes_root().get("planned_types", {}).get("types", []) as Array).has(type)
+
+## **일반 정예**인가(특수 정예와 구분). 특수 정예는 data/elites.json 에 있는 7종이고,
+## 늑대 우두머리(wolf_alpha)는 옛 정예다. 그 밖에 elite 로 표시된 종류가 일반 몬스터의 정예판이다.
+## 일반 정예는 특수 정예 예고·추가 금화·결투의 대상이 아니다(보상 예산이 늘지 않는다).
+static func is_common_elite(type: String) -> bool:
+	if not enemy_ready(type) or not bool(PCatalog.enemies()[type].get("elite", false)):
+		return false
+	return not PCatalog.elites().has(type) and type != "wolf_alpha"
+
+## 미구현 예정 종류(data/themes.json planned_types)를 뺀 편성 구성.
+## 빠진 비중은 남은 종류에 **비례 배분**하므로 총 등장 수·경험치 예산이 달라지지 않는다.
+## 종류가 생기면 이 함수가 그대로 통과시킨다(데이터를 다시 고칠 필요 없음).
+static func comp_effective(tpl: Dictionary) -> Array:
+	var keep := 0.0
+	var drop := 0.0
+	for c in (tpl.comp as Array):
+		if enemy_ready(String(c.type)):
+			keep += float(c.share)
+		else:
+			drop += float(c.share)
+	if drop <= 0.0:
+		return tpl.comp
+	if keep <= 0.0: # 전부 미구현이면 첫 종류만 남겨 빈 편성을 만들지 않는다(있을 수 없는 경우의 방어)
+		return [{ "type": String((tpl.comp as Array)[0].type), "share": 1.0 }]
+	var out := []
+	for c in (tpl.comp as Array):
+		if not enemy_ready(String(c.type)):
+			continue
+		out.append({ "type": String(c.type), "share": float(c.share) * (1.0 + drop / keep), "role": String(c.get("role", "")) })
+	return out
+
+## 일반 정예(common_elite)의 실제 id. `<종류>_elite` 가 카탈로그에 있고 경험치 단위값도 정의돼 있을 때만 쓴다.
+## 없으면 ""(그 자리는 그냥 일반 개체로 남는다). **정예가 없다고 늑대 우두머리로 메우지 않는다.**
+static func common_elite_id(tpl: Dictionary) -> String:
+	var ce: Dictionary = tpl.get("common_elite", {})
+	if ce.is_empty():
+		return ""
+	var id := String(ce.get("type", "")) + "_elite"
+	if not enemy_ready(id):
+		return ""
+	return id if (PCatalog.growth().XP_VALUE as Dictionary).has(id) else ""
+
+## 웨이브에서 **일반 적 한 마리를 빼고** 그 자리에 다른 종류 한 마리를 넣는다.
+## 총 등장 수는 그대로이고, 경험치 기준(ref)은 budget_from 으로 원래 종류의 단위값을 따라간다
+## (PFormation.from_waves 가 단위값 비율로 환산한다) — 종류를 바꿔도 전투 경험치 예산이 늘지 않는다.
+static func _swap_one(wave: Array, type: String, flag: String) -> void:
+	if type == "":
+		return
+	var bi := -1
+	for i in wave.size():
+		var g: Dictionary = wave[i]
+		if int(g.n) >= 2 and not bool(PCatalog.enemy(String(g.type)).get("elite", false)) and (bi < 0 or int(g.n) > int(wave[bi].n)):
+			bi = i
+	if bi < 0:
+		return
+	var base: Dictionary = wave[bi]
+	var slice: float = float(base.get("ref", float(base.n))) / float(base.n)
+	base.n = int(base.n) - 1
+	base.ref = float(base.get("ref", 0.0)) - slice
+	var e := { "type": type, "n": 1, "ref": slice, "budget_from": String(base.type) }
+	e[flag] = true
+	wave.append(e)
 
 static func theme_place_key(region_id: String) -> String:
 	var t := PCatalog.theme(PCatalog.theme_of_place(region_id))
@@ -258,7 +351,94 @@ static func theme_density_override(region_id: String, formation_id: String, act:
 	var cap: int = int(tpl.sizes[pk].alive_cap)
 	if act > 0 and not bool(tpl.get("fixed_alive_cap", false)):
 		cap = PPacing.alive_cap(act, cap, cap_set)
-	return { "alive_cap": cap, "squad_mix": true, "tail_boost": not bool(tpl.get("fixed_total", false)), "group": int(tpl.get("group", 3)), "interval": float(tpl.get("interval", 1.0)), "type_alive_cap": PPacing.type_alive_cap(tpl.get("type_caps", {}), cap), "multiplier": 1.0, "multiplier_by_type": {}, "set_name": "template" }
+	return { "alive_cap": cap, "squad_mix": true, "squad": tpl.get("squad", {}), "kind": String(tpl.get("kind", "")), "tail_boost": not bool(tpl.get("fixed_total", false)), "group": int(tpl.get("group", 3)), "interval": float(tpl.get("interval", 1.0)), "type_alive_cap": PPacing.type_alive_cap(tpl.get("type_caps", {}), cap), "multiplier": 1.0, "multiplier_by_type": {}, "set_name": "template" }
+
+# ---------- 특수 정예 결투(할 일 4·5) ----------
+## data/themes.json 의 뿌리 블록(duel·planned_types·squad_rule)을 읽는다.
+## PCatalog 에 이 블록의 접근자가 아직 없어(다른 담당 파일) 캐시된 로더를 직접 쓴다 — 필요한 훅으로 보고했다.
+static func themes_root() -> Dictionary:
+	return PCatalog._load("themes")
+
+static func duel_cfg() -> Dictionary:
+	return themes_root().get("duel", {})
+
+static func duel_enabled() -> bool:
+	return bool(duel_cfg().get("enabled", false))
+
+## 이 테마의 특수 정예 후보(사용자 배정). 카탈로그에 없는 id 는 조용히 뺀다
+static func duel_types_for(theme_id: String) -> Array:
+	var out := []
+	for t in (PCatalog.theme(theme_id).get("special_elites", []) as Array):
+		if enemy_ready(String(t)):
+			out.append(String(t))
+	return out
+
+## 막 안에서 몇 번째 날인가(1~3). 막 정의가 없으면 0
+static func day_in_act(run: Dictionary, day: int) -> int:
+	var a := act_of(run, day)
+	if a.is_empty():
+		return 0
+	var i := 1
+	for x in (a.get("days", []) as Array):
+		if int(x) == day:
+			return i
+		i += 1
+	return 0
+
+## 하루의 카드가 모두 정해진 뒤 **한 장에만** 특수 정예 결투를 붙인다. **난수를 쓰지 않는다**(시드·저장 재현 유지).
+##
+## 규칙: 막 안 날짜마다 결투 자리가 하나 있고(선호 카드 순번은 data/themes.json duel.day_card_pref),
+## 그 자리가 위험 카드면 같은 날의 다른 카드로 옮긴다(위험 카드는 이미 편성 안에 특수 정예가 있다).
+## 후보는 **막 안 날짜**로 고르므로 서로 다른 두 날에서는 반드시 다른 종류가 나온다 —
+## 한 막(3일)에서 하루가 통째로 위험 카드여도 **서로 다른 두 종류**를 만날 기회가 남는다.
+static func assign_duel(run: Dictionary, day: int, cards: Array) -> void:
+	for c in cards:
+		c.duelType = ""
+		c.duelName = ""
+	if not duel_enabled() or cards.is_empty():
+		return
+	var d_in := day_in_act(run, day)
+	if d_in <= 0:
+		return
+	var pref := int(duel_cfg().get("day_card_pref", {}).get(str(d_in), 0))
+	var pick := -1
+	for k in cards.size():
+		var i: int = (pref + k) % cards.size()
+		if cards[i].get("risk", null) == null and is_theme_place(String(cards[i].regionId)):
+			pick = i
+			break
+	if pick < 0:
+		return
+	var cands := duel_types_for(PCatalog.theme_of_place(String(cards[pick].regionId)))
+	if cands.is_empty():
+		return
+	var dt := String(cands[d_in % cands.size()])
+	cards[pick].duelType = dt
+	cards[pick].duelName = String(PCatalog.enemies()[dt].name)
+
+## 더 깊이 탐험에서 붙는 추가 결투 상대(자리와 겹치지 않게 다음 후보). 이미 결투가 있으면 그대로 둔다
+static func duel_type_deep(run: Dictionary, sortie: Dictionary) -> String:
+	if not duel_enabled() or not bool(duel_cfg().get("deep_extra", false)):
+		return ""
+	var rid := String(sortie.get("regionId", ""))
+	if not is_theme_place(rid) or String(sortie.get("duelType", "")) != "":
+		return String(sortie.get("duelType", ""))
+	var cands := duel_types_for(PCatalog.theme_of_place(rid))
+	if cands.is_empty():
+		return ""
+	return String(cands[(int(run.get("day", 1)) + int(sortie.get("encounters", 0))) % cands.size()])
+
+## 출격 **전에** 보여 줄 강적 예고(화면·봇 공용, 표시는 다른 담당이 그린다).
+## { present, type, name, role, read{}, hp, reward, text }
+static func duel_notice(run: Dictionary, region_id: String, duel_type: String) -> Dictionary:
+	if duel_type == "":
+		return { "present": false, "type": "", "name": "", "text": "" }
+	var d := PCatalog.enemy(duel_type)
+	var ed := PCatalog.elite_def(duel_type)
+	return { "present": true, "type": duel_type, "name": String(d.get("name", duel_type)), "role": String(d.get("role", "")),
+		"read": ed.get("read", {}), "hp": PPacing.elite_hp(duel_type, int(act_of(run).get("id", 1))),
+		"reward": PSortie.elite_reward_text(run, region_id),
+		"text": "%s · %s" % [String(duel_cfg().get("notice", "마지막에 강적이 나타난다")), String(d.get("name", duel_type))] }
 
 ## 방문 상인이 오는 날짜(회차 특징으로 바뀔 수 있음)
 static func merchant_days(run: Dictionary) -> Array:
@@ -299,7 +479,7 @@ static func formation_options(region_id: String, day: int, risk: bool = false) -
 			return [{ "id": String(fd.id), "name": String(fd.name), "desc": String(fd.get("desc", "")) }]
 		var outt := []
 		for f in (t.formations.risk if risk else t.formations.normal):
-			outt.append({ "id": String(f.id), "name": String(f.name), "desc": String(f.get("desc", "")) })
+			outt.append({ "id": String(f.id), "name": String(f.name), "desc": String(f.get("desc", "")), "goal": String(f.get("goal", "")), "kind": String(f.get("kind", "")) })
 		return outt
 	var out := [{ "id": "base", "name": "기본", "desc": "" }]
 	if region_id == "forest" and day <= 1:
@@ -312,13 +492,13 @@ static func formation_options(region_id: String, day: int, risk: bool = false) -
 		out.append({ "id": String(a.id), "name": String(a.name), "desc": String(a.get("desc", "")) })
 	return out
 
-static func formation_waves(region_id: String, day: int, formation_id: String, deep: bool = false) -> Array:
+static func formation_waves(region_id: String, day: int, formation_id: String, deep: bool = false, duel_type: String = "") -> Array:
 	if is_theme_place(region_id):
 		var tpl := theme_template(region_id, formation_id)
 		if tpl.is_empty():
 			var t := PCatalog.theme(PCatalog.theme_of_place(region_id))
 			tpl = (t.formations.normal as Array)[0]
-		return template_waves(tpl, theme_place_key(region_id), day, place_cost(region_id), deep)
+		return template_waves(tpl, theme_place_key(region_id), day, place_cost(region_id), deep, duel_type)
 	if formation_id == "" or formation_id == "base":
 		return day_waves(region_id, day)
 	var FS: Dictionary = W().get("formation_sets", {})
@@ -726,12 +906,15 @@ static func _copy_waves(src: Array) -> Array:
 			var e := { "type": String(g.type), "n": int(g.n) }
 			if g.has("ref"):
 				e.ref = float(g.ref) # 테마 템플릿의 경험치 기준(최종 수 명시 표시)
+			for k in ["budget_from", "duel", "common_elite"]: # 예산 이관·결투 상대·일반 정예 표시는 복사에서 빠지면 안 된다
+				if g.has(k):
+					e[k] = g[k]
 			wave.append(e)
 		out.append(wave)
 	return out
 
 static func encounter_waves(region_id: String, deep: bool, run: Dictionary, sortie: Dictionary = {}) -> Array:
-	var waves := _copy_waves(formation_waves(region_id, int(run.get("day", 1)), String(sortie.get("formationId", "base")), deep))
+	var waves := _copy_waves(formation_waves(region_id, int(run.get("day", 1)), String(sortie.get("formationId", "base")), deep, String(sortie.get("duelType", ""))))
 	var v = sortie.get("variant", null)
 	if v != null:
 		if bool(v.get("dropLastWave", false)) and waves.size() > 1:
@@ -769,6 +952,8 @@ static func encounter_waves(region_id: String, deep: bool, run: Dictionary, sort
 	var elites_n := 0
 	for w in waves:
 		for g in w:
+			if bool(g.get("duel", false)):
+				continue # 결투 상대는 일반 전투 편성 밖이다: 호위 +1도 정예 상한 계산도 대상이 아니다
 			if bool(PCatalog.enemy(String(g.type)).get("elite", false)):
 				elites_n += int(g.n)
 			else:
@@ -782,7 +967,7 @@ static func encounter_waves(region_id: String, deep: bool, run: Dictionary, sort
 			var g: Dictionary = last[i]
 			if over <= 0:
 				break
-			if not bool(PCatalog.enemy(String(g.type)).get("elite", false)):
+			if bool(g.get("duel", false)) or not bool(PCatalog.enemy(String(g.type)).get("elite", false)):
 				continue
 			var cut: int = mini(over, int(g.n))
 			g.n = int(g.n) - cut
@@ -911,6 +1096,9 @@ static func deep_explore(run: Dictionary, sortie: Dictionary) -> bool:
 	sortie.deep = true
 	sortie.deepDone = true
 	sortie.deepReward = deep_preview(run, sortie).reward
+	var dt := duel_type_deep(run, sortie) # 더 깊은 곳: 추가 조우(자리가 아니어도 결투가 붙는다)
+	if dt != "":
+		sortie.duelType = dt
 	return true
 
 ## 더 깊이 승리: 표시된 보상을 미정산 전리품에 얹는다(귀환 시 정산). null이면 이미 반영됨/없음

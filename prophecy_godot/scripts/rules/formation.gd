@@ -13,6 +13,10 @@ static func from_waves(waves: Array, override: Dictionary, region_id: String, st
 	var units := []
 	var html_counts := {}
 	var godot_counts := {}
+	var kill_mult: float = float(st.opts.get("xp_kill_mult", 0.3)) # 처치 경험치 배율(사용자 채택 ×0.3, D08). 회차가 run.balance로 넘긴다
+	var counts_order := []   # 분대 편성용: comp 순서를 지킨 종류 목록(정예·구조물 제외)
+	var counts := {}
+	var duel := {}
 	for wave in waves:
 		for g in wave:
 			var type := String(g.type)
@@ -21,21 +25,184 @@ static func from_waves(waves: Array, override: Dictionary, region_id: String, st
 			var scaled: bool = not bool(d.get("elite", false)) and not bool(d.get("boss", false)) and not bool(d.get("structure", false)) and not g.has("ref")
 			var m_t: float = float(by_type.get(type, mult))
 			var total: int = int(round(float(n) * m_t)) if scaled else n # 테마 템플릿(ref 있음)은 최종 수를 명시: 배율 이중 적용 없음
-			html_counts[type] = float(html_counts.get(type, 0.0)) + (float(g.ref) if g.has("ref") else float(n)) # ref = 경험치 예산의 HTML 상당 수
+			# 경험치 예산 이관(budget_from): 다른 종류의 자리를 대신 차지한 개체(일반 정예·결투 상대)는
+			# **그 종류의 단위값 기준으로** 예산을 받는다. 그래야 종류를 바꿔도 전투 경험치 예산이 그대로다.
+			var ref_v: float = (float(g.ref) if g.has("ref") else float(n))
+			if g.has("budget_from"):
+				var u_from := PGrowth.xp_value_unit(String(g.budget_from), false, region_id, kill_mult)
+				var u_this := PGrowth.xp_value_unit(type, false, region_id, kill_mult)
+				if u_this > 0.0:
+					ref_v = ref_v * u_from / u_this
+			html_counts[type] = float(html_counts.get(type, 0.0)) + ref_v # ref = 경험치 예산의 HTML 상당 수
 			godot_counts[type] = int(godot_counts.get(type, 0)) + total
+			if bool(g.get("duel", false)): # 결투 상대: 대기열에 넣지 않고 일반 전투가 끝난 뒤 따로 등장한다
+				duel = { "type": type, "n": total }
+				continue
+			if not counts.has(type):
+				counts[type] = 0
+				counts_order.append(type)
+			counts[type] = int(counts[type]) + total
 			for i in total:
 				units.append(type)
-	if bool(D.get("squad_mix", false)): # 본편 테마 편성에만. 승인된 기준 전투·옛 지역 일정은 기존 순서 그대로
+	var squads := []
+	var spec: Dictionary = D.get("squad", {})
+	if not spec.is_empty() and units.size() > 1: # 분대 편성(지시 3): 역할이 갖춰진 묶음으로 순서를 만든다
+		var built := build_squads(counts_order, counts, spec)
+		units = built.units
+		squads = built.squads
+	elif bool(D.get("squad_mix", false)): # 본편 테마 편성에만. 승인된 기준 전투·옛 지역 일정은 기존 순서 그대로
 		units = mix_squads(units)
 	var tiers := assign_tiers(units, st.opts.get("tier_mix", { "normal": 1.0 }))
+	apply_tiers_to_squads(squads, tiers)
 	var xp_map := {}
-	var kill_mult: float = float(st.opts.get("xp_kill_mult", 0.3)) # 처치 경험치 배율(사용자 채택 ×0.3, D08). 회차가 run.balance로 넘긴다
 	for type in html_counts:
 		var unit := PGrowth.xp_value_unit(type, false, region_id, kill_mult)
 		xp_map[type] = round(unit * float(html_counts[type]) / float(maxi(1, int(godot_counts[type]))) * 10000.0) / 10000.0
 	if not (override.get("alive_cap", null) == null): # 템플릿이 준 동시 상한·종류별 상한
 		D.alive_cap = int(override.alive_cap)
-	return { "units": units, "tiers": tiers, "alive_cap": int(D.alive_cap), "tail_boost": bool(D.get("tail_boost", false)), "group": int(D.group), "interval": float(D.interval), "type_caps": D.get("type_alive_cap", {}).duplicate(), "xp_map": xp_map, "html_counts": html_counts, "godot_counts": godot_counts, "multiplier": mult, "xp_default_scale": 1.0 / mult, "tier_counts": tier_counts(tiers) }
+	return { "units": units, "tiers": tiers, "squads": squads, "duel": duel, "alive_cap": int(D.alive_cap), "tail_boost": bool(D.get("tail_boost", false)), "group": int(D.group), "interval": float(D.interval), "type_caps": D.get("type_alive_cap", {}).duplicate(), "xp_map": xp_map, "html_counts": html_counts, "godot_counts": godot_counts, "multiplier": mult, "xp_default_scale": 1.0 / mult, "tier_counts": tier_counts(tiers) }
+
+## 분대 편성(지시 3). **종류별 총 수는 그대로 두고 등장 순서와 묶음만 만든다.**
+##
+## 왜 있는가: 개별 몬스터를 한 마리씩 독립 추첨해 줄 세우면 "앞에서 접근 / 뒤에서 지원 / 측면·시간차"라는
+## 관계가 생기지 않는다. 여기서 만드는 분대는 그 관계를 자리(slot)와 시간차(delay)로 갖는다.
+##
+## spec(템플릿 data/themes.json 의 squad):
+##   size          — 한 분대의 최대 인원
+##   slots         — 종류 → front(앞에서 접근) | support(뒤에서 지원) | flank(측면·시간차)
+##   delay         — 자리 → 같은 분대 안에서 늦게 도착하는 초
+##   stage_weight  — 종류 → [초반, 중반, 후반] 비중. **없으면 구간을 두지 않는다**(모든 출격에 세 구간을 강제하지 않는다)
+##
+## 규칙: 분대의 첫 자리는 front 가 남아 있으면 front · 한 분대의 support 비율 상한(PPacing.support_share_per_group)
+## · 구간 끝에 support 만 남으면 앞 분대에 붙인다(지원병을 혼자 보내지 않는다).
+static func build_squads(order: Array, counts: Dictionary, spec: Dictionary) -> Dictionary:
+	var size: int = maxi(1, int(spec.get("size", 4)))
+	var slots: Dictionary = spec.get("slots", {})
+	var delay: Dictionary = spec.get("delay", {})
+	var sw: Dictionary = spec.get("stage_weight", {})
+	var max_support: int = maxi(1, int(floor(float(size) * PPacing.support_share_per_group())))
+	var stage_ids := ["open", "core", "late"] if not sw.is_empty() else ["all"]
+	var per_stage := []
+	for si in stage_ids.size():
+		per_stage.append({})
+	for tp in order:
+		var n: int = int(counts[tp])
+		if stage_ids.size() == 1:
+			(per_stage[0] as Dictionary)[tp] = n
+			continue
+		var w: Array = sw.get(tp, [1.0, 1.0, 1.0])
+		var sum_w := 0.0
+		for x in w:
+			sum_w += maxf(0.0, float(x))
+		var assigned := 0
+		var rema := []
+		for si in stage_ids.size():
+			var raw: float = (float(w[si]) / sum_w * float(n)) if sum_w > 0.0 else (float(n) / float(stage_ids.size()))
+			var k := int(floor(raw))
+			(per_stage[si] as Dictionary)[tp] = k
+			assigned += k
+			rema.append([raw - float(k), si])
+		rema.sort_custom(func(a, b): return float(a[0]) > float(b[0])) # 나머지는 소수부가 큰 구간부터(총 수 보존)
+		var left := n - assigned
+		var ri := 0
+		while left > 0:
+			var si2: int = int(rema[ri % rema.size()][1])
+			(per_stage[si2] as Dictionary)[tp] = int((per_stage[si2] as Dictionary)[tp]) + 1
+			left -= 1
+			ri += 1
+	var squads := []
+	var units := []
+	for si in stage_ids.size():
+		var rem: Dictionary = per_stage[si]
+		var stage := String(stage_ids[si])
+		while true:
+			var total_left := 0
+			for tp in order:
+				total_left += int(rem.get(tp, 0))
+			if total_left <= 0:
+				break
+			var sq := { "stage": stage, "members": [] }
+			var sup_n := 0
+			while (sq.members as Array).size() < size:
+				var pick := _pick_member(order, rem, slots, sq, sup_n, max_support)
+				if pick == "":
+					break
+				var slot := String(slots.get(pick, "front"))
+				rem[pick] = int(rem[pick]) - 1
+				(sq.members as Array).append({ "type": pick, "slot": slot, "delay": float(delay.get(slot, 0.0)), "tier": "normal" })
+				if slot == "support":
+					sup_n += 1
+			if (sq.members as Array).is_empty(): # 상한 때문에 한 명도 못 골랐다면 남은 것을 그대로 낸다(수를 잃지 않는다)
+				for tp in order:
+					if int(rem.get(tp, 0)) > 0:
+						var sl := String(slots.get(tp, "front"))
+						rem[tp] = int(rem[tp]) - 1
+						(sq.members as Array).append({ "type": tp, "slot": sl, "delay": float(delay.get(sl, 0.0)), "tier": "normal" })
+						break
+			squads.append(sq)
+	_spread_supportless(squads) # 지원만 남은 분대를 앞 분대들에 나눠 붙인다(지원병을 혼자 보내지 않는다)
+	for sq in squads:
+		for m in sq.members:
+			units.append(String(m.type))
+	return { "units": units, "squads": squads }
+
+## 앞에서 접근하는 적이 하나도 없는 분대를 없앤다. 그 구성원을 **front 가 있는 분대들에 돌아가며** 붙여
+## 한 분대가 지나치게 커지지 않게 한다. 종류별 수는 그대로다(총 등장 수 불변).
+static func _spread_supportless(squads: Array) -> void:
+	var hosts := []
+	for sq in squads:
+		for m in (sq.members as Array):
+			if String(m.slot) == "front":
+				hosts.append(sq)
+				break
+	if hosts.is_empty():
+		return
+	var keep := []
+	var hi := 0
+	for sq in squads:
+		if hosts.has(sq):
+			keep.append(sq)
+			continue
+		for m in (sq.members as Array):
+			(hosts[hi % hosts.size()].members as Array).append(m)
+			hi += 1
+	squads.clear()
+	squads.append_array(keep)
+
+## 이 분대에 넣을 다음 한 마리. 첫 자리는 front 우선, support 는 분대 상한까지만.
+## 같은 조건이면 **아직 많이 남은 종류**를 먼저(편성 비율이 구간 안에서 유지된다). 난수를 쓰지 않는다.
+static func _pick_member(order: Array, rem: Dictionary, slots: Dictionary, sq: Dictionary, sup_n: int, max_support: int) -> String:
+	var first: bool = (sq.members as Array).is_empty()
+	var best := ""
+	var best_n := -1
+	for tp in order:
+		var n: int = int(rem.get(tp, 0))
+		if n <= 0:
+			continue
+		var slot := String(slots.get(tp, "front"))
+		if slot == "support" and sup_n >= max_support:
+			continue
+		if first and slot != "front" and _has_slot_left(order, rem, slots, "front"):
+			continue # 분대의 첫 자리는 앞에서 접근하는 적
+		if n > best_n:
+			best_n = n
+			best = tp
+	return best # "" = 상한 때문에 더 넣을 수 없다(분대를 끊는다)
+
+static func _has_slot_left(order: Array, rem: Dictionary, slots: Dictionary, slot: String) -> bool:
+	for tp in order:
+		if int(rem.get(tp, 0)) > 0 and String(slots.get(tp, "front")) == slot:
+			return true
+	return false
+
+## 등급 배정 결과를 분대 구성원에게 옮긴다(units 와 분대 구성원은 같은 순서다)
+static func apply_tiers_to_squads(squads: Array, tiers: Array) -> void:
+	var i := 0
+	for sq in squads:
+		for m in sq.members:
+			if i < tiers.size():
+				m.tier = String(tiers[i])
+			i += 1
 
 ## 혼합 분대 배치(지시 4): 종류별 수는 그대로 두고 등장 순서만 비율에 맞춰 고르게 섞는다.
 ## 같은 묶음에 근접 호위와 지원 적이 함께 나오고, 마지막에 지원 적만 하나씩 충원되는 순서를 없앤다.
