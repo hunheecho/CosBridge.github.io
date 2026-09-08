@@ -35,7 +35,10 @@ const FIRE_KEYS := {
 	"orb": [], "blades": [], "frost": [], "ember": [], "mine": [],
 }
 ## 내부 계수기가 없고 표준 지표로 바로 세는 보조
-const STD_ONLY := { "orb": ["shocks", "shock_procs", "discharges"] }
+const STD_ONLY := {
+	"orb": ["shocks", "shock_procs", "discharges"],
+	"blades": ["hits"], "frost": ["fires"], "ember": ["fires"], "mine": ["blasts"],
+}
 
 var sub := PSubset.new()
 var rows := []
