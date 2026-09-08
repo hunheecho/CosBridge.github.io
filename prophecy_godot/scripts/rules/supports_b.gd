@@ -39,6 +39,11 @@ static func _slot(st: CombatState, key: String, init: Dictionary) -> Dictionary:
 	if not st.support.has(key):
 		st.support[key] = init
 	var d: Dictionary = st.support[key]
+	# 이미 있는 항목이라도 **빠진 키는 채운다.** 저장 복구나 다른 담당 코드가 같은 이름으로
+	# 모양이 다른 사전을 넣어 두면 여기서 바로 죽기 때문이다(그때도 규칙은 계속 돌아야 한다).
+	for k in init:
+		if not d.has(k):
+			d[k] = init[k]
 	return d
 
 static func plague_stat(st: CombatState) -> Dictionary:
