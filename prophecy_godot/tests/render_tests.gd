@@ -170,6 +170,12 @@ func _run() -> void:
 	var sup_miss := _has_all(sup_body, ["st.support", "\"crow\"", "birds", "\"echo\"", "clones", "doll_obj", "lured", "hp_max"])
 	ok("보조무기 개체를 그리는 코드가 st.support의 birds·clones·doll_obj를 실제로 읽는다", sup_miss.is_empty(), "빠진 읽기=%s" % str(sup_miss))
 
+	# 1-2b. 수호 방울의 남은 충전(날아오는 투사체가 없을 때 "지금 막을 수 있나"를 알 길이 없었다)
+	var bell_body := _fn(src, "draw_bell_charges")
+	ok("수호 방울의 남은 충전을 규칙 값(PSupportA.bell_max·bell_recharge)으로 그리고, 남음/빈자리를 채움 여부로 가른다",
+		bell_body.find("PSupportA.bell_max") >= 0 and bell_body.find("PSupportA.bell_recharge") >= 0
+		and bell_body.find("draw_colored_polygon") >= 0 and bell_body.find("draw_polyline") >= 0)
+
 	# 1-3. 새 투사체 종류
 	var proj_body := _fn(src, "draw_projectiles")
 	ok("draw_projectiles에 되돌림 반격탄(bellshot) 갈래가 있다", proj_body.find("\"bellshot\"") >= 0)

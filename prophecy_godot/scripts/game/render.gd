@@ -979,6 +979,38 @@ static func draw_supports(ci: Node2D, st: CombatState) -> void:
 	draw_crow_birds(ci, st, S.get("crow", {}))
 	draw_echo_clones(ci, st, S.get("echo", {}))
 	draw_doll(ci, st, S.get("doll_obj", {}))
+	draw_bell_charges(ci, st, S.get("bell", {}))
+
+## 수호 방울의 남은 충전. 날아오는 투사체가 없을 때는 "지금 막을 수 있나"를 알 길이 없어서
+## 플레이어 머리 위에 저장된 방울을 그린다. 상한(charges + 겹울림)과 다음 한 개까지의 진행도는
+## 규칙 값(PSupportA.bell_max · bell_recharge)을 그대로 읽는다 — 화면이 수치를 만들지 않는다.
+static func draw_bell_charges(ci: Node2D, st: CombatState, S: Dictionary) -> void:
+	if S.is_empty() or not PSupport.equipped(st, "bell"):
+		return
+	var w := {}
+	for it in st.weapons:
+		if String(it.id) == "bell":
+			w = it
+			break
+	if w.is_empty():
+		return
+	var cap := PSupportA.bell_max(st, w)
+	var have: int = clampi(int(S.get("charges", 0)), 0, cap)
+	var p: Dictionary = st.player
+	var y: float = float(p.y) - float(p.r) * VS - 30.0
+	var x0: float = float(p.x) - float(cap - 1) * 6.0
+	for i in cap:
+		var cx: float = x0 + float(i) * 12.0
+		if i < have:      # 남아 있는 방울: 채운 종 + 테두리
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(cx, y - 5.0), Vector2(cx + 4.0, y + 1.0), Vector2(cx + 4.5, y + 4.0), Vector2(cx - 4.5, y + 4.0), Vector2(cx - 4.0, y + 1.0)]), C("#dff0ff"))
+			ci.draw_circle(Vector2(cx, y + 5.5), 1.6, C("#5aa0d8"))
+		else:             # 빈 자리: 윤곽만(색이 아니라 채움 여부로 갈린다)
+			ci.draw_polyline(PackedVector2Array([Vector2(cx, y - 5.0), Vector2(cx + 4.5, y + 4.0), Vector2(cx - 4.5, y + 4.0), Vector2(cx, y - 5.0)]), rgba(159, 216, 255, 0.45), 1.0)
+	if have < cap:        # 다음 한 개가 차기까지
+		var full: float = maxf(0.05, PSupportA.bell_recharge(st, w))
+		var k: float = clampf(1.0 - float(S.get("rt", full)) / full, 0.0, 1.0)
+		ci.draw_rect(Rect2(float(p.x) - 14.0, y + 8.0, 28.0, 3.0), Color(0, 0, 0, 0.5))
+		ci.draw_rect(Rect2(float(p.x) - 14.0, y + 8.0, 28.0 * k, 3.0), rgba(159, 216, 255, 0.9))
 
 ## 추격 까마귀: 날개를 젓는 새 실루엣(걸어 다니는 개체와 달리 그림자 없이 뜬 채로).
 ## 표적이 있으면 표적까지 가는 점선과 표적 위 고리를 함께 그린다(누구를 쫓는지 읽히게).

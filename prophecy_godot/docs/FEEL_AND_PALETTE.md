@@ -180,6 +180,7 @@ python tools/run_suites.py --suites hud_tests,input_tests,ui_flow_tests,run_test
 | 되돌림 반격탄 | `PRender.draw_projectiles`의 `bellshot` | 투사체 좌표·속도 | 종(鐘) 실루엣 + 뒤로 퍼지는 울림 고리 |
 | 방울 차단 / 근접 수호 | `PRender.draw_impacts`의 `bell_block`·`bell_guard` | `fx{r, ttl}` | 차단 = **닫힌 이중 고리**(완전히 막았다) / 수호 = **반쪽 호**(줄였다). 도형이 다르다 |
 | 돌풍·분신 타격 | 같은 곳의 `wind_gust`·`echo_clone` | `fx{angle, r, half}` | 돌풍은 실제 판정 부채꼴을 **채우지 않고** 호로만, 분신 타격은 두 겹 갈매기 |
+| 수호 방울의 남은 충전 | `PRender.draw_bell_charges` | `st.support.bell.charges/rt` · `PSupportA.bell_max`·`bell_recharge` | 머리 위에 상한만큼의 종 — 남은 것은 **채우고** 빈 자리는 **윤곽만**(색이 아니라 채움 여부) + 다음 한 개까지의 막대 |
 
 ### 5.1 차단 가능/불가를 색이 아니라 도형으로
 
@@ -298,7 +299,7 @@ python tools/run_suites.py --suites hud_tests,input_tests,ui_flow_tests,run_test
 
 ## 10. 검사
 
-`tests/render_tests.gd`(스위트 `render_tests`, 34개 단언).
+`tests/render_tests.gd`(스위트 `render_tests`, 35개 단언).
 **눈으로 보는 검사가 아니라 "그리는 코드가 그 자료를 실제로 읽는가"** 를 본다.
 
 | 절 | 무엇을 본다 |
