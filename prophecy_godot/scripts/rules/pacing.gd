@@ -48,6 +48,35 @@ static func alive_cap_cfg() -> Dictionary: return D().get("alive_cap", {})
 static func alive_cap_set_default() -> String:
 	return String(alive_cap_cfg().get("set_default", "acts"))
 
+
+## **종류별 동시 생존 상한**(2026-09-09 시험값). 전투 말미가 늘어지던 원인이다.
+##
+## 무엇이 문제였나. 편성표의 `type_caps`가 멧돼지 2·궁수 3처럼 **고정된 작은 수**였다.
+## 동시 상한은 막이 오르며 12~18로 커지는데 종류별 상한은 그대로라, 전장이 3분의 1도 차지 않고
+## 상한이 낮은 종류가 대기열 끝에 몰려 두 마리씩 나온다. `tools/tail_probe.gd` 실측으로
+## 2막 t2c_boar_archer는 동시 상한 15인데 실제 최대 생존이 정확히 5마리였고,
+## 전투 77초 중 74초가 '자리는 비었는데 다음 적을 기다린 시간'이었다.
+##
+## 어떻게 고치나. 종류별 상한을 **동시 상한의 비율**로 준다. 막이 올라 동시 상한이 커지면 함께 커진다.
+## 위험이 같이 부풀지 않는 것은 별도의 **동시 위험 공격 상한**(PEnemiesNew.may_start)이 막는다.
+## 총 등장 수·경험치·금화 예산은 건드리지 않는다 — 바뀌는 것은 '한꺼번에 몇 마리가 살아 있는가'뿐이다.
+##
+## 편성표에 적힌 고정값보다 **작아지지는 않는다**(min_cap과 원래 값 중 큰 쪽을 쓴다).
+static func type_alive_cap(base_caps: Dictionary, alive_cap: int) -> Dictionary:
+	var P: Dictionary = D().get("type_alive_cap_proposal", {})
+	var share: Dictionary = P.get("share_by_type", {})
+	if share.is_empty() or alive_cap <= 0:
+		return base_caps.duplicate()
+	var min_cap := int(P.get("min_cap", 2))
+	var out := base_caps.duplicate()
+	for t in share:
+		var want: int = maxi(min_cap, int(round(float(alive_cap) * float(share[t]))))
+		var have: int = int(out.get(t, 0))
+		if have <= 0:
+			continue # 이 편성에 없는 종류는 새로 만들지 않는다
+		out[t] = maxi(have, want)
+	return out
+
 ## 막의 동시 상한. 세트에 값이 없으면 fallback(템플릿 값)을 그대로 쓴다(대조군 legacy)
 static func alive_cap(act: int, fallback: int, set_id: String = "") -> int:
 	if not counts_on():

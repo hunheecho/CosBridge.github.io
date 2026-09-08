@@ -258,7 +258,7 @@ static func theme_density_override(region_id: String, formation_id: String, act:
 	var cap: int = int(tpl.sizes[pk].alive_cap)
 	if act > 0 and not bool(tpl.get("fixed_alive_cap", false)):
 		cap = PPacing.alive_cap(act, cap, cap_set)
-	return { "alive_cap": cap, "squad_mix": true, "tail_boost": not bool(tpl.get("fixed_total", false)), "group": int(tpl.get("group", 3)), "interval": float(tpl.get("interval", 1.0)), "type_alive_cap": (tpl.get("type_caps", {}) as Dictionary).duplicate(), "multiplier": 1.0, "multiplier_by_type": {}, "set_name": "template" }
+	return { "alive_cap": cap, "squad_mix": true, "tail_boost": not bool(tpl.get("fixed_total", false)), "group": int(tpl.get("group", 3)), "interval": float(tpl.get("interval", 1.0)), "type_alive_cap": PPacing.type_alive_cap(tpl.get("type_caps", {}), cap), "multiplier": 1.0, "multiplier_by_type": {}, "set_name": "template" }
 
 ## 방문 상인이 오는 날짜(회차 특징으로 바뀔 수 있음)
 static func merchant_days(run: Dictionary) -> Array:
