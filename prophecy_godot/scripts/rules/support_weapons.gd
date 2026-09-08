@@ -36,24 +36,35 @@ static func gen_max(effect: String) -> int:
 
 ## 지금 피해가 어느 경로에서 왔는지(st.attack_cause + 옵션)를 자격표의 어휘로 바꾼다.
 ## 규칙 코드는 이 함수만 쓰고 st.attack_cause 문자열을 직접 비교하지 않는다.
+## opt로 넘길 수 있는 것: { cause } 직접 지정 · { weapon } 무기 id · { hit } damage_enemy에 넘어간 피해 opt.
+## **hit을 꼭 넘겨라.** 그것이 없으면 '개조가 만든 추가 타격'과 '기본 타격'을 구분할 수 없고,
+## 지뢰 폭발 같은 간접 피해가 직접 타격으로 잘못 분류된다(2026-09-09 SYN-2가 그 결함이었다).
 static func cause_of(st: CombatState, opt: Dictionary = {}) -> String:
-	if opt.has("cause"):
+	if opt.has("cause") and String(opt.cause) != "":
 		return String(opt.cause)
+	var wid := String(opt.get("weapon", ""))
+	var hit: Dictionary = opt.get("hit", {})
+	var sr: Dictionary = hit.get("src", {})
+	if bool(hit.get("dot", false)):
+		return "dot"
+	if wid == "mine":
+		return "mine_blast" # 지뢰는 설치 → 폭발이라 직접 타격이 아니다(무엇이 터뜨렸든)
 	var c := String(st.attack_cause)
 	match c:
-		"", "base":
-			# 주무기의 기본 타격인지 보조의 타격인지는 무기 역할로 가른다
-			var wid := String(opt.get("weapon", ""))
-			if wid != "" and not PCatalog.is_main_weapon(wid):
-				return "support_direct"
-			return "main_direct"
 		"echo": return "main_extra"     # 공용 '메아리'가 만든 주무기 추가 타격
 		"volley": return "main_extra"
 		"orbit": return "support_direct" # 회전 칼날 접촉
-		"mine": return "mine_blast"      # 지뢰 폭발은 직접 타격이 아니다(감전 후속을 부르지 않는다)
+		"mine": return "mine_blast"
 		"zone": return "zone_tick"
 		"dot": return "dot"
-	return c
+	if c != "" and c != "base":
+		return c
+	# 남은 것은 기본 발사 경로다. **개조가 만든 추가 타격**(src.extra 또는 direct:false)은 기본 타격과 다르다 —
+	# 자격표가 main_extra를 따로 두는 이유이고, 그 구분이 없으면 잔류 검흔·여진 같은 것이 아예 자격 심사를 못 받는다
+	var indirect := bool(sr.get("extra", false)) or not bool(sr.get("direct", true))
+	if wid != "" and not PCatalog.is_main_weapon(wid):
+		return "zone_tick" if indirect else "support_direct"
+	return "main_extra" if indirect else "main_direct"
 
 # ---------- 2. 제압 저항 ----------
 ## 적 등급(일반/정예/보스). 구조물은 일반으로 본다
