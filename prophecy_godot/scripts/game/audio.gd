@@ -142,6 +142,23 @@ func reset(st: CombatState, skip_existing: bool = false) -> void:
 	_ev_st_id = st.get_instance_id() if st != null else 0
 	_ev_idx = st.events.size() if (st != null and skip_existing) else 0
 	_evd_idx = st.events_data.size() if (st != null and skip_existing) else 0
+	_break_seen = false
+
+## 보스 지형 파괴 **예고** 전용 소리(docs/BOSS_BREAK.md). 규칙은 파괴가 일어난 뒤에만 shatter를 내주므로
+## 예고에는 소리가 없었다(자격이 설 때 나는 boss_lock은 다른 공격 확정과 같은 소리다).
+## 규칙에 새 이벤트를 넣지 않고 **표시 계층에서** 보스의 파괴 자격(break_want)이 서는 순간을 보고 낸다 —
+## 상태를 읽기만 하고 판정·난수에는 아무 영향이 없다(적중 소리를 기술별로 나누는 것과 같은 방식).
+var _break_seen := false
+
+func _break_warn_due(st: CombatState) -> bool:
+	var want := false
+	for e in st.enemies:
+		if bool(e.get("break_want", false)) and not bool(e.dead):
+			want = true
+			break
+	var fire: bool = want and not _break_seen
+	_break_seen = want
+	return fire
 
 ## 적중 소리를 기술별로 나눈다. 값은 규칙이 이미 내주던 것(form)뿐이고 판정에는 쓰이지 않는다
 const HIT_BY_FORM := { "arc": "hit_arc", "beam": "hit_beam", "melee": "hit_melee", "shot": "hit_shot" }
@@ -159,6 +176,8 @@ func drain(st: CombatState) -> void:
 		_evd_idx = 0
 	if _evd_idx > st.events_data.size():
 		_evd_idx = 0
+	if _break_warn_due(st):     # 파괴 예고: 다른 확정 소리와 섞이지 않게 이벤트 처리 앞에서 한 번만
+		play("break_warn")
 	var r := _plan(st)
 	var played := 0
 	for snd in r.names:
@@ -229,7 +248,9 @@ func _variant(name: String, data: Dictionary, form: String) -> String:
 # ---------- 합성 ----------
 const NAMES := ["hit", "crit", "kill", "hurt", "lock", "bite_lock", "dodge", "perfect", "special", "chest", "win", "lose", "wave", "group", "shoot", "spore", "explode", "shatter", "burst", "bite", "boss_howl", "boss_roar", "boss_land", "boss_sweep", "boss_lock", "orb", "swing", "levelup", "skill_e", "hazard_warn", "hazard_arm", "reinforce", "rescued", "saving", "dash_hit", "timeout", "ui", "ready_dodge", "ready_q", "ready_e", "seal_move_warn", "altar_heal", "block",
 	# 기술별 적중·휘두름(타격감) + 보스 사망 반응
-	"hit_arc", "hit_beam", "hit_melee", "hit_shot", "swing_arc", "swing_beam", "swing_melee", "boss_down"]
+	"hit_arc", "hit_beam", "hit_melee", "hit_shot", "swing_arc", "swing_beam", "swing_melee", "boss_down",
+	# 보스 지형 파괴 **예고**(부서지는 소리 shatter와 반대 방향의 낮은 삐걱임 — 아직 안 부서졌음을 알린다)
+	"break_warn"]
 
 func _has_sound(snd: String) -> bool:
 	return NAMES.has(snd)
@@ -367,6 +388,11 @@ static func _synth(snd: String) -> PackedFloat32Array:
 			b = _tone(b, 0.0, 100.0, 0.3, "sawtooth", 0.15, 40.0)
 		"shatter":
 			b = _tone(b, 0.0, 1500.0, 0.1, "square", 0.1, 900.0)
+		"break_warn": # 파괴 **예고**: 낮은 곳에서 위로 훑는 삐걱임 두 번 + 굵은 잡음.
+			# 실제 파괴음(shatter, 높은 곳에서 아래로 떨어지는 짧은 사각파)과 방향이 반대라 소리만으로 갈린다
+			b = _tone(b, 0.0, 90.0, 0.13, "sawtooth", 0.16, 220.0)
+			b = _tone(b, 0.15, 110.0, 0.13, "sawtooth", 0.16, 260.0)
+			b = _noise(b, 0.0, 0.12, 0.10, 300.0, 21)
 		"bite":
 			b = _noise(b, 0.0, 0.05, 0.2, 400.0, 12)
 			b = _tone(b, 0.0, 220.0, 0.08, "square", 0.15, 90.0)

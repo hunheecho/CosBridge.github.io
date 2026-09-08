@@ -11,7 +11,20 @@ extends RefCounted
 ##   split_node(첫 명중 지점의 분기 결절) · shard(mod=split) 두 갈래 파편 · beam(returning=true) 되돌아오는 검기(선두 갈매기 + 뒤로 끌리는 잔상)
 ##   · arc(mod=cross) 빗금 실루엣 · scar_mark(점선 = 무해한 잔상) vs scar(채워진 부채꼴 = 실제 피해 순간) · bolt(mod=fan) 양옆 2발 · shatter_burst + shard(mod=shatter)
 ## 규칙 보호: 보이게 하려고 실제 사거리·수명·판정 폭을 늘리지 않는다. 장식용 잔상은 점선·윤곽만 써서 위험 범위(채워진 붉은 예고)와 섞이지 않게 한다.
-## 적 예고선은 항상 플레이어 효과 위에 그린다(draw 순서: draw_player_effects → 개체 → 내 적중 연출 → draw_telegraphs).
+## 적 예고선은 항상 플레이어 효과 위에 그린다(draw 순서: draw_player_effects → 개체 → 보조무기 개체 → 내 적중 연출 → draw_telegraphs).
+##
+## 2026-09-09 추가(규칙 담당들이 "화면에 안 나온다"고 적어 둔 것들):
+##   · 보조무기 A·B조 개체(draw_supports): 추격 까마귀 · 잔영 분신 · 도깨비 인형 몸체 · 잔바람 장판(windgust) ·
+##     반격탄(bellshot) · 방울 차단/수호 연출. 적 투사체는 pr.bell_blockable / pr.bell_guard를 읽어
+##     **차단 가능(고리 표식) / 차단 불가(가시 표식)** 를 도형으로 가른다(색만으로 가르지 않는다).
+##     전부 draw_telegraphs **앞**에 그리므로 적 예고·피격 판정을 절대 덮지 않는다.
+##   · 특수 정예 7종 실루엣(draw_elite): 원+이름 대신 역할이 읽히는 도형. 들고 있는 것·몸 형태·예고 부위는
+##     data/elites.json의 read 블록(PCatalog.elite_def(id).read)을 **그대로** 쓴다(화면이 새 자료를 만들지 않는다).
+##     일반 적 / 일반 정예(tier) / 특수 정예는 크기(ELITE_SCALE)·장식(어깨 견장·받침 고리)·무기로 갈린다 — 색만으로 가르지 않는다.
+##     같은 정예라도 테마마다 견장 도형이 바뀐다(palette.json의 elite_mark: 0 삼각 · 1 마름모 · 2 겹사각).
+##   · 주술사 개편: hex_lock 세 줄 · rune_aim 고정 원 · 치료 연결선(PEnemies.support_links)과 대상의 회복 반응.
+##   · 방패병: 방패가 닫힌 방향(guard 부채꼴)과 열린 상태를 도형으로 가르고, 막힌 순간은 흰 방패 + '막음'.
+##   · 보스 지형 파괴: 파괴 자격이 선 장애물(e.break_ob) 위에 전용 예고(부서짐 금 + 카운트 고리)를 공격 예고보다 먼저 그린다.
 ##
 ## 색(막·테마): data/palette.json이 정본이다. 이 파일에 배경·예고 색을 새로 적지 않는다(palette_for → use_palette → _pal).
 ##   1막 초록 / 2막 연주황 / 3막 붉은 주황이며, 테마 9종은 막 색 위에 몇 개 키만 덮어쓴다.
@@ -425,6 +438,21 @@ static func draw_obstacles(ci: Node2D, st: CombatState) -> void:
 				ci.draw_line(Vector2(x + cos(a) * r * 0.8, y + sin(a) * r * 0.8), Vector2(x + cos(a) * (r + 12.0), y + sin(a) * (r + 12.0)), pc("trunk", "#4a3420"), 5.0)
 			stroke_circle(ci, x, y, r, pc("obstacle_edge", "#141816", 0.7), 2.0)
 
+## 나무 가림 반지름(KD-5의 화면 쪽 몫). 규칙(combat_state의 장애물 복사)이 canopy를 참/거짓으로 바꿔 싣기 때문에
+## 예전에는 float(true) = 1.0, 즉 **모든 나무의 가림이 1px 원**으로 그려졌다. 자료의 숫자(60~74)가 살아서 오면 그 값을 쓰고,
+## 참/거짓만 남아 있으면 밑동 반지름에서 되짚는다(랜덤 지형 생성기가 쓰는 r × 2.4와 같은 비율).
+## 규칙 쪽 형(bool)을 바꾸는 것은 담당 밖이라 화면에서만 되짚는다 — 가림은 시야 판정에 쓰이지 않으므로 규칙에 영향이 없다.
+static func canopy_r(ob: Dictionary) -> float:
+	var v = ob.get("canopy", null)
+	if v == null:
+		return 0.0
+	if typeof(v) == TYPE_BOOL:
+		return float(ob.get("r", 26.0)) * 2.4 if bool(v) else 0.0
+	var f := float(v)
+	if f <= 1.5:                                   # 참/거짓이 숫자로 넘어온 값(0.0 = 가림 없음, 1.0 = KD-5)
+		return float(ob.get("r", 26.0)) * 2.4 if f > 0.0 else 0.0
+	return f
+
 static func draw_canopies(ci: Node2D, st: CombatState) -> void:
 	use_palette(st)
 	var p: Dictionary = st.player
@@ -433,7 +461,9 @@ static func draw_canopies(ci: Node2D, st: CombatState) -> void:
 			continue
 		var x: float = ob.x
 		var y: float = ob.y
-		var R: float = float(ob.get("canopy", 70.0))
+		var R: float = canopy_r(ob)
+		if R <= 0.0:
+			continue
 		var near: bool = PGeom.dist(p.x, p.y, x, y) < R + 30.0
 		if not near:
 			for e in st.enemies:
@@ -534,6 +564,17 @@ static func draw_zones(ci: Node2D, st: CombatState) -> void:
 					ci.draw_line(Vector2(zx + cos(a) * zr * 0.2, zy + sin(a) * zr * 0.2), Vector2(zx + cos(a) * zr * 0.8, zy + sin(a) * zr * 0.8), rgba(255, 255, 255, 0.45 * life), 1.2)
 				if PGeom.dist(zx, zy, float(st.player.x), float(st.player.y)) <= zr + float(st.player.r) * 0.5:
 					txt(ci, zx, zy - zr - 6.0, "빙판(걷기 %d%%)" % int(round(float(z.get("slow", 0.6)) * 100.0)), 11, Color(1, 1, 1, 0.85))
+			"windgust": # 잔바람(바람 정령 개조): 피해가 없는 **아군 장판**이라 위험 예고 색을 쓰지 않는다.
+				# 실루엣도 위험 장판(채운 원)과 다르게 — 도는 소용돌이 호 세 겹 + 옅은 점선 테두리만.
+				var wl: float = 0.35 + 0.45 * life
+				dashed_circle(ci, zx, zy, zr, rgba(190, 245, 215, 0.45 * life + 0.15), 1.5, 4.0, 6.0, zt * 1.2)
+				for i in 3:
+					var wa: float = zt * 2.2 + float(i) * 2.1
+					ci.draw_arc(c, zr * (0.32 + 0.24 * float(i)), wa, wa + 2.4, 16, rgba(215, 255, 235, wl * (0.9 - 0.2 * float(i))), 2.0)
+				# z.slow는 '깎을 비율'이다(PSupport.stack_slow의 add). 0.35 = 걸음 35% 감소
+				var slow_pct: int = int(round(float(z.get("slow", 0.0)) * 100.0))
+				if slow_pct > 0 and PGeom.dist(zx, zy, float(st.player.x), float(st.player.y)) <= zr + float(st.player.r) + 40.0:
+					txt(ci, zx, zy - zr - 6.0, "잔바람(적 걸음 −%d%%)" % slow_pct, 10, rgba(200, 255, 225, 0.9))
 			"rubble": # 낙석 잔해(굴착 거수): 서 있으면 0.5초마다 피해
 				ci.draw_circle(c, zr, rgba(150, 110, 70, 0.22 + 0.2 * life))
 				stroke_circle(ci, zx, zy, zr, rgba(210, 170, 120, 0.6 * life + 0.2), 2.0)
@@ -926,6 +967,130 @@ static func mod_cross_arc(ci: CanvasItem, cx: float, cy: float, r: float, ang: f
 	var lead := arc_pts(cx, cy, r * (0.7 + 0.3 * (1.0 - k)), ang - half, ang + half, 18)
 	ci.draw_polyline(lead, col, 4.0 * k + 1.5)
 	ci.draw_line(Vector2(cx, cy), Vector2(cx + cos(ang + half) * r, cy + sin(ang + half) * r), col, 2.5)
+
+# ---------- 보조무기 개체(A·B조). 규칙이 만든 st.support를 읽기만 한다 ----------
+## docs/SUPPORT_A.md 4절 1번 · docs/SUPPORT_B.md 6절 (마)에서 "화면에 없다"고 적어 둔 것들.
+## 그리는 자리는 개체 뒤 · **draw_telegraphs 앞**이라 적 예고와 피격 판정을 절대 덮지 않는다.
+## 여기서 수명·사거리·판정을 만들지 않는다 — 상태에 있는 x/y/ttl/hp만 읽는다.
+static func draw_supports(ci: Node2D, st: CombatState) -> void:
+	var S: Dictionary = st.support
+	if S.is_empty():
+		return
+	draw_crow_birds(ci, st, S.get("crow", {}))
+	draw_echo_clones(ci, st, S.get("echo", {}))
+	draw_doll(ci, st, S.get("doll_obj", {}))
+	draw_bell_charges(ci, st, S.get("bell", {}))
+
+## 수호 방울의 남은 충전. 날아오는 투사체가 없을 때는 "지금 막을 수 있나"를 알 길이 없어서
+## 플레이어 머리 위에 저장된 방울을 그린다. 상한(charges + 겹울림)과 다음 한 개까지의 진행도는
+## 규칙 값(PSupportA.bell_max · bell_recharge)을 그대로 읽는다 — 화면이 수치를 만들지 않는다.
+static func draw_bell_charges(ci: Node2D, st: CombatState, S: Dictionary) -> void:
+	if S.is_empty() or not PSupport.equipped(st, "bell"):
+		return
+	var w := {}
+	for it in st.weapons:
+		if String(it.id) == "bell":
+			w = it
+			break
+	if w.is_empty():
+		return
+	var cap := PSupportA.bell_max(st, w)
+	var have: int = clampi(int(S.get("charges", 0)), 0, cap)
+	var p: Dictionary = st.player
+	var y: float = float(p.y) - float(p.r) * VS - 30.0
+	var x0: float = float(p.x) - float(cap - 1) * 6.0
+	for i in cap:
+		var cx: float = x0 + float(i) * 12.0
+		if i < have:      # 남아 있는 방울: 채운 종 + 테두리
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(cx, y - 5.0), Vector2(cx + 4.0, y + 1.0), Vector2(cx + 4.5, y + 4.0), Vector2(cx - 4.5, y + 4.0), Vector2(cx - 4.0, y + 1.0)]), C("#dff0ff"))
+			ci.draw_circle(Vector2(cx, y + 5.5), 1.6, C("#5aa0d8"))
+		else:             # 빈 자리: 윤곽만(색이 아니라 채움 여부로 갈린다)
+			ci.draw_polyline(PackedVector2Array([Vector2(cx, y - 5.0), Vector2(cx + 4.5, y + 4.0), Vector2(cx - 4.5, y + 4.0), Vector2(cx, y - 5.0)]), rgba(159, 216, 255, 0.45), 1.0)
+	if have < cap:        # 다음 한 개가 차기까지
+		var full: float = maxf(0.05, PSupportA.bell_recharge(st, w))
+		var k: float = clampf(1.0 - float(S.get("rt", full)) / full, 0.0, 1.0)
+		ci.draw_rect(Rect2(float(p.x) - 14.0, y + 8.0, 28.0, 3.0), Color(0, 0, 0, 0.5))
+		ci.draw_rect(Rect2(float(p.x) - 14.0, y + 8.0, 28.0 * k, 3.0), rgba(159, 216, 255, 0.9))
+
+## 추격 까마귀: 날개를 젓는 새 실루엣(걸어 다니는 개체와 달리 그림자 없이 뜬 채로).
+## 표적이 있으면 표적까지 가는 점선과 표적 위 고리를 함께 그린다(누구를 쫓는지 읽히게).
+## 집중 사냥 단계(b.hunt)는 꼬리 깃 개수로 드러낸다 — 색이 아니라 도형으로.
+static func draw_crow_birds(ci: Node2D, st: CombatState, S: Dictionary) -> void:
+	if S.is_empty():
+		return
+	var tgt = S.get("target")
+	if tgt != null and typeof(tgt) == TYPE_DICTIONARY and not bool(tgt.dead):
+		var t2: Dictionary = tgt
+		stroke_circle(ci, float(t2.x), float(t2.y), float(t2.r) + 7.0, rgba(190, 170, 230, 0.5), 1.5)
+		txt(ci, float(t2.x), float(t2.y) - float(t2.r) - 30.0, "까마귀 표적", 10, rgba(200, 185, 235, 0.85))
+	var birds: Array = S.get("birds", [])
+	for i in birds.size():
+		var b: Dictionary = birds[i]
+		var bx: float = b.x
+		var by: float = b.y - 16.0                      # 날아다니는 높이(그림자를 아래에 따로 둔다)
+		var flap: float = sin(st.t * 14.0 + float(i) * 2.0)
+		fill_ellipse(ci, bx, float(b.y) + 4.0, 7.0, 2.6, Color(0, 0, 0, 0.20))
+		var body := PackedVector2Array([Vector2(bx + 11.0, by), Vector2(bx + 2.0, by - 5.0), Vector2(bx - 9.0, by - 2.0), Vector2(bx - 13.0, by + 2.0), Vector2(bx - 2.0, by + 5.0)])
+		ci.draw_colored_polygon(body, C("#2b2436"))
+		body.append(body[0])                              # 어두운 바닥에 묻히지 않게 밝은 윤곽 한 겹
+		ci.draw_polyline(body, C("#9a86c4"), 1.5)
+		ci.draw_polyline(PackedVector2Array([Vector2(bx - 2.0, by - 1.0), Vector2(bx - 6.0, by - 6.0 - 6.0 * flap), Vector2(bx + 3.0, by - 4.0 - 4.0 * flap)]), C("#463a58"), 2.5)
+		ci.draw_polyline(PackedVector2Array([Vector2(bx - 2.0, by + 1.0), Vector2(bx - 6.0, by + 6.0 + 6.0 * flap), Vector2(bx + 3.0, by + 4.0 + 4.0 * flap)]), C("#463a58"), 2.5)
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(bx + 10.0, by), Vector2(bx + 16.0, by + 1.0), Vector2(bx + 10.0, by + 2.0)]), C("#d8b45a"))
+		ci.draw_circle(Vector2(bx + 7.0, by - 1.5), 1.3, C("#ffd166"))
+		for h in mini(4, int(b.get("hunt", 0))):     # 집중 사냥 단계 = 꼬리 깃 수
+			ci.draw_line(Vector2(bx - 10.0, by), Vector2(bx - 17.0 - 3.0 * float(h), by - 4.0 + 3.0 * float(h)), C("#a88fd0"), 1.5)
+
+## 잔영 분신: 본체와 같은 실루엣이 아니라 **윤곽만 있는 반투명 잔상**(진짜 나와 헷갈리지 않게).
+## 타격 차례(next)까지 남은 시간을 발밑 호로 채워, 언제 때리는지 보이게 한다.
+static func draw_echo_clones(ci: Node2D, st: CombatState, S: Dictionary) -> void:
+	if S.is_empty():
+		return
+	for cl in S.get("clones", []):
+		var c: Dictionary = cl
+		var cx: float = c.x
+		var cy: float = c.y
+		var life: float = clampf(1.0 - float(c.t) / maxf(0.001, float(c.ttl)), 0.0, 1.0)
+		var a: float = 0.25 + 0.4 * life
+		fill_ellipse(ci, cx, cy + 17.0 * VS, 11.0 * VS, 4.0 * VS, Color(0, 0, 0, 0.12 * life))
+		var body := PackedVector2Array([Vector2(cx - 6.0 * VS, cy + 14.0 * VS), Vector2(cx - 7.0 * VS, cy - 6.0 * VS), Vector2(cx, cy - 15.0 * VS), Vector2(cx + 7.0 * VS, cy - 6.0 * VS), Vector2(cx + 6.0 * VS, cy + 14.0 * VS)])
+		ci.draw_colored_polygon(body, rgba(150, 205, 255, 0.16 * life))
+		body.append(body[0])
+		ci.draw_polyline(body, rgba(200, 235, 255, a), 1.5)
+		ci.draw_arc(Vector2(cx, cy - 18.0 * VS), 4.5, 0.0, TAU, 12, rgba(200, 235, 255, a), 1.5)
+		var itv: float = maxf(0.001, float(c.get("interval", c.get("delay", 0.35))))
+		var wait: float = clampf(1.0 - maxf(0.0, float(c.next) - float(c.t)) / itv, 0.0, 1.0)
+		ci.draw_arc(Vector2(cx, cy + 17.0 * VS), 12.0, -PI / 2.0, -PI / 2.0 + TAU * wait, 20, rgba(230, 245, 255, 0.7 * life), 2.0)
+
+## 도깨비 인형 몸체: 세울 때 한 번 반짝이고 사라지던 것을 실제 몸으로 그린다.
+## 남은 체력(막대) · 남은 시간(발밑 호) · 지금 끌어 둔 적 수(머리 위 점)를 함께 보여 준다.
+static func draw_doll(ci: Node2D, st: CombatState, d: Dictionary) -> void:
+	if d.is_empty() or bool(d.get("gone", false)):
+		return
+	var dx: float = d.x
+	var dy: float = d.y
+	var r: float = d.r
+	var wob: float = sin(st.t * 3.0) * 0.10
+	shadow(ci, dx, dy + r * 0.7, r * 0.8, r * 0.3)
+	ci.draw_set_transform_matrix(xf(Vector2(dx, dy), wob, Vector2.ONE))
+	ci.draw_line(Vector2(0, r * 0.2), Vector2(0, r * 0.9), C("#6b5030"), 4.0)          # 받침 말뚝
+	rrect(ci, -r * 0.55, -r * 0.25, r * 1.1, r * 0.9, 4.0, C("#c86a4a"))                # 몸통(천)
+	ci.draw_line(Vector2(-r * 1.0, -r * 0.1), Vector2(r * 1.0, -r * 0.1), C("#8a4a34"), 4.0) # 벌린 팔
+	ci.draw_circle(Vector2(0, -r * 0.62), r * 0.42, C("#e8d2a8"))                        # 머리
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.42, -r * 0.78), Vector2(-r * 0.18, -r * 1.12), Vector2(-r * 0.06, -r * 0.74)]), C("#8a4a34")) # 도깨비 뿔
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(r * 0.42, -r * 0.78), Vector2(r * 0.18, -r * 1.12), Vector2(r * 0.06, -r * 0.74)]), C("#8a4a34"))
+	ci.draw_circle(Vector2(-r * 0.16, -r * 0.66), 2.0, C("#3a2018"))
+	ci.draw_circle(Vector2(r * 0.16, -r * 0.66), 2.0, C("#3a2018"))
+	ci.draw_set_transform_matrix(IDENT)
+	var hp: float = clampf(float(d.hp) / maxf(1.0, float(d.hp_max)), 0.0, 1.0)
+	ci.draw_rect(Rect2(dx - r, dy - r * 1.5 - 8.0, r * 2.0, 5.0), Color(0, 0, 0, 0.6))
+	ci.draw_rect(Rect2(dx - r, dy - r * 1.5 - 8.0, r * 2.0 * hp, 5.0), C("#ffd166"))
+	var lured: Dictionary = d.get("lured", {})
+	var n: int = lured.size()
+	for i in n:                                         # 지금 끌어 둔 적 수 = 머리 위 점
+		ci.draw_circle(Vector2(dx - float(n - 1) * 4.0 + float(i) * 8.0, dy - r * 1.5 - 16.0), 2.6, C("#ffe066"))
+	# 남은 시간은 몸을 가리지 않게 **발밑에** 작게 — 인형 실루엣이 먼저 읽혀야 한다
+	ci.draw_arc(Vector2(dx, dy + r * 1.0), r * 0.5, -PI / 2.0, -PI / 2.0 + TAU * clampf(float(d.ttl) / maxf(0.001, float(d.t) + float(d.ttl)), 0.0, 1.0), 20, rgba(255, 209, 102, 0.85), 2.5)
 
 # ---------- 상태 아이콘 ----------
 static func status_icon(ci: Node2D, x: float, y: float, kind: String) -> void:
@@ -1672,15 +1837,32 @@ static func draw_shieldbearer(ci: Node2D, _st: CombatState, e: Dictionary) -> vo
 	var fa: float = float(e.get("face", 0.0))
 	var blocked: bool = float(e.get("blocked_t", 0.0)) > 0.0
 	ci.draw_set_transform_matrix(T * Transform2D(fa + (-1.2 if open else 0.0), Vector2.ZERO))
-	rrect(ci, 10.0, -16.0, 8.0, 32.0, 3.0, Color(1, 1, 1, alpha) if blocked else C("#c9a44a", alpha))
-	ci.draw_rect(Rect2(10, -16, 8, 32), C("#5a4620", alpha), false, 2.0)
+	# 방패 자체: 닫혀 있으면 세운 판(길다), 열려 있으면 눕혀 짧게 — 같은 색이어도 **자세로** 갈린다
+	var sh_h: float = 20.0 if open else 32.0
+	rrect(ci, 10.0, -sh_h / 2.0, 8.0, sh_h, 3.0, Color(1, 1, 1, alpha) if blocked else C("#c9a44a", alpha))
+	ci.draw_rect(Rect2(10, -sh_h / 2.0, 8, sh_h), C("#5a4620", alpha), false, 2.0)
 	ci.draw_rect(Rect2(13, -3, 2, 6), C("#7a5a2a", alpha))
 	if stt == "bash_aim" or stt == "bash":
 		ci.draw_set_transform_matrix(T * Transform2D(fa, Vector2.ZERO))
 		ci.draw_line(Vector2(6, 0), Vector2(24, 0), C("#e8e8f0", alpha), 3.0)
 	ci.draw_set_transform_matrix(IDENT)
+	# 방패가 막아 주는 방향(정면 부채꼴 = 실제 판정 frontDeg)을 몸 앞에 그려, 어디로 돌아야 하는지 보이게 한다.
+	# 규칙(PEnemiesNew.guard_closed)이 닫혔다고 하는 동안에만 그린다 — bash·recover에는 사라지고 '빈틈'이 보인다
+	if not open:
+		var half: float = PGeom.deg(PEnemiesNew.dv(e, "frontDeg", float(e.def.get("frontDeg", 120.0)))) / 2.0
+		var gr: float = float(e.r) * 2.0
+		fill_sector(ci, ex, ey, gr, fa - half, fa + half, rgba(210, 220, 245, 0.10 * alpha))
+		stroke_sector(ci, ex, ey, gr, fa - half, fa + half, rgba(225, 235, 255, 0.55 * alpha), 2.0)
+	else:
+		# 방패를 내린 시간: 정면 감소가 **없다**. 열린 몸 앞에 끊긴 호로 "지금은 정면도 통한다"를 알린다
+		dashed_circle(ci, ex, ey, float(e.r) * 1.7, C("#ffe066", 0.8 * alpha), 2.5, 5.0, 5.0)
+		txt(ci, ex, ey - 42.0, "방패 내림 · 정면도 통한다", 11, C("#ffe066", alpha), 0, true)
 	if blocked:
+		# 막힌 순간: 흰 방패 + 방패 표면의 충격 쐐기(열린 상태의 노란 점선과 도형이 다르다)
 		txt(ci, ex, ey - 30.0, "막음", 11, Color(1, 1, 1, alpha))
+		for i in 3:
+			var ba: float = fa + float(i - 1) * 0.45
+			ci.draw_line(Vector2(ex + cos(ba) * (float(e.r) + 6.0), ey + sin(ba) * (float(e.r) + 6.0)), Vector2(ex + cos(ba) * (float(e.r) + 16.0), ey + sin(ba) * (float(e.r) + 16.0)), Color(1, 1, 1, 0.85 * alpha), 2.5)
 
 static func draw_shaman(ci: Node2D, _st: CombatState, e: Dictionary) -> void:
 	var alpha := begin_alpha(e)
@@ -1830,12 +2012,331 @@ static func draw_rogue(ci: Node2D, st: CombatState, e: Dictionary) -> void:
 	ci.draw_line(Vector2(5, 2), Vector2(16.0 + swing * 6.0, 10.0 - k * 6.0 - swing * 8.0), C("#e6edf5", alpha), 2.5)
 	ci.draw_set_transform_matrix(IDENT)
 
+# ---------- 특수 정예 7종: 역할이 읽히는 실루엣 ----------
+## 사용자 지적: "동그라미와 작은 이름만으로 표현하지 마라." 예전에는 draw_enemy의 '알 수 없는 종류' 갈래로 떨어져
+## 원 하나 + 작은 이름만 나왔다. 여기서는 **무엇을 들고 있어야 역할이 읽히는가**를 규칙 담당이 적어 둔 자료
+## (data/elites.json의 read 블록 = PCatalog.elite_def(id).read)를 읽어 그 부품만 그린다. 화면이 새 자료를 만들지 않는다.
+##
+## 세 등급을 **색이 아니라 크기·장식·무기·행동**으로 가른다:
+##   일반 적        = 받침 고리 없음 · 이름표 없음
+##   일반 정예(tier) = tier_mark의 머리 위 삼각 + 얇은 링(기존 그대로)
+##   특수 정예      = 실제 판정 반지름의 **두 겹 받침 고리 + 눈금 6개** · 어깨 견장 · 역할 무기 · 머리 위 이름표
+## 견장 도형은 테마마다 다르다(palette.json elite_mark: 0 삼각 · 1 마름모 · 2 겹사각) — 같은 정예라도 소속이 읽힌다.
+const ELITE_INTRO_SEC := 4.0     # 처음 조우한 뒤 이 시간 동안만 역할 한 줄을 함께 보여 준다(전투 중 장문 설명 금지)
+const ELITE_VS := 1.45           # 특수 정예 몸 배율(일반 적의 VS 1.25보다 크다 = 크기로도 갈린다). 판정 반지름은 그대로
+const ELITE_HELD_WORDS := [["활", "bow"], ["화살통", "quiver"], ["검", "sword"], ["방패", "shield"], ["송곳니", "fang"],
+	["주머니", "pouch"], ["사슬", "chain"], ["망치", "hammer"], ["깃발", "banner"], ["곡괭이", "pick"]]
+const ELITE_BODY_WORDS := [["마른", "lean"], ["중갑", "bulky"], ["웅크린", "low"], ["후드", "hunched"],
+	["한쪽 팔", "asym"], ["키가 가장 크다", "tall"], ["굵은 팔", "rig"]]
+const ELITE_TELL_WORDS := [["시위", "draw"], ["방패", "guard"], ["뒷다리", "crouch"], ["주머니", "pods"],
+	["사슬", "chain"], ["깃발", "plant"], ["흙", "dirt"]]
+
+static var _elite_props: Dictionary = {}
+
+## read 블록의 낱말 → 실제로 그릴 부품. 자료가 정본이고 화면은 읽기만 한다.
+## held(손에 든 것) · body(몸 형태) · tell(예고 때 커지는 곳) 셋으로 실루엣이 정해지며,
+## 이 셋을 이어 붙인 것이 elite_silhouette_key다(7종이 서로 달라야 한다 — tests/render_tests.gd).
+static func elite_props(id: String) -> Dictionary:
+	if _elite_props.has(id):
+		return _elite_props[id]
+	var R: Dictionary = PCatalog.elite_def(id).get("read", {})
+	var held := String(R.get("held", ""))
+	var sil := String(R.get("silhouette", ""))
+	var tell := String(R.get("tell", ""))
+	var hl := []
+	for pair in ELITE_HELD_WORDS:
+		if held.find(String(pair[0])) >= 0:
+			hl.append(String(pair[1]))
+	var body := ""
+	for pair in ELITE_BODY_WORDS:
+		if body == "" and sil.find(String(pair[0])) >= 0:
+			body = String(pair[1])
+	var tl := ""
+	for pair in ELITE_TELL_WORDS:
+		if tl == "" and tell.find(String(pair[0])) >= 0:
+			tl = String(pair[1])
+	var out := { "held": hl, "body": body, "tell": tl, "read": not R.is_empty(),
+		"role": String(R.get("role_text", "")), "dist": String(R.get("distance", "")) }
+	_elite_props[id] = out
+	return out
+
+## 실루엣 키(시험이 7종의 서로 다름을 확인하는 값). 전부 read 자료에서 나온다
+static func elite_silhouette_key(id: String) -> String:
+	var P := elite_props(id)
+	if not bool(P.read):
+		return ""
+	return "%s|%s|%s" % [".".join(PackedStringArray(P.held)), String(P.body), String(P.tell)]
+
+static func elite_has(P: Dictionary, what: String) -> bool:
+	return (P.held as Array).has(what)
+
+## 테마 소속 견장(도형이 바뀐다 — 색만 바꾸지 않는다). palette.json의 elite_mark/elite_trim이 정본
+static func elite_emblem(ci: CanvasItem, x: float, y: float, s: float, alpha: float) -> void:
+	var shape: int = int(pf("elite_mark", 0.0))
+	var col := pc("elite_trim", "#ffe066", alpha)
+	match shape:
+		1: # 마름모 + 가운데 점
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(x, y - s), Vector2(x + s * 0.72, y), Vector2(x, y + s), Vector2(x - s * 0.72, y)]), col)
+			ci.draw_circle(Vector2(x, y), s * 0.26, Color(0, 0, 0, 0.5 * alpha))
+		2: # 겹사각(작은 것이 큰 것 위에 어긋나게)
+			ci.draw_rect(Rect2(x - s * 0.85, y - s * 0.7, s * 1.7, s * 1.4), col)
+			ci.draw_rect(Rect2(x - s * 0.35, y - s * 1.15, s * 0.9, s * 0.9), Color(col, 0.75 * alpha))
+		_: # 0 = 삼각 + 아래 짧은 술
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(x, y - s), Vector2(x + s * 0.9, y + s * 0.7), Vector2(x - s * 0.9, y + s * 0.7)]), col)
+			ci.draw_line(Vector2(x, y + s * 0.7), Vector2(x, y + s * 1.5), col, 1.5)
+
+## 특수 정예임을 크기·장식으로 알리는 받침 고리. 반지름은 **실제 판정(e.r) 그대로**라 크기를 속이지 않는다
+static func elite_ground_ring(ci: Node2D, e: Dictionary, alpha: float) -> void:
+	var ex: float = e.x
+	var ey: float = e.y
+	var r: float = e.r
+	fill_ellipse(ci, ex, ey + r * 0.75, r * 1.15, r * 0.42, Color(0, 0, 0, 0.18 * alpha))
+	ci.draw_arc(Vector2(ex, ey + r * 0.75), r * 1.15, 0.0, TAU, 28, pc("elite_trim", "#ffe066", 0.55 * alpha), 2.0)
+	ci.draw_arc(Vector2(ex, ey + r * 0.75), r * 0.86, 0.0, TAU, 24, pc("elite_trim", "#ffe066", 0.30 * alpha), 1.0)
+	for i in 6:
+		var a: float = float(i) * TAU / 6.0
+		ci.draw_line(Vector2(ex + cos(a) * r * 1.15, ey + r * 0.75 + sin(a) * r * 0.42), Vector2(ex + cos(a) * r * 1.42, ey + r * 0.75 + sin(a) * r * 0.52), pc("elite_trim", "#ffe066", 0.5 * alpha), 1.5)
+
+static func draw_elite(ci: Node2D, st: CombatState, e: Dictionary) -> void:
+	var id := String(e.type)
+	var P := elite_props(id)
+	var stt := String(e.state)
+	var ex: float = e.x
+	var ey: float = e.y
+	var r: float = e.r
+	# 지하 이동 중(균열 채굴자)에는 몸 대신 흙 두둑만 — 정예 표식도 함께 감춘다
+	if bool(e.get("hidden", false)) or stt == "dive" or stt == "under":
+		var dk: float = 1.0 - clampf(float(e.state_t) / maxf(0.001, float(e.def.get("dive", 0.4))), 0.0, 1.0) if stt == "dive" else 1.0
+		fill_ellipse(ci, ex, ey + 5.0, r * 1.3, r * 0.6, C("#5a4630"), 0.0, 14)
+		fill_ellipse(ci, ex, ey, r * 1.0, r * 0.45, C("#7a6040"), 0.0, 12)
+		if stt == "dive":
+			ci.draw_circle(Vector2(ex, ey - 9.0 * dk), r * 0.55, body_col(e, def_color(e, "#a08050"), maxf(0.0, dk)))
+		return
+	var alpha := begin_alpha(e)
+	if alpha <= 0.0:
+		return
+	var p: Dictionary = st.player
+	var to_p: float = atan2(float(p.y) - ey, float(p.x) - ex)
+	var aim: float = to_p
+	if e.has("aim_angle") and stt.ends_with("_aim"):
+		aim = float(e.aim_angle)
+	elif e.has("dir") and (stt.ends_with("_lock") or stt.ends_with("1") or stt.ends_with("2")):
+		aim = float(e.dir)
+	elif e.has("face"):
+		aim = float(e.face)
+	var face_x: float = 1.0 if cos(aim) >= 0.0 else -1.0
+	var telling: bool = stt.ends_with("_aim") or stt.ends_with("_lock") or stt == "guard" or stt == "swell" or stt == "warn"
+	shadow(ci, ex, ey + r * 0.78, r * 0.75, r * 0.28)
+	elite_ground_ring(ci, e, alpha)
+	var bc := body_col(e, def_color(e, "#c0a060"), alpha)
+	var T := xf(Vector2(ex, ey), 0.0, Vector2(face_x, 1.0))
+	ci.draw_set_transform_matrix(T)
+	# 부품 크기: 일반 적의 시각 배율(VS)보다 한 단계 크게 잡아 **크기로도** 특수 정예임이 읽히게 한다.
+	# 실제 판정 반지름은 발밑 받침 고리가 그대로 보여 주므로 크기를 속이지 않는다.
+	var u: float = r / 18.0 * ELITE_VS
+	elite_body(ci, e, P, bc, alpha, u, stt)
+	elite_held(ci, e, P, alpha, u, stt, telling)
+	ci.draw_set_transform_matrix(IDENT)
+	elite_tell(ci, st, e, P, alpha, aim, telling)
+	elite_label(ci, st, e, P)
+
+## 몸 형태(read.silhouette). 어깨 견장은 어느 형태에나 붙는다 — 테마 소속을 읽히게 하는 장식이다
+static func elite_body(ci: Node2D, e: Dictionary, P: Dictionary, bc: Color, alpha: float, u: float, stt: String) -> void:
+	var dark := C("#2a2620", alpha)
+	var walk: float = sin(float(e.get("move_t", 0.0)) * TAU) * 3.0 * u if stt == "approach" else 0.0
+	match String(P.body):
+		"bulky": # 정예 검사: 두꺼운 중갑, 어깨가 넓다
+			ci.draw_line(Vector2(-5.0 * u, 6.0 * u), Vector2(-5.0 * u + walk, 20.0 * u), dark, 5.0)
+			ci.draw_line(Vector2(5.0 * u, 6.0 * u), Vector2(5.0 * u - walk, 20.0 * u), dark, 5.0)
+			rrect(ci, -11.0 * u, -11.0 * u, 22.0 * u, 20.0 * u, 4.0, bc)
+			ci.draw_rect(Rect2(-14.0 * u, -12.0 * u, 28.0 * u, 5.0 * u), C("#4b4f5e", alpha))   # 넓은 어깨
+			ci.draw_circle(Vector2(0.0, -17.0 * u), 5.5 * u, C("#8d94a6", alpha))
+			elite_emblem(ci, -10.0 * u, -10.0 * u, 3.4 * u, alpha)
+		"low": # 피의 송곳니: 낮게 웅크린 늑대, 몸이 길다
+			var crouch: float = 0.72 if (stt == "leap_aim" or stt == "leap_lock") else 1.0
+			fill_ellipse(ci, -2.0 * u, 2.0 * u, 20.0 * u, 8.0 * u * crouch, bc, 0.0, 18)
+			ci.draw_circle(Vector2(15.0 * u, -1.0 * u), 7.0 * u, bc)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(9.0 * u, -6.0 * u), Vector2(12.0 * u, -13.0 * u), Vector2(14.0 * u, -6.0 * u)]), bc)
+			ci.draw_circle(Vector2(17.0 * u, -3.0 * u), 1.6 * u, C("#ffd166", alpha))
+			for lx in [-14.0, -6.0, 6.0, 13.0]:
+				var sw: float = sin(float(e.get("move_t", 0.0)) * TAU + float(lx)) * 3.0 * u if stt == "approach" else 0.0
+				ci.draw_line(Vector2(float(lx) * u, 6.0 * u * crouch), Vector2(float(lx) * u + sw, 14.0 * u), dark, 3.0)
+			elite_emblem(ci, -12.0 * u, -4.0 * u, 3.0 * u, alpha)
+		"hunched": # 역병 조율사: 후드를 쓴 굽은 등
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-4.0 * u, -20.0 * u), Vector2(-13.0 * u, 14.0 * u), Vector2(11.0 * u, 14.0 * u), Vector2(6.0 * u, -14.0 * u)]), bc)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-6.0 * u, -14.0 * u), Vector2(2.0 * u, -24.0 * u), Vector2(9.0 * u, -13.0 * u)]), C("#4b5a3c", alpha)) # 후드
+			ci.draw_circle(Vector2(3.0 * u, -15.0 * u), 3.0 * u, C("#1e2a18", alpha))
+			elite_emblem(ci, -8.0 * u, -8.0 * u, 3.0 * u, alpha)
+		"asym": # 사슬 집행자: 한쪽 팔이 크다
+			ci.draw_line(Vector2(-5.0 * u, 6.0 * u), Vector2(-5.0 * u + walk, 19.0 * u), dark, 4.5)
+			ci.draw_line(Vector2(5.0 * u, 6.0 * u), Vector2(5.0 * u - walk, 19.0 * u), dark, 4.5)
+			rrect(ci, -8.0 * u, -10.0 * u, 16.0 * u, 18.0 * u, 4.0, bc)
+			fill_ellipse(ci, 12.0 * u, -3.0 * u, 8.0 * u, 6.0 * u, bc, 0.0, 14)                 # 큰 팔
+			ci.draw_circle(Vector2(-1.0 * u, -16.0 * u), 5.0 * u, C("#e0c9a6", alpha))
+			elite_emblem(ci, -8.0 * u, -9.0 * u, 3.2 * u, alpha)
+		"tall": # 군단 기수: 장대 때문에 키가 가장 크다(몸은 보통, 위로 길다)
+			ci.draw_line(Vector2(-4.0 * u, 6.0 * u), Vector2(-4.0 * u + walk, 20.0 * u), dark, 4.0)
+			ci.draw_line(Vector2(4.0 * u, 6.0 * u), Vector2(4.0 * u - walk, 20.0 * u), dark, 4.0)
+			rrect(ci, -7.0 * u, -12.0 * u, 14.0 * u, 20.0 * u, 4.0, bc)
+			ci.draw_circle(Vector2(0.0, -18.0 * u), 5.0 * u, C("#e8d0b0", alpha))
+			ci.draw_rect(Rect2(-7.0 * u, -25.0 * u, 14.0 * u, 4.0 * u), C("#7a5aa0", alpha))     # 지휘관 투구 깃
+			elite_emblem(ci, -7.0 * u, -10.0 * u, 3.2 * u, alpha)
+		"rig": # 균열 채굴자: 굵은 팔 · 등에 굴착 장비
+			ci.draw_line(Vector2(-5.0 * u, 7.0 * u), Vector2(-5.0 * u + walk, 20.0 * u), dark, 5.0)
+			ci.draw_line(Vector2(5.0 * u, 7.0 * u), Vector2(5.0 * u - walk, 20.0 * u), dark, 5.0)
+			ci.draw_rect(Rect2(-14.0 * u, -12.0 * u, 7.0 * u, 16.0 * u), C("#5a4a34", alpha))    # 등의 굴착 장비
+			for i in 3:
+				ci.draw_line(Vector2(-14.0 * u, (-9.0 + 5.0 * float(i)) * u), Vector2(-18.0 * u, (-9.0 + 5.0 * float(i)) * u), C("#8a7450", alpha), 2.0)
+			rrect(ci, -8.0 * u, -11.0 * u, 17.0 * u, 19.0 * u, 4.0, bc)
+			fill_ellipse(ci, 10.0 * u, -4.0 * u, 6.5 * u, 5.0 * u, bc, 0.0, 12)                 # 굵은 팔
+			ci.draw_circle(Vector2(0.0, -16.0 * u), 5.0 * u, C("#e0c9a6", alpha))
+			elite_emblem(ci, -6.0 * u, -9.0 * u, 3.0 * u, alpha)
+		_: # "lean" — 정예 궁수: 가볍고 마른 몸 · 무릎을 굽힌 사격 자세
+			ci.draw_line(Vector2(-4.0 * u, 5.0 * u), Vector2(-7.0 * u + walk, 19.0 * u), dark, 3.0)
+			ci.draw_line(Vector2(4.0 * u, 5.0 * u), Vector2(7.0 * u - walk, 19.0 * u), dark, 3.0)
+			rrect(ci, -5.0 * u, -11.0 * u, 10.0 * u, 17.0 * u, 3.0, bc)
+			ci.draw_circle(Vector2(0.0, -16.0 * u), 4.6 * u, C("#e8c39e", alpha))
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(-6.0 * u, -17.0 * u), Vector2(0.0, -24.0 * u), Vector2(7.0 * u, -17.0 * u)]), C("#4a5a3a", alpha))
+			elite_emblem(ci, -5.0 * u, -8.0 * u, 2.8 * u, alpha)
+
+## 손에 든 것(read.held). 종류마다 다른 무기가 보여야 역할이 읽힌다
+static func elite_held(ci: Node2D, e: Dictionary, P: Dictionary, alpha: float, u: float, stt: String, telling: bool) -> void:
+	if elite_has(P, "quiver"): # 등에 멘 화살통(부채꼴 전에는 화살 세 대)
+		ci.draw_rect(Rect2(-11.0 * u, -14.0 * u, 5.0 * u, 12.0 * u), C("#6b4a2a", alpha))
+		var arrows: int = 3 if (stt == "fan_aim" or stt == "fan_lock") else 2
+		for i in arrows:
+			ci.draw_line(Vector2((-10.0 + float(i) * 1.8) * u, -14.0 * u), Vector2((-13.0 + float(i) * 1.8) * u, -22.0 * u), C("#e8d9b0", alpha), 1.5)
+	if elite_has(P, "bow"): # 긴 활: 몸보다 크다
+		var pull: float = 0.0
+		if stt == "aim" or stt == "fan_aim":
+			pull = clampf(float(e.state_t) / maxf(0.001, float(e.def.get("aim", 0.6))), 0.0, 1.0)
+		elif stt == "shot_lock" or stt == "fan_lock":
+			pull = 1.0
+		ci.draw_arc(Vector2(10.0 * u, -3.0 * u), 15.0 * u, -1.25, 1.25, 16, C("#d9b26f", alpha), 3.0)
+		ci.draw_polyline(PackedVector2Array([Vector2(10.0 * u + cos(-1.25) * 15.0 * u, -3.0 * u + sin(-1.25) * 15.0 * u), Vector2((10.0 - pull * 12.0) * u, -3.0 * u), Vector2(10.0 * u + cos(1.25) * 15.0 * u, -3.0 * u + sin(1.25) * 15.0 * u)]), C("#f0f0f0", alpha), 1.5)
+		if pull > 0.0:
+			ci.draw_line(Vector2((10.0 - pull * 12.0) * u, -3.0 * u), Vector2(26.0 * u, -3.0 * u), C("#ffd9a0", alpha), 2.0)
+	if elite_has(P, "sword"): # 큰 검(중갑) / 짧은 검(기수) — 몸 형태로 길이가 갈린다
+		var L: float = 26.0 * u if String(P.body) == "bulky" else 15.0 * u
+		ci.draw_line(Vector2(6.0 * u, -2.0 * u), Vector2(6.0 * u + L, -2.0 * u - L * 0.35), C("#dfe6f0", alpha), 4.0 if L > 20.0 * u else 2.5)
+		ci.draw_line(Vector2(4.0 * u, 0.0), Vector2(9.0 * u, -4.0 * u), C("#6a5a3a", alpha), 3.0)
+	if elite_has(P, "shield"): # 방패: guard 자세에서 정면을 완전히 덮는다(tell)
+		var big: bool = stt == "guard"
+		var w: float = (9.0 * u) if big else (7.0 * u)
+		var h: float = (34.0 * u) if big else (24.0 * u)
+		var sx: float = (8.0 * u) if big else (-13.0 * u)      # 자세를 잡으면 몸 앞으로 나와 정면을 덮는다
+		var sc: Color = C("#f0f0f0", alpha) if float(e.get("blocked_t", 0.0)) > 0.0 else C("#b9a45a", alpha)
+		rrect(ci, sx, -h / 2.0, w, h, 3.0, sc)
+		ci.draw_rect(Rect2(sx, -h / 2.0, w, h), C("#5a4620", alpha), false, 2.0)
+	if elite_has(P, "fang"): # 무기 없음 — 드러난 송곳니
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(19.0 * u, 1.0 * u), Vector2(23.0 * u, 6.0 * u), Vector2(17.0 * u, 5.0 * u)]), C("#f5efe0", alpha))
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(13.0 * u, 2.0 * u), Vector2(15.0 * u, 7.0 * u), Vector2(11.0 * u, 6.0 * u)]), C("#f5efe0", alpha))
+	if elite_has(P, "pouch"): # 허리에 매단 포자 주머니 3개(남은 개수 = 아직 안 터진 포자)
+		var left: int = 3
+		if telling:
+			left = 0
+			for pod in e.get("pods", []):
+				if not bool((pod as Dictionary).get("done", false)):
+					left += 1
+		for i in left:
+			var pxp: float = (-7.0 + float(i) * 7.0) * u
+			ci.draw_circle(Vector2(pxp, 7.0 * u), 3.4 * u, C("#e6d08a", alpha))       # 몸 색과 갈라야 개수가 읽힌다
+			stroke_circle(ci, pxp, 7.0 * u, 3.4 * u, C("#3a3a20", alpha), 1.5)
+			ci.draw_line(Vector2(pxp, 3.6 * u), Vector2(pxp, 1.0 * u), C("#4a5a34", alpha), 2.0)
+	if elite_has(P, "hammer"): # 한손 망치(반대쪽 손)
+		ci.draw_line(Vector2(-8.0 * u, 0.0), Vector2(-16.0 * u, 8.0 * u), C("#6b4a2a", alpha), 3.0)
+		ci.draw_rect(Rect2(-20.0 * u, 6.0 * u, 7.0 * u, 6.0 * u), C("#8d94a6", alpha))
+	if elite_has(P, "banner"): # 깃발 장대: 키를 가장 크게 만든다
+		ci.draw_line(Vector2(9.0 * u, 14.0 * u), Vector2(9.0 * u, -40.0 * u), C("#6b4a2a", alpha), 3.0)
+		var wave: float = sin(float(e.get("anim_t", 0.0)) * 3.0) * 2.0 * u
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(9.0 * u, -40.0 * u), Vector2(26.0 * u + wave, -35.0 * u), Vector2(9.0 * u, -26.0 * u)]), C("#d0a0e0", alpha))
+	if elite_has(P, "pick"): # 곡괭이
+		ci.draw_line(Vector2(8.0 * u, 2.0 * u), Vector2(20.0 * u, -14.0 * u), C("#6b4a2a", alpha), 3.0)
+		ci.draw_polyline(PackedVector2Array([Vector2(13.0 * u, -18.0 * u), Vector2(20.0 * u, -14.0 * u), Vector2(27.0 * u, -18.0 * u)]), C("#a8b0bc", alpha), 3.0)
+
+## 예고 때 커져야 하는 곳(read.tell). 규칙이 정한 예고 도형은 draw_telegraphs가 따로 그린다 —
+## 여기서는 **몸의 어느 부위가 커지는가**만 더한다(예고를 덮지 않게 몸 주변으로 제한한다)
+static func elite_tell(ci: Node2D, st: CombatState, e: Dictionary, P: Dictionary, alpha: float, aim: float, telling: bool) -> void:
+	if not telling:
+		return
+	var ex: float = e.x
+	var ey: float = e.y
+	var r: float = e.r
+	var pulse: float = 0.6 + 0.4 * absf(sin(st.t * 12.0))
+	match String(P.tell):
+		"draw":   # 시위를 당긴 팔 — 활 쪽에 짧은 강조 호
+			ci.draw_arc(Vector2(ex + cos(aim) * r * 0.9, ey + sin(aim) * r * 0.9), r * 0.7, aim - 1.0, aim + 1.0, 14, C("#ffd9a0", pulse * alpha), 3.0)
+		"guard":  # 방패가 정면을 완전히 덮는다(정면 직접 피해 0) — 실제 guardDeg 그대로
+			var half: float = PGeom.deg(float(e.def.get("guardDeg", 120.0))) / 2.0
+			var fa: float = float(e.get("face", aim))
+			fill_sector(ci, ex, ey, r * 2.1, fa - half, fa + half, rgba(200, 210, 235, 0.20 * alpha))
+			stroke_sector(ci, ex, ey, r * 2.1, fa - half, fa + half, rgba(230, 238, 255, 0.85 * alpha), 2.0)
+			txt(ci, ex, ey - r - 34.0, "방패 자세 · 정면 무효", 11, C("#cfe0ff", alpha), 0, true)
+		"crouch": # 뒷다리가 접힌다
+			ci.draw_arc(Vector2(ex - cos(aim) * r * 0.8, ey - sin(aim) * r * 0.8), r * 0.8, aim + 1.9, aim + 4.4, 14, C("#ff9a9a", pulse * alpha), 3.0)
+		"pods":   # 주머니가 하나씩 사라진다
+			ci.draw_arc(Vector2(ex, ey + r * 0.35), r * 0.8, 0.0, TAU, 18, C("#b7e08a", pulse * alpha), 2.0)
+		"chain":  # 사슬이 곧게 펴진다(몸에서 조준 방향으로 짧게 — 긴 예고선은 draw_telegraphs 몫)
+			for i in 4:
+				var d0: float = r + float(i) * 9.0
+				ci.draw_circle(Vector2(ex + cos(aim) * d0, ey + sin(aim) * d0), 3.0, C("#d8b26a", (pulse - 0.1 * float(i)) * alpha))
+		"plant":  # 깃발을 꽂는 동작
+			ci.draw_arc(Vector2(ex, ey + r * 0.6), r * 1.1, PI, TAU, 16, C("#d0a0e0", pulse * alpha), 3.0)
+		"dirt":   # 흙 자국
+			for i in 5:
+				var a2: float = aim + PI + float(i - 2) * 0.34
+				ci.draw_circle(Vector2(ex + cos(a2) * (r + 8.0), ey + sin(a2) * (r + 8.0)), 2.4, C("#a08050", 0.7 * alpha))
+
+## 이름표: 처음 조우한 잠깐만 역할 한 줄을 함께, 그 뒤에는 짧은 이름만(전투 중 장문 설명 금지)
+static func elite_label(ci: Node2D, st: CombatState, e: Dictionary, P: Dictionary) -> void:
+	var ex: float = e.x
+	var ey: float = e.y
+	var r: float = e.r
+	var name := String(e.get("name", ""))
+	txt(ci, ex, ey + r + 24.0, "특수 정예 · " + name, 12, pc("elite_trim", "#ffe066"), 0, true)
+	# 역할·거리는 **한 줄로 합쳐** 처음 조우한 잠깐만 — 전투 중에 여러 줄이 쌓이지 않게 한다
+	if float(st.t) - float(e.get("spawn_t", -99.0)) <= ELITE_INTRO_SEC:
+		txt(ci, ex, ey + r + 38.0, "%s · %s" % [String(P.role), String(P.dist)], 11, C("#e8e2c8"), 0, true)
+
+## 정예가 세우는 구조물(군단 깃발 · 돌무더기): 제단과 같은 기단으로 그리면 무엇인지 안 읽힌다.
+## 깃발은 지휘 범위(banner_r = 실제 판정)와 남은 시간을, 돌무더기는 부술 수 있는 돌 더미를 그린다.
+static func draw_elite_structure(ci: Node2D, st: CombatState, e: Dictionary, kind: String) -> bool:
+	var ex: float = e.x
+	var ey: float = e.y
+	var r: float = e.r
+	if bool(e.dead):
+		return false
+	if kind == "banner":
+		var rr: float = float(e.get("banner_r", 0.0))
+		if rr > 0.0:   # 지휘 범위 = 실제 판정 반지름 그대로(부풀리지 않는다)
+			dashed_circle(ci, ex, ey, rr, C("#d0a0e0", 0.35), 2.0, 8.0, 10.0, st.t * 0.3)
+		ci.draw_line(Vector2(ex, ey + r * 0.9), Vector2(ex, ey - r * 3.4), C("#6b4a2a"), 3.0)
+		var wave: float = sin(st.t * 3.0) * 3.0
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(ex, ey - r * 3.4), Vector2(ex + r * 1.9 + wave, ey - r * 2.9), Vector2(ex, ey - r * 2.0)]), Color.WHITE if float(e.flash) > 0.0 else C("#e0c060"))
+		for i in 3:
+			var a: float = float(i) * TAU / 3.0 + st.t * 0.8
+			ci.draw_line(Vector2(ex + cos(a) * r * 0.7, ey + r * 0.6 + sin(a) * r * 0.25), Vector2(ex, ey + r * 0.6), C("#8a6a34"), 2.0)
+		txt(ci, ex, ey + r + 20.0, "군단 깃발 — 부수면 지휘가 멈춘다", 11, C("#e0c060"), 0, true)
+		return true
+	if kind == "rubble":
+		for i in 5:
+			var a2: float = float(i) * 1.27 + 0.4
+			var rd: float = r * (0.25 + 0.45 * fmod(float(i) * 0.41, 1.0))
+			ci.draw_circle(Vector2(ex + cos(a2) * rd, ey + sin(a2) * rd * 0.6), r * 0.44, Color.WHITE if float(e.flash) > 0.0 else C("#8a7a5a"))
+		stroke_circle(ci, ex, ey, r, C("#5a4a34", 0.8), 2.0)
+		txt(ci, ex, ey + r + 16.0, "돌무더기(부술 수 있다)", 10, C("#c8b892"), 0, true)
+		return true
+	return false
+
 # 구조물(제단·봉인 장치): 사각 기단 + 기둥 + 색 문양. 파괴되면 무너진 돌
 static func draw_structure(ci: Node2D, st: CombatState, e: Dictionary) -> void:
 	var c := C(def_color(e, "#9ad0ff"))
 	var ex: float = e.x
 	var ey: float = e.y
 	var r: float = e.r
+	var es := String(e.def.get("elite_structure", ""))
+	if es != "" and draw_elite_structure(ci, st, e, es):
+		return
 	var k: float = minf(1.0, float(e.death_t) * 2.0) if bool(e.dead) else 0.0
 	ci.draw_rect(Rect2(ex - r, ey + r * 0.4 - 6.0, r * 2.0, 12.0), C("#3a3a44"))
 	if bool(e.dead):
@@ -1893,10 +2394,13 @@ static func draw_enemy(ci: Node2D, st: CombatState, e: Dictionary) -> void:
 			"frostcaller": draw_frostcaller(ci, st, e)
 			"rogue": draw_rogue(ci, st, e)
 			_:
-				# 알 수 없는 종류: 원 + 이름
-				var alpha := begin_alpha(e)
-				ci.draw_circle(Vector2(float(e.x), float(e.y)), float(e.r), body_col(e, def_color(e, "#9aa0a8"), alpha))
-				txt(ci, float(e.x), float(e.y) + 4.0, String(e.get("name", type)), 10, Color(1, 1, 1, alpha))
+				if bool(elite_props(type).read):   # 특수 정예 7종: read 자료로 역할이 읽히는 실루엣
+					draw_elite(ci, st, e)
+				else:
+					# 알 수 없는 종류: 원 + 이름(임시 외형 — 새 적을 넣으면 여기로 떨어진다)
+					var alpha := begin_alpha(e)
+					ci.draw_circle(Vector2(float(e.x), float(e.y)), float(e.r), body_col(e, def_color(e, "#9aa0a8"), alpha))
+					txt(ci, float(e.x), float(e.y) + 4.0, String(e.get("name", type)), 10, Color(1, 1, 1, alpha))
 	if bool(e.dead):
 		return
 	if bool(e.get("hidden", false)):
@@ -1950,7 +2454,8 @@ static func draw_enemy(ci: Node2D, st: CombatState, e: Dictionary) -> void:
 			var hot: bool = i == stasis - 1 and int(floor(st.t * 8.0)) % 2 == 1
 			ci.draw_rect(Rect2(ex - w / 2.0 + float(i) * 7.0, ey + r + 10.0, 5.0, 6.0), Color.WHITE if hot else C("#a9d8ff"))
 		txt(ci, ex + w / 2.0 + 4.0, ey + r + 17.0, "흔적 %d" % stasis, 10, C("#cfeaff"), -1)
-	if bool(e.get("elite", false)):
+	# 특수 정예는 draw_elite가 "특수 정예 · 이름"과 첫 조우 역할 한 줄을 이미 그렸다(두 번 적지 않는다)
+	if bool(e.get("elite", false)) and not bool(elite_props(type).read):
 		txt(ci, ex, ey + r + 22.0, "정예 · " + String(e.get("name", "")), 12, C("#ffe066"))
 	if bool(e.get("summoned", false)) and float(e.get("grace", 0.0)) > 0.0:
 		txt(ci, ex, ey - r - 34.0, "소환", 11, rgba(255, 200, 80, 0.9))
@@ -2139,17 +2644,38 @@ static func draw_telegraphs(ci: Node2D, st: CombatState) -> void:
 				tel_stroke_sector(ci, ex, ey, R, fa - half, fa + half, flash_t, 4.0)
 			else:
 				stroke_sector(ci, ex, ey, R, fa - half, fa + half, tel_soft(0.6), 2.0)
-			txt(ci, ex, ey - er - 30.0, "방패 열림 · 방패치기", 12, tel_label(1.0))
-		elif type == "shaman" and stt == "cast":
-			var tgv = e.get("cast_target")
-			if tgv != null and typeof(tgv) == TYPE_DICTIONARY and not bool(tgv.dead):
-				var tx: float = tgv.x
-				var ty: float = tgv.y
-				var k: float = st_t / maxf(0.001, float(d.get("healCast", 1.5)))
-				dashed_line(ci, Vector2(ex, ey - 10.0), Vector2(tx, ty), rgba(233, 182, 255, 0.85), 2.5, 6.0, 4.0)
-				ci.draw_arc(Vector2(ex, ey - 30.0), 12.0, -PI / 2.0, -PI / 2.0 + TAU * k, 16, C("#e9b6ff"), 4.0)
-				stroke_circle(ci, tx, ty, float(tgv.r) + 8.0, rgba(233, 182, 255, 0.7), 2.0)
-				txt(ci, ex, ey - er - 34.0, "치료 시전 중 — 끊어라", 12, C("#e9b6ff"))
+			# 2026-09-08부터 남아 있던 표시 불일치: 규칙(PEnemiesNew.guard_closed)은 준비 중에도 방패를 **닫아** 두는데
+			# 옛 문구는 준비 중에 이미 방패가 내려간 것처럼 적혀 실제 판정과 어긋났다.
+			# 방패가 실제로 열리는 것은 방패치기(bash)와 그 뒤 빈틈(recover) 뿐이다
+			txt(ci, ex, ey - er - 30.0, "방패 유지 · 방패치기 준비", 12, tel_label(1.0))
+		elif type == "shaman" and stt == "hex_lock": # 확정된 세 갈래(가운데가 확정 시점의 플레이어 방향)
+			var n: int = int(PEnemiesNew.dv(e, "hexCount", 1.0))
+			var step: float = PGeom.deg(PEnemiesNew.dv(e, "hexSpreadDeg", 0.0))
+			for i in n:
+				var ang: float = float(e.dir) + (float(i) - float(n - 1) / 2.0) * step
+				var mid: bool = i == n / 2
+				var to2 := Vector2(ex + cos(ang) * diag, ey + sin(ang) * diag)
+				ci.draw_line(Vector2(ex, ey), to2, tel_dark(0.8), (5.0 if mid else 4.0))
+				ci.draw_line(Vector2(ex, ey), to2, rgba(233, 182, 255, flash_t), (3.0 if mid else 2.0))
+				if mid: # 가운데 탄만 화살촉 — 세 줄 중 어느 것이 내 쪽인지 읽힌다
+					ci.draw_colored_polygon(PackedVector2Array([Vector2(ex + cos(ang) * 74.0, ey + sin(ang) * 74.0), Vector2(ex + cos(ang) * 56.0 - sin(ang) * 8.0, ey + sin(ang) * 56.0 + cos(ang) * 8.0), Vector2(ex + cos(ang) * 56.0 + sin(ang) * 8.0, ey + sin(ang) * 56.0 - cos(ang) * 8.0)]), rgba(233, 182, 255, flash_t))
+			tel_bang(ci, ex, ey - er - 26.0, 16)
+			txt(ci, ex, ey - er - 42.0, "세 갈래 확정 — 옆으로", 12, tel_label(1.0))
+		elif type == "shaman" and stt == "rune_aim" and e.has("rune_at"): # 바닥 문양: 시작 순간 자리가 고정 = 따라오지 않는다
+			var at: Array = e.rune_at
+			var rx: float = at[0]
+			var ry: float = at[1]
+			var need: float = maxf(0.001, PEnemiesNew.dv(e, "runeAim", 0.0))
+			var k: float = clampf(st_t / need, 0.0, 1.0)
+			var R: float = PEnemiesNew.dv(e, "runeR", 0.0)   # 실제 폭발 반지름 그대로
+			ci.draw_circle(Vector2(rx, ry), R, tel_fill(0.12 + 0.28 * k))
+			ci.draw_circle(Vector2(rx, ry), R * k, tel_soft(0.22))
+			tel_stroke_circle(ci, rx, ry, R, flash_t, 3.0)
+			for i in 6:                                      # 저주 문양: 돌지 않는 룬 여섯 획(자리가 고정임을 보인다)
+				var ra: float = float(i) * TAU / 6.0 + 0.26
+				ci.draw_line(Vector2(rx + cos(ra) * R * 0.35, ry + sin(ra) * R * 0.35), Vector2(rx + cos(ra) * R * 0.8, ry + sin(ra) * R * 0.8), tel_edge(0.8), 2.0)
+			ci.draw_line(Vector2(ex, ey), Vector2(rx, ry), tel_soft(0.35), 1.0)
+			txt(ci, rx, ry - R - 8.0, "저주 문양 %.1fs · 자리 고정" % maxf(0.0, need - st_t), 11, tel_label(1.0), 0, true)
 		elif type == "shaman" and stt == "hex_aim":
 			var k: float = st_t / maxf(0.001, float(d.get("hexAim", 0.9)))
 			var aa: float = float(e.aim_angle)
@@ -2214,6 +2740,10 @@ static func draw_telegraphs(ci: Node2D, st: CombatState) -> void:
 			else:
 				stroke_sector(ci, ex, ey, R, aa - half, aa + half, tel_soft(0.6), 1.5)
 			txt(ci, ex, ey - er - 30.0, "베기 1/2" if first else "베기 2/2", 12, tel_label(1.0))
+		if PEnemiesNew.is_elite(type):
+			draw_elite_telegraph(ci, st, e, flash_t, diag)
+	draw_support_links(ci, st)
+	draw_boss_break_warn(ci, st, flash_t)
 	draw_boss_telegraphs(ci, st, flash_t)
 	for f in st.effects:
 		var kind := String(f.kind)
@@ -2231,6 +2761,188 @@ static func draw_telegraphs(ci: Node2D, st: CombatState) -> void:
 			stroke_circle(ci, float(f.x), float(f.y), 18.0 * (1.0 - k) + 6.0, rgba(255, 200, 80, 0.4 + 0.6 * k), 2.0)
 			var nm := String(PCatalog.enemy(String(f.get("type", "wolf"))).get("name", ""))
 			txt(ci, float(f.x), float(f.y) - 24.0, nm, 12, rgba(255, 200, 80, 0.9))
+
+## 주술사의 치료 연결선(docs/ENEMY_FEEDBACK.md §2-5). 규칙이 내주는 관측 자료 PEnemies.support_links만 읽는다.
+## 위험 목록(threats)과 일부러 갈라 둔 자료라 **위험 예고 색을 쓰지 않는다** — 초록 계열 + 차오르는 선.
+## 대상 쪽에는 회복 반응(차오르는 고리 → 완료 직전의 팽창)과 회복량 예고 숫자를 함께 그린다.
+static func draw_support_links(ci: Node2D, st: CombatState) -> void:
+	var links := []
+	PEnemies.support_links(st, links)
+	for l in links:
+		var lk: Dictionary = l
+		if String(lk.get("kind", "")) != "heal_link":
+			continue
+		var sx: float = lk.x
+		var sy: float = lk.y
+		var tx: float = lk.tx
+		var ty: float = lk.ty
+		var prog: float = clampf(float(lk.get("prog", 0.0)), 0.0, 1.0)
+		var a := Vector2(sx, sy - 10.0)
+		var b := Vector2(tx, ty)
+		dashed_line(ci, a, b, rgba(140, 230, 160, 0.35), 2.0, 5.0, 6.0)     # 아직 안 찬 몫
+		ci.draw_line(a, a + (b - a) * prog, rgba(180, 255, 200, 0.95), 3.0) # 차오르는 몫 = 완료까지 남은 시간
+		ci.draw_circle(a + (b - a) * prog, 3.5, C("#d8ffe4"))
+		var tg: Dictionary = lk.get("target", {})
+		var tr: float = float(tg.get("r", 14.0))
+		var grow: float = 1.0 + 0.35 * prog * prog
+		ci.draw_arc(b, tr + 8.0, -PI / 2.0, -PI / 2.0 + TAU * prog, 28, rgba(180, 255, 200, 0.9), 3.0)
+		stroke_circle(ci, tx, ty, (tr + 8.0) * grow, rgba(140, 230, 160, 0.35 + 0.5 * prog), 2.0)
+		if prog > 0.85: # 회복 반응: 대상에서 위로 솟는 짧은 화살표 셋(회복이 실제로 들어가기 직전)
+			for i in 3:
+				var ax: float = tx - 10.0 + float(i) * 10.0
+				var rise: float = 10.0 + 12.0 * (prog - 0.85) / 0.15
+				ci.draw_polyline(PackedVector2Array([Vector2(ax, ty + 4.0), Vector2(ax, ty + 4.0 - rise)]), rgba(180, 255, 200, 0.9), 2.0)
+				ci.draw_polyline(PackedVector2Array([Vector2(ax - 4.0, ty + 8.0 - rise), Vector2(ax, ty + 3.0 - rise), Vector2(ax + 4.0, ty + 8.0 - rise)]), rgba(220, 255, 230, 0.95), 2.0)
+		var amt: int = int(round(float(tg.get("hp_max", 0.0)) * float(lk.get("ratio", 0.0))))
+		if amt > 0:
+			txt(ci, tx, ty - tr - 12.0, "회복 예정 +%d" % amt, 11, C("#9cffb0"), 0, true)
+		txt(ci, sx, sy - 34.0, "치료 시전 중 — 끊어라", 12, C("#e9b6ff"), 0, true)
+
+## 보스 지형 파괴 예고(docs/BOSS_BREAK.md). 규칙이 자격을 세우며 e.break_want / e.break_ob를 남기고
+## 문구(aimText)를 한 번 띄운다 — 그 글자만으로는 **어느 장애물이 부서지는지**가 안 읽혀서 전용 표시를 더한다.
+## 공격 예고보다 **먼저** 그린다(draw_boss_telegraphs 앞) — 파괴 예고를 읽고 자리를 옮길 수 있어야 한다.
+static func draw_boss_break_warn(ci: Node2D, st: CombatState, flash_t: float) -> void:
+	for e in st.enemies:
+		if bool(e.dead) or not bool(e.get("break_want", false)):
+			continue
+		var ob: Dictionary = e.get("break_ob", {})
+		if ob.is_empty():
+			continue
+		var ox: float = ob.x
+		var oy: float = ob.y
+		var orr: float = ob.r
+		# ① 부서질 장애물 전용 표식: 깨짐 금(가운데에서 바깥으로) + 안쪽으로 조여드는 점선(일반 폭발과 다른 실루엣)
+		for i in 5:
+			var a: float = float(i) * TAU / 5.0 + 0.4
+			var jx: float = ox + cos(a) * orr * 0.25
+			var jy: float = oy + sin(a) * orr * 0.25
+			ci.draw_line(Vector2(jx, jy), Vector2(ox + cos(a) * orr * 0.95, oy + sin(a) * orr * 0.95), tel_dark(0.85), 5.0)
+			ci.draw_line(Vector2(jx, jy), Vector2(ox + cos(a) * orr * 0.95, oy + sin(a) * orr * 0.95), tel_edge(flash_t), 2.5)
+		var want: float = float(e.get("break_want_t", 0.0))
+		var ttl: float = maxf(0.001, float(PBoss.breaker_of(e).get("wantTtl", 6.0)))
+		dashed_circle(ci, ox, oy, orr + 8.0, tel_dark(0.8), 5.0, 6.0, 5.0)
+		dashed_circle(ci, ox, oy, orr + 8.0, tel_edge(flash_t), 2.5, 6.0, 5.0)
+		ci.draw_arc(Vector2(ox, oy), orr + 14.0, -PI / 2.0, -PI / 2.0 + TAU * clampf(1.0 - want / ttl, 0.0, 1.0), 28, tel_soft(0.9), 3.0)
+		# ② 보스 → 장애물: 누가 무엇을 노리는지
+		dashed_line(ci, Vector2(float(e.x), float(e.y)), Vector2(ox, oy), tel_soft(0.55), 2.0, 8.0, 7.0)
+		tel_bang(ci, ox, oy - orr - 22.0, 16)
+		txt(ci, ox, oy - orr - 36.0, String(PBoss.breaker_of(e).get("aimText", "엄폐물을 노린다!")), 12, tel_label(1.0), 0, true)
+
+## 특수 정예 7종의 예고 도형. **PEnemiesNew.elite_threats와 같은 기하**를 쓰되 봇 회피용 여유(+10~30)는 빼고
+## 실제 판정값(사거리·각도·반지름) 그대로 그린다 — 예고 도형 = 실제 판정이라는 규칙을 지킨다.
+static func draw_elite_telegraph(ci: Node2D, st: CombatState, e: Dictionary, flash_t: float, diag: float) -> void:
+	var d: Dictionary = e.def
+	var stt := String(e.state)
+	var ex: float = e.x
+	var ey: float = e.y
+	var er: float = e.r
+	var st_t: float = float(e.state_t)
+	var p: Dictionary = st.player
+	match String(e.type):
+		"elite_archer":
+			if stt == "aim" or stt == "shot_lock":
+				var locked: bool = stt == "shot_lock"
+				var ang: float = float(e.dir) if locked else float(e.aim_angle)
+				var need: float = float(d.aim) if int(e.get("shot_left", 1)) == int(d.shots) else float(d.reaim)
+				_lane(ci, ex, ey, ang, diag, locked, clampf(st_t / maxf(0.001, need), 0.0, 1.0), flash_t)
+				txt(ci, ex, ey - er - 30.0, "단발 %d발 남음" % int(e.get("shot_left", 0)), 11, tel_label(1.0))
+			elif stt == "fan_aim" or stt == "fan_lock":
+				var locked2: bool = stt == "fan_lock"
+				var ang2: float = float(e.dir) if locked2 else float(e.aim_angle)
+				var n: int = int(d.fanCount)
+				var step: float = PGeom.deg(float(d.fanDeg))
+				for i in n:
+					_lane(ci, ex, ey, ang2 + (float(i) - float(n - 1) / 2.0) * step, diag, locked2, clampf(st_t / maxf(0.001, float(d.fanAim)), 0.0, 1.0), flash_t)
+				txt(ci, ex, ey - er - 30.0, "부채꼴 %d발" % n, 12, tel_label(1.0))
+		"elite_blademaster":
+			if stt == "dash1_aim" or stt == "dash2_aim" or stt == "dash1_lock" or stt == "dash2_lock":
+				var locked3: bool = stt.ends_with("_lock")
+				var ang3: float = float(e.dir) if locked3 else float(e.aim_angle)
+				var pv: Dictionary = e.get("preview", {})
+				var L: float = float(pv["len"]) if not pv.is_empty() else float(d.dashDist)
+				var need3: float = float(d.aim1) if stt.begins_with("dash1") else float(d.aim2)
+				_beam(ci, ex, ey, ang3, L, (er + float(p.r)) * 2.0, locked3, clampf(st_t / maxf(0.001, need3), 0.0, 1.0), flash_t)
+				txt(ci, ex, ey - er - 32.0, "돌진 베기!" if locked3 else "돌진 베기 준비", 12, tel_label(1.0))
+			elif stt == "slam_aim":
+				var fa: float = float(e.get("face", 0.0))
+				var sx: float = ex + cos(fa) * float(d.slamOffset)
+				var sy: float = ey + sin(fa) * float(d.slamOffset)
+				var k: float = clampf(st_t / maxf(0.001, float(d.slamAim)), 0.0, 1.0)
+				ci.draw_circle(Vector2(sx, sy), float(d.slamR), tel_fill(0.12 + 0.3 * k))
+				tel_stroke_circle(ci, sx, sy, float(d.slamR), flash_t, 3.0)
+				txt(ci, sx, sy - float(d.slamR) - 8.0, "내려찍기", 12, tel_label(1.0))
+		"elite_fang":
+			if stt == "bite_aim":
+				_tel_sector(ci, ex, ey, float(d.biteRange) + er, float(e.aim_angle), PGeom.deg(float(d.biteDeg)) / 2.0, clampf(st_t / maxf(0.001, float(d.biteAim)), 0.0, 1.0), flash_t)
+			elif (stt == "leap_aim" or stt == "leap_lock" or stt == "leap") and e.has("leap_at"):
+				var at: Array = e.leap_at
+				var lk: float = clampf(st_t / maxf(0.001, float(d.leapAim)), 0.0, 1.0) if stt == "leap_aim" else 1.0
+				ci.draw_circle(Vector2(float(at[0]), float(at[1])), float(d.leapR), tel_fill(0.12 + 0.3 * lk))
+				tel_stroke_circle(ci, float(at[0]), float(at[1]), float(d.leapR), flash_t if stt != "leap_aim" else 0.7, 3.0)
+				txt(ci, float(at[0]), float(at[1]) - float(d.leapR) - 8.0, "도약 착지", 12, tel_label(1.0))
+		"elite_plaguecaller":
+			if stt == "burst_aim":
+				_tel_sector(ci, ex, ey, float(d.burstRange) + er, float(e.aim_angle), PGeom.deg(float(d.burstDeg)) / 2.0, clampf(st_t / maxf(0.001, float(d.burstAim)), 0.0, 1.0), flash_t)
+			elif stt == "swell":
+				for pod in e.get("pods", []):
+					var pd: Dictionary = pod
+					if bool(pd.get("done", false)):
+						continue
+					var left: float = maxf(0.0, float(pd.land_at) - st.t)
+					ci.draw_circle(Vector2(float(pd.x), float(pd.y)), float(pd.r), tel_fill(0.10 + 0.25 * (1.0 - minf(1.0, left))))
+					tel_stroke_circle(ci, float(pd.x), float(pd.y), float(pd.r), flash_t if left < 0.4 else 0.7, 2.5)
+					txt(ci, float(pd.x), float(pd.y) + 5.0, str(int(pd.get("order", 0))), 16, tel_label(1.0), 0, true)
+		"elite_chainbreaker":
+			if stt == "chain_aim" or stt == "chain_lock" or stt == "chain_fly":
+				var locked4: bool = stt != "chain_aim"
+				var ang4: float = float(e.dir) if locked4 else float(e.aim_angle)
+				var L2: float = float(e.get("chain_d", 0.0)) if stt == "chain_fly" else float(e.get("chain_len", float(d.chainLen)))
+				_beam(ci, ex, ey, ang4, L2, float(d.chainW), locked4, clampf(st_t / maxf(0.001, float(d.chainAim)), 0.0, 1.0), flash_t)
+				txt(ci, ex, ey - er - 32.0, "사슬!" if locked4 else "사슬 예고 — 바위를 사이에", 12, tel_label(1.0))
+			elif (stt == "slam_aim" or stt == "slam_lock") and e.has("slam_at"):
+				var sat: Array = e.slam_at
+				var sk: float = clampf(st_t / maxf(0.001, float(d.slamAim)), 0.0, 1.0) if stt == "slam_aim" else 1.0
+				ci.draw_circle(Vector2(float(sat[0]), float(sat[1])), float(d.slamR), tel_fill(0.12 + 0.3 * sk))
+				tel_stroke_circle(ci, float(sat[0]), float(sat[1]), float(d.slamR), flash_t, 3.0)
+				txt(ci, float(sat[0]), float(sat[1]) - float(d.slamR) - 8.0, "강타 — 걸어 나와라", 12, tel_label(1.0))
+			elif stt == "sweep_aim":
+				_tel_sector(ci, ex, ey, float(d.sweepRange) + er, float(e.aim_angle), PGeom.deg(float(d.sweepDeg)) / 2.0, clampf(st_t / maxf(0.001, float(d.sweepAim)), 0.0, 1.0), flash_t)
+		"elite_standard":
+			if stt == "slash_aim":
+				_tel_sector(ci, ex, ey, float(d.slashRange) + er, float(e.aim_angle), PGeom.deg(float(d.slashDeg)) / 2.0, clampf(st_t / maxf(0.001, float(d.slashAim)), 0.0, 1.0), flash_t)
+			elif stt == "plant_aim":
+				var pk: float = clampf(st_t / maxf(0.001, float(d.plantAim)), 0.0, 1.0)
+				var fa2: float = atan2(float(p.y) - ey, float(p.x) - ex)
+				var bx2: float = ex + cos(fa2) * float(d.bannerOffset)
+				var by2: float = ey + sin(fa2) * float(d.bannerOffset)
+				dashed_circle(ci, bx2, by2, float(d.banner.radius), C("#d0a0e0", 0.3 + 0.4 * pk), 2.0, 8.0, 10.0)
+				txt(ci, ex, ey - er - 32.0, "깃발을 꽂는다 — 먼저 부숴라", 12, C("#e0b8f0"), 0, true)
+		"elite_miner":
+			if stt == "warn" and e.has("emerge_at"):
+				var mat: Array = e.emerge_at
+				var mk: float = clampf(st_t / maxf(0.001, float(d.warn)), 0.0, 1.0)
+				ci.draw_circle(Vector2(float(mat[0]), float(mat[1])), float(d.eruptR), tel_fill(0.15 + 0.25 * mk))
+				tel_stroke_circle(ci, float(mat[0]), float(mat[1]), float(d.eruptR), flash_t, 3.0)
+				txt(ci, float(mat[0]), float(mat[1]) - float(d.eruptR) - 8.0, "출현! — 원 밖으로", 12, tel_label(1.0))
+			elif stt == "bite_aim":
+				_tel_sector(ci, ex, ey, float(d.biteRange) + er, float(e.aim_angle), PGeom.deg(float(d.biteDeg)) / 2.0, clampf(st_t / maxf(0.001, float(d.biteAim)), 0.0, 1.0), flash_t)
+
+## 조준선 하나(굵기는 표시용, 실제 탄은 선을 따라간다). 확정되면 굵어지고 '!'가 뜬다
+static func _lane(ci: Node2D, ex: float, ey: float, ang: float, diag: float, locked: bool, k: float, flash_t: float) -> void:
+	var to := Vector2(ex + cos(ang) * diag, ey + sin(ang) * diag)
+	if locked:
+		ci.draw_line(Vector2(ex, ey), to, tel_dark(0.8), 6.0)
+		ci.draw_line(Vector2(ex, ey), to, tel_edge(flash_t), 3.0)
+	else:
+		dashed_line(ci, Vector2(ex, ey), to, tel_soft(0.35 + 0.4 * k), 2.0, 8.0, 6.0)
+
+## 예고 부채꼴(반지름·각도 = 실제 판정). 후반부에는 두 겹 테두리로 확정 직전을 알린다
+static func _tel_sector(ci: Node2D, ex: float, ey: float, r: float, ang: float, half: float, k: float, flash_t: float) -> void:
+	fill_sector(ci, ex, ey, r, ang - half, ang + half, tel_fill(0.12 + 0.28 * k))
+	if k > 0.6:
+		tel_stroke_sector(ci, ex, ey, r, ang - half, ang + half, flash_t, 3.0)
+	else:
+		stroke_sector(ci, ex, ey, r, ang - half, ang + half, tel_soft(0.6), 1.5)
 
 static func _beam(ci: Node2D, bx: float, by: float, ang: float, L: float, w: float, locked: bool, k: float, flash_t: float) -> void:
 	var alpha: float = flash_t if locked else 0.35 + 0.35 * k
@@ -2642,9 +3354,36 @@ static func draw_projectiles(ci: Node2D, st: CombatState) -> void:
 			ci.draw_line(Vector2(-18.0, 0.0), Vector2(0.0, 0.0), rgba(144, 229, 244, 0.45), 2.0)
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(6.0, 0.0), Vector2(0.0, -4.0), Vector2(-5.0, 0.0), Vector2(0.0, 4.0)]), C("#90e5f4"))
 			ci.draw_set_transform_matrix(IDENT)
+		elif kind == "bellshot": # 수호 방울의 되돌림 반격탄: 방울 종(鐘) 모양 + 뒤로 퍼지는 울림 고리
+			var ba2: float = atan2(vy, vx)
+			ci.draw_set_transform_matrix(xf(c, ba2, Vector2.ONE))
+			for i in 2:
+				ci.draw_arc(Vector2(-8.0 - 7.0 * float(i), 0.0), 7.0 + 4.0 * float(i), 2.0, 4.28, 10, rgba(159, 216, 255, 0.55 - 0.2 * float(i)), 2.0)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(7, 0), Vector2(1, -6), Vector2(-5, -5), Vector2(-5, 5), Vector2(1, 6)]), C("#dff0ff"))
+			ci.draw_circle(Vector2(-1, 0), 2.2, C("#5aa0d8"))
+			ci.draw_set_transform_matrix(IDENT)
 		else:
 			ci.draw_circle(c, 4.0, C("#bfefff"))
 			ci.draw_circle(Vector2(x - vx * 0.02, y - vy * 0.02), 3.0, rgba(191, 239, 255, 0.4))
+		bell_proj_mark(ci, pr, c)
+
+## 적 투사체의 '방울로 막을 수 있는가' 표식(수호 방울을 들었을 때만 규칙이 채워 준다 — pr.bell_blockable / pr.bell_guard).
+## **색만으로 가르지 않는다**: 막을 수 있으면 둘레에 닫힌 고리, 막을 수 없으면 바깥으로 뻗는 가시 네 개.
+## 지금 막을 방울이 남아 있으면 고리를 두 겹으로 그려 "이번 것은 실제로 막힌다"까지 읽히게 한다.
+## 표식은 투사체 반지름 밖 4~9px에만 그리므로 실제 판정 크기를 부풀리지 않는다.
+static func bell_proj_mark(ci: Node2D, pr: Dictionary, c: Vector2) -> void:
+	if not pr.has("bell_blockable"):
+		return
+	var rr: float = maxf(5.0, float(pr.get("r", 6.0)))
+	if bool(pr.bell_blockable):
+		var ready: bool = bool(pr.get("bell_guard", false))
+		stroke_circle(ci, c.x, c.y, rr + 4.0, rgba(159, 216, 255, 0.9 if ready else 0.45), 2.0)
+		if ready:
+			stroke_circle(ci, c.x, c.y, rr + 7.5, rgba(159, 216, 255, 0.55), 1.0)
+	else:
+		for i in 4:
+			var a: float = float(i) * PI / 2.0 + PI / 4.0
+			ci.draw_line(Vector2(c.x + cos(a) * (rr + 2.0), c.y + sin(a) * (rr + 2.0)), Vector2(c.x + cos(a) * (rr + 9.0), c.y + sin(a) * (rr + 9.0)), rgba(255, 190, 150, 0.75), 1.5)
 
 # ---------- 타격 연출(적중·사망·피격). 적 예고선 아래에 그린다 ----------
 ## 여기 있는 것은 전부 '이미 일어난 일'의 표시다. 규칙이 만든 fx 값(spark·death·hitflash)만 읽고
@@ -2696,6 +3435,40 @@ static func draw_impacts(ci: Node2D, st: CombatState) -> void:
 					var px: float = fx + cos(a) * dd
 					var py: float = fy + sin(a) * dd - 14.0 * grow + 26.0 * grow * grow
 					ci.draw_circle(Vector2(px, py), 3.2 * k + 1.0, Color(dc, 0.85 * k))
+			"bell_block": # 수호 방울이 투사체를 통째로 막았다: 종처럼 퍼지는 이중 고리(닫힌 원 = 완전 차단)
+				var bx: float = f.x
+				var by: float = f.y
+				var gr: float = 1.0 - k
+				for i in 2:
+					stroke_circle(ci, bx, by, float(f.r) * (0.45 + 0.55 * gr) + float(i) * 8.0, rgba(159, 216, 255, (0.9 - 0.4 * float(i)) * k), 3.0 - float(i))
+				for i in 8:
+					var a: float = float(i) * TAU / 8.0
+					ci.draw_line(Vector2(bx + cos(a) * float(f.r) * 0.5, by + sin(a) * float(f.r) * 0.5), Vector2(bx + cos(a) * float(f.r) * (0.9 + 0.3 * gr), by + sin(a) * float(f.r) * (0.9 + 0.3 * gr)), rgba(223, 240, 255, 0.8 * k), 2.0)
+			"bell_guard": # 근접 수호(경감): 차단과 달리 **반쪽 호**만 — "줄였다"와 "막았다"를 도형으로 가른다
+				var gx: float = f.x
+				var gy: float = f.y
+				var ga: float = float(f.get("angle", -PI / 2.0))
+				var gr2: float = float(f.r) * (0.6 + 0.4 * (1.0 - k))
+				ci.draw_arc(Vector2(gx, gy), gr2, ga - 1.1, ga + 1.1, 16, Color(0.05, 0.09, 0.14, 0.7 * k), 6.0)
+				ci.draw_arc(Vector2(gx, gy), gr2, ga - 1.1, ga + 1.1, 16, rgba(159, 216, 255, 0.85 * k), 3.0)
+			"wind_gust": # 바람 정령의 돌풍: 실제 판정 부채꼴(r·half)을 그대로 쓰고 채우지 않는다(위험 예고와 안 섞이게)
+				var wx: float = f.x
+				var wy: float = f.y
+				var wr: float = f.r
+				var wa: float = f.angle
+				var wh: float = f.half
+				for i in 3:
+					var rr: float = wr * (0.45 + 0.28 * float(i)) * (1.0 + (1.0 - k) * 0.25)
+					ci.draw_arc(Vector2(wx, wy), rr, wa - wh, wa + wh, 20, rgba(200, 255, 225, (0.85 - 0.22 * float(i)) * k), 3.0 - 0.6 * float(i))
+				ci.draw_line(Vector2(wx, wy), Vector2(wx + cos(wa - wh) * wr, wy + sin(wa - wh) * wr), rgba(200, 255, 225, 0.35 * k), 1.5)
+				ci.draw_line(Vector2(wx, wy), Vector2(wx + cos(wa + wh) * wr, wy + sin(wa + wh) * wr), rgba(200, 255, 225, 0.35 * k), 1.5)
+			"echo_clone": # 분신이 실제로 때린 순간: 그 자리에서 진행 방향으로 벌어지는 두 겹 갈매기
+				var ex2: float = f.x
+				var ey2: float = f.y
+				var ea: float = float(f.get("angle", 0.0))
+				for i in 2:
+					var d0: float = 6.0 + 10.0 * float(i) + 14.0 * (1.0 - k)
+					ci.draw_polyline(PackedVector2Array([Vector2(ex2 + cos(ea + 0.9) * d0, ey2 + sin(ea + 0.9) * d0), Vector2(ex2 + cos(ea) * (d0 + 9.0), ey2 + sin(ea) * (d0 + 9.0)), Vector2(ex2 + cos(ea - 0.9) * d0, ey2 + sin(ea - 0.9) * d0)]), rgba(200, 235, 255, (0.9 - 0.35 * float(i)) * k), 2.5)
 			"hitflash": # 내가 맞았다: 몸 주위 고리 + 화면 가장자리만 붉게(경기장 전체를 덮지 않는다 — 예고가 묻힌다)
 				stroke_circle(ci, float(f.x), float(f.y), 18.0 + 16.0 * (1.0 - k), C("#ff5050", k * 0.55), 3.0)
 				var w: float = st.arena_w
@@ -2805,6 +3578,7 @@ static func _draw_layers(ci: Node2D, st: CombatState, decor: Dictionary) -> void
 			draw_swordsman(ci, st)
 		else:
 			draw_enemy(ci, st, st.enemies[idx])
+	draw_supports(ci, st)      # 보조무기 개체(까마귀·분신·인형): 개체 위, 예고 아래
 	draw_canopies(ci, st)
 	draw_impacts(ci, st)
 	draw_telegraphs(ci, st)
