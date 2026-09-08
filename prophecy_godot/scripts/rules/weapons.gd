@@ -369,8 +369,10 @@ static func fire_chain(st: CombatState, w: Dictionary, target: Dictionary, _echo
 		visited[e.id] = true
 		pts.append({ "x": e.x, "y": e.y })
 		dmg_to(st, e, w, mult, { "knock": 0.0, "from": from })
-		if (s.mods as Array).has("conduct"):
-			e.conduct = 2.0
+		# **기본 연쇄가 감전을 부여한다**(사용자 확정). 예전에는 개조 '축전'을 골랐을 때만 붙어서
+		# 감전 연계 자체가 일어나지 않았다. 축전은 이제 '감전 후속을 쌓으면 방전'이라는 별개 효과다.
+		e.conduct = float(PCatalog.support_tuning("orb").get("shockDur", 2.0))
+		PSupport.meter(st, "orb", "shocks")
 	var next := func(from: Dictionary) -> Dictionary:
 		var best := {}
 		var bd := INF
@@ -719,11 +721,32 @@ static func on_hit(st: CombatState, e: Dictionary, opt: Dictionary, _dmg: float)
 				if String(w.id) == "orb":
 					orb = w
 			if not orb.is_empty():
+				var T := PCatalog.support_tuning("orb")
+				var br := float(T.get("bonusR", 50.0))
+				var bm := float(T.get("bonusMult", 0.4))
 				e.conduct = 0.0
-				st.fx({ "kind": "burst", "x": e.x, "y": e.y, "r": 50.0, "ttl": 0.25, "color": "#bfe8ff" })
+				PSupport.meter(st, "orb", "shock_procs")
+				st.fx({ "kind": "burst", "x": e.x, "y": e.y, "r": br, "ttl": 0.25, "color": "#bfe8ff" })
 				for o in st.alive_targets():
-					if PGeom.dist(o.x, o.y, e.x, e.y) <= 50.0 + o.r:
-						st.damage_enemy(o, float(orb.stats.damage) * 0.4, { "src": src(orb, { "direct": false }), "no_conduct": true })
+					if PGeom.dist(o.x, o.y, e.x, e.y) <= br + o.r:
+						var before: float = float(o.hp)
+						st.damage_enemy(o, float(orb.stats.damage) * bm, { "src": src(orb, { "direct": false }), "no_conduct": true })
+						PSupport.meter(st, "orb", "shock_dmg", maxf(0.0, before - float(o.hp)))
+				# **축전(개조)**: 감전 후속을 몇 번 쌓으면 주변에 작은 방전.
+				# 방전 자체는 감전을 다시 걸지 않고(no_conduct) 감전 후속도 부르지 않는다(순환 금지).
+				if (orb.stats.mods as Array).has("conduct"):
+					st.support_charge = st.support_charge + 1
+					var need := int(T.get("chargeNeed", 3))
+					if st.support_charge >= need:
+						st.support_charge = 0
+						var dr := float(T.get("dischargeR", 96.0))
+						var dm := float(T.get("dischargeMult", 0.6))
+						st.fx({ "kind": "burst", "x": e.x, "y": e.y, "r": dr, "ttl": 0.35, "color": "#9fd8ff" })
+						st.text(e.x, e.y - e.r - 30.0, "축전 방전!", "#9fd8ff")
+						PSupport.meter(st, "orb", "discharges")
+						for o2 in st.alive_targets():
+							if PGeom.dist(o2.x, o2.y, e.x, e.y) <= dr + o2.r:
+								st.damage_enemy(o2, float(orb.stats.damage) * dm, { "src": src(orb, { "direct": false }), "no_conduct": true })
 		# 무기 공명(보스 보상): 서로 다른 무기 3종이 4초 안에 같은 적 → 폭발(적당 6초 간격)
 		if (b.boss_rewards as Array).has("resonance"):
 			e.resonance[String(sr.weapon_id)] = st.t

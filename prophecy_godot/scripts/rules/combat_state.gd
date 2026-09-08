@@ -18,6 +18,8 @@ var region_id: String = ""
 var hp_mult: Dictionary = { "normal": 1.0, "elite": 1.0, "boss": 1.0 }
 ## 보조무기별 전투 중 상태(까마귀 표적·방울 충전·인형 개체 등). PSupport가 관리한다
 var support: Dictionary = {}
+## 번개 구체 '축전'(개조)이 쌓은 감전 후속 횟수. 정해진 수를 채우면 방전하고 0으로 돌아간다
+var support_charge: int = 0
 var act: int = 1 # 막(1~3). 정예 체력·역할별 고정 체력표(PPacing)가 읽는다. 시험실·기준 전투는 1
 var hit_attack_id: String = "" # 계측 전용: 투사체 명중 처리 중에만 그 투사체의 발사 시점 공격 id(PHitRecorder가 읽는다)
 ## 공격 원인 계측(2026-09-08, 중복 발사 검사용). 규칙·난수에 영향을 주지 않는 읽기 전용 집계다.

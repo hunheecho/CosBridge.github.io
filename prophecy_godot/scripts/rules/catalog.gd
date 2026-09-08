@@ -81,6 +81,9 @@ static func slot_rules() -> Dictionary: return supports().get("slots", {})
 static func level_scale() -> Dictionary: return supports().get("levelScale", {})
 static func eligibility() -> Dictionary: return supports().get("eligibility", {})
 static func support_resist() -> Dictionary: return supports().get("resist", {})
+## 기존 보조 5종의 손으로 정한 값(생성 파일을 고치지 않기 위한 겹쳐쓰기). 전부 시험값
+static func support_tuning(id: String) -> Dictionary:
+	return supports().get("tuning", {}).get(id, {})
 static func growth() -> Dictionary: return _load("growth").growth
 static func commons() -> Dictionary: return _load("growth").commons
 static func passives() -> Dictionary: return _load("growth").passives
