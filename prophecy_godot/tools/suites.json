@@ -191,6 +191,11 @@
       "timeout_sec": 600,
       "desc": "보조무기 공통 규칙(발동 자격·제압 저항)"
     },
+    "support_b_tests": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "보조무기 B조(역병 나비·가시 갑각·도깨비 인형)와 개조 9개. 마지막 절은 인형이 대신 받아낸 공격 측정(DOLL_MEASURE 한 줄)"
+    },
     "terrain_tests": {
       "env": {},
       "timeout_sec": 900,
@@ -273,6 +278,7 @@
       "collision_tests",
       "slots_tests",
       "support_tests",
+      "support_b_tests",
       "terrain_tests",
       "port_tests",
       "boss_tests",
@@ -301,6 +307,7 @@
       "collision_tests",
       "slots_tests",
       "support_tests",
+      "support_b_tests",
       "terrain_tests",
       "port_tests",
       "balance_tests",

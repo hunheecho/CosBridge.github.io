@@ -150,36 +150,50 @@
       }
     },
     "plague": {
-      "name": "역병 나비", "kind": "plague", "startable": false, "impl": false,
-      "base": { "damage": 0, "interval": 2.2, "range": 280, "speed": 260, "dps": 6, "dur": 5.0, "spread": 110, "spreadMax": 2 },
+      "name": "역병 나비", "kind": "plague", "startable": false, "impl": true,
+      "base": { "damage": 0, "interval": 2.2, "range": 280, "speed": 260, "dps": 6, "dur": 5.0, "tick": 0.5, "spread": 110, "spreadMax": 2,
+        "burstFrac": 0.6, "burstR": 90,
+        "wideSpread": 180, "wideMaxAdd": 1, "wideDps": 0.75,
+        "deepDps": 1.5, "deepSpread": 80, "deepMaxCap": 1 },
       "reach": true, "width": false, "category": "projectile", "tags": ["dot"],
-      "desc": "적에게 붙어 독을 남긴다. 감염된 적이 죽으면 주변으로 독이 옮는다.",
+      "desc": "적에게 붙어 독을 남긴다. 감염된 적이 죽으면 남은 시간을 물려받아 주변으로 독이 옮는다(세대 상한 2).",
+      "baseNote": "tick=독 정산 간격(초). spread=전염 반경, spreadMax=전염 대상 수(레벨업으로 +1). 전염 '세대' 상한은 여기가 아니라 eligibility.plague_spread.gen_max(2)가 정본이다 — 이름이 비슷하지만 다른 것이다.",
       "mods": {
-        "wide": { "name": "넓은 전염", "desc": "전염 범위 110에서 180, 대상 +1. 대신 독 피해 75%", "impl": false, "tags": ["dot"] },
-        "deep": { "name": "깊은 맹독", "desc": "독 피해 150%. 대신 전염 대상 1명, 범위 80", "impl": false, "tags": ["dot"] },
-        "burst": { "name": "역병 파열", "desc": "감염된 적이 죽으면 남은 독 피해의 60%를 주변에 즉시 터뜨린다", "impl": false, "tags": ["dot", "zone"] }
+        "wide": { "name": "넓은 전염", "desc": "전염 범위 110에서 180, 대상 +1. 대신 독 피해 75%", "impl": true, "tags": ["dot"] },
+        "deep": { "name": "깊은 맹독", "desc": "독 피해 150%. 대신 전염 대상 1명, 범위 80", "impl": true, "tags": ["dot"] },
+        "burst": { "name": "역병 파열", "desc": "감염된 적이 죽으면 남은 독 피해의 60%를 주변(반지름 90)에 즉시 터뜨린다. 터뜨린 만큼은 전염에 물려주지 않는다", "impl": true, "tags": ["dot", "zone"] }
       }
     },
     "thorns": {
-      "name": "가시 갑각", "kind": "thorns", "startable": false, "impl": false,
-      "base": { "damage": 0, "interval": 0, "reduce": 0.2, "thorn": 14, "cooldown": 0.6, "range": 95 },
+      "name": "가시 갑각", "kind": "thorns", "startable": false, "impl": true,
+      "base": { "damage": 0, "interval": 0, "range": 0,
+        "reduce": 0.2, "reduceCap": 0.4, "thorn": 14, "cooldown": 0.6, "thornRange": 95, "thornDeg": 60,
+        "focusedMult": 1.8, "focusedDeg": 20,
+        "burstMult": 0.6, "burstR": 110,
+        "venomDps": 4, "venomDur": 3.0 },
       "reach": false, "width": false, "category": "guard", "tags": ["guard", "melee"],
-      "desc": "근접 피해를 줄이고, 근접 공격을 받으면 그 방향으로 가시를 세운다.",
+      "desc": "근접 피해를 줄이고, 근접 공격을 받으면 그 방향으로 가시를 세운다(반격 대기시간 0.6초).",
+      "baseNote": "range=0은 '발사가 없는 수동 보조'라는 뜻이다(PWeapons.update가 대상을 못 찾아 발사 경로로 들어오지 않는다). 반격이 닿는 거리는 thornRange, 부채꼴은 thornDeg. reduce=근접 경감 비율, reduceCap=이 보조 몫의 경감 상한.",
       "mods": {
-        "focused": { "name": "집중 가시", "desc": "때린 적 방향으로 좁고 강한 반격(피해 180%)", "impl": false, "tags": ["melee"] },
-        "burst": { "name": "가시 폭발", "desc": "반격이 주변 원형(반지름 110)으로 퍼진다. 단일 피해는 60%", "impl": false, "tags": ["melee"] },
-        "venom": { "name": "독가시", "desc": "반격 가시에 독을 묻힌다(역병 나비의 전염 자격은 없다)", "impl": false, "tags": ["dot"] }
+        "focused": { "name": "집중 가시", "desc": "때린 적 방향으로 좁게(20도) 강한 반격(피해 180%)", "impl": true, "tags": ["melee"] },
+        "burst": { "name": "가시 폭발", "desc": "반격이 주변 원형(반지름 110)으로 퍼진다. 단일 피해는 60%", "impl": true, "tags": ["melee"] },
+        "venom": { "name": "독가시", "desc": "반격 가시에 독을 묻힌다(초당 4, 3초). 이 독은 역병 나비의 전염·파열 자격이 없다", "impl": true, "tags": ["dot"] }
       }
     },
     "doll": {
-      "name": "도깨비 인형", "kind": "doll", "startable": false, "impl": false,
-      "base": { "damage": 0, "interval": 12.0, "hp": 60, "dur": 8.0, "radius": 230, "maxLure": 3, "place": 120 },
+      "name": "도깨비 인형", "kind": "doll", "startable": false, "impl": true,
+      "base": { "damage": 0, "interval": 12.0, "range": 230, "hp": 60, "dur": 8.0, "maxLure": 3, "place": 120,
+        "dollR": 26, "contact": 20, "lureHold": 4.0,
+        "toughHp": 1.8, "toughDur": 1.5,
+        "blastDmg": 40, "blastR": 120, "blastWarn": 0.4,
+        "fleeSpeed": 55 },
       "reach": false, "width": false, "category": "summon", "tags": ["control"],
-      "desc": "근처에 미끼 인형을 세운다. 주변 적 일부가 잠시 인형을 때리러 간다. 강제 이동은 없다 - 적이 스스로 걸어온다.",
+      "desc": "근처에 미끼 인형을 세운다. 주변 적 일부가 잠시 인형에게 관심을 옮긴다. 강제 이동은 없다 - 적이 스스로 걸어온다.",
+      "baseNote": "range=유인 반경이자 '주변에 적이 있어야 세운다'는 발사 조건. lureHold=한 적을 붙잡아 두는 시간(초)이며 등급 유인 저항(resist.taunt)을 곱한다 — 정예는 절반, 보스는 0이라 아예 안 끌린다. toughHp/toughDur는 절대값이 아니라 배율이다(레벨업 강화를 지우지 않으려고).",
       "mods": {
-        "tough": { "name": "질긴 인형", "desc": "체력 60에서 110, 지속 8초에서 12초", "impl": false, "tags": ["control"] },
-        "firework": { "name": "폭죽 인형", "desc": "부서지거나 수명이 다하면 0.4초 예고 뒤 폭발(피해 40, 반지름 120)", "impl": false, "tags": ["zone"] },
-        "fleeing": { "name": "도망치는 인형", "desc": "관심을 끈 뒤 플레이어에게서 멀어지는 방향으로 천천히 이동한다", "impl": false, "tags": ["control"] }
+        "tough": { "name": "질긴 인형", "desc": "인형 체력 1.8배, 지속 1.5배(1레벨 기준 108 체력·12초)", "impl": true, "tags": ["control"] },
+        "firework": { "name": "폭죽 인형", "desc": "부서지거나 수명이 다하면 0.4초 예고 뒤 폭발(피해 40, 반지름 120)", "impl": true, "tags": ["zone"] },
+        "fleeing": { "name": "도망치는 인형", "desc": "관심을 끈 뒤 플레이어에게서 멀어지는 유효한 방향으로 천천히 이동한다(초당 55)", "impl": true, "tags": ["control"] }
       }
     }
   }
