@@ -9,6 +9,9 @@ static func is_wolf(d: Dictionary) -> bool:
 	return bool(d.get("godot_rules", false)) or (d.has("bite") and d.has("dash"))
 
 static func update(st: CombatState, e: Dictionary, dt: float) -> void:
+	# 새 종류 정의 등록(값싼 검사 한 번). 정본 훅은 PCatalog.enemies()가 PEnemiesNew.extra_defs()를 합치는 것이며
+	# 그 훅이 붙기 전까지의 임시 자리다 — 자세한 내용은 PEnemiesNew.extra_defs 주석과 docs/MONSTERS.md
+	PEnemiesNew.ensure_defs()
 	var type := String(e.type)
 	if bool(e.get("structure", false)):
 		# 제단·봉인 장치는 PObjectives가 굴린다. 정예가 만든 깃발·돌무더기는 스스로 수명을 센다(부수면 즉시 사라진다)
@@ -23,13 +26,35 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 			e.ordered = false
 			e.leash_boost = 1.0
 	if is_wolf(e.def):
+		# 늑대·늑대 우두머리는 여기서 먼저 갈린다. 우두머리는 일반 정예 확장 표에도 있지만
+		# 행동을 더하지 않았으므로(COMMON_ELITES의 from이 빈 문자열) 0.3.1 규칙과 D33/D35가 그대로다
 		update_wolf(st, e, dt)
+	elif PEnemiesNew.is_common_elite(type):
+		update_common_elite(st, e, dt)
 	elif type == "archer":
 		update_archer(st, e, dt)
 	elif type == "spore":
 		update_spore(st, e, dt)
 	elif PEnemiesNew.has(type):
 		PEnemiesNew.update(st, e, dt)
+
+## 일반 정예 확장(2026-09-09, 시험값): **바탕 몬스터의 기본 행동을 그대로 굴리고**
+## 정해진 전이 한 곳에서 눈에 띄는 변화 하나를 잇는다. 바탕 규칙을 복사하지 않는다 — 같은 함수를 부른다.
+## 확장 시작 지점이 '빈틈으로 들어가는 순간'인 것은 PEnemiesNew.to_recover가 가로채고,
+## 그렇지 않은 것(잠복충의 warn → emerge)은 after_base가 뒤에서 잡는다.
+static func update_common_elite(st: CombatState, e: Dictionary, dt: float) -> void:
+	if PEnemiesNew.extra_busy(e):
+		PEnemiesNew.update_extra(st, e, dt)
+		return
+	var prev := String(e.state)
+	match PEnemiesNew.base_type(String(e.type)):
+		"archer":
+			update_archer(st, e, dt)
+		"spore":
+			update_spore(st, e, dt)
+		_:
+			PEnemiesNew.update_base(st, e, dt)
+	PEnemiesNew.after_base(st, e, prev)
 
 static func is_committed(e: Dictionary) -> bool:
 	if e.state in ["bite_track", "bite_lock", "bite_hit"]:
@@ -51,6 +76,10 @@ static func detonate(st: CombatState, z: Dictionary) -> void:
 static func threats(st: CombatState, e: Dictionary, out: Array) -> void:
 	var d: Dictionary = e.def
 	var p := st.target_of(e)
+	if PEnemiesNew.extra_busy(e): # 일반 정예 확장이 더한 행동의 예고 도형
+		PEnemiesNew.extra_threats(st, e, out)
+		return
+	var base := PEnemiesNew.base_type(String(e.type)) # 확장은 바탕 종류의 도형을 그대로 쓴다
 	if is_wolf(d):
 		var D: Dictionary = d.dash
 		var B: Dictionary = d.bite
@@ -62,18 +91,18 @@ static func threats(st: CombatState, e: Dictionary, out: Array) -> void:
 			out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "r": float(B.reach) + 24.0, "half": float(B.arc_deg) * PI / 360.0 + 0.35, "prog": float(e.state_t) / float(B.track), "locked": false })
 		elif e.state == "bite_lock" or e.state == "bite_hit":
 			out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.dir, "r": float(B.reach) + 24.0, "half": float(B.arc_deg) * PI / 360.0 + 0.35, "prog": 1.0, "locked": true })
-	elif e.type == "archer":
+	elif base == "archer":
 		if e.state == "aim":
 			out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "len": 2000.0, "w": 40.0, "prog": float(e.state_t) / float(d.aim), "locked": false })
 		elif e.state == "lock":
 			out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": e.dir, "len": 2000.0, "w": 40.0, "prog": 1.0, "locked": true })
-	elif e.type == "spore":
+	elif base == "spore":
 		if e.state == "swell":
 			# 예고 원은 **준비를 시작한 자리**에 고정한다(플레이어를 따라가지 않는다). 실제 구름도 같은 자리에 생긴다
 			var c := spore_swell_center(e)
 			out.append({ "kind": "circle", "e": e, "x": c[0], "y": c[1], "r": float(d.cloudR), "prog": float(e.state_t) / float(d.swell), "locked": float(e.state_t) / float(d.swell) > 0.6 })
 	else:
-		PEnemiesNew.threats(st, e, out)
+		PEnemiesNew.threats_as(st, e, out, base)
 
 static func zone_threats(st: CombatState, out: Array) -> void:
 	for z in st.zones:
@@ -318,8 +347,9 @@ static func update_archer(st: CombatState, e: Dictionary, dt: float) -> void:
 				st.projectiles.append(pr_arrow)
 				st.ev("shoot")
 				st.note_attack(e, "execute")
-				e.state = "recover"
-				e.state_t = 0.0
+				# to_recover는 state·state_t를 여기와 똑같이 놓는다(빈틈 길이는 아래 recover 절이 d.recover로 그대로 잰다).
+				# 다른 점은 하나뿐이다: **일반 정예 확장(연사 궁수)**이 빈틈 대신 두 번째 화살을 잇게 가로챌 수 있다
+				PEnemiesNew.to_recover(st, e, float(d.recover), false)
 		"recover":
 			e.state_t += dt * tf
 			if float(e.state_t) >= float(d.recover):
@@ -419,8 +449,8 @@ static func update_spore(st: CombatState, e: Dictionary, dt: float) -> void:
 				st.note_attack(e, "execute")
 				e.erase("swell_x")
 				e.erase("swell_y")
-				e.state = "recover"
-				e.state_t = 0.0
+				# 위 궁수와 같은 이유: 값은 그대로 두고 **일반 정예 확장(역병 포자)**의 잔류 구역만 가로챌 수 있게 한다
+				PEnemiesNew.to_recover(st, e, float(d.recover), false)
 		"recover":
 			e.state_t += dt * tf
 			if float(e.state_t) >= float(d.recover):

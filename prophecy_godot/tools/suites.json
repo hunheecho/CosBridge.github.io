@@ -402,6 +402,11 @@
       "env": {},
       "timeout_sec": 900,
       "desc": "화면 표시(보조무기 개체·특수 정예 실루엣·주술사 예고·보스 파괴 예고)가 규칙 자료를 실제로 읽는가"
+    },
+    "new_monster_tests": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "신규 일반 3종(흡혈 박쥐·불씨 도마뱀·도약 두꺼비)과 일반 정예 확장 10종 규칙(예고·확정·빈틈·회복 없음·잔류 장판 없음·착지 안전·확장 행동 실행)"
     }
   },
   "groups": {
@@ -439,7 +444,8 @@
       "hit_feel_tests",
       "support_a_tests",
       "synergy_tests",
-      "render_tests"
+      "render_tests",
+      "new_monster_tests"
     ],
     "rules": [
       "run_tests",
@@ -458,7 +464,8 @@
       "meta_tests",
       "elites_tests",
       "support_a_tests",
-      "synergy_tests"
+      "synergy_tests",
+      "new_monster_tests"
     ],
     "boss": [
       "boss_tests",
