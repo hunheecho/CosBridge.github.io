@@ -87,7 +87,11 @@ func _init() -> void:
 	ok("첫날 새벽 숲길 출격 = 늑대 25·동시 12·경험치 예산 9.0(D33 보존), 전장 공터", String(c_first.formationId) == "t1a_first" and (st_first.formation.units as Array).size() == 25 and int(st_first.formation.godot_counts.wolf) == 25 and int(st_first.formation.alive_cap) == 12 and is_equal_approx(snapped(xp_first, 0.01), 9.0) and st_first.arena_id == "clearing", "units %d cap %d xp %.2f" % [(st_first.formation.units as Array).size(), int(st_first.formation.alive_cap), xp_first])
 	var st1 := PFlow.make_encounter(r5, sortie_of(r5, p1, 1, "t1a_wolves"))
 	var f1: Dictionary = st1.formation
-	ok("숲길 '늑대 무리 + 궁수'(1일차): 전체 25 = 날짜 예산표(사용자 결정 25), 늑대 20·궁수 5(0.8/0.2), 동시 12(1막 상한), 궁수 상한 3, 배율 1(밀도 세트 무시)", (f1.units as Array).size() == 25 and int(f1.godot_counts.wolf) == 20 and int(f1.godot_counts.archer) == 5 and int(f1.alive_cap) == 12 and int(f1.type_caps.get("archer", 0)) == 3 and is_equal_approx(float(f1.multiplier), 1.0), str(f1.godot_counts) + " cap %d" % int(f1.alive_cap))
+	# 종류별 동시 생존 상한이 **동시 상한의 비율**로 바뀌었다(2026-09-09, 전투 말미 늘어짐 수정).
+	# 궁수는 12 × 0.4 = 5. 편성표의 옛 고정값 3보다 작아지지는 않는다.
+	# **D33 기준 전투(t1a_first, 늑대 25·동시 12)는 이 규칙을 타지 않는다** — 바로 위 검사가 그대로 통과한다.
+	# 총 등장 수(25)·비율(0.8/0.2)·경험치 예산은 그대로다. 바뀐 것은 한꺼번에 몇 마리가 살아 있는가뿐이다.
+	ok("숲길 '늑대 무리 + 궁수'(1일차): 전체 25 = 날짜 예산표(사용자 결정 25), 늑대 20·궁수 5(0.8/0.2), 동시 12(1막 상한), 궁수 상한 5(동시 상한 비례), 배율 1(밀도 세트 무시)", (f1.units as Array).size() == 25 and int(f1.godot_counts.wolf) == 20 and int(f1.godot_counts.archer) == 5 and int(f1.alive_cap) == 12 and int(f1.type_caps.get("archer", 0)) == 5 and is_equal_approx(float(f1.multiplier), 1.0), str(f1.godot_counts) + " cap %d 궁수상한 %d" % [int(f1.alive_cap), int(f1.type_caps.get("archer", 0))])
 	r5.densitySet = "roles"
 	var st1b := PFlow.make_encounter(r5, sortie_of(r5, p1, 1, "t1a_wolves"))
 	ok("밀도 세트 roles를 골라도 테마 템플릿 수는 같다(이중 적용 없음)", (st1b.formation.units as Array).size() == 25)
