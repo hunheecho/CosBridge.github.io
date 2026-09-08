@@ -294,6 +294,22 @@
       "env": {},
       "timeout_sec": 600,
       "desc": "보조무기 A조 4종(추격 까마귀·수호 방울·잔영 분신·바람 정령)과 개조 12개"
+    },
+    "dps_probe": {
+      "env": {},
+      "script": "tools/dps_probe.gd",
+      "timeout_sec": 3600,
+      "desc": "주무기 5종의 단일 대상 화력 측정(이론 DPS · 실제 DPS · 접근 손실 · 이탈 손실 · 무리 참고). 통과 판정이 아니라 기록. 부분 실행은 PROPHECY_SUBSET=\"weapon=sword,daggers;level=1;mods=0;seed=1\"",
+      "verdict": {
+        "success_pattern": "DPS_PROBE_JSON",
+        "summary_patterns": [],
+        "forbid_patterns": [
+          "SCRIPT ERROR",
+          "Parse Error",
+          "Compile Error"
+        ],
+        "note": "측정 도구라 'N/N PASS' 요약이 없다. 결과 JSON 한 줄과 종료 코드 0으로 판정한다(통과 판정이 아니라 기록이 남았는지 확인)."
+      }
     }
   },
   "groups": {

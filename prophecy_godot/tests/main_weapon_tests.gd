@@ -12,6 +12,10 @@ extends SceneTree
 
 const STEP := 1.0 / 120.0
 const ENEMY_R := 14.0   # 늑대 반지름(data/enemies.json)
+const THEORY_DIST := 45.0  # '붙어 있는' 거리(주무기 5종 모두 사거리 안, 쌍검 62가 가장 짧다)
+const THEORY_SEC := 30.0   # 이론 DPS 측정 창(tools/dps_probe.gd와 같은 값)
+const TARGET_RATIO := 1.5  # 사용자 확정: 쌍검 이론 단일 대상 DPS ≥ 검 × 1.5
+const GROWTH_LEVELS := [1, 3, 5]
 
 var results := []
 
@@ -83,13 +87,19 @@ func fire_once(st: CombatState, weapon_id: String, target: Dictionary, wait: flo
 func dmg_of(st: CombatState, weapon_id: String) -> float:
 	return float(st.metrics.dmg.get("weapon:" + weapon_id, 0.0))
 
-## 표적 하나에 12초 동안 붙어서 넣은 총 피해(같은 레벨·같은 성장 투자, 같은 거리)
-func sustained(weapon_id: String, dist: float, seconds: float = 12.0) -> float:
-	var st := mk(weapon_id)
+## 표적 하나에 붙어서 seconds 동안 넣은 총 피해(같은 레벨·같은 성장 투자, 같은 거리)
+func sustained(weapon_id: String, dist: float, seconds: float = 12.0, level: int = 1) -> float:
+	var st := mk(weapon_id, [], level)
 	var pos := at(st, dist, 0.0)
 	var e := dummy(st, pos[0], pos[1])
 	steps_pinned(st, seconds, [[e, pos[0], pos[1]]])
 	return dmg_of(st, weapon_id)
+
+## 이론 단일 대상 DPS(움직이지 않는 표적 하나에 붙어서 전부 적중할 때 초당 피해).
+## 30초로 재는 이유: 짧은 창으로 재면 무기마다 발사 수가 반올림되어 비율이 흔들린다
+## (12초면 검 22회·쌍검 16회라 소수 자리가 튄다). 측정 방식은 tools/dps_probe.gd와 같다
+func theory_dps(weapon_id: String, level: int) -> float:
+	return sustained(weapon_id, THEORY_DIST, THEORY_SEC, level) / THEORY_SEC
 
 func _init() -> void:
 	var sw := stats_of("sword")
@@ -182,6 +192,58 @@ func _init() -> void:
 		"finalMult %.2f" % float(dg.get("finalMult", 1.0)))
 	ok("쌍검의 리치는 주무기 5종 중 가장 짧다", float(dg.range) < float(sw.range) and float(dg.range) < float(hm.range),
 		"쌍검 %.0f · 검 %.0f · 망치 %.0f" % [float(dg.range), float(sw.range), float(hm.range)])
+
+	# ---------- 3-2. 같은 투자에서 쌍검의 이론 단일 대상 DPS ≥ 검 × 1.5 (사용자 확정) ----------
+	# '같은 투자' = 같은 레벨 · 개조 없음 · 장비 없음 · 대장간 강화 없음(둘 다 mk()의 기본 빌드).
+	# 성장 구간 Lv1/Lv3/Lv5를 각각 못박는다. 레벨 배율은 두 무기에 같은 표(growth.json LEVEL_MULT)가
+	# 곱해지므로 비율은 레벨과 무관해야 하고, 그 사실 자체도 여기서 확인된다.
+	var LM: Array = PCatalog.growth().LEVEL_MULT
+	var sword_floor: float = float(sw.damage) / float(sw.interval) # 검의 이론 DPS 기준선(Lv1 = 12/0.55)
+	var ratio_rows := []
+	var ratios := []
+	for lv_v in GROWTH_LEVELS:
+		var lv := int(lv_v)
+		var dps_sw: float = theory_dps("sword", lv)
+		var dps_dg: float = theory_dps("daggers", lv)
+		var ratio: float = dps_dg / dps_sw if dps_sw > 0.0 else 0.0
+		ratios.append(ratio)
+		ratio_rows.append("Lv%d %.3f배" % [lv, ratio])
+		ok("Lv%d 같은 투자(개조·장비·대장간 없음)에서 쌍검의 이론 단일 대상 DPS %.2f는 검 %.2f의 %.1f배 이상이다" % [lv, dps_dg, dps_sw, TARGET_RATIO],
+			ratio >= TARGET_RATIO, "쌍검 %.2f ÷ 검 %.2f = %.3f배" % [dps_dg, dps_sw, ratio])
+		# 검을 약화해서 비율을 맞추지 않았다는 확인: 검의 절대 수치가 레벨 배율대로 유지된다
+		var want_sw: float = sword_floor * float(LM[lv - 1])
+		ok("검 Lv%d의 이론 단일 대상 DPS %.2f는 내려가지 않았다(피해 %.0f ÷ 주기 %.2f × 레벨 배율 %.2f = %.2f 이상)" % [lv, dps_sw, float(sw.damage), float(sw.interval), float(LM[lv - 1]), want_sw],
+			dps_sw >= want_sw - 1e-6, "%.3f ≥ %.3f" % [dps_sw, want_sw])
+	var ratio_lo: float = INF
+	var ratio_hi: float = -INF
+	for r in ratios:
+		ratio_lo = minf(ratio_lo, float(r))
+		ratio_hi = maxf(ratio_hi, float(r))
+	ok("비율은 레벨에 따라 흔들리지 않는다(같은 레벨 배율표가 두 무기에 똑같이 곱해진다 — 세 레벨의 차이 %.4f)" % (ratio_hi - ratio_lo),
+		ratio_hi - ratio_lo < 0.01, ", ".join(ratio_rows))
+	# 검의 기본 수치 자체를 못박는다 — 비율을 검 약화로 맞추면 이 줄이 먼저 깨진다
+	ok("검의 기본 수치는 그대로다(피해 12 · 주기 0.55 · 사거리 95 · 부채꼴 110°)",
+		is_equal_approx(float(sw.damage), 12.0) and is_equal_approx(float(sw.interval), 0.55)
+			and is_equal_approx(float(sw.range), 95.0) and is_equal_approx(float(sw.arc_deg), 110.0),
+		"피해 %.1f · 주기 %.2f · 사거리 %.0f · %.0f°" % [float(sw.damage), float(sw.interval), float(sw.range), float(sw.arc_deg)])
+
+	# ---------- 3-3. 카드·빌드 화면이 "6 × 3연타"로 적을 수 있는 파생 수치가 있는가 ----------
+	# 화면 코드는 이 작업의 소유가 아니다. 여기서는 **읽을 값이 파생 수치에 실제로 있는지**만 못박는다
+	# (docs/MAIN_WEAPONS.md의 '표기 자료' 절이 무엇을 읽으면 되는지 적는다).
+	ok("쌍검의 파생 수치에 연타 수(hits)가 있다 — 카드가 '피해 %s × %d연타'로 적을 수 있다" % [str(snapped(float(dg.damage), 0.1)), int(dg.get("hits", 0))],
+		dg.has("hits") and int(dg.hits) == 3, "hits %s" % str(dg.get("hits", null)))
+	ok("쌍검의 파생 수치에 연타 간격(hit_gap %.2f초)이 있다 — 3연타가 %.2f초 동안 이어진다" % [float(dg.get("hit_gap", 0.0)), float(dg.get("hit_gap", 0.0)) * 2.0],
+		dg.has("hit_gap") and float(dg.hit_gap) > 0.0, "hit_gap %s · hitGap %s" % [str(dg.get("hit_gap", null)), str(dg.get("hitGap", null))])
+	ok("마무리 배율(finalMult)도 파생 수치에 남아 있다 — 마지막 일격만 더 무겁다고 적을 수 있다",
+		dg.has("finalMult") and float(dg.finalMult) > 1.0, "finalMult %s" % str(dg.get("finalMult", null)))
+	var cycle_dmg: float = float(dg.damage) * (float(int(dg.hits) - 1) + float(dg.finalMult))
+	ok("연타 표기와 한 주기 피해가 맞는다: %.1f × %d연타(마지막 ×%.2f) = %.1f, 초당 %.2f" % [float(dg.damage), int(dg.hits), float(dg.finalMult), cycle_dmg, cycle_dmg / float(dg.interval)],
+		absf(cycle_dmg / float(dg.interval) - theory_dps("daggers", 1)) < 1.0,
+		"계산 %.2f · 측정 %.2f" % [cycle_dmg / float(dg.interval), theory_dps("daggers", 1)])
+	# 리치·폭은 이번 상향으로도 그대로다(사거리를 늘려 해결하지 않았다는 확인)
+	ok("쌍검의 리치 62·폭 70°는 그대로다(사거리를 늘려 화력을 맞추지 않았다)",
+		is_equal_approx(float(dg.range), 62.0) and is_equal_approx(float(dg.arc_deg), 70.0),
+		"사거리 %.0f · %.0f°" % [float(dg.range), float(dg.arc_deg)])
 
 	# ---------- 4. 전투망치: 예고 → 착탄 위치 확정 → 내려찍기 ----------
 	var st_h := mk_manual("hammer")
