@@ -72,11 +72,10 @@ func _move_tests(main: Node) -> void:
 		if _walk_min(stt) < 1.0:
 			stuck.append(String(aid))
 	ok("모든 테마 경기장에서 8방향 걷기가 된다(장애물 접촉 탈출 규칙)", stuck.is_empty(), "막힌 경기장: " + str(stuck))
-	# 시작 위치가 바위 안인 경기장은 남아 있다(themes.json은 player, combat_state.gd는 playerStart를 읽는다).
-	# 규칙 파일이 아니라 데이터·규칙 담당 몫이므로 여기서는 '알고 있는 목록'으로 고정해 새로 늘어나는 것만 잡는다.
-	var known := ["fort_wall/r5", "mine_tunnel/r5", "abyss_center/r1", "blood_path/r3", "citadel_corridor/r5"]
-	var extra := spawn_in_rock.filter(func(x): return not known.has(x))
-	ok("시작 위치가 장애물 안인 경기장이 더 늘지 않았다(알려진 5곳)", extra.is_empty(), "겹침=" + str(spawn_in_rock) + " 새로 늘어난 것=" + str(extra))
+	# KD-3 닫힘(2026-09-08): themes.json의 키를 playerStart로 맞추고 combat_state.gd가 player도 함께 읽는다.
+	# 고치기 전에는 아래 5곳이 시작 위치가 바위 안이었다. 이제 0곳이어야 한다(다시 늘면 여기서 잡힌다).
+	var was := ["fort_wall/r5", "mine_tunnel/r5", "abyss_center/r1", "blood_path/r3", "citadel_corridor/r5"]
+	ok("시작 위치가 장애물 안인 경기장이 없다(KD-3 수정 전 5곳: %s)" % str(was), spawn_in_rock.is_empty(), "겹침=" + str(spawn_in_rock))
 	# ② 9일차 실제 경기장(abyss_center)에서 화면 경로로 걷기
 	var s9 := so.duplicate(true)
 	s9.arena = "abyss_center"
@@ -87,7 +86,7 @@ func _move_tests(main: Node) -> void:
 	for ob in st9.obstacles:
 		ov = maxf(ov, float(ob.r) + float(st9.player.r) - PGeom.dist(float(ob.x), float(ob.y), st9.player.x, st9.player.y))
 	var moved := _view_walk(main, Vector2(1, 0))
-	ok("9일차 경기장(abyss_center): 시작이 바위와 겹쳐도 화면 경로로 걸어진다", moved > 20.0, "시작 겹침 %.1fpx · 이동 %.1fpx" % [ov, moved])
+	ok("9일차 경기장(abyss_center): 화면 경로로 걸어진다(시작 겹침 0px여야 한다)", moved > 20.0 and ov <= 0.0, "시작 겹침 %.1fpx · 이동 %.1fpx" % [ov, moved])
 	var diag: Dictionary = main.view.move_diag()
 	ok("이동 진단이 입력·이동량·이유를 남긴다", diag.has("입력") and diag.has("이동") and diag.has("이유") and (diag["전투"] as Dictionary).has("탈출예외"), JSON.stringify(diag.get("이유", [])))
 	# ③ 레벨업 3택을 열고 고른 뒤 이동이 살아 있는가

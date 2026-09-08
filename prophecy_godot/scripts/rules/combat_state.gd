@@ -80,6 +80,8 @@ var xp_map: Dictionary = {}    # type → 마리당 경험치(밀도 모델 예�
 var xp_default_scale: float = 1.0
 var attack_log: Array = []     # [t, id, kind] 공격 시작 순서(재현 검사용)
 var obstacles: Array = []
+## 랜덤 지형 배치 결과(PTerrain). {}=고정 지형. 저장해 두었다가 opts.terrain으로 그대로 되살릴 수 있다
+var terrain: Dictionary = {}
 var arena_w: float
 var arena_h: float
 var arena_id: String = "clearing"
@@ -155,9 +157,13 @@ func _init(o: Dictionary) -> void:
 	xp_map = o.get("xp_map", {})
 	xp_default_scale = float(o.get("xp_default_scale", 1.0))
 	var P: Dictionary = cfg.player
-	var ps: Dictionary = arena_def.get("playerStart", { "x": arena_w / 2.0, "y": arena_h / 2.0 }) if not ff else P.start
+	# KD-3(2026-09-08): 테마 경기장 14곳은 시작 위치 키가 player인데 여기서 playerStart만 읽어
+	# 14곳 전부 기본값(전장 중앙)으로 시작했고 그중 5곳은 그 자리가 바위 안이었다.
+	# 정본 키는 playerStart이고(themes.json도 그렇게 고쳤다) player도 함께 읽어 준다 — PTerrain.arena_start.
+	var ps: Dictionary = PTerrain.arena_start(arena_def, arena_w, arena_h) if not ff else P.start
 	if P.has("start"):
 		ps = P.start
+	_setup_terrain(o, ff, arena_def, ps)
 	var hp_max: float = float(build.hp_max)
 	player = {
 		"x": float(ps.x), "y": float(ps.y), "r": float(P.r), "hp": minf(float(o.get("hp", hp_max)), hp_max), "hp_max": hp_max,
@@ -210,6 +216,28 @@ static func _make_cfg(C: Dictionary) -> Dictionary:
 		"chest": C.CHEST, "ember": C.EMBER, "frost": C.FROST, "stasis": C.STASIS, "flare": C.FLARE, "saving": C.SAVING,
 		"wolf_dash_max": int(wolf.dash.max_concurrent),
 	}
+
+## 장애물 목록을 통째로 바꿔 넣는다. canopy(머리 위 가림)는 시야 판정에 쓰이므로 반드시 함께 옮긴다
+func _set_obstacles(list: Array) -> void:
+	obstacles.clear()
+	for ob in list:
+		obstacles.append({ "id": String(ob.id), "type": String(ob.type), "x": float(ob.x), "y": float(ob.y), "r": float(ob.r), "canopy": bool(ob.get("canopy", false)) })
+
+## 랜덤 지형(사용자 요구 7). 검증된 전장 뼈대 위에 장애물 후보 자리를 추첨해 더한다(PTerrain).
+## 적용 제외: 승인된 기준 전투(first_fight) · 보스 전장(지금 배치 유지) · opts.obstacles 직접 지정 · 꺼져 있을 때.
+## opts.terrain(저장해 둔 배치)이 있으면 추첨하지 않고 그대로 되살린다. 추첨은 지형 전용 난수를 쓰므로
+## st.rng(전투 난수) 소비 순서를 바꾸지 않는다. 장애물이 정해진 뒤에 목표(봉인·제단·출구)가 놓인다.
+func _setup_terrain(o: Dictionary, ff: bool, arena_def: Dictionary, ps: Dictionary) -> void:
+	var saved: Dictionary = o.get("terrain", {})
+	if not saved.is_empty():
+		terrain = saved.duplicate(true)
+		_set_obstacles(PTerrain.restore(terrain))
+		return
+	if ff or o.has("obstacles") or bool(o.get("boss", false)) or not PTerrain.enabled(o):
+		return
+	terrain = PTerrain.generate(arena_id, arena_w, arena_h, obstacles, ps,
+		int(o.get("terrain_seed", seed_value)), PTerrain.arena_boss_start(arena_def, arena_w))
+	_set_obstacles(terrain.obstacles)
 
 static func _apply_overrides(base: Dictionary, ov: Dictionary) -> void:
 	for k in ov:
