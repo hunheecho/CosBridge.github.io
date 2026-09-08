@@ -128,6 +128,7 @@ static func fire(st: CombatState, w: Dictionary, target: Dictionary, echoed: boo
 static func update(st: CombatState, dt: float) -> void:
 	PSupportA.update(st, dt)
 	PSupportB.update(st, dt)
+	sync_meters(st)
 
 ## 전투 시작 시 보조별 상태 초기화. st.support에 보조 id별 dict를 둔다
 static func init_state(st: CombatState) -> void:
@@ -189,3 +190,46 @@ static func meter(st: CombatState, id: String, key: String, amount: float = 1.0)
 ## 쌓인 지표 조회(없으면 0)
 static func metered(st: CombatState, id: String, key: String) -> float:
 	return float((st.metrics.support.get(id, {}) as Dictionary).get(key, 0.0))
+
+## 보조별 내부 계수기(st.support)를 **표준 지표 이름**(st.metrics.support)으로 옮긴다.
+##
+## 왜 옮기는가. A조·B조가 각자 만들면서 서로 다른 이름으로 세어 두었다(bell은 blocked_damage,
+## doll은 absorbed, wind는 push_total …). 대표 조합 측정은 하나의 이름표를 읽어야 하므로
+## 여기서 한 번에 옮긴다. **세는 일은 각 조가 하고, 이름을 맞추는 일만 여기서 한다** —
+## 이름을 맞추려고 각 조의 코드를 흩어 고치면 나중에 또 어긋난다.
+##
+## 규칙에는 영향이 없다(계측 전용). 값을 더하지 않고 **덮어쓴다** — 내부 계수기가 이미 누계이기 때문이다.
+const METER_MAP := {
+	"crow":   { "marks": "marks", "hits": "strikes", "dmg": "damage" },
+	"bell":   { "blocked": "blocked", "blocked_dmg": "blocked_damage",
+				"guards": "guarded", "reduced_dmg": "reduced", "reflects": "reflects", "reflect_dmg": "reflect_damage" },
+	"echo":   { "copies": "spawned", "hits": "strikes", "copy_dmg": "damage" },
+	"wind":   { "fires": "blasts", "push_dist": "push_total", "slows": "slowed" },
+	"plague": { "fires": "applied", "spreads": "spreads", "bursts": "bursts" },
+	"thorns": { "reduced_dmg": "reduced", "reflects": "reflects", "hits": "reflect_hits" },
+	"doll":   { "fires": "placed", "taunted": "lured", "soaked": "absorbed", "soaked_dmg": "absorbed_dmg" },
+}
+
+static func sync_meters(st: CombatState) -> void:
+	for id in METER_MAP:
+		var src: Dictionary = st.support.get(id, {})
+		if src.is_empty():
+			continue
+		var M: Dictionary = st.metrics.support
+		if not M.has(id):
+			M[id] = {}
+		var dst: Dictionary = M[id]
+		for std in METER_MAP[id]:
+			var key := String(METER_MAP[id][std])
+			if src.has(key):
+				dst[std] = float(src[key])
+		# 지속 피해 합계는 사전 안에 들어 있어 따로 더한다
+		if src.has("dmg") and typeof(src.dmg) == TYPE_DICTIONARY:
+			var total := 0.0
+			for k in (src.dmg as Dictionary):
+				total += float(src.dmg[k])
+			dst["dmg"] = total
+			if id == "plague":
+				dst["dot_dmg"] = float((src.dmg as Dictionary).get("poison", 0.0)) + float((src.dmg as Dictionary).get("spread", 0.0))
+			if id == "thorns":
+				dst["reflect_dmg"] = float((src.dmg as Dictionary).get("reflect", 0.0))

@@ -102,6 +102,37 @@ func _init() -> void:
 	ok("미구현 보조는 impl:false라 성장 후보로 나오지 않는다(그림·설명만 있는 상태로 지급되지 않는다)",
 		planned.size() >= 0, "아직 미구현: %s" % str(planned))
 
+	# ---------- 10. 증강 자격이 새 구조에서 실제로 성립하는가 ----------
+	# 사용자 지시: 방어 보조를 골랐다는 이유로 작동하지 않는 보상을 설명 없이 제시하지 않는다.
+	var g_atk := PGrowth.new_growth("sword")
+	g_atk.weapons.append({ "id": "orb", "level": 1, "mods": [] })
+	g_atk.weapons.append({ "id": "blades", "level": 1, "mods": [] })
+	var g_def := PGrowth.new_growth("sword")
+	g_def.weapons.append({ "id": "bell", "level": 1, "mods": [] })
+	g_def.weapons.append({ "id": "thorns", "level": 1, "mods": [] })
+	ok("공격 출처 세기: 주무기+공격 보조 2 = 3, 주무기+방어 보조 2 = 1",
+		PGrowth.attack_source_count(g_atk) == 3 and PGrowth.attack_source_count(g_def) == 1,
+		"%d / %d" % [PGrowth.attack_source_count(g_atk), PGrowth.attack_source_count(g_def)])
+	ok("무기 공명은 공격 출처가 3종일 때만 후보로 나온다(방어 보조 둘이면 영원히 못 터지므로 제시하지 않는다)",
+		PGrowth.boss_reward_applies(g_atk, "resonance") and not PGrowth.boss_reward_applies(g_def, "resonance"))
+
+	var g_crow := PGrowth.new_growth("sword")
+	g_crow.weapons.append({ "id": "crow", "level": 1, "mods": [] })
+	var g_plague := PGrowth.new_growth("sword")
+	g_plague.weapons.append({ "id": "plague", "level": 1, "mods": [] })
+	ok("시간의 복제: 새 투사체 보조(추격 까마귀·역병 나비)도 투사체로 센다",
+		PGrowth.has_projectile_weapon(g_crow) and PGrowth.has_projectile_weapon(g_plague))
+	ok("시간의 복제: 방어 보조만 있으면 복제할 투사체가 없다", not PGrowth.has_projectile_weapon(g_def))
+	ok("연쇄의 씨앗: 역병 나비의 독도 상태 이상 공급원이다",
+		PGrowth.status_sources(g_plague).has("독") and PGrowth.boss_reward_applies(g_plague, "seed"))
+	var g_venom := PGrowth.new_growth("sword")
+	g_venom.weapons.append({ "id": "thorns", "level": 2, "mods": ["venom"] })
+	ok("연쇄의 씨앗: 독가시(가시 갑각 개조)도 독 공급원이다", PGrowth.status_sources(g_venom).has("독"))
+	var g_frost := PGrowth.new_growth("sword")
+	g_frost.weapons.append({ "id": "frost", "level": 1, "mods": [] })
+	ok("서리 수정을 보조로 들면 냉기가 공급원으로 잡힌다(예전에는 공용 증강만 셌다)",
+		PGrowth.status_sources(g_frost).has("냉기"))
+
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)

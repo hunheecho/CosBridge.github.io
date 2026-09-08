@@ -71,12 +71,31 @@ static func passive_count(g: Dictionary) -> int:
 			n += 1
 	return n
 
+## 투사체를 쏘는 자동기술이 하나라도 있는가('시간의 복제'가 복제할 것이 있는지).
+## 무기 종류(kind)를 손으로 나열하지 않고 카탈로그의 분류(category)를 본다 —
+## 새 보조가 늘 때마다 여기 목록을 고쳐야 하는 상태였고, 실제로 추격 까마귀·역병 나비가 빠져 있었다.
 static func has_projectile_weapon(g: Dictionary) -> bool:
 	for w in g.weapons:
-		var k := String(PCatalog.weapon(String(w.id)).kind)
-		if k in ["homing", "bolt", "beam"] or (w.mods as Array).has("crescent") or (w.mods as Array).has("launch"):
+		var d := PCatalog.weapon(String(w.id))
+		if String(d.get("category", "")) == "projectile":
 			return true
+		if String(d.kind) in ["homing", "bolt", "beam"]:
+			return true
+		if (w.mods as Array).has("crescent") or (w.mods as Array).has("launch"):
+			return true
+		if String(w.id) == "bell" and (w.mods as Array).has("reflect"):
+			return true # 되돌림 반격탄도 투사체다
 	return false
+
+## 직접 피해를 내는 자동기술의 수. 방어·소환 전용 보조(수호 방울·가시 갑각·도깨비 인형)는 세지 않는다.
+## '무기 공명'처럼 **서로 다른 공격 출처**를 요구하는 보상의 자격 판정에 쓴다.
+static func attack_source_count(g: Dictionary) -> int:
+	var n := 0
+	for w in g.weapons:
+		var cat := String(PCatalog.weapon(String(w.id)).get("category", "direct"))
+		if cat != "guard" and cat != "summon":
+			n += 1
+	return n
 
 static func has_fire_source(g: Dictionary) -> bool:
 	return has_common(g, "ember") or not weapon_of(g, "ember").is_empty()
@@ -189,14 +208,24 @@ static func has_bleed_source(g: Dictionary) -> bool:
 	return false
 
 ## 보유한 상태 공급원 이름 목록(희귀 보상 설명·장비 호환 안내가 같은 기준을 쓴다)
+static func has_poison_source(g: Dictionary) -> bool:
+	for w in g.weapons:
+		if String(w.id) == "plague":
+			return true
+		if String(w.id) == "thorns" and (w.mods as Array).has("venom"):
+			return true
+	return false
+
 static func status_sources(g: Dictionary) -> Array:
 	var out := []
-	if has_common(g, "frost"):
+	if has_common(g, "frost") or not weapon_of(g, "frost").is_empty():
 		out.append("냉기")
 	if has_common(g, "burn") or has_fire_source(g):
 		out.append("화상")
 	if has_bleed_source(g):
 		out.append("출혈")
+	if has_poison_source(g):
+		out.append("독")
 	return out
 
 static func has_dot_source(g: Dictionary) -> bool:
@@ -204,7 +233,12 @@ static func has_dot_source(g: Dictionary) -> bool:
 
 static func boss_reward_applies(g: Dictionary, id: String) -> bool:
 	match id:
-		"resonance": return g.weapons.size() >= 2
+		# 무기 공명은 **서로 다른 자동기술 3종이 같은 적을 4초 안에 때려야** 터진다(PWeapons.on_hit).
+		# 새 구조에서 자리는 주무기 1 + 보조 2로 딱 3개다. 그런데 수호 방울·가시 갑각·도깨비 인형은
+		# 직접 피해를 내지 않으므로, 그 셋을 골랐으면 **영원히 발동할 수 없다.**
+		# 그래서 '공격 출처가 3개 이상 될 수 있는가'로 자격을 본다(사용자 지시 5절:
+		# 방어 보조를 골랐다는 이유로 작동하지 않는 보상을 설명 없이 제시하지 않는다).
+		"resonance": return attack_source_count(g) >= 3
 		"seed": return has_dot_source(g)
 		"clone": return has_projectile_weapon(g)
 		"volley": return g.skills.get("e") != null
@@ -674,7 +708,14 @@ static func describe(run: Dictionary, c: Dictionary) -> Dictionary:
 			for w in g.weapons:
 				wn.append(wname.call(String(w.id)))
 			match String(c.id):
-				"resonance": out.scope = "적용: %s%s" % ["·".join(wn), " (자동기술 3종이 되면 발동)" if g.weapons.size() < 3 else ""]
+				"resonance":
+					var atk := []
+					for w in g.weapons:
+						var cat := String(PCatalog.weapon(String(w.id)).get("category", "direct"))
+						if cat != "guard" and cat != "summon":
+							atk.append(wname.call(String(w.id)))
+					out.scope = "적용: %s%s" % ["·".join(atk) if atk.size() > 0 else "없음",
+						" (직접 피해를 내는 자동기술 3종이 같은 적을 4초 안에 때려야 발동 — 지금 %d종)" % atk.size() if atk.size() < 3 else ""]
 				"seed":
 					var srcs := status_sources(g)
 					out.scope = "적용: %s" % ("·".join(srcs) if srcs.size() > 0 else "상태 이상 없음")
