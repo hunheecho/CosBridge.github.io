@@ -580,6 +580,7 @@ func sec6_lifetime() -> void:
 	PWeapons.fire(st, ww, e, false)
 	ok("전투 중에는 잔바람 장판이 있다", zone_count(st, "windgust") > 0)
 	st.status = "won"
+	st.mark_duel_done_for_test() # 결투가 예정된 편성이면 그것도 이긴 것으로 본다(승리 정산 규칙과 앞뒤를 맞춘다)
 	PSupport.update(st, STEP)
 	ok("전투가 끝나면 남은 장판·상태가 사라진다",
 		zone_count(st, "windgust") == 0 and not (st.support as Dictionary).has("wind"), str((st.support as Dictionary).keys()))

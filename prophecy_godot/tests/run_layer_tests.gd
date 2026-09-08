@@ -15,6 +15,7 @@ func fake_fight(run: Dictionary, sortie: Dictionary, won: bool, hp_left: float =
 	st.spawn_hold = true
 	st.step({}, STEP)
 	st.status = "won" if won else "lost"
+	st.mark_duel_done_for_test() # 결투가 예정된 편성이면 그것도 이긴 것으로 본다(승리 정산 규칙과 앞뒤를 맞춘다)
 	st.player.hp = hp_left if won else 0.0
 	return st
 

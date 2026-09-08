@@ -22,6 +22,7 @@ func _cleared_run(seed_v: int, opts: Dictionary = {}) -> Dictionary:
 			var bs := PRun.start_boss(run)
 			var st := PFlow.make_boss_encounter(run, bs)
 			st.status = "won"
+			st.mark_duel_done_for_test() # 결투가 예정된 편성이면 그것도 이긴 것으로 본다(승리 정산 규칙과 앞뒤를 맞춘다)
 			st.boss.dead = true
 			st.stats.boss_damage = 1000.0
 			PFlow.settle_boss_victory(run, st)
@@ -34,6 +35,7 @@ func _stub_fight_win(run: Dictionary) -> Dictionary:
 	var s := PEndless.start_fight(run)
 	var st := PFlow.make_encounter(run, s)
 	st.status = "won"
+	st.mark_duel_done_for_test() # 결투가 예정된 편성이면 그것도 이긴 것으로 본다(승리 정산 규칙과 앞뒤를 맞춘다)
 	PFlow.settle_victory(run, s, st)
 	PFlow.resolve_all(run, { "region_id": String(s.regionId) }, func(off: Dictionary): return off.choices[0], Callable())
 	var rh := {}

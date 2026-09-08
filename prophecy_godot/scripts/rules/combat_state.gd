@@ -1006,6 +1006,14 @@ func in_transition() -> bool:
 
 ## 화면이 "성장 선택을 내가 처리한다"고 자리를 잡는다. 잡지 않으면 결투 전 멈춤 없이 그대로 진행한다
 ## (화면이 아직 연결하지 않았을 때 전투가 영원히 멈추는 것을 막는 안전 기본값이다).
+## 시험·도구가 전투를 끝까지 돌리지 않고 승리 상태를 만들 때 쓴다.
+## 결투가 예정된 편성에서 status만 "won"으로 바꾸면 PFlow.settle_victory가 정당하게 거부한다
+## (특수 정예를 안 잡았는데 출격 승리로 정산하는 것을 막는 규칙이다).
+## 이 함수는 그 상황에서 **결투도 이겼다**고 표시할 뿐, 규칙을 건너뛰지 않는다.
+func mark_duel_done_for_test() -> void:
+	if duel_stage != "" and duel_stage != "done":
+		duel_stage = "done"
+
 func hold_duel_gate() -> void:
 	duel_gate_held = true
 
