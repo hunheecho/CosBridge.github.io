@@ -12,10 +12,14 @@ static func cfg_of(e: Dictionary) -> Dictionary:
 static func is_committed(e: Dictionary) -> bool:
 	return String(e.get("state", "")) in COMMITTED or PBoss3.is_committed(e)
 
+## 행동이 끝났을 때: 연계가 남아 있으면 빈틈 대신 짧은 이동 구간으로 잇고, 아니면 연계 전체의 빈틈을 한 번 준다(PBoss 공통 엔진)
 static func to_recover(st: CombatState, e: Dictionary, dur: float) -> void:
+	if PBoss.chain_continue(st, e):
+		return
 	e.state = "recover"
 	e.state_t = 0.0
-	e.recover_dur = dur
+	e.recover_dur = PBoss.chain_end_recover(e, dur)
+	PBoss.chain_reset(e)
 	st.text(e.x, e.y - e.r - 30.0, "빈틈!", "#ffd166")
 
 static func to_approach(_st: CombatState, e: Dictionary) -> void:
@@ -47,6 +51,7 @@ static func init(st: CombatState, e: Dictionary) -> void:
 	e.summon_budget = int(cfg.summon.budget) if cfg.has("summon") else 0
 	e.last_summon = -999.0
 	e.shock_left = 0
+	PBoss.chain_init(e)
 	if String(e.boss_id) == "guardian":
 		var D: Dictionary = cfg.devices
 		e.devices = []
@@ -60,33 +65,48 @@ static func init(st: CombatState, e: Dictionary) -> void:
 			(e.devices as Array).append(d)
 
 # ---------- 패턴 선택 ----------
-static func choose(st: CombatState, e: Dictionary) -> String:
+## 지금 거리·재사용에서 고를 수 있는 후보 [[이름, 가중치], ...] (PBoss 연계 엔진도 이 목록을 본다)
+## 먹는 자: 표식이 남아 있는 동안에는 새 '표식'을 겹치지 않는다. 다만 잔여 표식(지난 위치·공개 예고) 때문에
+## 보스가 몇 초씩 아무것도 하지 않던 문제를 없애려고, 표식 대기 중에도 markBusy에 적힌 행동만은 이을 수 있다.
+static func candidates(st: CombatState, e: Dictionary) -> Array:
 	var cfg := cfg_of(e)
+	var B := PBoss.beh_e(e)
 	var p := st.player
 	var d := PGeom.dist(e.x, e.y, p.x, p.y)
 	var los: bool = not st.los_blocked(e.x, e.y, p.x, p.y)
 	var cands: Array = []
 	if String(e.boss_id) == "guardian":
-		if int(e.actions) == 0:
-			return "shock"
 		if d <= float(cfg.sweep.maxDist) and los:
 			cands.append(["sweep", float(cfg.weights.sweep)])
 		if d >= float(cfg.shock.minDist) and d <= float(cfg.shock.maxDist):
 			cands.append(["shock", float(cfg.weights.shock)])
-		if cands.is_empty():
-			return "sweep" if d <= float(cfg.sweep.maxDist) else "shock"
-	else:
-		if int(e.actions) == 0:
-			return "lanes"
-		if not (e.marks as Array).is_empty():
-			return "" # 표식이 남아 있으면 새 패턴 없음(잔여+다음이 전부를 막지 않게)
+		return cands
+	var busy: bool = not (e.get("marks", []) as Array).is_empty()
+	var allow: Array = B.get("markBusy", [])
+	if busy and allow.is_empty():
+		return [] # 개편 전 규칙: 표식이 남아 있으면 새 패턴 없음
+	if not busy:
 		cands.append(["mark", float(cfg.weights.mark)])
-		if d >= float(cfg.lanes.minDist):
-			cands.append(["lanes", float(cfg.weights.lanes)])
-		if d <= float(cfg.wide.maxDist):
-			cands.append(["wide", float(cfg.weights.wide)])
-		if can_summon(st, e):
-			cands.append(["summon", float(cfg.weights.summon)])
+	if d >= PBoss.pat_num(e, cfg, "lanes", "minDist", 0.0) and (not busy or allow.has("lanes")):
+		cands.append(["lanes", float(cfg.weights.lanes)])
+	if d <= float(cfg.wide.maxDist) and (not busy or allow.has("wide")):
+		cands.append(["wide", float(cfg.weights.wide)])
+	if can_summon(st, e) and (not busy or allow.has("summon")):
+		cands.append(["summon", float(cfg.weights.summon)])
+	return cands
+
+static func choose(st: CombatState, e: Dictionary) -> String:
+	var cfg := cfg_of(e)
+	var p := st.player
+	var d := PGeom.dist(e.x, e.y, p.x, p.y)
+	if int(e.actions) == 0:
+		return "shock" if String(e.boss_id) == "guardian" else "lanes"
+	var forced := PBoss.chain_take(st, e) # 연계로 예약된 후속 행동이 먼저
+	if forced != "":
+		return forced
+	var cands := candidates(st, e)
+	if String(e.boss_id) == "guardian" and cands.is_empty():
+		return "sweep" if d <= float(cfg.sweep.maxDist) else "shock"
 	return PBoss._pick_weighted(st, e.history, cands)
 
 static func can_summon(st: CombatState, e: Dictionary) -> bool:
@@ -105,6 +125,7 @@ static func begin(st: CombatState, e: Dictionary, pat: String) -> void:
 		h.pop_front()
 	e.state_t = 0.0
 	e.wait_t = 0.0
+	PBoss.chain_note_begin(e, cfg, pat)
 	st.note_attack(e, "prepare")
 	st.metrics.patterns[pat] = int(st.metrics.patterns.get(pat, 0)) + 1
 	if pat == "sweep":
@@ -144,7 +165,8 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 	var p := st.player
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
-	var adv := dt * tf
+	# 예고 배속은 연계 후속타의 준비·고정 구간에만(실행·빈틈·접근 제외). 감속장(tf)은 모든 구간에 그대로 적용된다
+	var adv := dt * tf * PBoss.prep_speed(e)
 	var dist := PGeom.dist(e.x, e.y, p.x, p.y)
 	var bid := String(e.boss_id)
 	# 플레이어 위치 기록(표식용, 공개 정보)
@@ -170,6 +192,7 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 			e.state_t = float(e.state_t) + adv
 			e.approach_t = float(e.approach_t) + adv
 			if int(e.phase_pending) > int(e.phase):
+				PBoss.chain_reset(e)
 				e.phase = int(e.phase_pending)
 				e.state = "roar"
 				e.state_t = 0.0
@@ -179,12 +202,13 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 			else:
 				if dist > float(cfg.stopDist):
 					st.approach(e, p.x, p.y, float(cfg.speed) * sm, dt)
-				if float(e.approach_t) >= float(cfg.minApproach):
+				if float(e.approach_t) >= PBoss.min_approach(e, cfg):
 					var pat := choose(st, e)
 					if pat != "":
 						if pat != "summon" and allies_committed(st) and float(e.wait_t) < float(cfg.overlap.bossWaitMax):
 							e.wait_t = float(e.wait_t) + adv
 						else:
+							PBoss.chain_arm(e) # 스스로 고른 행동만 연계로 이어진다
 							begin(st, e, pat)
 		"roar":
 			e.state_t = float(e.state_t) + adv
@@ -252,8 +276,11 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 				st.ev("boss_lock")
 		"mark_wait":
 			e.state_t = float(e.state_t) + adv
+			# 표식은 정해진 시각에 스스로 터진다(update_marks). 보스가 그 앞에서 몇 초씩 서 있지 않고 다음 행동으로 이을 수 있다
 			if (e.marks as Array).is_empty():
 				to_recover(st, e, float(cfg.mark.recover))
+			elif PBoss.chain_early(st, e, "mark", float(e.state_t)):
+				pass # 다음 행동으로 넘어갔다(남은 표식은 계속 제 시각에 터진다)
 		"lanes_warn":
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(cfg.lanes.warn):
@@ -301,7 +328,8 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 			if float(e.state_t) >= float(cfg.summon.duration):
 				summon(st, e)
 				st.note_attack(e, "execute")
-				to_approach(st, e)
+				# 소환은 주공격의 보조: 부른 직후 보스도 바로 다음 행동으로 잇고, 이을 것이 없으면 짧은 빈틈으로 끝난다
+				PBoss.summon_end(st, e)
 		"recover":
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(e.recover_dur):

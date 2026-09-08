@@ -26,10 +26,14 @@ static func is_preparing(e: Dictionary) -> bool:
 	var s := String(e.get("state", ""))
 	return s.ends_with("_aim") or s == "slash_warn" or s == "shot_cast" or s == "rock_cast" or s == "sidestep" or s == "guard"
 
+## 행동이 끝났을 때: 연계가 남아 있으면 빈틈 대신 짧은 이동 구간으로 잇고, 아니면 연계 전체의 빈틈을 한 번 준다(PBoss 공통 엔진)
 static func to_recover(st: CombatState, e: Dictionary, dur: float, label: String = "빈틈!") -> void:
+	if PBoss.chain_continue(st, e):
+		return
 	e.state = "recover"
 	e.state_t = 0.0
-	e.recover_dur = dur
+	e.recover_dur = PBoss.chain_end_recover(e, dur)
+	PBoss.chain_reset(e)
 	st.text(e.x, e.y - e.r - 30.0, label, "#ffd166")
 
 static func to_approach(_st: CombatState, e: Dictionary) -> void:
@@ -77,6 +81,7 @@ static func init(st: CombatState, e: Dictionary) -> void:
 	e.face = atan2(st.player.y - e.y, st.player.x - e.x)
 	e.summon_budget = int(cfg.summon.budget) if cfg.has("summon") else 0
 	e.last_summon = -999.0
+	PBoss.chain_init(e)
 	# 호위(늑대가 아닌 소환)의 동시 위험 행동 한도: CombatState.may_attack이 읽는 overlap_limit(이 보스전에만). 늑대는 wolf_may_attack이 보스 확정 여부를 본다
 	var ov: Dictionary = cfg.get("overlap", {})
 	if ov.has("allyLimit"):
@@ -161,82 +166,99 @@ static func lock_dash(st: CombatState, e: Dictionary, dist: float) -> void:
 	st.ev("boss_lock")
 
 # ---------- 패턴 선택 ----------
-static func choose(st: CombatState, e: Dictionary) -> String:
+## 최소 거리를 못 채운 돌파 계열도, 옆으로 뛰어 스스로 거리를 만들 수 있으면 후보로 남긴다(boss_behavior.json hop.patterns).
+## 가까이 붙은 상대에게 후보가 한 종류만 남는 문제(파수장 방패 자세 / 거수 낙석 / 추적자 얼음길 / 사냥왕 발톱)를 없앤다.
+static func _hop_ok(e: Dictionary, pat: String) -> bool:
+	return (PBoss.hop_cfg(e).get("patterns", []) as Array).has(pat)
+
+## 지금 거리·단계·재사용에서 고를 수 있는 후보 [[이름, 가중치], ...] (PBoss 연계 엔진도 이 목록을 본다)
+static func candidates(st: CombatState, e: Dictionary) -> Array:
 	var cfg := cfg_of(e)
 	var p := st.player
 	var d := PGeom.dist(e.x, e.y, p.x, p.y)
 	var los: bool = not st.los_blocked(e.x, e.y, p.x, p.y)
 	var W: Dictionary = cfg.weights
 	var cands: Array = []
-	var first: bool = int(e.actions) == 0
 	match String(e.boss_id):
 		"gate_warden":
-			if first:
-				return "bolts" if d >= float(cfg.bolts.minDist) else "guard"
 			if d <= float(cfg.guard.maxDist):
 				cands.append(["guard", float(W.guard)])
-			if d >= float(cfg.breach.minDist) and d <= float(cfg.breach.maxDist) and los:
+			if d <= float(cfg.breach.maxDist) and los and (d >= float(cfg.breach.minDist) or _hop_ok(e, "breach")):
 				cands.append(["breach", float(W.breach)])
-			if d >= float(cfg.bolts.minDist) and los:
+			if los and (d >= float(cfg.bolts.minDist) or _hop_ok(e, "bolts")):
 				cands.append(["bolts", float(W.bolts)])
-			if cands.is_empty():
-				return "guard" if d < 220.0 else "bolts"
 		"spore_matriarch":
-			if first:
-				return "shot"
-			if not (e.marks as Array).is_empty():
-				return "" # 착탄 대기 중엔 새 패턴 없음
-			cands.append(["shot", float(W.shot)])
-			if d <= float(cfg.ring.maxDist):
+			# 착탄 대기 중에는 새 포자 탄을 겹치지 않는다. markBusy에 적힌 행동만 이을 수 있다(잔여 예고가 모든 출구를 막지 않게)
+			var busy: bool = not (e.marks as Array).is_empty()
+			var allow: Array = PBoss.beh_e(e).get("markBusy", [])
+			if busy and allow.is_empty():
+				return []
+			if not busy:
+				cands.append(["shot", float(W.shot)])
+			if d <= float(cfg.ring.maxDist) and (not busy or allow.has("ring")):
 				cands.append(["ring", float(W.ring)])
-			if d <= float(cfg.spray.maxDist) and los:
+			if d <= float(cfg.spray.maxDist) and los and (not busy or allow.has("spray")):
 				cands.append(["spray", float(W.spray)])
-			if can_summon(st, e):
+			if can_summon(st, e) and (not busy or allow.has("summon")):
 				cands.append(["summon", float(W.summon)])
 		"excavation_behemoth":
-			if first:
-				return "rockfall"
-			if d >= float(cfg.burrow.minDist) and d <= float(cfg.burrow.maxDist) and los:
+			if d <= float(cfg.burrow.maxDist) and los and (d >= float(cfg.burrow.minDist) or _hop_ok(e, "burrow")):
 				cands.append(["burrow", float(W.burrow)])
 			cands.append(["rockfall", float(W.rockfall)])
 			if can_summon(st, e):
 				cands.append(["summon", float(W.summon)])
 		"frost_stalker":
-			if first:
-				return "bolt"
-			# 2단계부터 얼음길 → 돌진 연계(빙판 위의 플레이어를 노린다). 안전 통로는 그대로
-			if int(e.phase) >= 2 and _last(e) == "icepath" and d >= float(cfg.dash.minDist) and d <= float(cfg.dash.maxDist) and los:
-				return "dash"
-			if d >= float(cfg.bolt.minDist) and los:
+			if los and (d >= float(cfg.bolt.minDist) or _hop_ok(e, "bolt")):
 				cands.append(["bolt", float(W.bolt)])
 			if d >= 80.0:
 				cands.append(["icepath", float(W.icepath)])
-			if d >= float(cfg.dash.minDist) and d <= float(cfg.dash.maxDist) and los:
+			if d <= float(cfg.dash.maxDist) and los and (d >= float(cfg.dash.minDist) or _hop_ok(e, "dash")):
 				cands.append(["dash", float(W.dash)])
-			if cands.is_empty():
-				return "icepath"
 		"blood_hunt_king":
-			if first:
-				return "dash"
-			if d <= float(cfg.claw.maxDist) and los:
+			# 발톱은 준비 중에 달려들 수 있으므로 후보 거리를 개편값으로 넓힐 수 있다(사거리 자체는 그대로)
+			if d <= PBoss.pat_num(e, cfg, "claw", "maxDist", 220.0) and los:
 				cands.append(["claw", float(W.claw)])
-			if d >= float(cfg.dash.minDist) and d <= float(cfg.dash.maxDist) and los:
+			if d <= float(cfg.dash.maxDist) and los and (d >= float(cfg.dash.minDist) or _hop_ok(e, "dash")):
 				cands.append(["dash", float(W.dash)])
 			if can_summon(st, e):
 				cands.append(["summon", float(W.summon)])
-			if cands.is_empty():
-				return "claw" if d < 300.0 else "dash"
 		"doom_executor":
-			if first:
-				return "slash"
-			# 2단계부터 절단선 → 호위 연계
-			if int(e.phase) >= 2 and _last(e) == "slash" and can_summon(st, e):
-				return "summon"
 			cands.append(["slash", float(W.slash)])
-			if d <= float(cfg.guard.maxDist):
+			# 회전 방어 자세는 스스로 걸어서 다가가는 행동이므로 사거리 제한을 개편값으로 넓힐 수 있다
+			if d <= PBoss.pat_num(e, cfg, "guard", "maxDist", 9999.0):
 				cands.append(["guard", float(W.guard)])
 			if can_summon(st, e):
 				cands.append(["summon", float(W.summon)])
+	return cands
+
+static func choose(st: CombatState, e: Dictionary) -> String:
+	var cfg := cfg_of(e)
+	var p := st.player
+	var d := PGeom.dist(e.x, e.y, p.x, p.y)
+	var los: bool = not st.los_blocked(e.x, e.y, p.x, p.y)
+	var bid := String(e.boss_id)
+	if int(e.actions) == 0: # 첫 행동은 보스마다 정해져 있다(BOSSES.md)
+		match bid:
+			"gate_warden": return "bolts" if d >= float(cfg.bolts.minDist) else "guard"
+			"spore_matriarch": return "shot"
+			"excavation_behemoth": return "rockfall"
+			"frost_stalker": return "bolt"
+			"blood_hunt_king": return "dash"
+			"doom_executor": return "slash"
+	var forced := PBoss.chain_take(st, e) # 연계로 예약된 후속 행동이 먼저
+	if forced != "":
+		return forced
+	# 원래의 고정 연계(BOSSES.md 후반 변주)는 그대로 둔다
+	if bid == "frost_stalker" and int(e.phase) >= 2 and _last(e) == "icepath" and d >= float(cfg.dash.minDist) and d <= float(cfg.dash.maxDist) and los:
+		return "dash"
+	if bid == "doom_executor" and int(e.phase) >= 2 and _last(e) == "slash" and can_summon(st, e):
+		return "summon"
+	var cands := candidates(st, e)
+	if cands.is_empty():
+		match bid:
+			"gate_warden": return "guard" if d < 220.0 else "bolts"
+			"frost_stalker": return "icepath"
+			"blood_hunt_king": return "claw" if d < 300.0 else "dash"
 	return PBoss._pick_weighted(st, e.history, cands)
 
 static func begin(st: CombatState, e: Dictionary, pat: String) -> void:
@@ -250,6 +272,8 @@ static func begin(st: CombatState, e: Dictionary, pat: String) -> void:
 	e.state_t = 0.0
 	e.wait_t = 0.0
 	e.hit_done = false
+	PBoss.chain_note_begin(e, cfg, pat)
+	PBoss.hop_note_begin(st, e, cfg, pat)
 	st.note_attack(e, "prepare")
 	st.metrics.patterns[pat] = int(st.metrics.patterns.get(pat, 0)) + 1
 	e.aim_angle = atan2(p.y - e.y, p.x - e.x)
@@ -319,7 +343,8 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 	var p := st.player
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
-	var adv := dt * tf
+	# 예고 배속은 연계 후속타의 준비·고정 구간에만(실행·빈틈·접근 제외). 감속장(tf)은 모든 구간에 그대로 적용된다
+	var adv := dt * tf * PBoss.prep_speed(e)
 	var dist := PGeom.dist(e.x, e.y, p.x, p.y)
 	var bid := String(e.boss_id)
 	if bid == "spore_matriarch":
@@ -335,6 +360,7 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 			e.state_t = float(e.state_t) + adv
 			e.approach_t = float(e.approach_t) + adv
 			if int(e.phase_pending) > int(e.phase):
+				PBoss.chain_reset(e)
 				e.phase = int(e.phase_pending)
 				e.state = "roar"
 				e.state_t = 0.0
@@ -345,13 +371,14 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 				if dist > float(cfg.stopDist):
 					st.approach(e, p.x, p.y, float(cfg.speed) * sm, dt)
 				e.face = atan2(p.y - e.y, p.x - e.x)
-				if float(e.approach_t) >= float(cfg.minApproach):
+				if float(e.approach_t) >= PBoss.min_approach(e, cfg):
 					var pat := choose(st, e)
 					if pat != "":
 						# 겹침 제한(보스 쪽): 소환·호위가 확정·실행 중이면 큰 공격을 잠시 미룬다(최대 bossWaitMax)
 						if pat != "summon" and (PBoss2.allies_committed(st) or PBoss.wolf_attacking(st)) and float(e.wait_t) < float(cfg.overlap.bossWaitMax):
 							e.wait_t = float(e.wait_t) + adv
 						else:
+							PBoss.chain_arm(e) # 스스로 고른 행동만 연계로 이어진다
 							begin(st, e, pat)
 		"roar":
 			e.state_t = float(e.state_t) + adv
@@ -370,7 +397,8 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 			if float(e.state_t) >= float(cfg.summon.duration):
 				summon(st, e)
 				st.note_attack(e, "execute")
-				to_approach(st, e)
+				# 호위 호출은 주공격의 보조: 부른 직후 보스도 바로 다음 행동으로 잇고, 이을 것이 없으면 짧은 빈틈으로 끝난다
+				PBoss.summon_end(st, e)
 		_:
 			match bid:
 				"gate_warden": update_warden(st, e, dt, adv, tf)
@@ -404,6 +432,7 @@ static func update_warden(st: CombatState, e: Dictionary, dt: float, adv: float,
 				arc_attack(st, e, float(e.dir), float(G.radius), PGeom.deg(float(G.arcDeg)) / 2.0, float(G.damage), "boss_shove")
 				to_recover(st, e, float(G.recover), "방패 내림 — 빈틈!")
 		"breach_aim":
+			PBoss.hop_step(st, e, adv) # 옆으로 뛰어 스스로 돌파 거리를 만든다(예고 각은 계속 추적)
 			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(B.aim):
@@ -439,6 +468,7 @@ static func update_warden(st: CombatState, e: Dictionary, dt: float, adv: float,
 				arc_attack(st, e, float(e.dir), float(B.sweep.radius), PGeom.deg(float(B.sweep.arcDeg)) / 2.0, float(B.sweep.damage), "boss_bsweep")
 				to_recover(st, e, float(B.sweep.recover), "방패 내림 — 긴 빈틈!")
 		"bolts_aim":
+			PBoss.hop_step(st, e, adv) # 옆·뒤로 물러나며 사격 거리를 만든다
 			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(cfg.bolts.aim):
@@ -521,6 +551,8 @@ static func update_matriarch(st: CombatState, e: Dictionary, dt: float, adv: flo
 					e.shot_timer = float(S.gap)
 			elif (e.marks as Array).is_empty():
 				to_recover(st, e, float(S.recover))
+			elif PBoss.chain_early(st, e, "shot", float(e.state_t)):
+				pass # 다음 행동으로 넘어갔다(남은 포자 탄은 계속 제 시각에 떨어진다)
 		"ring_aim":
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(R.aim):
@@ -605,6 +637,7 @@ static func update_behemoth(st: CombatState, e: Dictionary, dt: float, adv: floa
 	var RK: Dictionary = cfg.rockfall
 	match e.state:
 		"burrow_aim":
+			PBoss.hop_step(st, e, adv) # 몸을 틀어 스스로 굴착 거리를 만든다(예고 각은 계속 추적)
 			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(B.aim):
@@ -665,6 +698,8 @@ static func update_behemoth(st: CombatState, e: Dictionary, dt: float, adv: floa
 					pending = true
 			if not pending:
 				to_recover(st, e, float(RK.recover))
+			elif PBoss.chain_early(st, e, "rockfall", float(e.state_t)):
+				pass # 다음 행동으로 넘어갔다(남은 낙석은 계속 제 시각에 떨어진다)
 
 ## 낙석 세 구역: 플레이어가 움직이는 방향(안 움직이면 보스→플레이어 방향)으로 1→2→3 줄지어. 낙하 시각은 명시적 순차(warn + i·gap). 출구 검사로 모든 방향이 막히면 옆으로 옮기거나 생략
 static func _place_rocks(st: CombatState, e: Dictionary) -> void:
@@ -754,6 +789,7 @@ static func update_stalker(st: CombatState, e: Dictionary, dt: float, adv: float
 	var I: Dictionary = cfg.icepath
 	match e.state:
 		"bolt_aim":
+			PBoss.hop_step(st, e, adv) # 옆·뒤로 미끄러지며 사격 거리를 만든다
 			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(cfg.bolt.aim):
@@ -799,6 +835,7 @@ static func update_stalker(st: CombatState, e: Dictionary, dt: float, adv: float
 				e.state = "dash_aim"
 				e.state_t = 0.0
 		"dash_aim":
+			PBoss.hop_step(st, e, adv) # 옆 이동에 더해, 거리가 모자라면 한 번 더 스스로 거리를 만든다
 			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(D.aim):
@@ -850,6 +887,9 @@ static func update_hunt_king(st: CombatState, e: Dictionary, dt: float, adv: flo
 	var C: Dictionary = cfg.claw
 	match e.state:
 		"claw_aim":
+			# 발톱은 준비 중에 달려들며 친다(이동 중 공격). 예고 부채꼴은 보스 몸을 따라오므로 화면·봇이 보는 것과 실제가 같다
+			if PGeom.dist(e.x, e.y, p.x, p.y) > float(C.radius) * PBoss.pat_num(e, cfg, "claw", "closeFrac", 9.0):
+				st.approach(e, p.x, p.y, float(cfg.speed) * st.enemy_speed_mult(e) * PBoss.pat_num(e, cfg, "claw", "rushMult", 1.0), dt)
 			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(C.aim):
@@ -863,6 +903,7 @@ static func update_hunt_king(st: CombatState, e: Dictionary, dt: float, adv: flo
 				arc_attack(st, e, float(e.dir), float(C.radius), PGeom.deg(float(C.arcDeg)) / 2.0, float(C.damage), "boss_claw")
 				to_recover(st, e, float(C.recover))
 		"dash_aim":
+			PBoss.hop_step(st, e, adv) # 옆으로 뛰어 스스로 돌진 거리를 만든다(예고 각은 계속 추적)
 			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(D.aim):
@@ -938,7 +979,7 @@ static func update_executor(st: CombatState, e: Dictionary, dt: float, adv: floa
 					to_recover(st, e, float(SL.recover))
 		"slash_gap":
 			e.state_t = float(e.state_t) + adv
-			if float(e.state_t) >= float(SL.gap):
+			if float(e.state_t) >= PBoss.pat_num(e, cfg, "slash", "gap", float(SL.gap)):
 				e.state = "slash_lock"
 				e.state_t = 0.0
 				st.ev("boss_lock")
@@ -953,7 +994,10 @@ static func update_executor(st: CombatState, e: Dictionary, dt: float, adv: floa
 				st.approach(e, p.x, p.y, float(cfg.speed) * float(G.speedMult) * sm, dt)
 			e.guard_t = float(e.guard_t) + adv
 			var close: bool = dist <= float(G.strike.radius) and absf(diff) < PGeom.deg(30.0)
-			if float(e.guard_t) >= float(G.dur) or (float(e.guard_t) >= float(G.minDur) and close):
+			# 자세 유지 시간은 '걸어오는 시간'이지 예고가 아니다 — 개편값으로 줄일 수 있다(큰 베기의 예고 0.5/0.3은 그대로)
+			var g_dur := PBoss.pat_num(e, cfg, "guard", "dur", float(G.dur))
+			var g_min := PBoss.pat_num(e, cfg, "guard", "minDur", float(G.minDur))
+			if float(e.guard_t) >= g_dur or (float(e.guard_t) >= g_min and close):
 				e.state = "gstrike_aim"
 				e.state_t = 0.0
 				e.aim_angle = float(e.face)

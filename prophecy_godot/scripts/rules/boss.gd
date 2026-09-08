@@ -8,6 +8,35 @@ extends RefCounted
 static func _B() -> Dictionary:
 	return PCatalog.boss_defs().boss
 
+## 이번 행동 개편의 새 조정값(data/boss_behavior.json). PCatalog(공용 카탈로그)를 건드리지 않고 여기서만 읽는다.
+## 파일이 없으면 모든 개편이 꺼진 것과 같다(원래 행동). 숫자는 코드에 두지 않는다 — 전부 이 파일에 있다.
+static var _behavior: Dictionary = {}
+static func behavior() -> Dictionary:
+	if not _behavior.is_empty():
+		return _behavior
+	var f := FileAccess.open("res://data/boss_behavior.json", FileAccess.READ)
+	if f == null:
+		_behavior = { "enabled": false }
+		return _behavior
+	var parsed = JSON.parse_string(f.get_as_text())
+	_behavior = parsed if typeof(parsed) == TYPE_DICTIONARY else { "enabled": false }
+	return _behavior
+
+## 보스별 개편 설정. 없으면 빈 사전(원래 행동 유지)
+static func beh_of(boss_id: String) -> Dictionary:
+	var B := behavior()
+	if not bool(B.get("enabled", false)):
+		return {}
+	var bs: Dictionary = B.get("bosses", {})
+	return bs.get(boss_id, {})
+
+## 개체별 개편 설정. e.beh_off = true면 이 개체만 개편 전(073f74f) 행동으로 돌아간다.
+## 패턴 자체의 판정·예고·빈틈을 확인하는 단위 시험(boss_tests·boss3_tests)이 연계·옆뛰기와 섞이지 않게 하는 스위치다.
+static func beh_e(e: Dictionary) -> Dictionary:
+	if bool(e.get("beh_off", false)):
+		return {}
+	return beh_of(String(e.get("boss_id", "boss")))
+
 ## 보스별 설정(PA.BOSS_DEFS[e.bossId]) — 없으면 가시갈기
 static func cfg_of(e: Dictionary) -> Dictionary:
 	return PCatalog.boss_def(String(e.get("boss_id", "boss")))
@@ -38,10 +67,224 @@ static func spawn(st: CombatState, x: float, y: float, boss_id: String) -> Dicti
 	e.leap_k = 0.0
 	e.stagger_after_land = false
 	e.exposed = false
+	chain_init(e)
 	st.boss = e
 	if boss_id != "boss":
 		PBoss2.init(st, e)
 	return e
+
+# ---------- 연계(chain)·옆 뛰기(hop) 공통 엔진: 보스 9종이 함께 쓴다 ----------
+## 설계(사용자 요청 §6): 작은 행동마다 긴 빈틈을 주지 않는다. 한 행동이 끝나면 짧은 이동 구간(link)만 두고 다음 행동으로 잇고,
+## 연계 전체가 끝난 시점에 한 번, 원래보다 조금 더 긴 빈틈(확실한 공격 기회)을 준다.
+## 예고는 연계 첫 공격에서 데이터의 원래 값 그대로다. 후속타만 예고 진행이 빨라지며 그것도 followWarnMin 하한을 지킨다.
+## (모든 예고·빈틈을 같은 비율로 줄이는 방식은 쓰지 않는다.)
+
+static func chain_cfg(e: Dictionary) -> Dictionary:
+	return beh_e(e).get("chain", {})
+
+## 이번 단계에서 한 연계에 넣을 수 있는 최대 행동 수
+static func chain_max(e: Dictionary) -> int:
+	var C := chain_cfg(e)
+	if C.is_empty():
+		return 1
+	var arr: Array = C.get("maxByPhase", [1, 1, 1])
+	return int(arr[mini(arr.size() - 1, maxi(0, int(e.get("phase", 1)) - 1))])
+
+## 패턴의 원래 예고(준비 + 방향 고정) 합. 보스 정의의 같은 이름 키에서 읽는다(코드에 숫자를 두지 않는다)
+static func pattern_warn(cfg: Dictionary, pat: String) -> float:
+	if not cfg.has(pat) or typeof(cfg[pat]) != TYPE_DICTIONARY:
+		return 0.0
+	var d: Dictionary = cfg[pat]
+	# 준비 구간 키 우선순위 aim → cast → warn. (낙석의 warn은 예고가 아니라 '떨어지기까지의 시간'이라 뒤에 둔다)
+	var a := float(d.get("aim", d.get("cast", d.get("warn", 0.0))))
+	return a + float(d.get("lock", 0.0))
+
+## 지금 상태가 '예고(준비·방향 고정)' 구간인가 — 실행·빈틈·접근·소환 채널·옆 이동은 아니다
+static func is_warn_state(s: String) -> bool:
+	return s.ends_with("_aim") or s.ends_with("_lock") or s.ends_with("_warn") or s.ends_with("_cast") or s == "dash_reaim" or s == "dash_relock"
+
+## 예고 진행 배속(연계 첫 공격은 1.0). 예고 구간에만 적용되고 실행·빈틈·접근에는 적용되지 않는다
+static func prep_speed(e: Dictionary) -> float:
+	if not is_warn_state(String(e.get("state", ""))):
+		return 1.0
+	return float(e.get("warn_speed", 1.0))
+
+static func chain_init(e: Dictionary) -> void:
+	e.chain_i = 0
+	e.chain_next = ""
+	e.warn_speed = 1.0
+	e.hop_left = 0.0
+	e.hop_dir = [0.0, 0.0]
+	e.chain_ok = false
+	e.chain_live = false
+
+static func chain_reset(e: Dictionary) -> void:
+	e.chain_i = 0
+	e.chain_next = ""
+	e.warn_speed = 1.0
+
+## approach의 판단으로 행동을 시작할 때 표시한다. 규칙 밖에서 상태를 직접 넣은 행동(시험·디버그)은 연계로 이어지지 않는다
+static func chain_arm(e: Dictionary) -> void:
+	e.chain_ok = true
+
+## begin()에서 호출: 연계 번호를 올리고, 후속타면 예고 배속을 정한다(하한 followWarnMin 이상으로만)
+static func chain_note_begin(e: Dictionary, cfg: Dictionary, pat: String) -> void:
+	e.chain_live = bool(e.get("chain_ok", false))
+	e.chain_ok = false
+	e.chain_i = int(e.get("chain_i", 0)) + 1
+	var C := chain_cfg(e)
+	var sp := 1.0
+	if not C.is_empty() and int(e.chain_i) >= 2:
+		var base := pattern_warn(cfg, pat)
+		var lo := float(C.get("followWarnMin", 0.5))
+		if base > lo:
+			sp = minf(float(C.get("followWarnSpeed", 1.0)), base / lo)
+	e.warn_speed = maxf(1.0, sp)
+
+## 이번 보스가 지금 거리·단계·재사용으로 고를 수 있는 후보 [[이름, 가중치], ...]
+static func live_candidates(st: CombatState, e: Dictionary) -> Array:
+	var bid := String(e.get("boss_id", "boss"))
+	if bid == "boss":
+		return candidates(st, e)
+	if PBoss3.has(bid):
+		return PBoss3.candidates(st, e)
+	return PBoss2.candidates(st, e)
+
+## 연계표에서 다음 행동을 뽑는다. 지금 못 하는 행동은 제외하고, 같은 행동 3연속 금지도 그대로 적용
+static func chain_pick(st: CombatState, e: Dictionary) -> String:
+	var C := chain_cfg(e)
+	var follow: Dictionary = C.get("follow", {})
+	var h: Array = e.get("history", [])
+	var last := ""
+	if h.size() > 0:
+		last = String(h[h.size() - 1])
+	var live: Array = []
+	for c in live_candidates(st, e):
+		live.append(String(c[0]))
+	# 직전 행동에 맞춘 연계표를 먼저 보고, 지금 할 수 있는 것이 없으면 공통 후보("*")로 내려간다
+	var pool := _chain_pool(follow.get(last, []), live)
+	if pool.is_empty():
+		pool = _chain_pool(follow.get("*", []), live)
+	if pool.is_empty():
+		return ""
+	return _pick_weighted(st, h, pool)
+
+static func _chain_pool(want: Array, live: Array) -> Array:
+	var pool: Array = []
+	for w in want:
+		if live.has(String(w[0])):
+			pool.append([String(w[0]), float(w[1])])
+	return pool
+
+## 착탄·낙하를 기다리는 상태(표식·포자 탄·낙석)는 정해진 시각에 스스로 진행된다(update_marks/update_rocks).
+## 첫 예고가 자리를 잡은 뒤에는 보스가 서서 기다리지 않고 다음 행동으로 이을 수 있다 — chainAfter 초 뒤부터.
+static func chain_early(st: CombatState, e: Dictionary, pat: String, state_t: float) -> bool:
+	var o: Dictionary = beh_e(e).get(pat, {})
+	if not o.has("chainAfter") or state_t < float(o.chainAfter):
+		return false
+	return chain_continue(st, e)
+
+## 소환·호효로 연계가 끝나는 경우에도 빈틈을 준다(연계 끝에는 반드시 확실한 공격 기회가 온다)
+static func summon_end(st: CombatState, e: Dictionary) -> void:
+	if chain_continue(st, e):
+		return
+	var C := chain_cfg(e)
+	if C.is_empty():
+		chain_reset(e)
+		e.state = "approach"
+		e.state_t = 0.0
+		e.approach_t = 0.0
+		return
+	e.state = "recover"
+	e.state_t = 0.0
+	e.recover_dur = chain_end_recover(e, float(C.get("summonRecover", 0.9)))
+	chain_reset(e)
+	st.text(e.x, e.y - e.r - 30.0, "빈틈!", "#ffd166")
+
+## 패턴의 거리 설정(개편값이 있으면 그것, 없으면 보스 정의의 값)
+static func pat_num(e: Dictionary, cfg: Dictionary, pat: String, key: String, def: float) -> float:
+	var o: Dictionary = beh_e(e).get(pat, {})
+	if o.has(key):
+		return float(o[key])
+	var c: Dictionary = cfg.get(pat, {})
+	return float(c.get(key, def))
+
+## 빈틈 대신 연계를 이어갈 수 있으면 짧은 이동 구간(approach)으로 바꾸고 true.
+## 이 구간에도 보스는 계속 움직인다(연계 사이에 몇 초씩 멈춰 서지 않는다).
+static func chain_continue(st: CombatState, e: Dictionary) -> bool:
+	var C := chain_cfg(e)
+	if C.is_empty() or not bool(e.get("chain_live", false)) or int(e.get("chain_i", 0)) >= chain_max(e):
+		return false
+	var nxt := chain_pick(st, e)
+	if nxt == "":
+		return false
+	e.chain_next = nxt
+	e.state = "approach"
+	e.state_t = 0.0
+	e.wait_t = 0.0
+	e.approach_t = maxf(0.0, min_approach(e, cfg_of(e)) - float(C.get("linkGap", 0.1)))
+	return true
+
+## 연계가 끝난 뒤의 빈틈: 연계가 길었으면 원래 빈틈 + endRecoverAdd
+static func chain_end_recover(e: Dictionary, dur: float) -> float:
+	var C := chain_cfg(e)
+	if C.is_empty() or int(e.get("chain_i", 0)) < int(C.get("endBonusFrom", 99)):
+		return dur
+	return dur + float(C.get("endRecoverAdd", 0.0))
+
+## approach에서 다음 행동을 고를 때: 연계로 예약된 행동이 아직 가능하면 그것을 쓴다
+static func chain_take(st: CombatState, e: Dictionary) -> String:
+	var nxt := String(e.get("chain_next", ""))
+	if nxt == "":
+		return ""
+	e.chain_next = ""
+	for c in live_candidates(st, e):
+		if String(c[0]) == nxt:
+			return nxt
+	return ""
+
+## 행동 사이 대기(minApproach): 개편값이 있으면 그것(대기 단축은 예고 단축이 아니다)
+static func min_approach(e: Dictionary, cfg: Dictionary) -> float:
+	var B := beh_e(e)
+	return float(B.get("minApproach", cfg.minApproach))
+
+## 옆으로 뛰어 스스로 돌진 거리를 만든다: 예고 없이 몸만 움직이고(무적 없음) 준비(*_aim) 구간 안에서 일어난다.
+## 예고 각은 계속 플레이어를 따라가므로 화면·봇이 보는 예고와 실제가 같다.
+static func hop_cfg(e: Dictionary) -> Dictionary:
+	return beh_e(e).get("hop", {})
+
+## begin()에서 호출: 이 패턴의 최소 거리를 못 채웠으면 옆 이동을 예약한다
+static func hop_note_begin(st: CombatState, e: Dictionary, cfg: Dictionary, pat: String) -> void:
+	e.hop_left = 0.0
+	var H := hop_cfg(e)
+	var pats: Array = H.get("patterns", [])
+	if not pats.has(pat):
+		return
+	var sub: Dictionary = cfg.get(pat, {})
+	var need := float(sub.get("minDist", 0.0))
+	var p := st.player
+	if PGeom.dist(e.x, e.y, p.x, p.y) >= need:
+		return
+	var a := atan2(p.y - e.y, p.x - e.x)
+	var side: float = 1.0 if st.rng.next() < 0.5 else -1.0
+	var back := float(H.get("back", 0.0)) # 옆 + 약간 뒤(스스로 거리를 만든다)
+	var hx := -sin(a) * side - cos(a) * back
+	var hy := cos(a) * side - sin(a) * back
+	var hn: float = maxf(0.001, sqrt(hx * hx + hy * hy))
+	e.hop_dir = [hx / hn, hy / hn]
+	e.hop_left = float(H.get("time", 0.4))
+	st.text(e.x, e.y - e.r - 30.0, String(H.get("text", "옆으로!")), "#ffd166")
+
+## 준비(*_aim) 상태에서 매 단계 호출: 남은 시간만큼 옆으로 이동(감속장 안에서는 느리게)
+static func hop_step(st: CombatState, e: Dictionary, adv: float) -> void:
+	if float(e.get("hop_left", 0.0)) <= 0.0:
+		return
+	var H := hop_cfg(e)
+	var use: float = minf(adv, float(e.hop_left))
+	e.hop_left = float(e.hop_left) - use
+	var spd := float(H.get("speed", 220.0))
+	var dir: Array = e.hop_dir
+	st.move_swept(e, float(dir[0]) * spd * use, float(dir[1]) * spd * use)
 
 # ---------- 판단 보조 ----------
 static func wolf_attacking(st: CombatState) -> bool:
@@ -95,27 +338,46 @@ static func can_howl(st: CombatState, e: Dictionary) -> bool:
 	var H: Dictionary = _B().howl
 	return (st.t - float(e.last_howl)) >= float(H.interval) and summoned_alive(st) < int(H.maxWolves)
 
-## 가중치 추첨. 같은 행동 세 번 연속 금지. 없으면 ""
-static func choose_pattern(st: CombatState, e: Dictionary) -> String:
+## 지금 거리·단계·재사용에서 고를 수 있는 행동 후보 [[이름, 가중치], ...]
+## 개편(사용자 요청 §6-2): 돌진은 최소 거리를 못 채워도 후보다 — 옆으로 뛰어 스스로 거리를 만든 뒤 돌진한다.
+## 따라서 가까이 붙은 상대에게도 휩쓸기 말고 이동 공격 후보가 남는다.
+static func candidates(st: CombatState, e: Dictionary) -> Array:
 	var cfg := _B()
+	var B := beh_e(e)
 	var p := st.player
 	var d := PGeom.dist(e.x, e.y, p.x, p.y)
 	var los: bool = not st.los_blocked(e.x, e.y, p.x, p.y)
 	var cands: Array = []
-	if int(e.actions) == 0:
-		return "dash" # 첫 공격은 단일 돌진
-	var h: Array = e.history
-	if h.size() == 1 and String(h[0]) == "dash" and can_howl(st, e):
-		return "howl" # 첫 돌진 뒤 첫 소환
 	if d <= float(cfg.sweep.maxDist) and los:
 		cands.append(["sweep", float(cfg.weights.sweep)])
-	if d >= float(cfg.dash.minDist) and d <= float(cfg.dash.maxDist) and los:
+	var hop_dash: bool = (hop_cfg(e).get("patterns", []) as Array).has("dash")
+	if d <= float(cfg.dash.maxDist) and los and (d >= float(cfg.dash.minDist) or hop_dash):
 		cands.append(["dash", float(cfg.weights.dash)])
-	if int(e.phase) >= 2 and d >= float(cfg.pounce.minDist):
+	var Bp: Dictionary = B.get("pounce", {})
+	if int(e.phase) >= int(Bp.get("minPhase", 2)) and d >= float(Bp.get("minDist", cfg.pounce.minDist)):
 		cands.append(["pounce", float(cfg.weights.pounce)])
 	if can_howl(st, e):
 		cands.append(["howl", float(cfg.weights.howl)])
-	return _pick_weighted(st, h, cands)
+	return cands
+
+## 후보 이름만(시험·계측용)
+static func candidate_names(st: CombatState, e: Dictionary) -> Array:
+	var out: Array = []
+	for c in candidates(st, e):
+		out.append(String(c[0]))
+	return out
+
+## 가중치 추첨. 같은 행동 세 번 연속 금지. 없으면 ""
+static func choose_pattern(st: CombatState, e: Dictionary) -> String:
+	if int(e.actions) == 0:
+		return "dash" # 첫 공격은 단일 돌진
+	var forced := chain_take(st, e) # 연계로 예약된 후속 행동이 먼저
+	if forced != "":
+		return forced
+	var h: Array = e.history
+	if h.size() == 1 and String(h[0]) == "dash" and can_howl(st, e):
+		return "howl" # 첫 돌진 뒤 첫 소환
+	return _pick_weighted(st, h, candidates(st, e))
 
 ## 가중치 추첨 공통(PBoss2도 쓴다): 직전 2회가 같은 행동이면 그 행동은 후보에서 뺀다
 static func _pick_weighted(st: CombatState, h: Array, cands: Array) -> String:
@@ -149,6 +411,8 @@ static func begin(st: CombatState, e: Dictionary, pattern: String) -> void:
 	e.state_t = 0.0
 	e.hit_done = false
 	e.wait_t = 0.0
+	chain_note_begin(e, cfg_of(e), pattern)
+	hop_note_begin(st, e, cfg_of(e), pattern)
 	st.note_attack(e, "prepare")
 	if pattern == "sweep":
 		e.state = "sweep_aim"
@@ -163,10 +427,14 @@ static func begin(st: CombatState, e: Dictionary, pattern: String) -> void:
 		e.last_howl = st.t
 		st.ev("boss_howl")
 
+## 행동이 끝났을 때: 연계가 남아 있으면 빈틈 대신 짧은 이동 구간으로 잇고, 아니면 연계 전체의 빈틈을 한 번 준다
 static func to_recover(st: CombatState, e: Dictionary, dur: float) -> void:
+	if chain_continue(st, e):
+		return
 	e.state = "recover"
 	e.state_t = 0.0
-	e.recover_dur = dur
+	e.recover_dur = chain_end_recover(e, dur)
+	chain_reset(e)
 	st.text(e.x, e.y - e.r - 30.0, "빈틈!", "#ffd166")
 
 static func to_approach(_st: CombatState, e: Dictionary) -> void:
@@ -243,7 +511,8 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var dist := PGeom.dist(e.x, e.y, p.x, p.y)
-	var adv := dt * tf
+	# 예고 배속은 연계 후속타의 준비·고정 구간에만 붙는다(실행·빈틈·접근은 그대로). 감속장(tf)은 모든 구간에 그대로
+	var adv := dt * tf * prep_speed(e)
 	match e.state:
 		"intro":
 			e.state_t = float(e.state_t) + dt
@@ -254,6 +523,7 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 			e.approach_t = float(e.approach_t) + adv
 			if int(e.phase_pending) > int(e.phase):
 				# 단계 전환은 행동 사이에서만
+				chain_reset(e)
 				e.phase = int(e.phase_pending)
 				e.state = "roar"
 				e.state_t = 0.0
@@ -263,13 +533,14 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 			else:
 				if dist > float(cfg.stopDist):
 					st.approach(e, p.x, p.y, float(cfg.speed) * sm, dt)
-				if float(e.approach_t) >= float(cfg.minApproach):
+				if float(e.approach_t) >= min_approach(e, cfg):
 					var pat := choose_pattern(st, e)
 					if pat != "":
 						# 겹침 제한: 늑대가 돌진 중이면 큰 공격을 잠시 미룬다(최대 bossWaitMax)
 						if pat != "howl" and wolf_attacking(st) and float(e.wait_t) < float(cfg.overlap.bossWaitMax):
 							e.wait_t = float(e.wait_t) + adv
 						else:
+							chain_arm(e) # 스스로 고른 행동만 연계로 이어진다
 							begin(st, e, pat)
 		"roar":
 			e.state_t = float(e.state_t) + adv
@@ -295,6 +566,7 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 				st.note_attack(e, "execute")
 				to_recover(st, e, float(cfg.sweep.recover))
 		"dash_aim":
+			hop_step(st, e, adv) # 옆으로 뛰어 스스로 돌진 거리를 만든다(예고 각은 계속 추적)
 			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 			e.state_t = float(e.state_t) + adv
 			var aim_t: float = float(cfg.dash.second.aim) if int(e.dash_seq) == 2 else float(cfg.dash.aim)
@@ -341,8 +613,9 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 			if float(e.state_t) >= float(cfg.howl.duration):
 				summon(st, e)
 				st.note_attack(e, "execute")
-				to_approach(st, e)
-				e.approach_t = 0.0
+				# 소환은 주공격의 보조: 늑대를 부른 직후 보스도 바로 공격으로 잇는다(늑대만 기다리지 않는다).
+				# 이을 것이 없으면 짧은 빈틈으로 끝난다(연계 끝에는 반드시 공격 기회가 온다)
+				summon_end(st, e)
 		"pounce_aim":
 			e.land = landing_for(st, e, p.x, p.y)
 			e.state_t = float(e.state_t) + adv
@@ -378,6 +651,7 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 				st.ev("boss_land")
 				if bool(e.stagger_after_land):
 					e.stagger_after_land = false
+					chain_reset(e)
 					e.state = "stagger"
 					e.state_t = 0.0
 				else:
@@ -470,6 +744,7 @@ static func stagger(st: CombatState, e: Dictionary) -> void:
 	if e.state == "leap":
 		e.stagger_after_land = true
 		return
+	chain_reset(e) # 방벽 파열은 연계를 끊는다
 	e.state = "stagger"
 	e.state_t = 0.0
 	e.bite_t = 0.0
