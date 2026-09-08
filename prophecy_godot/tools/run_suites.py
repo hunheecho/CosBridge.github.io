@@ -73,6 +73,14 @@ _run_dir = None                      # 취소 기록을 남길 현재 실행 폴
 _interrupted = False
 
 
+# 콘솔 기본 인코딩(cp949 등)에서도 한글 기록이 깨지거나 예외로 죽지 않게 한다
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
 def log(msg: str) -> None:
     print(msg, flush=True)
 
@@ -86,6 +94,62 @@ def find_engine() -> str:
         if Path(c).exists():
             return c
     raise SystemExit("Godot 실행 파일을 찾을 수 없다. PROPHECY_GODOT 환경 변수로 지정하라.")
+
+
+def pid_alive(pid: int) -> bool:
+    """그 PID가 아직 살아 있는가. Windows에서 os.kill은 프로세스를 죽이므로 쓰지 않는다."""
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(0x1000, False, pid)   # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        got = k.GetExitCodeProcess(h, ctypes.byref(code))
+        k.CloseHandle(h)
+        return bool(got) and code.value == 259  # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def take_lock(lock_path: Path) -> tuple[bool, str]:
+    """중복 실행 방지 잠금. 죽은 실행이 남긴 잠금은 회수한다.
+
+    돌려주는 값은 (잡았는가, 설명). 강제 종료된 실행기가 남긴 잠금 하나가 그 스위트를
+    영구히 막지 않도록, 잠금에 적힌 PID가 살아 있는지 확인한 뒤에만 거부한다.
+    """
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    for attempt in (1, 2):
+        try:
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, f"{os.getpid()} {datetime.now().isoformat()}\n".encode())
+            os.close(fd)
+            _locks.append(str(lock_path))
+            return True, ("죽은 실행이 남긴 잠금을 회수했다" if attempt == 2 else "")
+        except FileExistsError:
+            holder = ""
+            try:
+                holder = lock_path.read_text(encoding="utf-8").strip()
+            except Exception:
+                pass
+            holder_pid = 0
+            try:
+                holder_pid = int(holder.split()[0])
+            except Exception:
+                holder_pid = 0
+            if attempt == 1 and holder_pid and not pid_alive(holder_pid):
+                try:
+                    lock_path.unlink()
+                    continue
+                except Exception:
+                    pass
+            return False, f"같은 프로젝트의 같은 스위트가 이미 실행 중이다(잠금 {lock_path.name}, 보유 {holder})"
+    return False, "잠금을 잡지 못했다"
 
 
 def kill_tree(proc: subprocess.Popen) -> None:
@@ -180,6 +244,23 @@ def judge(rules: dict, exit_code: int, text: str) -> tuple[str, dict]:
             return ST_ERROR, info
     fails = re.findall(rules.get("fail_line_pattern", "^FAIL "), text, re.M)
     info["fail_lines"] = len(fails)
+    # 장면 실행(자동 진행)처럼 'N/N PASS' 요약이 없는 스위트는 정상 완료 표시로 판정한다.
+    # 표시가 없으면 중단·시간초과이며 통과가 아니다.
+    if rules.get("success_pattern"):
+        m = None
+        for m in re.finditer(rules["success_pattern"], text):
+            pass
+        if m is None:
+            info["reason"] = "정상 완료 표시가 없다(중단되었거나 요구한 마지막 단계에 도달하지 못함)"
+            return ST_FAIL, info
+        info["success_line"] = m.group(0).strip()[:200]
+        if rules.get("require_exit_zero", True) and exit_code != 0:
+            info["reason"] = f"종료 코드 {exit_code}"
+            return ST_FAIL, info
+        if info["fail_lines"] > 0:
+            info["reason"] = f"FAIL {info['fail_lines']}건"
+            return ST_FAIL, info
+        return ST_PASS, info
     summary = None
     for pat in rules.get("summary_patterns", []):
         m = None
@@ -212,6 +293,9 @@ def run_one(name: str, spec: dict, rules: dict, engine: str, project: Path,
     log_path = run_dir / f"{safe}__{stamp}.log"          # 실행마다 고유 경로(덮어쓰기 없음)
     lock_path = run_dir.parent / "locks" / f"{project.name}__{safe}.lock"
     rec = {"suite": name, "log": str(log_path), "desc": spec.get("desc", "")}
+    if spec.get("verdict"):            # 스위트별 판정 규칙(장면 실행 등)은 공통 규칙 위에 덮어쓴다
+        rules = dict(rules)
+        rules.update(spec["verdict"])
 
     # --- 필수 환경 설정: 없으면 실행하지 않는다 ---
     ok, why = check_env(spec, base_env)   # 적용 전에 호출 환경과 명세가 충돌하는지 먼저 본다
@@ -223,22 +307,14 @@ def run_one(name: str, spec: dict, rules: dict, engine: str, project: Path,
         return rec
 
     # --- 중복 실행 방지 ---
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        os.write(fd, f"{os.getpid()} {datetime.now().isoformat()}\n".encode())
-        os.close(fd)
-        _locks.append(str(lock_path))   # 취소 경로에서도 확실히 풀기 위해 추적한다
-    except FileExistsError:
-        holder = ""
-        try:
-            holder = lock_path.read_text(encoding="utf-8").strip()
-        except Exception:
-            pass
-        why = f"같은 프로젝트의 같은 스위트가 이미 실행 중이다(잠금 {lock_path.name}, 보유 {holder})"
-        rec.update(status=ST_CONFIG, reason=why, elapsed_sec=0.0)
-        log_path.write_text(f"[중복 실행 거부] {why}\n", encoding="utf-8")
+    got_lock, note = take_lock(lock_path)   # 취소 경로에서도 확실히 풀기 위해 _locks로 추적한다
+    if not got_lock:
+        rec.update(status=ST_CONFIG, reason=note, elapsed_sec=0.0)
+        log_path.write_text(f"[중복 실행 거부] {note}\n", encoding="utf-8")
         return rec
+    if note:
+        rec["stale_lock_reclaimed"] = note
+        log(f"  · {note}: {name}")
 
     # --- 사용자 저장·프로필 격리 ---
     user_dir = run_dir / f"userdata__{name}__{stamp}"
@@ -247,8 +323,20 @@ def run_one(name: str, spec: dict, rules: dict, engine: str, project: Path,
         env["APPDATA"] = str(user_dir)
         env["LOCALAPPDATA"] = str(user_dir)
 
+    # 출력 폴더를 요구하는 실행(자동 진행 캡처 등)은 실행 전용 폴더를 만들어 넣는다.
+    # 실행마다 다른 경로라 이전 실행 결과를 덮어쓰지 않는다.
+    out_dir = None
+    if spec.get("out_dir_env"):
+        out_dir = run_dir / f"out__{safe}__{stamp}"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        env[spec["out_dir_env"]] = str(out_dir)
+        rec["out_dir"] = str(out_dir)
+
     timeout = timeout_override or int(spec.get("timeout_sec", 900))
-    cmd = [engine, "--headless", "--path", str(project), "-s", f"tests/{name}.gd"]
+    if spec.get("kind") == "scene":    # 테스트 스크립트가 아니라 실제 장면을 띄우는 실행
+        cmd = [engine, "--headless", "--path", str(project)] + list(spec.get("args", []))
+    else:
+        cmd = [engine, "--headless", "--path", str(project), "-s", f"tests/{name}.gd"]
     rec["cmd"] = " ".join(cmd)
     rec["env_applied"] = {k: v for k, v in (spec.get("env") or {}).items()}
     proc = None
@@ -263,12 +351,43 @@ def run_one(name: str, spec: dict, rules: dict, engine: str, project: Path,
             proc = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT,
                                     env=env, cwd=str(project.parent), **kw)
             _live.append(proc)
-            try:
-                code = proc.wait(timeout=timeout)
-                timed_out = False
-            except subprocess.TimeoutExpired:
-                timed_out = True
-                code = None
+            # 기다리는 동안 로그를 이어 읽는다.
+            # GDScript 오류나 장면 적재 실패로 실행이 중단되면 quit()에 닿지 못하고 헤드리스
+            # SceneTree가 최대 속도로 계속 돈다(2026-09-08 고아 루프가 그 형태였다). 그때는
+            # 제한 시간까지 기다리지 않고 유예 시간 뒤 바로 종료해 스크립트 오류로 기록한다.
+            abort_pats = rules.get("abort_patterns",
+                                   ["SCRIPT ERROR", "Parse Error", "Compile Error", "Failed to load script"])
+            grace = float(rules.get("error_grace_sec", 15))
+            deadline = time.monotonic() + timeout
+            scan_pos, first_err, err_seen_at = 0, None, 0.0
+            timed_out, code, killed_early = False, None, None
+            while True:
+                code = proc.poll()
+                if code is not None:
+                    break
+                if time.monotonic() > deadline:
+                    timed_out = True
+                    break
+                if first_err is None:
+                    try:                   # 새로 쌓인 부분만 훑는다(로그가 커도 가볍다)
+                        with open(log_path, "rb") as peek:
+                            peek.seek(scan_pos)
+                            chunk = peek.read()
+                            scan_pos += len(chunk)
+                    except Exception:
+                        chunk = b""
+                    if chunk:
+                        txt = chunk.decode("utf-8", "replace")
+                        for pat in abort_pats:
+                            m = re.search(r"^.*" + pat + r".*$", txt, re.M)
+                            if m:
+                                first_err = (pat, m.group(0).strip()[:200])
+                                err_seen_at = time.monotonic()
+                                break
+                elif time.monotonic() - err_seen_at >= grace:
+                    killed_early = first_err
+                    break
+                time.sleep(1.0)
     finally:
         if proc is not None:
             if proc.poll() is None:
@@ -284,6 +403,18 @@ def run_one(name: str, spec: dict, rules: dict, engine: str, project: Path,
 
     elapsed = time.monotonic() - started
     text = log_path.read_text(encoding="utf-8", errors="replace")
+    if killed_early:
+        pat, ev = killed_early
+        reason = f"치명적 오류 뒤 {int(grace)}초가 지나도 스스로 끝나지 않아 프로세스 트리를 종료했다: {pat}"
+        with open(log_path, "a", encoding="utf-8") as out:
+            out.write(f"\n[조기 종료] {reason}\n[증거] {ev}\n"
+                      "  오류로 실행이 중단되면 quit()에 닿지 못해 헤드리스 프로세스가 남는다. 통과로 세지 않는다.\n")
+        rec.update(status=ST_ERROR, reason=reason, elapsed_sec=round(elapsed, 1),
+                   root_cause=pat, root_cause_evidence=ev, killed_early=True)
+        steps = re.findall(r"^UI_SMOKE (?:step|reached)=.*$", text, re.M)
+        if steps:
+            rec["last_step"] = steps[-1].strip()[:200]
+        return rec
     if timed_out:
         # 시간초과 이전에 이미 GDScript 오류가 났다면 그것이 진짜 원인이다.
         # (오류로 _init이 중단되면 quit()에 도달하지 못해 프로세스가 스스로 끝나지 못한다 —
@@ -312,6 +443,9 @@ def run_one(name: str, spec: dict, rules: dict, engine: str, project: Path,
         # 시간초과 시점까지의 부분 진행도 남긴다(통과 판정에는 쓰지 않는다)
         rec["partial_pass_lines"] = len(re.findall(r"^PASS ", text, re.M))
         rec["partial_fail_lines"] = len(re.findall(r"^FAIL ", text, re.M))
+        steps = re.findall(r"^UI_SMOKE (?:step|reached)=.*$", text, re.M)
+        if steps:                       # 장면 실행이면 어디까지 갔는지(추정 아닌 기록)
+            rec["last_step"] = steps[-1].strip()[:200]
         return rec
 
     status, info = judge(rules, code, text)
@@ -513,8 +647,9 @@ def self_test(man: dict, args) -> int:
         "\tvar d := {}\n"
         "\tprint(d.no_such_key)\n"
         "\tquit(0)\n", encoding="utf-8")
-    case("스크립트 오류(quit 미도달)", ST_TIMEOUT,
-         {"env": {}, "timeout_sec": 25, "desc": "self test"}, "tmp/selftest_error", timeout=25)
+    # 제한 시간(180초)을 기다리지 않고, 오류 유예 시간 뒤 바로 끝나는 것까지 확인한다
+    case("스크립트 오류(quit 미도달) 조기 종료", ST_ERROR,
+         {"env": {}, "timeout_sec": 180, "desc": "self test"}, "tmp/selftest_error", timeout=180)
 
     # 3) 강제 시간초과: 끝나지 않는 루프
     slow = tmp_tests / "selftest_hang.gd"

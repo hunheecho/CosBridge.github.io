@@ -125,6 +125,56 @@
       "timeout_sec": 900,
       "desc": "실제 장면 화면 흐름(옛 지역 일정 전용)",
       "env_reason": "위와 같음."
+    },
+    "ui_smoke_short": {
+      "kind": "scene",
+      "args": [],
+      "out_dir_env": "PROPHECY_UI_SMOKE",
+      "env": {
+        "PROPHECY_UI_SPEED": "5",
+        "PROPHECY_UI_MAXMIN": "25",
+        "PROPHECY_UI_STALL": "180"
+      },
+      "timeout_sec": 1800,
+      "desc": "화면 순회 자동 진행(거점·전투·저장/계속하기까지). 완주 검증이 아니다",
+      "env_reason": "속도·상한·정체 판정을 실행기가 고정한다. 상한이 없으면 오류로 멈춘 실행이 그대로 남는다.",
+      "verdict": {
+        "success_pattern": "UI_SMOKE result=done ",
+        "summary_patterns": [],
+        "forbid_patterns": [
+          "SCRIPT ERROR",
+          "Parse Error",
+          "Compile Error",
+          "UI_SMOKE result=(timeout|stalled|incomplete)"
+        ],
+        "note": "자동 진행은 'N/N PASS' 요약이 없다. 요구한 마지막 단계까지 도달했을 때만 나오는 'UI_SMOKE result=done'과 종료 코드 0을 함께 본다. 시간 초과(2)·정체(3)·미도달(4)은 실패다."
+      }
+    },
+    "ui_smoke_full": {
+      "kind": "scene",
+      "args": [],
+      "out_dir_env": "PROPHECY_UI_SMOKE",
+      "env": {
+        "PROPHECY_UI_FULL": "1",
+        "PROPHECY_UI_SPEED": "6",
+        "PROPHECY_UI_ROUTE": "act1_hunt_forest,act2_crimson_ritual,act3_temporal_abyss",
+        "PROPHECY_UI_MAXMIN": "90",
+        "PROPHECY_UI_STALL": "300"
+      },
+      "timeout_sec": 5700,
+      "desc": "전체 회차 자동 진행(관문 3 → 10일차 회차 결과 → 저장/계속하기)",
+      "env_reason": "경로를 고정해 같은 조건에서 재현한다. 상한·정체 판정이 없으면 중단이 완료처럼 보인다.",
+      "verdict": {
+        "success_pattern": "UI_SMOKE result=done ",
+        "summary_patterns": [],
+        "forbid_patterns": [
+          "SCRIPT ERROR",
+          "Parse Error",
+          "Compile Error",
+          "UI_SMOKE result=(timeout|stalled|incomplete)"
+        ],
+        "note": "자동 진행은 'N/N PASS' 요약이 없다. 요구한 마지막 단계까지 도달했을 때만 나오는 'UI_SMOKE result=done'과 종료 코드 0을 함께 본다. 시간 초과(2)·정체(3)·미도달(4)은 실패다."
+      }
     }
   },
   "groups": {
@@ -173,6 +223,10 @@
       "world_tests",
       "content_tests",
       "ui_flow_tests"
+    ],
+    "smoke": [
+      "ui_smoke_short",
+      "ui_smoke_full"
     ]
   },
   "runner": {
@@ -185,7 +239,7 @@
     "exit_codes": {
       "0": "전부 pass",
       "1": "실패(FAIL·스크립트 오류·요약 없음)",
-      "2": "시간초과",
+      "2": "시간초과(자동 진행의 정체·미도달은 스위트 실패로 집계)",
       "3": "설정 오류(환경 충돌·중복 실행·명세 밖 스위트)",
       "130": "사용자 중단(aborted)"
     },

@@ -271,8 +271,12 @@ func _init() -> void:
 	var ratio_avg: float = ratio_sum / float(maxi(1, counted))
 	ok("분당 공격 개시 배율(개선 전 기록 대비) — 9종 평균 ×%.2f, 최저 ×%.2f, 2.5배 이상 %d종" % [ratio_avg, ratio_lo, reached],
 		counted == BOSSES.size(), ", ".join(rate_txt))
-	# 목표(사용자 요청): 기존 대비 최소 2.5배. 고정 거리 실험에서 보스별 편차가 있으므로 평균 2.5배 + 개별 하한 2.0배로 본다
-	ok("빈도 목표(시험값): 9종 평균 2.5배 이상", ratio_avg >= 2.5, "평균 ×%.2f" % ratio_avg)
+	# 사용자 목표는 보스별 최소 2.5배이고, 현재 9종 중 4종만 채웠다(미달 5종 2.28~2.45).
+	# 아래 기준은 목표 달성 판정이 아니라 회귀 감시용이다 — 지금보다 나빠지면 걸린다.
+	# 미달을 어떻게 처리할지는 사람이 정한다(docs/sim/BOSS_PACE.md §1 "사용자 목표와 현재 결과").
+	ok("빈도 회귀 감시(목표 달성 판정 아님): 9종 평균 2.5배 이상", ratio_avg >= 2.5, "평균 ×%.2f" % ratio_avg)
+	ok("빈도 목표(보스별 2.5배) 달성 종수 기록 — 현재 4/9, 사람 판단 대기", reached >= 4,
+		"%d종 달성 / 9종" % reached)
 	ok("빈도 하한(시험값): 어떤 보스도 2.0배 미만이 아니다", ratio_lo >= 2.0, "최저 ×%.2f" % ratio_lo)
 	if json_mode:
 		print("BOSS_PACE_JSON " + JSON.stringify({ "rows": table, "baseline": base_ref, "sec": sec, "seed": 11 }))

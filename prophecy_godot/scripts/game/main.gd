@@ -116,6 +116,13 @@ func _ready() -> void:
 		_auto = true
 		_auto_snap = DisplayServer.get_name() != "headless" # 헤드리스는 PNG 없이 단계만 출력
 		_auto_quit = true
+		_auto_t0_ms = Time.get_ticks_msec()
+		_auto_last_progress_ms = _auto_t0_ms
+		_auto_seg_t0 = _auto_t0_ms
+		if OS.get_environment("PROPHECY_UI_MAXMIN") != "":
+			_auto_budget_sec = maxf(1.0, float(OS.get_environment("PROPHECY_UI_MAXMIN"))) * 60.0
+		if OS.get_environment("PROPHECY_UI_STALL") != "":
+			_auto_stall_sec = maxf(10.0, float(OS.get_environment("PROPHECY_UI_STALL")))
 
 func _make_screens() -> void:
 	var defs := {
@@ -1393,20 +1400,69 @@ var _auto_wait := 0
 var _auto_done := {}
 var _auto_frames := 0
 var _auto_seed := 1   # 자동 진행은 같은 시드(재현 가능)
+## 완료 판정(2026-09-08): 프레임 수가 아니라 단조 증가 시계로 실제 경과를 잰다.
+## 이전의 프레임 상한(144000)은 60FPS일 때만 40분이고, 배속·부하에 따라 실제 경과와 달랐다.
+## 또한 시간 초과와 정상 완료가 같은 출력·같은 종료 코드였다. 이제 서로 구분한다.
+var _auto_t0_ms := 0                 # 시작 시각(Time.get_ticks_msec)
+var _auto_budget_sec := 2400.0       # 실제 경과 상한(PROPHECY_UI_MAXMIN 분)
+var _auto_stall_sec := 300.0         # 진행 정체 판정 시간(PROPHECY_UI_STALL 초)
+var _auto_last_progress_ms := 0      # 마지막으로 진행이 있었던 시각
+var _auto_last_progress := ""        # 그때의 진행 이름
+var _auto_sig := ""                  # 진행 여부를 재는 상태 서명(화면·단계·등장·처치)
+var _auto_combat_sec := 0.0          # 게임 속 전투 시간 합계(실제 경과와 구분해 기록)
+var _auto_combat_seen := {}          # 전투별 1회만 더하기
+var _auto_status := "running"        # running | done | incomplete | timeout | stalled
+var _auto_reached := {}              # 도달한 필수 단계 → 그때의 실제 경과 초
+var _auto_seg_ms := {}               # 구간별 소요(진단용)
+var _auto_seg_t0 := 0
+var _auto_beat_ms := 0               # 진행 상황 정기 출력(멈춘 구간을 로그만으로 찾기 위해)
 
 ## 한 번만 실행하는 자동 진행 단계(실행했으면 true, 다음 틱까지 잠깐 기다린다)
 func _auto_step(key: String, action: Callable) -> bool:
 	if _auto_done.has(key):
 		return false
 	_auto_done[key] = true
+	_auto_note_progress("step:" + key)
 	action.call()
 	_auto_wait = 3
 	return true
+
+## 진행이 있었다고 표시한다(정체 판정의 기준). 직전 구간의 소요 시간도 남긴다
+func _auto_note_progress(what: String) -> void:
+	var now := Time.get_ticks_msec()
+	if _auto_last_progress != "":
+		_auto_seg_ms[_auto_last_progress] = now - _auto_seg_t0
+	_auto_seg_t0 = now
+	_auto_last_progress = what
+	_auto_last_progress_ms = now
+
+## 필수 단계 도달 기록. 완료 판정은 오직 이 목록으로 한다
+func _auto_reach(id: String) -> void:
+	if _auto_reached.has(id):
+		return
+	var sec := int(Time.get_ticks_msec() - _auto_t0_ms) / 1000
+	_auto_reached[id] = sec
+	print("UI_SMOKE reached=", id, " wall_sec=", sec)
+
+## 화면·단계·등장 수·처치 수를 묶은 서명. 이 값이 바뀌면 "진행 중"이다
+func _auto_signature() -> String:
+	var sig := screen + "|" + _auto_state
+	if not run.is_empty():
+		sig += "|d%d.h%d.%s" % [int(run.day), int(run.hours), String(run.phase)]
+	if view != null and view.st != null:
+		var st: CombatState = view.st
+		var dead := 0
+		for e in st.enemies:
+			if e.dead:
+				dead += 1
+		sig += "|%s.s%d.k%d" % [st.status, int(st.spawn_count), dead]
+	return sig
 
 func _auto_shot(name: String) -> void:
 	if _auto_done.has(name):
 		return
 	_auto_done[name] = true
+	_auto_note_progress("shot:" + name)
 	if _auto_snap:
 		_snap_to(_auto_dir, name)
 	if _auto_stop != "" and name == _auto_stop:
@@ -1414,17 +1470,146 @@ func _auto_shot(name: String) -> void:
 		call_deferred("_auto_finish")
 	print("UI_SMOKE step=", name, " screen=", screen, " state=", _auto_state, " day=", (int(run.day) if not run.is_empty() else 0), " phase=", (String(run.phase) if not run.is_empty() else "-"))
 
-func _auto_finish() -> void:
+## 자동 진행이 반드시 지나야 하는 단계.
+## 전체 진행 모드는 관문 3개 → 10일차 회차 결과 → 저장/계속하기까지 도달해야 정상 완료다.
+## 짧은 화면 순회 모드는 거점·전투·저장/계속하기까지만 요구한다(별도 기준이며 완주가 아니다).
+func _auto_required() -> Array:
+	if _auto_stop != "": # 특정 캡처에서 끊는 짧은 기록용 실행. 완주 판정 대상이 아니다
+		return []
+	if _auto_full:
+		return ["gate1", "gate2", "gate3", "run_result", "save_continue"]
+	return ["base", "combat", "save_continue"]
+
+## 멈춘 시점의 상태를 남긴다(원인 구분용). 추정 대신 이 기록으로 판단한다
+func _auto_diagnostics() -> Dictionary:
+	var d := {
+		"screen": screen, "auto_state": _auto_state, "choice_open": choice.is_open(),
+		"wall_sec": int(Time.get_ticks_msec() - _auto_t0_ms) / 1000,
+		"game_combat_sec": snapped(_auto_combat_sec, 0.1),
+		"frames": _auto_frames,
+		"last_progress": _auto_last_progress,
+		"since_progress_sec": int(Time.get_ticks_msec() - _auto_last_progress_ms) / 1000,
+		"segments_ms": _auto_seg_ms.duplicate(),
+	}
+	if not run.is_empty():
+		d["day"] = int(run.day)
+		d["hours_left"] = int(run.hours)
+		d["phase"] = String(run.phase)
+		d["level"] = int(run.growth.level)
+		d["stage"] = int(run.stage)
+		d["bosses_done"] = (run.bossesDone as Array).duplicate()
+		d["boss_retries"] = int(run.get("bossRetries", 0))
+	if view != null and view.st != null:
+		var st: CombatState = view.st
+		var alive := 0
+		var nearest := -1.0
+		for e in st.enemies:
+			if e.dead or bool(e.get("hidden", false)):
+				continue
+			alive += 1
+			var dd := PGeom.dist(float(e.x), float(e.y), float(st.player.x), float(st.player.y))
+			if nearest < 0.0 or dd < nearest:
+				nearest = dd
+		var remain := []   # 남은 개체를 종류·상태별로 남긴다(무엇 때문에 끝나지 않는지 보려고)
+		for e in st.enemies:
+			if e.dead:
+				continue
+			remain.append({
+				"type": String(e.get("type", "?")), "hp": int(e.get("hp", 0)),
+				"hidden": bool(e.get("hidden", false)), "structure": bool(e.get("structure", false)),
+				"tier": String(e.get("tier", "")), "state": String(e.get("state", "")),
+				"pos": [int(e.x), int(e.y)],
+				"dist": int(PGeom.dist(float(e.x), float(e.y), float(st.player.x), float(st.player.y))),
+			})
+		d["combat"] = {
+			"remaining": remain,
+			"region": st.region_id, "t": snapped(st.t, 0.1), "status": st.status,
+			"objective": st.objective, "obj_done": bool(st.obj.get("done", false)),
+			"obj_hud": (PObjectives.hud_line(st, st.obj) if PObjectives.is_objective(st.objective) else ""),
+			"obj_keys": st.obj.keys(), "time_limit": st.time_limit, "spawn_hold": st.spawn_hold,
+			"alive": alive, "pending_spawn": st.pending.size(),
+			"spawned": int(st.spawn_count), "spawn_total": int(st.spawn_total), "spawned_all": bool(st.spawned_all),
+			"player_pos": [int(st.player.x), int(st.player.y)], "player_hp": int(st.player.hp),
+			"player_dodge": bool(st.player.get("dodge_active", false)), "obstacles": st.obstacles.size(),
+			"arena": [int(st.arena_w), int(st.arena_h)], "player_r": float(st.player.r),
+			"obstacle_list": _auto_obstacles(st),
+			"nearest_enemy_dist": (int(nearest) if nearest >= 0.0 else -1),
+			"zones": st.zones.size(), "projectiles": st.projectiles.size(),
+			"bot": view.bot != null, "paused": view.paused, "time_scale": view.time_scale,
+			"bot_info": (view.bot.debug_state() if view.bot != null and view.bot.has_method("debug_state") else {}),
+		}
+	return d
+
+## 장애물과 플레이어의 겹침(끼임 여부 판정용)
+func _auto_obstacles(st: CombatState) -> Array:
+	var out := []
+	for ob in st.obstacles:
+		var d := PGeom.dist(float(ob.x), float(ob.y), float(st.player.x), float(st.player.y))
+		out.append({ "type": String(ob.get("type", "")), "pos": [int(ob.x), int(ob.y)], "r": float(ob.r),
+			"dist": snapped(d, 0.1), "overlap": snapped(float(ob.r) + float(st.player.r) - d, 0.1) })
+	return out
+
+func _auto_finish(status: String = "done") -> void:
+	if not _auto:
+		return
+	_auto_status = status
+	var missing := []
+	for r in _auto_required():
+		if not _auto_reached.has(r):
+			missing.append(r)
+	# 요구한 마지막 단계까지 도달했을 때만 정상 완료다. 중단·시간 초과는 완료가 아니다
+	if status == "done" and not missing.is_empty():
+		_auto_status = "incomplete"
+	var diag := _auto_diagnostics()
+	print("UI_SMOKE result=", _auto_status, " reached=", JSON.stringify(_auto_reached),
+		" missing=", JSON.stringify(missing), " wall_sec=", diag.wall_sec,
+		" game_combat_sec=", diag.game_combat_sec)
+	print("UI_SMOKE diagnostics=", JSON.stringify(diag))
 	print("UI_SMOKE done state=", _auto_state, " run=", JSON.stringify({ "day": int(run.day), "phase": String(run.phase), "level": int(run.growth.level), "gold": int(run.gold), "stage": int(run.stage), "bossesDone": run.bossesDone, "retries": int(run.bossRetries) }) if not run.is_empty() else "{}", " summary=", JSON.stringify(last_summary))
+	if _auto_dir != "":
+		var f := FileAccess.open(_auto_dir.path_join("smoke_result.json"), FileAccess.WRITE)
+		if f != null:
+			f.store_string(JSON.stringify({ "status": _auto_status, "full": _auto_full,
+				"required": _auto_required(), "reached": _auto_reached, "missing": missing,
+				"diagnostics": diag, "version": Game.VERSION }, "  "))
+			f.close()
 	_auto = false
 	if _auto_quit:
-		get_tree().quit()
+		# 종료 코드 — 0 정상 완료 / 2 시간 초과 / 3 진행 정체 / 4 필수 단계 미도달
+		var code := 0
+		match _auto_status:
+			"timeout": code = 2
+			"stalled": code = 3
+			"incomplete": code = 4
+		get_tree().quit(code)
 
 func _auto_tick() -> void:
 	_auto_frames += 1
-	if _auto_frames > 60 * 60 * 40: # 40분 안전장치
-		print("UI_SMOKE timeout state=", _auto_state, " screen=", screen)
-		_auto_finish()
+	var now := Time.get_ticks_msec()
+	if view != null and view.st != null and view.st.status != "running":
+		var key := "%d:%s:%0.1f" % [int(view.st.seed_value), String(view.st.region_id), view.st.t]
+		if not _auto_combat_seen.has(key): # 게임 속 전투 시간(실제 경과와 따로 기록한다)
+			_auto_combat_seen[key] = true
+			_auto_combat_sec += float(view.st.t)
+	var sig := _auto_signature() # 화면·날짜·등장·처치 중 하나라도 바뀌면 진행 중이다
+	if sig != _auto_sig:
+		_auto_sig = sig
+		_auto_last_progress_ms = now
+	if now - _auto_beat_ms >= 30000: # 30초마다 현재 위치를 남긴다(중단 지점을 로그에서 바로 찾는다)
+		_auto_beat_ms = now
+		print("UI_SMOKE heartbeat wall_sec=", int(now - _auto_t0_ms) / 1000,
+			" sig=", sig, " since_progress_sec=", int(now - _auto_last_progress_ms) / 1000,
+			" combat_sec=", snapped(_auto_combat_sec, 0.1),
+			" t=", (snapped(view.st.t, 0.1) if view != null and view.st != null else 0.0),
+			" ppos=", ([int(view.st.player.x), int(view.st.player.y)] if view != null and view.st != null else []))
+	if float(now - _auto_t0_ms) / 1000.0 > _auto_budget_sec:
+		print("UI_SMOKE timeout wall_sec=", int(now - _auto_t0_ms) / 1000, " budget_sec=", int(_auto_budget_sec))
+		_auto_finish("timeout")
+		return
+	if float(now - _auto_last_progress_ms) / 1000.0 > _auto_stall_sec:
+		print("UI_SMOKE stalled since_progress_sec=", int(now - _auto_last_progress_ms) / 1000,
+			" last_progress=", _auto_last_progress, " sig=", _auto_sig)
+		_auto_finish("stalled")
 		return
 	if _auto_wait > 0:
 		_auto_wait -= 1
@@ -1436,7 +1621,10 @@ func _auto_tick() -> void:
 			return
 		var cs: Array = choice.offer.get("choices", [])
 		if cs.size() > 0:
-			_on_pick(String(cs[0].key))
+			# 항상 첫 후보를 고르면(옛 방식) 빌드가 한쪽으로 치우쳐 회차 검증이 성장 부족으로 막힌다.
+			# 회차 봇과 같은 선택 규칙(PBot.pick_choice)을 쓴다. 전투 규칙·수치는 그대로다.
+			var pick := PBot.pick_choice(choice.offer, int(run.seed) if not run.is_empty() else _auto_seed)
+			_on_pick(String(pick.key) if not pick.is_empty() else String(cs[0].key))
 		else:
 			_on_skip()
 		_auto_wait = 3
@@ -1467,6 +1655,7 @@ func _auto_tick() -> void:
 			if _auto_step("t2", func(): _auto_shot("01_pick_start"); use_bot = true; start_run("sword"); _auto_state = "base1"):
 				return
 		"base":
+			_auto_reach("base")
 			match _auto_state:
 				"start", "base1":
 					if _auto_step("b1", func(): _auto_shot("10_base"); tips._on_click("auto_skill")):
@@ -1506,7 +1695,8 @@ func _auto_tick() -> void:
 						_auto_wait = 4
 					else:
 						_auto_state = "bossprep"
-				"continue":
+				"continue": # 저장 → 종료(제목 화면) → 계속하기로 실제 복귀한 지점
+					_auto_reach("save_continue")
 					_auto_shot("26_base_continued")
 					print("UI_SMOKE continued day=", int(run.day), " stage=", int(run.stage), " level=", int(run.growth.level), " gold=", int(run.gold))
 					if _auto_full:
@@ -1540,6 +1730,7 @@ func _auto_tick() -> void:
 				_:
 					_auto_finish()
 		"combat":
+			_auto_reach("combat")
 			if view.st != null and view.st.t >= 3.0 and _auto_state == "combat":
 				_auto_shot("11_combat")
 			if view.st != null and view.st.t >= 4.5 and _auto_state == "combat": # 일시정지·조작법·설정 화면도 한 번씩
@@ -1591,6 +1782,8 @@ func _auto_tick() -> void:
 			_auto_state = "days"
 			_auto_wait = 4
 		"boss_result":
+			if not run.is_empty() and (run.bossesDone as Array).size() >= 1:
+				_auto_reach("gate%d" % mini(3, (run.bossesDone as Array).size()))
 			_auto_shot("19_bossresult")
 			if int(run.get("bossRetries", 0)) >= 4: # 같은 관문에서 봇이 계속 지면 무한 재도전 대신 종료(관찰 기록)
 				print("UI_SMOKE boss_stuck boss=", String(PRun.next_boss(run).get("id", "?")), " retries=", int(run.bossRetries), " day=", int(run.day), " level=", int(run.growth.level))
@@ -1602,6 +1795,13 @@ func _auto_tick() -> void:
 			_auto_state = "days"
 			_auto_wait = 4
 		"run_result":
+			if _auto_state != "endless_done":
+				_auto_reach("run_result") # 회차 결과 화면(10일차 최종 보스 뒤)
+				# 마지막 관문은 관문 결과 화면을 거치지 않고 곧바로 회차 결과로 간다.
+				# 넘은 관문 수를 여기서 다시 확인해 표시한다
+				if not run.is_empty():
+					for i in (run.bossesDone as Array).size():
+						_auto_reach("gate%d" % (i + 1))
 			if _auto_state == "endless_done":
 				_auto_shot("36_endless_result")
 			_auto_shot("32_run_result")

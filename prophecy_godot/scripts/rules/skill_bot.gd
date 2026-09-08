@@ -29,6 +29,7 @@ var out_last: Dictionary = { "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_
 var escape_id: String = ""       # 지금 벗어나려는 위협
 var inside_ids: Array = []       # 마지막 판단에서 플레이어를 담고 있던(고려한) 위협
 var steer_mem: Dictionary = { "steer_side": 0, "steer_t": 0.0 }
+var _last_mv := [0.0, 0.0] # 마지막으로 낸 이동 입력(진단용)
 var lat: Dictionary = { "recog_ms": [], "first_input_ms": [], "decisions": 0, "dodge_reqs": [], "rng_draws": 0, "threats_seen": 0, "threats_inside": 0 }
 var last_snap: Dictionary = {}
 
@@ -300,6 +301,7 @@ func decide_skill(snap: Dictionary, n: int) -> Dictionary:
 		var hs := hold_steps_for(press_len, rules)
 		hold_until = (1 << 30) if hs < 0 else n + hs
 		(lat.dodge_reqs as Array).append({ "step": n, "press": press_len, "hold_steps": hs, "dir": [snapped(mv[0], 0.001), snapped(mv[1], 0.001)], "escape": escape_id })
+	_last_mv = [snapped(float(mv[0]), 0.001), snapped(float(mv[1]), 0.001)]
 	return { "mx": mv[0], "my": mv[1], "dodge_press": dodge, "dodge_held": dodge or (bool(p.dodge_active) and n < hold_until), "special": special, "skill_e": skill_e }
 
 ## 누름 길이 정책: novice "max" = 항상 끝까지, "smart" = 빠져나갈 거리로 짧음/중간/김
@@ -399,6 +401,43 @@ func approach(snap: Dictionary, consider: Array) -> Array:
 			if d < bd:
 				bd = d
 				target = e
+		if target.is_empty():
+			# 구조물만 남은 경우(제단 파괴 임무 등)에는 구조물을 대상으로 삼는다.
+			# 정책 봇(bot.gd pick_target)은 처음부터 제단을 목표 우선 대상으로 다뤘지만
+			# 실력 프로필 봇은 구조물을 전부 건너뛰어, 일반 적이 모두 죽은 뒤 때릴 대상이
+			# 없어져 제단 임무가 끝나지 않았다(2026-09-08 자동 진행 2일차 정지의 실제 원인:
+			# 10마리 전멸 후 제단 2기만 남은 채 게임 속 1832초 경과, 처치 0).
+			# 위협 판단·회피에서는 계속 구조물을 무시한다(제단은 쫓아오지 않는다).
+			for e in snap.enemies:
+				if not bool(e.structure):
+					continue
+				var d := PGeom.dist(float(e.x), float(e.y), px, py)
+				if d < bd:
+					bd = d
+					target = e
+	var obj_goal := false
+	if target.is_empty():
+		# 목표형 임무(구출·봉인 등)는 적을 다 죽여도 저절로 끝나지 않는다. 남은 목표 지점으로 간다.
+		# 두 봇 모두 목표 행동이 없어서, 적을 전부 죽인 뒤 아무것도 하지 않아 전투가 끝나지
+		# 않았다(2026-09-08 자동 진행 3일차 정지의 실제 원인: 구출 0/2 · 남은 적 0 ·
+		# 제한 시간 없음 · 게임 속 1841초 경과). 우리 안(cage)·봉인 지점을 먼저, 모두 끝난
+		# 뒤에 출구로 간다. 사람 플레이의 전투 규칙은 바뀌지 않는다(검증 봇의 행동이다).
+		var goal := {}
+		var gd := INF
+		for group in [["cage", "seal"], ["exit"]]:
+			for o in snap.objects:
+				if bool(o.get("done", false)) or not group.has(String(o.get("kind", ""))):
+					continue
+				var d := PGeom.dist(float(o.x), float(o.y), px, py)
+				if d < gd:
+					gd = d
+					goal = o
+			if not goal.is_empty():
+				break
+		if not goal.is_empty():
+			target = { "x": float(goal.x), "y": float(goal.y), "r": float(goal.get("r", 20.0)) }
+			bd = gd
+			obj_goal = true
 	if target.is_empty():
 		return [0.0, 0.0]
 	var rules: Dictionary = snap.rules
@@ -407,6 +446,8 @@ func approach(snap: Dictionary, consider: Array) -> Array:
 		want = float(rules.weapon_range) * 0.9
 	if bool(target.get("boss", false)) or target.has("boss_id"):
 		want = float(target.r) + (40.0 if String(target.get("state", "")) in ["recover", "stagger"] else float(rules.weapon_range) * 0.7)
+	if obj_goal:
+		want = 0.0   # 목표 지점은 사거리를 두지 않고 그 위로 간다
 	var mv := [0.0, 0.0]
 	var tx := float(target.x)
 	var ty := float(target.y)
@@ -452,6 +493,12 @@ static func _avg(arr: Array) -> float:
 	return t / float(arr.size())
 
 ## 보고서용 지연 통계: 판단 간격, 인식 지연(위협별), 실제 최초 입력 지연(예고 시작 → 첫 입력 변경)
+## 진단용 현재 상태(자동 진행이 멈췄을 때 무엇을 하고 있었는지 남긴다)
+func debug_state() -> Dictionary:
+	return { "profile": profile_id, "escape_id": escape_id, "inside": inside_ids.duplicate(),
+		"last_mv": _last_mv.duplicate(),
+		"decide_steps": decide_steps }
+
 func latency_report() -> Dictionary:
 	var r: Array = lat.recog_ms
 	var f: Array = lat.first_input_ms
