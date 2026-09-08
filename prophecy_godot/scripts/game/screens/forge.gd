@@ -54,9 +54,12 @@ func refresh() -> void:
 			int(Fw.weaponLv), PUi.fmt(1.0 + float(SH.forgeMult[mini(int(Fw.weaponLv), (SH.forgeMult as Array).size() - 1)])),
 			"#ff8c73" if int(r.gold) < int(Fw.cost) else "#ffd966", int(Fw.cost),
 			(" [color=#ff8c73]· 보스 %d 처치 후 개방[/color]" % int(Fw.afterBoss)) if not bool(Fw.open) else ""], 13))
+		# 효용을 눈에 보이게: 사고 나면 남는 금화 + 이 기술이 지금까지 실제로 낸 피해 비중(없으면 생략)
+		fbox.add_child(PUi.rich("[color=#9ea8b8]사면 잔액 [b]%d[/b]%s[/color]" % [maxi(0, int(r.gold) - int(Fw.cost)), _damage_share_text(r, wid)], 12))
 		var lbl := "잠김" if not bool(Fw.open) else ("이 기술 강화" if bool(Fw.affordable) else "%d 부족" % (int(Fw.cost) - int(r.gold)))
 		var wid_c := wid
 		fbox.add_child(PUi.button(lbl, func(): main.forge_upgrade(wid_c), bool(Fw.open) and bool(Fw.affordable), 13))
+		fbox.add_child(_alternatives_line(r, int(Fw.cost)))
 	if bool(b.get("forge_legacy", false)):
 		fbox.add_child(PUi.rich("[color=#9ea8b8]이전 회차에서 산 전체 강화는 그대로 유지된다. 다음 강화부터 고른 기술에만 붙는다.[/color]", 12))
 	if _formula_open:
@@ -357,3 +360,42 @@ func _swap_confirm() -> void:
 	var sw := _swap
 	_swap = {}
 	main.apply_swap(String(sw.slot), int(sw.index), String(sw.new_id), sw.mods)
+
+## 이 자동기술이 이번 회차에서 실제로 낸 유효 피해 비중(기록이 없으면 ""). 강화가 값을 하는지 눈으로 보게 하는 줄이다
+func _damage_share_text(r: Dictionary, weapon_id: String) -> String:
+	var agg: Dictionary = PStats.aggregate(r)
+	var total: float = float(agg.get("total", 0.0))
+	if total <= 0.0:
+		return ""
+	var mine := 0.0
+	for g in PStats.by_owner(agg):
+		if String(g.owner) == weapon_id:
+			mine = float(g.amount)
+	if mine <= 0.0:
+		return " · 이번 회차 피해 기여 [b]0%[/b](아직 이 기술로 때린 기록 없음)"
+	return " · 이번 회차 피해 기여 [b]%d%%[/b]" % int(round(mine / total * 100.0))
+
+## 같은 금화를 다른 곳에 쓰면 무엇을 살 수 있는가(공격 강화만 정답이 되지 않게 나란히 보여준다).
+## 값은 전부 규칙·데이터에서 읽는다(화면이 계산하지 않는다)
+func _alternatives_line(r: Dictionary, gold: int) -> Control:
+	var SH := PCatalog.shop()
+	var parts := []
+	parts.append("장비 %d~%d" % [int(SH.sellPrice.armor) * 4, int(SH.price.weapon)])
+	var cheap := ""
+	var cheap_p := 1 << 30
+	for id in PConsumables.prep_ids():
+		if PConsumables.price(String(id)) < cheap_p:
+			cheap_p = PConsumables.price(String(id))
+			cheap = String(id)
+	if cheap != "":
+		parts.append("준비물 %d~%d" % [cheap_p, _max_prep_price()])
+	parts.append("회복약 %d(체력 +%d)" % [PConsumables.price("potion"), int(float(PConsumables.potion_def().heal))])
+	parts.append("무료 휴식권 %d(완전 회복·시간 0칸)" % PRun.merchant_service_price("free_rest"))
+	parts.append("재고 새로고침 %d" % PRun.stock_refresh_cost(r))
+	return PUi.rich("[color=#6a7078]같은 %d금으로: %s[/color]" % [gold, " · ".join(parts)], 11)
+
+func _max_prep_price() -> int:
+	var m := 0
+	for id in PConsumables.prep_ids():
+		m = maxi(m, PConsumables.price(String(id)))
+	return m

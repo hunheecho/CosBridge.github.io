@@ -59,6 +59,7 @@ var mark_target = null
 var caster_cd: float = 0.0
 var caster_shield: Dictionary = {}
 var low_shield_used: bool = false
+var low_heal_used: bool = false   # 출격 준비물 '응급 약낭'을 이번 전투에서 썼는가
 var temp_buff: String = ""
 # 제작 전용 장비·영구 특성 상태(시험값 meta.json). 해당 장비/특성이 없으면 0·{}로 남아 기준 전투 경로에 영향이 없다
 var moon_shield: float = 0.0        # 월광 갑옷: 이 장비 몫의 보호막(감속장 안에서만 재생, 0이 되면 재생 없음)
@@ -897,6 +898,13 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 	metrics.taken_hits[src] = int(metrics.taken_hits.get(src, 0)) + 1
 	p.flash = 0.2
 	p.hurt_t = 0.0
+	# 출격 준비물 '응급 약낭': 위험선 아래로 떨어질 때 1회 회복. 장비 '비상 방패'와 다른 칸이라 겹쳐 쓰지 않는다
+	var LH := PConsumables.low_heal(build)
+	if not LH.is_empty() and not low_heal_used and p.hp > 0.0 and p.hp <= p.hp_max * float(LH.frac):
+		low_heal_used = true
+		p.hp = minf(p.hp_max, p.hp + float(LH.heal))
+		stats.equip_procs.relief_pouch = 1
+		text(p.x, p.y - 44.0, "응급 약낭!", "#9fe6a0")
 	if EQ.has("lowShield") and not low_shield_used and p.hp > 0.0 and p.hp <= p.hp_max * float(EQ.lowShield.frac):
 		low_shield_used = true
 		p.shield += float(EQ.lowShield.shield)
@@ -1240,6 +1248,8 @@ func update_player(input: Dictionary, dt: float) -> void:
 				web = 0.5
 			elif z.type == "ice" and PGeom.dist(z.x, z.y, p.x, p.y) <= z.r + p.r * 0.5:
 				web = minf(web, float(z.get("slow", 0.6))) # 빙판(서리 추적자): 걷기 속도만, 겹쳐도 곱하지 않고 더 강한 쪽
+		# 출격 준비물 '정화 향': 바닥 지대가 붙잡는 정도를 줄인다(지대 수명은 건드리지 않는다)
+		web = 1.0 - (1.0 - web) * (1.0 - PConsumables.purge(build).slow)
 		var spd2 := float(P.speed) * float(build.speed_mult) * wind * web
 		move_swept(p, mv[0] * spd2 * dt, mv[1] * spd2 * dt, true)
 	if bool(input.get("special", false)) and p.special_cd <= 0.0:
@@ -1534,9 +1544,9 @@ func update_zones(dt: float) -> void:
 		z.ttl -= dt
 		z.t += dt
 		if z.type == "spore" and PGeom.dist(z.x, z.y, p.x, p.y) <= z.r + p.r * 0.5:
-			max_dmg = maxf(max_dmg, float(z.dmg))
+			max_dmg = maxf(max_dmg, float(z.dmg) * (1.0 - PConsumables.purge(build).zone))
 		if z.type == "hazard":
-			max_dmg = maxf(max_dmg, PObjectives.zone_damage(self, z, p))
+			max_dmg = maxf(max_dmg, PObjectives.zone_damage(self, z, p) * (1.0 - PConsumables.purge(build).zone))
 		if z.type == "fire":
 			z.tick -= dt
 			if z.tick <= 0.0:

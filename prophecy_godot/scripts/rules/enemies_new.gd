@@ -266,6 +266,8 @@ static func shield_mult(st: CombatState, e: Dictionary, opt: Dictionary) -> floa
 			m = minf(m, float(d.get("guardMult", d.get("frontMult", 1.0))))
 	if _rally_guard(st, e) and _blockable(opt): # 군단 기수 깃발의 방어 지원(중복 아님: 더 강한 쪽만)
 		m = minf(m, float(PCatalog.enemy("elite_standard").get("banner", {}).get("guardMult", 1.0)))
+	# 출격 준비물 '파쇄 기름': 방어 감소에 하한을 둔다. min으로 고른 결과에 **한 번만** 적용하고 곱하지 않는다
+	m = maxf(m, PConsumables.guard_floor(st.build))
 	return m
 
 ## 방패·깃발이 막을 수 있는 피해인가(직접 공격 = 무기 본체·투사체). 바닥·추가·기술·지속 피해는 정상

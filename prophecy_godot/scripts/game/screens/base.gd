@@ -90,6 +90,7 @@ func refresh() -> void:
 		if first_btn == null and res.get("repeat_button", null) != null and not (res.repeat_button as Button).disabled:
 			first_btn = res.repeat_button # 오늘 카드를 다 끝냈으면 '일반 탐험'이 기본 버튼이 된다
 	left.add_child(row)
+	_prep_card(r, left)
 	_merchant_card(r, left)
 	_services_card(r, left)
 	# 오른쪽: 간결한 빌드 + 보스 + 오늘의 행동
@@ -122,7 +123,7 @@ func _rest_note(r: Dictionary) -> String:
 	var full: bool = float(r.hp) >= float(PBuild.derive(r).hp_max)
 	var t := "휴식: "
 	if PRun.has_service(r, "free_rest"):
-		t += "무료 휴식권 · 시간 소모 없음 · "
+		t += "무료 휴식권 보유(쓸 때 시간 0칸 — 이미 산 권에는 값을 다시 받지 않습니다) · "
 	else:
 		t += "시간 1칸 · "
 	t += ("체력 가득(시간만 넘김)" if full else "체력 완전 회복")
@@ -295,6 +296,65 @@ func _toggle_detail(cid: String) -> void:
 	_detail_open[cid] = not bool(_detail_open.get(cid, false))
 	refresh()
 
+## 출격 준비물 1칸(전투 단축키 없음): 가진 준비물 중 1개를 골라 두면 다음 전투 입장 때 저절로 쓰인다.
+## 해제·교체는 소모가 아니다. 회복약도 여기서 마신다(거점 전용, 시간 0칸)
+func _prep_card(r: Dictionary, into: VBoxContainer) -> void:
+	var bag := PConsumables.bag(r)
+	var armed := PConsumables.armed(r)
+	var have_any: bool = PConsumables.prep_count(r) > 0
+	if not have_any and PConsumables.potion_count(r) <= 0:
+		into.add_child(PUi.rich("[color=#6a7078]출격 준비물·회복약 없음 — 상점에서 삽니다(준비물은 다음 전투 1회, 시간 소모 없음).[/color]", 12))
+		return
+	var c := PUi.card("출격 준비물 [color=#9ea8b8]1개만 · 다음 전투에서 소모 · 더 깊이 들어가는 다음 전투로 이어지지 않음[/color]",
+		PUi.CARD_ON if armed != "" else PUi.CARD, 15)
+	var box: VBoxContainer = c.box
+	if have_any:
+		var seen := {}
+		var row := PUi.hbox(6)
+		for x in bag:
+			var id := String(x)
+			if not PConsumables.is_prep(id) or seen.has(id):
+				continue
+			seen[id] = true
+			var on: bool = armed == id
+			var n := PConsumables.count(r, id)
+			row.add_child(PUi.button("%s %s ×%d" % ["●" if on else "○", PConsumables.name_of(id), n],
+				func(): _pick_prep(r, id), true, 13))
+		row.add_child(PUi.spacer())
+		box.add_child(row)
+		if armed != "":
+			box.add_child(PUi.rich("[color=#7fd6a0]장착[/color] [b]%s[/b] — %s" % [PConsumables.name_of(armed), PGlossaryTip.esc(PConsumables.effect_line(armed))], 13))
+			box.add_child(PUi.button("해제 (소모 없음)", func(): PConsumables.clear_select(r); main.save_run(); refresh(), true, 12))
+		else:
+			box.add_child(PUi.rich("[color=#9ea8b8]고르지 않으면 아무것도 쓰지 않습니다(그대로 남습니다).[/color]", 12))
+	if PConsumables.potion_count(r) > 0:
+		var b := PBuild.derive(r)
+		var can := PConsumables.can_use_potion(r)
+		var prow := PUi.hbox(6)
+		prow.add_child(PUi.button("회복약 사용 ×%d" % PConsumables.potion_count(r), func(): _use_potion(r), can, 13))
+		prow.add_child(PUi.rich("[color=#9ea8b8]체력 +%d · 시간 0칸 · 지금 %d/%d%s[/color]" % [
+			int(float(PConsumables.potion_def().heal)), int(float(r.hp)), int(float(b.hp_max)),
+			" · 이미 가득" if float(r.hp) >= float(b.hp_max) else ""], 12))
+		prow.add_child(PUi.spacer())
+		box.add_child(prow)
+	into.add_child(c.panel)
+
+func _pick_prep(r: Dictionary, id: String) -> void:
+	if PConsumables.armed(r) == id:
+		PConsumables.clear_select(r)
+	elif not PConsumables.select(r, id):
+		main.message(PConsumables.select_reason(r, id))
+		return
+	main.save_run()
+	refresh()
+
+func _use_potion(r: Dictionary) -> void:
+	if PConsumables.use_potion(r) <= 0.0:
+		main.message("회복약을 쓸 수 없습니다")
+		return
+	main.save_run()
+	refresh()
+
 func _merchant_card(r: Dictionary, into: VBoxContainer) -> void:
 	var m = r.get("merchant", null)
 	if m == null or int(m.day) != int(r.day):
@@ -302,14 +362,14 @@ func _merchant_card(r: Dictionary, into: VBoxContainer) -> void:
 	var slots := PRun.time_slots()
 	var disc := int(round(float(PCatalog.shop().merchantDiscount) * 100.0))
 	if not PRun.merchant_open(r):
-		into.add_child(PUi.rich("[b]방문 상인[/b] [color=#9ea8b8]%s부터 하루 끝까지 · 장비 1개 할인(%d%%)·무료 휴식권[/color]" % [String(slots[int(m.fromSlot)]), disc], 12))
+		into.add_child(PUi.rich("[b]방문 상인[/b] [color=#9ea8b8]%s부터 하루 끝까지 · 장비 1개 할인(%d%%) · 무료 휴식권 %d금(쓸 때 시간 0칸)[/color]" % [String(slots[int(m.fromSlot)]), disc, int(m.servicePrice)], 12))
 		return
 	var c := PUi.card("방문 상인 [color=#9ea8b8]오늘 끝까지 · 상점 화면에서 거래[/color]", PUi.CARD_ON)
 	var box: VBoxContainer = c.box
 	var eq_txt := "[color=#9ea8b8]장비 품절[/color]"
 	if m.get("equipment", null) != null and not (m.sold as Array).has(String(m.equipment)):
 		eq_txt = "%s [color=#ffd966][b]%d[/b][/color] (%d%% 할인)" % [PUi.equip_line(String(m.equipment)), PRun.equip_price_for(r, String(m.equipment), "merchant"), disc]
-	box.add_child(PUi.rich("%s · 무료 휴식권 [color=#ffd966][b]%d[/b][/color]%s" % [eq_txt, int(m.servicePrice), " (판매됨)" if (m.sold as Array).has("service") else ""], 12))
+	box.add_child(PUi.rich("%s · 무료 휴식권 [color=#ffd966][b]%d[/b][/color] [color=#9ea8b8](구매 유료 · 쓸 때 시간 0칸)[/color]%s" % [eq_txt, int(m.servicePrice), " (판매됨)" if (m.sold as Array).has("service") else ""], 12))
 	box.add_child(PUi.button("상인에게 (상점)", func(): main.show("shop"), true, 12))
 	into.add_child(c.panel)
 
@@ -536,8 +596,11 @@ func _final_prep(r: Dictionary) -> void:
 			(pv.box as VBoxContainer).add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8](%d~%d일차)[/color] · 장소: %s · 대표 적: %s" % [PGlossaryTip.esc(String(ap.act.name)), int((ap.act.days as Array)[0]), int((ap.act.days as Array)[(ap.act.days as Array).size() - 1]), PGlossaryTip.esc("·".join(pnames)), PGlossaryTip.esc("·".join(enames))], 12))
 			(pv.box as VBoxContainer).add_child(PUi.rich("[color=#9ea8b8]다음 관문 보스:[/color] [b]%s[/b] [color=#9ea8b8](%d일차)[/color]" % [PGlossaryTip.esc(gname), int(gate.get("day", 0))], 12))
 		left.add_child(pv.panel)
+	if not cleared:
+		_prep_card(r, left) # 관문에서도 준비물 1개를 골라 둘 수 있다(재도전은 입장 스냅샷으로 함께 되돌아온다)
 	var snap := PUi.card("입장 스냅샷", PUi.CARD, 13)
 	(snap.box as VBoxContainer).add_child(PUi.rich("[color=#9ea8b8]Lv %d · %s · 체력 %d · 재도전 %d회%s[/color]" % [int(g.level), ", ".join(wn), int(float(b.hp_max)), int(r.get("bossRetries", 0)), " (입장 시점 상태로 복구됨: 처치 경험치·보상 중복 없음)" if int(r.get("bossRetries", 0)) > 0 else ""], 12))
+	(snap.box as VBoxContainer).add_child(PUi.rich("[color=#9ea8b8]준비물·회복약도 입장 시점으로 복구됩니다(재도전마다 다시 사지 않아도 되고, 무한 회복도 아닙니다).[/color]", 12))
 	left.add_child(snap.panel)
 	var recs: Dictionary = r.get("bossRecords", {})
 	if not recs.is_empty():

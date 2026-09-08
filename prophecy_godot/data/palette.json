@@ -1,0 +1,157 @@
+{
+  "schema": "prophecy_palette/1",
+  "note": "막·테마 색 정본(손으로 작성 — 시안 시험값). scripts/game/render.gd만 읽는다. 규칙(scripts/rules/*)은 이 파일을 읽지 않으며 색은 판정에 아무 영향이 없다.",
+  "direction": "사용자 결정: 1막 초록 → 2막 연주황 계열 → 3막 붉은빛 도는 주황. 채도를 낮춰 눈이 덜 피로하게. 막 색감을 유지하면서 테마 9종의 차이는 남긴다.",
+  "how": "acts(막 기본값) 위에 themes(테마별 덮어쓰기 키)만 얹어 한 벌을 만든다(PRender.palette_for). 테마에 없는 키는 막 기본값 그대로다.",
+  "telegraph_note": "적 예고는 막마다 밝기를 올린 붉은 계열이다. tele_fill(채움) · tele_edge(밝은 테두리) · tele_dark(테두리 밑 어두운 겹) · tele_mark('!') · tele_soft(조준 중) · tele_label(문구). 어두운 겹 + 밝은 테두리라 배경이 밝든 붉든 형태가 남는다. 수치 검증은 tests/palette_tests.gd.",
+
+  "contrast": {
+    "note": "검사 기준(WCAG 상대 명도비). 배경은 '비네트 중앙까지 얹은 실제 배경'으로 잰다 — 화면에서 배경이 가장 밝아지는 곳이 예고에 가장 불리하기 때문이다.",
+    "fill_alpha": 0.55,
+    "min_fill_ratio": 3.0,
+    "min_edge_ratio": 4.5,
+    "min_composite_ratio": 1.7,
+    "min_dark_vs_edge_ratio": 7.0,
+    "act3_min_edge_ratio": 6.0
+  },
+
+  "acts": {
+    "1": {
+      "name": "1막 · 초록(회색 섞인 올리브)",
+      "ground": "#303B2A",
+      "vignette": "#5A783C", "vignette_a": 0.20,
+      "vignette_edge": "#000000", "vignette_edge_a": 0.35,
+      "topshade": "#000000", "topshade_a": 0.35,
+      "border": "#141E12", "border_a": 0.9,
+      "border_in": "#A0C878", "border_in_a": 0.25,
+      "grass": "#527A3C",
+      "leaves": ["#7A5A2E", "#8A6A34", "#5F6B2C"],
+      "stone": "#4A4F48", "stone_hi": "#6A6F66", "moss": "#5A8C46",
+      "path_wide": "#6E5837", "path_wide_a": 0.20,
+      "path_narrow": "#82693F", "path_narrow_a": 0.14,
+      "trunk": "#4A3420", "trunk_in": "#5E4429", "trunk_ring": "#3A2816",
+      "canopy": "#233A22", "canopy_hi": "#2C4A2A", "canopy_light": "#8CBE64",
+      "rock": "#5B6160", "rock_hi": "#7D8482", "obstacle_edge": "#141816",
+      "tele_fill": "#FF5A46",
+      "tele_edge": "#FFB08A",
+      "tele_dark": "#180B07",
+      "tele_mark": "#FFC08A",
+      "tele_soft": "#FF8A5C",
+      "tele_label": "#FFD9B0"
+    },
+    "2": {
+      "name": "2막 · 연주황(어두운 흙색 바닥)",
+      "ground": "#55483A",
+      "vignette": "#7E6034", "vignette_a": 0.18,
+      "vignette_edge": "#000000", "vignette_edge_a": 0.38,
+      "topshade": "#000000", "topshade_a": 0.36,
+      "border": "#241B14", "border_a": 0.9,
+      "border_in": "#D8A878", "border_in_a": 0.22,
+      "grass": "#8A7440",
+      "leaves": ["#A6743A", "#B98546", "#8A6A34"],
+      "stone": "#585047", "stone_hi": "#7B7268", "moss": "#7A7A46",
+      "path_wide": "#8A6A44", "path_wide_a": 0.22,
+      "path_narrow": "#9E7C4E", "path_narrow_a": 0.15,
+      "trunk": "#4E3823", "trunk_in": "#63482C", "trunk_ring": "#3C2A18",
+      "canopy": "#3A3524", "canopy_hi": "#4A4530", "canopy_light": "#C39A5E",
+      "rock": "#5F5A50", "rock_hi": "#837C70", "obstacle_edge": "#1B140F",
+      "tele_fill": "#FF8A5C",
+      "tele_edge": "#FFC9A8",
+      "tele_dark": "#180B07",
+      "tele_mark": "#FFD0A8",
+      "tele_soft": "#FFA06E",
+      "tele_label": "#FFE0C4"
+    },
+    "3": {
+      "name": "3막 · 붉은빛 도는 주황(탁한 적갈색 바닥)",
+      "ground": "#593D34",
+      "vignette": "#7A4230", "vignette_a": 0.20,
+      "vignette_edge": "#000000", "vignette_edge_a": 0.40,
+      "topshade": "#000000", "topshade_a": 0.38,
+      "border": "#25150F", "border_a": 0.9,
+      "border_in": "#E0A088", "border_in_a": 0.20,
+      "grass": "#7A4A34",
+      "leaves": ["#8E4A32", "#A3573A", "#6E3E2C"],
+      "stone": "#5A4A44", "stone_hi": "#7C6A62", "moss": "#7A5238",
+      "path_wide": "#7C4C3A", "path_wide_a": 0.22,
+      "path_narrow": "#8E5C46", "path_narrow_a": 0.15,
+      "trunk": "#4C2E22", "trunk_in": "#5F3B2A", "trunk_ring": "#3A2118",
+      "canopy": "#3A2620", "canopy_hi": "#4A322A", "canopy_light": "#C57A5A",
+      "rock": "#5C4C46", "rock_hi": "#7E6C64", "obstacle_edge": "#1C100C",
+      "tele_fill": "#FF7A50",
+      "tele_edge": "#FFD6BC",
+      "tele_dark": "#180B07",
+      "tele_mark": "#FFE0CC",
+      "tele_soft": "#FFA884",
+      "tele_label": "#FFE8D8"
+    }
+  },
+
+  "themes": {
+    "act1_hunt_forest": {
+      "act": 1, "name": "사냥 숲",
+      "ground": "#303B2A"
+    },
+    "act1_abandoned_fort": {
+      "act": 1, "name": "버려진 요새 — 돌·회색이 섞인 올리브",
+      "ground": "#343A2E",
+      "grass": "#4D7038",
+      "stone": "#565A55", "stone_hi": "#787D77",
+      "canopy": "#26382A", "canopy_hi": "#304A34",
+      "path_wide": "#6A5C46", "path_narrow": "#7E6E54"
+    },
+    "act1_spore_garden": {
+      "act": 1, "name": "포자 정원 — 축축한 청록",
+      "ground": "#2C3B30",
+      "grass": "#4E7C46",
+      "leaves": ["#6B5A7A", "#7E6A34", "#5A6E38"],
+      "canopy": "#20402C", "canopy_hi": "#2A5236", "canopy_light": "#93C878",
+      "moss": "#4E8E58"
+    },
+    "act2_crimson_ritual": {
+      "act": 2, "name": "붉은 의식터 — 흙색에 붉은 기운",
+      "ground": "#57443A",
+      "grass": "#8A6E40",
+      "path_wide": "#8E6248", "path_narrow": "#A07254",
+      "canopy": "#3C3022", "canopy_hi": "#4C3E2E"
+    },
+    "act2_collapsing_mine": {
+      "act": 2, "name": "무너지는 광산 — 마른 흙·돌",
+      "ground": "#4E463C",
+      "grass": "#7A6C40",
+      "stone": "#605850", "stone_hi": "#847B70",
+      "leaves": ["#9A6E3C", "#A97C48", "#7E6836"],
+      "canopy": "#37342A", "canopy_hi": "#464236"
+    },
+    "act2_frozen_pass": {
+      "act": 2, "name": "얼어붙은 협곡 — 차가운 회색에 연주황 길",
+      "ground": "#4E4A44",
+      "grass": "#7E7A58",
+      "stone": "#6A6862", "stone_hi": "#8E8C86",
+      "canopy": "#3C3E36", "canopy_hi": "#4A4C44", "canopy_light": "#BFB68E",
+      "border_in": "#D8C0A0"
+    },
+    "act3_temporal_abyss": {
+      "act": 3, "name": "시간의 심연 — 보랏빛이 섞인 적갈색",
+      "ground": "#523A3C",
+      "grass": "#74463E",
+      "leaves": ["#84424A", "#96543E", "#66383A"],
+      "canopy": "#33242B", "canopy_hi": "#432E36", "canopy_light": "#B87A82",
+      "vignette": "#6E3A44"
+    },
+    "act3_blood_hunt": {
+      "act": 3, "name": "피의 사냥터 — 가장 붉은 바닥",
+      "ground": "#5E3A30",
+      "grass": "#82492E",
+      "path_wide": "#864432", "path_narrow": "#9A563E",
+      "canopy": "#3E241C", "canopy_hi": "#4E3226"
+    },
+    "act3_twisted_citadel": {
+      "act": 3, "name": "뒤틀린 성채 — 돌·회색이 섞인 적갈색",
+      "ground": "#54403A",
+      "grass": "#78503C",
+      "stone": "#665650", "stone_hi": "#8A7A72",
+      "canopy": "#3A2C28", "canopy_hi": "#4A3A34"
+    }
+  }
+}

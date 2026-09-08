@@ -6,6 +6,7 @@ signal closed()
 
 var _vol: HSlider
 var _mute: CheckBox
+var _shake: CheckBox   # 강한 타격 시 화면 흔들림(끄기 가능, user://render_prefs.json에 저장)
 var _note: RichTextLabel
 
 func _audio() -> Node:
@@ -49,6 +50,11 @@ func _ready() -> void:
 		if a != null:
 			a.set_muted(on))
 	v.add_child(_mute)
+	_shake = CheckBox.new()
+	_shake.text = "강한 타격 시 화면 흔들림"
+	_shake.button_pressed = PRender.shake_on()
+	_shake.toggled.connect(func(on: bool): PRender.set_shake(on))
+	v.add_child(_shake)
 	_note = PUi.rich("", 11, PUi.DIM)
 	v.add_child(_note)
 	v.add_child(PUi.button("닫기 (Esc)", func(): close(), true, 14))

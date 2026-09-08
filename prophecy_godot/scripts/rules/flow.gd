@@ -42,6 +42,7 @@ static func make_encounter(run: Dictionary, sortie: Dictionary, extra: Dictionar
 	if (run.get("buffs", {}) as Dictionary).has("skillCd"):
 		st.temp_buff = "skillCd"
 	consume_stored_shield(run)
+	PConsumables.consume_for_fight(run)   # 출격 준비물은 전투 입장에서 1회 소모(빌드는 위에서 이미 계산됐다)
 	run.pendingSortie = null
 	return st
 
@@ -129,6 +130,7 @@ static func make_boss_encounter(run: Dictionary, sortie: Dictionary) -> CombatSt
 	if (run.get("buffs", {}) as Dictionary).has("skillCd"):
 		st.temp_buff = "skillCd"
 	consume_stored_shield(run)
+	PConsumables.consume_for_fight(run)   # 출격 준비물은 전투 입장에서 1회 소모(빌드는 위에서 이미 계산됐다)
 	run.pendingSortie = null
 	return st
 

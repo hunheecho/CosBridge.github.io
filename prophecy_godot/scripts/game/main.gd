@@ -453,7 +453,7 @@ func offer_pending_level_ups() -> bool:
 func _after_choice() -> void:
 	save_run()
 	if screen == "combat" and view.st != null:
-		view.st.rebuild(PBuild.derive(run)) # HUD가 옛 캐시를 읽지 않게 실제 빌드를 다시 만든다
+		view.st.rebuild(PRun.build(run))   # 준비물·회차 효과까지 포함한 빌드로 재계산한다 # HUD가 옛 캐시를 읽지 않게 실제 빌드를 다시 만든다
 		if build_hud != null:
 			build_hud.update_from(view.st)
 			build_hud.highlight_slot(take_pick_highlight()) # 방금 들어간 칸만 잠깐 강조

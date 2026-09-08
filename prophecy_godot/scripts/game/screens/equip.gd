@@ -53,6 +53,17 @@ func refresh() -> void:
 		row.add_child(bcol)
 		bbox.add_child(row)
 	right.add_child(bag.panel)
+	# 출격 준비물은 장비 칸을 쓰지 않는다(전투 1회용). 여기서는 무엇이 걸려 있는지만 보이고 고르는 것은 거점에서 한다
+	var prep := PUi.card("출격 준비물 [color=#9ea8b8]장비 칸과 별개 · 다음 전투 1회[/color]", PUi.CARD, 15)
+	var pbox: VBoxContainer = prep.box
+	var armed := PConsumables.armed(r)
+	if armed == "":
+		pbox.add_child(PUi.rich("[color=#6a7078]장착 없음[/color] [color=#9ea8b8]· 가방 %d개 · 거점에서 1개를 고릅니다[/color]" % PConsumables.prep_count(r), 14))
+	else:
+		pbox.add_child(PUi.rich("[b]%s[/b] — %s" % [PConsumables.name_of(armed), PGlossaryTip.esc(PConsumables.effect_line(armed))], 14))
+	if PConsumables.potion_count(r) > 0:
+		pbox.add_child(PUi.rich("[color=#9ea8b8]회복약 %d개 (거점에서 사용, 체력 +%d)[/color]" % [PConsumables.potion_count(r), int(float(PConsumables.potion_def().heal))], 13))
+	right.add_child(prep.panel)
 	right.add_child(PUi.build_panel(r))
 	var back := PUi.button("거점으로 (Esc)", func(): main.go_base(), true, 14)
 	bottom.add_child(back)

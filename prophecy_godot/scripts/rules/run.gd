@@ -54,6 +54,7 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 		"profileEligible": bool(opts.get("eligible", false)), "traits": [], "startWeapon": (start_weapon if start_weapon != "" else "sword"),
 		"storedShield": 0.0, "crafted": [],
 		"endless": null, "mainCleared": false, # 무한 모드 상태(PEndless)·본편 완주 확정(무한에서 죽어도 유지)
+		"consumables": [], "prepItem": null, "prepUsed": null, "potionBuy": { "day": 1, "count": 0 }, # 출격 준비물 가방·장착 1개·이번 전투 소모분·하루 회복약 구매 수(PConsumables)
 	}
 	var profile = opts.get("profile", null)
 	if profile != null and typeof(profile) == TYPE_DICTIONARY and not (profile as Dictionary).is_empty():
@@ -69,7 +70,11 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 	refresh_stock(run)
 	return run
 
-static func build(run: Dictionary) -> Dictionary: return PBuild.derive(run)
+## 전투에 들어가는 최종 빌드. 장비·성장 계산은 PBuild가 전부 하고, 그 **결과 위에** 이번 출격 준비물 1개를 얹는다.
+## 준비물을 PBuild 안에 넣지 않는 이유: 장비 효과 합산 규칙(중복 금지·월광 갑옷 재생 상한 등)을 건드리지 않기 위해서다.
+## PBuild.derive를 직접 부르는 곳(화면 미리보기)은 준비물이 빠진 기본 빌드를 본다 — 준비물은 전투에만 붙는다는 뜻이다.
+static func build(run: Dictionary) -> Dictionary:
+	return PConsumables.apply_to_build(run, PBuild.derive(run))
 
 # ---------- 반복 콘텐츠(2026-09-07 사용자 합의 방향, 값은 시험값) ----------
 ## 회차 특징: 시드로 1개 확정. 저장 필드(run.worldFeature)만 읽으므로 재접속 재추첨이 없다
@@ -853,6 +858,7 @@ static func roll_reward(_run: Dictionary, sortie: Dictionary, rng: PRng, combat_
 	return { "gold": PPacing.gold_award(gold), "mats": mats, "chestGold": PPacing.gold_award(int(combat_stats.get("chestGold", 0))) }
 
 static func apply_encounter_result(run: Dictionary, sortie: Dictionary, result: String, reward: Dictionary, combat_hp: float) -> void:
+	PConsumables.clear_used(run) # 이번 전투 준비물 표시만 지운다(소모는 되돌리지 않는다 — 같은 출격의 다음 전투로 이어지지 않는다는 뜻)
 	run.stats.encounters = int(run.stats.encounters) + 1
 	sortie.encounters = int(sortie.get("encounters", 0)) + 1
 	run.hp = maxf(0.0, combat_hp)
@@ -1002,7 +1008,10 @@ static func start_boss(run: Dictionary) -> Dictionary:
 		push_error("보스 준비 상태가 아님")
 		return {}
 	run.hp = float(build(run).hp_max)
-	run.bossEntry = { "growth": run.growth, "hp": run.hp, "stage": int(run.get("stage", 0)), "gold": int(run.gold), "services": run.services, "equipment": run.equipment, "bag": run.bag, "forge": int(run.forge), "forgeBySkill": run.get("forgeBySkill", {}) }.duplicate(true)
+	# 준비물·회복약도 금화·장비와 같은 규칙으로 스냅샷에 담는다(재도전이 소모를 되돌린다 — 재도전마다 다시 사지 않아도 되고, 무한 회복도 아니다)
+	var snap := { "growth": run.growth, "hp": run.hp, "stage": int(run.get("stage", 0)), "gold": int(run.gold), "services": run.services, "equipment": run.equipment, "bag": run.bag, "forge": int(run.forge), "forgeBySkill": run.get("forgeBySkill", {}) }
+	snap["prep"] = PConsumables.snapshot(run)
+	run.bossEntry = snap.duplicate(true)
 	var nb := next_boss(run)
 	return { "regionId": "boss", "bossId": String(nb.id) if not nb.is_empty() else "boss", "stage": int(run.get("stage", 0)), "seed": boss_seed(run), "loot": { "gold": 0, "mats": {} }, "encounters": 0 }
 
@@ -1018,6 +1027,7 @@ static func boss_defeat(run: Dictionary) -> void:
 		if E.has("bag"): run.bag = E.bag
 		if E.has("forge"): run.forge = int(E.forge)
 		if E.has("forgeBySkill"): run.forgeBySkill = (E.forgeBySkill as Dictionary).duplicate(true)
+		if E.has("prep"): PConsumables.restore(run, E.prep)
 	run.hp = float(build(run).hp_max)
 	add_log(run, "보스전 패배 (재도전 %d회, 성장은 입장 시점으로 복구)" % int(run.bossRetries))
 
@@ -1078,22 +1088,52 @@ static func stock_seed(run: Dictionary, day: int = 0) -> int:
 	var d: int = day if day > 0 else int(run.day)
 	return (int(run.seed) * 17 + d * 401 + 9) & 0xFFFFFFFF
 
-## 오늘의 재고: 장비 2(미보유) + 자동기술 또는 E 1. 다시 열거나 불러와도 같다(저장). 방문 상인은 예정된 날 점심부터.
-## 재고 후보는 해금 스냅샷(run.unlocks)을 따르고 제작 전용 장비는 넣지 않는다
-static func refresh_stock(run: Dictionary) -> Dictionary:
-	var rng := PRng.new(stock_seed(run))
+## 유료 새로고침마다 시드를 바꾼다(같은 날 같은 재고가 다시 나오지 않게). 저장 필드(refresh.count)에서만 나오므로 재접속해도 같다
+static func stock_seed_for(run: Dictionary, refreshes: int) -> int:
+	return (stock_seed(run) + refreshes * 7919) & 0xFFFFFFFF
+
+## 장비 후보가 지금 막에서 팔리는가(막이 오르면 새 후보가 열린다). minAct가 없는 장비는 항상 열림.
+## acts가 아닌 회차(trio·시험실)나 막을 알 수 없으면 제한하지 않는다 — 기존 동작 그대로
+static func equip_act_ok(run: Dictionary, id: String) -> bool:
+	var d := PCatalog.equipment_def(id)
+	if d.is_empty() or not d.has("minAct"):
+		return true
+	var a := act_of(run)
+	if a.is_empty() or not a.has("id"):
+		return true
+	return int(a.id) >= int(d.minAct)
+
+## 오늘의 재고: 장비 2(미보유) + 자동기술 또는 E 1 + 출격 준비물 진열. 다시 열거나 불러와도 같다(저장). 방문 상인은 예정된 날 점심부터.
+## 재고 후보는 해금 스냅샷(run.unlocks)·막(minAct)을 따르고 제작 전용 장비는 넣지 않는다.
+## paid=true면 유료 새로고침이다: 잠근 칸은 그대로 두고 나머지만 다시 뽑으며, 이미 산 칸의 '판매됨' 기록은 유지한다
+## (그래서 새로고침으로 같은 장비를 두 번 사거나 산 물건이 되살아나는 일이 없다).
+static func refresh_stock(run: Dictionary, paid: bool = false) -> Dictionary:
+	var old = run.get("stock", null)
+	var same_day: bool = paid and old != null and int((old as Dictionary).get("day", -1)) == int(run.day)
+	var refreshes: int = (int((old as Dictionary).refresh.count) + 1) if (same_day and (old as Dictionary).has("refresh")) else 0
+	var locked: Array = ((old as Dictionary).get("locked", []) as Array).duplicate() if same_day else []
+	var sold: Array = ((old as Dictionary).get("sold", []) as Array).duplicate() if same_day else []
+	var keep_eq := []
+	var keep_skill = null
+	if same_day:
+		for id in (old as Dictionary).equipment:
+			if locked.has(String(id)) or sold.has(String(id)): # 잠근 칸·이미 산 칸은 자리를 지킨다
+				keep_eq.append(String(id))
+		if (old as Dictionary).get("skill", null) != null and (locked.has("skill") or sold.has("skill")):
+			keep_skill = (old as Dictionary).skill
+	var rng := PRng.new(stock_seed_for(run, refreshes))
 	var g: Dictionary = run.growth
 	var EQ := PCatalog.equipment()
 	var pool := []
 	for id in EQ:
-		if not owns_equip(run, String(id)) and PProfile.run_unlock_ok(run, "equipment", String(id)):
+		if not owns_equip(run, String(id)) and PProfile.run_unlock_ok(run, "equipment", String(id)) and equip_act_ok(run, String(id)) and not keep_eq.has(String(id)):
 			pool.append(String(id))
-	var eq := []
+	var eq := keep_eq.duplicate()
 	while eq.size() < int(SH().stock.equipment) and pool.size() > 0:
 		var idx := rng.int_range(0, pool.size() - 1)
 		eq.append(pool[idx])
 		pool.remove_at(idx)
-	var skill = null
+	var skill = keep_skill
 	var W_ := PCatalog.weapons()
 	var wpool := []
 	for id in W_:
@@ -1103,11 +1143,14 @@ static func refresh_stock(run: Dictionary) -> Dictionary:
 	for id in PCatalog.e_skills():
 		if bool(PCatalog.skills()[id].impl) and PProfile.run_unlock_ok(run, "e_skills", String(id)):
 			es.append(String(id))
-	if (g.weapons as Array).size() < int(PCatalog.growth().SLOTS.weapons) and wpool.size() > 0:
+	if skill == null and (g.weapons as Array).size() < int(PCatalog.growth().SLOTS.weapons) and wpool.size() > 0:
 		skill = { "kind": "weapon", "id": wpool[rng.int_range(0, wpool.size() - 1)], "price": int(SH().newSkill) }
-	elif g.skills.get("e", null) == null and es.size() > 0:
+	elif skill == null and g.skills.get("e", null) == null and es.size() > 0:
 		skill = { "kind": "e", "id": es[rng.int_range(0, es.size() - 1)], "price": int(SH().newE) }
-	run.stock = { "day": int(run.day), "equipment": eq, "skill": skill, "sold": [] }
+	# 준비물 진열도 같은 시드로(새로고침하면 준비물 목록도 바뀐다). 잠금은 장비·기술 칸에만 건다
+	var prep := PConsumables.stock_ids(stock_seed_for(run, refreshes) + 31, int(SH().consumableStock.prep))
+	run.stock = { "day": int(run.day), "equipment": eq, "skill": skill, "sold": sold, "locked": locked, "prep": prep,
+		"refresh": { "count": refreshes, "price": int(round(float(SH().stockRefresh.base) * pow(float(SH().stockRefresh.mult), refreshes))) } }
 	var MV: Dictionary = W().merchant_visits
 	var visit := false
 	for d in merchant_days(run):
@@ -1116,17 +1159,92 @@ static func refresh_stock(run: Dictionary) -> Dictionary:
 	if visit:
 		var p2 := []
 		for id in EQ:
-			if not owns_equip(run, String(id)) and not eq.has(String(id)) and PProfile.run_unlock_ok(run, "equipment", String(id)):
+			if not owns_equip(run, String(id)) and not eq.has(String(id)) and PProfile.run_unlock_ok(run, "equipment", String(id)) and equip_act_ok(run, String(id)):
 				p2.append(String(id))
-		run.merchant = { "day": int(run.day), "fromSlot": int(MV.slot), "equipment": (p2[rng.int_range(0, p2.size() - 1)] if p2.size() > 0 else null), "service": "free_rest", "servicePrice": 40, "sold": [] }
-	else:
+		# 무료 휴식권 값은 data/world.json shop.merchantService가 정본이다(사용자 결정: 100). 코드에 숫자를 두지 않는다
+		run.merchant = { "day": int(run.day), "fromSlot": int(MV.slot), "equipment": (p2[rng.int_range(0, p2.size() - 1)] if p2.size() > 0 else null), "service": "free_rest", "servicePrice": merchant_service_price("free_rest"), "sold": [] }
+	elif not same_day: # 유료 새로고침은 상인 재고를 다시 뽑지 않는다(상인 물건은 하루 1회 확정)
 		run.merchant = null
 	return run.stock
+
+## 방문 상인 서비스 가격(정본 = data/world.json shop.merchantService). 무료 보상으로 받은 권리에는 청구하지 않는다
+static func merchant_service_price(id: String) -> int:
+	return int((SH().get("merchantService", {}) as Dictionary).get(id, 0))
+
+# ---------- 상점 재고 새로고침·잠금(2026-09-08 시험값) ----------
+## 다음 새로고침 값. 오늘 한 횟수에 따라 오른다(60 → 90 → 135). 하루가 바뀌면 0회부터 다시
+static func stock_refresh_cost(run: Dictionary) -> int:
+	return int(stock(run).refresh.price)
+
+static func stock_refreshes_today(run: Dictionary) -> int:
+	return int(stock(run).refresh.count)
+
+static func stock_refresh_left(run: Dictionary) -> int:
+	return maxi(0, int(SH().stockRefresh.maxPerDay) - stock_refreshes_today(run))
+
+## 새로고침할 수 없는 이유(할 수 있으면 ""). 화면·행동 목록이 그대로 쓴다
+static func stock_refresh_reason(run: Dictionary) -> String:
+	if String(run.phase) != "prep" and String(run.phase) != "boss_prep":
+		return "거점에서만"
+	if stock_refresh_left(run) <= 0:
+		return "오늘 새로고침 한도(%d) 소진 · 내일 아침에 초기화" % int(SH().stockRefresh.maxPerDay)
+	if int(run.gold) < stock_refresh_cost(run):
+		return "금화 %d 부족" % (stock_refresh_cost(run) - int(run.gold))
+	return ""
+
+static func can_refresh_stock(run: Dictionary) -> bool:
+	return stock_refresh_reason(run) == ""
+
+## 유료 새로고침: 값을 내고 잠그지 않은 칸만 다시 뽑는다. 실패하면 회차를 전혀 바꾸지 않는다
+static func refresh_stock_paid(run: Dictionary) -> bool:
+	var why := stock_refresh_reason(run)
+	if why != "":
+		push_error("새로고침 불가: " + why)
+		return false
+	var cost := stock_refresh_cost(run)
+	run.gold = int(run.gold) - cost
+	refresh_stock(run, true)
+	add_log(run, "상점 재고 새로고침 (-%d, 오늘 %d회째)" % [cost, stock_refreshes_today(run)])
+	return true
+
+## 잠금 대상 키: 장비 id 또는 "skill". 이미 산 칸은 잠글 필요가 없다(자리를 지킨다)
+static func stock_lock_reason(run: Dictionary, key: String) -> String:
+	var st := stock(run)
+	var listed: bool = (st.equipment as Array).has(key) or (key == "skill" and st.get("skill", null) != null)
+	if not listed:
+		return "재고에 없음"
+	if (st.sold as Array).has(key):
+		return "이미 구매함(자리 유지)"
+	if not (st.locked as Array).has(key) and (st.locked as Array).size() >= int(SH().stockRefresh.lockMax):
+		return "잠금은 %d칸까지" % int(SH().stockRefresh.lockMax)
+	return ""
+
+static func stock_locked(run: Dictionary, key: String) -> bool:
+	return (stock(run).locked as Array).has(key)
+
+## 잠금 토글(값 없음). 켜졌으면 true를 돌려준다
+static func toggle_stock_lock(run: Dictionary, key: String) -> bool:
+	var st := stock(run)
+	if (st.locked as Array).has(key):
+		(st.locked as Array).erase(key)
+		return false
+	if stock_lock_reason(run, key) != "":
+		push_error("잠금 불가: " + stock_lock_reason(run, key))
+		return false
+	(st.locked as Array).append(key)
+	return true
 
 static func stock(run: Dictionary) -> Dictionary:
 	if run.get("stock", null) == null or int(run.stock.day) != int(run.day):
 		refresh_stock(run)
-	return run.stock
+	var st: Dictionary = run.stock
+	if not st.has("locked"): # 옛 저장 호환: 새로고침·잠금·준비물 칸이 없던 재고
+		st.locked = []
+	if not st.has("refresh"):
+		st.refresh = { "count": 0, "price": int(SH().stockRefresh.base) }
+	if not st.has("prep"):
+		st.prep = PConsumables.stock_ids(stock_seed(run) + 31, int(SH().consumableStock.prep))
+	return st
 
 static func merchant_open(run: Dictionary) -> bool:
 	var m = run.get("merchant", null)

@@ -35,6 +35,25 @@ func _init() -> void:
 	ok("상점: 하루 시드 재고 장비 2 + 기술 1, 다시 열어도 동일", (stock.equipment as Array).size() == 2 and stock.skill != null and str(stock.equipment) == str(st2.equipment) and int(stock.skill.price) == 180, str(stock.equipment))
 	var eq0 := String(stock.equipment[0])
 	ok("금화 60으로는 장비(120~140)를 살 수 없다", not PRun.can_buy_equipment(run, eq0, "stock"))
+	# 유료 새로고침·잠금·준비물·회복약·무료 휴식권 값(2026-09-08). 자세한 경계는 tests/prep_shop_tests.gd
+	var SHc := PCatalog.shop()
+	ok("무료 휴식권 값은 data/world.json shop.merchantService가 정본(100)이고 코드에 숫자가 없다", int(SHc.merchantService.free_rest) == 100 and PRun.merchant_service_price("free_rest") == 100)
+	ok("상점 재고 새로고침: 시작 값 60 · 오늘 3회 · 잠금 2칸 · 준비물 3종 진열", PRun.stock_refresh_cost(run) == 60 and PRun.stock_refresh_left(run) == 3 and (stock.locked as Array).is_empty() and (stock.prep as Array).size() == 3, str(stock.prep))
+	var rr0 := PRun.new_run(1, "sword")
+	rr0.gold = 500
+	var eq_b4 := str(PRun.stock(rr0).equipment)
+	var keep0 := String(PRun.stock(rr0).equipment[0])
+	PRun.toggle_stock_lock(rr0, keep0)
+	PRun.refresh_stock_paid(rr0)
+	ok("새로고침: 금화 -60, 잠근 칸 유지, 다음 값 90, 복제 없음", int(rr0.gold) == 440 and (PRun.stock(rr0).equipment as Array).has(keep0) and PRun.stock_refresh_cost(rr0) == 90, "%s → %s" % [eq_b4, str(PRun.stock(rr0).equipment)])
+	rr0.gold = 500
+	PConsumables.buy(rr0, "guard_charm")
+	PConsumables.select(rr0, "guard_charm")
+	ok("출격 준비물: 1개만 장착, 빌드의 시작 보호막에만 더해지고 장비 효과는 그대로", PConsumables.armed(rr0) == "guard_charm" and is_equal_approx(float(PRun.build(rr0).shield), float(PBuild.derive(rr0).shield) + 25.0) and not (PRun.build(rr0).equip as Dictionary).has("startShield"))
+	var so_p := PSortie.start(rr0, String(PSortie.cards_for(rr0)[0].id))
+	# 소모는 실제 경로(PFlow.make_encounter) 안에서 일어난다. 여기서 또 부르면 두 번 빠진다
+	PFlow.make_encounter(rr0, so_p)
+	ok("전투 입장에서 정확히 1개 소모되고 장착이 비워진다(같은 출격의 다음 전투로 이어지지 않는다)", PConsumables.count(rr0, "guard_charm") == 0 and PConsumables.armed(rr0) == "" and PConsumables.consume_for_fight(rr0) == "")
 	run.gold = 500
 	ok("구매 가능 → 구매·장착, 같은 장비 중복 구매 불가, 재고 판매 기록 유지", PRun.can_buy_equipment(run, eq0, "stock") and PRun.buy_equipment(run, eq0, true, "stock") and PRun.owns_equip(run, eq0) and not PRun.can_buy_equipment(run, eq0, "stock") and (PRun.stock(run).sold as Array).has(eq0), "gold %d equip %s bag %s" % [int(run.gold), str(run.equipment), str(run.bag)])
 	var slot0 := String(PCatalog.equipment()[eq0].slot)

@@ -105,6 +105,42 @@ func _run() -> void:
 		ok("상점 카드 상세를 펼치면 되팔 값·규칙이 나온다", _count_text(main.screens["shop"], "되팔 때") == 1)
 	# 장비 화면: 해제/장착 시 실제 변화량
 	ok("장비 화면이 장착·해제 시 바뀌는 값을 보여 준다", _count_text(main.screens["equip"], "해제하면") >= 1 or _count_text(main.screens["equip"], "장착하면") >= 1)
+	# ---------- 상점: 유료 새로고침·잠금·준비물·회복약(2026-09-08) ----------
+	main.run.gold = 2000
+	main.show("shop")
+	await process_frame
+	var shop2: Node = main.screens["shop"]
+	ok("상점에 재고 새로고침 값(60)·오늘 남은 횟수·초기화 시점이 보인다",
+		_find_button(shop2, "재고 새로고침 (60)") != null and _count_text(shop2, "내일 아침") >= 1 and _count_text(shop2, "오늘 0/3회 사용") >= 1)
+	ok("보존(잠금) 줄과 출격 준비물·회복약 진열이 보인다",
+		_count_text(shop2, "보존(잠금) 최대 2칸") >= 1 and _count_text(shop2, "출격 준비물") >= 1 and _count_text(shop2, "회복약") >= 1)
+	var rbtn := _find_button(shop2, "재고 새로고침 (60)")
+	rbtn.pressed.emit()
+	await process_frame
+	ok("새로고침을 누르면 금화가 60 줄고 다음 값이 90으로 오른다",
+		int(main.run.gold) == 1940 and _find_button(main.screens["shop"], "재고 새로고침 (90)") != null, "gold=%d" % int(main.run.gold))
+	var pbtn := _find_button(main.screens["shop"], "준비물 구매")
+	if pbtn != null:
+		pbtn.pressed.emit()
+		await process_frame
+	ok("준비물·회복약을 사면 가방에 들어간다", (PConsumables.bag(main.run) as Array).size() >= 1, str(main.run.consumables))
+	# 거점: 준비물 1칸(장착·해제는 소모가 아니다)
+	main.run.consumables = ["guard_charm", "potion"]
+	main.run.prepItem = null
+	main.go_base()
+	await process_frame
+	var base2: Node = main.screens["base"]
+	ok("거점에 출격 준비물 1칸과 회복약 사용 버튼이 있다(새 전투 단축키 없음)",
+		_count_text(base2, "출격 준비물") >= 1 and _find_button(base2, "수호 부적") != null and _find_button(base2, "회복약 사용") != null)
+	var sel := _find_button(base2, "수호 부적")
+	sel.pressed.emit()
+	await process_frame
+	ok("준비물을 고르면 장착으로 표시되고 가방에서 빠지지 않는다(해제도 소모가 아니다)",
+		PConsumables.armed(main.run) == "guard_charm" and PConsumables.count(main.run, "guard_charm") == 1
+			and _find_button(main.screens["base"], "해제 (소모 없음)") != null)
+	_find_button(main.screens["base"], "해제 (소모 없음)").pressed.emit()
+	await process_frame
+	ok("해제해도 가방·금화가 그대로다", PConsumables.armed(main.run) == "" and PConsumables.count(main.run, "guard_charm") == 1)
 	# 전투 승리 → 보상 화면에 영구 기록 한 줄
 	main.go_base()
 	await process_frame

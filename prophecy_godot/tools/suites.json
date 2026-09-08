@@ -200,6 +200,31 @@
       "env": {},
       "timeout_sec": 900,
       "desc": "보스 엄폐 대응 비교 계측(돌 뒤 정지 정책). 통과 판정이 아니라 기록"
+    },
+    "prep_shop_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "상점 새로고침·출격 준비물·회복약"
+    },
+    "economy_probe": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "막별 경제·회복 경제 측정(통과 조건은 장부 항등식이며 봇 승패가 아니다)"
+    },
+    "palette_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "막별 색감 정본·3막 예고 대비"
+    },
+    "hit_feel_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "타격감 연출(규칙 불변 확인 포함)"
+    },
+    "frame_path_audit": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "실제 프레임 경로의 중복 발사·중복 소비"
     }
   },
   "groups": {
@@ -223,7 +248,10 @@
       "world_tests",
       "content_tests",
       "ui_flow_tests",
-      "elites_tests"
+      "elites_tests",
+      "prep_shop_tests",
+      "palette_tests",
+      "hit_feel_tests"
     ],
     "rules": [
       "run_tests",

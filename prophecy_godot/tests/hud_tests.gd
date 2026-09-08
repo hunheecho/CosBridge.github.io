@@ -318,9 +318,13 @@ func _run() -> void:
 	main.run.growth.pendingLevelUps = 0
 	await process_frame
 
-	# ---------- H. 창 크기를 바꿔도 HUD가 가리지 않는다 ----------
+	# ---------- H. 창 크기를 바꿔도 HUD·적 예고가 가리지 않는다 ----------
+	# 경기장(적 예고를 그리는 곳)의 화면 위치는 main._layout_hud과 같은 식으로 구한다(창 크기를 실제로 바꾸지 않고 4종을 본다).
 	var obj_l: Control = main.get_node("UI/HUD/Objective")
+	var aw: float = float(main.view.st.arena_w)
+	var ah: float = float(main.view.st.arena_h)
 	var bad := []
+	var cover := []
 	for sz in [Vector2(960, 640), Vector2(1280, 640), Vector2(2340, 1080), Vector2(1024, 768)]:
 		var safe := Rect2(Vector2.ZERO, sz)
 		hud.relayout(safe)
@@ -334,7 +338,23 @@ func _run() -> void:
 				bad.append("조작 묶음이 너무 큼 %s @%s" % [str(mr.size), str(sz)])
 		if hr.intersects(objr) or hr.end.y > 40.0 + 6.0:
 			bad.append("체력 %s @%s" % [str(hr), str(sz)])
+		# 경기장이 화면 밖으로 잘리면 가장자리의 예고를 못 본다
+		var arena := Rect2(Vector2(round((sz.x - aw) / 2.0), round(40.0 + maxf(0.0, (sz.y - 40.0 - ah) / 2.0))), Vector2(aw, ah))
+		if arena.position.x < 0.0 or arena.position.y < 0.0 or arena.end.x > sz.x or arena.end.y > sz.y:
+			bad.append("경기장이 화면 밖 %s @%s" % [str(arena), str(sz)])
+		# HUD가 경기장(=예고가 나오는 면)을 덮는 비율
+		var area: float = arena.size.x * arena.size.y
+		var covered := 0.0
+		for r in [mr, hr]:
+			var it: Rect2 = r.intersection(arena)
+			if it.size.x > 0.0 and it.size.y > 0.0:
+				covered += it.size.x * it.size.y
+		var frac: float = covered / maxf(1.0, area)
+		cover.append("%dx%d %.1f%%" % [int(sz.x), int(sz.y), frac * 100.0])
+		if frac > 0.15:
+			bad.append("HUD가 경기장의 %.1f%%를 덮음 @%s" % [frac * 100.0, str(sz)])
 	ok("여러 창 크기에서 HUD가 목표 표시·상단 띠·화면 밖을 침범하지 않음", bad.is_empty(), "; ".join(bad))
+	ok("화면 4종에서 경기장(적 예고 면)이 잘리지 않고 HUD가 덮는 비율이 15% 이내", bad.is_empty(), ", ".join(cover))
 	hud.relayout(PLayout.safe_rect(main.get_viewport()))
 
 	# ---------- G. 전투 결과 화면: 요약 곁의 큰 '계속' + 접힌 세부 통계 ----------
