@@ -485,7 +485,21 @@ def write_reports(run_dir: Path, run_id: str, records: list[dict], meta: dict) -
     tally = {}
     for r in records:
         tally[r["status"]] = tally.get(r["status"], 0) + 1
-    lines += ["", "집계: " + " · ".join(f"{label.get(k, k)} {v}" for k, v in sorted(tally.items()))]
+    # 세 가지를 **따로** 센다(2026-09-08 검토 §4). 셋은 다른 사실이다:
+    #   ① 단언(검사) 통과 수 — 스위트가 찍은 N/N
+    #   ② 정상 종료한 스위트 수 — 종료 코드 0으로 끝난 것
+    #   ③ 종료 실패 — 검사는 다 통과했는데 프로세스가 비정상 종료한 것(crash_after_pass)
+    asserts_pass = sum(int(r.get("passed", 0) or 0) for r in records)
+    asserts_total = sum(int(r.get("total", 0) or 0) for r in records)
+    clean_exit = sum(1 for r in records if r["status"] == ST_PASS)
+    crash_after = sum(1 for r in records if r.get("crash_after_pass"))
+    lines += ["", "집계: " + " · ".join(f"{label.get(k, k)} {v}" for k, v in sorted(tally.items())),
+              "",
+              f"- 단언(검사) 통과: **{asserts_pass}/{asserts_total}**",
+              f"- 정상 종료한 스위트: **{clean_exit}/{len(records)}**",
+              f"- 검사는 통과했으나 종료 실패: **{crash_after}** (통과로 세지 않는다 — docs/KNOWN_DEFECTS.md KD-1)",
+              "",
+              "이 셋을 합쳐서 \"전부 통과\"라고 적지 않는다."]
     (run_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
