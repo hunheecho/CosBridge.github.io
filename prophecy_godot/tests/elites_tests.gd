@@ -585,6 +585,283 @@ func _init() -> void:
 			no_threat.append(tp)
 	ok("정예 7종 모두 봇·화면이 읽는 예고 도형을 내보낸다(예고 없는 공격 없음)", no_threat.is_empty(), str(no_threat))
 
+	placement_tests()
+
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
+
+# =========================================================================
+# 배치 회귀(2026-09-08): 특수 정예가 **실제 출격 편성**에 들어가는가.
+# 규칙과 값은 data/elites.json(배치표) · data/themes.json(편성) · data/pacing.json(체력·보상)에 있고
+# 여기서는 "그 표대로 게임에 나오는가 / 예산이 늘지 않았는가 / 보상이 겹치지 않는가"만 본다.
+# =========================================================================
+
+## 정예를 쓰는 편성 전부: [{ theme, act, kind, tpl, places[] }]
+func elite_slots() -> Array:
+	var out := []
+	for tid in PCatalog.themes():
+		var t: Dictionary = PCatalog.themes()[tid]
+		for kind in ["normal", "risk"]:
+			for f in (t.formations[kind] as Array):
+				if int(f.get("elites", 0)) > 0:
+					out.append({ "theme": String(tid), "act": int(t.act), "kind": String(kind), "tpl": f, "places": t.places })
+	return out
+
+## 정예 지정을 뗀 사본(비교 기준 = 배치 전과 같은 늑대 우두머리 편성)
+func strip_elite(tpl: Dictionary) -> Dictionary:
+	var c := tpl.duplicate(true)
+	c.erase("elite_type")
+	c.erase("elite_type_p2")
+	c.erase("elite_types")
+	return c
+
+func wave_total(waves: Array) -> int:
+	var n := 0
+	for w in waves:
+		for g in w:
+			n += int(g.n)
+	return n
+
+## 이 편성의 전투 경험치 예산 총량(PFormation과 같은 산식: 종류별 단위값 × ref 합)
+func xp_budget(waves: Array, region_id: String) -> float:
+	var s := 0.0
+	for w in waves:
+		for g in w:
+			var ref: float = float(g.ref) if g.has("ref") else float(g.n)
+			s += PGrowth.xp_value_unit(String(g.type), false, region_id, 0.3) * ref
+	return round(s * 10000.0) / 10000.0
+
+func fresh_run(seed_v: int, act: int) -> Dictionary:
+	var r := PRun.new_run(seed_v, "sword", "", { "route": [PCatalog.act_default_theme(1), PCatalog.act_default_theme(2), PCatalog.act_default_theme(3)] })
+	r.day = [1, 5, 9][clampi(act, 1, 3) - 1]
+	r.stage = clampi(act, 1, 3) - 1
+	return r
+
+func placement_tests() -> void:
+	var E := PCatalog.elites()
+	var slots := elite_slots()
+
+	# --- 1. 배치표가 실제 편성에 붙어 있는가 ---
+	var unassigned := []
+	var unknown := []
+	for s in slots:
+		var tpl: Dictionary = s.tpl
+		if not (tpl.has("elite_type") or tpl.has("elite_types")):
+			unassigned.append(String(tpl.id))
+		for tp in PRun.elite_types_for(tpl, "p1"):
+			if not E.has(String(tp)):
+				unknown.append("%s→%s" % [String(tpl.id), String(tp)])
+	ok("정예를 쓰는 편성 %d개가 모두 배치표의 정예를 지정한다(늑대 우두머리 기본값으로 남지 않는다)" % slots.size(),
+		unassigned.is_empty() and not slots.is_empty(), str(unassigned))
+	ok("지정한 정예가 배치표(data/elites.json)에 있는 종류다", unknown.is_empty(), str(unknown))
+
+	# --- 2. 실제로 편성(웨이브)에 들어가는가 ---
+	var missing := []
+	var seen_by_act := { 1: {}, 2: {}, 3: {} }
+	for s in slots:
+		var tpl: Dictionary = s.tpl
+		for pi in (s.places as Array).size():
+			var pid := String((s.places as Array)[pi].id)
+			var pk := "p1" if pi == 0 else "p2"
+			var want: Array = PRun.elite_types_for(tpl, pk)
+			var got := {}
+			for w in PRun.formation_waves(pid, 0, String(tpl.id)):
+				for g in w:
+					if PEnemiesNew.is_elite(String(g.type)):
+						got[String(g.type)] = int(got.get(String(g.type), 0)) + int(g.n)
+						seen_by_act[int(s.act)][String(g.type)] = true
+			for tp in want:
+				if int(got.get(String(tp), 0)) <= 0:
+					missing.append("%s/%s에 %s 없음" % [pid, String(tpl.id), String(tp)])
+			var n_got := 0
+			for k in got:
+				n_got += int(got[k])
+			if n_got != int(tpl.elites):
+				missing.append("%s/%s 정예 수 %d != %d" % [pid, String(tpl.id), n_got, int(tpl.elites)])
+	ok("지정한 정예가 실제 편성 웨이브에 그 수만큼 들어간다(PRun.formation_waves)", missing.is_empty(), str(missing))
+	ok("2막·3막 모두 7종이 전부 실제 편성 안에 있다",
+		(seen_by_act[2] as Dictionary).size() >= 7 and (seen_by_act[3] as Dictionary).size() >= 7,
+		"2막 %d종 · 3막 %d종" % [(seen_by_act[2] as Dictionary).size(), (seen_by_act[3] as Dictionary).size()])
+
+	# --- 3. 배치표 규칙(막·상극·호위 필요)을 지키는가 ---
+	var bad_act := []
+	var bad_avoid := []
+	var bad_escort := []
+	for s in slots:
+		var tpl: Dictionary = s.tpl
+		var comp_types := []
+		for c in (tpl.comp as Array):
+			comp_types.append(String(c.type))
+		for pk in ["p1", "p2"]:
+			var lst: Array = PRun.elite_types_for(tpl, pk)
+			for tp in lst:
+				var d: Dictionary = E.get(String(tp), {})
+				if d.is_empty():
+					continue
+				var acts_ok := false
+				for a in (d.acts as Array):
+					if int(a) == int(s.act):
+						acts_ok = true
+				if not acts_ok:
+					bad_act.append("%s(%s) %d막" % [String(tpl.id), String(tp), int(s.act)])
+				for av in (d.get("avoid_with", []) as Array):
+					var an := String(av)
+					if an.begins_with("objective:"):
+						continue
+					if comp_types.has(an) or (lst.has(an) and an != String(tp)):
+						bad_avoid.append("%s: %s + %s" % [String(tpl.id), String(tp), an])
+				if int(d.get("requires_allies", 0)) > 0 and int(tpl.sizes[pk].total) < int(d.requires_allies):
+					bad_escort.append("%s(%s) 호위 부족" % [String(tpl.id), String(tp)])
+	ok("배치한 정예가 그 막에 허용된 종류다(elites.json acts)", bad_act.is_empty(), str(bad_act))
+	ok("상극 조합(avoid_with)이 같은 편성에 함께 들어가지 않는다", bad_avoid.is_empty(), str(bad_avoid))
+	ok("호위가 필요한 정예(군단 기수)는 호위가 충분한 편성에만 있다", bad_escort.is_empty(), str(bad_escort))
+
+	# --- 4. 노출 빈도: 1막은 위험 편성에만, 평범한 편성에는 드물게 ---
+	var act1_normal := 0
+	var normal_with_elite := 0
+	var normal_total := 0
+	for tid in PCatalog.themes():
+		var t: Dictionary = PCatalog.themes()[tid]
+		for f in (t.formations.normal as Array):
+			normal_total += 1
+			if int(f.get("elites", 0)) > 0:
+				normal_with_elite += 1
+				if int(t.act) == 1:
+					act1_normal += 1
+	ok("1막에서는 위험 편성에만 정예가 나온다(첫 만남 보호)", act1_normal == 0, "1막 일반 편성 중 정예 포함 %d개" % act1_normal)
+	ok("평범한 출격에는 드물게 나온다(일반 편성 %d개 중 %d개, 3분의 1 이하)" % [normal_total, normal_with_elite],
+		normal_with_elite * 3 <= normal_total)
+
+	# --- 5. 총 등장 수·경험치 예산 불변(정예를 넣어도 예산이 늘지 않는다) ---
+	var cnt_diff := []
+	var xp_diff := []
+	for s in slots:
+		var tpl: Dictionary = s.tpl
+		var base := strip_elite(tpl)
+		for pi in (s.places as Array).size():
+			var pid := String((s.places as Array)[pi].id)
+			var pk := "p1" if pi == 0 else "p2"
+			for day in [0, 5, 9]:
+				var wa := PRun.template_waves(tpl, pk, day, PRun.place_cost(pid))
+				var wb := PRun.template_waves(base, pk, day, PRun.place_cost(pid))
+				if wave_total(wa) != wave_total(wb):
+					cnt_diff.append("%s/%s/%d일 %d != %d" % [pid, String(tpl.id), day, wave_total(wa), wave_total(wb)])
+				if not is_equal_approx(xp_budget(wa, pid), xp_budget(wb, pid)):
+					xp_diff.append("%s/%s/%d일 %.2f != %.2f" % [pid, String(tpl.id), day, xp_budget(wa, pid), xp_budget(wb, pid)])
+	ok("정예 종류를 바꿔도 총 등장 수가 그대로다(배치 전 늑대 우두머리 편성과 같다)", cnt_diff.is_empty(), str(cnt_diff))
+	ok("정예 종류를 바꿔도 전투 경험치 예산이 그대로다", xp_diff.is_empty(), str(xp_diff))
+	var XPV: Dictionary = PCatalog.growth().XP_VALUE
+	var xp_off := []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		if float(XPV.get(String(tp), 0.0)) != float(XPV.wolf_alpha):
+			xp_off.append("%s=%s" % [String(tp), str(XPV.get(String(tp), 0))])
+	ok("정예 7종의 마리당 경험치가 늑대 우두머리와 같다(%d) — 종류 교체로 예산이 흔들리지 않는다" % int(XPV.wolf_alpha),
+		xp_off.is_empty(), str(xp_off))
+
+	# --- 6. 큰 보상 장소·더 깊이: 강한 정예 1 + 호위 ---
+	var weaker := []
+	for s in slots:
+		var tpl: Dictionary = s.tpl
+		if not tpl.has("elite_type_p2"):
+			continue
+		var t1 := String(PRun.elite_types_for(tpl, "p1")[0])
+		var t2 := String(PRun.elite_types_for(tpl, "p2")[0])
+		if PPacing.elite_hp(t2, int(s.act)) < PPacing.elite_hp(t1, int(s.act)):
+			weaker.append("%s %s < %s" % [String(tpl.id), t2, t1])
+	ok("비용 2칸(큰 보상) 장소의 정예가 1칸 장소보다 약하지 않다", weaker.is_empty(), str(weaker))
+
+	var deep_bad := []
+	for s in slots:
+		var tpl: Dictionary = s.tpl
+		var run := fresh_run(7, int(s.act))
+		var cap := PCatalog.elite_max_per_fight(int(s.act))
+		for pi in (s.places as Array).size():
+			var pid := String((s.places as Array)[pi].id)
+			var sortie := { "regionId": pid, "formationId": String(tpl.id) }
+			var n_e := 0
+			var n_all := 0
+			var groups_norm := 0
+			for w in PRun.encounter_waves(pid, true, run, sortie):
+				for g in w:
+					n_all += int(g.n)
+					if PEnemiesNew.is_elite(String(g.type)):
+						n_e += int(g.n)
+					else:
+						groups_norm += 1
+			var flat := PRun.encounter_waves(pid, false, run, sortie)
+			if n_e > cap:
+				deep_bad.append("%s 더 깊이 정예 %d > 상한 %d" % [pid, n_e, cap])
+			# 호위만 묶음마다 +1, 정예는 늘지 않는다
+			var expect := wave_total(flat) - int(tpl.elites) + groups_norm + n_e
+			if n_all != expect:
+				deep_bad.append("%s 더 깊이 수가 규칙과 다르다(%d != %d)" % [pid, n_all, expect])
+	ok("더 깊이 탐험은 '강한 정예 1(막별 상한) + 호위 +1'이다 — 정예를 늘려 예산을 키우지 않는다", deep_bad.is_empty(), str(deep_bad))
+
+	var deep_type := []
+	for s in slots:
+		var tpl: Dictionary = s.tpl
+		if not tpl.has("elite_type_p2"):
+			continue
+		var run := fresh_run(9, int(s.act))
+		var pid := String((s.places as Array)[0].id) # 비용 1칸 장소에서도 더 깊이면 강한 정예
+		var found := ""
+		for w in PRun.encounter_waves(pid, true, run, { "regionId": pid, "formationId": String(tpl.id) }):
+			for g in w:
+				if PEnemiesNew.is_elite(String(g.type)) and int(g.n) > 0:
+					found = String(g.type)
+		if found != String(tpl.elite_type_p2):
+			deep_type.append("%s 더 깊이 %s != %s" % [pid, found, String(tpl.elite_type_p2)])
+	ok("더 깊이 탐험은 1칸 장소에서도 강한 정예(elite_type_p2)로 바뀐다", deep_type.is_empty(), str(deep_type))
+
+	# --- 7. 추가 보상: 실제 위험에 대응하되 기존 보상과 겹치지 않는다 ---
+	var run2 := fresh_run(11, 2)
+	var dup := []
+	var none := []
+	for pid in PCatalog.theme_places():
+		var mats: Dictionary = PRun.region(String(pid)).get("reward", {}).get("mats", {})
+		var gb := PRun.elite_bonus_gold(run2, String(pid), true)
+		if mats.has("fang") and gb > 0:
+			dup.append(String(pid)) # 송곳니(정예 조건부 재료)를 이미 주는데 금화까지 주면 중복이다
+		if not mats.has("fang") and gb <= 0:
+			none.append(String(pid))
+	ok("정예 조건부 재료를 주는 장소에는 추가 금화를 주지 않는다(같은 위험을 두 번 보상하지 않는다)", dup.is_empty(), str(dup))
+	ok("그 밖의 장소에서는 정예를 잡으면 추가 금화를 준다(위험에 대응하는 보상)", none.is_empty(), str(none))
+	ok("정예를 잡지 않으면 추가 보상이 없다", PRun.elite_bonus_gold(run2, "t2a_pilgrim", false) == 0)
+
+	var s_r := { "regionId": "t2a_pilgrim", "deep": false, "loot": { "gold": 0, "mats": {}, "chestGold": 0 } }
+	var rw_no := PRun.roll_reward(run2, s_r, PRng.new(3), { "chestGold": 0, "eliteKilled": false })
+	var rw_yes := PRun.roll_reward(run2, s_r, PRng.new(3), { "chestGold": 0, "eliteKilled": true })
+	var bonus := PPacing.gold_award(PRun.elite_bonus_gold(run2, "t2a_pilgrim", true))
+	ok("추가 보상은 조우 1회에 정확히 1번, 금화 감축 규칙을 지나 붙는다(+%d)" % bonus,
+		int(rw_yes.gold) - int(rw_no.gold) == bonus and int(rw_yes.eliteGold) == bonus and int(rw_no.eliteGold) == 0)
+	var s_deep := { "regionId": "t2a_pilgrim", "deep": true, "loot": { "gold": 0, "mats": {}, "chestGold": 0 } }
+	var rwd_no := PRun.roll_reward(run2, s_deep, PRng.new(3), { "chestGold": 0, "eliteKilled": false })
+	var rwd_yes := PRun.roll_reward(run2, s_deep, PRng.new(3), { "chestGold": 0, "eliteKilled": true })
+	ok("더 깊이 배율이 추가 보상에 곱해지지 않는다(심층 보상과 이중 지급 없음)",
+		int(rwd_yes.gold) - int(rwd_no.gold) == bonus)
+
+	# --- 8. 출격 카드 사전 표시 ---
+	var run3 := fresh_run(5, 2)
+	var mismatch := []
+	var shown := 0
+	for tid in PCatalog.themes():
+		var t: Dictionary = PCatalog.themes()[tid]
+		if int(t.act) != 2:
+			continue
+		for kind in ["normal", "risk"]:
+			for f in (t.formations[kind] as Array):
+				for p in (t.places as Array):
+					var c := { "regionId": String(p.id), "formationId": String(f.id) }
+					var nt := PSortie.elite_notice(run3, c)
+					var real: bool = int(f.get("elites", 0)) > 0
+					if bool(nt.present) != real:
+						mismatch.append("%s/%s" % [String(p.id), String(f.id)])
+					if bool(nt.present):
+						shown += 1
+						if (nt.names as Array).is_empty() or String(nt.reward) == "":
+							mismatch.append("%s/%s 표시 비어 있음" % [String(p.id), String(f.id)])
+	ok("출격 카드가 강적 출현을 미리 알린다 — 실제 편성과 정확히 일치(2막 %d자리)" % shown, mismatch.is_empty(), str(mismatch))
+	var nt2 := PSortie.elite_notice(run3, { "regionId": "t2a_pilgrim", "formationId": "t2a_risk" })
+	ok("카드 표시에 강적 이름과 보상 종류가 함께 나온다: %s" % String(nt2.text),
+		bool(nt2.present) and String(nt2.text).contains("강적 출현") and String(nt2.text).contains("보상"))

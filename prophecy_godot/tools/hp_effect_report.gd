@@ -73,7 +73,7 @@ func grow(run: Dictionary, picks: int) -> void:
 	run.hp = float(PRun.build(run).hp_max)
 
 ## 부분 실행 축: variant(counts·full) · day(2·5·9) · policy(stand·active·survival) · seed
-## 예) PROPHECY_ONLY="day:9;policy:active" 또는 PROPHECY_QUICK=1
+## 예) PROPHECY_SUBSET="day=9;policy=active"
 var sub := PSubset.new()
 var rows := []
 var runs := []
@@ -210,7 +210,7 @@ func _write() -> void:
 	md += "생성: `tools/hp_effect_report.gd` (%s, Godot %s). 시드 %s · 날짜 %s · 상한 %.0f초.\n" % [OS.get_name(), Engine.get_version_info().string, str(SEEDS), str(DAYS), MAX_SEC]
 	md += "**전** = `PROPHECY_PACING=counts`(적 수·편성은 지금과 같고 체력 오버레이만 끈 상태) · **후** = 현재(H3 체력표).\n"
 	md += "적 수·편성·경험치·금화는 두 조건에서 같다. 달라지는 것은 **체력뿐**이다.\n\n"
-	md += sub.describe(not sub.partial()) + "\n\n"
+	md += sub.describe("체력 상향 효과 측정") + "\n\n"
 	md += "> 봇 결과는 규칙 검증용이며 사람 조작감·최종 밸런스 판단이 아니다. 봇 승패를 통과 조건으로 쓰지 않았다.\n\n"
 	md += "## 1. 적이 실제로 공격했는가 (정책별)\n\n"
 	md += "| 날짜 | 정책 | 조건 | 결과 | 등장 | 공격 준비 | 공격 실행 | 플레이어 명중 | 준비 전 사망 | 실행 전 사망 | 전투(초) |\n"
@@ -260,6 +260,6 @@ func _write() -> void:
 	md += "- 전투 시간이 늘어난 것만으로는 목표를 만족했다고 할 수 없다. **공격 실행·명중이 함께 늘어야** 한다.\n"
 	md += "- 준비 전 사망이 줄지 않았다면 체력이 아니라 접근 거리·등장 위치·이동을 손봐야 한다.\n"
 	md += "- 회피 정책의 받은 피해가 제자리와 비슷하면 예고를 읽을 방법이 없다는 뜻이다. 반대로 회피가 0이면 압박이 없다.\n"
-	var f := FileAccess.open(("res://docs/sim/HP_EFFECT.md" if not sub.partial() else "res://docs/sim/HP_EFFECT_PARTIAL.md"), FileAccess.WRITE)
+	var f := FileAccess.open((sub.out_path("res://docs/sim/HP_EFFECT.md")), FileAccess.WRITE)
 	f.store_string(md)
 	f.close()

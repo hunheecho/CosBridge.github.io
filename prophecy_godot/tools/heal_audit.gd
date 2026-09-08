@@ -14,7 +14,7 @@ extends SceneTree
 ##   - 회복약 하루 상한이 하루 손실을 덮는가(= 휴식을 대체할 수 있는가)
 ##
 ## 부분 실행 축: strat(전략) · seed
-##   예) PROPHECY_ONLY="seed:1" · PROPHECY_QUICK=1
+##   예) PROPHECY_SUBSET="seed=1"
 
 const STRATS := ["gradual", "deep"]
 const SEEDS := [1, 2, 3, 4]
@@ -26,8 +26,6 @@ var runs := []      # 회차 요약
 func _init() -> void:
 	for strat in sub.pick("strat", STRATS):
 		for sd in sub.pick("seed", SEEDS):
-			if not sub.more():
-				break
 			_one(String(strat), int(sd))
 			printerr("done ", strat, " ", sd)
 	print("HEAL_AUDIT_JSON " + JSON.stringify({ "days": days, "runs": runs }))
@@ -74,7 +72,7 @@ func _write() -> void:
 	var per_day_cap: int = int(rules.get("potionPerDay", 0))
 	var md := "# 회복 경제 실측 (하루에 실제로 얼마를 잃는가)\n\n"
 	md += "생성: `tools/heal_audit.gd` (%s, Godot %s).\n" % [OS.get_name(), Engine.get_version_info().string]
-	md += sub.describe(not sub.partial()) + "\n\n"
+	md += sub.describe("회복 경제 실측") + "\n\n"
 	md += "> 봇 결과는 규칙 검증용이며 사람 체감이 아니다. 봇 승패를 통과 조건으로 쓰지 않았다.\n\n"
 	md += "## 1. 날짜별 실제 손실 체력\n\n"
 	md += "| 전략 | 시드 | 날짜 수 | 하루 평균 손실 | 하루 최대 손실 | 휴식 | 회복약 |\n|---|---:|---:|---:|---:|---:|---:|\n"
@@ -123,6 +121,6 @@ func _write() -> void:
 	md += "| 응급 약낭(준비물) | 18 | 전투 1회, 체력 30% 이하 |\n"
 	md += "| 수호 부적(준비물, 흡수) | 25 | 전투 1회 시작 보호막 |\n"
 	md += "\n준비물은 하나만 장착하므로 약낭과 부적을 같은 전투에 함께 쓸 수 없다.\n"
-	var f := FileAccess.open("res://docs/sim/HEAL_AUDIT.md" if not sub.partial() else "res://docs/sim/HEAL_AUDIT_PARTIAL.md", FileAccess.WRITE)
+	var f := FileAccess.open(sub.out_path("res://docs/sim/HEAL_AUDIT.md"), FileAccess.WRITE)
 	f.store_string(md)
 	f.close()

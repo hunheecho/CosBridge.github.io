@@ -175,15 +175,9 @@ func _place_card(r: Dictionary, c: Dictionary) -> Dictionary:
 	var slot := PRun.slot_index(r)
 	var v: Dictionary = PRun.slot_variant(rid, slot) if int(r.hours) > 0 else {}
 	var hpm := PRun.hp_mult_for(r, rid, false)
-	var waves := PRun.encounter_waves(rid, false, r, { "variant": (v if not v.is_empty() else null) })
-	var elite := false
-	for eid in c.enemies:
-		if bool(PCatalog.enemy(String(eid)).get("elite", false)):
-			elite = true
-	for w in waves:
-		for g in w:
-			if bool(PCatalog.enemy(String(g.type)).get("elite", false)):
-				elite = true
+	var waves := PRun.encounter_waves(rid, false, r, { "formationId": String(c.get("formationId", "base")), "variant": (v if not v.is_empty() else null) })
+	var notice := PSortie.elite_notice(r, c) # 강적 사전 표시(규칙은 PSortie가 정한다 — 화면은 그리기만)
+	var elite: bool = bool(notice.present)
 	var has_risk: bool = c.get("risk", null) != null
 	var gm := (PRun.risk_reward_mult(r) if has_risk else 1.0) * (float(v.goldMult) if v.has("goldMult") else 1.0)
 	var reward := "금화 %d~%d" % [int(round(float(reg.reward.gold[0]) * gm)), int(round(float(reg.reward.gold[1]) * gm))]
@@ -194,7 +188,7 @@ func _place_card(r: Dictionary, c: Dictionary) -> Dictionary:
 	var box: VBoxContainer = card.box
 	var title := "[b]%s[/b] [color=#9ea8b8][%d칸][/color]  %s" % [PGlossaryTip.esc(String(reg.name)), int(c.timeCost), (PGlossaryTip.term("mission", String(O.name)) if not O.is_empty() else "전멸")]
 	if elite:
-		title += " · " + PGlossaryTip.term("elite", "정예")
+		title += " · [color=#ffb066]%s[/color]" % PGlossaryTip.term("elite", "강적 출현")
 	if has_risk:
 		title += " · [color=#ff8c73]%s[/color]" % PGlossaryTip.esc(String(M.riskText[String(c.risk)]))
 	if done:
@@ -206,6 +200,8 @@ func _place_card(r: Dictionary, c: Dictionary) -> Dictionary:
 		if not bool(ed.get("elite", false)) and names.size() < 3:
 			names.append(String(ed.name))
 	box.add_child(PUi.rich("%s · %s%s" % ["·".join(names), reward, (" · 체력 ×%s" % PUi.fmt(float(hpm.normal))) if float(hpm.normal) != 1.0 else ""], 13))
+	if elite: # 사전 표시: 무엇이 나오는지 + 그 위험에 대응하는 추가 보상(중복 지급 없음)
+		box.add_child(PUi.rich("[color=#ffb066]강적 출현 · %s[/color] [color=#9ea8b8]· 보상 %s[/color]" % [PGlossaryTip.esc(" · ".join(notice.names)), PGlossaryTip.esc(String(notice.reward))], 12))
 	var slots := PRun.time_slots()
 	var vline := ""
 	if not v.is_empty():

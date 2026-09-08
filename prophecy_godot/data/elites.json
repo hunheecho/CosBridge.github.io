@@ -1,6 +1,6 @@
 {
  "schema": "prophecy_elites/1",
- "note": "특수 정예 7종의 **배치표**(손으로 작성한 시험값, 2026-09-08). 행동·수치 정의는 data/enemies.json에 있고 규칙 코드는 scripts/rules/enemies_new.gd다. 이 파일은 '어떤 정예를 어느 막·어떤 편성에 몇 마리 넣을지'만 담는다. 실제 출격 편성에 꽂는 작업은 data/pacing.json·scripts/rules/run.gd 담당자 몫이며, 붙이는 방법은 아래 interface와 examples, 자세한 설명은 docs/ELITES.md에 있다. 이 파일을 읽는 코드는 아직 없다(배치 담당자가 붙이기 전까지는 문서 겸 자료다).",
+ "note": "특수 정예 7종의 **배치표**(손으로 작성한 시험값, 2026-09-08). 행동·수치 정의는 data/enemies.json에 있고 규칙 코드는 scripts/rules/enemies_new.gd다. 이 파일은 '어떤 정예를 어느 막·어떤 편성에 몇 마리 넣을지'만 담는다. 실제 출격 편성에 꽂는 작업은 data/pacing.json·scripts/rules/run.gd 담당자 몫이며, 붙이는 방법은 아래 interface와 examples, 자세한 설명은 docs/ELITES.md에 있다. 배치는 2026-09-08에 끝났다: 실제 편성은 data/themes.json의 elite_type·elite_type_p2·elite_types이고, 이 파일은 PCatalog.elites()/elite_placement()로 규칙 코드와 검사(tests/elites_tests.gd)가 읽는 정본이다. 아래 assigned 표가 지금 게임에서 실제로 나오는 배치다.",
  "anchor": {
   "note": "체력 기준선. 사용자 지시 '강화된 그 막 주력 적의 3~5배'를 그대로 쓴다. 주력 = 그 막의 주력 근접(늑대). 2차 상향 뒤 값(docs/sim/HP_TABLE_2.md).",
   "main_melee_hp": { "1": 48, "2": 262, "3": 612 },
@@ -112,8 +112,101 @@
   "risk_only_acts": [1],
   "risk_only_note": "1막에서는 위험 편성(risk)에만 넣어 첫 만남이 사고가 되지 않게 한다"
  },
+ "assigned": {
+  "note": "실제 출격 편성 배치(2026-09-08, 시험값). 정본은 data/themes.json이고 이 표는 사람이 읽는 사본이다 — 두 곳이 어긋나면 tests/elites_tests.gd가 실패한다. p1 = 비용 1칸 장소, p2 = 비용 2칸(큰 보상) 장소와 더 깊이 탐험.",
+  "rules": [
+   "1막은 위험 편성에만 넣는다(첫 만남이 사고가 되지 않게). 1막 평범한 편성에는 정예가 없다",
+   "평범한 편성은 테마당 최대 1개만 정예를 쓴다 — 27개 중 3개(t2a_elite_support · t3b_rogue_alpha · t3b_wolf_archer)",
+   "비용 2칸(큰 보상) 장소와 더 깊이 탐험은 '강한 정예 1 + 호위'다. 종류가 elite_type_p2로 바뀌고 마리 수는 막별 상한(max_elites_per_fight)을 넘지 않는다",
+   "3막 위험 편성의 정예 2마리는 서로 다른 두 종류(elite_types)이며 장소로 더 올리지 않는다",
+   "마리 수(themes.json의 elites)는 어느 편성도 바꾸지 않았다 — 총 등장 수·경험치 예산 불변",
+   "출격 카드에 '강적 출현 · 이름 · 보상'을 미리 보여 준다(PSortie.elite_notice)"
+  ],
+  "by_formation": {
+   "t1a_risk": {
+    "act": 1,
+    "kind": "risk",
+    "p1": "elite_fang",
+    "p2": "elite_blademaster"
+   },
+   "t1b_risk": {
+    "act": 1,
+    "kind": "risk",
+    "p1": "elite_blademaster",
+    "p2": "elite_blademaster"
+   },
+   "t1c_risk": {
+    "act": 1,
+    "kind": "risk",
+    "p1": "elite_standard",
+    "p2": "elite_blademaster"
+   },
+   "t2a_elite_support": {
+    "act": 2,
+    "kind": "normal",
+    "p1": "elite_standard",
+    "p2": "elite_blademaster"
+   },
+   "t2a_risk": {
+    "act": 2,
+    "kind": "risk",
+    "p1": "elite_plaguecaller",
+    "p2": "elite_chainbreaker"
+   },
+   "t2b_risk": {
+    "act": 2,
+    "kind": "risk",
+    "p1": "elite_fang",
+    "p2": "elite_archer"
+   },
+   "t2c_risk": {
+    "act": 2,
+    "kind": "risk",
+    "p1": "elite_miner",
+    "p2": "elite_blademaster"
+   },
+   "t3a_risk": {
+    "act": 3,
+    "kind": "risk",
+    "pair": [
+     "elite_blademaster",
+     "elite_miner"
+    ]
+   },
+   "t3b_rogue_alpha": {
+    "act": 3,
+    "kind": "normal",
+    "p1": "elite_fang",
+    "p2": "elite_blademaster"
+   },
+   "t3b_wolf_archer": {
+    "act": 3,
+    "kind": "normal",
+    "p1": "elite_standard",
+    "p2": "elite_blademaster"
+   },
+   "t3b_risk": {
+    "act": 3,
+    "kind": "risk",
+    "pair": [
+     "elite_blademaster",
+     "elite_archer"
+    ]
+   },
+   "t3c_risk": {
+    "act": 3,
+    "kind": "risk",
+    "pair": [
+     "elite_chainbreaker",
+     "elite_plaguecaller"
+    ]
+   }
+  },
+  "coverage_note": "2막·3막 모두 7종이 전부 실제 편성 안에 있다(2막은 p1 4종 + p2 3종, 3막은 8자리에 7종). 측정은 docs/sim/ELITE_PLACEMENT.md.",
+  "measure_note": "1차 측정에서 균열 채굴자가 굴착장(t2b p2)에서 고유 연계를 1회밖에 마치지 못했다 — 전투가 짧고 먼저 집중당한다. 체력·주기를 손대지 않고 **배치만** 바꿔 해결했다: 굴착장은 주기가 짧은 정예 궁수로, 균열 채굴자는 전투가 긴 눈길(t2c p1)로 옮겼다. 2차 측정 결과는 docs/sim/ELITE_PLACEMENT.md."
+ },
  "interface": {
-  "note": "지금 정예를 꽂는 유일한 자리는 PRun.template_waves(scripts/rules/run.gd:184~185)이며 종류가 \"wolf_alpha\"로 고정되어 있다. 아래 두 곳만 바꾸면 이 파일의 배치표를 그대로 쓸 수 있다. **이 변경은 배치 담당자 몫이라 여기서는 하지 않았다.**",
+  "note": "**적용 완료(2026-09-08).** 정예를 꽂는 자리는 PRun.elite_types_for → PRun.template_waves이며, 템플릿의 elite_type(기본) · elite_type_p2(비용 2칸 장소와 더 깊이 탐험) · elite_types(2마리 조합)를 읽는다. 값이 없으면 기존 늑대 우두머리라 회귀가 없다. 아래는 그때 바꾼 자리의 기록이다.",
   "run_gd": {
    "file": "scripts/rules/run.gd",
    "at": "template_waves() 안 `if int(tpl.get(\"elites\", 0)) > 0:` 블록",
@@ -132,12 +225,12 @@
    "at": "enemy_hp.elite_by_act",
    "add": "위 elites[*].hp_by_act 표를 그대로 행으로 넣는다(예: \"elite_fang\": { \"1\": 190, \"2\": 1040, \"3\": 2420 })",
    "why": "정예 체력은 등급이 아니라 막으로 오른다(PPacing.elite_hp). 표가 없으면 data/enemies.json의 1막 값이 모든 막에 쓰인다",
-   "current_state": "지금은 표가 없어 1막 값 그대로 나온다. 2·3막 값이 필요하면 이 행을 넣어야 한다"
+   "current_state": "적용 완료 — data/pacing.json enemy_hp.elite_by_act에 7종 1·2·3막 값이 들어 있다(PPacing.elite_hp)"
   },
   "growth_json": {
    "file": "data/growth.json",
    "at": "growth.XP_VALUE",
-   "add": "정예 7종의 마리당 경험치. 없으면 기본값 5가 쓰인다(늑대 우두머리는 30)",
+   "add": "정예 7종의 마리당 경험치. **적용 완료: 늑대 우두머리와 같은 30.** 편성의 정예 종류를 바꿔도 전투 경험치 예산이 달라지지 않게 하려는 것이다(제안했던 32~40은 예산을 늘려 쓰지 않았다).",
    "suggest": { "elite_archer": 34, "elite_blademaster": 40, "elite_fang": 32, "elite_plaguecaller": 34, "elite_chainbreaker": 36, "elite_standard": 30, "elite_miner": 34 },
    "why": "밀도 예산(formation.xp_map)이 없는 경로에서 정예가 일반 적보다 적은 경험치를 주는 것을 막는다"
   }
