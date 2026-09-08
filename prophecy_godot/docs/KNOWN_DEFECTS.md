@@ -29,6 +29,9 @@
 |---|---:|---:|
 | `--suites collision_tests` 단독 | 5회 | **0회** |
 | `--group all --jobs 1`(순차) | 3회 | **2회**(boss_pace_tests) — 동시 실행만의 문제가 아니다 |
+| `--group all --jobs 1` 20260908_214231 | 1회 | 1회(ui_flow_tests) |
+| `--group all --jobs 1` 20260908_215414 | 1회 | 1회(content_tests) |
+| `--group all --jobs 1` 20260908_222126 | 1회 | 1회(theme_tests) |
 | `--suites collision_tests,elites_tests --jobs 2` | 3회 | **1회**(elites_tests) |
 | `--group all --jobs 2` | 여러 회 | 실행마다 0~3개 스위트에서 발생 |
 
@@ -54,7 +57,8 @@
 - 특정 스위트에 묶이지 않는다. 실제 장면을 띄우지 않는 `collision_tests`에서도 난다.
 - 여러 스위트가 `ObjectDB instance was leaked at exit` 경고를 함께 낸다.
 
-**아직 모르는 것.** 동시 실행의 무엇이 원인인지(공유 캐시·렌더 서버 정리·드라이버). 표본이 아직 작다.
+**아직 모르는 것.** 무엇이 원인인지. 지금까지 걸린 스위트가 `ui_flow_tests`·`content_tests`·`theme_tests`·`balance_tests`·`boss_pace_tests`·`input_tests`·`collision_tests`·`elites_tests`로 **특정 스위트에 묶이지 않는다.** 실제 장면을 띄우지 않는 스위트에서도 난다.
+한 실행에 보통 **한 개**가 걸리고, 다음 실행에서는 다른 스위트가 걸린다 — 무작위에 가깝다. 표본이 늘어도 규칙이 보이지 않는다.
 
 **당장의 대응.** 판정이 걸린 실행은 `--jobs 1`로 돌린다. 실행기는 이 경우를 **실패로 남기고** `crash_after_pass` 표시를 붙이며, 성공한 재실행이 앞선 실패 기록을 지우지 않는다.
 

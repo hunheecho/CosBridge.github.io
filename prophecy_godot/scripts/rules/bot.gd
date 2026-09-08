@@ -294,6 +294,14 @@ func decide_policy(st: CombatState) -> Dictionary:
 		var locked := bool(th.get("locked", false))
 		if float(th.get("prog", 0.0)) < react_at and not locked:
 			continue
+		# **조준 중인 사격선은 피할 수 없다.** 궁수·주술사의 조준선은 발사 전까지 플레이어를
+		# 계속 따라오므로 옆으로 비켜도 조준이 따라온다. 그런데도 비키면 거리를 못 좁혀
+		# 전투가 늘어지고, 궁수가 여럿이면 항상 누군가 조준 중이라 접근 자체를 못 한다.
+		# 방향이 확정된 뒤(locked)에만 옆걸음이 실제로 통하므로 그때만 피한다.
+		# 돌진 통로도 beam이지만 그쪽은 발사 전 예고에서 이미 방향이 굳으므로 locked로 들어온다.
+		# 사격선은 길이가 매우 길다(2000). 늑대 돌진 통로는 실제 돌진 거리라 짧으므로 구분된다.
+		if kind == "beam" and not locked and float(th.get("len", 0.0)) >= 1000.0:
+			continue
 		var near: bool = (PGeom.dist(float(th.x), float(th.y), p.x, p.y) <= float(th.r) + zone_margin + p.r) if kind == "circle" else inside(th, p)
 		if not near:
 			continue

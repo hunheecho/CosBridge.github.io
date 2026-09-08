@@ -217,6 +217,14 @@ func decide_skill(snap: Dictionary, n: int) -> Dictionary:
 		var waiting: bool = (float(th.shown_left) > gate_sec) if float(th.shown_left) >= 0.0 else (String(th.phase) == "warn" and float(th.prog) < gate)
 		if waiting:
 			continue
+		# **조준 중인 사격선은 피할 수 없다.** 궁수·주술사의 조준선은 발사 전까지 플레이어를 계속
+		# 따라오므로, 옆으로 비켜도 조준이 따라온다. 그런데도 비키면 거리를 못 좁혀 전투가 늘어지고
+		# (2026-09-08 9일차 정지: 붉은 궁수 3기 앞에서 게임 속 1822초 동안 피해 0),
+		# 궁수가 여럿이면 항상 누군가는 조준 중이라 **영원히 접근하지 못한다.**
+		# 방향이 확정된 뒤(lock)에는 옆걸음이 실제로 통하므로 그때만 피한다.
+		# 원형·통로형(돌진·폭발·장판)은 자리를 노리는 공격이라 예고 중에도 그대로 피한다.
+		if String(th.kind) == "lane" and String(th.phase) == "warn":
+			continue
 		inside.append(th)
 	inside_ids = []
 	for th in inside:
