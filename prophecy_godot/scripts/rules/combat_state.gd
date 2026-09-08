@@ -578,6 +578,28 @@ func steer_dir(e: Dictionary, tx: float, ty: float) -> Array:
 	return [cos(ang), sin(ang)]
 
 ## 장애물을 돌아 접근한다
+## 이 적이 지금 **노려야 할 대상**. 도깨비 인형에 유인된 적은 인형 자리를 노린다.
+##
+## 왜 사전을 통째로 복제하는가. 적 코드가 `p.x`·`p.y`만 쓰는 것이 아니라 `p.dodge_active`·`p.dead`처럼
+## 다른 값도 함께 읽는다. 좌표만 담은 작은 사전을 주면 그쪽에서 없는 키를 읽어 죽는다.
+## 적 코드는 이 사전에 **쓰지 않는다**(확인함) — 그래서 복제해서 좌표만 바꿔 주면 안전하다.
+##
+## 이렇게 하면 유인된 적이 인형 자리로 걸어갈 뿐 아니라 **사거리 판정·조준·공격까지 인형을 향해** 한다.
+## 그 공격이 실제로 들어가면 PSupportB의 가로채기가 피해를 인형에게 돌린다 —
+## 즉 '적이 멈춰서 본체 피해가 줄어드는 것'이 아니라 **인형이 실제로 대신 맞는다.**
+func target_of(e: Dictionary) -> Dictionary:
+	if bool(e.get("structure", false)):
+		return player
+	var lt := PSupport.lure_target(self, e)
+	if lt.is_empty():
+		return player
+	var proxy := player.duplicate()
+	proxy.x = float(lt.x)
+	proxy.y = float(lt.y)
+	proxy.r = float(lt.get("r", player.r))
+	proxy.lure = true   # 읽는 쪽이 '지금 본체가 아니다'를 알 수 있게(연출·판정 예외용)
+	return proxy
+
 func approach(e: Dictionary, tx: float, ty: float, speed: float, dt: float) -> void:
 	# **도깨비 인형 유인.** 목표가 지금 플레이어가 선 자리일 때만 인형 자리로 바꾼다.
 	# 뒤로 물러나는 이동(e.x*2-p.x)이나 옆으로 도는 이동은 목표가 플레이어 자리가 아니므로 그대로 둔다.

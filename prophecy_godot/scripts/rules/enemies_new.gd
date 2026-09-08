@@ -94,7 +94,7 @@ static func to_recover(st: CombatState, e: Dictionary, dur: float, label: bool =
 
 ## 궁수식 거리 유지(장애물 우회)
 static func keep_distance(st: CombatState, e: Dictionary, d: Dictionary, dt: float, sm: float) -> void:
-	var p := st.player
+	var p := st.target_of(e)
 	var dist := PGeom.dist(e.x, e.y, p.x, p.y)
 	if dist < float(d.keepMin):
 		st.approach(e, e.x * 2.0 - p.x, e.y * 2.0 - p.y, float(d.speed) * sm, dt)
@@ -103,7 +103,7 @@ static func keep_distance(st: CombatState, e: Dictionary, d: Dictionary, dt: flo
 
 ## 부채꼴 근접 판정(직접 공격: 장애물 가림 적용)
 static func arc_hit(st: CombatState, e: Dictionary, ang: float, R: float, half: float, dmg: float, src: String) -> void:
-	var p := st.player
+	var p := st.target_of(e)
 	if PGeom.in_arc(e.x, e.y, R, ang, half, p.x, p.y, p.r) and not st.los_blocked(e.x, e.y, p.x, p.y):
 		st.damage_player(dmg, src, e)
 
@@ -116,7 +116,7 @@ static func _recover_tick(e: Dictionary, adv: float) -> void:
 # ---------- A. 멧돼지: 긴 직선 돌파 ----------
 static func update_boar(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -203,7 +203,7 @@ static func update_boar(st: CombatState, e: Dictionary, dt: float) -> void:
 ## 방향 전환은 느리게 유지(turnRate 2.2 rad/s)해 측·후방 공략이 답이 되게 한다. 판정 점검은 docs/SHIELDBEARER.md.
 static func update_shieldbearer(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -296,7 +296,7 @@ static func heal_target(st: CombatState, e: Dictionary) -> Dictionary:
 
 static func update_shaman(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -392,7 +392,7 @@ static func on_damaged(st: CombatState, e: Dictionary, dmg: float, opt: Dictiona
 # ---------- D. 폭탄 운반체 ----------
 static func update_bomber(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -425,7 +425,7 @@ static func update_bomber(st: CombatState, e: Dictionary, dt: float) -> void:
 # ---------- E. 잠복충 ----------
 static func update_burrower(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -513,7 +513,7 @@ static func web_count(st: CombatState) -> int:
 
 static func update_spider(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -576,7 +576,7 @@ static func update_spider(st: CombatState, e: Dictionary, dt: float) -> void:
 # ---------- G. 서리술사 ----------
 static func update_frostcaller(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -633,7 +633,7 @@ static func detonate(st: CombatState, z: Dictionary) -> void:
 # ---------- H. 쌍날 도적 ----------
 static func update_rogue(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -734,7 +734,7 @@ static func face_toward(e: Dictionary, tx: float, ty: float, rate: float, adv: f
 
 ## 원형 착탄(장애물 가림 없음 — 바닥에 떨어지는 충격). 맞으면 true
 static func circle_hit(st: CombatState, e: Dictionary, cx: float, cy: float, r: float, dmg: float, src: String) -> bool:
-	var p := st.player
+	var p := st.target_of(e)
 	var hit := false
 	if PGeom.dist(cx, cy, p.x, p.y) <= r + float(p.r):
 		hit = st.damage_player(dmg, src, e)
@@ -745,7 +745,7 @@ static func circle_hit(st: CombatState, e: Dictionary, cx: float, cy: float, r: 
 
 ## 옆으로 이동(재장전·자리 옮기기). side = -1|1
 static func strafe(st: CombatState, e: Dictionary, speed: float, dt: float) -> void:
-	var p := st.player
+	var p := st.target_of(e)
 	var n := PGeom.norm(p.x - e.x, p.y - e.y)
 	if int(e.get("side", 0)) == 0:
 		e.side = -1 if st.rng.next() < 0.5 else 1
@@ -758,7 +758,7 @@ static func strafe(st: CombatState, e: Dictionary, speed: float, dt: float) -> v
 ## 발사 방향은 shot_lock/fan_lock 시작 때 고정한다(그 뒤에는 플레이어를 따라가지 않는다).
 static func update_elite_archer(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -846,7 +846,7 @@ static func _arrow(st: CombatState, e: Dictionary, ang: float, speed: float, r: 
 ## 일반 방패병의 85% 감소(frontMult 0.15)와 구분된다. 측·후면과 바닥 피해는 그대로 들어간다.
 static func update_elite_blademaster(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -915,7 +915,7 @@ static func update_elite_blademaster(st: CombatState, e: Dictionary, dt: float) 
 
 ## 확정 경로를 따라 한 단계 돌진(감속되어도 경로·거리 그대로). 반환 true = 끝(거리 도달·충돌)
 static func _charge_step(st: CombatState, e: Dictionary, speed: float, dmg: float, src: String, dt: float, tf: float) -> bool:
-	var p := st.player
+	var p := st.target_of(e)
 	var remain: float = maxf(0.0, float(e.charge_len) - float(e.charge_dist))
 	var stp: float = minf(speed * tf * dt, remain)
 	var x0: float = e.x
@@ -935,7 +935,7 @@ static func _charge_step(st: CombatState, e: Dictionary, speed: float, dmg: floa
 ## 도약이 빗나가면(착지 원 밖) 더 긴 빈틈 1.6초 — '도약 실패 = 공격 기회'.
 static func update_elite_fang(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -1014,7 +1014,7 @@ static func update_elite_fang(st: CombatState, e: Dictionary, dt: float) -> void
 
 ## 착지 지점: 플레이어 위치(사거리 상한), 지형 안이면 가장 가까운 유효 위치
 static func _leap_target(st: CombatState, e: Dictionary, max_range: float) -> Array:
-	var p := st.player
+	var p := st.target_of(e)
 	var dx: float = p.x - e.x
 	var dy: float = p.y - e.y
 	var dd := sqrt(dx * dx + dy * dy)
@@ -1028,7 +1028,7 @@ static func _leap_target(st: CombatState, e: Dictionary, max_range: float) -> Ar
 ## 근접(96 이내)에는 예고된 좁은 포자 분출(70°)로 대응한다.
 static func update_elite_plaguecaller(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -1081,7 +1081,7 @@ static func update_elite_plaguecaller(st: CombatState, e: Dictionary, dt: float)
 ## 포자 3개 배치: 플레이어 주위에 흩어 놓되, 놓고 나서도 탈출 방향이 minExits개 이상 남는 자리만 쓴다
 static func _place_pods(st: CombatState, e: Dictionary) -> Array:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var base: float = float(p.face) if bool(p.moving) else atan2(p.y - e.y, p.x - e.x)
 	var pods: Array = []
 	for i in int(d.podCount):
@@ -1152,7 +1152,7 @@ static func _exits_open(st: CombatState, dangers: Array, probe: float) -> int:
 ## 빗나가면 회수 빈틈 1.4초. 근접(72 이내)에서 돌면 예고된 횡베기로 대응한다.
 static func update_elite_chainbreaker(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -1253,7 +1253,7 @@ static func update_elite_chainbreaker(st: CombatState, e: Dictionary, dt: float)
 static func update_elite_standard(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
 	var B: Dictionary = d.banner
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -1370,7 +1370,7 @@ static func _rally_guard(st: CombatState, e: Dictionary) -> bool:
 ## 놓은 뒤에도 플레이어 주위 탈출 방향이 minExits개 이상 남는 자리에만 놓는다.
 static func update_elite_miner(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var adv := dt * tf
@@ -1447,7 +1447,7 @@ static func update_elite_miner(st: CombatState, e: Dictionary, dt: float) -> voi
 
 ## 돌무더기 배치: 전역 상한(rockMax)과 탈출 방향 검사를 통과한 자리에만. 시작점·목표·출구를 막지 않는다
 static func _place_rubble(st: CombatState, e: Dictionary, d: Dictionary) -> void:
-	var p := st.player
+	var p := st.target_of(e)
 	var live := rubble_count(st)
 	var placed := 0
 	for i in int(d.rockCount):
@@ -1488,7 +1488,7 @@ static func update_rubble(st: CombatState, e: Dictionary, dt: float) -> void:
 # ---------- 봇용 위협 도형(화면에 보이는 예고와 같은 정보만) ----------
 static func threats(st: CombatState, e: Dictionary, out: Array) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var type := String(e.type)
 	var state := String(e.state)
 	if type == "boar":
@@ -1523,7 +1523,7 @@ static func threats(st: CombatState, e: Dictionary, out: Array) -> void:
 ## 특수 정예 7종의 예고 도형(화면 표시와 같은 기하). 확정(locked) 뒤에는 추적하지 않는다
 static func elite_threats(st: CombatState, e: Dictionary, out: Array) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var state := String(e.state)
 	var w: float = (float(e.r) + float(p.r)) * 2.0 + 30.0
 	match String(e.type):

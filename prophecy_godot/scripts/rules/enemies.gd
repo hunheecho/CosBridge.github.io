@@ -50,7 +50,7 @@ static func detonate(st: CombatState, z: Dictionary) -> void:
 ## 봇용 위협 도형(화면에 보이는 예고와 같은 정보만). out에 {kind, e, x, y, ang, len, w, r, half, prog, locked} 추가
 static func threats(st: CombatState, e: Dictionary, out: Array) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	if is_wolf(d):
 		var D: Dictionary = d.dash
 		var B: Dictionary = d.bite
@@ -129,7 +129,7 @@ static func grant_dash_slots(st: CombatState) -> void:
 
 static func _bite_hit_check(st: CombatState, e: Dictionary) -> bool:
 	var B: Dictionary = e.def.bite
-	var p := st.player
+	var p := st.target_of(e)
 	var dist := PGeom.dist(e.x, e.y, p.x, p.y)
 	if dist > float(B.reach):
 		return false
@@ -140,7 +140,7 @@ static func update_wolf(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
 	var D: Dictionary = d.dash
 	var B: Dictionary = d.bite
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e.x, e.y, e.r)
 	var sm := st.enemy_speed_mult(e)
 	var dist := PGeom.dist(e.x, e.y, p.x, p.y)
@@ -271,7 +271,7 @@ static func update_wolf(st: CombatState, e: Dictionary, dt: float) -> void:
 # ---------- 궁수 (HTML updateArcher) ----------
 static func update_archer(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var dist := PGeom.dist(e.x, e.y, p.x, p.y)
@@ -365,7 +365,7 @@ static func spore_contact(st: CombatState, e: Dictionary, dt: float) -> void:
 	var tf := st.time_factor(e)
 	if float(e.get("contact_cd", 0.0)) > 0.0:
 		e.contact_cd = maxf(0.0, float(e.get("contact_cd", 0.0)) - dt * tf)
-	var p := st.player
+	var p := st.target_of(e)
 	if float(e.get("contact_cd", 0.0)) > 0.0:
 		return
 	if PGeom.dist(e.x, e.y, p.x, p.y) > float(e.r) + float(p.r):
@@ -378,7 +378,7 @@ static func spore_contact(st: CombatState, e: Dictionary, dt: float) -> void:
 
 static func update_spore(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
-	var p := st.player
+	var p := st.target_of(e)
 	var tf := st.time_factor(e)
 	var sm := st.enemy_speed_mult(e)
 	var dist := PGeom.dist(e.x, e.y, p.x, p.y)
