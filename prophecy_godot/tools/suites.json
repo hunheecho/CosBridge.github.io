@@ -290,6 +290,11 @@
       "timeout_sec": 900,
       "desc": "막별 경제·회복 경제 측정(통과 조건은 장부 항등식이며 봇 승패가 아니다)"
     },
+    "render_tests": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "화면 표시(보조무기 개체·특수 정예 실루엣·주술사 예고·보스 파괴 예고)가 규칙 자료를 실제로 읽는가"
+    },
     "palette_tests": {
       "env": {},
       "timeout_sec": 600,
@@ -397,7 +402,8 @@
       "death_tests",
       "palette_tests",
       "hit_feel_tests",
-      "support_a_tests"
+      "support_a_tests",
+      "render_tests"
     ],
     "rules": [
       "run_tests",
@@ -424,6 +430,7 @@
       "boss_break_tests"
     ],
     "ui": [
+      "render_tests",
       "hud_tests",
       "meta_ui_tests",
       "input_tests",
