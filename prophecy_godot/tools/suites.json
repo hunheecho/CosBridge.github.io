@@ -240,6 +240,11 @@
       "timeout_sec": 600,
       "desc": "방패병 정면 방어 확정값·특수 정예 7종 규칙"
     },
+    "new_monster_tests": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "신규 일반 3종(흡혈 박쥐·불씨 도마뱀·도약 두꺼비)과 일반 정예 확장 10종 규칙(예고·확정·빈틈·회복 없음·잔류 장판 없음·착지 안전·확장 행동 실행)"
+    },
     "tail_probe": {
       "env": {},
       "script": "tools/tail_probe.gd",
@@ -393,6 +398,7 @@
       "content_tests",
       "ui_flow_tests",
       "elites_tests",
+      "new_monster_tests",
       "prep_shop_tests",
       "death_tests",
       "palette_tests",
@@ -415,6 +421,7 @@
       "endless_tests",
       "meta_tests",
       "elites_tests",
+      "new_monster_tests",
       "support_a_tests"
     ],
     "boss": [

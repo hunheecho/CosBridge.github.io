@@ -243,6 +243,25 @@
   },
   "where": "각 정예 항목의 read 블록에 들어 있다(PCatalog.elite_def(id).read). 새 접근자를 만들 필요가 없도록 일부러 elites 안에 뒀다."
  },
+ "common_elites": {
+  "note": "**일반 정예 확장 10종**(2026-09-09, 시험값). 위 elites(특수 정예 7종)와 **다른 계층**이라 일부러 따로 뒀다 — PCatalog.elites()/elite_def()는 여기를 읽지 않으며, 규칙 표의 정본은 scripts/rules/enemies_new.gd의 COMMON_ELITES, 수치의 정본은 data/pacing.json(enemy_tuning · enemy_hp.elite_by_act)이다. 이 블록은 사람이 읽는 배치 자료다.",
+  "principle": "익숙한 일반 몬스터의 **강화형**이고 기본 행동에 **눈에 띄는 변화 하나**를 더한다. 체력만 크게 늘려 정예로 만들지 않는다. 여러 고유 패턴을 잇는 특수 정예와 구분하고, 붉은·상위 변이(세계 변화 등급)와도 별개다(체력 배율을 겹쳐 적용하지 않는다 — enemy_hp.elite_by_act의 절대값이 등급 배율을 대신한다).",
+  "placement_status": "**아직 어느 편성에도 배치되지 않았다.** 실제 배치는 data/themes.json의 elite_type·elite_type_p2·elite_types이며 그 파일은 다른 담당 몫이다. 배치할 때 필요한 훅은 docs/MONSTERS.md §필요한 훅에 적어 뒀다(PCatalog.enemies()가 PEnemiesNew.extra_defs()를 합치는 한 줄, growth.json XP_VALUE, render.gd 그림).",
+  "types": {
+   "wolf_alpha": { "name": "늑대 우두머리", "base": "wolf", "extra": "없음(이미 있는 정예 — 확장 구조에 등록만 했다)", "note": "0.3.1 늑대 규칙과 승인된 첫 전투(D33)를 보존해야 하므로 행동을 더하지 않았다. PEnemies.update가 is_wolf를 먼저 보므로 갱신 경로도 그대로다." },
+   "boar_elite": { "name": "쇄도 멧돼지", "base": "boar", "extra": "돌진 끝 예고된 짧은 충격파", "state": "shock_aim", "test_values": { "shockAim": 0.45, "shockR": 100, "shockDamage": 14 }, "note": "바위에 부딪혀 비틀거린 돌파에는 충격파가 없다." },
+   "archer_elite": { "name": "연사 궁수", "base": "archer", "extra": "조준 후 빠른 두 발 사격", "state": "shot2_lock", "test_values": { "shot2Lock": 0.2 }, "note": "두 번째 발은 새로 조준하지 않고 이미 예고·확정된 같은 선으로 나간다." },
+   "shieldbearer_elite": { "name": "돌격 방패병", "base": "shieldbearer", "extra": "방패 타격 뒤 짧은 전진 공격", "state": "push_aim", "test_values": { "pushAim": 0.35, "pushLunge": 46, "pushRange": 62, "pushDeg": 90, "pushDamage": 12 } },
+   "spider_elite": { "name": "두겹 거미", "base": "spider", "extra": "두 방향 거미줄", "state": "web2_aim", "test_values": { "web2Aim": 0.45, "web2Deg": 115, "web2Dist": 90 }, "note": "전장 거미줄 총 상한(maxWebs 4)은 바탕 그대로다." },
+   "spore_elite": { "name": "역병 포자", "base": "spore", "extra": "본체 폭발 뒤 제한된 작은 포자 구역 잔류", "state": "residue_aim", "test_values": { "residueAim": 0.4, "residueFrac": 0.45, "residueTtl": 3.0, "residueDamage": 4, "residueMax": 1 } },
+   "rogue_elite": { "name": "삼연 도적", "base": "rogue", "extra": "접근 베기 뒤 측면 이동과 후속 베기", "state": "flank_move → slash3_aim", "test_values": { "flankTime": 0.45, "flankSpeed": 210, "aim3": 0.35 }, "note": "자리를 옮기는 동안에는 공격 판정이 없다." },
+   "burrower_elite": { "name": "이중 잠복충", "base": "burrower", "extra": "첫 출현 뒤 짧게 재잠복하고 두 번째 위치를 예고해 다시 출현", "state": "redive → reunder → rewarn", "test_values": { "redive": 0.3, "reunder": 0.45, "rewarn": 0.55, "reEmergeR": 56, "reDamage": 12 }, "note": "재잠복은 연계 안에서 한 차례뿐이고 끝나면 바탕과 같은 지상 빈틈으로 들어간다." },
+   "toad_elite": { "name": "충격 두꺼비", "base": "toad", "extra": "착지 뒤 한 차례 예고된 지면 충격", "state": "slam_aim", "test_values": { "slamAim": 0.5, "slamR": 90, "slamDamage": 12 }, "note": "충격은 한 차례뿐이며 뒤에 바탕의 빈틈과 도약 재사용(4.5초)이 온다 — 무한 연속 점프가 되지 않는다." },
+   "frostcaller_elite": { "name": "서리 이중술사", "base": "frostcaller", "extra": "한 지점 대신 두 지점 순차 공격", "state": "cast2_aim", "test_values": { "cast2Aim": 0.5, "cast2Deg": 120, "cast2Count": 2, "cast2Delays": [0.9, 1.5], "minExits": 4, "probe": 110 }, "note": "두 번째 묶음은 살아 있는 서리 영역까지 합쳐 플레이어 주위 탈출 방향이 minExits개 남는 자리에만 놓는다 — 동시에 전 방향을 막지 않는다." }
+  },
+  "hp_note": "체력은 data/pacing.json enemy_hp.elite_by_act에 있다. 산식(시험값): 1막 = 바탕 적의 일반 등급 체력 × 2.5, 2·3막은 특수 정예와 같은 막별 화력비(×4.93 · ×12.11). 늑대 우두머리의 기존 1막 값 120이 곧 늑대 48 × 2.5라 이미 있는 정예와 같은 자리에서 출발한다(우두머리의 2·3막 값은 기존 유도 그대로 두었다).",
+  "read_note": "특수 정예의 read 블록(무엇을 들었는지·예고에서 어디가 커지는지)에 해당하는 자료는 일반 정예에는 아직 만들지 않았다. 일반 정예는 바탕 몬스터와 같은 실루엣을 쓰되 **더한 행동의 예고**로 구분되도록 설계했다 — 화면 담당이 실루엣 표식을 원하면 여기에 read 블록을 같은 모양으로 추가하면 된다."
+ },
  "placement": {
   "note": "동시 등장·간격 시험값. 규칙 코드의 '정예 동시 연계 1'(enemies_new.elite_may_start)과 별개로, 편성 단계에서도 겹치지 않게 한다.",
   "max_elites_alive": 1,
