@@ -127,9 +127,9 @@ func _init() -> void:
 	# ---------- 보스 스냅샷·재도전·승리(HTML 6·35·118) ----------
 	run.gold = 300
 	var bs := PRun.start_boss(run)
-	ok("보스 입장: 체력 완전 회복, 스냅샷(성장·금화·장비·강화), 시드 = seed×997+7+stage×31, 체력 후보 hi 2400", float(run.hp) == 100.0 and run.bossEntry != null and int(bs.seed) == 3 * 997 + 7 and String(bs.bossId) == "boss" and int(PRun.boss_hp(run, "boss")) == 2400)
+	ok("보스 입장: 체력 완전 회복, 스냅샷(성장·금화·장비·강화), 시드 = seed×997+7+stage×31, 체력 후보 6000(pacing 오버레이 시험값)", float(run.hp) == 100.0 and run.bossEntry != null and int(bs.seed) == 3 * 997 + 7 and String(bs.bossId) == "boss" and int(PRun.boss_hp(run, "boss")) == 6000)
 	var stb := PFlow.make_boss_encounter(run, bs)
-	ok("보스 전투 생성: 보스 체력 2400, 공터, 소환 대기 없음", stb.boss.hp == 2400.0 and stb.arena_id == "clearing" and stb.spawn_total == 0)
+	ok("보스 전투 생성: 보스 체력 6000, 공터, 소환 대기 없음", stb.boss.hp == 6000 and stb.arena_id == "clearing" and stb.spawn_total == 0)
 	run.gold = 999
 	PGrowth.add_xp(g, 100.0)
 	stb.status = "lost"
@@ -141,7 +141,7 @@ func _init() -> void:
 	var stb2 := PFlow.make_boss_encounter(run, bs2)
 	stb2.status = "won"
 	stb2.boss.dead = true
-	stb2.stats.boss_damage = 2400.0
+	stb2.stats.boss_damage = 6000
 	stb2.player.hp = 55.0
 	var rec := PFlow.settle_boss_victory(run, stb2)
 	ok("보스 승리: 기록 1회, 다음 단계 해금(stage 1, prep, 5칸, 체력 회복), 희귀 보상 보류, 재도전 0", not rec.is_empty() and int(run.stage) == 1 and String(run.phase) == "prep" and int(run.hours) == 5 and float(run.hp) == 100.0 and run.growth.get("pendingBossPick", null) != null and int(run.bossRetries) == 0 and run.bossRecords.has("boss"))

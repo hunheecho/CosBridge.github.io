@@ -2093,23 +2093,23 @@
      },
      {
       "id": "t3c_frost_archer",
-      "name": "서리술사 + 궁수 + 소수 방패병",
-      "desc": "장판·사격·방진",
+      "name": "방패 전열 + 서리술사·궁수",
+      "desc": "방패병이 앞을 막고 뒤에서 서리술사와 궁수가 압박한다",
       "comp": [
        {
-        "type": "archer",
-        "share": 0.45,
+        "type": "shieldbearer",
+        "share": 0.5,
         "role": "주력"
+       },
+       {
+        "type": "archer",
+        "share": 0.3,
+        "role": "지원"
        },
        {
         "type": "frostcaller",
         "share": 0.2,
         "role": "지원"
-       },
-       {
-        "type": "shieldbearer",
-        "share": 0.35,
-        "role": "돌파"
        }
       ],
       "elites": 0,

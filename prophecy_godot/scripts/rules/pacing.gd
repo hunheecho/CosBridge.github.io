@@ -109,7 +109,7 @@ static func hp_mult_for(type: String, tier: String, base_hp: float, act: int, fa
 		return el / base_hp
 	var abs_hp := tier_hp(type, tier)
 	if abs_hp > 0.0:
-		return abs_hp / base_hp
+		return maxf(abs_hp, tier_hp(type, "normal")) / base_hp # 등급 역전 방지: 상위 등급이 일반보다 약해지지 않는다
 	return fallback
 
 # ---------- 보스 체력 ----------

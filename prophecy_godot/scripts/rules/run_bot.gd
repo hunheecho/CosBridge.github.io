@@ -52,6 +52,7 @@ var _t0: float = 0.0
 var _card_sec: float = 0.0
 var stop_day: int = 0
 var max_days: int = 0
+var stub_gates: bool = false # 측정용 장치(성장 체크포인트): 관문을 전투 없이 스텁 승리로 통과시켜 성장 곡선을 끝까지 본다. 보스 난이도 판정이 아니다
 var endless_segments: int = 0 # >0: 본편 완주 뒤 무한 모드를 그 구간 수만큼(구간 보스 승리 기준) 진행하고 마친다
 var max_retries: int = 3
 var verbose: bool = false
@@ -298,6 +299,23 @@ func _handle_event(sortie: Dictionary) -> String:
 
 # ---------- 보스 관문 ----------
 func _boss_gate() -> bool:
+	if stub_gates: # 측정 전용: 관문을 스텁 승리로 통과(전투를 하지 않으므로 보스 기록·시간은 남기지 않는다)
+		var g2 := 0
+		while String(run.phase) == "boss_prep" and g2 < 6:
+			g2 += 1
+			var act0 := _find(_actions(), "boss_start")
+			if act0.is_empty():
+				return false
+			var bs0_v = _perform(act0)
+			if bs0_v == null or not (bs0_v is Dictionary) or (bs0_v as Dictionary).is_empty():
+				return false
+			var st0 := PFlow.make_boss_encounter(run, bs0_v)
+			st0.status = "won"
+			if not st0.boss.is_empty():
+				st0.boss.dead = true
+			PFlow.settle_boss_victory(run, st0)
+			PFlow.resolve_all(run, {}, _pick_cb(), _on_pick_cb("screen"))
+		return true
 	var guard := 0
 	while String(run.phase) == "boss_prep" and guard < max_retries + 2:
 		guard += 1
@@ -477,6 +495,7 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 	stop_day = int(o.get("stop_day", 0))
 	max_days = int(o.get("max_days", 0))
 	endless_segments = int(o.get("endless_segments", 0))
+	stub_gates = bool(o.get("stub_gates", false))
 	verbose = bool(o.get("verbose", false))
 	var start := String(o.get("start", "sword"))
 	run = PRun.new_run(seed, start, String(o.get("balance", "")), { "route": o.get("route", []), "mode": String(o.get("mode", PCatalog.run_mode_default())), "legacy_places": bool(o.get("legacy_places", false)) })
@@ -770,6 +789,9 @@ func _finish(seed: int, start: String) -> Dictionary:
 	L.os = OS.get_name()
 	L.engine = String(Engine.get_version_info().string)
 	L.statsVerify = PStats.verify(run)
+	L.run_state = run # 체크포인트 측정용: 그 시점의 실제 회차 상태(빌드 전체). 보고서에는 넣지 않는다
+	L.restForced = int(run.get("stats", {}).get("rest_forced", 0))
+	L.restChosen = int(run.get("stats", {}).get("rest_chosen", 0))
 	return L
 
 ## 빌드 요약 문자열(run_sim.js log.build)

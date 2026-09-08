@@ -86,8 +86,10 @@ func _init() -> void:
 	var en := st.spawn_enemy("wolf", 300.0, 300.0, false, "red")
 	var ea := st.spawn_enemy("wolf", 400.0, 300.0, false, "apex")
 	var e0 := st.spawn_enemy("wolf", 500.0, 300.0, false, "normal")
-	ok("붉은 늑대: 체력 30×1.25=37.5, 피해 배율 1.10, 이름 접두 '붉은 ', 속도 동일", is_equal_approx(float(en.hp), 30.0 * float(TR.red.hp)) and is_equal_approx(float(en.tier_dmg), float(TR.red.dmg)) and String(en.name).begins_with("붉은") and float(en.def.speed) == float(e0.def.speed), "%s hp %.1f" % [String(en.name), float(en.hp)])
-	ok("변이 늑대: 체력 30×1.6=48, 피해 배율 1.20", is_equal_approx(float(ea.hp), 30.0 * float(TR.apex.hp)) and is_equal_approx(float(ea.tier_dmg), float(TR.apex.dmg)))
+	ok("붉은 늑대: 역할별 고정 체력표 150(주력 근접 2.2초 × 2막 초 기준 DPS 68), 피해 배율 1.10, 이름 접두 '붉은 ', 속도 동일", is_equal_approx(float(en.hp), PPacing.tier_hp("wolf", "red")) and is_equal_approx(float(en.tier_dmg), float(TR.red.dmg)) and String(en.name).begins_with("붉은") and float(en.def.speed) == float(e0.def.speed), "%s hp %.1f" % [String(en.name), float(en.hp)])
+	ok("변이 늑대: 고정 체력표 330(2.2초 × 3막 초 기준 DPS 150), 피해 배율 1.20", is_equal_approx(float(ea.hp), PPacing.tier_hp("wolf", "apex")) and is_equal_approx(float(ea.tier_dmg), float(TR.apex.dmg)))
+	ok("등급 교체 구조(사용자 결정): 일반 30 < 붉은 150 < 변이 330, 붉은 개체는 막이 바뀌어도 같은 체력(3막에서 상대적으로 쉬워지고 변이가 주력 위협)", float(e0.hp) == 30.0 and float(en.hp) < float(ea.hp) and PPacing.tier_hp("wolf", "red") == 150.0)
+	ok("역할별로 다른 체력: 궁수(지원 2.0초) 붉은 135 · 방패병(중장갑 4.0초) 붉은 270 — 늑대 배율을 그대로 복제하지 않는다", PPacing.tier_hp("archer", "red") == 135.0 and PPacing.tier_hp("shieldbearer", "red") == 270.0 and PPacing.tier_hp("archer", "red") != PPacing.tier_hp("wolf", "red"))
 	st.intro = 0.0
 	st.damage_player(12.0, "wolf:bite", en)
 	ok("붉은 늑대 물기 12 → 13.2(피해 ×1.10), 유효·명목 모두 13.2", is_equal_approx(st.stats.damage_taken, 13.2) and is_equal_approx(st.stats.damage_taken_nominal, 13.2), "%.1f" % st.stats.damage_taken)

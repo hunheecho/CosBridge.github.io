@@ -78,6 +78,8 @@ static func record(run: Dictionary, st: CombatState, meta: Dictionary = {}) -> D
 		active[String(k)] = float(st.active_t[k])
 	var rec := { "elapsed": round(st.t * 100.0) / 100.0, "dmg": dmg, "total": _r1(total), "bossDamage": boss_dmg,
 		"taken": _r1(float(st.stats.damage_taken)), "takenNominal": _r1(float(st.stats.damage_taken_nominal)),
+		"absorbed": _r1(float(st.stats.absorbed)), "healed": _r1(float(st.stats.healed)), # 보호막 흡수·회복·실제 체력 손실을 분리해 기록(지시 15)
+		"mods": st.mod_report(), # 개조별 이번 전투 발동/적중/피해(지시 12·15). 값이 없는 개조는 들어 있지 않다
 		"kills": int(st.stats.kills), "activeT": active, "status": st.status, "won": st.status == "won" }
 	for k in meta:
 		rec[k] = meta[k]
@@ -96,8 +98,21 @@ static func aggregate(run: Dictionary, filter: Variant = null) -> Dictionary:
 	var elapsed := 0.0
 	var taken := 0.0
 	var taken_nom := 0.0
+	var absorbed := 0.0
+	var healed := 0.0
+	var mods := {}
 	for r in list:
 		elapsed += float(r.elapsed)
+		absorbed += float(r.get("absorbed", 0.0))
+		healed += float(r.get("healed", 0.0))
+		for mid in r.get("mods", {}):
+			var m: Dictionary = r.mods[mid]
+			if not mods.has(mid):
+				mods[mid] = { "procs": 0, "hits": 0, "damage": 0.0 }
+			var acc: Dictionary = mods[mid]
+			acc.procs = int(acc.procs) + int(m.get("procs", 0))
+			acc.hits = int(acc.hits) + int(m.get("hits", 0))
+			acc.damage = float(acc.damage) + float(m.get("damage", 0.0))
 		taken += float(r.taken)
 		taken_nom += float(r.get("takenNominal", r.taken))
 		for k in r.dmg:
@@ -115,7 +130,9 @@ static func aggregate(run: Dictionary, filter: Variant = null) -> Dictionary:
 	var cats := {}
 	for r in rows:
 		cats[r.cat] = _r1(float(cats.get(r.cat, 0.0)) + float(r.amount))
-	return { "rows": rows, "total": _r1(total), "elapsed": _r1(elapsed), "taken": _r1(taken), "takenNominal": _r1(taken_nom), "cats": cats, "n": list.size(), "dpsAll": _r1(total / elapsed) if elapsed > 0.0 else 0.0 }
+	for mid in mods:
+		mods[mid].damage = _r1(float(mods[mid].damage))
+	return { "rows": rows, "total": _r1(total), "elapsed": _r1(elapsed), "taken": _r1(taken), "takenNominal": _r1(taken_nom), "absorbed": _r1(absorbed), "healed": _r1(healed), "mods": mods, "cats": cats, "n": list.size(), "dpsAll": _r1(total / elapsed) if elapsed > 0.0 else 0.0 }
 
 ## 기술별 묶음(F4): owner(weapon:<id>·skill:<id>·common:<id>)마다 직접 + 파생(지속 피해) 합과 보유 시간 기준 DPS. owner가 없는 행은 "other"
 static func by_owner(agg: Dictionary) -> Array:
@@ -142,14 +159,39 @@ static func by_owner(agg: Dictionary) -> Array:
 	out.sort_custom(func(a, b): return float(a.amount) > float(b.amount))
 	return out
 
-## 보기 4종: 전체 / 보스전(성공) / 보스전(실패한 도전) / 일반 출격
+## 보기: 전체 / 보스전(성공) / 보스전(실패한 도전) / 일반 출격 / 최근 전투(지시 15)
 static func views(run: Dictionary) -> Dictionary:
+	var combats: Array = run.get("dmgStats", {}).get("combats", [])
+	var last_i: int = combats.size() - 1
 	return {
 		"all": aggregate(run),
 		"boss": aggregate(run, func(r): return String(r.get("kind", "")) == "boss" and bool(r.won)),
 		"bossFailed": aggregate(run, func(r): return String(r.get("kind", "")) == "boss" and not bool(r.won)),
 		"sortie": aggregate(run, func(r): return String(r.get("kind", "")) != "boss"),
+		"recent": aggregate(run, func(r): return combats.find(r) == last_i),
 	}
+
+## 보스별 보기(지시 15): bossId → 집계. 처치 기록이 있는 보스만
+static func boss_views(run: Dictionary) -> Dictionary:
+	var out := {}
+	for r in run.get("dmgStats", {}).get("combats", []):
+		var bid := String(r.get("bossId", ""))
+		if String(r.get("kind", "")) != "boss" or bid == "":
+			continue
+		if out.has(bid):
+			continue
+		out[bid] = aggregate(run, func(x): return String(x.get("bossId", "")) == bid)
+	return out
+
+## 개조별 이번 런 발동/적중/피해(지시 12). 표시용 — 값이 없는 개조는 넣지 않는다(0으로 미발동처럼 보이지 않게)
+static func mod_rows(agg: Dictionary) -> Array:
+	var out := []
+	var M: Dictionary = agg.get("mods", {})
+	for mid in M:
+		var m: Dictionary = M[mid]
+		out.append({ "id": String(mid), "procs": int(m.procs), "hits": int(m.hits), "damage": float(m.damage) })
+	out.sort_custom(func(a, b): return float(a.damage) > float(b.damage))
+	return out
 
 ## 검증: 출처 합 = 총합, 분류 합 = 총합(반올림 오차 허용). [{view, ok, total, rowSum, catSum}]
 static func verify(run: Dictionary) -> Array:
