@@ -326,6 +326,22 @@
         "success_pattern": "SUPPORT_SCENE_JSON"
       },
       "desc": "보조 12종이 대표 장면에서 실제로 발동하는가(코드 반영과 동작 검증을 구분). 부분 실행 PROPHECY_SUBSET=\"support=doll;seed=1\""
+    },
+    "dps_probe": {
+      "env": {},
+      "script": "tools/dps_probe.gd",
+      "timeout_sec": 3600,
+      "desc": "주무기 5종의 단일 대상 화력 측정(이론 DPS · 실제 DPS · 접근 손실 · 이탈 손실 · 무리 참고). 통과 판정이 아니라 기록. 부분 실행은 PROPHECY_SUBSET=\"weapon=sword,daggers;level=1;mods=0;seed=1\"",
+      "verdict": {
+        "success_pattern": "DPS_PROBE_JSON",
+        "summary_patterns": [],
+        "forbid_patterns": [
+          "SCRIPT ERROR",
+          "Parse Error",
+          "Compile Error"
+        ],
+        "note": "측정 도구라 'N/N PASS' 요약이 없다. 결과 JSON 한 줄과 종료 코드 0으로 판정한다(통과 판정이 아니라 기록이 남았는지 확인)."
+      }
     }
   },
   "groups": {
