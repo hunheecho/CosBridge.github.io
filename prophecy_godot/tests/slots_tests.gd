@@ -208,6 +208,35 @@ func _init() -> void:
 		is_equal_approx(float(bl_over.damage), float(blade_s.damage)) and int((gover.weapons[1] as Dictionary).level) == 5,
 		"%.2f vs %.2f" % [float(bl_over.damage), float(blade_s.damage)])
 
+	# ---------- 10. 옛 구조 저장을 실제로 저장·복구하고 계속 진행할 수 있다 ----------
+	# 규칙 계층뿐 아니라 저장 파일을 거쳐도 옛 회차가 옛 구조 그대로 굴러가야 한다(사용자 지시 6절).
+	PSave.clear()
+	var runsave := mk_v1()
+	runsave.gold = 500
+	PSave.save(runsave)
+	var loaded := PSave.load()
+	var gl: Dictionary = loaded.growth
+	ok("저장·복구를 거쳐도 옛 회차는 옛 구조다", not PGrowth.is_v2(gl) and (gl.weapons as Array).size() == 3)
+	ok("옛 회차도 성장 선택을 계속 적용할 수 있다(창 레벨업)",
+		PGrowth.apply_choice(loaded, { "kind": "weapon_level", "id": "spear" }) and int(PGrowth.weapon_of(gl, "spear").level) == 3)
+	var bl := PBuild.derive(loaded)
+	ok("옛 회차의 빌드 계산이 정상이다(자동기술 3개 전부 파생됨)", (bl.weapons as Array).size() == 3)
+	var acts := PFlow.actions(loaded)
+	ok("옛 회차도 거점 행동 목록이 비어 있지 않다(상점·대장간 등)", (acts as Array).size() > 0, "%d개" % (acts as Array).size())
+	PSave.clear()
+
+	# ---------- 11. 새 회차도 저장·복구 뒤 상한이 유지된다 ----------
+	var run3 := mk_v2()
+	PGrowth.apply_choice(run3, { "kind": "weapon_new", "id": "blades" })
+	PGrowth.apply_choice(run3, { "kind": "weapon_new", "id": "orb" })
+	PSave.save(run3)
+	var l3 := PSave.load()
+	ok("새 회차 저장·복구 뒤에도 세 번째 보조는 못 얻는다",
+		not PGrowth.apply_choice(l3, { "kind": "weapon_new", "id": "frost" }) and PGrowth.support_weapons(l3.growth).size() == 2)
+	ok("새 회차 저장·복구 뒤에도 주무기는 하나뿐이다",
+		not PGrowth.apply_choice(l3, { "kind": "weapon_new", "id": "bow" }) and PGrowth.main_weapons(l3.growth).size() == 1)
+	PSave.clear()
+
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
