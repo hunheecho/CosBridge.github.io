@@ -151,7 +151,7 @@ func _init() -> void:
 	var wa := st_hp.spawn_enemy("wolf", 320.0, 300.0, false, "apex")
 	var el := st_hp.spawn_enemy("wolf_alpha", 340.0, 300.0)
 	ok("전투 생성에 표가 실제 적용(3막): 붉은 150 · 변이 330 · 정예 1200", is_equal_approx(float(wr.hp), 150.0) and is_equal_approx(float(wa.hp), 330.0) and is_equal_approx(float(el.hp), 1200.0), "%.0f/%.0f/%.0f" % [float(wr.hp), float(wa.hp), float(el.hp)])
-	ok("보스 체력 오버레이(시험값): 가시갈기 6000 · 봉인 수호자 15000 · 예언을 먹는 자 18000", PRun.boss_hp(r1, "boss") == 6000.0 and PRun.boss_hp(r1, "guardian") == 15000.0 and PRun.boss_hp(r1, "eater") == 18000.0, "%.0f" % PRun.boss_hp(r1, "boss"))
+	ok("보스 체력 오버레이(시험값, 새 행동과 합쳐 재측정 후 조정): 가시갈기 3500 · 봉인 수호자 9000 · 예언을 먹는 자 12500", PRun.boss_hp(r1, "boss") == 3500.0 and PRun.boss_hp(r1, "guardian") == 9000.0 and PRun.boss_hp(r1, "eater") == 12500.0, "%.0f" % PRun.boss_hp(r1, "boss"))
 
 	# ---------- 지시 10: 금화 약 -30% ----------
 	ok("새로 지급하는 금화 ×0.7(최종 1회): 100 → 70", PPacing.gold_award(100) == 70 and PPacing.gold_mult() == 0.7)
