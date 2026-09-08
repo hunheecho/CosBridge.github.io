@@ -13,15 +13,30 @@
     "<패턴>.chainAfter: 표식·포자 탄·낙석처럼 착탄을 기다리는 상태에서, 그 초가 지나면 보스가 서서 기다리지 않고 다음 행동으로 이을 수 있다(남은 예고는 계속 제 시각에 터진다).",
     "markBusy: 잔여 표식이 남아 있는 동안에도 이을 수 있는 행동(잔여 예고와 다음 예고가 모든 출구를 막지 않도록 좁게 둔다).",
     "그 밖의 <패턴>.<키>: 보스 정의(enemies.json·bosses_new.json)의 같은 키를 덮어쓴다. 여기서는 거리 후보 조건(minDist/maxDist)과 '걸어오는 시간'(집행관 guard.dur)만 바꾸고, 예고(aim/lock/warn/cast)는 하나도 줄이지 않았다.",
-    "guardian.cover / guardian.split: 봉인 수호자의 엄폐 대응·양갈래 보정(2026-09-08 사람 플레이 피드백). 코드는 scripts/rules/boss.gd의 guardian_pre/guardian_post. 근거·비교표는 docs/MISSION_BOSS_FEEDBACK.md.",
-    "doom_executor.gapStep: 3막 관문의 위치 변주. 코드는 scripts/rules/boss3.gd의 gap_step. 예고·피해·시간은 그대로 두고 보스 위치만 바꾼다."
+    "guardian.cover / guardian.split: 봉인 수호자의 엄폐 대응·양갈래 보정(2026-09-08 사람 플레이 피드백). 코드는 scripts/rules/boss.gd의 cover_pre(9종 공통)·guardian_post. 근거·비교표는 docs/MISSION_BOSS_FEEDBACK.md.",
+    "doom_executor.gapStep: 3막 관문의 위치 변주. 코드는 scripts/rules/boss3.gd의 gap_step. 예고·피해·시간은 그대로 두고 보스 위치만 바꾼다.",
+    "terrain: 지형 파괴 규칙(파괴 가능한 전투 장애물 / 파괴할 수 없는 외곽 경계). 코드는 scripts/rules/terrain.gd의 role_of·breakable과 CombatState.break_obstacle 한 곳뿐이다.",
+    "<보스>.breaker: 그 보스의 성격에 맞는 장애물 파괴 행동. pattern = 파괴가 붙는 행동, shape = 파괴 판정 모양(보스마다 다르다). 코드는 scripts/rules/boss.gd의 cover_pre/break_do와 각 보스 파일의 실행 지점.",
+    "<보스>.cover: 파괴가 불가능할 때의 엄폐 대응(우회 재배치·간접 공격)과 장판 탈출(zoneOut). 항목을 지우면 그 보스는 개편 전(돌 뒤 무피해)."
   ],
   "enabled": true,
+  "terrain": {
+    "note": "지형 파괴 규칙(전부 시험값, 사람 승인 아님). 이 항목을 지우면 어떤 보스도 지형을 부수지 않는다(개편 전).",
+    "keys": "breakTypes = 부술 수 있는 종류 / boundaryIds = 이름으로 못 박은 외곽 경계(절대 안 부순다) / edgeMargin = 전장 벽에서 이 거리 안에 붙은 장애물은 외곽 경계로 본다 / goalGuard = 봉인·우리·출구·제단에서 이 거리 안이면 안 부순다 / keepMin = 전장에 남겨 둘 최소 장애물 수(엄폐가 통째로 사라지지 않게) / maxPerFight = 한 전투에서 부술 수 있는 최대 개수",
+    "breakTypes": ["rock", "tree"],
+    "boundaryIds": [],
+    "edgeMargin": 40.0,
+    "goalGuard": 70.0,
+    "keepMin": 2,
+    "maxPerFight": 3
+  },
   "bosses": {
     "boss": {
       "minApproach": 0.08,
       "pounce": { "minDist": 240, "minPhase": 2 },
       "hop": { "patterns": ["dash"], "time": 0.42, "speed": 260, "back": 0.35, "text": "옆으로!" },
+      "cover": { "mode": "reposition", "trigger": 1.2, "cd": 2.0, "speed": 1.2, "spotDist": 190, "moveMax": 2.5, "maxDist": 420, "text": "돌아 들어간다", "pad": 14.0, "zoneOut": 0.7, "zoneSpeed": 1.0 },
+      "breaker": { "pattern": "pounce", "shape": "land", "trigger": 1.2, "cd": 7.0, "max": 2, "perHit": 1, "types": ["rock", "tree"], "wantTtl": 6.0, "freePhase": true, "aimText": "저 바위 위로 뛴다!", "text": "착지 충격 — 바위가 부서졌다!" },
       "chain": {
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
@@ -37,10 +52,12 @@
     "guardian": {
       "minApproach": 0.08,
       "cover": {
-        "mode": "reposition", "trigger": 1.0, "cd": 2.0, "speed": 1.25, "spotDist": 190, "moveMax": 2.5, "maxDist": 420, "text": "우회한다",
+        "mode": "reposition", "trigger": 1.0, "cd": 2.0, "speed": 1.25, "spotDist": 190, "moveMax": 2.5, "maxDist": 420, "text": "우회한다", "pad": 36.0,
         "warn": 1.1, "ttl": 1.4, "r": 70, "dmg": 14, "breakWarn": 1.1,
-        "note": "엄폐 대응 방식 비교 스위치(시험값). reposition = 우회 재배치 / indirect = 예고된 바닥 위험(시선 무관) / break = 예고 뒤 엄폐물 파괴. trigger = 시선이 막힌 채 이 초가 지나면 대응, cd = 대응 사이 최소 간격. 우회는 예고 없이 몸만 움직이고 무적이 없다. warn·ttl·r·dmg는 indirect 전용, breakWarn은 break 전용. 항목을 지우면 개편 전(돌 뒤 무피해)."
+        "zoneOut": 0.7, "zoneSpeed": 1.0,
+        "note": "엄폐 대응 방식 비교 스위치(시험값). reposition = 우회 재배치 / indirect = 예고된 바닥 위험(시선 무관) / break = 예고 뒤 엄폐물 파괴. trigger = 시선이 막힌 채 이 초가 지나면 대응, cd = 대응 사이 최소 간격. 우회는 예고 없이 몸만 움직이고 무적이 없다. warn·ttl·r·dmg는 indirect 전용, breakWarn은 break 전용. zoneOut = 지속 피해 장판(불길·폭풍) 안에 이 초 이상 서 있으면 장판 밖으로 걸어 나간다. 항목을 지우면 개편 전(돌 뒤 무피해)."
       },
+      "breaker": { "pattern": "", "shape": "designate", "trigger": 1.0, "cd": 7.0, "max": 2, "perHit": 1, "types": ["rock", "tree"], "wantTtl": 6.0, "warn": 1.1, "aimText": "봉인을 새긴다 — 저 돌!", "text": "봉인 파쇄 — 엄폐물이 사라졌다!" },
       "split": {
         "offsetEvery": 2, "offsetMult": 1.0, "centerText": "가운데를 노린다!",
         "note": "3단계 양갈래 충격파(count 2)가 정지한 플레이어를 항상 비껴가던 문제(시험값). offsetEvery = 몇 번에 한 번 조준 각을 돌릴지, offsetMult = 돌리는 양(spread 배수, 1.0이면 한 갈래가 플레이어를 정면으로 지나간다). 양갈래 뒤에는 가운데 단발 충격파를 잇는다 — 단발도 원래 예고(준비 0.6·확정 0.35초)를 그대로 쓴다."
@@ -60,6 +77,8 @@
       "markBusy": ["lanes"],
       "mark": { "chainAfter": 0.45 },
       "lanes": { "minDist": 60 },
+      "cover": { "mode": "reposition", "trigger": 1.2, "cd": 2.0, "speed": 1.2, "spotDist": 200, "moveMax": 2.5, "maxDist": 420, "text": "자리를 옮긴다", "pad": 46.0, "zoneOut": 0.7, "zoneSpeed": 1.0 },
+      "breaker": { "pattern": "mark", "shape": "mark", "trigger": 1.2, "cd": 7.0, "max": 2, "perHit": 1, "types": ["rock", "tree"], "wantTtl": 6.0, "aimText": "지난 자리를 통째로 먹는다!", "text": "표식 폭발 — 엄폐물째 사라졌다!" },
       "chain": {
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
@@ -75,6 +94,8 @@
     "gate_warden": {
       "minApproach": 0.08,
       "hop": { "patterns": ["breach", "bolts"], "time": 0.45, "speed": 240, "back": 0.5, "text": "옆으로 물러선다" },
+      "cover": { "mode": "reposition", "trigger": 1.2, "cd": 2.0, "speed": 1.2, "spotDist": 190, "moveMax": 2.5, "maxDist": 420, "text": "옆문으로 돈다", "pad": 20.0, "zoneOut": 0.7, "zoneSpeed": 1.0 },
+      "breaker": { "pattern": "breach", "shape": "ram", "trigger": 1.2, "cd": 7.0, "max": 2, "perHit": 1, "types": ["rock", "tree"], "wantTtl": 6.0, "aimText": "방패로 저것을 들이받는다!", "text": "방패 돌파 — 막던 것이 무너졌다!" },
       "chain": {
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
@@ -90,6 +111,8 @@
       "minApproach": 0.08,
       "markBusy": ["ring", "spray"],
       "shot": { "chainAfter": 0.3 },
+      "cover": { "mode": "reposition", "trigger": 1.2, "cd": 2.0, "speed": 1.15, "spotDist": 200, "moveMax": 2.8, "maxDist": 420, "text": "군락을 옮긴다", "pad": 14.0, "zoneOut": 0.7, "zoneSpeed": 1.0 },
+      "breaker": { "pattern": "shot", "shape": "spore", "trigger": 1.2, "cd": 7.0, "max": 2, "perHit": 1, "types": ["tree"], "wantTtl": 6.0, "aimText": "저 나무를 삭힌다!", "text": "포자 부식 — 나무가 삭아 무너졌다!" },
       "chain": {
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
@@ -106,6 +129,8 @@
       "minApproach": 0.08,
       "rockfall": { "chainAfter": 0.35 },
       "hop": { "patterns": ["burrow"], "time": 0.5, "speed": 210, "back": 0.6, "text": "몸을 튼다" },
+      "cover": { "mode": "reposition", "trigger": 1.2, "cd": 2.0, "speed": 1.15, "spotDist": 200, "moveMax": 2.8, "maxDist": 460, "text": "옆으로 파고든다", "pad": 14.0, "zoneOut": 0.7, "zoneSpeed": 1.0 },
+      "breaker": { "pattern": "burrow", "shape": "pierce", "trigger": 1.2, "cd": 8.0, "max": 2, "perHit": 2, "types": ["rock", "tree"], "wantTtl": 6.0, "aimText": "그대로 뚫고 지나간다!", "text": "굴착 관통 — 길 위가 갈렸다!" },
       "chain": {
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
@@ -120,6 +145,8 @@
     "frost_stalker": {
       "minApproach": 0.08,
       "hop": { "patterns": ["bolt", "dash"], "time": 0.4, "speed": 300, "back": 0.4, "text": "미끄러진다" },
+      "cover": { "mode": "reposition", "trigger": 1.1, "cd": 2.0, "speed": 1.3, "spotDist": 200, "moveMax": 2.2, "maxDist": 460, "text": "돌아 사냥한다", "pad": 36.0, "zoneOut": 0.6, "zoneSpeed": 1.1 },
+      "breaker": { "pattern": "icepath", "shape": "lanes", "trigger": 1.1, "cd": 7.0, "max": 2, "perHit": 1, "types": ["rock", "tree"], "wantTtl": 6.0, "aimText": "얼려서 깨뜨린다!", "text": "빙결 파쇄 — 얼음길 위가 부서졌다!" },
       "chain": {
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
@@ -135,6 +162,8 @@
       "minApproach": 0.08,
       "claw": { "maxDist": 340, "closeFrac": 0.55, "rushMult": 1.0 },
       "hop": { "patterns": ["dash"], "time": 0.4, "speed": 280, "back": 0.4, "text": "옆으로!" },
+      "cover": { "mode": "reposition", "trigger": 1.1, "cd": 2.0, "speed": 1.3, "spotDist": 190, "moveMax": 2.2, "maxDist": 460, "text": "몰이한다", "pad": 14.0, "zoneOut": 0.6, "zoneSpeed": 1.1 },
+      "breaker": { "pattern": "claw", "shape": "arc", "trigger": 1.1, "cd": 7.0, "max": 2, "perHit": 1, "types": ["rock", "tree"], "wantTtl": 6.0, "aimText": "숨은 곳째 찢는다!", "text": "발톱 휩쓸기 — 엄폐가 찢겼다!" },
       "chain": {
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
@@ -150,6 +179,8 @@
       "minApproach": 0.08,
       "guard": { "maxDist": 420, "dur": 1.1, "minDur": 0.5 },
       "slash": { "gap": 0.35 },
+      "cover": { "mode": "reposition", "trigger": 1.2, "cd": 2.0, "speed": 1.15, "spotDist": 210, "moveMax": 2.8, "maxDist": 460, "text": "각을 바꾼다", "pad": 14.0, "zoneOut": 0.7, "zoneSpeed": 1.0 },
+      "breaker": { "pattern": "slash", "shape": "column", "trigger": 1.2, "cd": 7.0, "max": 2, "perHit": 1, "types": ["rock", "tree"], "wantTtl": 6.0, "aimText": "선 위의 모든 것을 벤다!", "text": "절단선 — 지형째 갈라졌다!" },
       "gapStep": { "speed": 150, "note": "3막 관문 위치 변주(시험값). 절단선 1번과 2번 사이에 보스만 옆으로 파고든다. 절단선은 플레이어 x 기준이라 예고·판정·시간은 그대로이고 다음 연계 행동이 오는 방향만 바뀐다. 항목을 지우면 개편 전 그대로." },
       "chain": {
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,

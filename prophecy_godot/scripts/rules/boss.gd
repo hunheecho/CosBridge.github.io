@@ -117,6 +117,16 @@ static func chain_init(e: Dictionary) -> void:
 	e.hop_dir = [0.0, 0.0]
 	e.chain_ok = false
 	e.chain_live = false
+	# 엄폐 대응·지형 파괴(cover_pre)가 쓰는 값
+	e.los_t = 0.0          # 시선이 막힌 채 지난 시간
+	e.cover_cd = 0.0       # 우회·간접 대응 사이 최소 간격
+	e.break_cd = 0.0       # 지형 파괴 사이 최소 간격
+	e.break_want = false   # 파괴 예고를 띄웠고 아직 부수지 못했다
+	e.break_want_t = 0.0   # 그 자격이 생긴 뒤 지난 시간(시효)
+	e.break_ob = {}
+	e.break_idx = -1
+	e.breaks = 0           # 이 전투에서 이 보스가 부순 수(계측)
+	e.zone_t = 0.0         # 지속 피해 장판 안에 서 있는 시간
 
 static func chain_reset(e: Dictionary) -> void:
 	e.chain_i = 0
@@ -354,7 +364,10 @@ static func candidates(st: CombatState, e: Dictionary) -> Array:
 	if d <= float(cfg.dash.maxDist) and los and (d >= float(cfg.dash.minDist) or hop_dash):
 		cands.append(["dash", float(cfg.weights.dash)])
 	var Bp: Dictionary = B.get("pounce", {})
-	if int(e.phase) >= int(Bp.get("minPhase", 2)) and d >= float(Bp.get("minDist", cfg.pounce.minDist)):
+	# 엄폐 대응으로 도약이 지목됐을 때만 단계·거리 조건을 풀어 준다(가시갈기의 파괴 행동은 착지 충격이다).
+	# 그 밖에는 개편 전 조건 그대로 — 평소에 도약이 늘어나지 않는다.
+	var free_pounce: bool = break_pat(e) == "pounce" and bool(breaker_of(e).get("freePhase", false))
+	if free_pounce or (int(e.phase) >= int(Bp.get("minPhase", 2)) and d >= float(Bp.get("minDist", cfg.pounce.minDist))):
 		cands.append(["pounce", float(cfg.weights.pounce)])
 	if can_howl(st, e):
 		cands.append(["howl", float(cfg.weights.howl)])
@@ -371,6 +384,9 @@ static func candidate_names(st: CombatState, e: Dictionary) -> Array:
 static func choose_pattern(st: CombatState, e: Dictionary) -> String:
 	if int(e.actions) == 0:
 		return "dash" # 첫 공격은 단일 돌진
+	var cov := cover_take(st, e) # 엄폐 대응(지형 파괴)이 예약돼 있으면 그것이 먼저
+	if cov != "":
+		return cov
 	var forced := chain_take(st, e) # 연계로 예약된 후속 행동이 먼저
 	if forced != "":
 		return forced
@@ -498,21 +514,31 @@ static func in_danger(st: CombatState, e: Dictionary, pt: Dictionary) -> bool:
 		return PGeom.dist(float(e.land.x), float(e.land.y), px, py) <= float(cfg.pounce.radius) + 14.0
 	return false
 
-# ---------- 봉인 수호자(guardian) 보정 ----------
-## 사람 플레이 관찰: ① 돌 뒤에 서면 휩쓸기(시선 검사)와 충격파(투사체가 장애물에서 멈춤)가 모두 빗나가
-## 보스가 전투 내내 한 대도 못 때렸다. ② 3단계 양갈래 충격파는 플레이어를 정확히 겨눈 뒤 좌우로만 쏘아
-## 가만히 서 있으면 매번 빗나갔다. 두 보정 모두 data/boss_behavior.json의 guardian.cover / guardian.split이 정본이고,
-## 설정이 없으면 개편 전 행동 그대로다(숫자를 코드에 두지 않는다).
+# ---------- 엄폐 대응·지형 파괴 공통 엔진(보스 9종이 함께 쓴다) ----------
+## 사람 플레이 관찰(2026-09-08 → 2026-09-09): "여전히 일부 보스를 바위 뒤에서 불씨로 일방적으로 공격할 수 있었다."
+## 원인은 하나가 아니다. ① 보스는 stopDist에서 걸음을 멈추므로, 그 거리에 돌이 끼면 시선이 **영원히** 막힌다.
+## ② 시선 검사를 하는 공격(휩쓸기·분사·발톱·돌파)은 후보에서조차 빠진다. ③ 보스가 불길(장판) 위에 선 채로 같은 판단을 반복한다.
+##
+## 대응은 세 가지이고 **모든 공격을 벽 관통으로 만들지 않는다**:
+##  ⓐ **그 보스의 성격에 맞는 지형 파괴**(breaker) — 보스마다 파괴 판정 모양이 다르다. 표는 docs/BOSS_BREAK.md.
+##  ⓑ 부술 수 없을 때(외곽 경계·종류 제한·남길 최소 수)는 **우회 재배치**(cover.mode = reposition) 또는 간접 공격(indirect).
+##  ⓒ 지속 피해 장판(불길·폭풍) 안에 서 있으면 **장판 밖으로 걸어 나간다**(cover.zoneOut).
+## 정본은 data/boss_behavior.json의 <보스>.cover / <보스>.breaker이고, 항목을 지우면 그 보스는 개편 전 그대로다.
+## 파괴 자격(license)은 "시선이 막힌 채 trigger 초"가 지나야 생긴다 — 그래서 **잠시 몸을 가리는 엄폐는 계속 유효**하다.
 ## 비교 측정 전용 스위치(기본값은 data/boss_behavior.json 그대로). 계측 도구가 방식을 바꿔가며 재려고 쓴다.
 ## 게임 실행에는 영향이 없다(아무도 부르지 않으면 파일 값 그대로).
 static var _cover_mode := "" # ""=파일 값 / "off"=엄폐 대응 없음(개편 전) / "reposition"|"indirect"|"break"
 static var _split_on := true # false = 양갈래 보정 없음(개편 전)
+static var _break_on := true # false = 지형 파괴 없음(개편 전). 엄폐 대응 방식만 비교할 때 끈다
 
 static func set_cover_mode(m: String) -> void:
 	_cover_mode = m
 
 static func set_split_on(v: bool) -> void:
 	_split_on = v
+
+static func set_break_on(v: bool) -> void:
+	_break_on = v
 
 static func gcfg(e: Dictionary, key: String) -> Dictionary:
 	var o: Dictionary = beh_e(e).get(key, {})
@@ -525,13 +551,98 @@ static func gcfg(e: Dictionary, key: String) -> Dictionary:
 		return {}
 	return o
 
-## 시선을 막는 장애물(보스 → 플레이어 선분에 처음 걸리는 것). 없으면 {}
-static func blocking_obstacle(st: CombatState, e: Dictionary) -> Dictionary:
-	var p := st.player
-	var sw := st.sweep_circle(e.x, e.y, p.x, p.y, 0.0)
-	if int(sw[1]) < 0:
+## 이 보스의 지형 파괴 설정. 스위치가 꺼져 있거나 항목이 없으면 {}(파괴 없음)
+static func breaker_of(e: Dictionary) -> Dictionary:
+	if not _break_on or _cover_mode == "off":
 		return {}
-	return st.obstacles[int(sw[1])]
+	return beh_e(e).get("breaker", {})
+
+## 지금 파괴 자격이 있는가(예고를 이미 띄웠고 아직 부수지 못했다)
+static func break_want(e: Dictionary) -> bool:
+	return bool(e.get("break_want", false))
+
+## 파괴 자격이 걸린 행동 이름(없으면 ""). 시선이 막혀 후보에서 빠지던 행동을 이 이름으로만 되살린다
+static func break_pat(e: Dictionary) -> String:
+	if not break_want(e):
+		return ""
+	return String(breaker_of(e).get("pattern", ""))
+
+## 시선 검사에 걸리는 후보를 판정할 때 쓴다: 시선이 트였거나, 지금 이 행동이 파괴 자격을 받은 행동이면 후보로 남긴다
+static func los_ok(e: Dictionary, los: bool, pat: String) -> bool:
+	return los or (pat != "" and pat == break_pat(e))
+
+## approach에서 다음 행동을 고를 때: 파괴 자격이 있으면 그 행동을 먼저 쓴다(엄폐 대응이 실제로 선택되게)
+static func cover_take(st: CombatState, e: Dictionary) -> String:
+	var pat := break_pat(e)
+	if pat == "":
+		return ""
+	for c in live_candidates(st, e):
+		if String(c[0]) == pat:
+			return pat
+	return ""
+
+## 고른 장애물을 실제로 부순다(CombatState.break_obstacle이 유일한 출구). 부순 개수를 돌려준다.
+## 파괴 자격이 없으면 아무것도 하지 않는다 — 지나가다 닿았다고 지형이 계속 사라지지 않는다.
+static func break_do(st: CombatState, e: Dictionary, idxs: Array, why: String) -> int:
+	if idxs.is_empty() or not break_want(e):
+		return 0
+	var Bk := breaker_of(e) # 비교용 옛 방식("break" 모드)에서는 비어 있을 수 있다 — 그때는 기본값을 쓴다
+	# 순서: ① 파괴 예고로 지목한 그 장애물(엄폐를 실제로 걷어내는 것) ② 보스에서 가까운 것.
+	# 여러 개가 걸려도 perHit 개까지만 부순다 — 한 번에 전장이 비지 않게.
+	var want: Dictionary = e.get("break_ob", {})
+	var order: Array = []
+	for k in idxs:
+		var i0: int = int(k)
+		if i0 < 0 or i0 >= st.obstacles.size():
+			continue
+		var ob0: Dictionary = st.obstacles[i0]
+		if order.any(func(q): return q[1] == ob0):
+			continue
+		order.append([_ob_key(e, want, ob0), ob0])
+	order.sort_custom(func(x, y): return float(x[0]) < float(y[0]))
+	var per: int = int(Bk.get("perHit", 1))
+	var n := 0
+	var last: Dictionary = {}
+	for q in order:
+		if n >= per:
+			break
+		var ob1: Dictionary = q[1]
+		var i: int = st.obstacles.find(ob1)
+		if i < 0:
+			continue
+		last = ob1
+		if st.break_obstacle(i, why):
+			n += 1
+	if n > 0:
+		e.break_want = false
+		e.break_cd = float(Bk.get("cd", 7.0))
+		e.los_t = 0.0
+		e.breaks = int(e.get("breaks", 0)) + n
+		st.text(float(last.get("x", e.x)), float(last.get("y", e.y)) - float(last.get("r", 0.0)) - 12.0, String(Bk.get("text", "엄폐물 파괴!")), "#ffd166")
+	return n
+
+## 파괴 대상 정렬 열쇠: 예고로 지목한 것은 -1(항상 먼저), 나머지는 보스와의 거리
+static func _ob_key(e: Dictionary, want: Dictionary, ob: Dictionary) -> float:
+	if not want.is_empty() and ob == want:
+		return -1.0
+	return PGeom.dist(e.x, e.y, float(ob.x), float(ob.y))
+
+## 이 보스의 공격 반폭(cover.pad). 가는 시선은 트였는데 두꺼운 공격만 돌에 먹히는 경우를 같은 잣대로 본다
+static func cover_pad(e: Dictionary) -> float:
+	return float(gcfg(e, "cover").get("pad", beh_e(e).get("cover", {}).get("pad", 0.0)))
+
+## 이 보스의 공격이 장애물에 먹히고 있는가(가는 시선이 아니라 **공격 폭** 기준)
+static func cover_blocked(st: CombatState, e: Dictionary) -> bool:
+	return blocking_index(st, e) >= 0
+
+## 공격을 먹는 장애물의 번호(보스 → 플레이어). 없으면 -1
+static func blocking_index(st: CombatState, e: Dictionary) -> int:
+	return PTerrain.blocking_index(st.obstacles, e.x, e.y, st.player.x, st.player.y, cover_pad(e))
+
+## 공격을 먹는 장애물(보스 → 플레이어 선에 처음 걸리는 것). 없으면 {}
+static func blocking_obstacle(st: CombatState, e: Dictionary) -> Dictionary:
+	var i := blocking_index(st, e)
+	return {} if i < 0 else st.obstacles[i]
 
 ## 플레이어가 보이는 자리 찾기: 플레이어 주위를 돌며 시선이 트이고 설 수 있는 가장 가까운 지점. 없으면 {}
 static func flank_spot(st: CombatState, e: Dictionary, dist: float) -> Dictionary:
@@ -554,14 +665,52 @@ static func flank_spot(st: CombatState, e: Dictionary, dist: float) -> Dictionar
 			best = { "x": vp[0], "y": vp[1] }
 	return best
 
-## PBoss2.update 앞: 엄폐 대응. 재배치 중이면 여기서 움직이고 PBoss2는 아무 상태도 처리하지 않는다(장치 갱신은 계속 돈다)
-static func guardian_pre(st: CombatState, e: Dictionary, dt: float) -> void:
+## 지속 피해 장판(플레이어의 불길·폭풍) 안에 서 있으면 걸어 나간다. 예고·판정을 바꾸지 않고 몸만 움직인다.
+## 이동 구간(approach·recover·roar)에서만 — 확정된 공격을 끊지 않는다.
+static func zone_escape(st: CombatState, e: Dictionary, C: Dictionary, dt: float) -> void:
+	var s := String(e.state)
+	if s != "approach" and s != "recover" and s != "roar":
+		return
+	var out := float(C.get("zoneOut", 0.0))
+	if out <= 0.0:
+		return
+	var dx := 0.0
+	var dy := 0.0
+	var inside := false
+	for z in st.zones:
+		var ty := String(z.type)
+		if ty != "fire" and ty != "storm":
+			continue
+		var d: float = PGeom.dist(float(z.x), float(z.y), e.x, e.y)
+		if d > float(z.r) + e.r:
+			continue
+		inside = true
+		var n := PGeom.norm(e.x - float(z.x), e.y - float(z.y))
+		dx += float(n[0])
+		dy += float(n[1])
+	if not inside:
+		e.zone_t = 0.0
+		return
+	e.zone_t = float(e.get("zone_t", 0.0)) + dt
+	st.metrics["zone_sec"] = float(st.metrics.get("zone_sec", 0.0)) + dt
+	if float(e.zone_t) < out:
+		return
+	if absf(dx) + absf(dy) < 1e-6:
+		dx = 1.0
+	var nn := PGeom.norm(dx, dy)
+	var spd: float = float(cfg_of(e).speed) * float(C.get("zoneSpeed", 1.0)) * st.enemy_speed_mult(e)
+	st.move_swept(e, float(nn[0]) * spd * dt, float(nn[1]) * spd * dt, true)
+
+## 보스 갱신 **앞**에 부르는 엄폐 대응. 재배치·파쇄 중이면 여기서 움직이고 보스 본체는 아무 상태도 처리하지 않는다.
+## (표식·낙석·장치처럼 정해진 시각에 스스로 진행하는 것들은 본체에서 계속 돈다 — 예고와 실제가 어긋나지 않는다.)
+static func cover_pre(st: CombatState, e: Dictionary, dt: float) -> void:
 	var C := gcfg(e, "cover")
-	if C.is_empty():
+	var Bk := breaker_of(e)
+	if C.is_empty() and Bk.is_empty():
 		return
 	var p := st.player
 	var cfg := cfg_of(e)
-	var blocked: bool = st.los_blocked(e.x, e.y, p.x, p.y)
+	var blocked: bool = cover_blocked(st, e)
 	var s := String(e.state)
 	# 재배치·돌 부수기 진행
 	if s == "reposition":
@@ -577,29 +726,58 @@ static func guardian_pre(st: CombatState, e: Dictionary, dt: float) -> void:
 			e.approach_t = maxf(0.0, min_approach(e, cfg) - 0.1) # 우회를 마치면 곧바로 다음 행동
 		return
 	if s == "breakrock":
+		# 지목형 파괴(봉인 수호자): 전용 예고 뒤에 그 장애물 하나만 부순다. 예고가 피해 판정보다 먼저 읽힌다
 		e.state_t = float(e.state_t) + dt
-		if float(e.state_t) >= float(C.get("breakWarn", 1.1)):
+		var warn: float = float(Bk.get("warn", C.get("breakWarn", 1.1)))
+		if float(e.state_t) >= warn:
+			var idx: int = int(e.get("break_idx", -1))
 			var ob: Dictionary = e.get("break_ob", {})
-			var idx: int = st.obstacles.find(ob)
-			if idx >= 0:
-				st.obstacles.remove_at(idx)
-				st.fx({ "kind": "burst", "x": float(ob.x), "y": float(ob.y), "r": float(ob.r) * 1.6, "ttl": 0.35, "color": "#8a6b45" })
-				st.fx({ "kind": "death", "x": float(ob.x), "y": float(ob.y), "r": float(ob.r), "ttl": 0.5 })
-				st.text(float(ob.x), float(ob.y) - float(ob.r) - 12.0, "엄폐물 파괴!", "#ffd166")
-				st.ev("shatter")
-			e.los_t = 0.0
+			if idx < 0 or idx >= st.obstacles.size() or st.obstacles[idx] != ob:
+				idx = st.obstacles.find(ob)
+			if break_do(st, e, [idx], "%s:designate" % String(e.get("boss_id", "boss"))) == 0:
+				e.break_want = false
+				e.los_t = 0.0
 			e.cover_cd = float(C.get("cd", 2.0))
 			PBoss2.to_approach(st, e)
 		return
 	e.cover_cd = maxf(0.0, float(e.get("cover_cd", 0.0)) - dt)
-	# 시선이 막힌 시간 누적: 공격을 확정한 뒤(실행 중)에는 세지 않는다(진행 중인 공격을 끊지 않는다)
-	if blocked and (s == "approach" or s == "recover" or s == "roar"):
+	e.break_cd = maxf(0.0, float(e.get("break_cd", 0.0)) - dt)
+	zone_escape(st, e, C, dt)
+	# 파괴 자격에는 시효가 있다: 자격을 받고도 wantTtl 안에 못 부수면 자격을 잃고 다음엔 우회로 간다
+	if break_want(e):
+		e.break_want_t = float(e.get("break_want_t", 0.0)) + dt
+		if float(e.break_want_t) >= float(Bk.get("wantTtl", 6.0)):
+			e.break_want = false
+	# 막힌 시간 누적: 확정·실행 중(boss_committed)만 뺀다. 준비(조준) 중에도 센다 —
+	# 연계로 쉬지 않고 공격하는 보스는 approach·recover에 거의 머물지 않아, 예전 규칙에서는
+	# "내 공격이 전부 돌에 먹히고 있다"를 영영 눈치채지 못했다(수호자 3단계 실측: 45초 동안 피해 0).
+	# 실제 행동(우회·파괴 예고)은 아래에서 approach·recover에서만 시작하므로 진행 중인 공격은 끊기지 않는다.
+	if blocked and not boss_committed(e):
 		e.los_t = float(e.get("los_t", 0.0)) + dt
 	elif not blocked:
 		e.los_t = 0.0
-	if float(e.get("los_t", 0.0)) < float(C.get("trigger", 1.0)) or float(e.get("cover_cd", 0.0)) > 0.0:
-		return
 	if s != "approach" and s != "recover":
+		return
+	# ⓐ 지형 파괴 자격: 시선을 막은 것이 '부술 수 있는 전투 장애물'이면 그 보스의 파괴 행동을 예고한다
+	if not Bk.is_empty() and not break_want(e) and float(e.get("break_cd", 0.0)) <= 0.0 and float(e.get("los_t", 0.0)) >= float(Bk.get("trigger", 1.2)):
+		var bi := blocking_index(st, e)
+		if bi >= 0 and st.obstacles.size() > int(PTerrain.break_rules().get("keepMin", 0)) and PTerrain.breakable(st.arena_w, st.arena_h, st.obstacles[bi], Bk.get("types", [])):
+			var ob2: Dictionary = st.obstacles[bi]
+			e.break_want = true
+			e.break_want_t = 0.0
+			e.break_idx = bi
+			e.break_ob = ob2
+			st.text(float(ob2.x), float(ob2.y) - float(ob2.r) - 12.0, String(Bk.get("aimText", "엄폐물을 노린다!")), "#ff8a5c")
+			st.ev("boss_lock")
+			if String(Bk.get("shape", "")) == "designate": # 전용 예고 상태를 쓰는 보스(봉인 수호자)
+				e.state = "breakrock"
+				e.state_t = 0.0
+				chain_reset(e)
+			return
+	# ⓑ 부술 수 없거나 아직 자격이 없다: 개편 전부터 있던 엄폐 대응(우회·간접)
+	if C.is_empty() or break_want(e):
+		return
+	if float(e.get("los_t", 0.0)) < float(C.get("trigger", 1.0)) or float(e.get("cover_cd", 0.0)) > 0.0:
 		return
 	match String(C.get("mode", "reposition")):
 		"reposition": # 우회: 예고 없이 몸만 움직인다(무적 없음). 플레이어가 보이는 자리로 돌아 들어간다
@@ -620,16 +798,20 @@ static func guardian_pre(st: CombatState, e: Dictionary, dt: float) -> void:
 			if not z.is_empty():
 				st.text(e.x, e.y - e.r - 30.0, String(C.get("text", "바닥이 갈라진다")), "#ffd9b0")
 				st.ev("hazard_warn")
-		"break": # 엄폐물 파괴: 예고 뒤 시선을 막은 돌을 부순다(그 뒤에는 평소 공격이 닿는다)
-			var ob := blocking_obstacle(st, e)
-			if ob.is_empty():
+		"break": # 비교용 옛 방식: 예고 뒤 시선을 막은 돌을 부순다(지금은 breaker가 정본)
+			var bi2 := blocking_index(st, e)
+			if bi2 < 0:
 				e.los_t = 0.0
 				return
-			e.break_ob = ob
+			var ob3: Dictionary = st.obstacles[bi2]
+			e.break_idx = bi2
+			e.break_ob = ob3
+			e.break_want = true
+			e.break_want_t = 0.0
 			e.state = "breakrock"
 			e.state_t = 0.0
 			chain_reset(e)
-			st.text(float(ob.x), float(ob.y) - float(ob.r) - 12.0, String(C.get("text", "엄폐물을 노린다!")), "#ff8a5c")
+			st.text(float(ob3.x), float(ob3.y) - float(ob3.r) - 12.0, String(C.get("text", "엄폐물을 노린다!")), "#ff8a5c")
 			st.ev("boss_lock")
 
 ## PBoss2.update 뒤: 양갈래 충격파 보정.
@@ -676,11 +858,11 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 	if bool(e.get("dummy", false)): # 허수아비(시험실): 행동 없음
 		e.anim_t = float(e.get("anim_t", 0.0)) + dt
 		return
+	# 엄폐 대응·지형 파괴 자격(보스 9종 공통). 재배치·파쇄 중이면 아래 본체는 아무 상태도 처리하지 않는다
+	cover_pre(st, e, dt)
 	if String(e.get("boss_id", "boss")) != "boss":
 		if String(e.get("boss_id", "")) == "guardian":
-			# 봉인 수호자 보정(이 파일에서만 붙인다 — 패턴 본체는 PBoss2에 있고 그 파일은 이번 작업의 담당 밖):
-			# ① 엄폐 대응(돌 뒤에 서면 한 대도 못 때리던 문제) ② 양갈래 충격파의 중앙 공백
-			guardian_pre(st, e, dt)
+			# 봉인 수호자 보정: 양갈래 충격파의 중앙 공백(엄폐 대응은 위 cover_pre가 9종 공통으로 한다)
 			var prev_state := String(e.state)
 			var prev_left: int = int(e.get("shock_left", 0))
 			PBoss2.update(st, e, dt)
@@ -826,6 +1008,8 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 				e.airborne = false
 				e.x = float(land.x)
 				e.y = float(land.y)
+				# 가시갈기의 지형 파괴: **도약 착지 충격**. 예고된 착지 원 안의 엄폐물이 피해 판정보다 **먼저** 부서진다
+				break_do(st, e, PTerrain.pick_circle(st.arena_w, st.arena_h, st.obstacles, e.x, e.y, float(cfg.pounce.radius), breaker_of(e).get("types", [])), "boss:pounce")
 				# 지면 충격: 표시된 원 범위. 장애물 가림 없음
 				if PGeom.dist(e.x, e.y, p.x, p.y) <= float(cfg.pounce.radius) + p.r:
 					st.damage_player(float(cfg.pounce.damage), "boss_pounce", e)
