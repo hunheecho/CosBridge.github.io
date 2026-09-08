@@ -221,7 +221,8 @@ func _init() -> void:
 				gap_ok = false
 		if PGeom.dist(altars[i].x, altars[i].y, sa.player.x, sa.player.y) < 170.0 or not sa.valid_pos(altars[i].x, altars[i].y, altars[i].r):
 			gap_ok = false
-	ok("제단 3개: 서로 200 이상·플레이어 170 이상·유효 위치, 체력 90, 경험치 0", altars.size() == 3 and gap_ok and altars[0].hp == 90.0 and sa.xp_for(altars[0]) == 0.0)
+	# 제단 체력은 임무 개편(PObjectives.TUNE.altar, 시험값)에서 막·빌드 기준으로 올렸다: 1막 기준 220(레벨 1·대장간 0)
+	ok("제단 3개: 서로 200 이상·플레이어 170 이상·유효 위치, 체력 220(1막 시험값), 경험치 0", altars.size() == 3 and gap_ok and altars[0].hp == 220.0 and sa.xp_for(altars[0]) == 0.0, "hp %.0f" % float(altars[0].hp))
 	sa.spawn_hold = true
 	for a in altars:
 		sa.damage_enemy(a, 9999.0, "test")
@@ -271,6 +272,8 @@ func _init() -> void:
 					covers = true
 	ok("위험 지형: 7초마다 플레이어 주변 최대 3개, 목표 지점을 덮지 않는다", hz2 >= 1 and hz2 <= 3 and not covers, "hz %d" % hz2)
 	chain_tests()
+	mission_tests()
+	guardian_tests()
 	var pass_n := 0
 	for r in results:
 		if r[0]:
@@ -369,3 +372,148 @@ func chain_tests() -> void:
 	bz.state = "recover"; bz.state_t = 0.0; bz.recover_dur = 2.0
 	st.step({ "special": true }, STEP)
 	ok("가시갈기: 감속장 안 빈틈 진행도 dt × 0.4 (빈틈이 짧아지지 않는다)", absf(float(bz.state_t) - STEP * 0.4) < 1e-9, "%.5f" % float(bz.state_t))
+
+## 임무 개편(PObjectives.TUNE, 시험값) 검사: 편성 근거·인구 하한·진행 잠금·표시 값
+func mission_tests() -> void:
+	if not PObjectives.on():
+		ok("임무 개편이 꺼져 있어(PROPHECY_OBJ=off) 임무 검사를 건너뛴다", true)
+		return
+	var run := PRun.new_run(3, "sword")
+	run.day = 2
+	run.hp = float(PRun.build(run).hp_max)
+	var cards: Array = PSortie.cards_for(run)
+	var s := { "regionId": String(cards[0].regionId), "deep": false, "loot": { "gold": 0, "mats": {}, "chestGold": 0 }, "encounters": 0,
+		"seed": 991, "day": 2, "slot": 1, "variant": null, "mission": true, "objective": "seal", "risk": null, "cardId": "t" }
+	var ms := PFlow.make_encounter(run, s, { "fixed_build": true })
+	var day_total := PPacing.day_total(2, 1)
+	ok("임무도 일반 전투와 같은 날짜 예산 편성을 쓴다(개편 전에는 목표 규칙이 10마리로 덮어썼다)",
+		ms.spawn_total >= day_total - 2 and ms.spawn_total > 12, "총 %d (날짜 예산 %d)" % [ms.spawn_total, day_total])
+	ok("임무 편성에 정예는 목표 규칙이 정한 만큼만 있다(봉인 임무 = 0)", ms.elite_count().total == 0, str(ms.elite_count()))
+	var types := {}
+	for u in ms.formation.units:
+		types[String(u)] = 1
+	ok("임무 편성도 지역 구성 그대로다(한 종류만 나오지 않는다)", types.size() >= 1, str(types.keys()))
+	# 지원병: 인구 하한은 기본 편성이 다 나온 뒤에만, 예산은 진행률로 열린다(무한 파밍 금지)
+	var ss := CombatState.new({ "build": PBuild.derive(PBuild.empty_run_like(PGrowth.new_growth("sword"))), "seed": 7, "arena": "clearing",
+		"objective": "seal", "region_id": "forest", "pool": ["wolf"], "xp_kill_mult": 0.3 })
+	var R: Dictionary = ss.obj.reinforce
+	ok("봉인 지원: 유한 예산(%d) · 인구 하한 %d · 진행 잠금 %.2f" % [int(R.budget_total), int(R.floor), float(R.gate_base)],
+		int(R.budget_total) > 0 and int(R.floor) > 0 and float(R.gate_base) < 1.0)
+	var locked := PObjectives.unlocked_budget(ss, R)
+	ss.obj.progress = float(ss.obj.total)
+	var opened := PObjectives.unlocked_budget(ss, R)
+	ok("지원 예산은 목표 진행률로 열린다(진행 0 → %d, 진행 100%% → %d)" % [locked, opened], locked < opened and opened == int(R.budget_total))
+	ss.obj.progress = 0.0
+	# 표시: 원 밖 정지 / 진행 중 / 피격 중단 구분 + 방향·거리
+	var z := {}
+	for ob in ss.objects:
+		if String(ob.kind) == "seal":
+			z = ob
+	ss.player.x = float(z.x) + 300.0
+	ss.player.y = float(z.y)
+	ss.step({}, STEP)
+	var m1 := PObjectives.marker(ss)
+	var l1 := PObjectives.hud_line(ss, ss.obj)
+	ok("봉인 표시: 원 밖이면 state=outside + 방향·거리 안내", String(m1.state) == "outside" and l1.contains("원 밖") and l1.contains(String(m1.dir)), l1)
+	ss.player.x = float(z.x)
+	ss.player.y = float(z.y)
+	ss.step({}, STEP)
+	var m2 := PObjectives.marker(ss)
+	ok("봉인 표시: 원 안이면 state=progress · 진행 중", String(m2.state) == "progress" and bool(m2.inside) and PObjectives.hud_line(ss, ss.obj).contains("진행 중"), PObjectives.hud_line(ss, ss.obj))
+	ss.damage_player(5.0, "test")
+	ss.step({}, STEP)
+	ok("봉인 표시: 피격 중단은 원 밖 정지와 구분된다", String(PObjectives.marker(ss).state) == "hit_pause" and PObjectives.hud_line(ss, ss.obj).contains("피격 중단"), PObjectives.hud_line(ss, ss.obj))
+	var h := PObjectives.hud(ss)
+	ok("규칙이 내보내는 표시 값: marker{x,y,r,state,dist,dir} · progress (화면이 큰 목표 표시·방향 안내에 쓸 수 있다)",
+		h.has("marker") and (h.marker as Dictionary).has("dir") and h.has("progress"))
+	# 제단: 첫 효과가 파괴보다 먼저 오도록 첫 발동을 앞당겼다
+	var sa2 := CombatState.new({ "build": PBuild.derive(PBuild.empty_run_like(PGrowth.new_growth("sword"))), "seed": 7, "arena": "clearing",
+		"objective": "altars", "region_id": "forest", "pool": ["wolf"], "xp_kill_mult": 0.3 })
+	var first_max := 0.0
+	for a in sa2.obj.altars:
+		first_max = maxf(first_max, float(a.timer))
+	ok("제단 첫 효과 발동은 2.5초 안(무엇을 하는 제단인지 부수기 전에 보인다)", first_max <= 2.5 + 1e-6, "%.2f초" % first_max)
+	var guards := 0
+	for e in sa2.enemies:
+		if e.structure or e.dead:
+			continue
+		for a in sa2.obj.altars:
+			if PGeom.dist(e.x, e.y, a.x, a.y) <= 130.0:
+				guards += 1
+				break
+	ok("제단마다 호위가 붙어 있다(편성에서 뺀 수라 총 등장 수·경험치 예산은 그대로)", guards >= 3, "호위 %d" % guards)
+
+## 봉인 수호자 보정: 엄폐 대응(우회)과 양갈래(각도 변주·중앙 후속)
+func guardian_tests() -> void:
+	if PBoss.gcfg({ "boss_id": "guardian", "phase": 1 }, "cover").is_empty():
+		ok("보스 행동 개편이 꺼져 있어 수호자 보정 검사를 건너뛴다", true)
+		return
+	PBoss.set_cover_mode("")
+	PBoss.set_split_on(true)
+	# ① 엄폐: 돌 뒤에 선 채로 두면 보스가 우회해 시선을 확보한다
+	var st := CombatState.new({ "build": build(), "seed": 11, "arena": "clearing", "boss": true, "boss_id": "guardian",
+		"region_id": "boss", "xp_kill_mult": 0.3, "boss_hp": 1000000.0 })
+	run_until(st, func(): return String(st.boss.state) != "intro", 3.0)
+	var bz: Dictionary = st.boss
+	var spot := []
+	for ob in st.obstacles:
+		for k in 12:
+			var a: float = float(k) * TAU / 12.0
+			var x: float = clampf(float(ob.x) + cos(a) * (float(ob.r) + 26.0), 30.0, st.arena_w - 30.0)
+			var y: float = clampf(float(ob.y) + sin(a) * (float(ob.r) + 26.0), 30.0, st.arena_h - 30.0)
+			if st.valid_pos(x, y, float(st.player.r)) and st.los_blocked(float(bz.x), float(bz.y), x, y):
+				spot = [x, y]
+				break
+		if not spot.is_empty():
+			break
+	var saw_repos := false
+	var blocked_end := true
+	if not spot.is_empty():
+		for i in int(8.0 / STEP):
+			st.player.x = spot[0]
+			st.player.y = spot[1]
+			st.step({}, STEP)
+			st.player.hp = st.player.hp_max
+			if String(bz.state) == "reposition":
+				saw_repos = true
+		blocked_end = st.los_blocked(float(bz.x), float(bz.y), st.player.x, st.player.y)
+	ok("수호자: 돌 뒤에 계속 서 있으면 우회해 시선을 확보한다(8초 안)", not spot.is_empty() and saw_repos and not blocked_end, "우회 %s · 끝에 시선 막힘 %s" % [str(saw_repos), str(blocked_end)])
+	ok("수호자 우회는 예고 상태가 아니다(무예고 처벌 아님 — 몸만 움직이고 무적도 없다)", not PBoss.is_warn_state("reposition") and not PBoss2.is_committed({ "boss_id": "guardian", "state": "reposition" }))
+	ok("우회·엄폐물 파괴 상태에 화면 문구가 있다", PCatalog.boss_action_text().has("reposition") and PCatalog.boss_action_text().has("breakrock"))
+	# ② 양갈래: 각도 변주가 예고(aim_angle)와 실제 발사 각(dir)에 똑같이 들어간다
+	var st2 := CombatState.new({ "build": build(), "seed": 11, "arena": "forest", "boss": true, "boss_id": "guardian",
+		"region_id": "boss", "xp_kill_mult": 0.3, "boss_hp": 1000000.0 })
+	run_until(st2, func(): return String(st2.boss.state) != "intro", 3.0)
+	var b2: Dictionary = st2.boss
+	b2.phase = 3
+	b2.phase_pending = 3
+	var offs := []
+	var centers := 0
+	var splits := 0
+	var last := ""
+	var warn_ok := true
+	for i in int(60.0 / STEP):
+		st2.player.x = clampf(float(b2.x) + 300.0, 30.0, st2.arena_w - 30.0)
+		st2.player.y = float(b2.y)
+		st2.step({}, STEP)
+		st2.player.hp = st2.player.hp_max
+		b2.phase = 3
+		b2.phase_pending = 3
+		var s := String(b2.state)
+		if s == "shock_lock" and last == "shock_aim":
+			if int(b2.shock_left) >= 2:
+				splits += 1
+				offs.append(absf(float(b2.get("split_off", 0.0))))
+			else:
+				centers += 1
+			# 확정 각(dir) = 마지막으로 화면에 보여준 예고 각(aim_angle)
+			if absf(PGeom.ang_diff(float(b2.dir), float(b2.aim_angle))) > 1e-6:
+				warn_ok = false
+		last = s
+	var any_off := false
+	for o in offs:
+		if o > 0.0:
+			any_off = true
+	ok("수호자 3단계: 양갈래 뒤에 중앙 단발 충격파가 이어진다(중앙 %d회 / 양갈래 %d회)" % [centers, splits], splits > 0 and centers > 0)
+	ok("수호자 3단계: 양갈래 조준 각을 번갈아 돌린다(정지한 플레이어를 매번 비껴가지 않는다)", any_off, str(offs.slice(0, 6)))
+	ok("수호자: 화면 예고 각과 확정 발사 각이 같다(예고와 판정 일치)", warn_ok)

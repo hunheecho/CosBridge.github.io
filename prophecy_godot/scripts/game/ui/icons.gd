@@ -75,6 +75,22 @@ static func texture(key: String, big: bool = true) -> Texture2D:
 	cache[file] = tex
 	return tex
 
+## 흑백(재사용 대기 중) 아이콘. 같은 그림을 채도 0으로 바꿔 만든다(그림을 다른 효과로 바꾸지 않는다).
+## 결과를 정적 캐시에 두지 않는다: 만든 이미지 자원을 부르는 쪽(PIconTile 노드)이 들고 있다가 화면과 함께 정리한다
+## — 정적 변수에 두면 렌더 서버가 내려간 뒤에 풀려 종료 때 죽는 일이 있었다(2026-09-08).
+static func texture_gray(key: String, big: bool = true) -> Texture2D:
+	var src := texture(key, big)
+	if src == null:
+		return null
+	var img: Image = src.get_image()
+	if img == null:
+		return src
+	var copy: Image = img.duplicate()
+	if copy.is_compressed():
+		copy.decompress()
+	copy.adjust_bcs(1.0, 1.0, 0.0) # 밝기·대비 그대로, 채도 0 = 흑백
+	return ImageTexture.create_from_image(copy)
+
 ## 아이콘 색(자리표시 기호에도 같은 계열을 쓰지 않는다 — 자리표시는 항상 중립 회색)
 static func color(key: String) -> Color:
 	var e := entry(key)

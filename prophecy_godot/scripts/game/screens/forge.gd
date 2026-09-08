@@ -5,11 +5,13 @@ extends PScreen
 
 var _swap: Dictionary = {}   # {slot, index, new_id, mods[]} — 비어 있으면 교체 중 아님
 var _craft := ""             # 미리보기 중인 제작법 id("" = 없음)
+var _formula_open := false   # 가격 계산식·규칙 설명을 펼쳤는가(기본 접힘 — 사람 플레이 뒤 요구 2026-09-08)
 
 func on_escape() -> bool:
-	if not _swap.is_empty() or _craft != "":
+	if not _swap.is_empty() or _craft != "" or _formula_open:
 		_swap = {}
 		_craft = ""
+		_formula_open = false
 		refresh()
 		return true
 	return false
@@ -28,27 +30,40 @@ func refresh() -> void:
 	if not _swap.is_empty():
 		_swap_view(r)
 		return
-	top.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]시간 소모 없음[/color]" % PGlossaryTip.term("forge", "대장간"), 20))
+	top.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]시간 소모 없음[/color]" % PGlossaryTip.term("forge", "대장간"), 22))
 	var g: Dictionary = r.growth
 	var b := PBuild.derive(r)
 	var SH := PCatalog.shop()
 	var cols := two_cols(0.5)
 	var left: VBoxContainer = cols.left
 	var right: VBoxContainer = cols.right
-	# 공용 공격 강화
-	var F := PRun.forge_next(r)
-	var fc := PUi.card("%s [color=#9ea8b8]현재 %d단계 · 자동기술 피해 ×%s[/color]" % [PGlossaryTip.term("forge", "공용 공격 강화"), int(r.get("forge", 0)), PUi.fmt(float(b.forge_mult))], PUi.CARD_ON if (not F.is_empty() and bool(F.open) and bool(F.affordable)) else PUi.CARD)
+	# 자동기술 강화(2026-09-08 시험값): 전체가 아니라 **고른 자동기술 하나**에 투자한다
+	var fc := PUi.card("%s [color=#9ea8b8]자동기술 하나를 골라 강화한다[/color]" % PGlossaryTip.term("forge", "자동기술 강화"), PUi.CARD)
 	var fbox: VBoxContainer = fc.box
-	if F.is_empty():
-		fbox.add_child(PUi.rich("[color=#9ea8b8]최대 단계[/color]", 13))
-	else:
-		fbox.add_child(PUi.rich("%d단계: 자동기술 피해 ×%s · 금화 [color=%s][b]%d[/b][/color]%s" % [int(F.lv), PUi.fmt(1.0 + float(SH.forgeMult[int(F.lv)])), "#ff8c73" if int(r.gold) < int(F.cost) else "#ffd966", int(F.cost), (" [color=#ff8c73]· 보스 %d 처치 후 개방[/color]" % int(F.afterBoss)) if not bool(F.open) else ""], 13))
-		var lbl := "잠김" if not bool(F.open) else ("강화" if bool(F.affordable) else "%d 부족" % (int(F.cost) - int(r.gold)))
-		fbox.add_child(PUi.button(lbl, func(): main.forge_upgrade(), bool(F.open) and bool(F.affordable), 13))
-	var costs := []
-	for f in SH.forge:
-		costs.append(str(int(f.cost)))
-	fbox.add_child(PUi.rich("[color=#9ea8b8]단계별 %s · 2단계는 1보스, 3단계는 2보스 처치 후[/color]" % " / ".join(costs), 11))
+	for w in (r.growth.weapons as Array):
+		var wid := String(w.id)
+		var wname := String(PCatalog.weapon(wid).name)
+		var wlv: int = PRun.forge_level_of(r, wid)
+		var Fw := PRun.forge_next(r, wid)
+		var cur := "현재 %d단계 · 피해 ×%s" % [wlv, PUi.fmt(PBuild.forge_mult_of(b, wid))]
+		if Fw.is_empty():
+			fbox.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s · 더 올릴 수 없다[/color]" % [wname, cur], 14))
+			continue
+		fbox.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s[/color]" % [wname, cur], 14))
+		fbox.add_child(PUi.rich("다음 %d단계: 피해 ×%s · 금화 [color=%s][b]%d[/b][/color]%s" % [
+			int(Fw.weaponLv), PUi.fmt(1.0 + float(SH.forgeMult[mini(int(Fw.weaponLv), (SH.forgeMult as Array).size() - 1)])),
+			"#ff8c73" if int(r.gold) < int(Fw.cost) else "#ffd966", int(Fw.cost),
+			(" [color=#ff8c73]· 보스 %d 처치 후 개방[/color]" % int(Fw.afterBoss)) if not bool(Fw.open) else ""], 13))
+		var lbl := "잠김" if not bool(Fw.open) else ("이 기술 강화" if bool(Fw.affordable) else "%d 부족" % (int(Fw.cost) - int(r.gold)))
+		var wid_c := wid
+		fbox.add_child(PUi.button(lbl, func(): main.forge_upgrade(wid_c), bool(Fw.open) and bool(Fw.affordable), 13))
+	if bool(b.get("forge_legacy", false)):
+		fbox.add_child(PUi.rich("[color=#9ea8b8]이전 회차에서 산 전체 강화는 그대로 유지된다. 다음 강화부터 고른 기술에만 붙는다.[/color]", 12))
+	if _formula_open:
+		var costs := []
+		for f in SH.forge:
+			costs.append(str(int(f.cost)))
+		fbox.add_child(PUi.rich("[color=#9ea8b8]비용은 회차 전체에서 이어진다: %s · 2번째는 1보스, 3번째는 2보스 처치 후[/color]" % " / ".join(costs), 12))
 	left.add_child(fc.panel)
 	# 개조·변형 변경
 	var mc := PRun.mod_change_cost(r)
@@ -60,7 +75,8 @@ func refresh() -> void:
 	var vname := PGlossaryTip.term("voucher", "개조 변경권")
 	var cc := PUi.card("%s·%s 변경 [color=#9ea8b8]같은 기술의 다른 후보 3택 · 보유 %s %d장[/color]" % [PGlossaryTip.term("mod", "개조"), PGlossaryTip.term("variant", "변형"), vname, vouchers])
 	var cbox: VBoxContainer = cc.box
-	cbox.add_child(PUi.rich("[color=#9ea8b8]%s 1장 = 개조 1개를 같은 기술의 다른 효과로 바꿉니다(기술 자체를 바꾸는 '%s'와 다릅니다).[/color]" % [vname, PGlossaryTip.term("swap", "기술 교체")], 11))
+	if _formula_open:
+		cbox.add_child(PUi.rich("[color=#9ea8b8]%s 1장 = 개조 1개를 같은 기술의 다른 효과로 바꿉니다(기술 자체를 바꾸는 '%s'와 다릅니다).[/color]" % [vname, PGlossaryTip.term("swap", "기술 교체")], 12))
 	var any := false
 	for w in g.weapons:
 		var wid := String(w.id)
@@ -74,7 +90,7 @@ func refresh() -> void:
 			mrow.add_child(PUi.icon_of(PIcons.weapon_key(wid), 28.0, "", "", 0.0, 0))
 			mrow.add_child(PUi.icon_of(PIcons.mod_key(wid, mid), 28.0, "", "", 0.0, 0))
 			row.add_child(mrow)
-			row.add_child(PUi.rich("[b]%s[/b]: %s" % [PGlossaryTip.esc(String(wd.name)), PGlossaryTip.esc(String(wd.mods[mid].name))], 13))
+			row.add_child(PUi.rich("[b]%s[/b]: %s" % [PGlossaryTip.esc(String(wd.name)), PGlossaryTip.esc(String(wd.mods[mid].name))], 15))
 			var has_cand: bool = not PFlow._mod_candidates(r.duplicate(true), wid, mid).is_empty()
 			var ok: bool = no_offer and has_cand and (bool(mc.voucher) or int(r.gold) >= int(mc.gold))
 			var label := "후보 없음" if not has_cand else ("변경권 사용" if bool(mc.voucher) else "%dG로 변경" % int(mc.gold))
@@ -92,7 +108,8 @@ func refresh() -> void:
 		cbox.add_child(row2)
 	else:
 		cbox.add_child(PUi.rich("[color=#6a7078]E 변형 없음[/color]", 12))
-	cbox.add_child(PUi.rich("[color=#9ea8b8]바꿀 후보가 없으면 아무것도 차감되지 않습니다. 3택에서 '받지 않음'을 고르면 원래 개조가 그대로 남고 %s(또는 금화)이 그대로 돌아옵니다.[/color]" % vname, 11))
+	if _formula_open:
+		cbox.add_child(PUi.rich("[color=#9ea8b8]바꿀 후보가 없으면 아무것도 차감되지 않습니다. 3택에서 '받지 않음'을 고르면 원래 개조가 그대로 남고 %s(또는 금화)이 그대로 돌아옵니다.[/color]" % vname, 12))
 	left.add_child(cc.panel)
 	# 기술 교체
 	var SW: Dictionary = SH.swap
@@ -117,15 +134,17 @@ func refresh() -> void:
 		sbox.add_child(row3)
 	else:
 		sbox.add_child(PUi.rich("[color=#6a7078]E 없음[/color]", 12))
-	sbox.add_child(PUi.rich("[color=#9ea8b8]교체하면 옛 기술은 남지 않습니다. 확정 전까지 금화는 차감되지 않습니다.[/color]", 11))
-	sbox.add_child(PUi.rich("[color=#6a7078]가격 계산식(상세): %d + (레벨−1)×%d + 개조 수×%d[/color]" % [int(SW.base), int(SW.perLevel), int(SW.perMod)], 11))
+	if _formula_open:
+		sbox.add_child(PUi.rich("[color=#9ea8b8]교체하면 옛 기술은 남지 않습니다. 확정 전까지 금화는 차감되지 않습니다.[/color]", 12))
+		sbox.add_child(PUi.rich("[color=#9ea8b8]가격 계산식: %d + (레벨−1)×%d + 개조 수×%d[/color]" % [int(SW.base), int(SW.perLevel), int(SW.perMod)], 12))
 	right.add_child(sc.panel)
 	right.add_child(_craft_card(r))
 	right.add_child(PUi.build_panel(r))
-	var back := PUi.button("거점으로 (Esc)", func(): main.go_base(), true, 14)
+	var back := PUi.button("거점으로 (Esc)", func(): main.go_base(), true, 15)
 	bottom.add_child(back)
-	bottom.add_child(PUi.button("상점", func(): main.show("shop"), true, 14))
-	bottom.add_child(PUi.button("장비", func(): main.show("equip"), true, 14))
+	bottom.add_child(PUi.button("상점", func(): main.show("shop"), true, 15))
+	bottom.add_child(PUi.button("장비", func(): main.show("equip"), true, 15))
+	bottom.add_child(PUi.button("설명·계산식 닫기 ▾" if _formula_open else "설명·계산식 ▸", func(): _formula_open = not _formula_open; refresh(), true, 13))
 	default_button = back
 
 # ---------- 제작(시험값 meta.json): 해금된 제작법 목록 → 미리보기(소비 장비·재료·금화, 효과 차이) → 확정/취소. 확정 전에는 아무것도 소비하지 않는다 ----------

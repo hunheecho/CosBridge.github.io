@@ -86,10 +86,14 @@ func _init() -> void:
 	var en := st.spawn_enemy("wolf", 300.0, 300.0, false, "red")
 	var ea := st.spawn_enemy("wolf", 400.0, 300.0, false, "apex")
 	var e0 := st.spawn_enemy("wolf", 500.0, 300.0, false, "normal")
-	ok("붉은 늑대: 역할별 고정 체력표 150(주력 근접 2.2초 × 2막 초 기준 DPS 68), 피해 배율 1.10, 이름 접두 '붉은 ', 속도 동일", is_equal_approx(float(en.hp), PPacing.tier_hp("wolf", "red")) and is_equal_approx(float(en.tier_dmg), float(TR.red.dmg)) and String(en.name).begins_with("붉은") and float(en.def.speed) == float(e0.def.speed), "%s hp %.1f" % [String(en.name), float(en.hp)])
-	ok("변이 늑대: 고정 체력표 330(2.2초 × 3막 초 기준 DPS 150), 피해 배율 1.20", is_equal_approx(float(ea.hp), PPacing.tier_hp("wolf", "apex")) and is_equal_approx(float(ea.tier_dmg), float(TR.apex.dmg)))
-	ok("등급 교체 구조(사용자 결정): 일반 30 < 붉은 150 < 변이 330, 붉은 개체는 막이 바뀌어도 같은 체력(3막에서 상대적으로 쉬워지고 변이가 주력 위협)", float(e0.hp) == 30.0 and float(en.hp) < float(ea.hp) and PPacing.tier_hp("wolf", "red") == 150.0)
-	ok("역할별로 다른 체력: 궁수(지원 2.0초) 붉은 135 · 방패병(중장갑 4.0초) 붉은 270 — 늑대 배율을 그대로 복제하지 않는다", PPacing.tier_hp("archer", "red") == 135.0 and PPacing.tier_hp("shieldbearer", "red") == 270.0 and PPacing.tier_hp("archer", "red") != PPacing.tier_hp("wolf", "red"))
+	ok("붉은 늑대: 역할별 고정 체력표(H3 321 = H2 262 × √1.50), 피해 배율 1.10, 이름 접두 '붉은 ', 속도 동일", is_equal_approx(float(en.hp), PPacing.tier_hp("wolf", "red")) and is_equal_approx(float(en.tier_dmg), float(TR.red.dmg)) and String(en.name).begins_with("붉은") and float(en.def.speed) == float(e0.def.speed), "%s hp %.1f" % [String(en.name), float(en.hp)])
+	ok("변이 늑대: 고정 체력표(H3 791 = H2 612 × √1.67), 피해 배율 1.20", is_equal_approx(float(ea.hp), PPacing.tier_hp("wolf", "apex")) and is_equal_approx(float(ea.tier_dmg), float(TR.apex.dmg)))
+	# 2026-09-08 2차 상향: 일반 늑대는 본편에서 48(1막 기준 DPS 22 × 주력 근접 2.2초). 승인된 첫 전투의 30과는 다른 값이며 그쪽은 따로 보존한다
+	ok("등급 교체 구조(사용자 결정): 일반 48 < 붉은 321 < 변이 791, 붉은 개체는 막이 바뀌어도 같은 체력(3막에서 상대적으로 쉬워지고 변이가 주력 위협)", float(e0.hp) == 48.0 and float(en.hp) < float(ea.hp) and PPacing.tier_hp("wolf", "red") == 321.0)
+	var ref_st := CombatState.first_fight(preload("res://scripts/game/game.gd").load_config(), 1)
+	var ref_wolf := ref_st.spawn_enemy("wolf", 300.0, 300.0)
+	ok("승인된 첫 전투는 본편 체력 시험값을 적용하지 않는다(과거 비교용 고정): 기준 전투 늑대 30", is_equal_approx(float(ref_wolf.hp), 30.0), "%.1f" % float(ref_wolf.hp))
+	ok("역할별로 다른 체력(성장 보정 뒤): 궁수 붉은 296 · 방패병 붉은 570 — 늑대 배율을 그대로 복제하지 않는다", PPacing.tier_hp("archer", "red") == 296.0 and PPacing.tier_hp("shieldbearer", "red") == 570.0 and PPacing.tier_hp("archer", "red") != PPacing.tier_hp("wolf", "red"))
 	st.intro = 0.0
 	st.damage_player(12.0, "wolf:bite", en)
 	ok("붉은 늑대 물기 12 → 13.2(피해 ×1.10), 유효·명목 모두 13.2", is_equal_approx(st.stats.damage_taken, 13.2) and is_equal_approx(st.stats.damage_taken_nominal, 13.2), "%.1f" % st.stats.damage_taken)
@@ -138,7 +142,7 @@ func _init() -> void:
 	var bs8 := PRun.start_boss(r8)
 	var st8 := PFlow.make_boss_encounter(r8, bs8)
 	var w8 := st8.spawn_enemy("wolf", 200.0, 200.0, true)
-	ok("보스전 소환 늑대는 등급 없음(normal, 체력 30)", String(w8.tier) == "normal" and is_equal_approx(float(w8.hp), 30.0))
+	ok("보스전 소환 늑대는 등급 없음(normal). 체력은 본편 일반 시험값 48", String(w8.tier) == "normal" and is_equal_approx(float(w8.hp), 48.0))
 	var ff := CombatState.first_fight(PCatalog.first_fight(), 7)
 	for i in 600:
 		ff.step({}, STEP)

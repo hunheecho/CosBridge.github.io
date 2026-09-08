@@ -21,6 +21,15 @@ func _count_text(node: Node, needle: String) -> int:
 		n += _count_text(c, needle)
 	return n
 
+func _find_button(node: Node, needle: String) -> Button:
+	if node is Button and String((node as Button).text).find(needle) >= 0:
+		return node as Button
+	for c in node.get_children():
+		var b := _find_button(c, needle)
+		if b != null:
+			return b
+	return null
+
 func _run() -> void:
 	PProfile.use_path("user://prophecy_profile_ui_test_v1.json")
 	PProfile.clear()
@@ -61,6 +70,18 @@ func _run() -> void:
 	await process_frame
 	var forge: Node = main.screens["forge"]
 	ok("대장간 제작 칸: 월광 갑옷 미리보기 버튼, 잠긴 제작법 5개 조건 표시", _count_text(forge, "월광 갑옷") >= 1 and _count_text(forge, "미리보기") == 1 and _count_text(forge, "잠김:") == 1)
+	# 가독성(사람 플레이 뒤 요구 2026-09-08): 계산식·반복 안내는 기본 화면이 아니라 '설명·계산식'에 둔다
+	var fbtn := _find_button(forge, "설명·계산식")
+	ok("대장간 기본 화면에 가격 계산식이 없고, 펼치는 버튼이 따로 있다", fbtn != null and _count_text(forge, "가격 계산식") == 0)
+	if fbtn != null:
+		fbtn.pressed.emit()
+		await process_frame
+		ok("펼치면 가격 계산식이 나온다", _count_text(main.screens["forge"], "가격 계산식") == 1)
+		var fbtn2 := _find_button(main.screens["forge"], "설명·계산식 닫기")
+		if fbtn2 != null:
+			fbtn2.pressed.emit()
+			await process_frame
+	forge = main.screens["forge"]
 	forge._craft = "moon_armor"
 	forge.refresh()
 	await process_frame
@@ -73,6 +94,17 @@ func _run() -> void:
 	main.show("shop")
 	await process_frame
 	ok("장비·상점 화면 표시(제작품 장착 상태)", _count_text(main.screens["equip"], "월광 갑옷") >= 1 and _count_text(main.screens["shop"], "월광 갑옷") >= 1)
+	# 상점 카드: 이름 · 핵심 효과 · 비용 · 실제 변화량을 먼저, 구현 설명은 '상세 보기'로
+	var shop: Node = main.screens["shop"]
+	ok("상점 재고 카드가 장착 시 실제 변화량을 먼저 보여 준다", _count_text(shop, "장착하면") >= 1)
+	var sbtn := _find_button(shop, "상세 보기")
+	ok("상점 카드의 긴 설명·되팔 값·규칙은 '상세 보기'에 있다", sbtn != null and _count_text(shop, "되팔 때") == 0)
+	if sbtn != null:
+		sbtn.pressed.emit()
+		await process_frame
+		ok("상점 카드 상세를 펼치면 되팔 값·규칙이 나온다", _count_text(main.screens["shop"], "되팔 때") == 1)
+	# 장비 화면: 해제/장착 시 실제 변화량
+	ok("장비 화면이 장착·해제 시 바뀌는 값을 보여 준다", _count_text(main.screens["equip"], "해제하면") >= 1 or _count_text(main.screens["equip"], "장착하면") >= 1)
 	# 전투 승리 → 보상 화면에 영구 기록 한 줄
 	main.go_base()
 	await process_frame

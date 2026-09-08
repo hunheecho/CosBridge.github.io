@@ -180,6 +180,26 @@
       "env": {},
       "timeout_sec": 600,
       "desc": "장애물 충돌·접촉 탈출 규칙"
+    },
+    "elites_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "방패병 정면 방어 확정값·특수 정예 7종 규칙"
+    },
+    "elites_bot_measure": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "특수 정예 7종 봇 계측(승패는 통과 조건이 아니다)"
+    },
+    "mission_probe": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "봉인·제단 임무 계측(지원 예산·간격·상한·진행률). 통과 판정이 아니라 기록"
+    },
+    "boss_cover_probe": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "보스 엄폐 대응 비교 계측(돌 뒤 정지 정책). 통과 판정이 아니라 기록"
     }
   },
   "groups": {
@@ -202,7 +222,8 @@
       "run_layer_tests",
       "world_tests",
       "content_tests",
-      "ui_flow_tests"
+      "ui_flow_tests",
+      "elites_tests"
     ],
     "rules": [
       "run_tests",
@@ -212,7 +233,8 @@
       "acts_tests",
       "theme_tests",
       "endless_tests",
-      "meta_tests"
+      "meta_tests",
+      "elites_tests"
     ],
     "boss": [
       "boss_tests",

@@ -82,6 +82,27 @@ static func has_fire_source(g: Dictionary) -> bool:
 
 ## 상태 공급원 판정(공통, F5): 개조 ID가 아니라 카탈로그 태그(weapons.json mods[].tags: "bleed")로 판단한다.
 ## 출혈 공급원 = tags에 bleed가 있는 개조(쌍검 출혈 칼날, 회전 칼날 톱날). 화상 공급원 = 불붙은 공격·불씨 정령·잔불 걸음. 냉기 = 얼음 파편.
+## 그 레벨에서 가질 수 있는 개조 수(시험값): 기본 0, 자격 레벨 2에서 1, 4에서 2.
+## 슬롯 상한(SLOTS.weaponMods)을 넘지 않는다. 기존 저장이 이미 더 많이 갖고 있으면 줄이지 않는다
+## 옛 성장 구조 재현(전후 비교 전용): PROPHECY_GROWTH_LEGACY=1이면 레벨 배율 1/1.2/1.4/1.6/1.8,
+## 개조 자격 없음(Lv1부터 2개), 대장간은 전체 강화. 게임 기본값이 아니다.
+static var growth_legacy := OS.get_environment("PROPHECY_GROWTH_LEGACY") != ""
+const LEGACY_LEVEL_MULT := [1.0, 1.2, 1.4, 1.6, 1.8]
+
+static func mod_quota(level: int) -> int:
+	var G := G()
+	if growth_legacy:
+		return int(G.SLOTS.weaponMods)
+	var ul: Array = G.get("MOD_UNLOCK_LEVEL", [])
+	var cap: int = int(G.SLOTS.weaponMods)
+	if ul.is_empty():
+		return cap
+	var n := 0
+	for need in ul:
+		if level >= int(need):
+			n += 1
+	return mini(n, cap)
+
 static func weapon_mod_has_tag(weapon_id: String, mod_id: String, tag: String) -> bool:
 	var W := PCatalog.weapons()
 	if not W.has(weapon_id):
@@ -193,7 +214,9 @@ static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 		var d: Dictionary = W[String(w.id)]
 		if int(w.level) < int(S.weaponMax):
 			push.call({ "kind": "weapon_level", "id": String(w.id), "tags": d.get("tags", []) })
-		if (w.mods as Array).size() < int(S.weaponMods):
+		# 개조 자격 레벨(2026-09-08 시험값): Lv2에서 첫 개조, Lv4에서 두 번째 개조 자격.
+		# 자동 지급이 아니라 그때부터 후보로 나타난다. 기존 저장의 이미 얻은 개조는 회수하지 않는다.
+		if (w.mods as Array).size() < mod_quota(int(w.level)):
 			for mid in d.mods:
 				var md: Dictionary = d.mods[mid]
 				if not bool(md.impl) or (w.mods as Array).has(mid):
@@ -363,7 +386,7 @@ static func apply_choice(run: Dictionary, choice: Dictionary, dry: bool = false)
 			w.level = int(w.level) + 1
 		"weapon_mod":
 			var w := weapon_of(g, String(choice.id))
-			if w.is_empty() or (w.mods as Array).size() >= int(S.weaponMods) or (w.mods as Array).has(String(choice.mod)):
+			if w.is_empty() or (w.mods as Array).size() >= mod_quota(int(w.level)) or (w.mods as Array).has(String(choice.mod)):
 				push_error("전용 증강"); return false
 			(w.mods as Array).append(String(choice.mod))
 		"common":

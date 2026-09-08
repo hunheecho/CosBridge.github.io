@@ -140,7 +140,7 @@ func _perform(act: Dictionary, sortie: Dictionary = {}) -> Variant:
 		"buy_equipment": return PRun.buy_equipment(run, String(d.id), true, String(d.from))
 		"buy_skill": return PRun.buy_skill(run)
 		"buy_merchant_service": return PRun.buy_merchant_service(run)
-		"forge_upgrade": return PRun.forge_upgrade(run)
+		"forge_upgrade": return PRun.forge_upgrade(run, String(act.get("data", {}).get("weaponId", "")))
 		"equip": return PRun.equip_item(run, String(d.id))
 		"unequip":
 			PRun.unequip_item(run, String(d.slot))

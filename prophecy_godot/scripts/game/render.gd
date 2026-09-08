@@ -317,7 +317,14 @@ static func draw_zones(ci: Node2D, st: CombatState) -> void:
 					var late: bool = k > 0.7
 					dashed_circle(ci, zx, zy, zr, rgba(255, 90, 60, 0.5 + 0.5 * absf(sin(st.t * 20.0))) if late else rgba(255, 140, 90, 0.7), 3.0 if late else 2.0, 6.0, 5.0)
 					ci.draw_circle(c, zr * k, rgba(255, 120, 60, 0.1 + 0.2 * k))
-					txt(ci, zx, zy - zr - 6.0, "지형 붕괴 예고" if String(z.get("tag", "")) == "terrain" else "제단 위험 예고", 11, C("#ffd9b0"))
+					var _zt := String(z.get("tag", ""))
+					var _ztxt := "위험 예고"
+					match _zt:      # 예고 문구는 실제 출처를 말한다(전부 '제단'으로 적지 않는다)
+						"terrain": _ztxt = "지형 붕괴 예고"
+						"altar": _ztxt = "제단 위험 예고"
+						"boss": _ztxt = "보스 공격 예고"
+						"elite": _ztxt = "정예 공격 예고"
+					txt(ci, zx, zy - zr - 6.0, _ztxt, 11, C("#ffd9b0"))
 				else:
 					ci.draw_circle(c, zr, rgba(255, 70, 40, 0.3 + 0.25 * life))
 					stroke_circle(ci, zx, zy, zr, rgba(255, 150, 100, 0.8), 2.0)
@@ -1461,7 +1468,8 @@ static func draw_boar(ci: Node2D, st: CombatState, e: Dictionary) -> void:
 
 static func draw_shieldbearer(ci: Node2D, _st: CombatState, e: Dictionary) -> void:
 	var stt := String(e.state)
-	var open: bool = stt == "bash_aim" or stt == "bash" or stt == "recover"
+	# 규칙(PEnemiesNew.guard_closed)과 맞춘다: 준비(bash_aim) 중에도 방패는 닫혀 있다
+	var open: bool = stt == "bash" or stt == "recover"
 	var alpha := begin_alpha(e)
 	if alpha <= 0.0:
 		return

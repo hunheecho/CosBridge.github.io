@@ -12,7 +12,9 @@
     "minApproach: 행동 사이 대기 — 예고가 아니라 '아무것도 안 하는 시간'이다.",
     "<패턴>.chainAfter: 표식·포자 탄·낙석처럼 착탄을 기다리는 상태에서, 그 초가 지나면 보스가 서서 기다리지 않고 다음 행동으로 이을 수 있다(남은 예고는 계속 제 시각에 터진다).",
     "markBusy: 잔여 표식이 남아 있는 동안에도 이을 수 있는 행동(잔여 예고와 다음 예고가 모든 출구를 막지 않도록 좁게 둔다).",
-    "그 밖의 <패턴>.<키>: 보스 정의(enemies.json·bosses_new.json)의 같은 키를 덮어쓴다. 여기서는 거리 후보 조건(minDist/maxDist)과 '걸어오는 시간'(집행관 guard.dur)만 바꾸고, 예고(aim/lock/warn/cast)는 하나도 줄이지 않았다."
+    "그 밖의 <패턴>.<키>: 보스 정의(enemies.json·bosses_new.json)의 같은 키를 덮어쓴다. 여기서는 거리 후보 조건(minDist/maxDist)과 '걸어오는 시간'(집행관 guard.dur)만 바꾸고, 예고(aim/lock/warn/cast)는 하나도 줄이지 않았다.",
+    "guardian.cover / guardian.split: 봉인 수호자의 엄폐 대응·양갈래 보정(2026-09-08 사람 플레이 피드백). 코드는 scripts/rules/boss.gd의 guardian_pre/guardian_post. 근거·비교표는 docs/MISSION_BOSS_FEEDBACK.md.",
+    "doom_executor.gapStep: 3막 관문의 위치 변주. 코드는 scripts/rules/boss3.gd의 gap_step. 예고·피해·시간은 그대로 두고 보스 위치만 바꾼다."
   ],
   "enabled": true,
   "bosses": {
@@ -34,6 +36,15 @@
     },
     "guardian": {
       "minApproach": 0.08,
+      "cover": {
+        "mode": "reposition", "trigger": 1.0, "cd": 2.0, "speed": 1.25, "spotDist": 190, "moveMax": 2.5, "maxDist": 420, "text": "우회한다",
+        "warn": 1.1, "ttl": 1.4, "r": 70, "dmg": 14, "breakWarn": 1.1,
+        "note": "엄폐 대응 방식 비교 스위치(시험값). reposition = 우회 재배치 / indirect = 예고된 바닥 위험(시선 무관) / break = 예고 뒤 엄폐물 파괴. trigger = 시선이 막힌 채 이 초가 지나면 대응, cd = 대응 사이 최소 간격. 우회는 예고 없이 몸만 움직이고 무적이 없다. warn·ttl·r·dmg는 indirect 전용, breakWarn은 break 전용. 항목을 지우면 개편 전(돌 뒤 무피해)."
+      },
+      "split": {
+        "offsetEvery": 2, "offsetMult": 1.0, "centerText": "가운데를 노린다!",
+        "note": "3단계 양갈래 충격파(count 2)가 정지한 플레이어를 항상 비껴가던 문제(시험값). offsetEvery = 몇 번에 한 번 조준 각을 돌릴지, offsetMult = 돌리는 양(spread 배수, 1.0이면 한 갈래가 플레이어를 정면으로 지나간다). 양갈래 뒤에는 가운데 단발 충격파를 잇는다 — 단발도 원래 예고(준비 0.6·확정 0.35초)를 그대로 쓴다."
+      },
       "chain": {
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
@@ -139,12 +150,13 @@
       "minApproach": 0.08,
       "guard": { "maxDist": 420, "dur": 1.1, "minDur": 0.5 },
       "slash": { "gap": 0.35 },
+      "gapStep": { "speed": 150, "note": "3막 관문 위치 변주(시험값). 절단선 1번과 2번 사이에 보스만 옆으로 파고든다. 절단선은 플레이어 x 기준이라 예고·판정·시간은 그대로이고 다음 연계 행동이 오는 방향만 바뀐다. 항목을 지우면 개편 전 그대로." },
       "chain": {
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
         "follow": {
           "slash": [["guard", 1.2], ["summon", 0.8]],
-          "guard": [["slash", 1.4]],
+          "guard": [["slash", 1.4], ["summon", 0.5]],
           "summon": [["slash", 1.4], ["guard", 1.0]],
           "*": [["slash", 1.0], ["guard", 1.2], ["summon", 0.6]]
         }

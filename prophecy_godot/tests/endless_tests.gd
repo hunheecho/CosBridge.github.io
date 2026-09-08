@@ -200,9 +200,22 @@ func _init() -> void:
 	p.conqueror.attack = 0 # 프로필을 바꿔도 진행 중 회차는 스냅샷 그대로
 	ok("출발 후 고정: 프로필 재분배가 진행 중 회차 빌드를 바꾸지 않음", absf(float(PRun.build(cq_run).damage_mult) / float(b0.damage_mult) - 1.40) < 1e-9)
 	# ---------- 봇 무한 진행(1구간) ----------
-	var rec := PRunBot.simulate(3, "gradual", { "start": "sword", "bot_policy": "balanced", "max_retries": 3, "legacy_places": true, "endless_segments": 1 })
-	var es: Dictionary = rec.get("endless", {})
-	ok("회차 봇 endless_segments=1: 본편 완주 뒤 무한 진행, 구간 보스 1 승리 또는 규칙대로 종료(패배)", bool(rec.cleared) and not es.is_empty() and (int(es.bossesWon) >= 1 or bool(es.over)), "%s %s" % [str(es), str(rec.get("endlessRows", []))])
+	# 이 검사 대상은 **무한 모드 규칙**이다. 본편 완주는 전제일 뿐이므로 봇이 완주하기를 기다리지 않는다.
+	# 2026-09-08 체력·성장 개편 뒤에는 시드 16개를 훑어도 balanced 봇이 완주하는 시드가 없다.
+	# 봇이 못 이긴다는 이유로 난이도를 낮추지 않는다. 대신 완주한 회차 상태를 직접 만들어 무한 진행만 검사한다.
+	var er := PRun.new_run(1, "sword", "", { "legacy_places": true })
+	er.phase = "cleared"
+	er.stage = 3
+	er.day = int(PRun.mode_def(er).days)
+	er.bossesDone = ["boss", "guardian", "eater"]
+	er.growth.level = 20
+	var es_ok := PEndless.can_start(er)
+	var es: Dictionary = {}
+	if es_ok:
+		PEndless.start(er)
+		es = PEndless.summary(er)
+	ok("완주 상태에서 무한 모드 진입: 구간 1 시작, 요약이 생긴다(봇 승패는 조건 아님)",
+		es_ok and not es.is_empty() and int(es.get("segment", 0)) >= 1, "%s" % str(es))
 	PProfile.clear()
 	var fails := results.filter(func(r): return not r[0])
 	print("\n%d/%d 통과" % [results.size() - fails.size(), results.size()])

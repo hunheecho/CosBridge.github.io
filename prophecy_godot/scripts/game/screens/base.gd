@@ -87,6 +87,8 @@ func refresh() -> void:
 		row.add_child(res.panel)
 		if first_btn == null and res.button != null and not (res.button as Button).disabled:
 			first_btn = res.button
+		if first_btn == null and res.get("repeat_button", null) != null and not (res.repeat_button as Button).disabled:
+			first_btn = res.repeat_button # 오늘 카드를 다 끝냈으면 '일반 탐험'이 기본 버튼이 된다
 	left.add_child(row)
 	_merchant_card(r, left)
 	_services_card(r, left)
@@ -186,7 +188,8 @@ func _place_card(r: Dictionary, c: Dictionary) -> Dictionary:
 	var reward := "금화 %d~%d" % [int(round(float(reg.reward.gold[0]) * gm)), int(round(float(reg.reward.gold[1]) * gm))]
 	var steer := PSortie.steer_state(r, c)
 	var done: bool = bool(c.done)
-	var card := PUi.card("", PUi.CARD_OFF if (done or not can) else PUi.CARD)
+	var rep_ok := _repeat_ready(r, c) # 완료한 카드라도 '일반 탐험'이 가능하면 카드를 흐리게 두지 않는다
+	var card := PUi.card("", PUi.CARD_OFF if ((done or not can) and not rep_ok) else PUi.CARD)
 	var box: VBoxContainer = card.box
 	var title := "[b]%s[/b] [color=#9ea8b8][%d칸][/color]  %s" % [PGlossaryTip.esc(String(reg.name)), int(c.timeCost), (PGlossaryTip.term("mission", String(O.name)) if not O.is_empty() else "전멸")]
 	if elite:
@@ -252,7 +255,41 @@ func _place_card(r: Dictionary, c: Dictionary) -> Dictionary:
 	var btn := PUi.button(label, func(): main.start_sortie_card(cid), can, 16)
 	btn.custom_minimum_size = Vector2(0, PLayout.primary_button_height()) # 주 행동: 큰 버튼(터치 대상)
 	box.add_child(btn)
-	return { "panel": card.panel, "button": btn }
+	return { "panel": card.panel, "button": btn, "repeat_button": _repeat_button(r, c, box) }
+
+## 이 카드에 '일반 탐험' 버튼을 보여야 하는가(완료한 카드 + 규칙이 켜져 있고 준비 단계 + 관문 날 아님)
+func _repeat_shown(r: Dictionary, c: Dictionary) -> bool:
+	return bool(c.done) and PPacing.repeat_enabled() and String(r.phase) == "prep" and not PRun.is_boss_day(r)
+
+## 지금 실제로 나갈 수 있는가. 판정은 공통 규칙이 만든 반복 카드 + PSortie.can_start 그대로다
+func _repeat_ready(r: Dictionary, c: Dictionary) -> bool:
+	if not _repeat_shown(r, c):
+		return false
+	var again_id := String(c.id) + ":again"
+	for x in PSortie.repeat_cards(r): # 시간이 모자라면 목록이 비어 있다 → 비활성 버튼으로 이유를 보여 준다
+		if String(x.id) == again_id:
+			return PSortie.can_start(r, x)
+	return false
+
+## 남는 시간의 '일반 탐험'(정본 data/pacing.json repeat_sortie): 새 카드를 만들지 않고 완료한 장소 카드 안에 버튼 하나를 더 둔다.
+## 카드·시간·출격 가능 판정은 모두 공통 규칙(PSortie.repeat_cards / PSortie.can_start)이 준 값이며 여기서 새 규칙을 만들지 않는다.
+## 보상은 정상 전투 전리품뿐이다(임무 보상·사건·이용권·예약은 PSortie.start / PFlow가 repeat 표시로 막는다).
+func _repeat_button(r: Dictionary, c: Dictionary, box: VBoxContainer) -> Button:
+	if not _repeat_shown(r, c):
+		return null
+	var again_id := String(c.id) + ":again"
+	var cost := PPacing.repeat_cost()
+	var can_rep := _repeat_ready(r, c)
+	var rname := PPacing.repeat_label()
+	var label := ("%s (%d칸)" % [rname, cost]) if can_rep else ("%s · 시간 부족 (%d칸 필요)" % [rname, cost])
+	var tries := int(c.get("repeatAttempts", 0))
+	if tries > 0 and can_rep:
+		label += " · 시도 %d" % tries
+	box.add_child(PUi.rich("[color=#9ea8b8]%s: 같은 장소로 한 번 더 · 전리품·경험치만 (임무 보상·사건·이용권 없음)[/color]" % PGlossaryTip.esc(rname), 11))
+	var rb := PUi.button(label, func(): main.start_sortie_card(again_id), can_rep, 15)
+	rb.custom_minimum_size = Vector2(0, PLayout.primary_button_height())
+	box.add_child(rb)
+	return rb
 
 func _toggle_detail(cid: String) -> void:
 	_detail_open[cid] = not bool(_detail_open.get(cid, false))

@@ -95,7 +95,12 @@ func _make_tip(id: String, pinned: bool) -> PanelContainer:
 		close.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		head.add_child(close)
 	v.add_child(head)
-	var body := PUi.rich(String(d.body), 12)
+	var body_text := String(d.body)
+	if id.begins_with("w:"):
+		var made := weapon_body(id.substr(2))
+		if made != "":
+			body_text = made
+	var body := PUi.rich(body_text, 13)
 	v.add_child(body)
 	var rel: Array = d.get("related", [])
 	if rel.size() > 0:
@@ -109,6 +114,62 @@ func _make_tip(id: String, pinned: bool) -> PanelContainer:
 		v.add_child(PUi.rich("[color=#6a7078]용어를 다시 누르거나 바깥을 누르면 닫힘[/color]", 10))
 	add_child(p)
 	return p
+
+## 자동기술 툴팁 본문: 기본 공격 / 현재 개조 / 추가 효과 / 수치로 문단을 나눈다.
+## 지금 붙어 있지 않은 개조는 절대 '현재 개조'와 섞지 않는다(아직 없는 효과를 지금 효과처럼 읽지 않게).
+## 현재 빌드는 회차(main.cur_run)를 읽기만 한다 — 없으면 카탈로그 기본값만 적는다.
+static func weapon_body(wid: String) -> String:
+	var W := PCatalog.weapons()
+	if not W.has(wid):
+		return ""
+	var d: Dictionary = W[wid]
+	var run := _run_of_layer()
+	var owned: Array = []
+	var ws: Dictionary = {}
+	var level := 0
+	if not run.is_empty():
+		var b := PBuild.derive(run)
+		for w in b.get("weapons", []):
+			if String(w.id) == wid:
+				ws = w
+				owned = (w.get("mods", []) as Array).duplicate()
+				level = int(w.level)
+	var out: Array = []
+	out.append("[b]기본 공격[/b]")
+	var base: Dictionary = d.get("base", {})
+	out.append("피해 %s · 주기 %s초%s" % [PUi.fmt(float(base.get("damage", 0.0))), PUi.fmt(float(base.get("interval", 0.0))), (" · 사거리 %d" % int(float(base.get("range", 0.0)))) if float(base.get("range", 0.0)) > 0.0 else ""])
+	out.append("[b]현재 개조[/b]")
+	if owned.is_empty():
+		out.append("[color=#6a7078]%s[/color]" % ("아직 없음" if not run.is_empty() else "회차 밖 — 보유 개조 없음"))
+	else:
+		for m in owned:
+			var mid := String(m)
+			out.append("· [b]%s[/b] %s" % [esc(String(d.mods[mid].name)), esc(String(d.mods[mid].get("desc", "")))])
+	var rest: Array = []
+	for mid2 in d.mods:
+		if owned.has(String(mid2)) or not bool(d.mods[mid2].get("impl", false)):
+			continue
+		rest.append("· %s %s" % [esc(String(d.mods[mid2].name)), esc(String(d.mods[mid2].get("desc", "")))])
+	if rest.size() > 0:
+		out.append("[b]추가 효과[/b] [color=#9ea8b8]아직 붙어 있지 않은 개조 후보[/color]")
+		for line in rest:
+			out.append("[color=#9ea8b8]%s[/color]" % String(line))
+	if not ws.is_empty():
+		out.append("[b]수치[/b] [color=#9ea8b8]지금 내 빌드[/color]")
+		out.append("Lv%d · 피해 [b]%s[/b] · 주기 [b]%s초[/b]%s" % [level, PUi.fmt(float(ws.damage)), PUi.fmt(float(ws.interval)), (" · 사거리 [b]%d[/b]" % int(round(float(ws.range)))) if float(ws.get("range", 0.0)) > 0.0 else ""])
+	return "\n".join(out)
+
+## 툴팁 층이 붙어 있는 화면에서 진행 중인 회차를 읽는다(읽기 전용, 없으면 {})
+static func _run_of_layer() -> Dictionary:
+	if layer == null or not layer.is_inside_tree():
+		return {}
+	var n: Node = layer
+	while n != null:
+		if n.has_method("cur_run"):
+			var r = n.call("cur_run")
+			return r if typeof(r) == TYPE_DICTIONARY else {}
+		n = n.get_parent()
+	return {}
 
 func _bounds() -> Rect2:
 	return PLayout.safe_rect(get_viewport()) if is_inside_tree() else Rect2(0.0, 0.0, PLayout.BASE_W, PLayout.BASE_H)

@@ -10,7 +10,17 @@ static func is_wolf(d: Dictionary) -> bool:
 static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 	var type := String(e.type)
 	if bool(e.get("structure", false)):
+		# 제단·봉인 장치는 PObjectives가 굴린다. 정예가 만든 깃발·돌무더기는 스스로 수명을 센다(부수면 즉시 사라진다)
+		if PEnemiesNew.ELITE_STRUCTURES.has(type):
+			PEnemiesNew.update(st, e, dt)
 		return
+	# 군단 기수 깃발의 집결·돌격 명령은 시간 제한이 있고, 깃발이 사라지면 다음 단계에 저절로 꺼진다
+	if float(e.get("rally_t", 0.0)) > 0.0:
+		e.rally_t = float(e.rally_t) - dt
+		if float(e.rally_t) <= 0.0:
+			e.rally_t = 0.0
+			e.ordered = false
+			e.leash_boost = 1.0
 	if is_wolf(e.def):
 		update_wolf(st, e, dt)
 	elif type == "archer":

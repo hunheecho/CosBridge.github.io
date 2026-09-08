@@ -13,6 +13,17 @@ static func empty_run_like(growth: Dictionary) -> Dictionary:
 	return { "growth": growth, "equipment": { "weapon": null, "armor": null, "shield": null }, "forge": 0, "buffs": {} }
 
 ## 무기 파생 수치(HTML Growth.weaponStats)
+## 그 자동기술에 적용되는 대장간 강화 배율. 없으면 1.0
+static func forge_mult_of(b: Dictionary, weapon_id: String) -> float:
+	if PGrowth.growth_legacy:
+		return 1.0   # 옛 구조에서는 대장간이 전체 강화라 b.damage_mult 쪽에 들어간다
+	var by: Dictionary = b.get("forge_by_skill", {})
+	var lv: int = int(by.get(weapon_id, 0))
+	if lv <= 0:
+		return 1.0
+	var mults: Array = PCatalog.shop().forgeMult
+	return 1.0 + float(mults[mini(lv, mults.size() - 1)])
+
 static func weapon_stats(b: Dictionary, w: Dictionary) -> Dictionary:
 	var d := PCatalog.weapon(String(w.id))
 	var base: Dictionary = d.base
@@ -22,7 +33,7 @@ static func weapon_stats(b: Dictionary, w: Dictionary) -> Dictionary:
 			base[k] = b.spear_override[k] # 밸런스 세트의 창 후보(근접 약화·주기, test03 시험값 — PORT_BASELINE C9)
 	var G := PCatalog.growth()
 	var lv: int = mini(int(w.level), int(G.SLOTS.weaponMax))
-	var lv_mult: float = float(G.LEVEL_MULT[lv - 1])
+	var lv_mult: float = float(PGrowth.LEGACY_LEVEL_MULT[lv - 1]) if PGrowth.growth_legacy else float(G.LEVEL_MULT[lv - 1])
 	var s := base.duplicate(true)
 	s.id = String(w.id)
 	s.level = int(w.level)
@@ -30,7 +41,10 @@ static func weapon_stats(b: Dictionary, w: Dictionary) -> Dictionary:
 	s.def = d
 	s.kind = String(d.kind)
 	s.name = String(d.name)
-	s.damage = float(base.damage) * lv_mult * float(b.damage_mult)
+	# 대장간 강화(2026-09-08 시험값): 전체 강화가 아니라 **고른 자동기술 하나**에 투자한다.
+	# b.forge_by_skill[무기 id] 단계의 배율을 그 무기 피해에만 곱한다.
+	# 옛 저장(전체 강화 run.forge)은 derive에서 모든 무기에 같은 단계를 넣어 화력을 그대로 보존한다.
+	s.damage = float(base.damage) * lv_mult * float(b.damage_mult) * forge_mult_of(b, String(w.id))
 	s.interval = float(base.interval) * float(b.interval_mult)
 	if bool(d.reach) and base.has("range"):
 		s.range = float(base.range) * float(b.range_mult)
@@ -74,12 +88,23 @@ static func derive(run: Dictionary) -> Dictionary:
 				equip[k] = ed.eff[k]
 	var forge: int = mini(3, int(run.get("forge", 0)))
 	var forge_mults: Array = PCatalog.shop().forgeMult
+	# 무기별 대장간 강화 표. 새 회차는 run.forgeBySkill을 쓰고, 옛 저장(run.forge만 있는 회차)은
+	# 그 단계를 모든 자동기술에 그대로 넣어 화력을 보존한다(조용히 약해지지 않게).
+	var forge_by_skill := {}
+	var fbs = run.get("forgeBySkill", null)
+	if typeof(fbs) == TYPE_DICTIONARY:
+		for k in (fbs as Dictionary):
+			forge_by_skill[String(k)] = int((fbs as Dictionary)[k])
+	elif forge > 0:
+		for w0 in g.get("weapons", []):
+			forge_by_skill[String(w0.id)] = forge
 	var b := {
 		"hp_max": float(C.PLAYER.hp) + float(equip.get("hpMax", 0.0)),
 		"shield": float(equip.get("startShield", 0.0)),
 		"exposed_mult": float(C.PLAYER.exposedMult),
 		"skill_cd_mult": 1.0, "dodge_cd_mult": 1.0,
-		"forge": forge, "forge_mult": 1.0 + float(forge_mults[forge]),
+		"forge": forge, "forge_mult": (1.0 + float(forge_mults[forge])) if PGrowth.growth_legacy else 1.0, # 전체 강화 자리는 비운다(무기별로 옮겼다). 옛 구조 재현에서만 쓴다
+		"forge_by_skill": forge_by_skill, "forge_legacy": typeof(run.get("forgeBySkill", null)) != TYPE_DICTIONARY and forge > 0,
 		"equip": equip, "equip_ids": equip_ids,
 		"growth": g, "level": int(g.level),
 	}

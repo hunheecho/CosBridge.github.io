@@ -132,8 +132,9 @@ func _init() -> void:
 	ok("적 장판 총량 상한 10: 죽은 적이 남긴 장판이 쌓여도 화면을 덮지 않는다(플레이어 장판은 대상 아님)", ez <= PPacing.max_enemy_zones() and PPacing.max_enemy_zones() == 10, "%d" % ez)
 
 	# ---------- 지시 5: 역할별 고정 체력표 ----------
-	ok("등급 교체 구조: 늑대 일반 30 → 붉은 150 → 변이 330(붉은 개체는 막이 바뀌어도 같은 체력)", PPacing.tier_hp("wolf", "normal") == 30.0 and PPacing.tier_hp("wolf", "red") == 150.0 and PPacing.tier_hp("wolf", "apex") == 330.0)
-	ok("늑대 배율을 다른 적에 그대로 복제하지 않는다(역할별): 궁수 135 · 방패병 270 · 잠복충 54", PPacing.tier_hp("archer", "red") == 135.0 and PPacing.tier_hp("shieldbearer", "red") == 270.0 and PPacing.tier_hp("burrower", "red") == 54.0)
+	# 2026-09-08 성장 보정 뒤 값(H3 = H2 × √R). 유도 과정은 docs/sim/GROWTH_HP_REBALANCE.md
+	ok("등급 교체 구조(성장 보정 뒤): 늑대 일반 48 → 붉은 321 → 변이 791(붉은 개체는 막이 바뀌어도 같은 체력)", PPacing.tier_hp("wolf", "normal") == 48.0 and PPacing.tier_hp("wolf", "red") == 321.0 and PPacing.tier_hp("wolf", "apex") == 791.0)
+	ok("늑대 배율을 다른 적에 그대로 복제하지 않는다(역할별, 성장 보정 뒤): 궁수 296 · 방패병 570 · 잠복충 66", PPacing.tier_hp("archer", "red") == 296.0 and PPacing.tier_hp("shieldbearer", "red") == 570.0 and PPacing.tier_hp("burrower", "red") == 66.0)
 	var inverted := []
 	for tp in PPacing.tier_table():
 		if tp == "note":
@@ -143,15 +144,31 @@ func _init() -> void:
 			inverted.append(String(tp))
 	ok("등급 역전 없음(상위 등급이 하위보다 약하지 않다)", inverted.is_empty(), str(inverted))
 	ok("체력표는 고정값이다: 기준 DPS × 역할 목표 시간으로 미리 계산했고 실행 중 플레이어 DPS를 읽지 않는다", is_equal_approx(PPacing.ref_dps(2) * PPacing.target_sec("melee_main"), 149.6) and PPacing.ref_dps(1) == 22.0, "%.1f" % (PPacing.ref_dps(2) * PPacing.target_sec("melee_main")))
-	ok("정예는 등급이 아니라 막으로 오른다: 1막 120(기존 유지) · 2막 545 · 3막 1200", PPacing.elite_hp("wolf_alpha", 1) == 120.0 and PPacing.elite_hp("wolf_alpha", 2) == 545.0 and PPacing.elite_hp("wolf_alpha", 3) == 1200.0)
+	ok("정예는 등급이 아니라 막으로 오른다(성장 보정 뒤): 1막 120(증가분 0·R<1) · 2막 1188 · 3막 2946", PPacing.elite_hp("wolf_alpha", 1) == 120.0 and PPacing.elite_hp("wolf_alpha", 2) == 1188.0 and PPacing.elite_hp("wolf_alpha", 3) == 2946.0)
 	# 실제 생성에도 적용되는가(막 전달 포함)
 	var st_hp := CombatState.new({ "build": PRun.build(r1), "hp": 100.0, "seed": 1, "waves": [], "arena": "clearing", "region_id": "lab", "act": 3 })
 	st_hp.spawn_hold = true
 	var wr := st_hp.spawn_enemy("wolf", 300.0, 300.0, false, "red")
 	var wa := st_hp.spawn_enemy("wolf", 320.0, 300.0, false, "apex")
 	var el := st_hp.spawn_enemy("wolf_alpha", 340.0, 300.0)
-	ok("전투 생성에 표가 실제 적용(3막): 붉은 150 · 변이 330 · 정예 1200", is_equal_approx(float(wr.hp), 150.0) and is_equal_approx(float(wa.hp), 330.0) and is_equal_approx(float(el.hp), 1200.0), "%.0f/%.0f/%.0f" % [float(wr.hp), float(wa.hp), float(el.hp)])
+	ok("전투 생성에 표가 실제 적용(3막, 성장 보정 뒤): 붉은 321 · 변이 791 · 정예 2946", is_equal_approx(float(wr.hp), 321.0) and is_equal_approx(float(wa.hp), 791.0) and is_equal_approx(float(el.hp), 2946.0), "%.0f/%.0f/%.0f" % [float(wr.hp), float(wa.hp), float(el.hp)])
 	ok("보스 체력 오버레이(시험값, 새 행동과 합쳐 재측정 후 조정): 가시갈기 3500 · 봉인 수호자 9000 · 예언을 먹는 자 12500", PRun.boss_hp(r1, "boss") == 3500.0 and PRun.boss_hp(r1, "guardian") == 9000.0 and PRun.boss_hp(r1, "eater") == 12500.0, "%.0f" % PRun.boss_hp(r1, "boss"))
+
+	# ---------- 2026-09-08 사용자 확정: 방패병 정면 피해 감소 70% → 85% ----------
+	# 자세한 판정 검사는 tests/elites_tests.gd에 있다. 여기서는 확정값이 조용히 되돌아가지 않도록 수치만 고정한다.
+	var sb_def: Dictionary = PCatalog.enemy("shieldbearer")
+	var st_sb := CombatState.new({ "build": PRun.build(r1), "hp": 100.0, "seed": 1, "waves": [], "arena": "clearing", "region_id": "lab", "act": 1 })
+	st_sb.spawn_hold = true
+	var sbx := st_sb.spawn_enemy("shieldbearer", 600.0, 300.0)
+	sbx.face = 0.0
+	sbx.hp = 100000.0
+	sbx.hp_max = 100000.0
+	st_sb.damage_enemy(sbx, 100.0, { "src": { "direct": true }, "from": { "x": sbx.x + 120.0, "y": sbx.y } })
+	var sb_front: float = 100000.0 - float(sbx.hp)
+	sbx.hp = 100000.0
+	st_sb.damage_enemy(sbx, 100.0, { "src": { "direct": true }, "from": { "x": sbx.x, "y": sbx.y + 120.0 } })
+	var sb_side: float = 100000.0 - float(sbx.hp)
+	ok("사용자 확정: 방패병 정면 직접 피해 100 → 15(85% 감소), 측면은 100 그대로", is_equal_approx(float(sb_def.frontMult), 0.15) and is_equal_approx(sb_front, 15.0) and is_equal_approx(sb_side, 100.0), "정면 %.1f / 측면 %.1f" % [sb_front, sb_side])
 
 	# ---------- 지시 10: 금화 약 -30% ----------
 	ok("새로 지급하는 금화 ×0.7(최종 1회): 100 → 70", PPacing.gold_award(100) == 70 and PPacing.gold_mult() == 0.7)

@@ -12,6 +12,7 @@ const BTN_DODGE_R := 48.0    # 지름 96 ≥ 72
 const BTN_SMALL_R := 38.0    # 지름 76 ≥ 72
 const MOUSE_IDX := 100       # 마우스를 터치로 취급할 때의 index
 const HUD_H := 44.0
+const BTN_BUILD_R := 30.0    # '빌드' 버튼(지름 60): 조작 버튼과 섞이지 않게 위쪽 구석에 따로 둔다
 
 var router: PInputRouter = null
 var view: Node = null          # CombatView(running · paused · bot · st · driver)
@@ -24,6 +25,7 @@ var _stick_pos := Vector2.ZERO
 var _btn_idx: Dictionary = { "dodge": -1, "special": -1, "e": -1 }
 var _btn_pos: Dictionary = {}
 var _zone := Rect2()
+var _build_pos := Vector2.ZERO  # '내 빌드' 버튼 중심(모바일에서 전체 빌드를 여는 유일한 길)
 var reserve_top := 0.0         # 상단에 빌드 HUD가 놓인 높이(px). 스틱 끌기 영역이 빌드 아이콘과 겹치지 않게 그만큼 내린다
 var _safe := Rect2(0.0, 0.0, PLayout.BASE_W, PLayout.BASE_H)
 
@@ -53,9 +55,20 @@ func layout(safe: Rect2) -> void:
 		"special": Vector2(bx - BTN_DODGE_R - BTN_SMALL_R - 20.0, by + 6.0),
 		"e": Vector2(bx - 26.0, by - BTN_DODGE_R - BTN_SMALL_R - 20.0),
 	}
+	# '빌드': 오른쪽 위(조작 버튼 묶음과 멀리). 누르면 전투를 안전하게 일시정지하고 '내 빌드'를 연다
+	_build_pos = Vector2(safe.end.x - 14.0 - BTN_BUILD_R, safe.position.y + HUD_H + 10.0 + BTN_BUILD_R)
 
 func zone_rect() -> Rect2:
 	return _zone
+
+func build_button_center() -> Vector2:
+	return _build_pos
+
+## 전투 중 '내 빌드' 열기(모바일 경로). main의 공통 경로를 쓰므로 전투는 안전하게 멈춘다
+func _open_build() -> void:
+	var m: Node = view.get_parent() if view != null else null
+	if m != null and m.has_method("open_build_detail"):
+		m.call("open_build_detail")
 
 func button_center(kind: String) -> Vector2:
 	return _btn_pos.get(kind, Vector2.ZERO)
@@ -107,6 +120,9 @@ func handle_touch(idx: int, pos: Vector2, pressed: bool) -> void:
 		_release(idx)
 		return
 	if not active():
+		return
+	if pos.distance_to(_build_pos) <= BTN_BUILD_R:
+		_open_build()
 		return
 	for k in _btn_pos:
 		var kind := String(k)
@@ -220,3 +236,9 @@ func _draw() -> void:
 			var left: float = _cd_left(kind)
 			if left > 0.05:
 				draw_string(f, Vector2(c.x - r, c.y + r - 4.0), "%.1f" % left, HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, 13, Color(1, 1, 1, 0.85))
+		elif not usable:
+			draw_string(f, Vector2(c.x - r, c.y + r - 4.0), "미보유", HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, 11, Color(1, 1, 1, 0.45))
+	# '빌드' 버튼: 전체 빌드(자동기술·개조·Q/E·공용·패시브·장비)는 모바일에서도 여기로 연다
+	draw_circle(_build_pos, BTN_BUILD_R, Color(0.08, 0.1, 0.13, 0.7))
+	draw_arc(_build_pos, BTN_BUILD_R, 0.0, TAU, 40, Color(1, 1, 1, 0.45), 1.5)
+	draw_string(f, Vector2(_build_pos.x - BTN_BUILD_R, _build_pos.y + 5.0), "빌드", HORIZONTAL_ALIGNMENT_CENTER, BTN_BUILD_R * 2.0, 14, Color(1, 1, 1, 0.9))

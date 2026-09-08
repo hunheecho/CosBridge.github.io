@@ -152,7 +152,7 @@ func drain(st: CombatState) -> void:
 	_ev_idx = n
 
 # ---------- 합성 ----------
-const NAMES := ["hit", "crit", "kill", "hurt", "lock", "bite_lock", "dodge", "perfect", "special", "chest", "win", "lose", "wave", "group", "shoot", "spore", "explode", "shatter", "burst", "bite", "boss_howl", "boss_roar", "boss_land", "boss_sweep", "boss_lock", "orb", "swing", "levelup", "skill_e", "hazard_warn", "hazard_arm", "reinforce", "rescued", "saving", "dash_hit", "timeout", "ui", "ready_dodge", "ready_q", "ready_e"]
+const NAMES := ["hit", "crit", "kill", "hurt", "lock", "bite_lock", "dodge", "perfect", "special", "chest", "win", "lose", "wave", "group", "shoot", "spore", "explode", "shatter", "burst", "bite", "boss_howl", "boss_roar", "boss_land", "boss_sweep", "boss_lock", "orb", "swing", "levelup", "skill_e", "hazard_warn", "hazard_arm", "reinforce", "rescued", "saving", "dash_hit", "timeout", "ui", "ready_dodge", "ready_q", "ready_e", "seal_move_warn", "altar_heal", "block"]
 
 func _has_sound(snd: String) -> bool:
 	return NAMES.has(snd)

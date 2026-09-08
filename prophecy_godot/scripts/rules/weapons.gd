@@ -126,7 +126,19 @@ static func later(st: CombatState, t: float, fn: Callable) -> void:
 	st.delayed.append({ "t": t, "fn": fn })
 
 # ---------- 무기별 발사 ----------
+## 자동기술 1회 발사. echoed=true면 지연·추가 공격 경로다.
+## 발사 원인을 st.attack_cause에 남겨 피해가 어느 경로에서 왔는지 계측한다(규칙에는 영향 없음).
+## 호출 전에 attack_cause를 정해 두면 그 값을 쓴다(일제 공격 volley가 그렇게 쓴다).
 static func fire(st: CombatState, w: Dictionary, target: Dictionary, echoed: bool) -> void:
+	var cause := String(st.attack_cause)
+	if cause == "":
+		cause = "echo" if echoed else "base"
+	st.attack_cause = cause
+	st.metrics.cause_fires[cause] = int(st.metrics.cause_fires.get(cause, 0)) + 1
+	_fire_by_kind(st, w, target, echoed)
+	st.attack_cause = ""
+
+static func _fire_by_kind(st: CombatState, w: Dictionary, target: Dictionary, echoed: bool) -> void:
 	match String(w.stats.kind):
 		"arc": fire_arc(st, w, target, echoed)
 		"beam": fire_beam(st, w, target, echoed)
@@ -319,7 +331,9 @@ static func fire_chain(st: CombatState, w: Dictionary, target: Dictionary, _echo
 			cur = n3
 	if (s.mods as Array).has("loop") and not first.dead and visited.size() > 1:
 		pts.append({ "x": first.x, "y": first.y })
-		dmg_to(st, first, w, 1.0, { "knock": 0.0, "loop": true })
+		# 방패 판정은 공격 출처를 본다. 되돌아오는 번개는 직전 대상에서 온다(플레이어 현재 위치가 아니다)
+		var last_pt: Dictionary = pts[pts.size() - 2] if pts.size() >= 2 else { "x": p.x, "y": p.y }
+		dmg_to(st, first, w, 1.0, { "knock": 0.0, "loop": true, "from": { "x": float(last_pt.x), "y": float(last_pt.y) } })
 	st.fx({ "kind": "chain", "pts": pts, "ttl": 0.22 })
 	st.ev("shoot")
 
@@ -360,6 +374,7 @@ static func fire_ember(st: CombatState, w: Dictionary, target: Dictionary, _echo
 			z.extended = 0.0)
 	st.ev("shoot")
 
+## 지뢰는 설치 → 폭발 구조라 fire()를 거치지 않는다. 설치·폭발을 각각 센다
 static func fire_mine(st: CombatState, w: Dictionary) -> bool:
 	var s: Dictionary = w.stats
 	var p := st.player
@@ -435,6 +450,7 @@ static func pick_ember_target(st: CombatState, w: Dictionary) -> Dictionary:
 		return {}
 	return list[int(floor(st.rng.next() * float(list.size())))]
 
+## 공전 칼날은 주기 발사가 아니라 접촉 피해다. 원인 계측에서 base가 아니라 orbit으로 센다
 static func update_orbit(st: CombatState, w: Dictionary, dt: float) -> void:
 	var s: Dictionary = w.stats
 	var p := st.player
@@ -459,15 +475,19 @@ static func update_orbit(st: CombatState, w: Dictionary, dt: float) -> void:
 				continue
 			w.last_hit[e.id] = st.t
 			w.count = int(w.count) + 1
-			var o := { "dir": PGeom.norm(e.x - p.x, e.y - p.y), "knock": float(s.knock), "from": { "x": bp.x, "y": bp.y } }
+			# 공전 칼날은 주기 발사가 아니라 접촉 피해다. 계측에서 base가 아니라 orbit으로 센다
+			var o := { "dir": PGeom.norm(e.x - p.x, e.y - p.y), "knock": float(s.knock), "from": { "x": bp.x, "y": bp.y }, "cause": "orbit" }
 			if (s.mods as Array).has("serrated"):
 				o.bleed = 1.5
 			dmg_to(st, e, w, 1.0, o)
+			st.metrics.cause_fires["orbit"] = int(st.metrics.cause_fires.get("orbit", 0)) + 1
 			if PBuild.has_common(st.build, "echo") and int(w.count) % int(CV.echoEvery) == 0:
 				var ee: Dictionary = e
 				later(st, float(CV.echoDelay), func():
 					if not ee.dead:
-						dmg_to(st, ee, w, 1.0, { "direct": true, "no_echo": true }))
+						st.metrics.cause_fires["echo"] = int(st.metrics.cause_fires.get("echo", 0)) + 1
+						# 공전 칼날 잔향도 칼날 위치에서 온다(방패 판정용 출처)
+						dmg_to(st, ee, w, 1.0, { "direct": true, "no_echo": true, "cause": "echo", "from": { "x": float(ee.x), "y": float(ee.y) } }))
 	if (s.mods as Array).has("launch"):
 		w.launch_t = float(w.launch_t) + dt
 		if float(w.launch_t) >= 3.0:
@@ -509,7 +529,9 @@ static func explode_mine(st: CombatState, mn: Dictionary) -> void:
 	var w: Dictionary = mn.weapon
 	var s: Dictionary = w.stats
 	st.fx({ "kind": "mineburst", "x": mn.x, "y": mn.y, "r": float(s.radius), "ttl": 0.35 })
-	var o := { "ground": true, "knock": 30.0 }
+	# 지뢰는 설치 → 폭발 구조라 fire()를 거치지 않는다. 폭발을 mine으로 센다
+	st.metrics.cause_fires["mine"] = int(st.metrics.cause_fires.get("mine", 0)) + 1
+	var o := { "ground": true, "knock": 30.0, "cause": "mine" }
 	if (s.mods as Array).has("frosttrap"):
 		o.chill = 2.0
 	hit_circle(st, w, mn.x, mn.y, float(s.radius), 1.0, o)
@@ -663,6 +685,7 @@ static func on_kill(st: CombatState, e: Dictionary, opt: Dictionary) -> void:
 						o.bleed = { "t": float(e.bleed.t) / 2.0, "dps": float(e.bleed.dps), "tick": 0.0, "src": String(e.bleed.get("src", "weapon")) }
 
 ## 일제 공격(보스 보상): E 사용 시 장착 무기 즉시 1회(공전·지뢰 제외)
+## 이것은 정상 추가 공격 경로다. 계측에서 base·echo와 구분해 volley로 센다
 static func volley(st: CombatState) -> void:
 	for w in st.weapons:
 		var s: Dictionary = w.stats
@@ -671,4 +694,5 @@ static func volley(st: CombatState) -> void:
 		var tg: Dictionary = pick_ember_target(st, w) if String(s.kind) == "ember" else pick_target(st, w, float(s.range), true)
 		if not tg.is_empty():
 			w.count = int(w.count) + 1
+			st.attack_cause = "volley"
 			fire(st, w, tg, true)

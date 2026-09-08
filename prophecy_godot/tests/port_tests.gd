@@ -78,10 +78,13 @@ func _init() -> void:
 	# ---------- 빌드 파생(HTML 117·147): 레벨 배율 누적, 강화·숙련·가속·넓어진 공격이 한 번씩 ----------
 	var st := mk({ "weapons": [{ "id": "spear", "level": 3 }], "passives": { "mastery": 2, "haste": 1 }, "forge": 2, "commons": { "wide": 1 } })
 	var s0: Dictionary = st.build.weapons[0]
-	ok("빌드 파생: 창 Lv3 피해 14×1.4×1.2(강화2)×1.2(숙련2)=28.22, 주기 0.7×0.92, 폭 44×1.25", is_equal_approx(snapped(float(s0.damage), 0.01), 28.22) and is_equal_approx(snapped(float(s0.interval), 0.001), 0.644) and is_equal_approx(float(s0.width), 55.0), "dmg %.2f int %.3f w %.1f" % [float(s0.damage), float(s0.interval), float(s0.width)])
+	# 2026-09-08 성장 개편: 레벨 배율 1/1.35/1.8/2.35/3.0, 대장간은 기술별 강화(run.forgeBySkill).
+	# 이 빌드는 옛 전체 강화(forge:2)만 있고 회차가 아니라 growth 전용이라, 대장간 배율은 옛 저장 호환 경로로 그 기술에 붙는다.
+	# 창 Lv3 = 14 × 1.8(레벨) × 1.2(강화2 = 옛 저장 호환) × 1.2(숙련2) = 36.29
+	ok("빌드 파생: 창 Lv3 피해 14×1.8(레벨)×1.2(강화2·옛 저장 호환)×1.2(숙련2)=36.29, 주기 0.7×0.92, 폭 44×1.25", is_equal_approx(snapped(float(s0.damage), 0.01), 36.29) and is_equal_approx(snapped(float(s0.interval), 0.001), 0.644) and is_equal_approx(float(s0.width), 55.0), "dmg %.2f int %.3f w %.1f" % [float(s0.damage), float(s0.interval), float(s0.width)])
 	st = mk({ "weapons": [{ "id": "sword", "level": 5 }], "commons": { "wide": 2, "reach": 2 } })
 	s0 = st.build.weapons[0]
-	ok("검 Lv5 배율 1.8, 넓어진 2단계: 각도 110×1.5=165 반지름 95×1.5×1.25", is_equal_approx(float(s0.damage), 21.6) and is_equal_approx(float(s0.arc_deg), 165.0) and is_equal_approx(float(s0.range), 95.0 * 1.5 * 1.25), "%.1f %.1f %.1f" % [float(s0.damage), float(s0.arc_deg), float(s0.range)])
+	ok("검 Lv5 배율 3.0(성장 개편), 넓어진 2단계: 각도 110×1.5=165 반지름 95×1.5×1.25", is_equal_approx(float(s0.damage), 36.0) and is_equal_approx(float(s0.arc_deg), 165.0) and is_equal_approx(float(s0.range), 95.0 * 1.5 * 1.25), "%.1f %.1f %.1f" % [float(s0.damage), float(s0.arc_deg), float(s0.range)])
 	ok("창 근접 약화·주기 0.85는 test03 세트에서만", is_equal_approx(float(mk({ "start": "spear", "balance": "test03" }).build.weapons[0].interval), 0.85) and is_equal_approx(float(mk({ "start": "spear" }).build.weapons[0].interval), 0.7))
 	# ---------- 자동기술 10종: 각각 사거리 안의 표적을 실제로 때린다(HTML 50·52·53) ----------
 	for wid in ["sword", "spear", "daggers", "bow", "hammer", "blades", "orb", "frost", "ember", "mine"]:
@@ -283,7 +286,8 @@ func _init() -> void:
 	var kinds := {}
 	for c in cands:
 		kinds[c.kind] = int(kinds.get(c.kind, 0)) + 1
-	ok("시작 상태 후보: 새 무기 9·검 레벨 1·검 개조 3·공용(불꽃 파열 제외) 8·E 5·Q 레벨·Q 변형 3·패시브 8", int(kinds.get("weapon_new", 0)) == 9 and int(kinds.get("weapon_mod", 0)) == 3 and int(kinds.get("common", 0)) == 8 and int(kinds.get("skill_new", 0)) == 5 and int(kinds.get("skill_variant", 0)) == 3 and int(kinds.get("passive", 0)) == 8, str(kinds))
+	# 성장 개편: 개조는 자동기술 Lv2부터 자격이 생긴다. Lv1 시작 상태에서는 개조 후보가 0개다
+	ok("시작 상태 후보: 새 무기 9·검 레벨 1·검 개조 0(Lv2부터 자격)·공용(불꽃 파열 제외) 8·E 5·Q 레벨·Q 변형 3·패시브 8", int(kinds.get("weapon_new", 0)) == 9 and int(kinds.get("weapon_mod", 0)) == 0 and int(kinds.get("common", 0)) == 8 and int(kinds.get("skill_new", 0)) == 5 and int(kinds.get("skill_variant", 0)) == 3 and int(kinds.get("passive", 0)) == 8, str(kinds))
 	var off1 := PGrowth.generate_offer(run, { "pool": "level" })
 	var keys1 := []
 	for c in off1.choices:
@@ -341,7 +345,8 @@ func _init() -> void:
 	var run3 := PBuild.empty_run_like(PGrowth.new_growth("spear"))
 	run3.growth.weapons[0].level = 2
 	var desc := PGrowth.describe(run3, { "kind": "weapon_level", "id": "spear" })
-	ok("카드 설명: 관통창 2→3 기본 피해 16.8 → 19.6", "16.8" in String(desc.change) and "19.6" in String(desc.change), String(desc.change))
+	# 성장 개편: 레벨 배율 Lv2 1.35 · Lv3 1.8 → 관통창 14 × 1.35 = 18.9 → 14 × 1.8 = 25.2
+	ok("카드 설명: 관통창 2→3 기본 피해 18.9 → 25.2", "18.9" in String(desc.change) and "25.2" in String(desc.change), String(desc.change))
 	# ---------- 지속 피해 감사(HTML 11·67): 화상 fps 무관 총량, 감속장 증폭 없음 ----------
 	var tot := {}
 	for fps in [60, 120]:

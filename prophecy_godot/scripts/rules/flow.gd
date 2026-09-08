@@ -480,9 +480,16 @@ static func actions(run: Dictionary) -> Array:
 		var q := PRun.swap_quote(run, "e", 0)
 		if not q.is_empty():
 			out.append(_act("swap:e", "swap", "E 교체 (%d)" % int(q.price), bool(q.affordable) and (q.options as Array).size() > 0, "" if bool(q.affordable) else "금화 부족", q))
-	var F := PRun.forge_next(run)
-	if not F.is_empty():
-		out.append(_act("forge_upgrade", "forge_upgrade", "공용 공격 강화 %d단계 (%d)" % [int(F.lv), int(F.cost)], bool(F.open) and bool(F.affordable), ("보스 %d 처치 후 개방" % int(F.afterBoss)) if not bool(F.open) else ("" if bool(F.affordable) else "금화 부족"), F))
+	# 대장간 강화는 자동기술 하나를 골라 투자한다(2026-09-08 시험값). 기술마다 행동을 낸다
+	for w in run.get("growth", {}).get("weapons", []):
+		var Fw := PRun.forge_next(run, String(w.id))
+		if Fw.is_empty():
+			continue
+		out.append(_act("forge_upgrade:" + String(w.id), "forge_upgrade",
+			"%s 강화 %d단계 (%d)" % [String(PCatalog.weapon(String(w.id)).name), int(Fw.weaponLv), int(Fw.cost)],
+			bool(Fw.open) and bool(Fw.affordable),
+			("보스 %d 처치 후 개방" % int(Fw.afterBoss)) if not bool(Fw.open) else ("" if bool(Fw.affordable) else "금화 부족"), Fw))
+
 	var no_offer: bool = g.get("pendingOffer", null) == null
 	var mc := PRun.mod_change_cost(run)
 	for w in g.weapons:

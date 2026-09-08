@@ -2,6 +2,22 @@ class_name PShopScreen
 extends PScreen
 ## 상점(HTML shop 탭 stock/skills/merchant + 판매): 오늘의 재고 장비 2 · 기술 1 · 방문 상인 · 판매(장착+가방) · 재료 판매.
 ## 가격·구매 가능 여부·사유는 PRun이 준다(equip_price_for / can_buy_* / sell_price).
+##
+## 읽기 우선순위(사람 플레이 뒤 요구 2026-09-08): 이름 · 핵심 효과 · 비용 · 실제 변화량.
+## 구현 설명·긴 문장·반복 안내는 카드의 '상세'로 옮긴다(기본 화면에 두지 않는다).
+
+var _detail := ""   # 상세를 펼친 재고 id("" = 없음)
+
+func on_enter() -> void:
+	_detail = ""
+	super.on_enter()
+
+func on_escape() -> bool:
+	if _detail != "":
+		_detail = ""
+		refresh()
+		return true
+	return false
 
 func refresh() -> void:
 	clear_all()
@@ -10,11 +26,11 @@ func refresh() -> void:
 		return
 	top.add_child(PUi.header(r))
 	var hrow := PUi.hbox(8)
-	hrow.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]시간 소모 없음 · 재고는 날마다 정해지며 다시 열어도 같습니다. 같은 장비는 두 번 살 수 없습니다.[/color]" % PGlossaryTip.term("shop", "상점"), 20))
+	hrow.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]시간 소모 없음[/color]" % PGlossaryTip.term("shop", "상점"), 22))
 	top.add_child(hrow)
 	var st := PRun.stock(r)
 	var SH := PCatalog.shop()
-	body.add_child(PUi.rich("[b]오늘의 재고[/b] [color=#9ea8b8]판매가: 무기 %d · 방어구 %d · 방패 %d%s[/color]" % [int(SH.sellPrice.weapon), int(SH.sellPrice.armor), int(SH.sellPrice.shield), "  · [color=#ffe066]할인권 보유[/color]" if PRun.has_service(r, "shop_discount") else ""], 15))
+	body.add_child(PUi.rich("[b]오늘의 재고[/b]%s" % ("  [color=#ffe066]할인권 보유[/color]" if PRun.has_service(r, "shop_discount") else ""), 17))
 	var row := PUi.hbox(10)
 	for id in st.equipment:
 		row.add_child(_equip_card(r, String(id), "stock"))
@@ -40,7 +56,7 @@ func refresh() -> void:
 		else:
 			body.add_child(PUi.rich("[color=#9ea8b8]방문 상인은 %s부터 옵니다.[/color]" % String(PRun.time_slots()[int(m.fromSlot)]), 12))
 	# 판매
-	var sell := PUi.card("판매 [color=#9ea8b8]장착 중 + %s[/color]" % PGlossaryTip.term("bag", "가방"), PUi.CARD, 14)
+	var sell := PUi.card("판매 [color=#9ea8b8]장착 중 + %s[/color]" % PGlossaryTip.term("bag", "가방"), PUi.CARD, 16)
 	var sbox: VBoxContainer = sell.box
 	var any := false
 	for sl in PCatalog.world().equip_slots:
@@ -50,7 +66,7 @@ func refresh() -> void:
 			continue
 		any = true
 		var srow := PUi.hbox(8)
-		srow.add_child(PUi.rich("[color=#9ea8b8]%s(장착)[/color] %s" % [PUi.slot_name(slot), PUi.equip_line(String(eid))], 12))
+		srow.add_child(PUi.rich("[color=#9ea8b8]%s(장착)[/color] %s" % [PUi.slot_name(slot), PUi.equip_line(String(eid))], 14))
 		var sid := String(eid)
 		srow.add_child(PUi.button("판매 +%d" % PRun.sell_price(sid), func(): main.sell_equipment(sid), true, 12))
 		sbox.add_child(srow)
@@ -58,7 +74,7 @@ func refresh() -> void:
 		any = true
 		var bid := String(id)
 		var brow := PUi.hbox(8)
-		brow.add_child(PUi.rich("[color=#9ea8b8]가방 · %s[/color] %s" % [PUi.slot_name(String(PCatalog.equipment_def(bid).slot)), PUi.equip_line(bid)], 12))
+		brow.add_child(PUi.rich("[color=#9ea8b8]가방 · %s[/color] %s" % [PUi.slot_name(String(PCatalog.equipment_def(bid).slot)), PUi.equip_line(bid)], 14))
 		brow.add_child(PUi.button("판매 +%d" % PRun.sell_price(bid), func(): main.sell_equipment(bid), true, 12))
 		sbox.add_child(brow)
 	if not any:
@@ -100,26 +116,53 @@ func _equip_card(r: Dictionary, id: String, from: String) -> Control:
 	head.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s[/color]
 금화 [color=%s][b]%d[/b][/color]" % [PGlossaryTip.term("eq:" + id, String(d.name)), PUi.slot_name(String(d.slot)), "#ff8c73" if int(r.gold) < price else "#ffd966", price], 15))
 	box.add_child(head)
-	box.add_child(PUi.rich(PGlossaryTip.esc(String(d.short)), 13))
-	box.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(d.desc)), 11))
-	var cur = r.equipment.get(String(d.slot), null)
-	PUi.kv(box, "현재 %s" % PUi.slot_name(String(d.slot)), PUi.equip_line(String(cur)) if cur != null else "[color=#6a7078]없음[/color]", 11)
+	box.add_child(PUi.rich(PGlossaryTip.esc(String(d.short)), 15))
+	box.add_child(PUi.rich("[color=#9ea8b8]장착하면[/color]  %s" % _change_text(r, id), 14))
 	var note := _compare_note(r, d)
 	if note != "":
-		PUi.kv(box, "주의", note, 11)
+		box.add_child(PUi.rich(note, 13))
 	var reason := ""
 	if sold:
 		reason = " · 보유/판매됨"
 	elif int(r.gold) < price:
 		reason = " (%d 부족)" % (price - int(r.gold))
 	var extra := (" [color=#9ea8b8](상인 할인 %d%%)[/color]" % int(round(float(PCatalog.shop().merchantDiscount) * 100.0))) if from == "merchant" else ""
-	box.add_child(PUi.rich("금화 [color=%s][b]%d[/b][/color]%s%s%s" % ["#ff8c73" if int(r.gold) < price else "#ffd966", price, reason, extra, " [color=#ffe066]할인권 적용[/color]" if (PRun.has_service(r, "shop_discount") and not sold) else ""], 13))
+	box.add_child(PUi.rich("금화 [color=%s][b]%d[/b][/color]%s%s%s" % ["#ff8c73" if int(r.gold) < price else "#ffd966", price, reason, extra, " [color=#ffe066]할인권 적용[/color]" if (PRun.has_service(r, "shop_discount") and not sold) else ""], 15))
 	box.add_child(PUi.spacer())
 	var row := PUi.hbox(6)
-	row.add_child(PUi.button("구매 후 장착", func(): main.buy_equipment(id, true, from), can, 12))
-	row.add_child(PUi.button("구매 후 보관", func(): main.buy_equipment(id, false, from), can, 12))
+	row.add_child(PUi.button("구매 후 장착", func(): main.buy_equipment(id, true, from), can, 14))
+	row.add_child(PUi.button("구매 후 보관", func(): main.buy_equipment(id, false, from), can, 14))
 	box.add_child(row)
+	# 상세: 구현 설명·현재 슬롯·판매가처럼 매번 읽을 필요 없는 것
+	var open_now: bool = _detail == id
+	box.add_child(PUi.button("상세 닫기 ▾" if open_now else "상세 보기 ▸", func(): _detail = ("" if open_now else id); refresh(), true, 12))
+	if open_now:
+		box.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(d.desc)), 13))
+		var cur = r.equipment.get(String(d.slot), null)
+		PUi.kv(box, "현재 %s" % PUi.slot_name(String(d.slot)), PUi.equip_line(String(cur)) if cur != null else "[color=#6a7078]없음[/color]", 13)
+		var SH2 := PCatalog.shop()
+		PUi.kv(box, "되팔 때", "무기 %d · 방어구 %d · 방패 %d" % [int(SH2.sellPrice.weapon), int(SH2.sellPrice.armor), int(SH2.sellPrice.shield)], 12)
+		PUi.kv(box, "규칙", "재고는 날마다 정해지고 다시 열어도 같습니다. 같은 장비는 두 번 살 수 없습니다.", 12)
 	return p
+
+## 장착했을 때 실제로 바뀌는 값(격리 사본에 장착해 PBuild.derive 전후를 비교한다 — 규칙은 건드리지 않는다)
+func _change_text(r: Dictionary, id: String) -> String:
+	var before := PBuild.derive(r)
+	var dup: Dictionary = r.duplicate(true)
+	PRun.equip_item(dup, id)
+	var after := PBuild.derive(dup)
+	var parts := []
+	if not is_equal_approx(float(before.hp_max), float(after.hp_max)):
+		parts.append("최대 체력 [b]%d → %d[/b]" % [int(float(before.hp_max)), int(float(after.hp_max))])
+	if not is_equal_approx(float(before.speed_mult), float(after.speed_mult)):
+		parts.append("이동 [b]×%s → ×%s[/b]" % [PUi.fmt(float(before.speed_mult)), PUi.fmt(float(after.speed_mult))])
+	if not is_equal_approx(float(before.shield), float(after.shield)):
+		parts.append("시작 보호막 [b]%d → %d[/b]" % [int(float(before.shield)), int(float(after.shield))])
+	if not is_equal_approx(float(before.range_mult), float(after.range_mult)):
+		parts.append("사거리 [b]×%s → ×%s[/b]" % [PUi.fmt(float(before.range_mult)), PUi.fmt(float(after.range_mult))])
+	if parts.is_empty():
+		return "[color=#9ea8b8]기본 수치 변화 없음(효과는 조건부)[/color]"
+	return " · ".join(parts)
 
 ## 장비 비교 주의(HTML equipCompare): 지금 빌드에서 효과가 없는 조건
 func _compare_note(r: Dictionary, d: Dictionary) -> String:
@@ -164,9 +207,9 @@ func _skill_card(r: Dictionary, st: Dictionary) -> Control:
 	head2.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s · Lv1 · 개조 없음[/color]
 금화 [color=%s][b]%d[/b][/color]" % [PGlossaryTip.term(term_id, String(d.name)), "새 자동기술" if is_w else "새 E 기술", "#ff8c73" if int(r.gold) < int(sk.price) else "#ffd966", int(sk.price)], 15))
 	box.add_child(head2)
-	box.add_child(PUi.rich("[color=#9ea8b8]현재 빌드에 이렇게 들어갑니다(아이콘 위치 = 붙는 슬롯):[/color]", 11))
+	box.add_child(PUi.rich("[color=#9ea8b8]지금 내 빌드[/color]", 13))
 	box.add_child(PUi.build_icon_row(r, 34.0, 22.0))
-	box.add_child(PUi.rich(PGlossaryTip.esc(String(d.desc)), 13))
+	box.add_child(PUi.rich(PGlossaryTip.esc(String(d.desc)), 15))
 	var why := ""
 	if sold:
 		why = "구매함"
@@ -176,7 +219,7 @@ func _skill_card(r: Dictionary, st: Dictionary) -> Control:
 		why = "E 슬롯 사용 중"
 	elif int(r.gold) < int(sk.price):
 		why = "%d 부족" % (int(sk.price) - int(r.gold))
-	box.add_child(PUi.rich("금화 [color=%s][b]%d[/b][/color]%s" % ["#ff8c73" if int(r.gold) < int(sk.price) else "#ffd966", int(sk.price), (" [color=#9ea8b8]· %s[/color]" % why) if why != "" else ""], 13))
+	box.add_child(PUi.rich("금화 [color=%s][b]%d[/b][/color]%s" % ["#ff8c73" if int(r.gold) < int(sk.price) else "#ffd966", int(sk.price), (" [color=#9ea8b8]· %s[/color]" % why) if why != "" else ""], 15))
 	box.add_child(PUi.spacer())
-	box.add_child(PUi.button("구매 (빈 슬롯에 장착)", func(): main.buy_skill(), can, 12))
+	box.add_child(PUi.button("구매 (빈 슬롯에 장착)", func(): main.buy_skill(), can, 14))
 	return p

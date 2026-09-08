@@ -498,12 +498,194 @@ static func in_danger(st: CombatState, e: Dictionary, pt: Dictionary) -> bool:
 		return PGeom.dist(float(e.land.x), float(e.land.y), px, py) <= float(cfg.pounce.radius) + 14.0
 	return false
 
+# ---------- 봉인 수호자(guardian) 보정 ----------
+## 사람 플레이 관찰: ① 돌 뒤에 서면 휩쓸기(시선 검사)와 충격파(투사체가 장애물에서 멈춤)가 모두 빗나가
+## 보스가 전투 내내 한 대도 못 때렸다. ② 3단계 양갈래 충격파는 플레이어를 정확히 겨눈 뒤 좌우로만 쏘아
+## 가만히 서 있으면 매번 빗나갔다. 두 보정 모두 data/boss_behavior.json의 guardian.cover / guardian.split이 정본이고,
+## 설정이 없으면 개편 전 행동 그대로다(숫자를 코드에 두지 않는다).
+## 비교 측정 전용 스위치(기본값은 data/boss_behavior.json 그대로). 계측 도구가 방식을 바꿔가며 재려고 쓴다.
+## 게임 실행에는 영향이 없다(아무도 부르지 않으면 파일 값 그대로).
+static var _cover_mode := "" # ""=파일 값 / "off"=엄폐 대응 없음(개편 전) / "reposition"|"indirect"|"break"
+static var _split_on := true # false = 양갈래 보정 없음(개편 전)
+
+static func set_cover_mode(m: String) -> void:
+	_cover_mode = m
+
+static func set_split_on(v: bool) -> void:
+	_split_on = v
+
+static func gcfg(e: Dictionary, key: String) -> Dictionary:
+	var o: Dictionary = beh_e(e).get(key, {})
+	if key == "cover" and _cover_mode != "":
+		if _cover_mode == "off":
+			return {}
+		o = o.duplicate()
+		o.mode = _cover_mode
+	if key == "split" and not _split_on:
+		return {}
+	return o
+
+## 시선을 막는 장애물(보스 → 플레이어 선분에 처음 걸리는 것). 없으면 {}
+static func blocking_obstacle(st: CombatState, e: Dictionary) -> Dictionary:
+	var p := st.player
+	var sw := st.sweep_circle(e.x, e.y, p.x, p.y, 0.0)
+	if int(sw[1]) < 0:
+		return {}
+	return st.obstacles[int(sw[1])]
+
+## 플레이어가 보이는 자리 찾기: 플레이어 주위를 돌며 시선이 트이고 설 수 있는 가장 가까운 지점. 없으면 {}
+static func flank_spot(st: CombatState, e: Dictionary, dist: float) -> Dictionary:
+	var p := st.player
+	var base: float = atan2(e.y - p.y, e.x - p.x)
+	var best: Dictionary = {}
+	var bd := INF
+	for i in 12:
+		var k: int = (i + 1) / 2
+		var side: float = 1.0 if i % 2 == 0 else -1.0
+		var a: float = base + side * float(k) * (PI / 6.0)
+		var x: float = clampf(p.x + cos(a) * dist, 40.0, st.arena_w - 40.0)
+		var y: float = clampf(p.y + sin(a) * dist, 40.0, st.arena_h - 40.0)
+		var vp := st.nearest_valid_pos(x, y, float(e.r), 120.0)
+		if vp.is_empty() or st.los_blocked(vp[0], vp[1], p.x, p.y):
+			continue
+		var d := PGeom.dist(vp[0], vp[1], e.x, e.y)
+		if d < bd:
+			bd = d
+			best = { "x": vp[0], "y": vp[1] }
+	return best
+
+## PBoss2.update 앞: 엄폐 대응. 재배치 중이면 여기서 움직이고 PBoss2는 아무 상태도 처리하지 않는다(장치 갱신은 계속 돈다)
+static func guardian_pre(st: CombatState, e: Dictionary, dt: float) -> void:
+	var C := gcfg(e, "cover")
+	if C.is_empty():
+		return
+	var p := st.player
+	var cfg := cfg_of(e)
+	var blocked: bool = st.los_blocked(e.x, e.y, p.x, p.y)
+	var s := String(e.state)
+	# 재배치·돌 부수기 진행
+	if s == "reposition":
+		e.state_t = float(e.state_t) + dt
+		var tgt: Dictionary = e.get("repos", {})
+		if not tgt.is_empty():
+			st.approach(e, float(tgt.x), float(tgt.y), float(cfg.speed) * float(C.get("speed", 1.25)) * st.enemy_speed_mult(e), dt)
+		var done: bool = (not blocked and PGeom.dist(e.x, e.y, p.x, p.y) <= float(C.get("maxDist", 420.0))) or float(e.state_t) >= float(C.get("moveMax", 2.5)) or tgt.is_empty()
+		if done:
+			e.los_t = 0.0
+			e.cover_cd = float(C.get("cd", 2.0))
+			PBoss2.to_approach(st, e)
+			e.approach_t = maxf(0.0, min_approach(e, cfg) - 0.1) # 우회를 마치면 곧바로 다음 행동
+		return
+	if s == "breakrock":
+		e.state_t = float(e.state_t) + dt
+		if float(e.state_t) >= float(C.get("breakWarn", 1.1)):
+			var ob: Dictionary = e.get("break_ob", {})
+			var idx: int = st.obstacles.find(ob)
+			if idx >= 0:
+				st.obstacles.remove_at(idx)
+				st.fx({ "kind": "burst", "x": float(ob.x), "y": float(ob.y), "r": float(ob.r) * 1.6, "ttl": 0.35, "color": "#8a6b45" })
+				st.fx({ "kind": "death", "x": float(ob.x), "y": float(ob.y), "r": float(ob.r), "ttl": 0.5 })
+				st.text(float(ob.x), float(ob.y) - float(ob.r) - 12.0, "엄폐물 파괴!", "#ffd166")
+				st.ev("shatter")
+			e.los_t = 0.0
+			e.cover_cd = float(C.get("cd", 2.0))
+			PBoss2.to_approach(st, e)
+		return
+	e.cover_cd = maxf(0.0, float(e.get("cover_cd", 0.0)) - dt)
+	# 시선이 막힌 시간 누적: 공격을 확정한 뒤(실행 중)에는 세지 않는다(진행 중인 공격을 끊지 않는다)
+	if blocked and (s == "approach" or s == "recover" or s == "roar"):
+		e.los_t = float(e.get("los_t", 0.0)) + dt
+	elif not blocked:
+		e.los_t = 0.0
+	if float(e.get("los_t", 0.0)) < float(C.get("trigger", 1.0)) or float(e.get("cover_cd", 0.0)) > 0.0:
+		return
+	if s != "approach" and s != "recover":
+		return
+	match String(C.get("mode", "reposition")):
+		"reposition": # 우회: 예고 없이 몸만 움직인다(무적 없음). 플레이어가 보이는 자리로 돌아 들어간다
+			var spot := flank_spot(st, e, float(C.get("spotDist", 190.0)))
+			if spot.is_empty():
+				e.los_t = 0.0
+				e.cover_cd = float(C.get("cd", 2.0))
+				return
+			e.repos = spot
+			e.state = "reposition"
+			e.state_t = 0.0
+			chain_reset(e)
+			st.text(e.x, e.y - e.r - 30.0, String(C.get("text", "우회한다")), "#9fd6ff")
+		"indirect": # 예고된 간접 공격: 시선과 무관한 바닥 위험(예고 → 발동)
+			var z := PObjectives.hazard_at(st, p.x, p.y, float(C.get("r", 70.0)), float(C.get("warn", 1.1)), float(C.get("ttl", 1.4)), float(C.get("dmg", 14.0)), "device")
+			e.los_t = 0.0
+			e.cover_cd = float(C.get("cd", 2.0))
+			if not z.is_empty():
+				st.text(e.x, e.y - e.r - 30.0, String(C.get("text", "바닥이 갈라진다")), "#ffd9b0")
+				st.ev("hazard_warn")
+		"break": # 엄폐물 파괴: 예고 뒤 시선을 막은 돌을 부순다(그 뒤에는 평소 공격이 닿는다)
+			var ob := blocking_obstacle(st, e)
+			if ob.is_empty():
+				e.los_t = 0.0
+				return
+			e.break_ob = ob
+			e.state = "breakrock"
+			e.state_t = 0.0
+			chain_reset(e)
+			st.text(float(ob.x), float(ob.y) - float(ob.r) - 12.0, String(C.get("text", "엄폐물을 노린다!")), "#ff8a5c")
+			st.ev("boss_lock")
+
+## PBoss2.update 뒤: 양갈래 충격파 보정.
+## ① 각도 변주 — 갈래 한 쌍을 spread만큼 돌려 한 갈래가 플레이어를 정면으로 지나가게 한다(번갈아 적용).
+##    예고 각(aim_angle)에 그대로 반영하므로 화면 예고와 실제 판정이 처음부터 같다.
+## ② 중앙 후속 — 양갈래 뒤에는 가운데를 지나는 단발 충격파를 잇는다. 단발도 준비 0.6초·확정 0.35초 예고를 그대로 쓴다(무예고 처벌 없음).
+static func guardian_post(st: CombatState, e: Dictionary, _dt: float, prev_state: String, prev_left: int) -> void:
+	var S := gcfg(e, "split")
+	if S.is_empty():
+		return
+	var cfg := cfg_of(e)
+	var s := String(e.state)
+	var spread: float = float(cfg.shock.spread)
+	# 새 충격파가 시작될 때(준비 진입) 이번 발의 성격을 정한다
+	if s == "shock_aim" and prev_state != "shock_aim":
+		if bool(e.get("center_next", false)) and int(e.get("shock_left", 1)) >= 2:
+			e.shock_left = 1 # 중앙 후속: 가운데 한 발(양갈래 아님)
+			e.split_off = 0.0
+			e.center_next = false
+			st.text(e.x, e.y - e.r - 30.0, String(S.get("centerText", "가운데를 노린다!")), "#ffd9b0")
+		else:
+			e.center_next = false
+			var off := 0.0
+			if int(e.get("shock_left", 1)) >= 2:
+				e.split_n = int(e.get("split_n", 0)) + 1
+				# 번갈아: 한 번은 좌우로 갈라진 원래 모양, 다음 한 번은 한 갈래가 플레이어를 정면으로 지나가게 돌린다
+				if int(e.split_n) % maxi(1, int(S.get("offsetEvery", 2))) == 0:
+					off = spread * float(S.get("offsetMult", 1.0)) * (1.0 if st.rng.range_f(0.0, 1.0) < 0.5 else -1.0)
+			e.split_off = off
+	if absf(float(e.get("split_off", 0.0))) > 0.0:
+		if s == "shock_aim": # 예고 각을 같이 돌린다(화면·봇이 보는 예고 = 실제 발사 각)
+			e.aim_angle = float(e.aim_angle) + float(e.split_off)
+		elif s == "shock_lock" and prev_state == "shock_aim": # 확정 프레임: 굳은 각도에도 같은 값을 넣고 조준 각도 맞춘다
+			e.dir = float(e.dir) + float(e.split_off)
+			e.aim_angle = float(e.dir)
+	# 양갈래가 실제로 나갔으면 중앙 후속을 예약한다(연계 자리가 있으면 바로, 없으면 다음 충격파에서)
+	if prev_state == "shock_lock" and s != "shock_lock" and prev_left >= 2:
+		e.center_next = true
+		if s == "approach" and String(e.get("chain_next", "")) != "":
+			e.chain_next = "shock"
+
 # ---------- 갱신 ----------
 static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 	if bool(e.get("dummy", false)): # 허수아비(시험실): 행동 없음
 		e.anim_t = float(e.get("anim_t", 0.0)) + dt
 		return
 	if String(e.get("boss_id", "boss")) != "boss":
+		if String(e.get("boss_id", "")) == "guardian":
+			# 봉인 수호자 보정(이 파일에서만 붙인다 — 패턴 본체는 PBoss2에 있고 그 파일은 이번 작업의 담당 밖):
+			# ① 엄폐 대응(돌 뒤에 서면 한 대도 못 때리던 문제) ② 양갈래 충격파의 중앙 공백
+			guardian_pre(st, e, dt)
+			var prev_state := String(e.state)
+			var prev_left: int = int(e.get("shock_left", 0))
+			PBoss2.update(st, e, dt)
+			guardian_post(st, e, dt, prev_state, prev_left)
+			return
 		PBoss2.update(st, e, dt)
 		return
 	var cfg := _B()

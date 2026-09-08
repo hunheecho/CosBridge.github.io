@@ -56,7 +56,9 @@
     "slash_gap": "절단선 2 준비",
     "guard": "회전 방어 자세(정면 경감)",
     "gstrike_aim": "큰 베기 준비",
-    "gstrike_lock": "큰 베기!"
+    "gstrike_lock": "큰 베기!",
+    "reposition": "우회 이동(엄폐 회피)",
+    "breakrock": "엄폐물 파괴 준비"
   },
   "bosses": {
     "gate_warden": {

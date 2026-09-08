@@ -4,6 +4,7 @@ extends Node
 ## 오버레이: 3택(PChoiceOverlay, 열려 있으면 다른 입력 차단·전투 정지) · 일시정지 · 조작법 · 설정 · 용어 툴팁(PGlossaryTip, 고정 시 전투 정지) · F3 검증 패널
 ## 검증 경로: 기준 전투(첫 전투, 0.3.1 D33)는 view.start(seed, bot) 그대로. PROPHECY_CAPTURE / PROPHECY_MOVIE / PROPHECY_DODGE_DEMO 는 그 경로를 쓴다.
 ## PROPHECY_UI_SMOKE=<폴더>: 새 회차 → 거점 → 출격(봇) → 전투 → 승리 뒤 화면 → 상점·대장간·장비·통계 → 하루 종료 → 관문 → 보스전 → 결과까지 자동 진행하며 PNG 저장 후 종료.
+## 이동 진단(계측 전용, combat_view.gd): PROPHECY_MOVE_LOG=<초>·PROPHECY_MOVE_STUCK=<초>. 자동 진단(_auto_diagnostics)의 combat.move와 심박 줄 move=에 같은 값이 들어간다. 설명은 docs/KNOWN_DEFECTS.md 부록.
 
 @onready var view: Node2D = $CombatView
 @onready var screens_root: Control = $UI/Screens
@@ -374,8 +375,8 @@ func unequip_item(slot: String) -> void:
 	save_run()
 	show(screen)
 
-func forge_upgrade() -> void:
-	PRun.forge_upgrade(run)
+func forge_upgrade(weapon_id: String = "") -> void:
+	PRun.forge_upgrade(run, weapon_id)
 	save_run()
 	show("forge")
 
@@ -1039,7 +1040,15 @@ func _update_hud() -> void:
 		if h.is_empty():
 			obj_l.text = "%.1f초" % st.t
 		else:
-			obj_l.text = "%s · %s%s · %.1f초" % [String(h.title), String(h.line), (" · " + String(h.risk)) if String(h.risk) != "" else "", st.t]
+			# 목표 지점 안내: 원 밖 정지 / 진행 중 / 피격 중단을 구분하고, 화면 밖이면 방향·거리를 말한다
+			var mk: Dictionary = h.get("marker", {})
+			var obj_guide := ""
+			if not mk.is_empty():
+				if String(mk.get("state", "")) != "":
+					obj_guide += " · " + String(mk.state)
+				if float(mk.get("dist", 0.0)) > 260.0:
+					obj_guide += " · %s %d 이동" % [String(mk.get("dir", "")), int(mk.dist)]
+			obj_l.text = "%s · %s%s%s · %.1f초" % [String(h.title), String(h.line), (" · " + String(h.risk)) if String(h.risk) != "" else "", obj_guide, st.t]
 	else:
 		var r := st.remaining()
 		obj_l.text = "전멸 · 남은 %d · 지금 %d/%d · 대기 %d · 돌진 %d/%d · %.1f초" % [r.total, r.alive, r.cap, r.pending, st.dash_states_count(), int(st.cfg.enemies.wolf.dash.max_concurrent), st.t]
@@ -1540,6 +1549,8 @@ func _auto_diagnostics() -> Dictionary:
 			"zones": st.zones.size(), "projectiles": st.projectiles.size(),
 			"bot": view.bot != null, "paused": view.paused, "time_scale": view.time_scale,
 			"bot_info": (view.bot.debug_state() if view.bot != null and view.bot.has_method("debug_state") else {}),
+			# 이동 진단(계측 전용, combat_view._move_watch): 입력 → 시뮬 전달 → 실제 이동량 → 거부 이유
+			"move": (view.move_diag() if view.has_method("move_diag") else {}),
 		}
 	return d
 
@@ -1604,7 +1615,9 @@ func _auto_tick() -> void:
 			" sig=", sig, " since_progress_sec=", int(now - _auto_last_progress_ms) / 1000,
 			" combat_sec=", snapped(_auto_combat_sec, 0.1),
 			" t=", (snapped(view.st.t, 0.1) if view != null and view.st != null else 0.0),
-			" ppos=", ([int(view.st.player.x), int(view.st.player.y)] if view != null and view.st != null else []))
+			" ppos=", ([int(view.st.player.x), int(view.st.player.y)] if view != null and view.st != null else []),
+			# 멈춤이 '이동 불능' 때문인지 로그만으로 가릴 수 있게 이유를 같이 남긴다(계측 전용)
+			" move=", (JSON.stringify(view.move_diag().get("이유", [])) if view != null and view.st != null and view.has_method("move_diag") else "[]"))
 	if float(now - _auto_t0_ms) / 1000.0 > _auto_budget_sec:
 		print("UI_SMOKE timeout wall_sec=", int(now - _auto_t0_ms) / 1000, " budget_sec=", int(_auto_budget_sec))
 		_auto_finish("timeout")

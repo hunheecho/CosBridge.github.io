@@ -18,6 +18,12 @@ var region_id: String = ""
 var hp_mult: Dictionary = { "normal": 1.0, "elite": 1.0, "boss": 1.0 }
 var act: int = 1 # 막(1~3). 정예 체력·역할별 고정 체력표(PPacing)가 읽는다. 시험실·기준 전투는 1
 var hit_attack_id: String = "" # 계측 전용: 투사체 명중 처리 중에만 그 투사체의 발사 시점 공격 id(PHitRecorder가 읽는다)
+## 공격 원인 계측(2026-09-08, 중복 발사 검사용). 규칙·난수에 영향을 주지 않는 읽기 전용 집계다.
+## base = 자동기술 기본 발사 / echo = 공용 '메아리'의 지연 추가 공격 / volley = E 사용 시 일제 공격
+## zone = 장판(불길·서리 등)의 주기 피해 / dot = 화상·출혈 등 지속 피해 틱
+var attack_cause: String = ""
+## 승인된 첫 전투(D33 기준 전투)인가. 참이면 본편 체력 시험값 오버레이를 적용하지 않는다
+var reference_fight: bool = false
 ## 개조 계측(피드백 18 — 획득→장착→발동→적중): 개조 id → { procs(실제 효과 생성 횟수), hits(그 효과의 적중 횟수), damage(유효 피해), last_proc_t, last_hit_t }.
 ## 규칙·난수에 쓰지 않는 표시·통계 전용. 발동(procs)과 적중(hits)을 분리해서 기록하므로 빗나간 발동이 적중처럼 보이지 않는다
 var mod_stats: Dictionary = {}
@@ -92,7 +98,8 @@ static func _new_stats() -> Dictionary:
 	return { "kills": 0, "damage_taken": 0.0, "damage_taken_nominal": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "e_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "level_ups": 0, "max_alive": 0, "support_only_sec": 0.0, "thin_tail_sec": 0.0, "no_target_sec": 0.0, "max_dash_states": 0, "max_bite_states": 0, "chest_gold": 0, "boss_damage": 0.0, "absorbed": 0.0, "healed": 0.0, "elite_kills": 0, "saving_kills": 0, "equip_procs": {}, "tier_spawned": {}, "tier_kills": {}, "max_enemy_projectiles": 0, "max_enemy_zones": 0, "max_webs": 0, "field_hits": 0 }
 
 static func _new_metrics() -> Dictionary:
-	return { "dmg": {}, "taken": {}, "taken_hits": {}, "enemies": {}, "hits": {}, "patterns": {}, "absorbed": 0.0, "interrupts": 0, "webs": 0, "heals": 0, "heal_amount": 0.0, "far_frac": -1.0 }
+	return { "dmg": {}, "taken": {}, "taken_hits": {}, "enemies": {}, "hits": {}, "patterns": {}, "absorbed": 0.0, "interrupts": 0, "webs": 0, "heals": 0, "heal_amount": 0.0, "far_frac": -1.0,
+		"cause_dmg": {}, "cause_hits": {}, "cause_fires": {} }
 
 ## 첫 전투(godot-0.3.1 D33 기준 전투): first_fight.json 설정 그대로. RNG 소비 순서·늑대 규칙·검격 타이밍이 0.3.1과 같다
 static func first_fight(config: Dictionary, seed_v: int = 1) -> CombatState:
@@ -116,6 +123,7 @@ func _init(o: Dictionary) -> void:
 	rng = PRng.new(seed_value)
 	var C := PCatalog.config()
 	var ff: bool = bool(o.get("first_fight", false))
+	reference_fight = ff
 	if o.has("cfg"):
 		cfg = o.cfg
 	else:
@@ -128,7 +136,8 @@ func _init(o: Dictionary) -> void:
 	var arena_def: Dictionary = PCatalog.arena(arena_id) if not ff else {}
 	var obs: Array = o.obstacles if o.has("obstacles") else arena_def.get("obstacles", [])
 	for ob in obs:
-		obstacles.append({ "id": String(ob.id), "type": String(ob.type), "x": float(ob.x), "y": float(ob.y), "r": float(ob.r) })
+		# canopy(머리 위 가림)는 시야 판정에 쓰인다. 복사에서 빠지면 전장마다 가림이 사라진다
+		obstacles.append({ "id": String(ob.id), "type": String(ob.type), "x": float(ob.x), "y": float(ob.y), "r": float(ob.r), "canopy": bool(ob.get("canopy", false)) })
 	objective = String(o.get("objective", "clear"))
 	region_id = String(o.get("region_id", ""))
 	if o.has("hp_mult"):
@@ -744,7 +753,10 @@ func spawn_enemy(type: String, x: float, y: float, summoned: bool = false, tier:
 	# 역할별 고정 체력표(PPacing, 시험값)가 있으면 그 절대값을 기본 체력 대비 배율로 바꿔 쓴다. 없으면 세계 변화 등급 배율 그대로.
 	# 표는 개발 중 기준 빌드 측정으로 미리 만든 고정값이며 실행 중 플레이어 DPS를 읽지 않는다. 보스·구조물은 대상이 아니다.
 	var tier_mult: float = float(TD.get("hp", 1.0))
-	if not e.boss and not e.structure:
+	# 승인된 첫 전투(D33 기준 전투)는 과거 비교 기준이라 본편 시험값 오버레이를 적용하지 않는다.
+	# 본편의 일반 등급 체력이 올라가도 기준 전투는 그대로 남아 과거 결과와 대조할 수 있다
+	# (2026-09-08 사용자 지시: "기존 승인된 늑대25 기준 전투는 과거 비교용으로 보존한다").
+	if not e.boss and not e.structure and not reference_fight:
 		tier_mult = PPacing.hp_mult_for(type, tier, float(d.hp), act, tier_mult)
 	var mult: float = float(hp_mult.get(cls, 1.0)) * tier_mult
 	e.hp = e.hp * mult
@@ -978,6 +990,12 @@ func damage_enemy(e: Dictionary, amount: float, opt = {}, knock_c: float = 0.0, 
 		stats.boss_damage += effective
 	var k := src_key(o)
 	metrics.dmg[k] = float(metrics.dmg.get(k, 0.0)) + effective
+	# 원인별 집계(중복 발사 검사용). 기존 출처 행 src_key는 그대로 둔다
+	var cz := String(o.get("cause", attack_cause))
+	if cz == "":
+		cz = "dot" if o.has("dot") else ("base" if direct else "zone")
+	metrics.cause_dmg[cz] = float(metrics.cause_dmg.get(cz, 0.0)) + effective
+	metrics.cause_hits[cz] = int(metrics.cause_hits.get(cz, 0)) + 1
 	if sr.has("mod") and effective > 0.0:
 		note_mod(String(sr.mod), "hit", effective) # 개조 파생 피해의 적중·피해(출처 행 src_key는 그대로 — 기존 표 불변)
 	if effective > 0.0 and not field.is_empty() and in_field(e):

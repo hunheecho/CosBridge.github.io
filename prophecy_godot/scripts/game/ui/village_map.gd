@@ -28,7 +28,7 @@ func _init() -> void: # 버튼은 트리에 들어가기 전(set_state 호출 �
 		btn.text = String(b.label)
 		btn.flat = true
 		btn.focus_mode = Control.FOCUS_ALL
-		btn.add_theme_font_size_override("font_size", 14)
+		btn.add_theme_font_size_override("font_size", 17)
 		btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
 		btn.add_theme_color_override("font_hover_color", Color(1, 0.92, 0.6))
 		btn.add_theme_color_override("font_pressed_color", Color(1, 0.92, 0.6))
@@ -70,7 +70,7 @@ func _relayout() -> void:
 	if W <= 0.0 or H <= 0.0:
 		return
 	var top: float = H * TOP
-	var h: float = maxf(PLayout.TOUCH_TARGET, H * (GROUND - TOP) + 22.0) # 지면 아래 라벨 줄까지 포함
+	var h: float = maxf(PLayout.TOUCH_TARGET, H * (GROUND - TOP) + 26.0) # 지면 아래 라벨 줄까지 포함(글자를 키웠다)
 	for b in BUILDINGS:
 		var id := String(b.id)
 		var x: float = W * float(b.x)
@@ -83,7 +83,7 @@ func _relayout() -> void:
 		# 글자를 건물 아래(지면 아래 줄)에 두기 위해 위 여백을 크게 준 투명 스타일
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(0, 0, 0, 0)
-		sb.content_margin_top = maxf(0.0, h - 26.0)
+		sb.content_margin_top = maxf(0.0, h - 30.0)
 		sb.content_margin_bottom = 2.0
 		sb.content_margin_left = 2.0
 		sb.content_margin_right = 2.0

@@ -74,6 +74,7 @@ func _init() -> void:
 	stalker_tests()
 	hunt_king_tests()
 	executor_tests()
+	executor_variation_tests()
 	chain_tests()
 	var pass_n := 0
 	for r in results:
@@ -774,3 +775,42 @@ func chain_tests() -> void:
 			q_ok = false
 			q_txt.append("%s 빈틈 %.5f" % [String(id), float(bz4.state_t)])
 	ok("신규 6종: 감속장 안 빈틈 진행 = dt × 0.4 (연계를 켜도 그대로)", q_ok, ", ".join(q_txt))
+
+## 3막 관문(종말의 집행관) 위치 변주: 절단선 사이에 보스만 옆으로 움직인다.
+## 예고 시간·선 위치·피해·빈틈은 그대로여야 한다(기존 대응 보존).
+func executor_variation_tests() -> void:
+	if PBoss.beh_e({ "boss_id": "doom_executor", "phase": 1 }).get("gapStep", {}).is_empty():
+		ok("집행관 위치 변주가 꺼져 있어(gapStep 없음) 검사를 건너뛴다", true)
+		return
+	var SL: Dictionary = PCatalog.boss_def("doom_executor").slash
+	var st := chain_state("doom_executor", 200.0)
+	var bz := st.boss
+	PBoss3.begin(st, bz, "slash")
+	var px0: float = st.player.x
+	run_until(st, func(): return String(bz.state) == "slash_lock", 2.0)
+	var line1: float = float(bz.slashes[0].x)
+	run_until(st, func(): return String(bz.state) == "slash_gap", 1.0)
+	var bx0: float = float(bz.x)
+	var by0: float = float(bz.y)
+	var line2: float = float(bz.slashes[1].x)
+	var gap_sec: float = PBoss.pat_num(bz, PCatalog.boss_def("doom_executor"), "slash", "gap", float(SL.gap))
+	var moved := 0.0
+	for i in int(gap_sec / STEP) - 1:
+		st.step({}, STEP)
+		if String(bz.state) != "slash_gap":
+			break
+	moved = PGeom.dist(float(bz.x), float(bz.y), bx0, by0)
+	ok("집행관: 절단선 1↔2 사이에 보스가 옆으로 파고든다(위치 변주)", moved > 10.0, "이동 %.0f" % moved)
+	ok("집행관: 절단선 위치는 그대로 플레이어 x 기준(변주가 판정을 바꾸지 않는다)",
+		is_equal_approx(float(bz.slashes[0].x), line1) and is_equal_approx(float(bz.slashes[1].x), line2) and is_equal_approx(line1, px0),
+		"1번 %.0f · 2번 %.0f · 플레이어 %.0f" % [line1, line2, px0])
+	var thr := boss_threats(st)
+	var beam_ok := true
+	for t in thr:
+		if String(t.get("kind", "")) == "beam" and absf(float(t.get("ang", 0.0)) - PI / 2.0) < 1e-6:
+			# 예고 도형은 여전히 세로선이고 x는 선 위치와 같다(보스 위치와 무관)
+			if absf(float(t.x) - line1) > 1e-6 and absf(float(t.x) - line2) > 1e-6:
+				beam_ok = false
+	ok("집행관: 화면·봇이 보는 예고 도형이 보스 이동과 무관하게 선 위치 그대로다", beam_ok, str(thr.size()))
+	run_until(st, func(): return String(bz.state) == "recover", 2.0)
+	ok("집행관: 절단선 뒤 빈틈은 그대로 %.1f초" % float(SL.recover), is_equal_approx(float(bz.recover_dur), float(SL.recover)), "%.2f" % float(bz.recover_dur))

@@ -14,6 +14,46 @@ static func is_objective(id: String) -> bool:
 static func spec(st: CombatState) -> Dictionary:
 	return PCatalog.objectives().get(st.objective, {})
 
+# ---------- 임무 개편 조정값(2026-09-08, 전부 시험값 — 사람이 승인한 균형값이 아니다) ----------
+## 원래 이 표는 data/missions.json에 있어야 하지만 그 파일은 이번 작업의 담당 밖이라 여기에 둔다(보고에 기록).
+## PROPHECY_OBJ=off 로 실행하면 개편 전 규칙 그대로 돌아간다(전후 비교 전용 스위치).
+## base_from_encounter: 임무도 일반 전투와 같은 날짜 예산 편성(PRun.encounter_waves)·동시 상한을 쓴다.
+##   개편 전에는 목표 규칙이 편성을 통째로 덮어써 "지역 적 2마리 × 밀도 배율 = 10마리"만 나왔다(원인 ①).
+## reinforce.floor: 전장에 움직이는 적이 이 수보다 적으면 간격을 기다리지 않고 부족분을 채운다(빈 전장 방지).
+## reinforce.gate_base: 목표 진행 없이 열리는 예산 비율(나머지는 진행률로 열린다 — 무한 파밍 방지).
+## cap 0 = 편성의 동시 생존 상한(막별 12/15/18)을 그대로 쓴다.
+const TUNE := {
+	"base_from_encounter": true,
+	"reinforce": {
+		"seal": { "budget": 12, "interval": 3.0, "first": 1.2, "cap": 0, "floor": 4, "gate_base": 0.4, "floor_gap": 1.5 },
+		"rescue": { "budget": 12, "interval": 3.5, "first": 1.5, "cap": 0, "floor": 4, "gate_base": 0.4, "floor_gap": 1.5 },
+		"altars": { "budget": 8, "interval": 5.0, "cap": 0, "floor": 3, "gate_base": 0.5, "floor_gap": 2.0 },
+		"hunt": { "cap": 0, "floor": 3, "gate_base": 1.0, "floor_gap": 2.0 },
+	},
+	"altar": {
+		"hp_by_act": [220.0, 300.0, 380.0], # 제단 체력(막별). 개편 전 90은 첫 접근 한 번에 부서졌다(원인 ②)
+		"hp_per_weapon_level": 0.06,        # 빌드가 강해진 만큼 올린다(레벨-1 + 대장간 단계 합 1당 +6%)
+		"first_show": 1.2,                  # 첫 효과 발동까지(초): 무엇을 하는 제단인지 부수기 전에 보인다
+		"guard_n": 2,                       # 제단마다 붙는 호위(첫 등장 편성에 포함, 제단 주변에서 시작)
+		"guard_r": 90.0,
+		"min_player_gap": 260.0,            # 시작 위치에서 바로 닿지 않게(개편 전 170)
+	},
+}
+
+## "full"(기본) | "off"(개편 전 규칙). 환경 변수 PROPHECY_OBJ가 우선한다
+static func variant() -> String:
+	var v := OS.get_environment("PROPHECY_OBJ")
+	return v if v != "" else "full"
+
+static func on() -> bool:
+	return variant() != "off"
+
+static func tune(section: String, key: String, def: float) -> float:
+	if not on():
+		return def
+	var s: Dictionary = TUNE.get(section, {})
+	return float(s.get(key, def))
+
 static func _xy(o) -> Array:
 	if typeof(o) == TYPE_ARRAY:
 		return [float(o[0]), float(o[1])]
@@ -86,33 +126,184 @@ static func edge_exit(st: CombatState, away: Array) -> Dictionary:
 	return best
 
 # ---------- 지원병(유한 예산·동시 상한) ----------
-static func make_reinforce(cfg: Dictionary, pool: Array) -> Dictionary:
+## cfg = data/missions.json의 목표별 reinforce. obj_id를 주면 개편 조정값(TUNE.reinforce)이 덮어쓴다.
+## alive_cap = 편성의 동시 생존 상한(cap 0일 때 쓴다)
+static func make_reinforce(cfg: Dictionary, pool: Array, obj_id: String = "", alive_cap: int = 0) -> Dictionary:
 	if cfg.is_empty():
 		return {}
-	return { "budget": int(cfg.budget), "cap": int(cfg.cap), "interval": float(cfg.interval), "timer": float(cfg.first) if cfg.has("first") else float(cfg.interval), "pool": pool.duplicate(), "spawned": 0 }
+	var R := { "budget": int(cfg.budget), "cap": int(cfg.cap), "interval": float(cfg.interval), "timer": float(cfg.first) if cfg.has("first") else float(cfg.interval), "pool": pool.duplicate(), "spawned": 0, "log": new_rlog() }
+	R.budget_total = int(R.budget)
+	if not on() or obj_id == "":
+		return R
+	var T: Dictionary = (TUNE.reinforce as Dictionary).get(obj_id, {})
+	if T.is_empty():
+		return R
+	if T.has("budget"):
+		R.budget = int(T.budget)
+	if T.has("interval"):
+		R.interval = float(T.interval)
+	if T.has("first"):
+		R.timer = float(T.first)
+	if T.has("cap"):
+		var c: int = int(T.cap)
+		R.cap = c if c > 0 else maxi(int(cfg.cap), alive_cap)
+	R.floor = int(T.get("floor", 0))
+	R.floor_gap = float(T.get("floor_gap", 1.5))
+	R.floor_cd = 0.0
+	R.gate_base = float(T.get("gate_base", 1.0))
+	R.budget_total = int(R.budget)
+	return R
+
+## 지원병 계측(원인 분리용, 규칙에 영향 없음): 왜 지원이 안 나왔는지 이유별로 센다.
+## try = 간격이 차서 시도한 횟수 / cap_block·budget_block·gate_block = 막힌 이유 / spawned = 실제 예약 수 /
+## floor_fire = 인구 하한 때문에 간격을 건너뛰고 채운 횟수 / empty_sec = 전장에 적이 하나도 없던 시간
+static func new_rlog() -> Dictionary:
+	return { "try": 0, "spawned": 0, "cap_block": 0, "budget_block": 0, "gate_block": 0, "floor_fire": 0, "first_t": -1.0, "last_t": -1.0, "empty_sec": 0.0, "thin_sec": 0.0 }
 
 static func active_enemies(st: CombatState) -> int:
 	return st.alive_units() + st.pending.size()
 
+## 구조물(제단·봉인 장치)을 뺀 전장 인구. 인구 하한 판단은 "때릴 수 있는 움직이는 적"만 센다
+static func field_units(st: CombatState) -> int:
+	var n := 0
+	for e in st.enemies:
+		if not e.dead and not bool(e.get("structure", false)) and not bool(e.get("hidden", false)):
+			n += 1
+	return n + st.pending.size()
+
+## 지원 예산 해금 비율(무한 파밍 금지): 목표를 진행할수록 열린다.
+## 목표를 진행하지 않고 제자리에서 적만 잡는 동안에는 첫 몫(base)까지만 나온다 — 반복 보상이 무한해지지 않는다.
+static func unlocked_budget(st: CombatState, R: Dictionary) -> int:
+	var total: int = int(R.get("budget_total", R.budget))
+	var base: float = float(R.get("gate_base", 1.0))
+	if base >= 1.0:
+		return total
+	var ratio: float = clampf(progress_ratio(st), 0.0, 1.0)
+	return int(ceil(float(total) * (base + (1.0 - base) * ratio)))
+
+## 목표 진행률 0~1(지원 예산 해금·표시 공용). 목표별로 뜻이 다르다
+static func progress_ratio(st: CombatState) -> float:
+	var o := st.obj
+	if o.is_empty():
+		return 0.0
+	if bool(o.get("done", false)):
+		return 1.0
+	match st.objective:
+		"seal":
+			return float(o.get("progress", 0.0)) / maxf(0.001, float(o.get("total", 1.0)))
+		"rescue":
+			var c := float(o.get("freed", 0)) / maxf(1.0, float(o.get("cages", 1)))
+			var ac: Dictionary = o.get("active", {})
+			if not ac.is_empty() and not bool(ac.get("freed", false)):
+				c += (float(ac.progress) / maxf(0.001, float(ac.total))) / maxf(1.0, float(o.get("cages", 1)))
+			return minf(1.0, c)
+		"altars":
+			var alive := 0
+			for a in o.get("altars", []):
+				if not a.dead:
+					alive += 1
+			return 1.0 - float(alive) / 3.0
+		"hunt":
+			var el: Dictionary = o.get("elite", {})
+			if el.is_empty() or bool(el.get("dead", false)):
+				return 1.0 if int(o.get("elite_killed", 0)) > 0 else 0.0
+			return 1.0 - float(el.hp) / maxf(1.0, float(el.hp_max))
+	return 0.0
+
+## 지원병 예약. floor(인구 하한)에 미치지 못하면 간격을 기다리지 않고 부족분을 한 번에 채운다.
+## 예산은 유한하고 목표 진행률로 열린다(멍하니 서 있게 두지 않되, 무한 파밍도 막는다).
 static func reinforce(st: CombatState, R: Dictionary, dt: float, n: int = 0) -> int:
-	if R.is_empty() or int(R.budget) <= 0:
+	if R.is_empty():
 		return 0
+	var L: Dictionary = R.get("log", {})
+	if L.is_empty():
+		L = new_rlog()
+		R.log = L
+	var units := field_units(st)
 	R.timer = float(R.timer) - dt
-	if float(R.timer) > 0.0:
+	var floor_n: int = int(R.get("floor", 0))
+	var deficit: int = maxi(0, floor_n - units)
+	# 인구 하한은 "기본 편성이 더 내보낼 것이 없을 때"만 쓴다(기본 편성이 채우는 중이면 그쪽을 기다린다)
+	var queue_done: bool = int(st.spawn_count) >= int(st.spawn_total)
+	var forced: bool = deficit > 0 and queue_done and float(R.get("floor_cd", 0.0)) <= 0.0 and n <= 0
+	R.floor_cd = maxf(0.0, float(R.get("floor_cd", 0.0)) - dt)
+	if float(R.timer) > 0.0 and not forced:
 		return 0
-	R.timer = float(R.interval)
+	if not forced:
+		R.timer = float(R.interval)
+	L.try = int(L.try) + 1
+	if int(R.budget) <= 0:
+		L.budget_block = int(L.budget_block) + 1
+		if forced:
+			R.floor_cd = float(R.get("floor_gap", 1.5))
+		return 0
+	if int(R.spawned) >= unlocked_budget(st, R):
+		L.gate_block = int(L.gate_block) + 1
+		if forced:
+			R.floor_cd = float(R.get("floor_gap", 1.5))
+		return 0
 	var k := 0
-	var want: int = n if n > 0 else 1
+	var want: int = n if n > 0 else maxi(1, deficit)
 	var pool: Array = R.pool
-	while k < want and int(R.budget) > 0 and active_enemies(st) < int(R.cap):
+	var cap: int = int(R.cap)
+	while k < want and int(R.budget) > 0 and int(R.spawned) < unlocked_budget(st, R) and active_enemies(st) < cap:
 		var type := String(pool[int(R.spawned) % pool.size()])
 		st.queue_wave([{ "type": type, "n": 1 }])
 		R.budget = int(R.budget) - 1
 		R.spawned = int(R.spawned) + 1
 		k += 1
+	if k == 0 and active_enemies(st) >= cap:
+		L.cap_block = int(L.cap_block) + 1
+		if forced:
+			R.floor_cd = float(R.get("floor_gap", 1.5))
 	if k > 0:
+		L.spawned = int(L.spawned) + k
+		if float(L.first_t) < 0.0:
+			L.first_t = st.t
+		L.last_t = st.t
+		if forced:
+			L.floor_fire = int(L.floor_fire) + 1
+			R.floor_cd = float(R.get("floor_gap", 1.5))
 		st.ev("reinforce", { "n": k })
 	return k
+
+## 임무의 기본 편성. 개편에서는 일반 전투와 같은 날짜 예산 편성(opts.waves, PRun.encounter_waves)을 그대로 쓴다.
+## 정예·보스·구조물은 목표 규칙이 따로 정하므로 여기서 뺀다(정예 수 규칙은 그대로 유지된다).
+## opts.waves가 없으면(단위 시험·직접 생성) 개편 전처럼 지역 적 fallback_n마리만 낸다.
+static func base_waves(opts: Dictionary, pool: Array, fallback_n: int) -> Array:
+	var src: Array = opts.get("waves", [])
+	if on() and bool(TUNE.base_from_encounter) and not src.is_empty():
+		var out: Array = []
+		for w in src:
+			var g2: Array = []
+			for g in w:
+				var d := PCatalog.enemy(String(g.type))
+				if bool(d.get("elite", false)) or bool(d.get("boss", false)) or bool(d.get("structure", false)):
+					continue
+				g2.append((g as Dictionary).duplicate())
+			if not g2.is_empty():
+				out.append(g2)
+		if not out.is_empty():
+			return out
+	return [[{ "type": String(pool[0]), "n": fallback_n }]]
+
+## 편성에서 앞쪽 n마리를 빼서 그 종류 목록을 돌려준다(제단 호위처럼 "다른 곳에서 시작하는" 적).
+## 총 등장 수·경험치 예산은 그대로 두고 시작 위치만 바꾸는 방법이다.
+static func take_units(f: Dictionary, n: int) -> Array:
+	var units: Array = f.get("units", [])
+	var tiers: Array = f.get("tiers", [])
+	var out: Array = []
+	var i := 0
+	while out.size() < n and i < units.size():
+		var d := PCatalog.enemy(String(units[i]))
+		if bool(d.get("elite", false)) or bool(d.get("boss", false)) or bool(d.get("structure", false)):
+			i += 1
+			continue
+		out.append([String(units[i]), String(tiers[i]) if i < tiers.size() else "normal"])
+		units.remove_at(i)
+		if i < tiers.size():
+			tiers.remove_at(i)
+	return out
 
 ## 지역 적 종류(정예 제외). opts.pool이 회차의 지역 목록(PA.Run.regionEnemies 대체). 없으면 늑대
 static func pool_for(opts: Dictionary) -> Array:
@@ -136,31 +327,38 @@ static func setup(st: CombatState, opts: Dictionary) -> void:
 	var o: Dictionary = { "type": st.objective, "risk": risk, "done": false, "done_t": -1.0, "target_text": "" }
 	st.obj = o
 	var waves: Array = []
+	var altar_spots: Array = [] # 제단 호위 배치용(편성 확정 뒤에 세운다)
 	if st.objective == "hunt":
 		# 웨이브 1: 호위 + 정예. 정예는 처음부터 등장(숨지 않음)
 		var escort_type := String(pool[0])
-		waves = [[{ "type": escort_type, "n": int(S.escortN) }, { "type": String(S.eliteType), "n": 1 }]]
-		o.reinforce = make_reinforce(S.reinforce, pool)
+		waves = base_waves(opts, pool, int(S.escortN))
+		(waves[waves.size() - 1] as Array).append({ "type": String(S.eliteType), "n": 1 })
+		o.reinforce = make_reinforce(S.reinforce, pool, "hunt", int(st.formation.get("alive_cap", 0)))
 		o.reinforce.timer = 0.0
 		o.reinforce_fired = false
 		o.elite = {}
 		o.elite_total = 0
 		o.elite_killed = 0
 	elif st.objective == "altars":
-		waves = [[{ "type": String(pool[0]), "n": 2 }]]
+		waves = base_waves(opts, pool, 2)
 		var others: Array = []
 		o.altars = []
+		var gap_p: float = tune("altar", "min_player_gap", float(S.minPlayerGap))
 		for kind in ["heal", "hazard", "reinforce"]:
-			var p := place(st, 22.0, float(S.minGap), float(S.minPlayerGap), others)
+			var p := place(st, 22.0, float(S.minGap), gap_p, others)
 			others.append(p)
 			var e := st.spawn_enemy("altar_" + String(kind), float(p.x), float(p.y))
 			e.altar = String(kind)
 			e.timer = float(S.heal.interval) if kind == "heal" else (2.5 if kind == "hazard" else float(S.reinforce.interval))
+			if on(): # 첫 효과를 빨리 보여준다: 무슨 제단인지 알기 전에 부서지지 않게(원인 ②)
+				e.timer = tune("altar", "first_show", 1.2) + float(others.size() - 1) * 0.5
 			e.budget = float(S.heal.budget) if kind == "heal" else (float(S.reinforce.budget) if kind == "reinforce" else INF)
+			altar_hp(st, e)
 			(o.altars as Array).append(e)
-		o.reinforce = make_reinforce(S.reinforce, pool)
+			altar_spots.append(p)
+		o.reinforce = make_reinforce(S.reinforce, pool, "altars", int(st.formation.get("alive_cap", 0)))
 	elif st.objective == "seal":
-		waves = [[{ "type": String(pool[0]), "n": 2 }]]
+		waves = base_waves(opts, pool, 2)
 		var p1 := place(st, float(S.r), float(S.minGap), 120.0, [])
 		var p2 := place(st, float(S.r), float(S.minGap), 120.0, [p1])
 		o.points = [p1, p2]
@@ -172,9 +370,9 @@ static func setup(st: CombatState, opts: Dictionary) -> void:
 		o.hit_pause = 0.0
 		o.move_warn_t = 0.0
 		st.objects.append({ "kind": "seal", "x": float(p1.x), "y": float(p1.y), "r": float(S.r), "active": true, "moving": false, "next": {} })
-		o.reinforce = make_reinforce(S.reinforce, pool)
+		o.reinforce = make_reinforce(S.reinforce, pool, "seal", int(st.formation.get("alive_cap", 0)))
 	elif st.objective == "rescue":
-		waves = [[{ "type": String(pool[0]), "n": 2 }]]
+		waves = base_waves(opts, pool, 2)
 		var c1 := place(st, 26.0, float(S.minGap), 150.0, [])
 		var c2 := place(st, 26.0, float(S.minGap), 150.0, [c1])
 		var ex := edge_exit(st, [c1, c2, { "x": st.player.x, "y": st.player.y }])
@@ -184,7 +382,7 @@ static func setup(st: CombatState, opts: Dictionary) -> void:
 		st.objects.append({ "kind": "cage", "x": float(c1.x), "y": float(c1.y), "r": 26.0, "progress": 0.0, "total": float(S.time), "freed": false, "id": 1 })
 		st.objects.append({ "kind": "cage", "x": float(c2.x), "y": float(c2.y), "r": 26.0, "progress": 0.0, "total": float(S.time), "freed": false, "id": 2 })
 		st.objects.append({ "kind": "exit", "x": float(ex.x), "y": float(ex.y), "r": float(S.exitR), "open": false })
-		o.reinforce = make_reinforce(S.reinforce, pool)
+		o.reinforce = make_reinforce(S.reinforce, pool, "rescue", int(st.formation.get("alive_cap", 0)))
 	# 위험 조건(카드): 지원병 증가 = 예산 ×1.5(동시 상한 동일) / 정예 호위 = 첫 웨이브에 정예 1 추가 / 위험 지형 = 주기적 바닥 위험(안전 통로 보장)
 	if risk == "reinforce" and not (o.reinforce as Dictionary).is_empty():
 		o.reinforce.budget = int(round(float(o.reinforce.budget) * 1.5))
@@ -213,9 +411,37 @@ static func setup(st: CombatState, opts: Dictionary) -> void:
 			gl.n = int(gl.n) + int(WS.get("risk_elite_extra", 1))
 		else:
 			wl.append({ "type": "wolf_alpha", "n": int(WS.get("risk_elite_extra", 1)) })
-	# HTML 웨이브 → 밀도 편성(정예 호위 반영 뒤에 변환)
-	st.set_formation(PFormation.from_waves(waves, {}, st.region_id, st))
+	# HTML 웨이브 → 밀도 편성(정예 호위 반영 뒤에 변환). 개편에서는 일반 전투와 같은 밀도 설정(막별 동시 상한·묶음·혼합 분대)을 쓴다
+	var dens: Dictionary = opts.get("density", {}) if on() else {}
+	var f := PFormation.from_waves(waves, dens, st.region_id, st)
+	# 제단 호위: 편성에서 빼서 제단 옆에 세운다(총 등장 수·경험치 예산은 그대로, 시작 위치만 다르다)
+	var guards: Array = []
+	if st.objective == "altars" and on() and not altar_spots.is_empty():
+		guards = take_units(f, int(TUNE.altar.guard_n) * altar_spots.size())
+	st.set_formation(f)
+	st.spawn_total = (f.units as Array).size()
+	if not guards.is_empty():
+		var gr: float = tune("altar", "guard_r", 90.0)
+		for i in guards.size():
+			var spot: Dictionary = altar_spots[i % altar_spots.size()]
+			var a: float = st.rng.range_f(0.0, TAU)
+			var gp := st.nearest_valid_pos(float(spot.x) + cos(a) * gr, float(spot.y) + sin(a) * gr, 16.0, 120.0)
+			if gp.is_empty():
+				gp = [float(spot.x) + cos(a) * gr, float(spot.y) + sin(a) * gr]
+			st.spawn_enemy(String(guards[i][0]), gp[0], gp[1], false, String(guards[i][1]))
 	st.spawned_all = false
+
+## 제단 체력(막·빌드 기준, 시험값). 개편 전에는 어떤 막·어떤 빌드에서도 90 고정이라
+## 효과를 한 번 보기도 전에 첫 접근에서 부서졌다. 구조물이라 일반 적 체력표(HP_TABLE_2)의 대상이 아니다.
+static func altar_hp(st: CombatState, e: Dictionary) -> void:
+	if not on():
+		return
+	var tbl: Array = TUNE.altar.hp_by_act
+	var base: float = float(tbl[clampi(st.act, 1, tbl.size()) - 1])
+	var lv: int = maxi(0, int(st.build.get("level", 1)) - 1) + int(st.build.get("forge", 0))
+	var hp: float = base * (1.0 + float(TUNE.altar.hp_per_weapon_level) * float(lv))
+	e.hp = hp
+	e.hp_max = hp
 
 # ---------- 바닥 위험(예고 → 지역). 항상 안전 통로를 남긴다 ----------
 ## 목표 지점(봉인·우리·출구·제단)을 덮는 위험은 만들지 않는다(모든 목표 지점을 막지 않음)
@@ -268,6 +494,14 @@ static func update(st: CombatState, dt: float) -> void:
 	if S.is_empty() or o.is_empty() or st.status != "running":
 		return
 	var p := st.player
+	# 계측(규칙 영향 없음): 전장이 비어 있던 시간·적 2마리 이하였던 시간. 목표 4종 모두 같은 자리에서 센다
+	var RL: Dictionary = (o.get("reinforce", {}) as Dictionary).get("log", {})
+	if not RL.is_empty():
+		var fu := field_units(st)
+		if fu == 0:
+			RL.empty_sec = float(RL.empty_sec) + dt
+		if fu <= 2:
+			RL.thin_sec = float(RL.thin_sec) + dt
 	if o.has("terrain"):
 		var T: Dictionary = o.terrain
 		T.timer = float(T.timer) - dt
@@ -298,9 +532,13 @@ static func update(st: CombatState, dt: float) -> void:
 		if int(ec.total) > 0 and int(ec.killed) >= int(ec.total) and int(rm.total) == 0:
 			finish(st)
 	elif st.objective == "altars":
+		reinforce(st, o.reinforce, dt) # 인구 하한 보충(증원 제단과 별개 예산). 기본 편성이 다 나온 뒤 전장이 비면 채운다
 		var all_dead := true
 		for a in o.altars:
 			if a.dead:
+				if not bool(a.get("altar_msg", false)): # 부수면 그 효과가 멈춘다는 것을 화면에서 읽히게 한다
+					a.altar_msg = true
+					st.text(a.x, a.y - a.r - 16.0, "%s 멈춤" % altar_text(String(a.altar)), "#ffd166")
 				continue
 			all_dead = false
 			a.timer = float(a.timer) - dt
@@ -318,21 +556,48 @@ static func update(st: CombatState, dt: float) -> void:
 						st.fx({ "kind": "healbeam", "x": a.x, "y": a.y, "tx": tgt.x, "ty": tgt.y, "ttl": 0.5 })
 						st.text(tgt.x, tgt.y - tgt.r - 10.0, "+" + str(int(round(amt))), "#8ee6a0")
 						st.ev("altar_heal")
+						note_altar_fx(st, a)
+					elif on():
+						a.timer = minf(float(a.timer), 1.0) # 대상이 없으면 곧 다시 본다(첫 효과가 계속 미뤄지지 않게)
 			elif kind == "hazard":
 				var H: Dictionary = S.hazard
 				a.timer = float(H.interval)
 				ring_hazards(st, p.x, p.y, int(H.n), float(H.dist), float(H.r), H, "altar", p.face + PI / 2.0)
 				st.ev("hazard_warn")
+				note_altar_fx(st, a)
+				if on():
+					st.text(a.x, a.y - a.r - 16.0, "위험 지역!", "#ff8a5c")
 			elif kind == "reinforce":
 				a.timer = float(S.reinforce.interval)
-				if float(a.budget) > 0.0 and active_enemies(st) < int(S.reinforce.cap):
-					var R: Dictionary = o.reinforce
+				# 동시 상한은 임무 편성 상한을 따른다(개편 전 고정 4는 일반 편성과 겹쳐 한 번도 발동하지 않았다)
+				var cap: int = int((o.reinforce as Dictionary).get("cap", S.reinforce.cap)) if on() else int(S.reinforce.cap)
+				var R: Dictionary = o.reinforce
+				var AL: Dictionary = R.get("log", {})
+				if not AL.is_empty():
+					AL.try = int(AL.try) + 1
+				if float(a.budget) > 0.0 and active_enemies(st) < cap:
 					var pool: Array = R.pool
 					var type := String(pool[int(R.spawned) % pool.size()])
 					st.queue_wave([{ "type": type, "n": 1 }])
 					a.budget = float(a.budget) - 1.0
 					R.spawned = int(R.spawned) + 1
 					st.ev("reinforce", { "n": 1 })
+					note_altar_fx(st, a)
+					if not AL.is_empty():
+						AL.spawned = int(AL.spawned) + 1
+						if float(AL.first_t) < 0.0:
+							AL.first_t = st.t
+						AL.last_t = st.t
+					if on():
+						st.text(a.x, a.y - a.r - 16.0, "증원!", "#c9a2ff")
+				else:
+					if not AL.is_empty():
+						if float(a.budget) <= 0.0:
+							AL.budget_block = int(AL.budget_block) + 1
+						else:
+							AL.cap_block = int(AL.cap_block) + 1
+					if on() and float(a.budget) > 0.0:
+						a.timer = minf(float(a.timer), 1.5) # 상한에 막혔으면 곧 다시 본다(예산이 남았을 때만)
 		if all_dead:
 			finish(st)
 	elif st.objective == "seal":
@@ -436,6 +701,95 @@ static func zone_damage(st: CombatState, z: Dictionary, p: Dictionary) -> float:
 	return float(z.dmg) if PGeom.dist(float(z.x), float(z.y), float(p.x), float(p.y)) <= float(z.r) + float(p.r) * 0.5 else 0.0
 
 # ---------- 표시 ----------
+## 계측(규칙 영향 없음): 제단이 효과를 낸 횟수·첫 효과 시각. "효과를 보기 전에 부서졌는가"를 세는 데 쓴다
+static func note_altar_fx(st: CombatState, a: Dictionary) -> void:
+	a.fx_n = int(a.get("fx_n", 0)) + 1
+	if not a.has("first_fx_t"):
+		a.first_fx_t = st.t
+
+## 제단 효과 이름(한 줄 표시·파괴 문구 공용)
+static func altar_text(kind: String) -> String:
+	match kind:
+		"heal": return "치료"
+		"hazard": return "위험 지역"
+		"reinforce": return "증원"
+	return kind
+
+## 8방위 안내 문구(화면 밖·먼 목표를 가리킬 때 쓴다)
+static func dir_text(dx: float, dy: float) -> String:
+	var a: float = atan2(dy, dx)
+	var i: int = int(round(a / (PI / 4.0))) & 7
+	return ["오른쪽", "오른쪽 아래", "아래", "왼쪽 아래", "왼쪽", "왼쪽 위", "위", "오른쪽 위"][i]
+
+## 지금 향해야 할 목표 지점(큰 목표 표시·방향 안내용 내보내기 값).
+## 화면(scripts/game/**)이 읽어 쓸 수 있게 규칙이 내보내는 값이다. 반환 {} = 표시할 지점 없음.
+## {kind, x, y, r, state, ratio, dist, dir, inside, next{x,y}}
+##  state: "outside"(원 밖 정지) | "progress"(진행 중) | "hit_pause"(피격 중단) | "moving"(지점 이동 예고) | "target"(부술 대상) | "done"
+static func marker(st: CombatState) -> Dictionary:
+	var o := st.obj
+	if o.is_empty():
+		return {}
+	var p := st.player
+	if bool(o.get("done", false)):
+		return { "kind": st.objective, "x": p.x, "y": p.y, "r": 0.0, "state": "done", "ratio": 1.0, "dist": 0.0, "dir": "", "inside": true, "next": {} }
+	var m := {}
+	if st.objective == "seal":
+		var z := _find_object(st, "seal")
+		if z.is_empty():
+			return {}
+		var d := PGeom.dist(float(z.x), float(z.y), p.x, p.y)
+		var inside: bool = d <= float(z.r)
+		var stt := "progress"
+		if float(o.get("move_warn_t", 0.0)) > 0.0:
+			stt = "moving"
+		elif float(o.get("hit_pause", 0.0)) > 0.0:
+			stt = "hit_pause"
+		elif not inside:
+			stt = "outside"
+		m = { "kind": "seal", "x": float(z.x), "y": float(z.y), "r": float(z.r), "state": stt,
+			"ratio": float(o.progress) / maxf(0.001, float(o.total)), "dist": d, "dir": dir_text(float(z.x) - p.x, float(z.y) - p.y),
+			"inside": inside, "next": z.get("next", {}) }
+	elif st.objective == "rescue":
+		var tgt := _find_object(st, "exit") if int(o.get("freed", 0)) >= int(o.get("cages", 2)) else {}
+		if tgt.is_empty():
+			var bd := INF
+			for c in st.objects:
+				if String(c.kind) == "cage" and not bool(c.freed):
+					var dd := PGeom.dist(float(c.x), float(c.y), p.x, p.y)
+					if dd < bd:
+						bd = dd
+						tgt = c
+		if tgt.is_empty():
+			return {}
+		var near: float = float(spec(st).get("near", 72.0)) if String(tgt.kind) == "cage" else float(tgt.r)
+		var d2 := PGeom.dist(float(tgt.x), float(tgt.y), p.x, p.y)
+		var ac: Dictionary = o.get("active", {})
+		m = { "kind": String(tgt.kind), "x": float(tgt.x), "y": float(tgt.y), "r": near,
+			"state": ("progress" if not ac.is_empty() else ("target" if String(tgt.kind) == "exit" else "outside")),
+			"ratio": progress_ratio(st), "dist": d2, "dir": dir_text(float(tgt.x) - p.x, float(tgt.y) - p.y), "inside": d2 <= near, "next": {} }
+	elif st.objective == "altars":
+		var best: Dictionary = {}
+		var bd2 := INF
+		for a in o.get("altars", []):
+			if a.dead:
+				continue
+			var dd2 := PGeom.dist(a.x, a.y, p.x, p.y)
+			if dd2 < bd2:
+				bd2 = dd2
+				best = a
+		if best.is_empty():
+			return {}
+		m = { "kind": "altar", "x": float(best.x), "y": float(best.y), "r": float(best.r), "state": "target",
+			"ratio": progress_ratio(st), "dist": bd2, "dir": dir_text(float(best.x) - p.x, float(best.y) - p.y), "inside": false, "next": {} }
+	elif st.objective == "hunt":
+		var el: Dictionary = o.get("elite", {})
+		if el.is_empty() or bool(el.dead):
+			return {}
+		var d3 := PGeom.dist(el.x, el.y, p.x, p.y)
+		m = { "kind": "elite", "x": float(el.x), "y": float(el.y), "r": float(el.r), "state": "target",
+			"ratio": progress_ratio(st), "dist": d3, "dir": dir_text(float(el.x) - p.x, float(el.y) - p.y), "inside": false, "next": {} }
+	return m
+
 ## 목표별 진행 문구(HTML PA.OBJECTIVES[*].hud)
 static func hud_line(st: CombatState, o: Dictionary) -> String:
 	if st.objective == "hunt":
@@ -452,14 +806,31 @@ static func hud_line(st: CombatState, o: Dictionary) -> String:
 		return s
 	if st.objective == "altars":
 		var alive := 0
+		var kinds: Array = []
 		for a in o.altars:
 			if not a.dead:
 				alive += 1
-		return "남은 제단 %d / 3" % alive
+				kinds.append(altar_text(String(a.altar)))
+		if not on() or kinds.is_empty():
+			return "남은 제단 %d / 3" % alive
+		return "남은 제단 %d / 3 (%s)" % [alive, ", ".join(kinds)]
 	if st.objective == "seal":
 		var s2 := "봉인 %d%% · %d/%d단계" % [int(floor(float(o.progress) / float(o.total) * 100.0)), int(o.stage), int(o.stages)]
-		if bool(o.paused):
-			s2 += " · 정지"
+		if not on():
+			if bool(o.paused):
+				s2 += " · 정지"
+			return s2
+		# 정지 이유를 나눠서 알려준다(원 밖 / 피격 중단 / 이동 예고)와 원까지의 방향·거리
+		var m := marker(st)
+		match String(m.get("state", "")):
+			"outside":
+				s2 += " · 원 밖 정지 — %s %d 이동" % [String(m.dir), int(round(float(m.dist)))]
+			"hit_pause":
+				s2 += " · 피격 중단"
+			"moving":
+				s2 += " · 지점 이동 예고 — %s" % String(m.dir)
+			"progress":
+				s2 += " · 진행 중"
 		return s2
 	if st.objective == "rescue":
 		if int(o.freed) >= int(o.cages):
@@ -485,7 +856,12 @@ static func hud(st: CombatState) -> Dictionary:
 	var risk_text := ""
 	if risk != "":
 		risk_text = String(PCatalog.mission_rules().riskText.get(risk, ""))
-	return { "title": "목적: " + String(S.short), "line": line, "risk": risk_text, "end_rule": "정예·지원병 전멸 시 종료" if st.objective == "hunt" else "목표 달성 시 종료(남은 적 무시)" }
+	# marker·progress·state는 화면(큰 목표 표시·현장 게이지·방향 안내)이 읽을 수 있게 규칙이 내보내는 값이다.
+	# 지금 화면은 title·line·risk만 읽으므로 표시에는 쓰이지 않는다(보고에 기록).
+	var m := marker(st)
+	return { "title": "목적: " + String(S.short), "line": line, "risk": risk_text,
+		"end_rule": "정예·지원병 전멸 시 종료" if st.objective == "hunt" else "목표 달성 시 종료(남은 적 무시)",
+		"marker": m, "progress": progress_ratio(st), "state": String(m.get("state", "")) }
 
 ## 자동 공격 대상 표시: 첫 무기 기준 가장 가까운 대상(표식 우선) — 제단인지 적인지. 없으면 {}
 static func auto_target(st: CombatState) -> Dictionary:

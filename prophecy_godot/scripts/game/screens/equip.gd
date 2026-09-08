@@ -8,7 +8,7 @@ func refresh() -> void:
 	if r.is_empty():
 		return
 	top.add_child(PUi.header(r))
-	top.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]교체는 거점에서 무료. 출격 중에는 바꿀 수 없습니다. 최대 체력이 줄면 현재 체력도 줄고, 늘어도 회복되지 않습니다.[/color]" % PGlossaryTip.term("equipment", "장비"), 20))
+	top.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]거점에서만 무료 교체[/color]" % PGlossaryTip.term("equipment", "장비"), 22))
 	var b := PBuild.derive(r)
 	var cols := two_cols(0.5)
 	var left: VBoxContainer = cols.left
@@ -20,38 +20,36 @@ func refresh() -> void:
 		var id = r.equipment.get(slot, null)
 		var row := PUi.hbox(8)
 		if id == null:
-			row.add_child(PUi.rich("[color=#9ea8b8]%s[/color]  [color=#6a7078]비어 있음[/color]" % PUi.slot_name(slot), 13))
+			row.add_child(PUi.rich("[color=#9ea8b8]%s[/color]  [color=#6a7078]비어 있음[/color]" % PUi.slot_name(slot), 15))
 		else:
 			var eid := String(id)
 			var v := PUi.vbox(2)
-			v.add_child(PUi.rich("[color=#9ea8b8]%s[/color]  %s" % [PUi.slot_name(slot), PUi.equip_line(eid)], 13))
-			v.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(PCatalog.equipment_def(eid).desc)), 11))
-			v.add_child(PUi.rich("[color=#9ea8b8]해제하면: %s[/color]" % _compare_unequip(r, slot), 11))
+			v.add_child(PUi.rich("[color=#9ea8b8]%s[/color]  %s" % [PUi.slot_name(slot), PUi.equip_line(eid)], 15))
+			v.add_child(PUi.rich("[color=#9ea8b8]해제하면[/color]  %s" % _compare_unequip(r, slot), 13))
 			row.add_child(v)
 			var bcol := PUi.vbox(4)
 			bcol.size_flags_horizontal = Control.SIZE_SHRINK_END
-			bcol.add_child(PUi.button("해제", func(): main.unequip_item(slot), true, 12))
-			bcol.add_child(PUi.button("판매 +%d" % PRun.sell_price(eid), func(): main.sell_equipment(eid), true, 12))
+			bcol.add_child(PUi.button("해제", func(): main.unequip_item(slot), true, 14))
+			bcol.add_child(PUi.button("판매 +%d" % PRun.sell_price(eid), func(): main.sell_equipment(eid), true, 14))
 			row.add_child(bcol)
 		cbox.add_child(row)
 	left.add_child(cur.panel)
 	var bag := PUi.card("%s [color=#9ea8b8]%d개[/color]" % [PGlossaryTip.term("bag", "가방"), (r.bag as Array).size()])
 	var bbox: VBoxContainer = bag.box
 	if (r.bag as Array).is_empty():
-		bbox.add_child(PUi.rich("[color=#6a7078]가방 비어 있음 (상점에서 구매 후 보관하면 여기에 옵니다)[/color]", 12))
+		bbox.add_child(PUi.rich("[color=#6a7078]가방 비어 있음[/color]", 14))
 	for id in r.bag:
 		var bid := String(id)
 		var d: Dictionary = PCatalog.equipment_def(bid)
 		var row := PUi.hbox(8)
 		var v := PUi.vbox(2)
-		v.add_child(PUi.rich("%s [color=#9ea8b8](%s)[/color]" % [PUi.equip_line(bid), PUi.slot_name(String(d.slot))], 13))
-		v.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(d.desc)), 11))
-		v.add_child(PUi.rich("[color=#9ea8b8]장착하면: %s[/color]" % _compare_equip(r, bid), 11))
+		v.add_child(PUi.rich("%s [color=#9ea8b8](%s)[/color]" % [PUi.equip_line(bid), PUi.slot_name(String(d.slot))], 15))
+		v.add_child(PUi.rich("[color=#9ea8b8]장착하면[/color]  %s" % _compare_equip(r, bid), 13))
 		row.add_child(v)
 		var bcol := PUi.vbox(4)
 		bcol.size_flags_horizontal = Control.SIZE_SHRINK_END
-		bcol.add_child(PUi.button("장착", func(): main.equip_item(bid), true, 12))
-		bcol.add_child(PUi.button("판매 +%d" % PRun.sell_price(bid), func(): main.sell_equipment(bid), true, 12))
+		bcol.add_child(PUi.button("장착", func(): main.equip_item(bid), true, 14))
+		bcol.add_child(PUi.button("판매 +%d" % PRun.sell_price(bid), func(): main.sell_equipment(bid), true, 14))
 		row.add_child(bcol)
 		bbox.add_child(row)
 	right.add_child(bag.panel)
@@ -65,8 +63,8 @@ func refresh() -> void:
 ## 복제 run에 실제로 장착/해제해 파생 수치 전후를 비교한다(장비 효과 계산은 PBuild만)
 static func _diff_text(before: Dictionary, after: Dictionary) -> String:
 	var parts := []
-	parts.append("최대 체력 %d → %d" % [int(float(before.hp_max)), int(float(after.hp_max))])
-	parts.append("이동 ×%s → ×%s" % [PUi.fmt(float(before.speed_mult)), PUi.fmt(float(after.speed_mult))])
+	parts.append("최대 체력 [b]%d → %d[/b]" % [int(float(before.hp_max)), int(float(after.hp_max))])
+	parts.append("이동 [b]×%s → ×%s[/b]" % [PUi.fmt(float(before.speed_mult)), PUi.fmt(float(after.speed_mult))])
 	if float(before.shield) != float(after.shield):
 		parts.append("시작 보호막 %d → %d" % [int(float(before.shield)), int(float(after.shield))])
 	if float(before.range_mult) != float(after.range_mult):

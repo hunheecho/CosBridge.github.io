@@ -942,6 +942,19 @@ static func update_hunt_king(st: CombatState, e: Dictionary, dt: float, adv: flo
 				st.note_attack(e, "execute")
 
 # ---------- 종말의 집행관 ----------
+## 3막 관문(종말의 집행관) 위치 변주 — 사용자 평가가 좋은 방향을 보존하는 '제한적' 변주(시험값, data/boss_behavior.json gapStep).
+## 절단선 1번과 2번 사이(gap)에 보스만 옆으로 파고든다. 절단선은 플레이어 x를 기준으로 놓이므로
+## 예고 시간·선 위치·피해·빈틈은 하나도 바뀌지 않는다(기존 대응 '좌우로 한 걸음'은 그대로 통한다).
+## 바뀌는 것은 연계 다음 행동(큰 베기·호위 호출)이 오는 방향뿐이다. 예고 없는 새 판정은 만들지 않는다.
+static func gap_step(st: CombatState, e: Dictionary, dt: float, sm: float) -> void:
+	var V: Dictionary = PBoss.beh_e(e).get("gapStep", {})
+	if V.is_empty():
+		return
+	var p := st.player
+	var a: float = atan2(p.y - e.y, p.x - e.x) + PI / 2.0 * float(e.get("gap_side", 1.0))
+	var spd: float = float(V.get("speed", 150.0)) * sm
+	st.move_swept(e, cos(a) * spd * dt, sin(a) * spd * dt, true)
+
 static func update_executor(st: CombatState, e: Dictionary, dt: float, adv: float, _tf: float, sm: float) -> void:
 	var cfg := cfg_of(e)
 	var p := st.player
@@ -975,10 +988,12 @@ static func update_executor(st: CombatState, e: Dictionary, dt: float, adv: floa
 					(e.slashes as Array).append({ "x": p.x, "order": int(e.slash_idx) + 1, "fired": false, "fixed": true })
 					e.state = "slash_gap"
 					e.state_t = 0.0
+					e.gap_side = 1.0 if int(e.actions) % 2 == 0 else -1.0 # 번갈아(난수 소비 없음)
 				else:
 					to_recover(st, e, float(SL.recover))
 		"slash_gap":
 			e.state_t = float(e.state_t) + adv
+			gap_step(st, e, dt, sm)
 			if float(e.state_t) >= PBoss.pat_num(e, cfg, "slash", "gap", float(SL.gap)):
 				e.state = "slash_lock"
 				e.state_t = 0.0

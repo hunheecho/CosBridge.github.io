@@ -39,7 +39,7 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 		"bossRetries": 0, "bossClear": null,
 		"day": 1, "hours": int(cfg.HOURS_PER_DAY), # hours = 남은 시간대 칸 수. 현재 칸 = HOURS_PER_DAY - hours
 		"gold": int(cfg.START_GOLD), "mats": { "pelt": 0, "iron": 0, "spore": 0, "fang": 0 },
-		"equipment": { "weapon": null, "armor": null, "shield": null }, "bag": [], "forge": 0,
+		"equipment": { "weapon": null, "armor": null, "shield": null }, "bag": [], "forge": 0, "forgeBySkill": {},
 		"visited": {}, "schedule": {}, "stock": null, "merchant": null,
 		"hp": float(cfg.PLAYER.hp),
 		"log": [],
@@ -182,7 +182,8 @@ static func template_waves(tpl: Dictionary, place_key: String, day: int = 0, pla
 	if not wave.is_empty():
 		wave[0].n = int(wave[0].n) + (total - assigned)
 	if int(tpl.get("elites", 0)) > 0:
-		wave.append({ "type": "wolf_alpha", "n": int(tpl.elites), "ref": float(tpl.elites) })
+		# 정예 종류는 템플릿이 정한다(없으면 기존 늑대 우두머리 — 회귀 없음). 배치표는 data/elites.json
+		wave.append({ "type": String(tpl.get("elite_type", "wolf_alpha")), "n": int(tpl.elites), "ref": float(tpl.elites) })
 	return [wave]
 
 static func theme_place_key(region_id: String) -> String:
@@ -1001,7 +1002,7 @@ static func start_boss(run: Dictionary) -> Dictionary:
 		push_error("보스 준비 상태가 아님")
 		return {}
 	run.hp = float(build(run).hp_max)
-	run.bossEntry = { "growth": run.growth, "hp": run.hp, "stage": int(run.get("stage", 0)), "gold": int(run.gold), "services": run.services, "equipment": run.equipment, "bag": run.bag, "forge": int(run.forge) }.duplicate(true)
+	run.bossEntry = { "growth": run.growth, "hp": run.hp, "stage": int(run.get("stage", 0)), "gold": int(run.gold), "services": run.services, "equipment": run.equipment, "bag": run.bag, "forge": int(run.forge), "forgeBySkill": run.get("forgeBySkill", {}) }.duplicate(true)
 	var nb := next_boss(run)
 	return { "regionId": "boss", "bossId": String(nb.id) if not nb.is_empty() else "boss", "stage": int(run.get("stage", 0)), "seed": boss_seed(run), "loot": { "gold": 0, "mats": {} }, "encounters": 0 }
 
@@ -1016,6 +1017,7 @@ static func boss_defeat(run: Dictionary) -> void:
 		if E.has("equipment"): run.equipment = E.equipment
 		if E.has("bag"): run.bag = E.bag
 		if E.has("forge"): run.forge = int(E.forge)
+		if E.has("forgeBySkill"): run.forgeBySkill = (E.forgeBySkill as Dictionary).duplicate(true)
 	run.hp = float(build(run).hp_max)
 	add_log(run, "보스전 패배 (재도전 %d회, 성장은 입장 시점으로 복구)" % int(run.bossRetries))
 
@@ -1354,23 +1356,62 @@ static func swap_warnings(run: Dictionary, slot: String, index: int, new_id: Str
 			out.append(String(d.name))
 	return out
 
-## 대장간 다음 강화 {lv, cost, afterBoss, open, affordable}. 최대면 {}
-static func forge_next(run: Dictionary) -> Dictionary:
-	var lv: int = int(run.get("forge", 0))
-	var F: Array = SH().forge
-	if lv >= F.size():
-		return {}
-	var f: Dictionary = F[lv]
-	return { "lv": int(f.lv), "cost": int(f.cost), "afterBoss": int(f.afterBoss), "open": (run.get("bossesDone", []) as Array).size() >= int(f.afterBoss), "affordable": int(run.gold) >= int(f.cost) }
+## 자동기술별 대장간 강화 단계(2026-09-08 시험값). 옛 저장(전체 강화 run.forge)은 모든 기술이 그 단계인 것으로 읽는다
+static func forge_level_of(run: Dictionary, weapon_id: String) -> int:
+	var by = run.get("forgeBySkill", null)
+	if typeof(by) == TYPE_DICTIONARY:
+		return int((by as Dictionary).get(weapon_id, 0))
+	return int(run.get("forge", 0))   # 옛 저장 호환: 전체 강화 단계를 그대로 본다
 
-static func forge_upgrade(run: Dictionary) -> bool:
-	var F := forge_next(run)
+## 그 회차에서 지금까지 산 강화 횟수(비용 단계는 회차 전체에서 이어진다 — 기술마다 처음부터 싸게 시작하지 않는다)
+static func forge_bought(run: Dictionary) -> int:
+	var by = run.get("forgeBySkill", null)
+	if typeof(by) != TYPE_DICTIONARY:
+		return int(run.get("forge", 0))
+	var n := 0
+	for k in (by as Dictionary):
+		n += int((by as Dictionary)[k])
+	return n
+
+## 대장간 다음 강화 {lv, cost, afterBoss, open, affordable, weaponId, weaponLv}. 최대면 {}
+## weapon_id를 주면 그 자동기술의 다음 단계를 본다. 비어 있으면 첫 자동기술 기준(옛 호출 호환)
+static func forge_next(run: Dictionary, weapon_id: String = "") -> Dictionary:
+	var F: Array = SH().forge
+	var wid := weapon_id
+	if wid == "":
+		var ws: Array = run.get("growth", {}).get("weapons", [])
+		wid = String(ws[0].id) if ws.size() > 0 else ""
+	var bought: int = forge_bought(run)
+	if bought >= F.size():
+		return {}
+	var wlv: int = forge_level_of(run, wid)
+	if wlv >= int(SH().get("forgePerSkillMax", F.size())):
+		return {}
+	var f: Dictionary = F[bought]
+	return { "lv": int(f.lv), "cost": int(f.cost), "afterBoss": int(f.afterBoss),
+		"open": (run.get("bossesDone", []) as Array).size() >= int(f.afterBoss),
+		"affordable": int(run.gold) >= int(f.cost), "weaponId": wid, "weaponLv": wlv + 1 }
+
+static func forge_upgrade(run: Dictionary, weapon_id: String = "") -> bool:
+	var F := forge_next(run, weapon_id)
 	if F.is_empty() or not bool(F.open) or not bool(F.affordable):
 		push_error("강화 불가")
 		return false
+	var wid := String(F.weaponId)
+	if wid == "":
+		push_error("강화할 자동기술 없음")
+		return false
 	run.gold = int(run.gold) - int(F.cost)
-	run.forge = int(F.lv)
-	add_log(run, "공용 공격 강화 %d단계 (-%d)" % [int(F.lv), int(F.cost)])
+	# 새 규칙: 고른 자동기술 하나만 오른다. 옛 저장이면 이 시점에 무기별 표로 옮긴다(잃는 것 없음)
+	if typeof(run.get("forgeBySkill", null)) != TYPE_DICTIONARY:
+		var mig := {}
+		var lv0: int = int(run.get("forge", 0))
+		for w0 in run.get("growth", {}).get("weapons", []):
+			mig[String(w0.id)] = lv0
+		run.forgeBySkill = mig
+	(run.forgeBySkill as Dictionary)[wid] = forge_level_of(run, wid) + 1
+	run.forge = int(F.lv)   # 옛 필드는 '산 횟수' 표시용으로 유지(저장 호환)
+	add_log(run, "%s 강화 %d단계 (-%d)" % [String(PCatalog.weapon(wid).name), int((run.forgeBySkill as Dictionary)[wid]), int(F.cost)])
 	return true
 
 static func mod_change_cost(run: Dictionary) -> Dictionary:

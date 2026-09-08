@@ -28,7 +28,7 @@ func _init() -> void:
 	ok("1일차 카드 2장 = 오늘의 장소(숲·능선), 전멸만(임무는 2일차부터), 시드 결정적·저장 필드", cards.size() == 2 and String(cards[0].regionId) == "forest" and String(cards[1].regionId) == "ridge" and String(cards[0].objective) == "clear" and String(cards[1].objective) == "clear" and run.cards != null, str(cards.map(func(c): return c.id)))
 	var acts := PFlow.actions(run)
 	var ids := acts.map(func(a): return String(a.id))
-	ok("행동 목록(UI·봇 공용): 카드 2·휴식·하루 종료·상점·구매·기술·교체·강화 포함, 관문 입장 없음", ids.has("sortie:d1c1") and ids.has("sortie:d1c2") and ids.has("rest") and ids.has("end_day") and ids.has("shop_open") and ids.has("forge_upgrade") and not ids.has("boss_start"), str(ids))
+	ok("행동 목록(UI·봇 공용): 카드 2·휴식·하루 종료·상점·구매·기술·교체·강화 포함, 관문 입장 없음", ids.has("sortie:d1c1") and ids.has("sortie:d1c2") and ids.has("rest") and ids.has("end_day") and ids.has("shop_open") and ids.has("forge_upgrade:sword") and not ids.has("boss_start"), str(ids))
 	# ---------- 상점 재고(HTML 1·150) ----------
 	var stock := PRun.stock(run)
 	var st2 := PRun.stock(run)
@@ -73,7 +73,7 @@ func _init() -> void:
 	ok("대장간 1단계 90, 시작부터 개방; 2단계는 보스 1 처치 뒤", int(F.lv) == 1 and int(F.cost) == 90 and bool(F.open))
 	PRun.forge_upgrade(run)
 	var F2 := PRun.forge_next(run)
-	ok("강화 뒤 forge 1, 자동기술 피해 ×1.1, 2단계(160)는 잠김", int(run.forge) == 1 and is_equal_approx(float(PBuild.derive(run).forge_mult), 1.1) and int(F2.cost) == 160 and not bool(F2.open) and int(run.gold) == 130)
+	ok("강화 뒤 그 자동기술만 피해 ×1.1(전체 강화 아님), 2단계(160)는 잠김", int(run.forge) == 1 and is_equal_approx(PBuild.forge_mult_of(PBuild.derive(run), "spear"), 1.1) and is_equal_approx(float(PBuild.derive(run).forge_mult), 1.0) and int(F2.cost) == 160 and not bool(F2.open) and int(run.gold) == 130)
 	var mods_before: Array = (g.weapons[0].mods as Array).duplicate()
 	run.gold = 200
 	var off_mc := PFlow.mod_change(run, "spear", "returning")

@@ -199,6 +199,26 @@ static func _th(out: Array, e: Dictionary, sub: String, kind: String, phase: Str
 	return th
 
 ## 화면의 예고 도형(render.gd draw_telegraphs/draw_boss_telegraphs/draw_zones/draw_projectiles와 같은 수치). out에 위협 사전을 추가
+## 특수 정예 7종의 예고를 봇이 읽는 형식으로 옮긴다.
+## 규칙 쪽 도형(PEnemiesNew.elite_threats)은 화면용 표현이라 여기서 관측 어휘로 바꾼다.
+## 화면에 보이는 것만 옮긴다(숨은 정보 없음).
+static func _elite_threats(st: CombatState, e: Dictionary, out: Array) -> void:
+	var raw := []
+	PEnemiesNew.elite_threats(st, e, raw)
+	for t in raw:
+		var ph := "lock" if bool(t.get("locked", false)) else "warn"
+		var prog: float = float(t.get("prog", 0.0))
+		match String(t.get("kind", "")):
+			"beam":
+				_th(out, e, "", "lane", ph, prog, { "ang": float(t.ang), "len": float(t.get("len", 2000.0)), "w": float(t.get("w", 40.0)), "label": String(e.state) })
+			"arc":
+				_th(out, e, "", "sector", ph, prog, { "ang": float(t.ang), "r": float(t.get("r", 80.0)), "half": float(t.get("half", 0.5)), "label": String(e.state) })
+			"circle", "zone":
+				var th := _th(out, e, "", "circle", ph, prog, { "r": float(t.get("r", 40.0)), "label": String(e.state) })
+				th.x = float(t.get("x", e.x))
+				th.y = float(t.get("y", e.y))
+	return
+
 static func threats_of(st: CombatState, out: Array) -> void:
 	var p: Dictionary = st.player
 	var pr_: float = float(p.r)
@@ -210,6 +230,9 @@ static func threats_of(st: CombatState, out: Array) -> void:
 		var stt := String(e.state)
 		if bool(e.get("boss", false)):
 			_boss_threats(st, e, out)
+			continue
+		if PEnemiesNew.is_elite(type):
+			_elite_threats(st, e, out)
 			continue
 		if PEnemies.is_wolf(d):
 			var B: Dictionary = d.bite

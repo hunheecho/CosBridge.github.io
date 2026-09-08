@@ -188,16 +188,16 @@ static func slot_name(slot: String) -> String:
 ## 장비 패널(HTML equipPanel)
 static func equip_panel(run: Dictionary) -> Control:
 	var b := PBuild.derive(run)
-	var c := card("%s [color=#9ea8b8]슬롯당 1개 · 이번 회차 한정 · %s %d개[/color]" % [PGlossaryTip.term("equipment", "장비"), PGlossaryTip.term("bag", "가방"), (run.bag as Array).size()])
+	var c := card("%s [color=#9ea8b8]%s %d개[/color]" % [PGlossaryTip.term("equipment", "장비"), PGlossaryTip.term("bag", "가방"), (run.bag as Array).size()], CARD, 16)
 	var box: VBoxContainer = c.box
 	for sl in PCatalog.world().equip_slots:
 		var slot := String(sl)
 		var id = run.equipment.get(slot, null)
-		box.add_child(rich("[color=#9ea8b8]%s[/color]  %s" % [slot_name(slot), (equip_line(String(id)) if id != null else "[color=#6a7078]비어 있음[/color]")], 13))
+		box.add_child(rich("[color=#9ea8b8]%s[/color]  %s" % [slot_name(slot), (equip_line(String(id)) if id != null else "[color=#6a7078]비어 있음[/color]")], 15))
 	var forge_txt := ""
 	if int(b.forge) > 0:
 		forge_txt = " · %s %d단계(자동기술 피해 ×%s)" % [PGlossaryTip.term("forge", "공용 공격 강화"), int(b.forge), fmt(float(b.forge_mult))]
-	box.add_child(rich("[color=#9ea8b8]최대 체력 %d · 이동 ×%s · 시작 보호막 %d%s[/color]" % [int(float(b.hp_max)), fmt(float(b.speed_mult)), int(float(b.shield)), forge_txt], 12))
+	box.add_child(rich("[color=#9ea8b8]최대 체력 %d · 이동 ×%s · 시작 보호막 %d%s[/color]" % [int(float(b.hp_max)), fmt(float(b.speed_mult)), int(float(b.shield)), forge_txt], 14))
 	return c.panel
 
 ## 성장 패널(HTML buildPanel): 실제 파생 수치(PBuild.derive)만 표시
@@ -210,27 +210,27 @@ static func build_panel(run: Dictionary) -> Control:
 	var box: VBoxContainer = c.box
 	if g.get("steer", null) != null:
 		box.add_child(rich("[color=#ffe066]%s[/color] 다음 레벨업은 [b]%s[/b] 후보만 제시 (%s, 1회)" % [PGlossaryTip.term("steer", "성장 예약"), PSortie.kind_name(String(g.steer.kind)), "심층 보상" if String(g.steer.get("from", "")) == "deep" else "임무 보상"], 12))
-	box.add_child(rich("[b]%s %d/%d[/b]" % [PGlossaryTip.term("auto_skill", "자동기술"), (b.weapons as Array).size(), int(S.weapons)], 13))
+	box.add_child(rich("[b]%s %d/%d[/b]" % [PGlossaryTip.term("auto_skill", "자동기술"), (b.weapons as Array).size(), int(S.weapons)], 15))
 	for w in b.weapons:
 		var wd: Dictionary = w
 		var mods := []
 		for mid in wd.mods:
 			mods.append(String(wd.def.mods[String(mid)].name))
 		var rng_txt := (" · 사거리 %d" % int(round(float(wd.range)))) if float(wd.range) > 0.0 else ""
-		box.add_child(rich("  [b]%s[/b] Lv%d/%d [color=#9ea8b8]피해 %s · 주기 %s초%s[/color] · %s %d/%d: %s" % [PGlossaryTip.term("w:" + String(wd.id), String(wd.name)), int(wd.level), int(S.weaponMax), fmt(float(wd.damage)), fmt(float(wd.interval)), rng_txt, PGlossaryTip.term("mod", "개조"), mods.size(), int(S.weaponMods), (", ".join(mods) if mods.size() > 0 else "없음")], 12))
+		box.add_child(rich("  [b]%s[/b] Lv%d/%d [color=#9ea8b8]피해 %s · 주기 %s초%s[/color] · %s %d/%d: %s" % [PGlossaryTip.term("w:" + String(wd.id), String(wd.name)), int(wd.level), int(S.weaponMax), fmt(float(wd.damage)), fmt(float(wd.interval)), rng_txt, PGlossaryTip.term("mod", "개조"), mods.size(), int(S.weaponMods), (", ".join(mods) if mods.size() > 0 else "없음")], 14))
 	for i in int(S.weapons) - (b.weapons as Array).size():
-		box.add_child(rich("  [color=#6a7078]빈 자동기술 슬롯 (레벨업 또는 상점)[/color]", 12))
-	box.add_child(rich("[b]수동 기술[/b]", 13))
+		box.add_child(rich("  [color=#6a7078]빈 자동기술 슬롯[/color]", 14))
+	box.add_child(rich("[b]수동 기술[/b]", 15))
 	for slot in ["q", "e"]:
 		var sk = g.skills.get(slot)
 		if sk == null:
-			box.add_child(rich("  [b]E[/b]: [color=#6a7078]비어 있음 (레벨업 또는 상점)[/color]", 12))
+			box.add_child(rich("  [b]E[/b]: [color=#6a7078]비어 있음[/color]", 14))
 			continue
 		var d: Dictionary = PCatalog.skills()[String(sk.id)]
 		var cd := float(d.cooldown[mini(3, int(sk.level)) - 1]) * float(b.skill_cd_mult)
 		var vtxt := (" · 변형: " + String(d.variants[String(sk.variant)].name)) if sk.get("variant", null) != null else ""
 		var term_id := "slowfield" if slot == "q" else "e:" + String(sk.id)
-		box.add_child(rich("  [b]%s[/b]: [b]%s[/b] Lv%d/%d [color=#9ea8b8]재사용 %s초%s[/color]" % [String(d.key), PGlossaryTip.term(term_id, String(d.name)), int(sk.level), int(S.skillMax), fmt(cd), vtxt], 12))
+		box.add_child(rich("  [b]%s[/b]: [b]%s[/b] Lv%d/%d [color=#9ea8b8]재사용 %s초%s[/color]" % [String(d.key), PGlossaryTip.term(term_id, String(d.name)), int(sk.level), int(S.skillMax), fmt(cd), vtxt], 14))
 	var commons := []
 	var CM := PCatalog.commons()
 	for k in g.commons:
@@ -245,7 +245,7 @@ static func build_panel(run: Dictionary) -> Control:
 	var rewards := []
 	for id in g.bossRewards:
 		rewards.append("[b]%s[/b]" % String(PCatalog.boss_rewards()[String(id)].name))
-	box.add_child(rich("%s %d/%d: %s · %s %d/%d: %s%s" % [PGlossaryTip.term("common", "공용 증강"), PGrowth.common_count(g), int(S.commons), (", ".join(commons) if commons.size() > 0 else "[color=#6a7078]없음[/color]"), PGlossaryTip.term("passive", "패시브"), PGrowth.passive_count(g), int(S.passives), (", ".join(passives) if passives.size() > 0 else "[color=#6a7078]없음[/color]"), (" · 희귀 보상: " + ", ".join(rewards)) if rewards.size() > 0 else ""], 12))
+	box.add_child(rich("%s %d/%d: %s · %s %d/%d: %s%s" % [PGlossaryTip.term("common", "공용 증강"), PGrowth.common_count(g), int(S.commons), (", ".join(commons) if commons.size() > 0 else "[color=#6a7078]없음[/color]"), PGlossaryTip.term("passive", "패시브"), PGrowth.passive_count(g), int(S.passives), (", ".join(passives) if passives.size() > 0 else "[color=#6a7078]없음[/color]"), (" · 희귀 보상: " + ", ".join(rewards)) if rewards.size() > 0 else ""], 14))
 	return c.panel
 
 ## 피해 통계 표 하나(PStats.aggregate 결과)
@@ -295,7 +295,7 @@ static func build_icon_row(run: Dictionary, icon_px: float = 44.0, mod_px: float
 		var col := vbox(3)
 		col.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		var tile := PIconTile.new("", PIconTile.STYLE_AUTO)
-		tile.set_icon_px(icon_px, icon_px + 30.0, 2)
+		tile.set_icon_px(icon_px, icon_px + 46.0, 2)
 		var mods: Array = []
 		if i < weapons.size():
 			var wd: Dictionary = weapons[i]
@@ -315,7 +315,8 @@ static func build_icon_row(run: Dictionary, icon_px: float = 44.0, mod_px: float
 		mrow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		for j in int(S.weaponMods):
 			var mt := PIconTile.new("", PIconTile.STYLE_MOD)
-			mt.set_icon_px(mod_px, mod_px + 22.0, 1)
+			mt.set_icon_px(mod_px, mod_px + 34.0, 2) # 개조 이름이 …로 뭉개지지 않게 두 줄까지
+			mt.wrap_title = true
 			if i < weapons.size() and j < mods.size():
 				mt.key = PIcons.mod_key(String(weapons[i].id), String(mods[j]))
 			else:
@@ -330,7 +331,7 @@ static func build_icon_row(run: Dictionary, icon_px: float = 44.0, mod_px: float
 
 ## 장비 3칸(자동기술과 다른 영역임이 보이도록 제목 줄 + 테두리 카드로 감싼다)
 static func equip_icon_row(run: Dictionary, icon_px: float = 32.0) -> Control:
-	var c := card("%s [color=#9ea8b8]자동기술 슬롯과 다른 영역[/color]" % PGlossaryTip.term("equipment", "장비"), CARD_OFF, 13)
+	var c := card("%s [color=#9ea8b8]무기 · 방어구 · 방패[/color]" % PGlossaryTip.term("equipment", "장비"), CARD_OFF, 15)
 	var box: VBoxContainer = c.box
 	var row := hbox(6)
 	row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -340,8 +341,9 @@ static func equip_icon_row(run: Dictionary, icon_px: float = 32.0) -> Control:
 		var t := PIconTile.new(("equip:" + String(id)) if id != null else "", PIconTile.STYLE_EQUIP)
 		t.empty = id == null
 		t.title = String(PCatalog.equipment_def(String(id)).name) if id != null else slot_name(slot)
-		t.sub = slot_name(slot) if id != null else ""
-		t.set_icon_px(icon_px, icon_px + 34.0, 2)
+		t.sub = "" # 슬롯 이름은 카드 제목(무기 · 방어구 · 방패)이 말한다 — 이름 줄을 두 줄로 쓴다
+		t.set_icon_px(icon_px, icon_px + 46.0, 2)
+		t.wrap_title = true
 		row.add_child(t)
 	box.add_child(row)
 	return c.panel

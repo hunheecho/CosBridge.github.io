@@ -132,11 +132,11 @@ func _init() -> void:
 	var kt := {}
 	for c in PGrowth.candidates(rt, { "pool": "level" }):
 		kt[c.kind] = int(kt.get(c.kind, 0)) + 1
-	ok("trial Lv1 검 후보: 쌍검/망치/구체·낙뢰/중력핵·시간 저축/정지된 칼날/불꽃 파열·분할된 시간·잔류 검흔 카드 없음; 새 기술 6·검 개조 2·공용 6·E 3·Q 변형 2", bad.is_empty() and int(kt.get("weapon_new", 0)) == 6 and int(kt.get("weapon_mod", 0)) == 2 and int(kt.get("common", 0)) == 6 and int(kt.get("skill_new", 0)) == 3 and int(kt.get("skill_variant", 0)) == 2, str(bad) + " " + str(kt))
+	ok("trial Lv1 검 후보(성장 개편: 개조는 Lv2부터 자격): 쌍검/망치/구체·낙뢰/중력핵·시간 저축/정지된 칼날/불꽃 파열·분할된 시간·잔류 검흔 카드 없음; 새 기술 6·검 개조 0·공용 6·E 3·Q 변형 2", bad.is_empty() and int(kt.get("weapon_new", 0)) == 6 and int(kt.get("weapon_mod", 0)) == 0 and int(kt.get("common", 0)) == 6 and int(kt.get("skill_new", 0)) == 3 and int(kt.get("skill_variant", 0)) == 2, str(bad) + " " + str(kt))
 	var kl := {}
 	for c in PGrowth.candidates(rl, { "pool": "level" }):
 		kl[c.kind] = int(kl.get(c.kind, 0)) + 1
-	ok("legacy Lv1 검 후보: 새 기술 9·검 개조 3·공용 8·E 5·Q 변형 3(0.4.x와 같음)", int(kl.get("weapon_new", 0)) == 9 and int(kl.get("weapon_mod", 0)) == 3 and int(kl.get("common", 0)) == 8 and int(kl.get("skill_new", 0)) == 5 and int(kl.get("skill_variant", 0)) == 3, str(kl))
+	ok("legacy Lv1 검 후보(성장 개편: 개조는 Lv2부터 자격): 새 기술 9·검 개조 0·공용 8·E 5·Q 변형 3(0.4.x와 같음)", int(kl.get("weapon_new", 0)) == 9 and int(kl.get("weapon_mod", 0)) == 0 and int(kl.get("common", 0)) == 8 and int(kl.get("skill_new", 0)) == 5 and int(kl.get("skill_variant", 0)) == 3, str(kl))
 	# 상점·심층·교체 후보도 해금을 따른다
 	var stock_bad := 0
 	var deep_bad := 0
