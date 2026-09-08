@@ -274,7 +274,17 @@ def judge(rules: dict, exit_code: int, text: str) -> tuple[str, dict]:
         return ST_FAIL, info
     info["passed"], info["total"] = summary
     if rules.get("require_exit_zero", True) and exit_code != 0:
-        info["reason"] = f"종료 코드 {exit_code}"
+        # 검사는 전부 통과했는데 프로세스가 비정상 종료한 경우를 따로 표시한다.
+        # 둘은 다른 사실이다: "21/21 출력"은 검사 결과이고, "종료 코드 0"은 프로세스 정상 종료다.
+        # 이 실행은 실패로 남으며, 나중에 성공한 재실행이 이 기록을 지우지 않는다.
+        if info["fail_lines"] == 0 and summary[0] == summary[1]:
+            info["crash_after_pass"] = True
+            info["reason"] = (f"검사는 {summary[0]}/{summary[1]} 통과했으나 프로세스가 비정상 종료했다"
+                              f"(종료 코드 {exit_code}"
+                              + (" = 접근 위반 0xC0000005" if exit_code in (3221225477, -1073741819) else "")
+                              + "). 통과로 세지 않는다")
+        else:
+            info["reason"] = f"종료 코드 {exit_code}"
         return ST_FAIL, info
     if info["fail_lines"] > 0:
         info["reason"] = f"FAIL {info['fail_lines']}건"

@@ -46,6 +46,9 @@ func _init() -> void:
 	print("DENSITY_JSON " + JSON.stringify(rows))
 	var md := "# 밀도 비교 시뮬레이션(봇, 규칙 검증용 — 사람 조작감·최종 밸런스 판단 아님)\n\n"
 	md += "설정: 회피 hold·1.5초, 동시 돌진 2, 늑대 체력 30, 물기 12/돌진 12, 시드 %s, 상한 %.0f초. 생성: `tools/density_report.gd` (%s, Godot %s). 받은 피해 = 유효 피해(실제 체력 감소, 과잉 제외; godot-0.3.1 피해 통계 수정 이후). 같은 코드라도 OS가 다르면 긴 전투의 시간·처치가 달라질 수 있다(PORT_NOTES §11).\n\n" % [str(SEEDS), MAX_SEC, OS.get_name(), Engine.get_version_info().string]
+	md += "> **이 표는 2026-09-08 장애물 접촉 탈출 수정 *이전*의 동작이다.** 사용자가 승인한 첫 전투 기준이므로 그대로 보존한다. 같은 값을 다시 만들려면 `PROPHECY_COLLISION_LEGACY=1`을 켜고 이 도구를 돌린다(그 환경에서 44행이 정확히 재현되는 것을 확인했다). 수정 이후의 같은 시드 결과는 `docs/sim/COLLISION_FIX_COMPARE.md`에 따로 있으며, 그쪽 값은 사람이 승인한 기준이 아니다.
+
+"
 	md += "| 편성 | 정책 | 시드 | 결과 | 시간 | 남은 체력 | 받은 피해(물기/돌진) | 등장/처치 | 물기/마리 | 돌진/마리 | 물기 명중 | 돌진 명중 | 예고 전 사망% | 실행 전 사망% | 최대 생존 | 최대 돌진상태 | 최대 물기상태 | 경험치 | 회피(회피!) | Q | 시뮬 µs/단계 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n"
 	for r in rows:
 		md += "| %s | %s | %d | %s | %.1f | %.0f | %.0f (%s/%s) | %d/%d | %.2f | %.2f | %d | %d | %.0f | %.0f | %d | %d | %d | %.4f | %d(%d) | %d | %.1f |\n" % [r.formation, r.policy, r.seed, r.status, r.elapsed, r.hp, r.taken, str(r.taken_by.get("wolf:bite", 0)), str(r.taken_by.get("wolf:dash", 0)), r.spawned, r.killed, r.bites_per_wolf, r.dashes_per_wolf, r.bite_hits, r.dash_hits, r.died_before_attack_pct, r.died_before_execute_pct, r.max_alive, r.max_dash_states, r.max_bite_states, r.xp, r.dodges, r.perfect, r.q, r.sim_us_per_step]

@@ -1442,7 +1442,10 @@ func _auto_reach(id: String) -> void:
 		return
 	var sec := int(Time.get_ticks_msec() - _auto_t0_ms) / 1000
 	_auto_reached[id] = sec
-	print("UI_SMOKE reached=", id, " wall_sec=", sec)
+	# wall_sec은 **실행 시작 후 누적 실제 경과 시간(도달 시각)**이다. 그 단계 자체의 소요 시간이 아니다.
+	# 게임 속 전투 시간은 game_combat_sec으로 따로 센다.
+	print("UI_SMOKE reached=", id, " wall_sec_cumulative=", sec,
+		" game_combat_sec=", snapped(_auto_combat_sec, 0.1))
 
 ## 화면·단계·등장 수·처치 수를 묶은 서명. 이 값이 바뀌면 "진행 중"이다
 func _auto_signature() -> String:

@@ -389,21 +389,28 @@ func push_out(o: Dictionary) -> void:
 	o.x = clampf(o.x, o.r, arena_w - o.r)
 	o.y = clampf(o.y, o.r, arena_h - o.r)
 
-## 원이 이동하며 장애물과 처음 닿는 t와 장애물 인덱스. 없으면 [-1, -1]
-## leaving_ok: 이미 닿아(또는 겹쳐) 있는 장애물에서 **멀어지는** 이동은 막지 않는다.
+## 접촉 중 탈출 규칙(2026-09-08). 플레이어와 적에 **같은 규칙**을 쓴다.
+## 이미 닿아(또는 겹쳐) 있는 장애물에 대해서는 그 장애물에서 **멀어지거나 접선 방향으로 가는**
+## 이동을 막지 않는다. 안쪽으로 파고드는 이동은 그대로 막는다.
 ## push_out이 정확히 접점(거리 = 반지름 합)에 놓기 때문에, 이 예외가 없으면 어느 방향으로도
-## t=0으로 막혀 그 자리에 영원히 갇힌다(2026-09-08 자동 진행 9일차 정지의 실제 원인:
+## t=0으로 막혀 그 자리에 영원히 갇혔다(2026-09-08 자동 진행 9일차 정지의 실제 원인:
 ## 플레이어가 바위 표면에 붙은 채 게임 속 1823초 동안 좌표 (536,300) 고정).
-func sweep_circle(x0: float, y0: float, x1: float, y1: float, r: float, leaving_ok: bool = false) -> Array:
+## 다른 장애물은 이 예외와 무관하게 따로 판정하므로, 장애물 사이로 파고들지는 못한다.
+## PROPHECY_COLLISION_LEGACY=1이면 수정 전 동작으로 되돌린다(전후 비교 전용, 게임 기본값 아님).
+static var collision_legacy := OS.get_environment("PROPHECY_COLLISION_LEGACY") != ""
+var stuck_escapes := 0   # 이 예외가 실제로 이동을 살린 횟수(비교·설명용 계측, 규칙에 영향 없음)
+
+func sweep_circle(x0: float, y0: float, x1: float, y1: float, r: float) -> Array:
 	var best_t := -1.0
 	var best_i := -1
 	for i in obstacles.size():
 		var ob: Dictionary = obstacles[i]
-		if leaving_ok:
+		if not collision_legacy:
 			var ax: float = x0 - float(ob.x)
 			var ay: float = y0 - float(ob.y)
 			var R: float = float(ob.r) + r
 			if ax * ax + ay * ay <= R * R + 1e-6 and (x1 - x0) * ax + (y1 - y0) * ay >= 0.0:
+				stuck_escapes += 1
 				continue
 		var tt := PGeom.seg_circle_t(x0, y0, x1, y1, ob.x, ob.y, ob.r + r)
 		if tt >= 0.0 and (best_i < 0 or tt < best_t):
@@ -412,9 +419,7 @@ func sweep_circle(x0: float, y0: float, x1: float, y1: float, r: float, leaving_
 	return [best_t, best_i]
 
 ## 스윕 이동: 벽·장애물에 닿으면 그 지점에서 정지. slide면 남은 이동량을 접선 방향으로 한 번 더. 반환 {hit: ""|"wall"|장애물 id, t}
-## leaving_ok: 이미 닿아 있는 장애물에서 멀어지는 이동을 허용한다(끼임 탈출). 지금은 플레이어 이동에만 쓴다 —
-## 적에게도 적용하면 승인된 첫 전투(늑대 25)의 결과가 달라진다(밀도 비교 x5·x10 행). 그 변경은 사람 판단 대상이다
-func move_swept(o: Dictionary, dx: float, dy: float, slide: bool = false, leaving_ok: bool = false) -> Dictionary:
+func move_swept(o: Dictionary, dx: float, dy: float, slide: bool = false) -> Dictionary:
 	var x0: float = o.x
 	var y0: float = o.y
 	var x1 := x0 + dx
@@ -433,7 +438,7 @@ func move_swept(o: Dictionary, dx: float, dy: float, slide: bool = false, leavin
 			ty = (wy - y0) / dy
 		tt = maxf(0.0, minf(tt, minf(tx, ty)))
 		hit = "wall"
-	var sw := sweep_circle(x0, y0, x0 + dx, y0 + dy, o.r, leaving_ok)
+	var sw := sweep_circle(x0, y0, x0 + dx, y0 + dy, o.r)
 	if sw[1] >= 0 and sw[0] < tt:
 		tt = sw[0]
 		hit_ob = obstacles[sw[1]]
@@ -466,7 +471,7 @@ func move_swept(o: Dictionary, dx: float, dy: float, slide: bool = false, leavin
 			rx -= dot * nx
 			ry -= dot * ny
 		if absf(rx) + absf(ry) > 1e-6:
-			var sw2 := sweep_circle(o.x, o.y, o.x + rx, o.y + ry, o.r, leaving_ok)
+			var sw2 := sweep_circle(o.x, o.y, o.x + rx, o.y + ry, o.r)
 			var t3 := 1.0
 			if sw2[1] >= 0:
 				t3 = maxf(0.0, sw2[0] - 1e-3)
@@ -1192,7 +1197,7 @@ func update_player(input: Dictionary, dt: float) -> void:
 		var y0: float = p.y
 		var blocked := false
 		if want > 0.0:
-			var res := move_swept(p, p.dodge_dx * want, p.dodge_dy * want, false, true)
+			var res := move_swept(p, p.dodge_dx * want, p.dodge_dy * want)
 			blocked = String(res.hit) != ""
 		p.dodge_dist += PGeom.dist(x0, y0, p.x, p.y)
 		p.dodge_t += dt
@@ -1218,7 +1223,7 @@ func update_player(input: Dictionary, dt: float) -> void:
 			elif z.type == "ice" and PGeom.dist(z.x, z.y, p.x, p.y) <= z.r + p.r * 0.5:
 				web = minf(web, float(z.get("slow", 0.6))) # 빙판(서리 추적자): 걷기 속도만, 겹쳐도 곱하지 않고 더 강한 쪽
 		var spd2 := float(P.speed) * float(build.speed_mult) * wind * web
-		move_swept(p, mv[0] * spd2 * dt, mv[1] * spd2 * dt, true, true)
+		move_swept(p, mv[0] * spd2 * dt, mv[1] * spd2 * dt, true)
 	if bool(input.get("special", false)) and p.special_cd <= 0.0:
 		PSkills.cast_q(self)
 	if bool(input.get("skill_e", false)) and p.e_cd <= 0.0 and build.skills.get("e") != null:
@@ -1435,7 +1440,7 @@ func resolve_overlaps(dt: float) -> void:
 	var cap: float = 120.0 * dt
 	if mag > 1e-9:
 		var k := minf(1.0, cap / mag)
-		move_swept(p, px_sum * k, py_sum * k, true, true)
+		move_swept(p, px_sum * k, py_sum * k, true)
 		push_out(p)
 
 # ---------- 투사체 ----------

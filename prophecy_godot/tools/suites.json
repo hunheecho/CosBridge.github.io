@@ -175,11 +175,17 @@
         ],
         "note": "자동 진행은 'N/N PASS' 요약이 없다. 요구한 마지막 단계까지 도달했을 때만 나오는 'UI_SMOKE result=done'과 종료 코드 0을 함께 본다. 시간 초과(2)·정체(3)·미도달(4)은 실패다."
       }
+    },
+    "collision_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "장애물 충돌·접촉 탈출 규칙"
     }
   },
   "groups": {
     "all": [
       "run_tests",
+      "collision_tests",
       "port_tests",
       "boss_tests",
       "boss3_tests",
@@ -200,6 +206,7 @@
     ],
     "rules": [
       "run_tests",
+      "collision_tests",
       "port_tests",
       "balance_tests",
       "acts_tests",
