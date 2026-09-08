@@ -235,6 +235,21 @@
       "timeout_sec": 600,
       "desc": "방패병 정면 방어 확정값·특수 정예 7종 규칙"
     },
+    "tail_probe": {
+      "env": {},
+      "script": "tools/tail_probe.gd",
+      "timeout_sec": 3600,
+      "desc": "전투 말미 계측(적 1~2마리 남은 시간 · 자리가 비었는데 기다린 시간 · 종류별 상한에 막힌 시간). 통과 판정이 아니라 기록. 부분 실행은 PROPHECY_SUBSET=\"act=2;formation=t2c_boar_archer;seed=1\", 수정 전후 비교는 PROPHECY_TAIL_TAG=before|after",
+      "verdict": {
+        "success_pattern": "TAIL_PROBE_JSON ",
+        "note": "측정 도구다. 결과 JSON 한 줄과 종료 코드 0으로 '측정이 실제로 이루어졌는지'만 본다(봇 승패는 판정하지 않는다)."
+      }
+    },
+    "enemy_pace_tests": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "전투 말미 편성 규칙(종류 섞기·동시 위험 공격 상한·빈자리 대기) 회귀"
+    },
     "elites_bot_measure": {
       "env": {},
       "timeout_sec": 900,
