@@ -148,6 +148,9 @@ static func _fire_by_kind(st: CombatState, w: Dictionary, target: Dictionary, ec
 		"chain": fire_chain(st, w, target, echoed)
 		"bolt": fire_bolt(st, w, target, echoed)
 		"ember": fire_ember(st, w, target, echoed)
+		# 새 보조 7종(까마귀·방울·분신·바람·역병·갑각·인형)은 PSupport가 맡는다.
+		# 아직 구현하지 않은 것은 false를 돌려주고 아무 일도 하지 않는다
+		_: PSupport.fire(st, w, target, echoed)
 
 static func fire_arc(st: CombatState, w: Dictionary, target: Dictionary, _echoed: bool) -> void:
 	var p := st.player
@@ -439,6 +442,7 @@ static func update(st: CombatState, dt: float) -> void:
 		if PBuild.has_common(b, "echo") and int(w.count) % int(CV.echoEvery) == 0:
 			w.echo = { "t": float(CV.echoDelay), "target": target }
 	update_mines(st, dt)
+	PSupport.update(st, dt)
 
 static func pick_ember_target(st: CombatState, w: Dictionary) -> Dictionary:
 	var p := st.player

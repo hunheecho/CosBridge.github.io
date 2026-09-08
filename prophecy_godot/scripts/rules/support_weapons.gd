@@ -1,0 +1,125 @@
+class_name PSupport
+extends RefCounted
+## 보조무기 공통 규칙(2026-09-08 주무기·보조 분리).
+##
+## 여기 있는 것:
+##  1. **효과별 발동 자격표 한 곳**(사용자 지시 5절). data/supports.json eligibility를 그대로 읽는다.
+##     감전 추가 피해·독 전염·분신 모방·가시 반격·까마귀 표적이 서로 재귀적으로 증식하지 않게 하는 유일한 관문이다.
+##  2. **제압 저항**(둔화·밀어내기·경직·유인). 정예·보스가 영구히 행동하지 못하는 조합을 막는다.
+##  3. 새 보조 7종의 발사·갱신 진입점. 구현 전에는 아무 일도 하지 않는다(impl:false라 후보로도 안 나온다).
+##
+## 수치는 전부 data/supports.json에 있고 전부 시험값이다. 여기 숫자를 적지 않는다.
+
+# ---------- 1. 효과별 발동 자격 ----------
+## effect가 cause 경로에서 발동할 수 있는가.
+## allow에 "*"가 있으면 deny만 본다. allow 목록이 있으면 그 안에 있어야 하고, deny에 있으면 무조건 막힌다.
+## 표에 없는 효과는 **막지 않는다**(모르는 효과를 조용히 꺼 버리면 원인을 못 찾는다).
+static func eligible(effect: String, cause: String) -> bool:
+	var E: Dictionary = PCatalog.eligibility().get("effects", {})
+	if not E.has(effect):
+		return true
+	var d: Dictionary = E[effect]
+	var deny: Array = d.get("deny", [])
+	if deny.has(cause):
+		return false
+	var allow: Array = d.get("allow", [])
+	if allow.is_empty() or allow.has("*"):
+		return true
+	return allow.has(cause)
+
+## 전염·모방처럼 세대가 있는 효과의 상한. 없으면 -1(제한 없음)
+static func gen_max(effect: String) -> int:
+	var E: Dictionary = PCatalog.eligibility().get("effects", {})
+	if not E.has(effect):
+		return -1
+	return int((E[effect] as Dictionary).get("gen_max", -1))
+
+## 지금 피해가 어느 경로에서 왔는지(st.attack_cause + 옵션)를 자격표의 어휘로 바꾼다.
+## 규칙 코드는 이 함수만 쓰고 st.attack_cause 문자열을 직접 비교하지 않는다.
+static func cause_of(st: CombatState, opt: Dictionary = {}) -> String:
+	if opt.has("cause"):
+		return String(opt.cause)
+	var c := String(st.attack_cause)
+	match c:
+		"", "base":
+			# 주무기의 기본 타격인지 보조의 타격인지는 무기 역할로 가른다
+			var wid := String(opt.get("weapon", ""))
+			if wid != "" and not PCatalog.is_main_weapon(wid):
+				return "support_direct"
+			return "main_direct"
+		"echo": return "main_extra"     # 공용 '메아리'가 만든 주무기 추가 타격
+		"volley": return "main_extra"
+		"orbit", "mine": return "support_direct"
+		"zone": return "zone_tick"
+		"dot": return "dot"
+	return c
+
+# ---------- 2. 제압 저항 ----------
+## 적 등급(일반/정예/보스). 구조물은 일반으로 본다
+static func tier_class(e: Dictionary) -> String:
+	if bool(e.get("boss", false)):
+		return "boss"
+	if bool(e.get("elite", false)):
+		return "elite"
+	return "normal"
+
+## 제압 배율. kind = "knock" | "stagger" | "slow" | "taunt". 1.0이면 그대로, 0이면 안 걸린다
+static func resist_mult(kind: String, e: Dictionary) -> float:
+	var R: Dictionary = PCatalog.support_resist()
+	if not R.has(kind):
+		return 1.0
+	return float((R[kind] as Dictionary).get(tier_class(e), 1.0))
+
+## 어떤 둔화를 겹쳐도 이 아래로는 못 내려가는 이동 속도 비율. 영구 정지 조합을 막는다
+static func slow_floor() -> float:
+	return float(PCatalog.support_resist().get("slowFloor", 0.35))
+
+## 이미 걸린 둔화 비율 cur(1.0 = 정상)에 새 둔화 add(0~1, 깎을 비율)를 겹친다.
+## 곱으로 겹치되 등급 저항을 적용하고 최저 속도로 자른다
+static func stack_slow(cur: float, add: float, e: Dictionary) -> float:
+	var eff := clampf(add, 0.0, 1.0) * resist_mult("slow", e)
+	return maxf(slow_floor(), cur * (1.0 - eff))
+
+## 밀어내기 거리에 등급 저항을 적용한다. 보스는 0(강제 위치 이동 없음)
+static func knock_dist(base: float, e: Dictionary) -> float:
+	return base * resist_mult("knock", e)
+
+## 이 적을 인형·도발로 끌 수 있는가(등급 저항을 확률이 아니라 자격으로 쓴다: 보스는 0이라 절대 안 끌린다)
+static func tauntable(e: Dictionary) -> bool:
+	return resist_mult("taunt", e) > 0.0
+
+# ---------- 3. 보조무기 진입점 ----------
+## 이 회차에 이 보조를 달고 있는가(전투 상태 기준)
+static func equipped(st: CombatState, id: String) -> bool:
+	for w in st.weapons:
+		if String(w.id) == id:
+			return true
+	return false
+
+## 장착한 보조의 파생 수치. 없으면 {}
+static func stats_of(st: CombatState, id: String) -> Dictionary:
+	for w in st.weapons:
+		if String(w.id) == id:
+			return w.stats
+	return {}
+
+## 그 보조가 개조 mid를 갖고 있는가
+static func has_mod(st: CombatState, id: String, mid: String) -> bool:
+	for w in st.weapons:
+		if String(w.id) == id:
+			return (w.stats.mods as Array).has(mid)
+	return false
+
+## 새 보조 7종의 발사. PWeapons._fire_by_kind가 모르는 kind를 여기로 넘긴다.
+## 처리했으면 true. 아직 구현하지 않은 보조는 false를 돌려주고 아무 일도 하지 않는다
+## (impl:false라 성장 후보로 나오지 않으므로 정상 플레이에서는 여기까지 오지 않는다).
+static func fire(_st: CombatState, _w: Dictionary, _target: Dictionary, _echoed: bool) -> bool:
+	return false
+
+## 매 프레임 갱신(까마귀 비행·방울 충전·인형 수명 등). 구현 전에는 아무 일도 하지 않는다
+static func update(_st: CombatState, _dt: float) -> void:
+	pass
+
+## 전투 시작 시 보조별 상태 초기화. st.support에 보조 id별 dict를 둔다
+static func init_state(st: CombatState) -> void:
+	st.support = {}

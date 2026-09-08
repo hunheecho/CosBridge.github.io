@@ -74,7 +74,17 @@ func _init() -> void:
 	var PS := PCatalog.passives()
 	var SK := PCatalog.skills()
 	var EQ := PCatalog.equipment()
-	ok("카탈로그: 자동기술 10·개조 30·공용 9·패시브 8·E 5·변형 10·Q 변형 3·희귀 6·장비 12", W.size() == 10 and _mod_count(W) == 30 and CM.size() == 9 and PS.size() == 8 and PCatalog.e_skills().size() == 5 and _variant_count(SK) == 13 and PCatalog.boss_rewards().size() == 6 and EQ.size() == 12, "mods %d variants %d" % [_mod_count(W), _variant_count(SK)])
+	# 주무기·보조 분리(2026-09-08): 주무기 5 + 보조 12 = 17종, 개조는 종당 3개로 51개.
+	# 옛 값(10종·30개)은 보조 7종·개조 21개가 늘기 전의 수다.
+	ok("카탈로그: 자동기술 17(주무기 5·보조 12)·개조 51·공용 9·패시브 8·E 5·변형 10·Q 변형 3·희귀 6·장비 12", W.size() == 17 and _mod_count(W) == 51 and CM.size() == 9 and PS.size() == 8 and PCatalog.e_skills().size() == 5 and _variant_count(SK) == 13 and PCatalog.boss_rewards().size() == 6 and EQ.size() == 12, "무기 %d mods %d variants %d" % [W.size(), _mod_count(W), _variant_count(SK)])
+	var n_main := 0
+	var n_sup := 0
+	for wid in W:
+		if PCatalog.is_main_weapon(String(wid)):
+			n_main += 1
+		else:
+			n_sup += 1
+	ok("역할 구분: 주무기 5종·보조 12종, 모든 자동기술에 역할이 있다", n_main == 5 and n_sup == 12, "주무기 %d 보조 %d" % [n_main, n_sup])
 	# ---------- 빌드 파생(HTML 117·147): 레벨 배율 누적, 강화·숙련·가속·넓어진 공격이 한 번씩 ----------
 	var st := mk({ "weapons": [{ "id": "spear", "level": 3 }], "passives": { "mastery": 2, "haste": 1 }, "forge": 2, "commons": { "wide": 1 } })
 	var s0: Dictionary = st.build.weapons[0]
@@ -286,8 +296,17 @@ func _init() -> void:
 	var kinds := {}
 	for c in cands:
 		kinds[c.kind] = int(kinds.get(c.kind, 0)) + 1
-	# 성장 개편: 개조는 자동기술 Lv2부터 자격이 생긴다. Lv1 시작 상태에서는 개조 후보가 0개다
-	ok("시작 상태 후보: 새 무기 9·검 레벨 1·검 개조 0(Lv2부터 자격)·공용(불꽃 파열 제외) 8·E 5·Q 레벨·Q 변형 3·패시브 8", int(kinds.get("weapon_new", 0)) == 9 and int(kinds.get("weapon_mod", 0)) == 0 and int(kinds.get("common", 0)) == 8 and int(kinds.get("skill_new", 0)) == 5 and int(kinds.get("skill_variant", 0)) == 3 and int(kinds.get("passive", 0)) == 8, str(kinds))
+	# 성장 개편: 개조는 자동기술 Lv2부터 자격이 생긴다. Lv1 시작 상태에서는 개조 후보가 0개다.
+	# 주무기·보조 분리: 새 자동기술 후보는 **구현된 보조**만이다(주무기는 시작에 고른 1개로 고정).
+	var n_impl_sup := 0
+	var main_in_new := false
+	for wid in PCatalog.weapons():
+		if bool(PCatalog.weapons()[wid].impl) and not PCatalog.is_main_weapon(String(wid)):
+			n_impl_sup += 1
+	for c in cands:
+		if String(c.kind) == "weapon_new" and PCatalog.is_main_weapon(String(c.id)):
+			main_in_new = true
+	ok("시작 상태 후보: 새 보조 = 구현된 보조 전부·주무기는 후보에 없음·검 레벨 1·검 개조 0(Lv2부터 자격)·공용 8·E 5·Q 변형 3·패시브 8", int(kinds.get("weapon_new", 0)) == n_impl_sup and not main_in_new and int(kinds.get("weapon_mod", 0)) == 0 and int(kinds.get("common", 0)) == 8 and int(kinds.get("skill_new", 0)) == 5 and int(kinds.get("skill_variant", 0)) == 3 and int(kinds.get("passive", 0)) == 8, "구현 보조 %d · %s" % [n_impl_sup, str(kinds)])
 	var off1 := PGrowth.generate_offer(run, { "pool": "level" })
 	var keys1 := []
 	for c in off1.choices:
@@ -301,16 +320,17 @@ func _init() -> void:
 	ok("제시는 시드·순번·레벨로 결정적(같은 seq = 같은 3택), 서로 다른 대상 3개", keys1 == keys2 and keys1.size() == 3 and keys1[0] != keys1[1] and keys1[1] != keys1[2], str(keys1))
 	PGrowth.apply_choice(run, off2.choices[0])
 	ok("선택 적용 뒤 pendingOffer 해제·순번 증가·기록", g.pendingOffer == null and int(g.choiceSeq) == 1 and (g.log as Array).size() == 1)
-	g.weapons = [{ "id": "sword", "level": 5, "mods": ["cross", "scar"] }, { "id": "spear", "level": 1, "mods": [] }, { "id": "bow", "level": 1, "mods": [] }]
+	# 새 구조가 꽉 찬 상태: 주무기 검 Lv5·개조 2, 보조 2개가 각각 Lv3·개조 1
+	g.weapons = [{ "id": "sword", "level": 5, "mods": ["cross", "scar"] }, { "id": "blades", "level": 3, "mods": ["dual"] }, { "id": "orb", "level": 3, "mods": ["fork"] }]
 	g.commons = { "wide": 2, "reach": 1, "echo": 1 }
 	g.passives = { "mastery": 3, "haste": 1, "vitality": 1, "focus": 1 }
 	g.skills.e = { "id": "gust", "level": 3, "variant": "whirl" }
 	cands = PGrowth.candidates(run, { "pool": "level" })
 	var bad := false
 	for c in cands:
-		if c.kind == "weapon_new" or (c.kind == "weapon_level" and c.id == "sword") or (c.kind == "weapon_mod" and c.id == "sword") or (c.kind == "common" and c.id in ["wide", "echo"]) or (c.kind == "passive" and c.id in ["mastery", "toughness"]) or c.kind == "skill_new" or (c.kind == "skill_level" and c.id == "gust") or (c.kind == "skill_variant" and c.id == "gust"):
+		if c.kind == "weapon_new" or c.kind == "weapon_level" or c.kind == "weapon_mod" or (c.kind == "common" and c.id in ["wide", "echo"]) or (c.kind == "passive" and c.id in ["mastery", "toughness"]) or c.kind == "skill_new" or (c.kind == "skill_level" and c.id == "gust") or (c.kind == "skill_variant" and c.id == "gust"):
 			bad = true
-	ok("슬롯 제한: 무기 3·개조 2·레벨 5·공용 단계·패시브 4종·E 슬롯·기술 Lv3·변형 1을 넘는 후보가 없다", not bad and cands.size() > 0, "%d 후보" % cands.size())
+	ok("슬롯 제한: 주무기 1(Lv5·개조 2)·보조 2(각 Lv3·개조 1)·공용 단계·패시브 4종·E 슬롯·기술 Lv3·변형 1을 넘는 후보가 없다", not bad and cands.size() > 0, "%d 후보" % cands.size())
 	g.commons = {}
 	g.weapons = [{ "id": "sword", "level": 1, "mods": [] }]
 	var has_flare := false

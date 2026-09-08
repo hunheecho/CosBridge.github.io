@@ -9,6 +9,7 @@ static func G() -> Dictionary: return PCatalog.growth()
 static func new_growth(start_weapon: String = "sword") -> Dictionary:
 	return {
 		"level": 1, "xp": 0.0, "pendingLevelUps": 0, "choiceSeq": 0, "pendingOffer": null, "lastKind": null,
+		"structure": STRUCTURE, # 주무기 1 + 공통 보조 2. 이 표시가 없는 저장은 옛 구조("v1")로 본다
 		"weapons": [{ "id": start_weapon, "level": 1, "mods": [] }],
 		"commons": {}, "passives": {}, "skills": { "q": { "id": "slowfield", "level": 1, "variant": null }, "e": null },
 		"bossRewards": [], "steer": null,
@@ -88,6 +89,74 @@ static func has_fire_source(g: Dictionary) -> bool:
 ## 개조 자격 없음(Lv1부터 2개), 대장간은 전체 강화. 게임 기본값이 아니다.
 static var growth_legacy := OS.get_environment("PROPHECY_GROWTH_LEGACY") != ""
 const LEGACY_LEVEL_MULT := [1.0, 1.2, 1.4, 1.6, 1.8]
+
+# ---------- 주무기·보조무기 분리(2026-09-08) ----------
+## 새 회차의 구조 표시. 이 값이 growth.structure에 저장되고, 표시가 없는 옛 저장은 "v1"이다.
+const STRUCTURE := "v2"
+
+## 이 회차가 어느 구조인지. **옛 회차는 옛 구조 그대로 끝까지 마칠 수 있다**(사용자 지시 6절).
+## 새 구조는 새 회차부터 적용된다. 저장을 열 때 무기를 지우거나 하나를 골라 주는 일은 하지 않는다.
+static func structure_of(g: Dictionary) -> String:
+	return String(g.get("structure", "v1"))
+
+static func is_v2(g: Dictionary) -> bool:
+	return structure_of(g) == "v2"
+
+## 자동기술 하나의 레벨 상한. v1은 전부 5, v2는 주무기 5 / 보조 3
+static func level_cap(g: Dictionary, weapon_id: String) -> int:
+	var S: Dictionary = G().SLOTS
+	if not is_v2(g):
+		return int(S.weaponMax)
+	var R := PCatalog.slot_rules()
+	return int(R.get("mainMax", 5)) if PCatalog.is_main_weapon(weapon_id) else int(R.get("supportMax", 3))
+
+## 자동기술 하나의 개조 상한. v1은 전부 2, v2는 주무기 2 / 보조 1
+static func mod_cap(g: Dictionary, weapon_id: String) -> int:
+	var S: Dictionary = G().SLOTS
+	if not is_v2(g):
+		return int(S.weaponMods)
+	var R := PCatalog.slot_rules()
+	return int(R.get("mainMods", 2)) if PCatalog.is_main_weapon(weapon_id) else int(R.get("supportMods", 1))
+
+## 개조 자격 레벨 목록. v1은 growth.json의 MOD_UNLOCK_LEVEL, v2는 주무기 [2,4] / 보조 [2]
+static func mod_unlock_levels(g: Dictionary, weapon_id: String) -> Array:
+	if not is_v2(g):
+		return G().get("MOD_UNLOCK_LEVEL", [])
+	var R := PCatalog.slot_rules()
+	return R.get("modUnlockMain", [2, 4]) if PCatalog.is_main_weapon(weapon_id) else R.get("modUnlockSupport", [2])
+
+## 지금 그 자동기술이 가질 수 있는 개조 수. 자격이 열려도 자동 지급이 아니라 후보로 나타날 뿐이다
+static func mod_quota_of(g: Dictionary, w: Dictionary) -> int:
+	var wid := String(w.id)
+	var cap := mod_cap(g, wid)
+	if growth_legacy:
+		return cap
+	var ul := mod_unlock_levels(g, wid)
+	if ul.is_empty():
+		return cap
+	var n := 0
+	for need in ul:
+		if int(w.level) >= int(need):
+			n += 1
+	return mini(n, cap)
+
+static func main_weapons(g: Dictionary) -> Array:
+	return (g.weapons as Array).filter(func(w): return PCatalog.is_main_weapon(String(w.id)))
+
+static func support_weapons(g: Dictionary) -> Array:
+	return (g.weapons as Array).filter(func(w): return not PCatalog.is_main_weapon(String(w.id)))
+
+## 새 자동기술을 하나 더 가질 수 있는지. v2에서 주무기는 회차 중에 늘지 않는다(시작에 고른 1개).
+## **옛 저장이 주무기 계열을 여러 개 갖고 있어도 지우지 않는다** — 더 늘지 않을 뿐이다.
+static func can_take_weapon(g: Dictionary, weapon_id: String) -> bool:
+	if not weapon_of(g, weapon_id).is_empty():
+		return false
+	if not is_v2(g):
+		return g.weapons.size() < int(G().SLOTS.weapons)
+	var R := PCatalog.slot_rules()
+	if PCatalog.is_main_weapon(weapon_id):
+		return main_weapons(g).size() < int(R.get("main", 1))
+	return support_weapons(g).size() < int(R.get("supports", 2))
 
 static func mod_quota(level: int) -> int:
 	var G := G()
@@ -202,28 +271,31 @@ static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 					push.call({ "kind": "boss_reward", "id": String(id), "tags": [], "generic": true })
 		return out
 	var W := PCatalog.weapons()
-	if g.weapons.size() < int(S.weapons):
-		for id in W:
-			var d: Dictionary = W[id]
-			if not bool(d.impl) or not weapon_of(g, String(id)).is_empty():
-				continue
-			if not PProfile.run_unlock_ok(run, "weapons", String(id)):
-				continue
-			push.call({ "kind": "weapon_new", "id": String(id), "tags": d.get("tags", []) })
+	# 새 자동기술: v2에서는 **보조만** 늘어난다(주무기는 시작에 고른 1개). v1은 예전대로 3개까지 아무거나
+	for id in W:
+		var d: Dictionary = W[id]
+		if not bool(d.impl) or not can_take_weapon(g, String(id)):
+			continue
+		if not PProfile.run_unlock_ok(run, "weapons", String(id)):
+			continue
+		push.call({ "kind": "weapon_new", "id": String(id), "role": PCatalog.weapon_role(String(id)), "tags": d.get("tags", []) })
 	for w in g.weapons:
+		if not W.has(String(w.id)):
+			continue # 옛 저장에만 있는 자동기술: 후보로 올리지 않고 그대로 둔다(지우지 않는다)
 		var d: Dictionary = W[String(w.id)]
-		if int(w.level) < int(S.weaponMax):
-			push.call({ "kind": "weapon_level", "id": String(w.id), "tags": d.get("tags", []) })
-		# 개조 자격 레벨(2026-09-08 시험값): Lv2에서 첫 개조, Lv4에서 두 번째 개조 자격.
+		var role := PCatalog.weapon_role(String(w.id))
+		if int(w.level) < level_cap(g, String(w.id)):
+			push.call({ "kind": "weapon_level", "id": String(w.id), "role": role, "tags": d.get("tags", []) })
+		# 개조 자격 레벨(2026-09-08 시험값): 주무기는 Lv2·Lv4에서 하나씩, 보조는 그 보조의 Lv2에서 하나.
 		# 자동 지급이 아니라 그때부터 후보로 나타난다. 기존 저장의 이미 얻은 개조는 회수하지 않는다.
-		if (w.mods as Array).size() < mod_quota(int(w.level)):
+		if (w.mods as Array).size() < mod_quota_of(g, w):
 			for mid in d.mods:
 				var md: Dictionary = d.mods[mid]
 				if not bool(md.impl) or (w.mods as Array).has(mid):
 					continue
 				if not PProfile.run_unlock_ok(run, "mods", String(w.id), String(mid)):
 					continue
-				push.call({ "kind": "weapon_mod", "id": String(w.id), "mod": String(mid), "tags": md.get("tags", []) })
+				push.call({ "kind": "weapon_mod", "id": String(w.id), "mod": String(mid), "role": role, "tags": md.get("tags", []) })
 	var CM := PCatalog.commons()
 	for id in CM:
 		var d: Dictionary = CM[id]
@@ -376,17 +448,17 @@ static func apply_choice(run: Dictionary, choice: Dictionary, dry: bool = false)
 	var kind := String(choice.kind)
 	match kind:
 		"weapon_new":
-			if g.weapons.size() >= int(S.weapons) or not weapon_of(g, String(choice.id)).is_empty():
+			if not can_take_weapon(g, String(choice.id)):
 				push_error("무기 슬롯"); return false
 			g.weapons.append({ "id": String(choice.id), "level": 1, "mods": [] })
 		"weapon_level":
 			var w := weapon_of(g, String(choice.id))
-			if w.is_empty() or int(w.level) >= int(S.weaponMax):
+			if w.is_empty() or int(w.level) >= level_cap(g, String(choice.id)):
 				push_error("무기 레벨"); return false
 			w.level = int(w.level) + 1
 		"weapon_mod":
 			var w := weapon_of(g, String(choice.id))
-			if w.is_empty() or (w.mods as Array).size() >= mod_quota(int(w.level)) or (w.mods as Array).has(String(choice.mod)):
+			if w.is_empty() or (w.mods as Array).size() >= mod_quota_of(g, w) or (w.mods as Array).has(String(choice.mod)):
 				push_error("전용 증강"); return false
 			(w.mods as Array).append(String(choice.mod))
 		"common":
@@ -462,6 +534,16 @@ static func skip_choice(run: Dictionary) -> void:
 static func _fmt(n: float) -> String:
 	return str(snapped(n, 0.1))
 
+## 보조 레벨업이 올리는 항목의 화면 이름(data/supports.json levelScale의 키)
+const LEVEL_STAT_NAMES := {
+	"radius": "반지름", "hops": "연쇄 횟수", "chill": "냉기 지속", "ttl": "장판 지속", "max": "설치 상한",
+	"hold": "표적 유지", "charges": "방울 수", "recharge": "충전 시간", "share": "분신 피해 비율",
+	"knock": "밀어내기", "dps": "독 피해", "spreadMax": "전염 대상", "thorn": "반격 피해",
+	"reduce": "근접 경감", "hp": "인형 체력", "dur": "지속 시간",
+}
+static func _level_stat_name(k: String) -> String:
+	return String(LEVEL_STAT_NAMES.get(k, k))
+
 static func describe(run: Dictionary, c: Dictionary) -> Dictionary:
 	var S: Dictionary = G().SLOTS
 	var g: Dictionary = run.growth
@@ -479,27 +561,46 @@ static func describe(run: Dictionary, c: Dictionary) -> Dictionary:
 		"weapon_new":
 			var d: Dictionary = W[String(c.id)]
 			var s: Dictionary = find_w.call(after, String(c.id))
-			out.title = "새 자동기술: %s" % String(d.name); out.type = "자동기술 획득"
-			out.stage = "자동기술 %d/%d → %d/%d" % [g.weapons.size(), int(S.weapons), g.weapons.size() + 1, int(S.weapons)]
+			var nrole := PCatalog.weapon_role(String(c.id))
+			var ncap := int(S.weapons)
+			var nhave: int = g.weapons.size()
+			var nword := "자동기술"
+			if is_v2(g):
+				var sup := nrole == "support"
+				ncap = int(PCatalog.slot_rules().get("supports", 2)) if sup else int(PCatalog.slot_rules().get("main", 1))
+				nhave = support_weapons(g).size() if sup else main_weapons(g).size()
+				nword = "보조" if sup else "주무기"
+			out.title = "새 %s: %s" % [nword, String(d.name)]
+			out.type = "%s 획득" % nword
+			out.stage = "%s %d/%d → %d/%d" % [nword, nhave, ncap, nhave + 1, ncap]
 			out.change = String(d.desc)
 			var kt: String = String({ "beam": "관통", "orbit": "공전", "chain": "연쇄" }.get(String(d.kind), "고유 방식"))
 			out.scope = "기본 피해 %s · 주기 %s초 · 1레벨부터 %s" % [_fmt(float(s.damage)), _fmt(float(s.interval)), kt]
-			out.slot = "자동기술 슬롯 %d/%d" % [g.weapons.size() + 1, int(S.weapons)]
+			out.slot = "%s 슬롯 %d/%d" % [nword, nhave + 1, ncap]
 		"weapon_level":
 			var w := weapon_of(g, String(c.id))
 			var s1: Dictionary = find_w.call(before, String(c.id))
 			var s2: Dictionary = find_w.call(after, String(c.id))
-			out.title = "%s %d→%d" % [wname.call(String(c.id)), int(w.level), int(w.level) + 1]; out.type = "자동기술 레벨"
-			out.stage = "%d → %d / %d" % [int(w.level), int(w.level) + 1, int(S.weaponMax)]
+			var lrole := PCatalog.weapon_role(String(c.id))
+			out.title = "%s %d→%d" % [wname.call(String(c.id)), int(w.level), int(w.level) + 1]
+			out.type = ("보조 레벨" if lrole == "support" else "주무기 레벨") if is_v2(g) else "자동기술 레벨"
+			out.stage = "%d → %d / %d" % [int(w.level), int(w.level) + 1, level_cap(g, String(c.id))]
 			out.change = "기본 피해 %s → %s" % [_fmt(float(s1.damage)), _fmt(float(s2.damage))]
+			# 보조 레벨업은 피해만 올리지 않는다(지시 1절). 무엇이 같이 오르는지 카드에 적는다
+			var lscale: Dictionary = PCatalog.level_scale().get(String(c.id), {})
+			for sk in lscale:
+				if String(sk) == "damage" or not s1.has(sk):
+					continue
+				out.change += " · %s %s → %s" % [_level_stat_name(String(sk)), _fmt(float(s1[sk])), _fmt(float(s2.get(sk, s1[sk])))]
 			out.scope = "이 자동기술만"; out.slot = "슬롯 소비 없음"
 		"weapon_mod":
 			var w := weapon_of(g, String(c.id))
 			var md: Dictionary = W[String(c.id)].mods[String(c.mod)]
 			out.title = "%s 개조: %s" % [wname.call(String(c.id)), String(md.name)]; out.type = "개조"
-			out.stage = "개조 슬롯 %d/%d → %d/%d" % [(w.mods as Array).size(), int(S.weaponMods), (w.mods as Array).size() + 1, int(S.weaponMods)]
+			var mcap := mod_cap(g, String(c.id))
+			out.stage = "개조 슬롯 %d/%d → %d/%d" % [(w.mods as Array).size(), mcap, (w.mods as Array).size() + 1, mcap]
 			out.change = String(md.desc); out.scope = "%s만" % wname.call(String(c.id))
-			out.slot = "%s 개조 슬롯 %d/%d" % [wname.call(String(c.id)), (w.mods as Array).size() + 1, int(S.weaponMods)]
+			out.slot = "%s 개조 슬롯 %d/%d" % [wname.call(String(c.id)), (w.mods as Array).size() + 1, mcap]
 		"common":
 			var d: Dictionary = PCatalog.commons()[String(c.id)]
 			var lv: int = int(g.commons.get(c.id, 0))

@@ -12,6 +12,18 @@ static func has_common(b: Dictionary, id: String) -> bool:
 static func empty_run_like(growth: Dictionary) -> Dictionary:
 	return { "growth": growth, "equipment": { "weapon": null, "armor": null, "shield": null }, "forge": 0, "buffs": {} }
 
+## levelScale 항목 하나를 레벨 lv(1부터)에 적용한다. { "mult": [...] } 은 곱, { "add": [...] } 은 합.
+## 배열이 짧으면 마지막 값을 쓴다(상한을 넘겨도 조용히 커지지 않게)
+static func level_scaled(v: float, spec: Dictionary, lv: int) -> float:
+	var out := v
+	if spec.has("mult"):
+		var a: Array = spec.mult
+		out *= float(a[clampi(lv - 1, 0, a.size() - 1)])
+	if spec.has("add"):
+		var a2: Array = spec.add
+		out += float(a2[clampi(lv - 1, 0, a2.size() - 1)])
+	return out
+
 ## 무기 파생 수치(HTML Growth.weaponStats)
 ## 그 자동기술에 적용되는 대장간 강화 배율. 없으면 1.0
 static func forge_mult_of(b: Dictionary, weapon_id: String) -> float:
@@ -32,8 +44,14 @@ static func weapon_stats(b: Dictionary, w: Dictionary) -> Dictionary:
 		for k in b.spear_override:
 			base[k] = b.spear_override[k] # 밸런스 세트의 창 후보(근접 약화·주기, test03 시험값 — PORT_BASELINE C9)
 	var G := PCatalog.growth()
-	var lv: int = mini(int(w.level), int(G.SLOTS.weaponMax))
+	var g: Dictionary = b.get("growth", {})
+	# 레벨 상한은 역할을 따른다: 옛 구조는 전부 5, 새 구조는 주무기 5 / 보조 3.
+	# 저장에 상한보다 높은 레벨이 남아 있어도 계산에서만 잘라 쓴다(저장값을 깎지 않는다)
+	var lv: int = mini(int(w.level), PGrowth.level_cap(g, String(w.id)))
+	var scale: Dictionary = PCatalog.level_scale().get(String(w.id), {})
 	var lv_mult: float = float(PGrowth.LEGACY_LEVEL_MULT[lv - 1]) if PGrowth.growth_legacy else float(G.LEVEL_MULT[lv - 1])
+	if scale.has("damage") and not PGrowth.growth_legacy:
+		lv_mult = level_scaled(1.0, scale.damage, lv)
 	var s := base.duplicate(true)
 	s.id = String(w.id)
 	s.level = int(w.level)
@@ -59,6 +77,14 @@ static func weapon_stats(b: Dictionary, w: Dictionary) -> Dictionary:
 			s.trigger = float(base.trigger) * float(b.width_mult)
 	if String(d.kind) == "arc" and bool(d.width):
 		s.range = float(s.get("range", base.range)) * (1.0 + (float(b.width_mult) - 1.0) * 0.5)
+	# 보조 레벨업의 역할별 강화(data/supports.json levelScale, 전부 시험값).
+	# 모든 보조를 피해 증가 하나로 처리하지 않는다는 지시(1절)를 여기서 지킨다.
+	# 폭·사거리 공용 증강을 먼저 곱한 **뒤** 적용한다 — 순서를 바꾸면 같은 값이 두 번 곱해진다.
+	for sk in scale:
+		var key := String(sk)
+		if key == "damage" or not s.has(key):
+			continue
+		s[key] = level_scaled(float(s[key]), scale[key], lv)
 	# snake_case 별칭(규칙 코드가 쓰는 이름)
 	s.arc_deg = float(s.get("arcDeg", 0.0))
 	s.hit_gap = float(s.get("hitGap", 0.0))

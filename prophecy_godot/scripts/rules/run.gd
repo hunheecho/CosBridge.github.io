@@ -1248,13 +1248,14 @@ static func refresh_stock(run: Dictionary, paid: bool = false) -> Dictionary:
 	var W_ := PCatalog.weapons()
 	var wpool := []
 	for id in W_:
-		if bool(W_[id].impl) and PGrowth.weapon_of(g, String(id)).is_empty() and PProfile.run_unlock_ok(run, "weapons", String(id)):
+		# can_take_weapon이 역할별 상한을 본다 — 새 구조에서 주무기는 회차 중에 늘지 않으므로 진열되지 않는다
+		if bool(W_[id].impl) and PGrowth.can_take_weapon(g, String(id)) and PProfile.run_unlock_ok(run, "weapons", String(id)):
 			wpool.append(String(id))
 	var es := []
 	for id in PCatalog.e_skills():
 		if bool(PCatalog.skills()[id].impl) and PProfile.run_unlock_ok(run, "e_skills", String(id)):
 			es.append(String(id))
-	if skill == null and (g.weapons as Array).size() < int(PCatalog.growth().SLOTS.weapons) and wpool.size() > 0:
+	if skill == null and wpool.size() > 0:
 		skill = { "kind": "weapon", "id": wpool[rng.int_range(0, wpool.size() - 1)], "price": int(SH().newSkill) }
 	elif skill == null and g.skills.get("e", null) == null and es.size() > 0:
 		skill = { "kind": "e", "id": es[rng.int_range(0, es.size() - 1)], "price": int(SH().newE) }
@@ -1470,7 +1471,7 @@ static func can_buy_skill(run: Dictionary) -> bool:
 		return false
 	var sk: Dictionary = st.skill
 	if String(sk.kind) == "weapon":
-		return (g.weapons as Array).size() < int(PCatalog.growth().SLOTS.weapons) and PGrowth.weapon_of(g, String(sk.id)).is_empty() and int(run.gold) >= int(sk.price)
+		return PGrowth.can_take_weapon(g, String(sk.id)) and int(run.gold) >= int(sk.price)
 	return g.skills.get("e", null) == null and int(run.gold) >= int(sk.price)
 
 static func buy_skill(run: Dictionary) -> bool:

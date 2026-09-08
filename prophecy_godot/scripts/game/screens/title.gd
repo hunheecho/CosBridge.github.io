@@ -131,7 +131,7 @@ func _verify_panel() -> Control:
 	box.add_child(PUi.button(ff_txt, func(): main.start_fight(_bot_check.button_pressed), true, 13))
 	box.add_child(PUi.rich("[color=#9ea8b8]시작 기술 첫 전투 비교[/color] (새 회차 1일차 첫 숲 카드, 같은 시드)", 12))
 	var row1 := PUi.hbox(6)
-	for wid in PCatalog.startable():
+	for wid in PCatalog.startable(): # 새 구조에서는 주무기만(PCatalog.startable이 이미 걸러 준다)
 		var id := String(wid)
 		var nm := String(PCatalog.weapon(id).name)
 		row1.add_child(PUi.button(nm, func(): main.quick_start_fight(id, _bot_check.button_pressed), true, 13))

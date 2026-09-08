@@ -1,0 +1,186 @@
+{
+  "schema": 1,
+  "note": "주무기·보조무기 분리 구조(2026-09-08). data/weapons.json은 tools/port_export_data.js가 만드는 생성 파일이라 손대지 않는다. 손으로 정한 값은 전부 여기 있고 PCatalog가 겹쳐 읽는다. 여기 수치는 전부 **시험값**이다 — 사람이 승인한 밸런스가 아니다. 사용자가 확정한 것은 슬롯 구조·무기 명단·핵심 역할뿐이다.",
+
+  "roles": {
+    "sword": "main", "spear": "main", "daggers": "main", "bow": "main", "hammer": "main",
+    "blades": "support", "orb": "support", "frost": "support", "ember": "support", "mine": "support",
+    "crow": "support", "bell": "support", "echo": "support", "wind": "support",
+    "plague": "support", "thorns": "support", "doll": "support"
+  },
+
+  "slots": {
+    "main": 1,
+    "mainMax": 5,
+    "mainMods": 2,
+    "modUnlockMain": [2, 4],
+    "supports": 2,
+    "supportMax": 3,
+    "supportMods": 1,
+    "modUnlockSupport": [2],
+    "note": "주무기 1개(Lv5·개조 2개, 자격 Lv2/Lv4) + 공통 보조 2개(각 Lv3·개조 1개, 자격 그 보조의 Lv2). 개조는 자격이 열려도 자동 지급하지 않고 성장 선택을 따로 쓴다. 장비의 무기·갑옷·방패 슬롯은 이 구조와 별개다."
+  },
+
+  "startable": ["sword", "spear"],
+  "startableAll": ["sword", "spear", "daggers", "bow", "hammer"],
+  "startableNote": "새 구조에서 시작 선택은 주무기만이다. 옛 구조에서 시작 자동기술로 해금했던 회전 칼날·번개 구체는 시작 선택에서 빠지지만 프로필 해금 자료는 지우지 않는다(보조로 계속 등장한다).",
+
+  "levelScale": {
+    "note": "보조 레벨업이 무엇을 올리는지. 전부 시험값. 배열은 Lv1/Lv2/Lv3 순서다. mult=곱, add=합. 모든 보조를 피해 증가 하나로 처리하지 않는다는 지시(1절)를 데이터로 지킨다.",
+    "blades":  { "damage": { "mult": [1.0, 1.35, 1.8] }, "radius": { "mult": [1.0, 1.08, 1.16] } },
+    "orb":     { "damage": { "mult": [1.0, 1.35, 1.8] }, "hops": { "add": [0, 1, 1] } },
+    "frost":   { "damage": { "mult": [1.0, 1.35, 1.8] }, "chill": { "add": [0.0, 0.5, 1.0] } },
+    "ember":   { "damage": { "mult": [1.0, 1.35, 1.8] }, "ttl": { "add": [0.0, 0.5, 1.0] } },
+    "mine":    { "damage": { "mult": [1.0, 1.35, 1.8] }, "max": { "add": [0, 1, 2] } },
+    "crow":    { "damage": { "mult": [1.0, 1.35, 1.8] }, "hold": { "add": [0.0, 0.5, 1.0] } },
+    "bell":    { "charges": { "add": [0, 1, 1] }, "recharge": { "mult": [1.0, 0.85, 0.7] } },
+    "echo":    { "share": { "add": [0.0, 0.08, 0.15] } },
+    "wind":    { "damage": { "mult": [1.0, 1.35, 1.8] }, "knock": { "mult": [1.0, 1.15, 1.3] } },
+    "plague":  { "dps": { "mult": [1.0, 1.35, 1.8] }, "spreadMax": { "add": [0, 0, 1] } },
+    "thorns":  { "thorn": { "mult": [1.0, 1.35, 1.8] }, "reduce": { "add": [0.0, 0.04, 0.08] } },
+    "doll":    { "hp": { "mult": [1.0, 1.4, 1.8] }, "dur": { "add": [0.0, 1.5, 3.0] } }
+  },
+
+  "eligibility": {
+    "note": "효과별 발동 자격표(사용자 지시 5절의 '한 곳'). 코드는 PSupport.eligible(effect, cause)만 보고 판단한다. cause는 피해가 생긴 경로 이름이며 st.attack_cause와 같은 어휘를 쓴다.",
+    "causes": {
+      "main_direct": "주무기의 직접 타격(base)",
+      "main_extra": "주무기 개조가 만든 추가 타격(교차 검격·잔류 검흔·분열 창날 등)",
+      "support_direct": "보조무기의 직접 타격(칼날 접촉·번개·서리·바람·까마귀 등)",
+      "echo_direct": "잔영 분신이 모방한 타격",
+      "zone_tick": "장판 지속 피해(불씨·얼어붙은 길·잔바람)",
+      "dot": "도트(출혈·화상·독)",
+      "reflect": "반사 피해(가시 갑각)",
+      "shock_bonus": "감전 후속 추가 번개 피해",
+      "plague_burst": "역병 파열의 즉시 방출",
+      "mine_blast": "지뢰 폭발",
+      "doll_blast": "폭죽 인형 폭발",
+      "enemy_melee": "적의 근접 타격을 맞음",
+      "enemy_projectile": "적의 투사체를 맞음",
+      "enemy_zone": "적의 장판·폭발을 맞음"
+    },
+    "effects": {
+      "shock_bonus": {
+        "desc": "감전된 적이 직접 타격을 받으면 추가 번개 피해",
+        "allow": ["main_direct", "main_extra", "support_direct", "echo_direct"],
+        "deny": ["zone_tick", "dot", "reflect", "shock_bonus", "plague_burst", "mine_blast", "doll_blast"],
+        "why": "지시 4절 2번: 분신의 모방 타격은 자격이 있고, 장판 틱·독·출혈·반사에는 발동하지 않는다. shock_bonus 자신을 막아 순환을 끊는다."
+      },
+      "plague_spread": {
+        "desc": "감염된 적이 죽으면 주변에 독 전염",
+        "allow": ["*"],
+        "deny": [],
+        "gen_max": 2,
+        "why": "죽음이 방아쇠라 피해 출처를 가리지 않는다. 대신 전염 세대(gen)를 2로 제한하고 지속 시간을 최대치로 되돌리지 않는다(남은 시간을 물려받는다)."
+      },
+      "thorns_reflect": {
+        "desc": "근접 피격 시 가시 반격",
+        "allow": ["enemy_melee"],
+        "deny": ["enemy_projectile", "enemy_zone", "reflect"],
+        "why": "반사가 반사를 부르는 순환 금지(지시 4절 11번). 원거리·장판 피격은 반격하지 않는다."
+      },
+      "echo_copy": {
+        "desc": "잔영 분신이 따라 하는 대상",
+        "allow": ["main_direct"],
+        "deny": ["main_extra", "support_direct", "echo_direct", "zone_tick", "dot", "reflect", "shock_bonus"],
+        "why": "지시 4절 8번: 주무기 개조와 다른 보조를 통째로 복제하지 않는다. 분신이 분신을 만드는 순환 금지."
+      },
+      "crow_mark": {
+        "desc": "까마귀가 표적을 새로 지정하는 계기",
+        "allow": ["main_direct", "main_extra"],
+        "deny": ["support_direct", "echo_direct", "zone_tick", "dot", "reflect", "shock_bonus"],
+        "why": "'주무기로 직접 맞힌 대상'이 지정 조건(지시 4절 6번). 보조가 계속 다른 적을 건드려도 표적이 흔들리지 않는다."
+      }
+    }
+  },
+
+  "resist": {
+    "note": "정예·보스의 제압 저항(시험값). 1.0이면 그대로, 0이면 완전 무효.",
+    "knock": { "normal": 1.0, "elite": 0.35, "boss": 0.0 },
+    "stagger": { "normal": 1.0, "elite": 0.4, "boss": 0.0 },
+    "slow": { "normal": 1.0, "elite": 0.6, "boss": 0.35 },
+    "taunt": { "normal": 1.0, "elite": 0.5, "boss": 0.0 },
+    "slowFloor": 0.35,
+    "why": "지시 5절: 둔화·밀어내기·유인으로 정예와 보스가 영구히 행동하지 못하는 조합을 막는다. slowFloor는 어떤 둔화를 겹쳐도 내려갈 수 없는 최저 이동 속도 비율이다."
+  },
+
+  "weapons": {
+    "crow": {
+      "name": "추격 까마귀", "kind": "crow", "startable": false, "impl": false,
+      "base": { "damage": 8, "interval": 0.55, "range": 430, "speed": 400, "hold": 3.0, "count": 1 },
+      "reach": true, "width": false, "category": "projectile", "tags": ["projectile", "focus"],
+      "desc": "주무기로 직접 맞힌 적을 까마귀가 물고 늘어진다. 본체가 다른 적을 상대하는 동안에도 표적을 계속 쫀다.",
+      "mods": {
+        "hunt": { "name": "집중 사냥", "desc": "같은 적을 계속 공격하면 피해가 단계적으로 상승(최대 +60%). 표적이 바뀌면 초기화", "impl": false, "tags": ["focus"] },
+        "switch": { "name": "먹잇감 전환", "desc": "표적을 처치하면 다음 적에게 첫 공격이 강해진다(200%)", "impl": false, "tags": ["focus"] },
+        "twin": { "name": "쌍둥이 까마귀", "desc": "두 마리가 서로 다른 적을 문다. 개체당 피해는 65%", "impl": false, "tags": ["projectile"] }
+      }
+    },
+    "bell": {
+      "name": "수호 방울", "kind": "bell", "startable": false, "impl": false,
+      "base": { "damage": 0, "interval": 0, "charges": 2, "recharge": 6.0, "guardCut": 0.5 },
+      "reach": false, "width": false, "category": "guard", "tags": ["guard"],
+      "desc": "충전된 방울이 차단 가능한 적 투사체를 대신 막는다. 막을 수 없는 공격은 표시가 다르다.",
+      "mods": {
+        "layered": { "name": "겹울림", "desc": "방울을 하나 더 저장한다. 대신 충전이 30% 느려진다", "impl": false, "tags": ["guard"] },
+        "guard": { "name": "근접 수호", "desc": "준비된 방울을 써서 근접 한 타격의 피해를 50% 줄인다(투사체와 같은 충전을 쓴다)", "impl": false, "tags": ["guard"] },
+        "reflect": { "name": "되돌림", "desc": "투사체를 막으면 쏜 적에게 반격탄(시험값 12, 원래 피해를 복사하지 않는다)", "impl": false, "tags": ["projectile"] }
+      }
+    },
+    "echo": {
+      "name": "잔영 분신", "kind": "echo", "startable": false, "impl": false,
+      "base": { "damage": 0, "interval": 0, "delay": 0.35, "share": 0.45, "offset": 72, "ttl": 0.9 },
+      "reach": false, "width": false, "category": "direct", "tags": ["combo"],
+      "desc": "짧은 시간차로 주무기의 기본 공격을 따라 한다. 분신이 선 자리에서 사거리·모양·적중을 다시 판정한다.",
+      "mods": {
+        "cross": { "name": "교차 잔영", "desc": "본체 옆으로 떨어진 자리에서 같은 적을 다른 각도로 친다", "impl": false, "tags": ["combo"] },
+        "residual": { "name": "잔류 잔영", "desc": "지나온 자리에 잠시 남아 공격한다(수명 2.4초)", "impl": false, "tags": ["combo"] },
+        "chase": { "name": "추격 잔영", "desc": "지정 대상을 따라가 최대 3번 공격한다(이동 속도·활동 범위 제한)", "impl": false, "tags": ["combo"] }
+      }
+    },
+    "wind": {
+      "name": "바람 정령", "kind": "wind", "startable": false, "impl": false,
+      "base": { "damage": 9, "interval": 1.6, "range": 170, "arcDeg": 90, "knock": 150, "trigger": 120 },
+      "reach": true, "width": true, "category": "direct", "tags": ["control"],
+      "desc": "가까이 붙은 적에게 부채꼴 돌풍을 보내 밀어낸다. 창·궁의 거리 유지, 망치의 빈틈을 메운다.",
+      "mods": {
+        "broad": { "name": "넓은 돌풍", "desc": "각도 90도에서 150도, 개별 밀어내기는 60%", "impl": false, "tags": ["control"] },
+        "focused": { "name": "압축 돌풍", "desc": "각도 90도에서 45도, 밀어내기 160%", "impl": false, "tags": ["control"] },
+        "lingering": { "name": "잔바람", "desc": "밀어낸 경로에 2초간 둔화 바람이 남는다", "impl": false, "tags": ["control", "zone"] }
+      }
+    },
+    "plague": {
+      "name": "역병 나비", "kind": "plague", "startable": false, "impl": false,
+      "base": { "damage": 0, "interval": 2.2, "range": 280, "speed": 260, "dps": 6, "dur": 5.0, "spread": 110, "spreadMax": 2 },
+      "reach": true, "width": false, "category": "projectile", "tags": ["dot"],
+      "desc": "적에게 붙어 독을 남긴다. 감염된 적이 죽으면 주변으로 독이 옮는다.",
+      "mods": {
+        "wide": { "name": "넓은 전염", "desc": "전염 범위 110에서 180, 대상 +1. 대신 독 피해 75%", "impl": false, "tags": ["dot"] },
+        "deep": { "name": "깊은 맹독", "desc": "독 피해 150%. 대신 전염 대상 1명, 범위 80", "impl": false, "tags": ["dot"] },
+        "burst": { "name": "역병 파열", "desc": "감염된 적이 죽으면 남은 독 피해의 60%를 주변에 즉시 터뜨린다", "impl": false, "tags": ["dot", "zone"] }
+      }
+    },
+    "thorns": {
+      "name": "가시 갑각", "kind": "thorns", "startable": false, "impl": false,
+      "base": { "damage": 0, "interval": 0, "reduce": 0.2, "thorn": 14, "cooldown": 0.6, "range": 95 },
+      "reach": false, "width": false, "category": "guard", "tags": ["guard", "melee"],
+      "desc": "근접 피해를 줄이고, 근접 공격을 받으면 그 방향으로 가시를 세운다.",
+      "mods": {
+        "focused": { "name": "집중 가시", "desc": "때린 적 방향으로 좁고 강한 반격(피해 180%)", "impl": false, "tags": ["melee"] },
+        "burst": { "name": "가시 폭발", "desc": "반격이 주변 원형(반지름 110)으로 퍼진다. 단일 피해는 60%", "impl": false, "tags": ["melee"] },
+        "venom": { "name": "독가시", "desc": "반격 가시에 독을 묻힌다(역병 나비의 전염 자격은 없다)", "impl": false, "tags": ["dot"] }
+      }
+    },
+    "doll": {
+      "name": "도깨비 인형", "kind": "doll", "startable": false, "impl": false,
+      "base": { "damage": 0, "interval": 12.0, "hp": 60, "dur": 8.0, "radius": 230, "maxLure": 3, "place": 120 },
+      "reach": false, "width": false, "category": "summon", "tags": ["control"],
+      "desc": "근처에 미끼 인형을 세운다. 주변 적 일부가 잠시 인형을 때리러 간다. 강제 이동은 없다 - 적이 스스로 걸어온다.",
+      "mods": {
+        "tough": { "name": "질긴 인형", "desc": "체력 60에서 110, 지속 8초에서 12초", "impl": false, "tags": ["control"] },
+        "firework": { "name": "폭죽 인형", "desc": "부서지거나 수명이 다하면 0.4초 예고 뒤 폭발(피해 40, 반지름 120)", "impl": false, "tags": ["zone"] },
+        "fleeing": { "name": "도망치는 인형", "desc": "관심을 끈 뒤 플레이어에게서 멀어지는 방향으로 천천히 이동한다", "impl": false, "tags": ["control"] }
+      }
+    }
+  }
+}

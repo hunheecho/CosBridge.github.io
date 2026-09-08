@@ -79,14 +79,32 @@ func _render() -> void:
 	var G := PCatalog.growth()
 	var S: Dictionary = G.SLOTS
 	var weapons: Array = build.get("weapons", [])
-	_box.add_child(PUi.rich("[b]%s %d/%d[/b]" % [PGlossaryTip.term("auto_skill", "자동기술"), weapons.size(), int(S.weapons)], 17))
-	for i in int(S.weapons):
-		if i < weapons.size():
-			_box.add_child(_weapon_card(weapons[i], report, int(S.weaponMax), int(S.weaponMods)))
-		else:
-			var ec := PUi.card("", PUi.CARD_OFF)
-			(ec.box as VBoxContainer).add_child(PUi.rich("[color=#6a7078]자동기술 %d — 빈 슬롯[/color]" % (i + 1), 14))
-			_box.add_child(ec.panel)
+	var g: Dictionary = build.get("growth", {})
+	if PGrowth.is_v2(g):
+		# 새 구조: 주무기 1칸과 보조 2칸을 따로 보여 준다. 상한도 자리마다 다르다
+		var R := PCatalog.slot_rules()
+		var mains: Array = weapons.filter(func(w): return PCatalog.is_main_weapon(String(w.id)))
+		var sups: Array = weapons.filter(func(w): return not PCatalog.is_main_weapon(String(w.id)))
+		_box.add_child(PUi.rich("[b]주무기 %d/%d[/b]" % [mains.size(), int(R.get("main", 1))], 17))
+		for i in maxi(int(R.get("main", 1)), mains.size()):
+			if i < mains.size():
+				_box.add_child(_weapon_card(mains[i], report, int(R.get("mainMax", 5)), int(R.get("mainMods", 2))))
+			else:
+				_box.add_child(_empty_slot("주무기 — 빈 슬롯"))
+		_box.add_child(PUi.rich("[b]보조무기 %d/%d[/b] [color=#9ea8b8]각 Lv%d · 개조 %d[/color]" % [sups.size(), int(R.get("supports", 2)), int(R.get("supportMax", 3)), int(R.get("supportMods", 1))], 17))
+		for i in maxi(int(R.get("supports", 2)), sups.size()):
+			if i < sups.size():
+				_box.add_child(_weapon_card(sups[i], report, int(R.get("supportMax", 3)), int(R.get("supportMods", 1))))
+			else:
+				_box.add_child(_empty_slot("보조무기 %d — 빈 슬롯" % (i + 1)))
+	else:
+		# 옛 저장(자동기술 3칸): 그 회차는 옛 구조 그대로 보여 준다
+		_box.add_child(PUi.rich("[b]%s %d/%d[/b] [color=#9ea8b8](옛 구조 회차)[/color]" % [PGlossaryTip.term("auto_skill", "자동기술"), weapons.size(), int(S.weapons)], 17))
+		for i in maxi(int(S.weapons), weapons.size()):
+			if i < weapons.size():
+				_box.add_child(_weapon_card(weapons[i], report, int(S.weaponMax), int(S.weaponMods)))
+			else:
+				_box.add_child(_empty_slot("자동기술 %d — 빈 슬롯" % (i + 1)))
 	_box.add_child(_manual_card(build))
 	_box.add_child(_common_card(build))
 	_box.add_child(_equip_card(build))
@@ -94,6 +112,11 @@ func _render() -> void:
 		var t := PUi.button("이번 전투 기록 닫기 ▼" if _stats_open else "이번 전투 기록 보기 ▶ (개조별 발동·적중·피해)", func(): _stats_open = not _stats_open; _render(), true, 14)
 		t.custom_minimum_size = Vector2(0, PLayout.button_min_height())
 		_box.add_child(t)
+
+func _empty_slot(text: String) -> Control:
+	var ec := PUi.card("", PUi.CARD_OFF)
+	(ec.box as VBoxContainer).add_child(PUi.rich("[color=#6a7078]%s[/color]" % text, 14))
+	return ec.panel
 
 func _icon_strip(keys: Array, px: float) -> Control:
 	var h := PUi.hbox(4)

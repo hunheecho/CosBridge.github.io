@@ -39,9 +39,32 @@ static func boss_action_text() -> Dictionary:
 	_cache["boss_action_text_merged"] = out
 	return out
 static func keys_text() -> String: return String(_load("config").keys_text)
-static func weapons() -> Dictionary: return _load("weapons").weapons
-static func startable() -> Array: return _load("weapons").startable
-static func startable_all() -> Array: return _load("weapons").startable_all
+## 자동기술 정의: weapons.json(생성 파일) + supports.json(손으로 정한 새 보조 7종)을 합친 사전(1회 캐시).
+## supports.json 쪽이 같은 id를 가지면 그쪽이 이긴다 — 손으로 정한 값이 생성 값을 덮는다는 뜻이다.
+static func weapons() -> Dictionary:
+	if _cache.has("weapons_merged"):
+		return _cache["weapons_merged"]
+	var out: Dictionary = (_load("weapons").weapons as Dictionary).duplicate(true)
+	for k in supports().get("weapons", {}):
+		out[k] = (supports().weapons[k] as Dictionary).duplicate(true)
+	_cache["weapons_merged"] = out
+	return out
+## 새 구조에서 시작 선택은 주무기만이다. supports.json이 목록을 갖고 있으면 그것을 쓴다(옛 목록은 회전 칼날을 포함한다)
+static func startable() -> Array: return supports().get("startable", _load("weapons").startable)
+static func startable_all() -> Array: return supports().get("startableAll", _load("weapons").startable_all)
+static func startable_legacy() -> Array: return _load("weapons").startable
+static func startable_all_legacy() -> Array: return _load("weapons").startable_all
+
+# ---------- 주무기·보조무기 분리(data/supports.json) ----------
+static func supports() -> Dictionary: return _load("supports")
+## 자동기술의 역할. 표에 없으면 보조로 본다(새로 추가된 자동기술이 주무기 자리를 말없이 차지하지 않게)
+static func weapon_role(id: String) -> String:
+	return String(supports().get("roles", {}).get(id, "support"))
+static func is_main_weapon(id: String) -> bool: return weapon_role(id) == "main"
+static func slot_rules() -> Dictionary: return supports().get("slots", {})
+static func level_scale() -> Dictionary: return supports().get("levelScale", {})
+static func eligibility() -> Dictionary: return supports().get("eligibility", {})
+static func support_resist() -> Dictionary: return supports().get("resist", {})
 static func growth() -> Dictionary: return _load("growth").growth
 static func commons() -> Dictionary: return _load("growth").commons
 static func passives() -> Dictionary: return _load("growth").passives

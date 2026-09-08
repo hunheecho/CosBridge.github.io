@@ -56,7 +56,9 @@ func _run() -> void:
 	main.new_run_flow()
 	await process_frame
 	var ps: Node = main.screens["pick_start"]
-	ok("시작 선택 화면(trial Lv1): 시작 가능 3장(검·창·칼날), 특성 요약에 근거리 훈련, 검 개조 후보 2개만", main.screen == "pick_start" and _count_text(ps, "이 자동기술로 시작") == 3 and _count_text(ps, "근거리 훈련") >= 1 and _count_text(ps, "교차 검격, 날아가는 검광") == 1 and _count_text(ps, "잔류 검흔") == 0)
+	# 주무기·보조 분리: 시작 선택은 주무기만이다. 옛 구조에서 시작 자동기술로 해금해 둔 회전 칼날은
+	# 여기서 빠지고 회차 중 보조 후보로 나온다(프로필 해금 자료는 지우지 않는다)
+	ok("시작 선택 화면(trial Lv1): 시작 가능 2장(검·창 — 회전 칼날은 보조로 이동), 특성 요약에 근거리 훈련, 검 개조 후보 2개만", main.screen == "pick_start" and _count_text(ps, "이 자동기술로 시작") == 2 and _count_text(ps, "근거리 훈련") >= 1 and _count_text(ps, "교차 검격, 날아가는 검광") == 1 and _count_text(ps, "잔류 검흔") == 0, "화면=%s 시작버튼=%d 특성=%d 개조표시=%d 잔류검흔=%d" % [main.screen, _count_text(ps, "이 자동기술로 시작"), _count_text(ps, "근거리 훈련"), _count_text(ps, "교차 검격, 날아가는 검광"), _count_text(ps, "잔류 검흔")])
 	main.start_run("sword")
 	await process_frame
 	ok("새 회차: 특성 고정·해금 스냅샷·기록 대상, 프로필 runs 1", (main.run.traits as Array) == ["near"] and main.run.has("unlocks") and bool(main.run.profileEligible) and int(PProfile.load("trial").runs) == 1 and main.screen == "base")

@@ -4,11 +4,47 @@
 만드는 도구는 `tools/icon_gen.gd`(프로젝트 안에서 코드로 그린 벡터 → svg·png128·png64·data/icons.json). 최종 아트는 아니다.
 아이콘이 없는 항목은 다른 효과의 아이콘을 재사용하지 않고 중립 자리표시 기호 + 실제 이름으로 표시한다.
 
-- 표시 대상 ID: 101
+- 표시 대상 ID: 129
 - 아이콘 있음: 101
-- 누락: 0
+- 누락: 28
 
-누락 없음. 표시 대상 ID가 늘어나면 이 문서에 다시 나타난다.
+## 누락 · mod (21)
+
+| ID | 이름 |
+| --- | --- |
+| `mod:bell:guard` | 근접 수호 |
+| `mod:bell:layered` | 겹울림 |
+| `mod:bell:reflect` | 되돌림 |
+| `mod:crow:hunt` | 집중 사냥 |
+| `mod:crow:switch` | 먹잇감 전환 |
+| `mod:crow:twin` | 쌍둥이 까마귀 |
+| `mod:doll:firework` | 폭죽 인형 |
+| `mod:doll:fleeing` | 도망치는 인형 |
+| `mod:doll:tough` | 질긴 인형 |
+| `mod:echo:chase` | 추격 잔영 |
+| `mod:echo:cross` | 교차 잔영 |
+| `mod:echo:residual` | 잔류 잔영 |
+| `mod:plague:burst` | 역병 파열 |
+| `mod:plague:deep` | 깊은 맹독 |
+| `mod:plague:wide` | 넓은 전염 |
+| `mod:thorns:burst` | 가시 폭발 |
+| `mod:thorns:focused` | 집중 가시 |
+| `mod:thorns:venom` | 독가시 |
+| `mod:wind:broad` | 넓은 돌풍 |
+| `mod:wind:focused` | 압축 돌풍 |
+| `mod:wind:lingering` | 잔바람 |
+
+## 누락 · weapon (7)
+
+| ID | 이름 |
+| --- | --- |
+| `weapon:bell` | 수호 방울 |
+| `weapon:crow` | 추격 까마귀 |
+| `weapon:doll` | 도깨비 인형 |
+| `weapon:echo` | 잔영 분신 |
+| `weapon:plague` | 역병 나비 |
+| `weapon:thorns` | 가시 갑각 |
+| `weapon:wind` | 바람 정령 |
 
 ## 적용 · weapon (10)
 

@@ -69,11 +69,19 @@ func _run() -> void:
 	var missing: Array = cov.missing
 	ok("아이콘 표 로드: 매핑된 그림이 모두 실제 게임 ID를 가리킨다", (PIcons.data().map as Dictionary).size() == have.size() and have.size() > 0, "map=%d have=%d" % [(PIcons.data().map as Dictionary).size(), have.size()])
 	var W := PCatalog.weapons()
-	var all_w := true
+	# 아이콘은 **플레이어가 실제로 볼 수 있는 것**(impl:true)에만 요구한다.
+	# 아직 구현 중이라 성장 후보로도 나오지 않는 자동기술은 빼되, 무엇이 남았는지 목록으로 남긴다
+	# (사용자 지시 6절: 미제작 아이콘을 완성된 것처럼 보고하지 않는다).
+	var w_missing := []
+	var w_planned := []
 	for wid in W:
-		if not PIcons.has(PIcons.weapon_key(String(wid))):
-			all_w = false
-	ok("자동기술 10종 전부 아이콘 있음", all_w and W.size() == 10, "weapons=%d" % W.size())
+		if PIcons.has(PIcons.weapon_key(String(wid))):
+			continue
+		if bool(W[wid].get("impl", false)):
+			w_missing.append(String(wid))
+		else:
+			w_planned.append(String(wid))
+	ok("구현된 자동기술 전부 아이콘 있음", w_missing.is_empty(), "없음 %s · 아직 미구현이라 제외 %s" % [str(w_missing), str(w_planned)])
 	var main_mods := [["sword", "cross"], ["sword", "scar"], ["spear", "split"], ["spear", "returning"], ["frost", "fan"], ["frost", "shatter"]]
 	var all_m := true
 	for pair in main_mods:
@@ -81,14 +89,23 @@ func _run() -> void:
 			all_m = false
 	ok("주요 개조 6종(교차·잔류·분열·귀환·부채·수정) 아이콘 있음", all_m)
 	ok("회피·Q 감속장·E 수호 결계·공용 메아리 아이콘 있음", PIcons.has("action:dodge") and PIcons.has("skill:slowfield") and PIcons.has("skill:q") and PIcons.has("skill:e:ward") and PIcons.has("common:echo"))
-	# 개조 전부(30종) — 우선순위 1. 하나라도 빠지면 어떤 개조인지 이름으로 적는다
+	# 개조 아이콘 — 우선순위 1. 구현된 개조는 하나도 빠지면 안 된다.
+	# 아직 구현하지 않은 개조는 목록으로만 남긴다(그림이 있는 척하지 않는다)
 	var mod_missing := []
+	var mod_planned := []
+	var mod_total := 0
 	for wid2 in W:
 		for mid in W[wid2].mods:
+			mod_total += 1
 			var mk := PIcons.mod_key(String(wid2), String(mid))
-			if not PIcons.has(mk):
+			if PIcons.has(mk):
+				continue
+			if bool(W[wid2].mods[mid].get("impl", false)):
 				mod_missing.append(mk)
-	ok("개조 전부 아이콘 있음(%d종)" % (30 - mod_missing.size()), mod_missing.is_empty(), str(mod_missing))
+			else:
+				mod_planned.append(mk)
+	ok("구현된 개조 전부 아이콘 있음(%d/%d, 미구현 %d개는 제외)" % [mod_total - mod_missing.size() - mod_planned.size(), mod_total, mod_planned.size()],
+		mod_missing.is_empty(), "없음 %s · 아직 미구현이라 제외 %s" % [str(mod_missing), str(mod_planned)])
 	# E 기술 5종 + 변형 전부 — 우선순위 1
 	var SKA := PCatalog.skills()
 	var skill_missing := []

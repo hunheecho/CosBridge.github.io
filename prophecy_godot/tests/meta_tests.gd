@@ -69,6 +69,29 @@ func fake_win(run: Dictionary, sortie: Dictionary, dmg: Dictionary = {}, extra: 
 		st.stats[String(k)] = extra[k]
 	return st
 
+## 그 회차에서 새로 얻을 수 있는 자동기술 수. 해금·구현 여부·역할 상한을 모두 본다.
+## 주무기·보조 분리 뒤에는 이 값이 곧 '고를 수 있는 보조 수'다
+func expect_weapon_new(run: Dictionary) -> int:
+	var g: Dictionary = run.growth
+	var n := 0
+	for wid in PCatalog.weapons():
+		if not bool(PCatalog.weapons()[wid].get("impl", false)):
+			continue
+		if not PGrowth.can_take_weapon(g, String(wid)):
+			continue
+		if not PProfile.run_unlock_ok(run, "weapons", String(wid)):
+			continue
+		n += 1
+	return n
+
+## weapon_new 후보에 주무기가 섞였는지
+func main_in_new(run: Dictionary) -> Array:
+	var out := []
+	for c in PGrowth.candidates(run, { "pool": "level" }):
+		if String(c.kind) == "weapon_new" and PCatalog.is_main_weapon(String(c.id)):
+			out.append(String(c.id))
+	return out
+
 func kinds_of(off: Dictionary) -> Array:
 	var out := []
 	for c in off.choices:
@@ -132,11 +155,11 @@ func _init() -> void:
 	var kt := {}
 	for c in PGrowth.candidates(rt, { "pool": "level" }):
 		kt[c.kind] = int(kt.get(c.kind, 0)) + 1
-	ok("trial Lv1 검 후보(성장 개편: 개조는 Lv2부터 자격): 쌍검/망치/구체·낙뢰/중력핵·시간 저축/정지된 칼날/불꽃 파열·분할된 시간·잔류 검흔 카드 없음; 새 기술 6·검 개조 0·공용 6·E 3·Q 변형 2", bad.is_empty() and int(kt.get("weapon_new", 0)) == 6 and int(kt.get("weapon_mod", 0)) == 0 and int(kt.get("common", 0)) == 6 and int(kt.get("skill_new", 0)) == 3 and int(kt.get("skill_variant", 0)) == 2, str(bad) + " " + str(kt))
+	ok("trial Lv1 검 후보(개조는 Lv2부터 자격·새 자동기술은 해금된 보조뿐): 쌍검/망치/구체·낙뢰/중력핵·시간 저축/정지된 칼날/불꽃 파열·분할된 시간·잔류 검흔 카드 없음; 검 개조 0·공용 6·E 3·Q 변형 2", bad.is_empty() and int(kt.get("weapon_new", 0)) == expect_weapon_new(rt) and main_in_new(rt).is_empty() and int(kt.get("weapon_mod", 0)) == 0 and int(kt.get("common", 0)) == 6 and int(kt.get("skill_new", 0)) == 3 and int(kt.get("skill_variant", 0)) == 2, "기대 새 보조 %d · %s %s" % [expect_weapon_new(rt), str(bad), str(kt)])
 	var kl := {}
 	for c in PGrowth.candidates(rl, { "pool": "level" }):
 		kl[c.kind] = int(kl.get(c.kind, 0)) + 1
-	ok("legacy Lv1 검 후보(성장 개편: 개조는 Lv2부터 자격): 새 기술 9·검 개조 0·공용 8·E 5·Q 변형 3(0.4.x와 같음)", int(kl.get("weapon_new", 0)) == 9 and int(kl.get("weapon_mod", 0)) == 0 and int(kl.get("common", 0)) == 8 and int(kl.get("skill_new", 0)) == 5 and int(kl.get("skill_variant", 0)) == 3, str(kl))
+	ok("legacy Lv1 검 후보(개조는 Lv2부터 자격): 새 자동기술 = 해금된 보조 전부·주무기 없음·검 개조 0·공용 8·E 5·Q 변형 3", int(kl.get("weapon_new", 0)) == expect_weapon_new(rl) and main_in_new(rl).is_empty() and int(kl.get("weapon_mod", 0)) == 0 and int(kl.get("common", 0)) == 8 and int(kl.get("skill_new", 0)) == 5 and int(kl.get("skill_variant", 0)) == 3, "기대 새 보조 %d · %s" % [expect_weapon_new(rl), str(kl)])
 	# 상점·심층·교체 후보도 해금을 따른다
 	var stock_bad := 0
 	var deep_bad := 0
@@ -399,7 +422,7 @@ func _init() -> void:
 	var kinds_old := {}
 	for c in PGrowth.candidates(old2, { "pool": "level" }):
 		kinds_old[c.kind] = int(kinds_old.get(c.kind, 0)) + 1
-	ok("옛 저장(키 없음): 후보 전부 열림(새 기술 9), 빌드 계산·상점 정상, 기록 대상 아님", int(kinds_old.get("weapon_new", 0)) == 9 and not PBuild.derive(old2).has("traits") and not PProfile.eligible(old2) and (PRun.stock(old2).equipment as Array).size() == 2)
+	ok("옛 저장(키 없음): 해금 제한 없이 후보 전부 열림, 빌드 계산·상점 정상, 기록 대상 아님", int(kinds_old.get("weapon_new", 0)) == expect_weapon_new(old2) and int(kinds_old.get("weapon_new", 0)) > 0 and not PBuild.derive(old2).has("traits") and not PProfile.eligible(old2) and (PRun.stock(old2).equipment as Array).size() == 2, "기대 %d 실제 %d" % [expect_weapon_new(old2), int(kinds_old.get("weapon_new", 0))])
 	PSave.clear()
 	# ---------- 제작 ----------
 	var rc := PRun.new_run(51, "sword") # 프로필 없음 = 제작법 전부 열림(도구·테스트)

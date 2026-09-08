@@ -7,8 +7,9 @@ func refresh() -> void:
 	clear_all()
 	var C := PCatalog.config()
 	var p: Dictionary = main.profile
-	heading("시작 자동기술 선택")
-	top.add_child(PUi.rich("[color=#9ea8b8]자동기술 1개(Lv1, 개조 없음) · 감속장(Q) Lv1 · 체력 %d · 금화 %d으로 1일차 %s에 시작합니다. 자동기술은 최대 %d개, 장비(무기·방어구·방패)는 상점에서 삽니다.[/color]" % [int(C.PLAYER.hp), int(C.START_GOLD), String(PRun.time_slots()[0]), int(PCatalog.growth().SLOTS.weapons)], 13))
+	var R := PCatalog.slot_rules()
+	heading("주무기 선택")
+	top.add_child(PUi.rich("[color=#9ea8b8]주무기 1개(Lv1, 개조 없음) · 감속장(Q) Lv1 · 체력 %d · 금화 %d으로 1일차 %s에 시작합니다. 주무기는 이 1개로 최대 Lv%d·개조 %d개까지 키우고, 보조무기는 회차 중에 최대 %d개(각 Lv%d·개조 %d개)를 얻습니다. 장비(무기·방어구·방패)는 상점에서 따로 삽니다.[/color]" % [int(C.PLAYER.hp), int(C.START_GOLD), String(PRun.time_slots()[0]), int(R.get("mainMax", 5)), int(R.get("mainMods", 2)), int(R.get("supports", 2)), int(R.get("supportMax", 3)), int(R.get("supportMods", 1))], 13))
 	var startable: Array = PCatalog.startable()
 	if not p.is_empty():
 		var u := PProfile.unlocked(p)
@@ -20,6 +21,11 @@ func refresh() -> void:
 			names.append("[b]%s[/b]" % PGlossaryTip.esc(String(D[String(id)].name)))
 		var cnt := PProfile.counts(p)
 		top.add_child(PUi.rich("%s Lv%d · %s: %s [color=#9ea8b8](출발하면 이번 회차 동안 고정 · 재선택은 영구 성장 화면)[/color] · 시작 가능 %d/%d · 회차 중 획득 %d/%d" % [PGlossaryTip.term("meta", "영구"), PProfile.level(p), PGlossaryTip.term("trait", "특성"), (", ".join(names) if names.size() > 0 else "[color=#6a7078]없음[/color]"), int(cnt.start.have), int(cnt.start.total), int(cnt.weapons.have), int(cnt.weapons.total)], 12))
+	# 새 구조에서 시작 선택은 주무기만이다. 옛 구조에서 시작 자동기술로 해금해 둔 보조(회전 칼날·번개 구체)는
+	# 여기서 빠지지만 프로필 해금 자료는 그대로 두고, 회차 중 보조 후보로 계속 나온다(사용자 지시 6절: 임의 삭제 금지)
+	startable = startable.filter(func(wid): return PCatalog.is_main_weapon(String(wid)))
+	if startable.is_empty():
+		startable = PCatalog.startable()
 	var row := PUi.hbox(10)
 	body.add_child(row)
 	var first: Button = null
