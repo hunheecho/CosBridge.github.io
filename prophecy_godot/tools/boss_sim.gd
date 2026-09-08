@@ -3,6 +3,9 @@ extends SceneTree
 ## 사용: PROPHECY_SIM_SEEDS=11,18 godot --headless --path prophecy_godot -s tools/boss_sim.gd
 ## 환경 변수: PROPHECY_BOSS_IDS(기본 9종 전부) PROPHECY_BOSS_BUILDS(비우면 막에 맞는 관문 프리셋: 1막 stage1 · 2막 stage2 · 3막 stage3; 지정하면 모든 보스에 그 빌드들)
 ##   PROPHECY_SIM_BOT(정책 목록, "still,balanced,survival") PROPHECY_SIM_SEEDS("11,18,25") PROPHECY_BOSS_HP_SET("hi"|"base") PROPHECY_SIM_OUT(res://docs/sim/BOSS_SIM.md).
+##   PROPHECY_SIM_BEH("on"|"off"|"on,off") 보스 행동 개편(연계·옆뛰기, data/boss_behavior.json) 켬/끔 대조군.
+##   PROPHECY_SIM_Q("on"|"off"|"on,off") 감속장(Q) 사용/미사용 대조군 — 같은 정책·빌드·시드로 Q 효용을 잰다.
+##   정책 추가: "stillqe"(이동·회피 없음 + Q/E 준비마다), "chase"(보스 추적만·회피 없음 + Q/E 준비마다), "skill:novice|regular|skilled"(PSkillBot 실력 프로필).
 ##   보스 체력은 회차 규칙(PRun.boss_hp)에서, 회차 모드에 없는 신규 보스는 boss_hp_sets[세트][id][stage<막>](bosses_new.json 시험값)에서 읽는다. 결과: 마크다운 + BOSS_SIM_JSON 한 줄.
 ## 기록: 승패·시간, 남은 체력, 보스 남은 체력, 받은 유효 피해, 흡수·회복, 보스 공격 실행, 패턴 실행, Q/E, 출처별 피해. 봇 결과는 사람 승률이 아니다.
 ## "제자리(still)"가 이기는 보스는 표 끝에 따로 표시한다(수치를 고치지 않고 보고만 한다).
@@ -89,11 +92,50 @@ func make_run(seed: int, preset: Dictionary) -> Dictionary:
 	run.hp = float(PRun.build(run).hp_max)
 	return run
 
-func fight(run: Dictionary, boss_id: String, pol: String, seed: int) -> Dictionary:
+## 이번 보스 행동 개편 계측용 정책(사용자 요청 §6 "맞다이 시험도 정책을 분리한다").
+## PBot.POLICIES를 건드리지 않고 여기서 사람과 같은 입력 사전만 만든다(규칙 우회 없음).
+##  - "stillqe": 이동·회피 없음, Q/E는 준비될 때마다 누른다(게임이 재사용 중이면 거절한다).
+##  - "chase":  보스만 따라가고 회피는 하지 않는다. Q/E는 준비될 때마다.
+func custom_input(st: CombatState, pol: String) -> Dictionary:
+	var p := st.player
+	var mx := 0.0
+	var my := 0.0
+	if pol == "chase" and not st.boss.is_empty() and not bool(st.boss.dead):
+		var dx: float = float(st.boss.x) - p.x
+		var dy: float = float(st.boss.y) - p.y
+		var d: float = maxf(1.0, sqrt(dx * dx + dy * dy))
+		if d > float(st.boss.r) + float(p.r) + 6.0:
+			mx = dx / d
+			my = dy / d
+	return { "mx": mx, "my": my, "dodge_press": false, "dodge_held": false, "special": true, "skill_e": true }
+
+static func is_custom(pol: String) -> bool:
+	return pol == "stillqe" or pol == "chase"
+
+## 정책별 입력을 만들어 전투를 끝까지 돌린다. q_on=false면 감속장(Q)만 누르지 않는다(Q 있음/없음 비교용)
+func drive(st: CombatState, pol: String, q_on: bool) -> void:
+	var bot: PBot = null
+	if pol.begins_with("skill:"):
+		bot = PSkillBot.new(pol.substr(6), 1)
+	elif not is_custom(pol):
+		bot = PBot.new(pol)
+	var n := int(round(MAX_SEC / PBot.STEP))
+	for i in n:
+		if st.status != "running":
+			break
+		var inp: Dictionary = custom_input(st, pol) if bot == null else bot.step_input(st)
+		if not q_on:
+			inp.special = false
+		st.step(inp, PBot.STEP)
+
+func fight(run: Dictionary, boss_id: String, pol: String, seed: int, opts: Dictionary = {}) -> Dictionary:
 	var b := PRun.build(run)
 	var st := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": seed, "boss": true, "boss_id": boss_id, "boss_hp": boss_hp_of(run, boss_id),
 		"arena": "clearing", "region_id": "boss", "xp_kill_mult": PRun.kill_xp_mult(run), "run": run })
-	PBot.run_combat(st, pol, { "max_sec": MAX_SEC })
+	# 행동 개편(연계·옆뛰기)을 끈 대조군: 같은 빌드·시드로 개편 전(073f74f) 행동과 비교한다
+	if not bool(opts.get("beh", true)) and not st.boss.is_empty():
+		st.boss.beh_off = true
+	drive(st, pol, bool(opts.get("q", true)))
 	if st.status == "running":
 		st.status = "timeout"
 		st.delayed.clear()
@@ -111,8 +153,17 @@ func fight(run: Dictionary, boss_id: String, pol: String, seed: int) -> Dictiona
 	var by_src := {}
 	for k in sm.dmg:
 		by_src[String(k)] = float(sm.dmg[k])
+	# 보스의 실제 공격 개시(note_attack "prepare" = attack_log)와 분당 환산
+	var inits := 0
+	var bid_num: int = int(st.boss.get("id", -1)) if not st.boss.is_empty() else -1
+	for a in st.attack_log:
+		if int(a[1]) == bid_num:
+			inits += 1
+	var secs: float = maxf(0.001, st.t)
 	return { "status": st.status, "t": round(st.t * 10.0) / 10.0, "hp": round(float(st.player.hp)), "bossHp": round(float(st.boss.hp)) if not st.boss.is_empty() else 0.0, "bossHpMax": round(float(st.boss.hp_max)) if not st.boss.is_empty() else 0.0,
 		"taken": round(float(sm.damage_taken)), "absorbed": round(float(sm.absorbed)), "heal": round(float(sm.healed)), "attempts": attempts, "hitsOn": hits_on, "patterns": (sm.patterns as Dictionary).duplicate(),
+		"inits": inits, "ipm": round(float(inits) / secs * 600.0) / 10.0, "dps": round(float(sm.boss_damage) / secs * 10.0) / 10.0,
+		"beh": bool(opts.get("beh", true)), "qon": bool(opts.get("q", true)),
 		"q": int(sm.special_uses), "e": int(sm.e_uses), "bd": round(float(sm.boss_damage)), "kills": int(sm.kills), "bySrc": by_src, "seed": seed, "policy": pol, "boss": boss_id, "phase": int(st.boss.get("phase", 0)) if not st.boss.is_empty() else 0 }
 
 func _avg(list: Array, key: String) -> String:
@@ -140,8 +191,21 @@ func _init() -> void:
 			printerr("알 수 없는 빌드: " + id)
 	var pols := []
 	for p in _list(_env("PROPHECY_SIM_BOT", "still,balanced,survival")):
-		if PBot.policies().has(p) or p == "stand" or p == "active":
+		if PBot.policies().has(p) or p == "stand" or p == "active" or is_custom(p) or (p.begins_with("skill:") and PSkillBot.profile_ids().has(p.substr(6))):
 			pols.append(p)
+		else:
+			printerr("알 수 없는 정책: " + p)
+	# 행동 개편 on/off, 감속장(Q) on/off — 같은 빌드·시드로 대조군을 만든다
+	var behs := []
+	for v in _list(_env("PROPHECY_SIM_BEH", "on")):
+		behs.append(v == "on")
+	var qs := []
+	for v in _list(_env("PROPHECY_SIM_Q", "on")):
+		qs.append(v == "on")
+	if behs.is_empty():
+		behs = [true]
+	if qs.is_empty():
+		qs = [true]
 	var seeds := []
 	for s in _list(_env("PROPHECY_SIM_SEEDS", "11,18,25")):
 		if s.is_valid_int():
@@ -163,48 +227,54 @@ func _init() -> void:
 		for build_id in use_builds:
 			var preset: Dictionary = BUILDS[build_id]
 			for pol in pols:
-				var res := []
-				for seed in seeds:
-					var run := make_run(int(seed), preset)
-					var r = fight(run, String(bid), String(pol), int(seed))
-					if r == null or not (r is Dictionary):
-						printerr("FAIL %s %s %s seed %d" % [String(bid), String(build_id), String(pol), int(seed)])
-						continue
-					var rd: Dictionary = r
-					rd.build = String(build_id)
-					rd.level = int(run.growth.level)
-					res.append(rd)
-					fights.append(rd)
-				var wins := []
-				for r in res:
-					if String(r.status) == "won":
-						wins.append(r)
-				var pat := {}
-				var src := {}
-				for r in res:
-					for k in r.patterns:
-						pat[String(k)] = int(pat.get(String(k), 0)) + int(r.patterns[k])
-					for k in r.bySrc:
-						src[String(k)] = float(src.get(String(k), 0.0)) + float(r.bySrc[k])
-				var pkeys := pat.keys()
-				pkeys.sort()
-				var pparts := []
-				for k in pkeys:
-					pparts.append("%s %s" % [String(k), str(round(float(pat[k]) / float(maxi(1, res.size())) * 10.0) / 10.0)])
-				var tot := 0.0
-				for k in src:
-					tot += float(src[k])
-				var skeys := src.keys()
-				skeys.sort_custom(func(a, b): return float(src[a]) > float(src[b]))
-				var sparts := []
-				for k in skeys.slice(0, 3):
-					sparts.append("%s %d%%" % [String(PStats.classify(String(k)).name), int(round(float(src[k]) / maxf(1.0, tot) * 100.0))])
-				var row := { "boss": String(bid), "build": String(build_id), "buildName": String(preset.name), "policy": String(pol), "n": res.size(), "wins": wins.size(), "t": _avg(wins, "t"), "hp": _avg(res, "hp"), "bossHp": _avg(res, "bossHp"),
-					"taken": _avg(res, "taken"), "absorbed": _avg(res, "absorbed"), "heal": _avg(res, "heal"), "attempts": _avg(res, "attempts"), "hitsOn": _avg(res, "hitsOn"), "q": _avg(res, "q"), "e": _avg(res, "e"), "bd": _avg(res, "bd"), "pat": ", ".join(pparts), "src": ", ".join(sparts), "level": int(probe.growth.level) }
-				if res.size() > 0:
-					row.level = int(res[0].level)
-				rows.append(row)
-				printerr("done %s %s %s: %d/%d" % [String(bid), String(build_id), String(pol), wins.size(), res.size()])
+				for beh in behs:
+					for q_on in qs:
+							var res := []
+							for seed in seeds:
+								var run := make_run(int(seed), preset)
+								var r = fight(run, String(bid), String(pol), int(seed), { "beh": bool(beh), "q": bool(q_on) })
+								if r == null or not (r is Dictionary):
+									printerr("FAIL %s %s %s seed %d" % [String(bid), String(build_id), String(pol), int(seed)])
+									continue
+								var rd: Dictionary = r
+								rd.build = String(build_id)
+								rd.level = int(run.growth.level)
+								res.append(rd)
+								fights.append(rd)
+							var wins := []
+							for r in res:
+								if String(r.status) == "won":
+									wins.append(r)
+							var pat := {}
+							var src := {}
+							for r in res:
+								for k in r.patterns:
+									pat[String(k)] = int(pat.get(String(k), 0)) + int(r.patterns[k])
+								for k in r.bySrc:
+									src[String(k)] = float(src.get(String(k), 0.0)) + float(r.bySrc[k])
+							var pkeys := pat.keys()
+							pkeys.sort()
+							var pparts := []
+							for k in pkeys:
+								pparts.append("%s %s" % [String(k), str(round(float(pat[k]) / float(maxi(1, res.size())) * 10.0) / 10.0)])
+							var tot := 0.0
+							for k in src:
+								tot += float(src[k])
+							var skeys := src.keys()
+							skeys.sort_custom(func(a, b): return float(src[a]) > float(src[b]))
+							var sparts := []
+							for k in skeys.slice(0, 3):
+								sparts.append("%s %d%%" % [String(PStats.classify(String(k)).name), int(round(float(src[k]) / maxf(1.0, tot) * 100.0))])
+							var row := { "boss": String(bid), "build": String(build_id), "buildName": String(preset.name), "policy": String(pol), "n": res.size(), "wins": wins.size(), "t": _avg(wins, "t"), "hp": _avg(res, "hp"), "bossHp": _avg(res, "bossHp"),
+								"taken": _avg(res, "taken"), "absorbed": _avg(res, "absorbed"), "heal": _avg(res, "heal"), "attempts": _avg(res, "attempts"), "hitsOn": _avg(res, "hitsOn"), "q": _avg(res, "q"), "e": _avg(res, "e"), "bd": _avg(res, "bd"), "pat": ", ".join(pparts), "src": ", ".join(sparts), "level": int(probe.growth.level) }
+							if res.size() > 0:
+								row.level = int(res[0].level)
+							row.beh = bool(beh)
+							row.qon = bool(q_on)
+							row.ipm = _avg(res, "ipm")
+							row.dps = _avg(res, "dps")
+							rows.append(row)
+							printerr("done %s %s %s beh=%s q=%s: %d/%d" % [String(bid), String(build_id), String(pol), "on" if beh else "off", "on" if q_on else "off", wins.size(), res.size()])
 	var hp_parts := []
 	for bid in BOSSES:
 		hp_parts.append("%s %d" % [String(PCatalog.boss_def(bid).name), int(boss_hp[bid])])
@@ -215,17 +285,17 @@ func _init() -> void:
 		pn.append("%s=%s" % [String(p), String(PBot.policies()[p].name) if PBot.policies().has(p) else String(p)])
 	md += " · ".join(pn) + ". 봇 결과는 사람 승률이 아니다. 받은 피해 = 유효 피해(실제 체력 감소).\n"
 	for bid in BOSSES:
-		md += "\n## %s (%d막 · 체력 %d)\n\n| 빌드 | 선택 수 | 정책 | 승리 | 평균 초(승) | 남은 체력 | 보스 남은 | 받은 피해 | 흡수 | 회복 | 보스 공격 실행 | 명중 | Q | E | 보스에게 준 피해 | 패턴 실행(평균) | 피해 출처 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n" % [String(PCatalog.boss_def(bid).name), boss_act(String(bid)), int(boss_hp[bid])]
+		md += "\n## %s (%d막 · 체력 %d)\n\n| 빌드 | 선택 수 | 정책 | 개편 | Q | 승리 | 평균 초(승) | 공격 개시/분 | 남은 체력 | 보스 남은 | 실제 체력 손실 | 보호막 흡수 | 회복 | 보스 공격 실행 | 명중 | Q회 | E회 | 보스에게 준 피해 | 보스 DPS | 패턴 실행(평균) | 피해 출처 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n" % [String(PCatalog.boss_def(bid).name), boss_act(String(bid)), int(boss_hp[bid])]
 		for r in rows:
 			if String(r.boss) != bid:
 				continue
-			md += "| %s | %d | %s | %d/%d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n" % [String(r.buildName), int(r.level) - 1, String(PBot.policies()[r.policy].name) if PBot.policies().has(r.policy) else String(r.policy), int(r.wins), int(r.n), String(r.t), String(r.hp), String(r.bossHp), String(r.taken), String(r.absorbed), String(r.heal), String(r.attempts), String(r.hitsOn), String(r.q), String(r.e), String(r.bd), String(r.pat), String(r.src)]
-	md += "\n## 전투별\n\n| 보스 | 빌드 | 정책 | 시드 | 결과 | 초 | 남은 체력 | 보스 남은/최대 | 받은 피해 | 처치(소환) | Q | E | 패턴 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n"
+			md += "| %s | %d | %s | %s | %s | %d/%d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n" % [String(r.buildName), int(r.level) - 1, String(PBot.policies()[r.policy].name) if PBot.policies().has(r.policy) else String(r.policy), "켬" if bool(r.get("beh", true)) else "끔", "켬" if bool(r.get("qon", true)) else "끔", int(r.wins), int(r.n), String(r.t), String(r.get("ipm", "-")), String(r.hp), String(r.bossHp), String(r.taken), String(r.absorbed), String(r.heal), String(r.attempts), String(r.hitsOn), String(r.q), String(r.e), String(r.bd), String(r.get("dps", "-")), String(r.pat), String(r.src)]
+	md += "\n## 전투별\n\n| 보스 | 빌드 | 정책 | 개편 | Q | 시드 | 결과 | 초 | 공격 개시/분 | 남은 체력 | 보스 남은/최대 | 실제 체력 손실 | 보호막 흡수 | 회복 | 처치(소환) | Q회 | E회 | 패턴 |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n"
 	for f in fights:
 		var pp := []
 		for k in f.patterns:
 			pp.append("%s %d" % [String(k), int(f.patterns[k])])
-		md += "| %s | %s | %s | %d | %s | %s | %d | %d/%d | %d | %d | %d | %d | %s |\n" % [String(PCatalog.boss_def(String(f.boss)).name), String(f.build), String(f.policy), int(f.seed), String(f.status), str(f.t), int(f.hp), int(f.bossHp), int(f.bossHpMax), int(f.taken), int(f.kills), int(f.q), int(f.e), ", ".join(pp)]
+		md += "| %s | %s | %s | %s | %s | %d | %s | %s | %s | %d | %d/%d | %d | %d | %d | %d | %d | %d | %s |\n" % [String(PCatalog.boss_def(String(f.boss)).name), String(f.build), String(f.policy), "켬" if bool(f.get("beh", true)) else "끔", "켬" if bool(f.get("qon", true)) else "끔", int(f.seed), String(f.status), str(f.t), str(f.get("ipm", 0.0)), int(f.hp), int(f.bossHp), int(f.bossHpMax), int(f.taken), int(f.absorbed), int(f.heal), int(f.kills), int(f.q), int(f.e), ", ".join(pp)]
 	# 제자리 정책이 이기는 칸: 서서 버티며 이김의 신호(수치는 고치지 않고 보고)
 	md += "\n## 제자리(still) 정책 결과 — 서서 버티며 이기는 보스\n\n| 보스 | 빌드 | 제자리 승리 | 판정 |\n|---|---|---|---|\n"
 	for r in rows:

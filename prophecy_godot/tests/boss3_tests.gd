@@ -16,11 +16,16 @@ func build(o: Dictionary = {}) -> Dictionary:
 		g.commons = o.commons
 	return PBuild.derive(PBuild.empty_run_like(g))
 
+## 이 파일의 시험은 '패턴 하나의 판정·예고·빈틈'을 본다. 행동 개편(연계·옆뛰기, data/boss_behavior.json)은 개체 스위치 beh_off로 끄고
+## 개편 전(073f74f)과 같은 조건에서 확인한다 — 즉 아래 기대값은 이번 작업에서 바뀌지 않았다.
+## 개편 자체의 검사는 이 파일 끝의 chain_tests()와 tests/boss_pace_tests.gd에 있다.
 func boss_state(id: String, seed_v: int = 5, hp: float = 0.0, o: Dictionary = {}) -> CombatState:
 	var opts := { "build": build(o), "seed": seed_v, "arena": "clearing", "boss": true, "boss_id": id, "region_id": "boss", "xp_kill_mult": 0.3 }
 	if hp > 0.0:
 		opts.boss_hp = hp
-	return CombatState.new(opts)
+	var st := CombatState.new(opts)
+	st.boss.beh_off = true
+	return st
 
 ## 입장 연출을 지나 접근 상태에서 시작. 플레이어 자동 공격은 멀리 두어(attack_timer) 판정에 끼지 않게 한다
 func ready_state(id: String, bx: float = 480.0, by: float = 300.0, px: float = 480.0, py: float = 420.0) -> CombatState:
@@ -69,6 +74,7 @@ func _init() -> void:
 	stalker_tests()
 	hunt_king_tests()
 	executor_tests()
+	chain_tests()
 	var pass_n := 0
 	for r in results:
 		if r[0]:
@@ -672,3 +678,99 @@ func executor_tests() -> void:
 		if st.status != "running":
 			break
 	ok("집행관: 순간이동 없음(봇 전투 15초 동안 한 단계 최대 이동 %.1fpx ≤ 15)" % max_jump, max_jump <= 15.0)
+
+# ---------- 행동 개편(연계·옆뛰기, data/boss_behavior.json 시험값) ----------
+## 위의 시험은 모두 beh_off(개편 끔)로 패턴 자체를 확인했다. 여기서는 개편을 켠 상태만 본다.
+## 개편이 꺼져 있으면(파일 없음·enabled=false) 건너뛴다.
+func chain_state(id: String, dist: float = 80.0, seed_v: int = 11) -> CombatState:
+	var st := CombatState.new({ "build": build(), "seed": seed_v, "arena": "forest", "boss": true, "boss_id": id,
+		"region_id": "boss", "xp_kill_mult": 0.3, "boss_hp": 1000000.0 })
+	for i in 600:
+		if String(st.boss.state) != "intro":
+			break
+		st.step({}, STEP)
+	var bz := st.boss
+	st.player.x = clampf(bz.x + dist, 20.0, st.arena_w - 20.0)
+	st.player.y = bz.y
+	return st
+
+func chain_tests() -> void:
+	if PBoss.chain_cfg({ "boss_id": "gate_warden", "phase": 1 }).is_empty():
+		ok("행동 개편(boss_behavior.json)이 꺼져 있어 연계 검사를 건너뛴다", true)
+		return
+	# 1) 가까이 붙어도 후보가 한 종류만 남지 않는다(파수장 방패 자세만 / 거수 낙석만 / 추적자 얼음길만 / 사냥왕 발톱만 나오던 문제)
+	for id in PBoss3.IDS:
+		var st := chain_state(String(id), 80.0)
+		var bz := st.boss
+		bz.actions = 3
+		bz.history = []
+		var cands: Array = []
+		for c in PBoss3.candidates(st, bz):
+			cands.append(String(c[0]))
+		ok("%s: 거리 80에서 후보가 2종 이상(한 패턴만 반복하지 않는다)" % String(id), cands.size() >= 2, str(cands))
+	# 2) 여러 행동을 연달아 한 뒤 반드시 빈틈이 온다(무한 연계 없음)
+	for id in PBoss3.IDS:
+		var st2 := chain_state(String(id), 160.0)
+		var bz2 := st2.boss
+		var chain_len := 0
+		var rec := -1.0
+		var prev_n := int(bz2.get("attack_n", 0))
+		for i in 120 * 40:
+			st2.player.hp = st2.player.hp_max
+			st2.step({}, STEP)
+			var n := int(bz2.get("attack_n", 0))
+			if n > prev_n:
+				prev_n = n
+				chain_len += 1
+			if String(bz2.state) == "recover" and chain_len >= 2:
+				rec = float(bz2.recover_dur)
+				break
+		ok("%s: 연계 %d회 뒤 빈틈 %.2f초(0.5초 이상)" % [String(id), chain_len, maxf(0.0, rec)], chain_len >= 2 and rec >= 0.5)
+	# 3) 예고: 연계 첫 공격은 원래 값 그대로, 후속타만 빨라지되 하한을 지킨다
+	var floor_ok := true
+	var floor_txt: Array = []
+	for id in PBoss3.IDS:
+		var st3 := chain_state(String(id), 160.0)
+		var bz3 := st3.boss
+		var cfg := PCatalog.boss_def(String(id))
+		var lo := float(PBoss.chain_cfg(bz3).get("followWarnMin", 0.5))
+		var prev := int(bz3.get("attack_n", 0))
+		var follow_seen := 0
+		for i in 120 * 40:
+			st3.player.hp = st3.player.hp_max
+			st3.step({}, STEP)
+			var n := int(bz3.get("attack_n", 0))
+			if n <= prev:
+				continue
+			prev = n
+			var hh: Array = bz3.history
+			var pat := String(hh[hh.size() - 1])
+			var base := PBoss.pattern_warn(cfg, pat)
+			var sp := float(bz3.warn_speed)
+			if int(bz3.chain_i) == 1 and not is_equal_approx(sp, 1.0):
+				floor_ok = false
+				floor_txt.append("%s 첫 공격 배속 %.2f" % [String(id), sp])
+			if int(bz3.chain_i) >= 2 and base > 0.0:
+				follow_seen += 1
+				if base / sp < lo - 1e-6:
+					floor_ok = false
+					floor_txt.append("%s.%s %.2f초" % [String(id), pat, base / sp])
+			if follow_seen >= 3:
+				break
+	ok("신규 6종: 연계 첫 공격의 예고는 데이터 원래 값, 후속타 예고는 하한 이상", floor_ok, ", ".join(floor_txt))
+	# 4) 감속장(Q): 연계를 켜도 예고·빈틈이 그대로 40%로 늦춰진다(Q를 조용히 약화하지 않았다)
+	var q_ok := true
+	var q_txt: Array = []
+	for id in PBoss3.IDS:
+		var st4 := chain_state(String(id), 60.0)
+		var bz4 := st4.boss
+		bz4.state = "recover"
+		bz4.state_t = 0.0
+		bz4.recover_dur = 3.0
+		st4.player.x = bz4.x
+		st4.player.y = bz4.y + 40.0
+		st4.step({ "special": true }, STEP)
+		if absf(float(bz4.state_t) - STEP * 0.4) > 1e-9:
+			q_ok = false
+			q_txt.append("%s 빈틈 %.5f" % [String(id), float(bz4.state_t)])
+	ok("신규 6종: 감속장 안 빈틈 진행 = dt × 0.4 (연계를 켜도 그대로)", q_ok, ", ".join(q_txt))

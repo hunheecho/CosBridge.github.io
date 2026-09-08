@@ -1,0 +1,178 @@
+{
+  "schema": "boss_behavior/1",
+  "note": "보스 행동 개편(사용자 요청 6절)의 새 조정값. 모든 숫자는 시험값 — 사람이 승인한 균형값이 아니다. enabled=false로 두면 073f74f의 원래 행동으로 돌아간다.",
+  "readme": [
+    "chain: 한 행동이 끝나면 빈틈 대신 짧은 이동 구간(linkGap)만 두고 다음 행동으로 잇는다. 연계 전체가 끝난 시점에만 빈틈이 오고, 길었던 연계(endBonusFrom 이상)는 endRecoverAdd만큼 더 긴 빈틈을 준다.",
+    "chain.maxByPhase: 1/2/3단계에서 한 연계에 넣을 수 있는 최대 행동 수.",
+    "chain.followWarnSpeed: 연계 후속타의 예고(준비·방향 고정) 진행 배속. 연계 첫 공격은 항상 1.0 — 데이터(enemies.json·bosses_new.json)의 원래 예고 그대로다.",
+    "chain.followWarnMin: 후속타 예고의 하한(초). 배속은 이 하한을 넘지 않는 선에서만 적용된다. 모든 예고를 같은 비율로 줄이는 방식은 쓰지 않는다.",
+    "chain.follow: 직전 행동 → 다음 행동 후보 [이름, 가중치]. '*'는 공통 후보(직전 행동에 맞는 후보를 지금 못 할 때 내려간다). 거리·재사용으로 못 하는 행동은 자동으로 빠지고, 같은 행동 3연속 금지도 그대로다.",
+    "chain.summonRecover: 연계가 소환으로 끝날 때 주는 빈틈(소환 뒤에도 반드시 공격 기회가 온다).",
+    "hop: 최소 거리를 못 채운 돌진·돌파·사격을 위해 예고 없이 옆(+뒤로 back 비율만큼)으로 뛰어 스스로 거리를 만든다. 준비(*_aim) 구간 안에서 일어나고 몸은 그대로 맞는다(무적 없음). 감속장 안에서는 같이 느려진다.",
+    "minApproach: 행동 사이 대기 — 예고가 아니라 '아무것도 안 하는 시간'이다.",
+    "<패턴>.chainAfter: 표식·포자 탄·낙석처럼 착탄을 기다리는 상태에서, 그 초가 지나면 보스가 서서 기다리지 않고 다음 행동으로 이을 수 있다(남은 예고는 계속 제 시각에 터진다).",
+    "markBusy: 잔여 표식이 남아 있는 동안에도 이을 수 있는 행동(잔여 예고와 다음 예고가 모든 출구를 막지 않도록 좁게 둔다).",
+    "그 밖의 <패턴>.<키>: 보스 정의(enemies.json·bosses_new.json)의 같은 키를 덮어쓴다. 여기서는 거리 후보 조건(minDist/maxDist)과 '걸어오는 시간'(집행관 guard.dur)만 바꾸고, 예고(aim/lock/warn/cast)는 하나도 줄이지 않았다."
+  ],
+  "enabled": true,
+  "bosses": {
+    "boss": {
+      "minApproach": 0.08,
+      "pounce": { "minDist": 240, "minPhase": 2 },
+      "hop": { "patterns": ["dash"], "time": 0.42, "speed": 260, "back": 0.35, "text": "옆으로!" },
+      "chain": {
+        "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
+        "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
+        "follow": {
+          "sweep": [["sweep", 1.6], ["dash", 0.8], ["pounce", 0.6]],
+          "dash": [["sweep", 2.2], ["pounce", 0.6], ["dash", 0.4]],
+          "pounce": [["sweep", 2.2], ["dash", 0.7]],
+          "howl": [["sweep", 1.6], ["dash", 1.0], ["pounce", 0.6]],
+          "*": [["sweep", 1.8], ["dash", 0.9], ["pounce", 0.6], ["howl", 0.4]]
+        }
+      }
+    },
+    "guardian": {
+      "minApproach": 0.08,
+      "chain": {
+        "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
+        "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
+        "follow": {
+          "sweep": [["shock", 1.4], ["sweep", 0.7]],
+          "shock": [["sweep", 1.4], ["shock", 0.7]],
+          "*": [["sweep", 1.0], ["shock", 1.2]]
+        }
+      }
+    },
+    "eater": {
+      "minApproach": 0.08,
+      "markBusy": ["lanes"],
+      "mark": { "chainAfter": 0.45 },
+      "lanes": { "minDist": 60 },
+      "chain": {
+        "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
+        "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
+        "follow": {
+          "mark": [["lanes", 1.4]],
+          "lanes": [["wide", 1.0], ["mark", 1.0], ["lanes", 0.6]],
+          "wide": [["lanes", 1.2], ["mark", 1.0]],
+          "summon": [["lanes", 1.2], ["mark", 1.0], ["wide", 0.8]],
+          "*": [["lanes", 1.2], ["mark", 1.0], ["wide", 0.9], ["summon", 0.6]]
+        }
+      }
+    },
+    "gate_warden": {
+      "minApproach": 0.08,
+      "hop": { "patterns": ["breach", "bolts"], "time": 0.45, "speed": 240, "back": 0.5, "text": "옆으로 물러선다" },
+      "chain": {
+        "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
+        "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
+        "follow": {
+          "guard": [["breach", 1.3], ["bolts", 1.0], ["guard", 0.5]],
+          "breach": [["guard", 1.2], ["bolts", 1.0]],
+          "bolts": [["breach", 1.2], ["guard", 1.0]],
+          "*": [["guard", 1.0], ["breach", 1.1], ["bolts", 1.0]]
+        }
+      }
+    },
+    "spore_matriarch": {
+      "minApproach": 0.08,
+      "markBusy": ["ring", "spray"],
+      "shot": { "chainAfter": 0.3 },
+      "chain": {
+        "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
+        "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
+        "follow": {
+          "shot": [["ring", 1.2], ["spray", 1.0]],
+          "ring": [["spray", 1.2], ["shot", 1.0]],
+          "spray": [["shot", 1.2], ["ring", 1.0]],
+          "summon": [["shot", 1.2], ["ring", 1.0], ["spray", 1.0]],
+          "*": [["shot", 1.0], ["ring", 1.1], ["spray", 1.0], ["summon", 0.6]]
+        }
+      }
+    },
+    "excavation_behemoth": {
+      "minApproach": 0.08,
+      "rockfall": { "chainAfter": 0.35 },
+      "hop": { "patterns": ["burrow"], "time": 0.5, "speed": 210, "back": 0.6, "text": "몸을 튼다" },
+      "chain": {
+        "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
+        "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
+        "follow": {
+          "burrow": [["rockfall", 1.4], ["burrow", 0.5]],
+          "rockfall": [["burrow", 1.4], ["rockfall", 0.5]],
+          "summon": [["rockfall", 1.2], ["burrow", 1.2]],
+          "*": [["burrow", 1.2], ["rockfall", 1.0], ["summon", 0.6]]
+        }
+      }
+    },
+    "frost_stalker": {
+      "minApproach": 0.08,
+      "hop": { "patterns": ["bolt", "dash"], "time": 0.4, "speed": 300, "back": 0.4, "text": "미끄러진다" },
+      "chain": {
+        "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
+        "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
+        "follow": {
+          "bolt": [["icepath", 1.2], ["dash", 1.2]],
+          "icepath": [["dash", 1.5], ["bolt", 1.0]],
+          "dash": [["bolt", 1.2], ["icepath", 1.0]],
+          "*": [["bolt", 1.0], ["icepath", 1.1], ["dash", 1.2]]
+        }
+      }
+    },
+    "blood_hunt_king": {
+      "minApproach": 0.08,
+      "claw": { "maxDist": 340, "closeFrac": 0.55, "rushMult": 1.0 },
+      "hop": { "patterns": ["dash"], "time": 0.4, "speed": 280, "back": 0.4, "text": "옆으로!" },
+      "chain": {
+        "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
+        "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
+        "follow": {
+          "claw": [["claw", 0.7], ["dash", 1.4]],
+          "dash": [["claw", 1.5], ["dash", 0.5]],
+          "summon": [["dash", 1.3], ["claw", 1.2]],
+          "*": [["claw", 1.2], ["dash", 1.2], ["summon", 0.6]]
+        }
+      }
+    },
+    "doom_executor": {
+      "minApproach": 0.08,
+      "guard": { "maxDist": 420, "dur": 1.1, "minDur": 0.5 },
+      "slash": { "gap": 0.35 },
+      "chain": {
+        "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
+        "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
+        "follow": {
+          "slash": [["guard", 1.2], ["summon", 0.8]],
+          "guard": [["slash", 1.4]],
+          "summon": [["slash", 1.4], ["guard", 1.0]],
+          "*": [["slash", 1.0], ["guard", 1.2], ["summon", 0.6]]
+        }
+      }
+    }
+  },
+  "pace_baseline_note": "tests/boss_pace_tests.gd 를 개편 전(enabled=false, 073f74f 행동)에서 같은 조건으로 돌린 분당 공격 개시 횟수(패턴 개시 = note_attack \"prepare\"). 키 = <보스>|<거리>|<단계>. 전장 forest(장애물 없음), 시드 11, 60초, 보스 체력 100만, 플레이어는 매 단계 고정 거리에 재배치·사망 없음·Q/E 없음.",
+  "pace_baseline": {
+    "boss|80|1": 21.0, "boss|80|3": 20.0, "boss|260|1": 16.0, "boss|260|3": 12.0,
+    "guardian|80|1": 18.0, "guardian|80|3": 18.0, "guardian|260|1": 20.0, "guardian|260|3": 20.0,
+    "eater|80|1": 14.0, "eater|80|3": 13.0, "eater|260|1": 14.0, "eater|260|3": 14.0,
+    "gate_warden|80|1": 22.0, "gate_warden|80|3": 22.0, "gate_warden|260|1": 17.0, "gate_warden|260|3": 14.0,
+    "spore_matriarch|80|1": 17.0, "spore_matriarch|80|3": 16.0, "spore_matriarch|260|1": 16.0, "spore_matriarch|260|3": 16.0,
+    "excavation_behemoth|80|1": 16.0, "excavation_behemoth|80|3": 16.0, "excavation_behemoth|260|1": 15.0, "excavation_behemoth|260|3": 14.0,
+    "frost_stalker|80|1": 20.0, "frost_stalker|80|3": 20.0, "frost_stalker|260|1": 19.0, "frost_stalker|260|3": 17.0,
+    "blood_hunt_king|80|1": 21.0, "blood_hunt_king|80|3": 21.0, "blood_hunt_king|260|1": 13.0, "blood_hunt_king|260|3": 13.0,
+    "doom_executor|80|1": 16.0, "doom_executor|80|3": 16.0, "doom_executor|260|1": 16.0, "doom_executor|260|3": 16.0
+  },
+  "pace_baseline_warn_note": "같은 조건에서 잰 '예고가 새로 뜬 횟수'/분(연속 돌진 2/2·절단선 2번처럼 예고가 다시 뜨는 후속 동작도 각각 셈). 보조 지표.",
+  "pace_baseline_warn": {
+    "boss|80|1": 18.0, "boss|80|3": 18.0, "boss|260|1": 13.0, "boss|260|3": 18.0,
+    "guardian|80|1": 18.0, "guardian|80|3": 18.0, "guardian|260|1": 20.0, "guardian|260|3": 20.0,
+    "eater|80|1": 13.0, "eater|80|3": 12.0, "eater|260|1": 17.0, "eater|260|3": 18.0,
+    "gate_warden|80|1": 22.0, "gate_warden|80|3": 22.0, "gate_warden|260|1": 17.0, "gate_warden|260|3": 22.0,
+    "spore_matriarch|80|1": 15.0, "spore_matriarch|80|3": 15.0, "spore_matriarch|260|1": 14.0, "spore_matriarch|260|3": 14.0,
+    "excavation_behemoth|80|1": 13.0, "excavation_behemoth|80|3": 13.0, "excavation_behemoth|260|1": 13.0, "excavation_behemoth|260|3": 15.0,
+    "frost_stalker|80|1": 20.0, "frost_stalker|80|3": 20.0, "frost_stalker|260|1": 19.0, "frost_stalker|260|3": 17.0,
+    "blood_hunt_king|80|1": 19.0, "blood_hunt_king|80|3": 19.0, "blood_hunt_king|260|1": 20.0, "blood_hunt_king|260|3": 20.0,
+    "doom_executor|80|1": 21.0, "doom_executor|80|3": 19.0, "doom_executor|260|1": 28.0, "doom_executor|260|3": 28.0
+  }
+}
