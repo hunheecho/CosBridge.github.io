@@ -147,7 +147,7 @@ func refresh() -> void:
 	bottom.add_child(back)
 	bottom.add_child(PUi.button("상점", func(): main.show("shop"), true, 15))
 	bottom.add_child(PUi.button("장비", func(): main.show("equip"), true, 15))
-	bottom.add_child(PUi.button("설명·계산식 닫기 ▾" if _formula_open else "설명·계산식 ▸", func(): _formula_open = not _formula_open; refresh(), true, 13))
+	bottom.add_child(PUi.button("설명·계산식 닫기 ▼" if _formula_open else "설명·계산식 ▶", func(): _formula_open = not _formula_open; refresh(), true, 13))
 	default_button = back
 
 # ---------- 제작(시험값 meta.json): 해금된 제작법 목록 → 미리보기(소비 장비·재료·금화, 효과 차이) → 확정/취소. 확정 전에는 아무것도 소비하지 않는다 ----------

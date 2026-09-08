@@ -87,7 +87,7 @@ func _render() -> void:
 	head.add_child(PUi.rich("[b]%s[/b]" % title, 22))
 	head.add_child(PUi.spacer())
 	# 선택을 취소하거나 다시 뽑지 않고, 지금 보유한 빌드만 펼쳐 본다
-	var bbtn := PUi.button("내 빌드 닫기 ▾" if _build_open else "내 빌드 보기 ▸", func(): _build_open = not _build_open; _render(), true, 15)
+	var bbtn := PUi.button("내 빌드 닫기 ▼" if _build_open else "내 빌드 보기 ▶", func(): _build_open = not _build_open; _render(), true, 15)
 	bbtn.custom_minimum_size = Vector2(0, PLayout.button_min_height())
 	head.add_child(bbtn)
 	_box.add_child(head)
@@ -150,7 +150,7 @@ func _card(run: Dictionary, c: Variant) -> Control:
 	b.add_child(btn)
 	# 상세: 같은 3택 위에서 펼치고 접는다(닫아도 다시 뽑지 않는다)
 	var open_now: bool = _detail == key
-	var dt := PUi.button("상세 닫기 ▾" if open_now else "상세 보기 ▸", func(): _detail = ("" if open_now else key); _render(), true, 13)
+	var dt := PUi.button("상세 닫기 ▼" if open_now else "상세 보기 ▶", func(): _detail = ("" if open_now else key); _render(), true, 13)
 	dt.custom_minimum_size = Vector2(0, PLayout.button_min_height())
 	b.add_child(dt)
 	if open_now:

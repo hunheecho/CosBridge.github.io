@@ -166,7 +166,7 @@ func _prep_card(r: Dictionary, id: String) -> Control:
 	box.add_child(PUi.spacer())
 	box.add_child(PUi.button("준비물 구매", func(): _act(PConsumables.buy(r, id), PConsumables.buy_reason(r, id)), can, 14))
 	var open_now: bool = _detail == id
-	box.add_child(PUi.button("상세 닫기 ▾" if open_now else "상세 보기 ▸", func(): _detail = ("" if open_now else id); refresh(), true, 12))
+	box.add_child(PUi.button("상세 닫기 ▼" if open_now else "상세 보기 ▶", func(): _detail = ("" if open_now else id); refresh(), true, 12))
 	if open_now:
 		box.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(d.desc)), 13))
 	return p
@@ -224,7 +224,7 @@ func _equip_card(r: Dictionary, id: String, from: String) -> Control:
 	box.add_child(row)
 	# 상세: 구현 설명·현재 슬롯·판매가처럼 매번 읽을 필요 없는 것
 	var open_now: bool = _detail == id
-	box.add_child(PUi.button("상세 닫기 ▾" if open_now else "상세 보기 ▸", func(): _detail = ("" if open_now else id); refresh(), true, 12))
+	box.add_child(PUi.button("상세 닫기 ▼" if open_now else "상세 보기 ▶", func(): _detail = ("" if open_now else id); refresh(), true, 12))
 	if open_now:
 		box.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(d.desc)), 13))
 		var cur = r.equipment.get(String(d.slot), null)

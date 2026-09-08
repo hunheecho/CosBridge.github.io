@@ -91,7 +91,7 @@ func _render() -> void:
 	_box.add_child(_common_card(build))
 	_box.add_child(_equip_card(build))
 	if not report.is_empty():
-		var t := PUi.button("이번 전투 기록 닫기 ▾" if _stats_open else "이번 전투 기록 보기 ▸ (개조별 발동·적중·피해)", func(): _stats_open = not _stats_open; _render(), true, 14)
+		var t := PUi.button("이번 전투 기록 닫기 ▼" if _stats_open else "이번 전투 기록 보기 ▶ (개조별 발동·적중·피해)", func(): _stats_open = not _stats_open; _render(), true, 14)
 		t.custom_minimum_size = Vector2(0, PLayout.button_min_height())
 		_box.add_child(t)
 

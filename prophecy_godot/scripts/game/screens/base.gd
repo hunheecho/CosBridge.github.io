@@ -154,7 +154,7 @@ func _build_summary(r: Dictionary) -> Control:
 	box.add_child(PUi.rich("[color=#9ea8b8]수동[/color] " + " · ".join(qe), 12))
 	box.add_child(PUi.equip_icon_row(r, 32.0)) # 장비는 자동기술 칸과 다른 영역(테두리 카드)으로 분리한다
 	box.add_child(PUi.rich("[color=#9ea8b8]최대 체력 %d · 이동 ×%s · %s %d/%d · %s %d/%d%s[/color]" % [int(float(b.hp_max)), PUi.fmt(float(b.speed_mult)), PGlossaryTip.term("common", "공용"), PGrowth.common_count(g), int(S.commons), PGlossaryTip.term("passive", "패시브"), PGrowth.passive_count(g), int(S.passives), (" · %s %d단계" % [PGlossaryTip.term("forge", "강화"), int(b.forge)]) if int(b.forge) > 0 else ""], 11))
-	var toggle := PUi.button(("상세 닫기 ▾" if _build_detail_open else "상세 보기 ▸ (장비·성장·통계·기록)"), func(): _toggle_build_detail(), true, 12)
+	var toggle := PUi.button(("상세 닫기 ▼" if _build_detail_open else "상세 보기 ▶ (장비·성장·통계·기록)"), func(): _toggle_build_detail(), true, 12)
 	toggle.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	toggle.custom_minimum_size = Vector2(0, PLayout.button_min_height())
 	box.add_child(toggle)
@@ -237,7 +237,7 @@ func _place_card(r: Dictionary, c: Dictionary) -> Dictionary:
 	for eid in c.enemies:
 		var ed := PCatalog.enemy(String(eid))
 		detail.add_child(PUi.rich("  [b]%s[/b] [color=#9ea8b8]%s — %s[/color]" % [PGlossaryTip.esc(String(ed.name)), PGlossaryTip.esc(String(ed.get("role", ""))), PGlossaryTip.esc(String(ed.get("readme", "")))], 12))
-	var toggle := PUi.button(("상세 닫기 ▾" if opened else "상세 보기 ▸"), func(): _toggle_detail(cid), true, 12)
+	var toggle := PUi.button(("상세 닫기 ▼" if opened else "상세 보기 ▶"), func(): _toggle_detail(cid), true, 12)
 	toggle.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	box.add_child(toggle)
 	box.add_child(detail)
