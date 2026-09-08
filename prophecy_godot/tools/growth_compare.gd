@@ -383,13 +383,19 @@ func measure_survive(run: Dictionary, seconds: float) -> Dictionary:
 		if not e.dead:
 			e.hp = 1.0e9
 			e.hp_max = 1.0e9
-	var bot := PSkillBot.new("skilled", SEED)
+	# 회피를 잘하는 봇으로 재면 무엇에 투자했든 받은 피해가 0에 붙어 차이가 안 난다.
+	# 여기서 보려는 것은 **방어 투자의 가치**이므로 회피하지 않는 정책으로 재고,
+	# 받은 피해를 최대 체력 대비 비율로 돌려준다(체력·강인함에 투자한 빌드가 낮게 나와야 정상).
+	var bot := PBot.new("stand")
 	var n := int(seconds / STEP)
 	for i in n:
 		if st.status != "running":
 			break
 		st.step(bot.step_input(st), STEP)
-	return { "taken": snapped(float(st.stats.damage_taken), 0.1), "hp_left": snapped(maxf(0.0, float(st.player.hp)), 0.1),
+	var hpm: float = maxf(1.0, float(st.player.hp_max))
+	return { "taken": snapped(float(st.stats.damage_taken), 0.1),
+		"taken_frac": snapped(float(st.stats.damage_taken) / hpm * 100.0, 0.1),
+		"hp_left": snapped(maxf(0.0, float(st.player.hp)), 0.1),
 		"dead": st.status == "lost", "sec": snapped(st.t, 0.01) }
 
 func _init() -> void:
@@ -415,7 +421,7 @@ func _init() -> void:
 							"levels": _level_str(gb.run), "mods": _mod_count(gb.run) })
 						rows.append({ "legacy": legacy, "start": String(start.id), "policy": policy,
 							"budget": budget, "used": int(gb.used), "scen": "생존(받은 피해)", "forge": forge,
-							"dps": float(sv.taken), "dead": bool(sv.dead),
+							"dps": float(sv.taken_frac), "taken": float(sv.taken), "dead": bool(sv.dead),
 							"forge_bought": (gb.forge_bought as Array).size(),
 							"levels": _level_str(gb.run), "mods": _mod_count(gb.run) })
 						printerr("done ", "old" if legacy else "new", " ", start.id, " ", policy, " ", budget, " forge=", forge)
@@ -483,7 +489,7 @@ func _write_md() -> void:
 				md += "| %s | %s | %d | %d | %.1f → %.1f | %.1f → %.1f | %.1f → %.1f |\n" % [String(start.id), policy, budget,
 					int(n1.get("forge_bought", 0)), float(n0.dps), float(n1.dps), float(m0.dps), float(m1.dps), float(e0.dps), float(e1.dps)]
 	md += "\n## 정책 비교: 무엇을 잘하고 무엇이 남는가 (새 구조 · 동일 금화 강화)\n\n"
-	md += "| 예산 | 정책 | 정지 단일 DPS | 다수 처리(초) | 생존: 20초 받은 피해 |\n|---:|---|---:|---|---:|\n"
+	md += "| 예산 | 정책 | 정지 단일 DPS | 다수 처리(초) | 방어 가치: 회피 없이 20초 받은 피해(최대 체력 %) |\n|---:|---|---:|---|---:|\n"
 	for budget in BUDGETS:
 		for policy in ["A", "B", "C", "D"]:
 			var d1 := []
@@ -506,7 +512,11 @@ func _write_md() -> void:
 					left_txt = " (미처치 있음)"
 					break
 			md += "| %d | %s | %.1f | %.1f%s | %.0f |\n" % [budget, policy, _median(d1), _median(c1), left_txt, _median(s1)]
-	md += "\n다수 처리는 실제 체력의 늑대 8마리를 정리한 시간이다(40초 안에 못 잡으면 '미처치 있음'). 생존은 늑대 4 + 궁수 2를 20초 상대하며 받은 피해다.\n"
+	md += "\n다수 처리는 실제 체력의 늑대 8마리를 정리한 시간이다(40초 안에 못 잡으면 '미처치 있음').\n"
+	md += "방어 가치는 늑대 4 + 궁수 2(죽지 않는 표적) 앞에서 **회피하지 않고** 20초 버틴 뒤 받은 피해를 최대 체력 대비 비율로 적은 것이다.\n"
+	md += "\n> **이 열은 지금 쓸모가 없다.** 죽지 않는 적 6마리 앞에서 회피 없이 20초를 버티면 어떤 빌드든 최대 체력을 다 잃어 값이 100%에 붙는다(포화).\n"
+	md += "> 앞서 회피 잘하는 봇으로 쟀을 때는 반대로 거의 다 0에 붙었다. **두 극단 사이의 조건을 아직 찾지 못했다** — 방어 투자의 가치는 이 표로 판단하지 않는다.\n"
+	md += "> 다음에 시도할 것: 적 수를 줄이고(2~3마리) 시간을 늘리거나, 회피를 일부만 하는 정책으로 재거나, 실제 출격 편성에서 연속 출격 잔여 체력으로 대신 본다(`docs/sim/HP_EFFECT.md` §3이 그 방식이다).\n"
 	md += "\n## 상황별 보정비 R (모든 시작·정책·예산의 중앙값, 동일 금화 강화 조건)\n\n"
 	md += "R = 새 구조 DPS 중앙값 ÷ 옛 구조 DPS 중앙값. **이 값을 그대로 적 체력에 곱하지 않는다.**\n\n"
 	md += "| 상황 | 옛 중앙값 | 새 중앙값 | R | 표본 R 범위 |\n|---|---:|---:|---:|---|\n"
