@@ -253,6 +253,12 @@ func _run() -> void:
 	st.player.shield = 0.0
 	main._update_hud()
 	ok("보호막이 0이면 보호막 표시가 사라진다(체력 감소와 혼동 없음)", not bool(health.has_shield()))
+	# 체력은 붉은 표시로 가장 먼저 눈에 들어와야 한다(사용자 지시 2026-09-09).
+	# 색은 PCombatHud 상수가 정본이므로 그 관계를 그대로 확인한다(보호막은 파란 계열로 분리).
+	var hpc := PCombatHud.HP_FILL
+	var shc := PCombatHud.SHIELD_FILL
+	ok("체력 막대는 붉은 계열이고 보호막은 파란 계열로 분리된다",
+		hpc.r > hpc.g + 0.4 and hpc.r > hpc.b + 0.4 and shc.b > shc.r + 0.3, "체력 %s · 보호막 %s" % [str(hpc), str(shc)])
 
 	# ---------- C. 조작 아이콘 4가지 상태 ----------
 	st.player.dodge_cd = 0.0
@@ -481,13 +487,17 @@ func _run() -> void:
 		if n2 == rs.scroll:
 			in_scroll = true
 		n2 = n2.get_parent()
-	ok("'계속'은 요약 바로 아래에 있고, 스크롤 밖에도 같은 버튼이 있다", rs.default_button == cont and _count_text(rw, "계속") >= 2)
-	ok("세부 통계는 기본 접힘(끝까지 내려야 진행하는 구조 없음)", _find_button(rw, "세부 통계 보기") != null and _find_button(rw, "세부 통계 닫기") == null and _count_text(rw, "피해 출처") == 0)
-	var stat2 := _find_button(rw, "세부 통계 보기")
+	# 2026-09-09 사용자 지시: 계속 버튼을 맨 아래나 중복 위치에 흔어놓지 않는다 — 화면에 하나뿐이다
+	ok("'계속'은 화면에 하나뿐이고 요약 바로 아래에 있다", rs.default_button == cont and in_scroll and _count_text(rw, "계속") == 1, "계속 %d개 · 요약 아래=%s" % [_count_text(rw, "계속"), str(in_scroll)])
+	ok("기본 화면은 결과만: 처치·피해·시간·상자 포함 금액은 '전투 통계'로 내려가 있다",
+		_find_button(rw, "전투 통계 ▶") != null and _count_text(rw, "피해 출처") == 0 and _count_text(rw, "처치 · 받은 피해") == 0 and _count_text(rw, "보급 상자") == 0)
+	var stat2 := _find_button(rw, "전투 통계 ▶")
 	if stat2 != null:
 		stat2.pressed.emit()
 		await process_frame
-		ok("세부 통계를 펼쳐도 '계속' 버튼은 그대로 남는다", _find_button(rw, "세부 통계 닫기") != null and _find_button(rw, "계속") != null and _count_text(rw, "계속") >= 2)
+		ok("'전투 통계'를 펼치면 처치·받은 피해·시간이 나오고, 계속 버튼은 여전히 하나다",
+			_find_button(rw, "전투 통계 닫기 ▼") != null and _count_text(rw, "처치 · 받은 피해") == 1 and _count_text(rw, "계속") == 1,
+			"계속 %d개" % _count_text(rw, "계속"))
 
 	# ---------- I. 표시가 전투 결과를 바꾸지 않는다 ----------
 	var plain := _sim(11, false, null)
