@@ -10,10 +10,10 @@
 
 | 대상 | 파일 | 크기 | SHA-256 앞 32 |
 |---|---|---:|---|
-| **Windows** | `prophecy_godot_build/prophecy_windows_godot-1.0.0_5e8f48c.zip` | 38.5 MB | `7aa7721be1c9ab5bb1a22a5271212ea3` |
-| **웹** | `prophecy_godot_build/prophecy_web_godot-1.0.0_5e8f48c.zip` | 11.9 MB | `60e6e4ae94ae47f31802bae5b420d590` |
+| **Windows** | `prophecy_godot_build/prophecy_windows_godot-1.0.0_a482542.zip` | 38.5 MB | `d814bdcc4e4c71ef5ecf640b70967bd7` |
+| **웹** | `prophecy_godot_build/prophecy_web_godot-1.0.0_a482542.zip` | 11.9 MB | `f7e22ffed9742ac5b628fcadd5e72e1d` |
 
-- **코드 커밋**: `5e8f48c` (브랜치 `claude/prophecy-action-prototype-hehbeo`) · 게임 안 판본 `godot-1.0.0`
+- **코드 커밋**: `a482542` (브랜치 `claude/prophecy-action-prototype-hehbeo`) · 게임 안 판본 `godot-1.0.0`
 - 압축을 풀고 `prophecy.exe` 실행. 포장된 exe로 자동 진행 `result=done` · 종료 0 확인.
 - **원격 push·공개 배포 하지 않았다.**
 
