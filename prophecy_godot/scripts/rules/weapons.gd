@@ -63,6 +63,8 @@ static func dmg_to(st: CombatState, e: Dictionary, w: Dictionary, mult: float, o
 	o.src = src(w, opt.get("src_extra", {}))
 	if opt.has("direct"):
 		o.src.direct = bool(opt.direct)
+	if opt.has("mod") and String(opt.mod) != "":
+		o.src["mod"] = String(opt.mod) # 개조 귀속(계측 전용)
 	return st.damage_enemy(e, float(w.stats.damage) * mult, o)
 
 ## 원형 범위 직접 공격(가림 적용, ground면 무시)
@@ -149,8 +151,9 @@ static func fire_arc(st: CombatState, w: Dictionary, target: Dictionary, _echoed
 	var mods: Array = s.mods
 	if mods.has("cross") and int(w.count) % 3 == 0:
 		var a2 := ang + PI
-		st.fx({ "kind": "arc", "x": p.x, "y": p.y, "angle": a2, "r": float(s.range), "half": half, "ttl": 0.16 })
-		hit_arc(st, w, p.x, p.y, a2, float(s.range), half, 1.0, {})
+		st.note_mod("cross", "proc")
+		st.fx({ "kind": "arc", "x": p.x, "y": p.y, "angle": a2, "r": float(s.range), "half": half, "ttl": 0.16, "mod": "cross" })
+		hit_arc(st, w, p.x, p.y, a2, float(s.range), half, 1.0, { "mod": "cross" })
 	if mods.has("crescent"):
 		var sx: float = p.x + cos(ang) * float(s.range) * 0.8
 		var sy: float = p.y + sin(ang) * float(s.range) * 0.8
@@ -158,9 +161,11 @@ static func fire_arc(st: CombatState, w: Dictionary, target: Dictionary, _echoed
 	if mods.has("scar"):
 		var cx: float = p.x
 		var cy: float = p.y
+		st.fx({ "kind": "scar_mark", "x": cx, "y": cy, "angle": ang, "r": float(s.range), "half": half, "ttl": 0.5, "mod": "scar" }) # 남는 흔적(무해한 표시) — 후속 피해는 0.5초 뒤
 		later(st, 0.5, func():
-			st.fx({ "kind": "scar", "x": cx, "y": cy, "angle": ang, "r": float(s.range), "half": half, "ttl": 0.25 })
-			hit_arc(st, w, cx, cy, ang, float(s.range), half, 0.5, { "direct": false }))
+			st.note_mod("scar", "proc")
+			st.fx({ "kind": "scar", "x": cx, "y": cy, "angle": ang, "r": float(s.range), "half": half, "ttl": 0.25, "mod": "scar" })
+			hit_arc(st, w, cx, cy, ang, float(s.range), half, 0.5, { "direct": false, "mod": "scar" }))
 	st.ev("swing", { "form": "arc" })
 
 static func fire_beam(st: CombatState, w: Dictionary, target: Dictionary, echoed: bool) -> void:
@@ -186,16 +191,19 @@ static func fire_beam(st: CombatState, w: Dictionary, target: Dictionary, echoed
 				hit_circle(st, w, e.x, e.y, 60.0, 1.5, { "direct": false })
 	if mods.has("split") and hit.size() > 0:
 		var h: Dictionary = hit[0]
+		st.note_mod("split", "proc")
+		st.fx({ "kind": "split_node", "x": h.x, "y": h.y, "angle": ang, "ttl": 0.25, "mod": "split" }) # 첫 명중 지점의 분기 결절(표시 전용, 판정 없음)
 		for da in [-0.6, 0.6]:
-			proj(st, w, { "kind": "shard", "x": h.x, "y": h.y, "vx": cos(ang + da) * 340.0, "vy": sin(ang + da) * 340.0, "r": 4.0, "ttl": 0.5, "dmg_mult": 0.4, "opt": { "direct": false } })
+			proj(st, w, { "kind": "shard", "x": h.x, "y": h.y, "vx": cos(ang + da) * 340.0, "vy": sin(ang + da) * 340.0, "r": 4.0, "ttl": 0.5, "dmg_mult": 0.4, "mod": "split", "opt": { "direct": false, "mod": "split" } })
 	if mods.has("returning") and not echoed:
 		var fx0: float = p.x
 		var fy0: float = p.y
 		later(st, 0.35, func():
 			var ex: float = fx0 + cos(ang) * L
 			var ey: float = fy0 + sin(ang) * L
-			st.fx({ "kind": "beam", "x": ex, "y": ey, "angle": ang + PI, "len": L, "w": W, "ttl": 0.18 })
-			hit_beam(st, w, ex, ey, ang + PI, L, W, 1.0, { "no_mods": true }))
+			st.note_mod("returning", "proc")
+			st.fx({ "kind": "beam", "x": ex, "y": ey, "angle": ang + PI, "len": L, "w": W, "ttl": 0.18, "mod": "returning", "returning": true })
+			hit_beam(st, w, ex, ey, ang + PI, L, W, 1.0, { "no_mods": true, "mod": "returning" }))
 	st.ev("swing", { "form": "beam" })
 
 static func fire_melee(st: CombatState, w: Dictionary, target: Dictionary, _echoed: bool) -> void:
@@ -319,9 +327,13 @@ static func fire_bolt(st: CombatState, w: Dictionary, target: Dictionary, _echoe
 	var s: Dictionary = w.stats
 	var p := st.player
 	var ang := atan2(target.y - p.y, target.x - p.x)
-	var angles: Array = [ang - 0.44, ang, ang + 0.44] if (s.mods as Array).has("fan") else [ang]
+	var has_fan: bool = (s.mods as Array).has("fan")
+	var angles: Array = [ang - 0.44, ang, ang + 0.44] if has_fan else [ang]
+	if has_fan:
+		st.note_mod("fan", "proc") # 부채: 가운데는 기본 발사, 양옆 2발이 개조의 기여분
 	for a in angles:
-		proj(st, w, { "kind": "bolt", "x": p.x, "y": p.y, "vx": cos(a) * float(s.speed), "vy": sin(a) * float(s.speed), "r": 5.0, "ttl": float(s.range) / float(s.speed), "chill": float(s.chill), "angle": a, "shatter": (s.mods as Array).has("shatter"), "ground": (s.mods as Array).has("ground") })
+		var side: bool = has_fan and absf(a - ang) > 1e-6
+		proj(st, w, { "kind": "bolt", "x": p.x, "y": p.y, "vx": cos(a) * float(s.speed), "vy": sin(a) * float(s.speed), "r": 5.0, "ttl": float(s.range) / float(s.speed), "chill": float(s.chill), "angle": a, "mod": ("fan" if side else ""), "shatter": (s.mods as Array).has("shatter"), "ground": (s.mods as Array).has("ground") })
 	st.ev("shoot")
 
 static func fire_ember(st: CombatState, w: Dictionary, target: Dictionary, _echoed: bool) -> void:
@@ -515,6 +527,8 @@ static func on_projectile_hit(st: CombatState, pr: Dictionary, e: Dictionary) ->
 	var opt := { "dir": PGeom.norm(pr.vx, pr.vy), "knock": 10.0, "from": { "x": pr.x, "y": pr.y } }
 	for k in pr.get("opt", {}):
 		opt[k] = pr.opt[k]
+	if String(pr.get("mod", "")) != "" and not opt.has("mod"):
+		opt["mod"] = String(pr.mod) # 개조가 만든 투사체의 적중·피해를 그 개조에 귀속(출처 행은 그대로)
 	if pr.has("chill") and float(pr.chill) > 0.0:
 		opt.chill = float(pr.chill)
 	if pr.kind == "shard_common":
@@ -524,9 +538,11 @@ static func on_projectile_hit(st: CombatState, pr: Dictionary, e: Dictionary) ->
 	dmg_to(st, e, w, float(pr.dmg_mult), opt)
 	if pr.kind == "bolt":
 		if bool(pr.get("shatter", false)):
+			st.note_mod("shatter", "proc")
+			st.fx({ "kind": "shatter_burst", "x": e.x, "y": e.y, "ttl": 0.25, "mod": "shatter" }) # 파열 순간(표시 전용, 판정은 파편)
 			for i in 3:
 				var a := atan2(pr.vy, pr.vx) + float(i - 1) * 0.7
-				proj(st, w, { "kind": "shard", "x": e.x, "y": e.y, "vx": cos(a) * 300.0, "vy": sin(a) * 300.0, "r": 3.0, "ttl": 0.4, "dmg_mult": 0.4, "opt": { "direct": false }, "hits": { e.id: true } })
+				proj(st, w, { "kind": "shard", "x": e.x, "y": e.y, "vx": cos(a) * 300.0, "vy": sin(a) * 300.0, "r": 3.0, "ttl": 0.4, "dmg_mult": 0.4, "mod": "shatter", "opt": { "direct": false, "mod": "shatter" }, "hits": { e.id: true } })
 		if bool(pr.get("ground", false)):
 			var z := st.add_zone("coldground", e.x, e.y, 40.0, 2.0 * float(st.build.duration_mult), 0.0)
 			z.weapon = w

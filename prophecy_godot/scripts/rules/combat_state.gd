@@ -17,6 +17,9 @@ var objective: String = "clear"
 var region_id: String = ""
 var hp_mult: Dictionary = { "normal": 1.0, "elite": 1.0, "boss": 1.0 }
 var hit_attack_id: String = "" # 계측 전용: 투사체 명중 처리 중에만 그 투사체의 발사 시점 공격 id(PHitRecorder가 읽는다)
+## 개조 계측(피드백 18 — 획득→장착→발동→적중): 개조 id → { procs(실제 효과 생성 횟수), hits(그 효과의 적중 횟수), damage(유효 피해), last_proc_t, last_hit_t }.
+## 규칙·난수에 쓰지 않는 표시·통계 전용. 발동(procs)과 적중(hits)을 분리해서 기록하므로 빗나간 발동이 적중처럼 보이지 않는다
+var mod_stats: Dictionary = {}
 var time_limit: float = 0.0
 var fixed_build: bool = false
 var overlap_limit: int = 0
@@ -213,6 +216,21 @@ func set_formation(f: Dictionary) -> void:
 		xp_default_scale = float(f.xp_default_scale)
 
 # ---------- 도우미 ----------
+## 개조 발동·적중 기록(표시·통계 전용, 난수 소비 없음). phase = "proc"(효과 실제 생성) | "hit"(그 효과가 적에게 유효 피해)
+func note_mod(id: String, phase: String, amount: float = 0.0) -> void:
+	if id == "":
+		return
+	if not mod_stats.has(id):
+		mod_stats[id] = { "procs": 0, "hits": 0, "damage": 0.0, "last_proc_t": -1.0, "last_hit_t": -1.0 }
+	var m: Dictionary = mod_stats[id]
+	if phase == "proc":
+		m.procs = int(m.procs) + 1
+		m.last_proc_t = t
+	else:
+		m.hits = int(m.hits) + 1
+		m.damage = float(m.damage) + amount
+		m.last_hit_t = t
+
 func fx(e: Dictionary) -> void:
 	e["t"] = 0.0
 	effects.append(e)
@@ -911,6 +929,8 @@ func damage_enemy(e: Dictionary, amount: float, opt = {}, knock_c: float = 0.0, 
 		stats.boss_damage += effective
 	var k := src_key(o)
 	metrics.dmg[k] = float(metrics.dmg.get(k, 0.0)) + effective
+	if sr.has("mod") and effective > 0.0:
+		note_mod(String(sr.mod), "hit", effective) # 개조 파생 피해의 적중·피해(출처 행 src_key는 그대로 — 기존 표 불변)
 	if effective > 0.0 and not field.is_empty() and in_field(e):
 		stats.field_hits += 1 # 감속장 안(감속된) 적에게 유효 피해(영구 도전 판정용)
 	if float(e.first_hit_t) < 0.0:
@@ -1664,6 +1684,14 @@ func rebuild(b: Dictionary) -> void:
 	PWeapons.refresh(self)
 
 ## 결과 요약(정산은 호출자가 1회만 한다: settled 플래그)
+## 개조별 이번 전투 발동/적중/피해(표시용). 값이 없는 개조는 넣지 않는다(0으로 미발동처럼 보이지 않게)
+func mod_report() -> Dictionary:
+	var out := {}
+	for id in mod_stats:
+		var m: Dictionary = mod_stats[id]
+		out[String(id)] = { "procs": int(m.procs), "hits": int(m.hits), "damage": round(float(m.damage) * 10.0) / 10.0 }
+	return out
+
 func summary() -> Dictionary:
 	var total := 0.0
 	for k in metrics.dmg:
