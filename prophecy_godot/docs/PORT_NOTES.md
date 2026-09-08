@@ -1126,3 +1126,42 @@ PROPHECY_SUBSET="act=2;elite=elite_miner,elite_archer;mode=single" \
 **판정·수명·피해·시간 배율은 바꾸지 않았다.** 방패병 두 클립만 사람 입력 자리에 정해진 이동(`ClipBot`)을 넣는다.
 12개 · 73초 · 약 102 MB. 용량 때문에 파일은 저장소에 넣지 않고(`.gitignore`) 위치·용량·명령을
 `docs/captures/0.8.0_clips/README.md`에 적었다. 임의로 외부에 올리지 않았다.
+
+## 29. 주무기·보조무기 분리 ①단계와 중간 플레이 빌드 (2026-09-08, godot-0.8.0 · 4a81754)
+
+### 무엇을 했나
+
+사용자가 확정한 새 슬롯 구조(주무기 1개 Lv5·개조 2 / 공통 보조 2개 각 Lv3·개조 1)를 규칙·저장·화면에 넣었다.
+세부는 `docs/SUPPORT_WEAPONS.md`, 결정 요약은 저장소 루트 `docs/DESIGN_DECISIONS.md` D46.
+
+- `data/supports.json` 새로 추가 — 역할표·슬롯 규칙·보조별 레벨 강화·**효과 발동 자격표**·제압 저항·새 보조 7종(impl:false).
+  생성 파일 `data/weapons.json`은 손대지 않고 `PCatalog.weapons()`가 겹쳐 읽는다.
+- `PGrowth`에 구조 표시(`structure`)와 역할별 상한. **표시가 없는 저장은 옛 구조로 읽어 그대로 마칠 수 있다.**
+- `PSupport` 새로 추가 — 자격표를 읽는 유일한 관문, 제압 저항·둔화 바닥, 역할 지표 계측(`meter`).
+- 보조 A조(`supports_a.gd`)·B조(`supports_b.gd`) 파일을 갈라 담당별 소유 범위를 정했다.
+- `tools/combo_probe.gd` — 대표 조합 7개만 돌리는 부분 측정 도구(실행기 등록됨).
+
+### 확인한 것
+
+| 무엇 | 결과 |
+|---|---|
+| 10일 전체 UI 자동 진행 | `result=done` · missing 없음 · gate1 95초 / gate2 220초 / gate3 338초 / run_result 338초 / save_continue 96초(**실행 시작 후 누적 벽시계**) · 게임 속 전투 1820.9초 |
+| 완주 시점 빌드 | 검 Lv4+개조 2 / 불씨 정령 Lv3+개조 1 / 회전 칼날 Lv3+개조 1 — 새 구조 그대로 |
+| 포장된 exe | `UI_SMOKE result=done` · 종료 0 |
+| 회차 전체 불변식 | 상점 교체·대장간 개조 변경·임무 보상을 포함해 상한 위반 0건(`tests/slots_tests.gd` 12절) |
+
+### 중간 플레이 빌드
+
+| 대상 | 파일 | 크기 | SHA-256 앞 32 |
+|---|---|---:|---|
+| Windows | `prophecy_godot_build/prophecy_windows_godot-0.8.0_4a81754.zip` | 38.1 MB | `f08ebb2229809044d60453f192c77e19` |
+| 웹(안드로이드 브라우저용) | `prophecy_godot_build/prophecy_web_godot-0.8.0_4a81754.zip` | 11.6 MB | `f57cdebd4e5b6845290bfdf90a39197f` |
+
+**아직 배포하지 않았다.** 호스팅·도메인·자격 증명을 건드리지 않았다.
+웹 실행 절차·헤더·안드로이드 점검표는 `docs/WEB_BUILD.md`.
+안드로이드는 **웹 내보내기 성공**까지만 확인했다 — PC 브라우저 실행과 실제 안드로이드 실행은 아직 아니다.
+
+### 이 빌드에 아직 없는 것
+
+새 보조 7종(추격 까마귀·수호 방울·잔영 분신·바람 정령·역병 나비·가시 갑각·도깨비 인형)과 그 개조 21개,
+주무기 5종 구분(관통창 폭 축소·전투망치 착탄점 원형 범위), 포자 수정. 넷 다 별도 작업 공간에서 진행 중이다.
