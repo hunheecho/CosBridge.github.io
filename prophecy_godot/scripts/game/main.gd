@@ -194,7 +194,9 @@ func go_base() -> void:
 		go_title()
 		return
 	save_run()
-	show("run_result" if (String(run.phase) == "cleared" or PEndless.is_over(run)) else "base")
+	# 죽은 회차(phase "dead")도 거점이 아니라 회차 결과로 간다. 예전에는 거점으로 보내서
+	# 끝난 회차에 관문 준비 화면이 뜨고 계속 진행할 수 있는 것처럼 보였다
+	show("run_result" if (String(run.phase) == "cleared" or PRun.is_run_over(run) or PEndless.is_over(run)) else "base")
 	var g: Dictionary = run.growth
 	if g.get("pendingDeepPick", null) != null or g.get("pendingBossPick", null) != null or g.get("pendingMissionPick", null) != null or (g.get("pendingOffer", null) != null and String(g.pendingOffer.pool) != "level"):
 		var off = PFlow.next_offer(run)
@@ -539,6 +541,10 @@ func return_home() -> void:
 
 func after_defeat() -> void:
 	sortie = {}
+	if PRun.is_run_over(cur_run()):
+		save_run()
+		show("run_result")
+		return
 	go_base()
 
 # ---------- 전투 시작·종료 ----------

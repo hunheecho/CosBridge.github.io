@@ -17,7 +17,9 @@ func refresh() -> void:
 		body.add_child(PUi.rich("%s에게 패배했습니다. 준비 기간의 성과는 그대로입니다. 같은 장비·무기·증강으로 바로 다시 도전할 수 있습니다." % PGlossaryTip.esc(String(B.name)), 14))
 		body.add_child(PUi.rich("[color=#9ea8b8]재도전은 입장 시점의 상태로 복구됩니다: 레벨·경험치·전투 중 선택은 입장 전으로, 체력·회피·감속장·E는 초기화, 보스·소환·구슬은 처음부터.[/color]", 12))
 		body.add_child(PUi.rich("[color=#9ea8b8]전투 %d초 · 보스에게 준 피해 %d / %d · 감속장 %d회 · 재도전 %d회[/color]" % [int(round(float(sm.get("elapsed", 0.0)))), int(float(sm.get("boss_damage", 0.0))), int(PRun.boss_hp(r, String(B.id))), int(sm.get("special_uses", 0)), int(r.get("bossRetries", 0))], 12))
-		var retry := PUi.button("같은 준비로 재도전 (Enter)", func(): main.start_boss(), PRun.can_start_boss(r), 16)
+		# 무제한 재도전은 없앴다(2026-09-09 확정). 시험·자동 진행 경로(run.testRetry)에서만 열린다
+		var can_retry: bool = PRun.can_start_boss(r) and PRun.retry_mode(r)
+		var retry := PUi.button(("같은 준비로 재도전 (Enter)" if can_retry else "재도전 없음 — 부활 수단이 있어야 이어갈 수 있습니다"), func(): main.start_boss(), can_retry, 16)
 		body.add_child(retry)
 		body.add_child(PUi.button("최종 준비 화면으로", func(): main.go_base(), true, 14))
 		body.add_child(PUi.button("제목으로", func(): main.go_title(), true, 14))
