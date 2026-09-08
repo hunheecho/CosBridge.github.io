@@ -7,3 +7,4 @@ prophecy_godot/docs/sim/bot_runs/*/replays/
 prophecy_godot/docs/sim/*_PARTIAL.md
 # 화면 글꼴(제3자 파일, 저장소에 넣지 않는다 — docs/WEB_BUILD.md §2에서 직접 넣는다)
 prophecy_godot/assets/fonts/
+.claude/
