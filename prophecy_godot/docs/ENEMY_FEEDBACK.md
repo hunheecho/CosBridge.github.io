@@ -4,9 +4,10 @@
 사람이 승인한 균형값이 아니다. 사용자 확정값과 시험값을 항목마다 갈라 적었다.
 
 - 규칙 코드: `scripts/rules/enemies.gd` · `scripts/rules/enemies_new.gd`
-- 손으로 정한 값: `data/pacing.json`(적 수치 겹쳐쓰기) · `data/elites.json`(정예 배치·역할 자료)
-- 검사: `tests/elites_tests.gd` · `tests/enemy_pace_tests.gd`
+- 손으로 정한 값: `data/pacing.json`(적 수치 겹쳐쓰기 + **새 종류 정의**) · `data/elites.json`(정예 배치·역할 자료)
+- 검사: `tests/elites_tests.gd` · `tests/enemy_pace_tests.gd` · `tests/new_monster_tests.gd`
 - 계측: `tools/tail_probe.gd` → `docs/sim/TAIL_PROBE_*.md`
+- **신규 일반 몬스터 3종 · 일반 정예 확장 10종은 `docs/MONSTERS.md`**(같은 날 이어서 만든 것 — 아래 §4-bis에 요약)
 
 ---
 
@@ -248,6 +249,28 @@
 
 ---
 
+## 4-bis. 신규 일반 몬스터 3종 · 일반 정예 확장 10종 (2026-09-09) → `docs/MONSTERS.md`
+
+같은 날 이어서 만든 것이라 여기 목록만 두고, 수치표·설계 근거·필요한 훅은 **`docs/MONSTERS.md`**에 있다.
+
+| 무엇 | 종류 | 상태 |
+|---|---|---|
+| 신규 일반 | 흡혈 박쥐 `bat` · 불씨 도마뱀 `lizard` · 도약 두꺼비 `toad` | 규칙·수치·검사 완료. **아직 어느 편성에도 배치되지 않았다** |
+| 일반 정예 확장 | 늑대 우두머리(등록만) + 쇄도 멧돼지 · 연사 궁수 · 돌격 방패병 · 두겹 거미 · 역병 포자 · 삼연 도적 · 이중 잠복충 · 충격 두꺼비 · 서리 이중술사 | 같음 |
+
+이 절에서 알아 둘 것만:
+
+- **정의를 어디에 뒀나.** 생성 파일 `data/enemies.json`은 손대지 않았다. 새 종류의 정의까지
+  `data/pacing.json` → `enemy_tuning`의 `new_type` 블록에 두고 `PEnemiesNew.extra_defs()`가 만든다
+  (방패병 `frontMult`·포자 `spore` 블록과 같은 자리·같은 방식).
+- **일반 정예는 특수 정예 7종과 다른 계층**이다. 위 §4의 배치·상한 규칙과 섞지 마라.
+  세계 변화 등급(붉은·상위 변이)과도 별개이며 체력 배율을 겹쳐 적용하지 않는다.
+- **흡혈 박쥐에 회복을 넣지 않았다.** 적 회복 수치는 사용자 결정 사항이라 규칙·정의 어디에도 경로가 없다.
+  넣을 때 필요한 값(`healOnHit`·`healCapPerFight`)은 `docs/MONSTERS.md` §1에만 적어 두었다.
+- 검사는 `tests/new_monster_tests.gd`(`python tools/run_suites.py --suites new_monster_tests --jobs 1`).
+
+---
+
 ## 5. 필요한데 못 만든 훅 (담당 밖 파일 — 고치지 않고 적는다)
 
 ### 5-1. **[가장 중요]** 종류별 동시 생존 상한을 동시 상한에 비례하게
@@ -327,6 +350,52 @@ static func type_alive_cap(type: String, alive_cap: int, fallback: int) -> int:
 ### 5-6. `docs/CONSUMABLES.md:98` — '파쇄 기름' 설명의 방패병 예시 수치
 
 기준이 0.15 → 0.30으로 바뀌어 그 표의 배수 설명이 어긋난다(`guard_floor` 규칙 자체는 그대로 동작한다).
+
+### 5-7. **[신규 몬스터]** `scripts/rules/catalog.gd` — 새 종류 정의 합치기 (한 줄)
+
+`PCatalog.enemies()`가 `bosses_new`를 합치는 자리 바로 아래에:
+
+```gdscript
+	var extra := PEnemiesNew.extra_defs(out) # 새 종류 정의(data/pacing.json enemy_tuning의 new_type)
+	for k in extra:
+		out[k] = extra[k]
+```
+
+없으면 `CombatState.spawn_enemy`·`PFormation`·`PRun`이 새 종류를 처음 조회할 때 찾지 못한다.
+지금은 `PEnemies.update`가 첫 갱신에서 `PEnemiesNew.ensure_defs()`로 같은 등록을 하지만
+그것은 **전투가 시작된 뒤**라, 편성이 먼저 조회하는 경로에서는 이 훅이 정본이다.
+
+> **`_static_init`으로 옮기지 마라(계측으로 확인, 2026-09-09).** 스크립트 적재 시점에 적 사전을 **고치면**
+> 검사가 83/83 전부 통과해도 프로세스가 접근 위반(종료 코드 3221225477 = KD-1)으로 끝난다.
+> 읽기만 하면 정상이다. `tests/elites_tests.gd`로 재현·확인했다.
+
+### 5-8. **[신규 몬스터]** `data/themes.json` · `scripts/rules/formation.gd` — 실제 배치
+
+신규 3종(`bat`·`lizard`·`toad`)을 편성 `comp`에 섞고, 정예 자리(`elite_type`·`elite_type_p2`·`elite_types`)에
+일반 정예 확장(`boar_elite` 등)을 지정해야 실제 전투에 나온다. **지금은 어디에도 배치되어 있지 않다.**
+총 등장 수·경험치·금화 예산은 이번에 하나도 바꾸지 않았다.
+
+### 5-9. **[신규 몬스터]** `data/growth.json` `growth.XP_VALUE` — 마리당 경험치
+
+신규 3종·일반 정예 9종의 값이 없다. 없으면 `PGrowth.xp_value_unit`의 기본값 5가 쓰인다.
+정예는 늑대 우두머리와 같은 값으로 두어야 편성 교체로 예산이 흔들리지 않는다(§4의 정예 7종과 같은 규칙).
+
+### 5-10. **[신규 몬스터]** `scripts/game/render.gd` `draw_enemy` — 종류별 그림
+
+신규 3종 · 일반 정예 9종은 지금 **원 + 이름**의 임시 외형으로 떨어진다(특수 정예 7종·구조물 2종도 이미 그렇다).
+예고 도형은 규칙 쪽에서 이미 내보내고 있다(`PEnemiesNew.threats_as` / `extra_threats`). 목록은 `docs/MONSTERS.md` §5.
+
+### 5-11. **[신규 몬스터]** 종류 이름을 그대로 비교하는 세 곳 — `base_type`으로 바꿔야 한다
+
+일반 정예 확장은 `type`이 `spore_elite`처럼 바탕과 다르다. 아래 세 곳은 아직 바탕 이름만 본다(전부 담당 밖).
+
+| 곳 | 지금 | 결과 |
+|---|---|---|
+| `scripts/rules/combat_state.gd:1253` | `if e.type == "spore"` | `spore_elite`가 죽을 때 **작은 구름을 남기지 않는다**(정의에 `deathCloudR`은 물려받았다) |
+| `scripts/rules/observe.gd:255~290` | `type == "spore"` 등 | 관측 어휘로 나가는 예고가 신규·확장 종류에서 비어 있다 |
+| `scripts/rules/bot.gd:15` `BACKLINE` · `:147` | 고정 목록·포자 전용 분기 | 봇의 표적 선택이 새 종류를 모른다(회피는 `threats`로 정상) |
+
+전부 `PEnemiesNew.base_type(String(e.type))`으로 바꾸면 된다. 규칙 쪽(`PEnemies.threats`·`update`·`guard_closed`)은 이미 그렇게 했다.
 
 ---
 
