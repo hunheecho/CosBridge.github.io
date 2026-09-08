@@ -867,13 +867,20 @@ func damage_player(amount: float, src: String, attacker = null) -> bool:
 		if recorder != null:
 			recorder.on_reject(self, amount, src, attacker, "dodge_invuln")
 		return false
-	if p.hit_prot > 0.0:
+	if hit_protected(src, attacker):
 		if recorder != null:
 			recorder.on_reject(self, amount, src, attacker, "hit_protection")
 		return false
 	apply_player_damage(amount, src, attacker)
 	p.hit_prot = float(cfg.player.hit_protect)
 	return true
+
+## 지금 이 피해가 **공통 피격 보호**에 막히는가.
+## 기본은 마지막 피격 뒤 cfg.player.hit_protect 동안 모든 피해를 막는 하나의 보호막이다.
+## 개체별 접촉 피해(여러 개체와 동시에 겹칠 수 있는 것)를 이 공통 보호에서 빼려면 **여기만** 고친다.
+## 공통 보호를 전역으로 없애지는 않는다 — 다른 공격의 연타 보호는 그대로 둔다.
+func hit_protected(_src: String, _attacker) -> bool:
+	return player.hit_prot > 0.0
 
 func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 	if not obj.is_empty():
@@ -888,6 +895,14 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 	if attacker != null and float(attacker.get("tier_dmg", 1.0)) != 1.0: # 등급 피해 배율(세계 변화, 시험값). 자격 판정용 명목값에도 포함
 		amount = round(amount * float(attacker.tier_dmg) * 10.0) / 10.0
 		nominal = amount
+	# **경감 계산 순서**(사용자 지시 4절 7·11번: 방패·방울·기타 경감의 순서와 상한을 정리한다):
+	#   등급 배율 → 보조무기(수호 방울 차단 · 가시 갑각 근접 경감) → 강인함 → 장비(큰 타격·감속장 안)
+	#   → 흡수 방패 → 체력. 보조가 0을 돌려주면 완전히 막힌 것이다.
+	amount = PSupport.on_player_damage(self, amount, src, attacker)
+	if amount <= 0.0:
+		if recorder != null:
+			recorder.on_reject(self, nominal, src, attacker, "support_block")
+		return
 	if direct_hit and float(build.toughness) > 0.0:
 		amount = round(amount * (1.0 - float(build.toughness)) * 10.0) / 10.0
 	var big_hit := false
@@ -946,6 +961,8 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 	if src != "zone" or amount > 0.0:
 		text(p.x, p.y - 28.0, "-" + str(int(round(amount))), "#ff6b6b")
 	ev("hurt", { "src": src })
+	# 되받아치기(가시 갑각). 실제로 피해가 들어간 **뒤**에 부른다 — 막힌 공격은 반격하지 않는다
+	PSupport.after_player_damage(self, effective, src, attacker)
 	if p.hp <= 0.0:
 		p.hp = 0.0
 		p.dead = true
@@ -1103,6 +1120,7 @@ func _kill_enemy(e: Dictionary) -> void:
 func kill_enemy(e: Dictionary, o: Dictionary) -> void:
 	e.dead = true
 	e.death_t = 0.0
+	PSupport.on_enemy_death(self, e, o)
 	if not e.structure:
 		stats.kills += 1
 	if e.elite and not e.structure:

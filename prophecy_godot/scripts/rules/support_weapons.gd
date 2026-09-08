@@ -123,3 +123,27 @@ static func update(_st: CombatState, _dt: float) -> void:
 ## 전투 시작 시 보조별 상태 초기화. st.support에 보조 id별 dict를 둔다
 static func init_state(st: CombatState) -> void:
 	st.support = {}
+
+# ---------- 4. 전투 훅(CombatState·PWeapons가 부른다) ----------
+## 플레이어가 맞기 직전. 경감·차단을 적용한 피해를 돌려준다. 0을 돌려주면 완전히 막힌 것이다.
+## 순서: 등급 배율 → **여기**(수호 방울 차단 → 가시 갑각 근접 경감) → 강인함 → 장비 → 흡수 방패 → 체력.
+## 구현 전에는 그대로 돌려준다.
+static func on_player_damage(_st: CombatState, amount: float, _src: String, _attacker) -> float:
+	return amount
+
+## 플레이어가 맞은 직후(가시 반격 같은 되받아치기). 반격은 PSupport.eligible("thorns_reflect", 경로)를 통과해야 한다
+static func after_player_damage(_st: CombatState, _amount: float, _src: String, _attacker) -> void:
+	pass
+
+## 적이 맞았을 때(까마귀 표적 지정·감전 후속). opt.src에 무기 id와 직접/추가 여부가 있다
+static func on_enemy_hit(_st: CombatState, _e: Dictionary, _opt: Dictionary, _dmg: float) -> void:
+	pass
+
+## 적이 죽었을 때(독 전염·역병 파열·까마귀 먹잇감 전환)
+static func on_enemy_death(_st: CombatState, _e: Dictionary, _opt: Dictionary) -> void:
+	pass
+
+## 이 적이 지금 노려야 할 대상(도깨비 인형 유인). {}이면 평소대로 플레이어를 노린다.
+## 이미 방향이 확정된 공격·돌진은 이 값으로 바뀌지 않는다 — 부르는 쪽이 확정 전에만 묻는다
+static func lure_target(_st: CombatState, _e: Dictionary) -> Dictionary:
+	return {}

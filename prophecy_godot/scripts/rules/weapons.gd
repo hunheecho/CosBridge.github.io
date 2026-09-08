@@ -625,6 +625,8 @@ static func steer_projectile(st: CombatState, pr: Dictionary, dt: float) -> void
 static func on_hit(st: CombatState, e: Dictionary, opt: Dictionary, _dmg: float) -> void:
 	var sr: Dictionary = opt.get("src", {})
 	var b := st.build
+	# 보조무기 훅(까마귀 표적 지정·감전 후속 등). 무엇이 발동할 자격이 있는지는 PSupport.eligible이 정한다
+	PSupport.on_enemy_hit(st, e, opt, _dmg)
 	if bool(sr.get("direct", true)) and sr.has("weapon_id"):
 		# 전도 표식: 번개 외 무기의 직접 공격이 표식 적을 치면 작은 전기 폭발(구체 피해의 40%)
 		if float(e.conduct) > 0.0 and String(sr.weapon_id) != "orb" and not bool(opt.get("no_conduct", false)):
