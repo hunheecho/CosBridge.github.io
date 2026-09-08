@@ -1424,6 +1424,35 @@ const CLIPS := {
 	"mod_spear_on": { "desc": "개조 후: 관통창 + 귀환 검기", "kind": "modcmp", "weapons": [{ "id": "spear", "level": 3, "mods": ["returning"] }] },
 	"mod_frost_off": { "desc": "개조 전: 서리 수정(개조 없음)", "kind": "modcmp", "weapons": [{ "id": "frost", "level": 3, "mods": [] }] },
 	"mod_frost_on": { "desc": "개조 후: 서리 수정 + 서리 부채 · 깨지는 수정", "kind": "modcmp", "weapons": [{ "id": "frost", "level": 3, "mods": ["fan", "shatter"] }] },
+
+	# ---------- 0.9.x 새 보조무기와 연계(2026-09-09) ----------
+	# 전부 실제 편성(sortie)에서 찍는다 — 연습장이 아니라 평소 전투에서 그 효과가 보이는지가 중요하다.
+	# 주무기·보조·개조는 새 슬롯 구조의 상한을 지킨다(주무기 Lv5·개조 2 / 보조 Lv3·개조 1).
+	"sup_crow": { "desc": "추격 까마귀 — 주무기로 맞힌 적을 물고 늘어진다", "kind": "sortie", "region": "marsh", "day": 4,
+		"weapons": [{ "id": "sword", "level": 4, "mods": ["cross"] }, { "id": "crow", "level": 3, "mods": ["hunt"] }] },
+	"sup_bell": { "desc": "수호 방울 — 날아오는 화살을 대신 막는다", "kind": "arena", "types": ["archer"], "count": 4, "bot": "novice",
+		"weapons": [{ "id": "bow", "level": 4, "mods": ["spread"] }, { "id": "bell", "level": 3, "mods": ["layered"] }] },
+	"sup_echo": { "desc": "잔영 분신 — 짧은 시간차로 같은 공격을 한 번 더", "kind": "sortie", "region": "marsh", "day": 4,
+		"weapons": [{ "id": "daggers", "level": 4, "mods": ["bleed"] }, { "id": "echo", "level": 3, "mods": ["cross"] }] },
+	"sup_wind": { "desc": "바람 정령 — 붙은 적을 밀어내 거리를 만든다", "kind": "sortie", "region": "marsh", "day": 4,
+		"weapons": [{ "id": "spear", "level": 4, "mods": ["returning"] }, { "id": "wind", "level": 3, "mods": ["focused"] }] },
+	"sup_plague": { "desc": "역병 나비 — 감염된 적이 죽으면 주변으로 옮는다", "kind": "sortie", "region": "marsh", "day": 4,
+		"weapons": [{ "id": "sword", "level": 4, "mods": ["cross"] }, { "id": "plague", "level": 3, "mods": ["burst"] }] },
+	"sup_thorns": { "desc": "가시 갑각 — 근접 피해를 줄이고 되받아친다", "kind": "arena", "types": ["wolf"], "count": 10, "bot": "novice",
+		"weapons": [{ "id": "daggers", "level": 1, "mods": [] }, { "id": "thorns", "level": 3, "mods": ["focused"] }] },
+	"sup_doll": { "desc": "도깨비 인형 — 적을 끌어가 대신 맞는다", "kind": "arena", "types": ["wolf"], "count": 10, "bot": "novice",
+		"weapons": [{ "id": "hammer", "level": 1, "mods": [] }, { "id": "doll", "level": 3, "mods": ["tough"] }] },
+
+	# 연계: 감전은 **기본 연쇄**가 건다(개조 없이도). 분신의 모방 타격도 감전을 터뜨린다
+	"syn_shock": { "desc": "감전 연계 — 번개가 걸고 쌍검·분신이 터뜨린다", "kind": "sortie", "region": "marsh", "day": 4,
+		"weapons": [{ "id": "daggers", "level": 4, "mods": ["bleed"] }, { "id": "orb", "level": 3, "mods": ["conduct"] }] },
+	"syn_flare": { "desc": "불꽃 파열 — 불붙은 적이 죽으면 터진다", "kind": "sortie", "region": "marsh", "day": 4,
+		"weapons": [{ "id": "sword", "level": 4, "mods": ["cross"] }, { "id": "ember", "level": 3, "mods": ["scatter"] }],
+		"commons": { "ember": 1, "flare": 1, "burn": 1 } },
+
+	# 보스가 엄폐물을 부순다(2026-09-09). 성격에 맞는 행동이 실제로 선택되는지 본다
+	"boss_break_warden": { "desc": "성문 파수장 — 방패 돌파로 바위를 부순다(엄폐 뒤에 선 채로)", "kind": "boss", "boss": "gate_warden", "build": "stage2", "drive": "cover" },
+	"boss_break_guardian": { "desc": "봉인 수호자 — 막은 장애물을 지목해 부순다(엄폐 뒤에 선 채로)", "kind": "boss", "boss": "guardian", "build": "stage2", "drive": "cover" },
 }
 
 ## 방패병 클립 전용 조작(사람 입력 자리): 정면에서 버티거나, 뒤로 돌아 들어간다. 규칙은 건드리지 않는다
@@ -1435,6 +1464,37 @@ class ClipBot extends PBot:
 		mode = m
 	func step_input(st: CombatState) -> Dictionary:
 		var inp := super.step_input(st)
+		if mode == "cover":
+			# 보스에서 본 장애물 **반대편**에 선다. 회피·공격은 평소 봇 그대로다
+			var src := st.boss if not st.boss.is_empty() else {}
+			if src.is_empty():
+				return inp
+			var best := {}
+			var bd := 1.0e9
+			for ob in st.obstacles:
+				var d: float = PGeom.dist(float(ob.x), float(ob.y), float(src.x), float(src.y))
+				if d < bd:
+					bd = d
+					best = ob
+			if best.is_empty():
+				return inp
+			var nx: float = float(best.x) - float(src.x)
+			var ny: float = float(best.y) - float(src.y)
+			var nl: float = sqrt(nx * nx + ny * ny)
+			if nl < 1.0:
+				return inp
+			var wx: float = float(best.x) + nx / nl * (float(best.r) + 26.0)
+			var wy: float = float(best.y) + ny / nl * (float(best.r) + 26.0)
+			var ddx: float = wx - float(st.player.x)
+			var ddy: float = wy - float(st.player.y)
+			var dd: float = sqrt(ddx * ddx + ddy * ddy)
+			if dd > 8.0:
+				inp.mx = ddx / dd
+				inp.my = ddy / dd
+			else:
+				inp.mx = 0.0
+				inp.my = 0.0
+			return inp
 		var tg := {}
 		for e in st.alive_targets():
 			if String(e.type) == "shieldbearer":
@@ -1489,7 +1549,11 @@ func _clip_run(c: Dictionary) -> Dictionary:
 		g.commons = cm
 	else:
 		g.weapons = ws.duplicate(true)
-		g.commons = {}
+		# 공용 증강은 클립이 따로 적었을 때만 넣는다(불꽃 파열 같은 연계를 보여 주려면 필요하다)
+		var cm2 := {}
+		for k in c.get("commons", {}):
+			cm2[String(k)] = int(c.commons[k])
+		g.commons = cm2
 	if c.has("e"):
 		g.skills.e = { "id": String(c.e), "level": 2, "variant": null }
 	elif gw.has("e"):
@@ -1508,13 +1572,29 @@ func _clip_start() -> void:
 	var run := _clip_run(c)
 	var kind := String(c.kind)
 	var st: CombatState
-	var bot: PBot = make_bot("balanced")
+	# 봇 실력은 클립이 고를 수 있다. 가시 갑각·수호 방울·도깨비 인형처럼 **맞아야 일하는 보조**는
+	# 잘 피하는 봇으로 찍으면 6초 내내 아무 일도 일어나지 않는다. 규칙은 그대로이고 조종자만 바꾸는 것이다
+	var bot: PBot = make_bot(String(c.get("bot", "balanced")))
 	match kind:
 		"boss":
 			var b := PRun.build(run)
 			st = CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": 7, "boss": true, "boss_id": String(c.boss),
 				"boss_hp": float(PCatalog.boss_def(String(c.boss)).hp), "arena": "clearing", "region_id": "boss",
 				"xp_kill_mult": PRun.kill_xp_mult(run), "run": run })
+		"arena":
+			# 정해진 적을 바로 세운다. 판정·피해·수명은 그대로이고 **누구를 세우느냐만** 고른 것이다.
+			# 실제 출격에서는 6~12초 안에 근접 접촉이 안 생기는 편성이 많아, 방어 보조가 일하는 장면을 못 찍는다
+			var b3 := PRun.build(run)
+			st = CombatState.new({ "build": b3, "hp": float(b3.hp_max), "seed": 7, "waves": [], "arena": "clearing", "region_id": "lab", "act": 2, "run": run })
+			st.spawn_hold = true
+			var ax: float = float(st.player.x)
+			var ay: float = float(st.player.y)
+			var k := 0
+			for tp2 in c.get("types", []):
+				for m in int(c.get("count", 3)):
+					var ang2 := TAU * float(k) / 8.0
+					st.spawn_enemy(String(tp2), ax + cos(ang2) * 190.0, ay + sin(ang2) * 190.0)
+					k += 1
 		"elites", "shield":
 			var b2 := PRun.build(run)
 			st = CombatState.new({ "build": b2, "hp": float(b2.hp_max), "seed": 7, "waves": [], "arena": "clearing", "region_id": "lab", "act": 2, "run": run })
@@ -1543,6 +1623,9 @@ func _clip_start() -> void:
 				sortie.objective = String(c.objective)
 				sortie.cardId = "clip"
 			st = CombatState.new(PFlow.encounter_opts(run, sortie))
+	# 엄폐 조작은 종류를 가리지 않는다(보스 파괴 클립이 쓴다). match 밖에 두어야 보스 갈래에도 걸린다
+	if String(c.get("drive", "")) == "cover":
+		bot = ClipBot.new("cover")
 	fight_kind = "lab"
 	use_bot = true
 	lab_label = "영상 클립: " + String(c.desc)
@@ -1561,7 +1644,16 @@ func _clip_tick() -> void:
 	_clip_frames += 1
 	if float(_clip_frames) >= _clip_sec * _clip_fps:
 		var tt: float = view.st.t if view.st != null else -1.0
-		print("CLIP done=", _clip_id, " frames=", _clip_frames, " combat_t=", snapped(tt, 0.01), " screen=", screen)
+		# **찍힌 장면에 그 효과가 실제로 들어 있었는지**를 함께 남긴다.
+		# 파일이 만들어졌다는 것과 효과가 보인다는 것은 다른 말이라, 영상 목록에 이 수치를 같이 적는다.
+		var sup_m := {}
+		var cause_m := {}
+		if view.st != null:
+			sup_m = (view.st.metrics.support as Dictionary).duplicate(true)
+			cause_m = (view.st.metrics.cause_fires as Dictionary).duplicate()
+			cause_m["부순 장애물"] = (view.st.metrics.get("broken", []) as Array).size()
+		print("CLIP done=", _clip_id, " frames=", _clip_frames, " combat_t=", snapped(tt, 0.01), " screen=", screen,
+			" support=", JSON.stringify(sup_m), " cause=", JSON.stringify(cause_m))
 		get_tree().quit()
 
 # ---------- 회차 화면 자동 진행(PROPHECY_UI_SMOKE=<폴더> / 봇 회차 데모): 프레임 수로만 진행 ----------

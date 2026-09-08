@@ -1268,6 +1268,7 @@ func kill_enemy(e: Dictionary, o: Dictionary) -> void:
 				break
 		if on_fire:
 			var F2: Dictionary = cfg.flare
+			PSupport.meter(self, "common", "flare_bursts")
 			fx({ "kind": "flare", "x": e.x, "y": e.y, "r": float(F2.radius), "ttl": 0.35 })
 			for oth in enemies:
 				if not oth.dead and oth != e and PGeom.dist(oth.x, oth.y, e.x, e.y) <= float(F2.radius) + oth.r:

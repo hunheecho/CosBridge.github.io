@@ -428,6 +428,7 @@ static func fire_bolt(st: CombatState, w: Dictionary, target: Dictionary, _echoe
 		st.fx({ "kind": "fan_origin", "x": p.x, "y": p.y, "angle": ang, "ttl": 0.18, "mod": "fan" }) # 세 방향 발사 표시(표시 전용, 판정 없음)
 	for a in angles:
 		var side: bool = has_fan and absf(a - ang) > 1e-6
+		PSupport.meter(st, "frost", "fires")
 		proj(st, w, { "kind": "bolt", "x": p.x, "y": p.y, "vx": cos(a) * float(s.speed), "vy": sin(a) * float(s.speed), "r": 5.0, "ttl": float(s.range) / float(s.speed), "chill": float(s.chill), "angle": a, "mod": ("fan" if side else ""), "shatter": (s.mods as Array).has("shatter"), "ground": (s.mods as Array).has("ground") })
 	st.ev("shoot")
 
@@ -449,6 +450,7 @@ static func fire_ember(st: CombatState, w: Dictionary, target: Dictionary, _echo
 			var pos := st.nearest_valid_pos(zz[0], zz[1], 0.0, 60.0)
 			if pos.is_empty():
 				continue
+			PSupport.meter(st, "ember", "fires")
 			var z := st.add_zone("fire", pos[0], pos[1], zz[2], float(s.ttl) * dm, float(s.damage))
 			z.weapon = w
 			z.extended = 0.0)
@@ -562,7 +564,10 @@ static func update_orbit(st: CombatState, w: Dictionary, dt: float) -> void:
 			var o := { "dir": PGeom.norm(e.x - p.x, e.y - p.y), "knock": float(s.knock), "from": { "x": bp.x, "y": bp.y }, "cause": "orbit" }
 			if (s.mods as Array).has("serrated"):
 				o.bleed = 1.5
+			var _hp0: float = float(e.hp)
 			dmg_to(st, e, w, 1.0, o)
+			PSupport.meter(st, "blades", "hits")
+			PSupport.meter(st, "blades", "dmg", maxf(0.0, _hp0 - float(e.hp)))
 			st.metrics.cause_fires["orbit"] = int(st.metrics.cause_fires.get("orbit", 0)) + 1
 			if PBuild.has_common(st.build, "echo") and int(w.count) % int(CV.echoEvery) == 0:
 				var ee: Dictionary = e
@@ -611,6 +616,7 @@ static func explode_mine(st: CombatState, mn: Dictionary) -> void:
 	mn.dead = true
 	var w: Dictionary = mn.weapon
 	var s: Dictionary = w.stats
+	PSupport.meter(st, "mine", "blasts")
 	st.fx({ "kind": "mineburst", "x": mn.x, "y": mn.y, "r": float(s.radius), "ttl": 0.35 })
 	# 지뢰는 설치 → 폭발 구조라 fire()를 거치지 않는다. 폭발을 mine으로 센다
 	st.metrics.cause_fires["mine"] = int(st.metrics.cause_fires.get("mine", 0)) + 1

@@ -215,6 +215,10 @@ static func sync_meters(st: CombatState) -> void:
 		var src: Dictionary = st.support.get(id, {})
 		if src.is_empty():
 			continue
+		# **장착하지 않은 보조는 지표를 만들지 않는다.** B조 갱신이 매 프레임 상태 칸을 미리 만들어 두기 때문에
+		# 그대로 옮기면 달지도 않은 보조가 '계측 연결 · 전부 0'으로 보고서에 나온다(있는데 일을 안 한 것처럼 읽힌다)
+		if not equipped(st, String(id)):
+			continue
 		var M: Dictionary = st.metrics.support
 		if not M.has(id):
 			M[id] = {}
