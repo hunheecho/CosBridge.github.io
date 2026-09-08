@@ -5,10 +5,10 @@
 아이콘이 없는 항목은 다른 효과의 아이콘을 재사용하지 않고 중립 자리표시 기호 + 실제 이름으로 표시한다.
 
 - 표시 대상 ID: 129
-- 아이콘 있음: 101
-- 누락: 28
+- 아이콘 있음: 113
+- 누락: 16
 
-## 누락 · mod (21)
+## 누락 · mod (12)
 
 | ID | 이름 |
 | --- | --- |
@@ -18,50 +18,41 @@
 | `mod:crow:hunt` | 집중 사냥 |
 | `mod:crow:switch` | 먹잇감 전환 |
 | `mod:crow:twin` | 쌍둥이 까마귀 |
-| `mod:doll:firework` | 폭죽 인형 |
-| `mod:doll:fleeing` | 도망치는 인형 |
-| `mod:doll:tough` | 질긴 인형 |
 | `mod:echo:chase` | 추격 잔영 |
 | `mod:echo:cross` | 교차 잔영 |
 | `mod:echo:residual` | 잔류 잔영 |
-| `mod:plague:burst` | 역병 파열 |
-| `mod:plague:deep` | 깊은 맹독 |
-| `mod:plague:wide` | 넓은 전염 |
-| `mod:thorns:burst` | 가시 폭발 |
-| `mod:thorns:focused` | 집중 가시 |
-| `mod:thorns:venom` | 독가시 |
 | `mod:wind:broad` | 넓은 돌풍 |
 | `mod:wind:focused` | 압축 돌풍 |
 | `mod:wind:lingering` | 잔바람 |
 
-## 누락 · weapon (7)
+## 누락 · weapon (4)
 
 | ID | 이름 |
 | --- | --- |
 | `weapon:bell` | 수호 방울 |
 | `weapon:crow` | 추격 까마귀 |
-| `weapon:doll` | 도깨비 인형 |
 | `weapon:echo` | 잔영 분신 |
-| `weapon:plague` | 역병 나비 |
-| `weapon:thorns` | 가시 갑각 |
 | `weapon:wind` | 바람 정령 |
 
-## 적용 · weapon (10)
+## 적용 · weapon (13)
 
 | ID | 이름 | 그림 파일 |
 | --- | --- | --- |
 | `weapon:blades` | 회전 칼날 | `weapon_blades` |
 | `weapon:bow` | 추적궁 | `weapon_bow` |
 | `weapon:daggers` | 쌍검 | `weapon_daggers` |
+| `weapon:doll` | 도깨비 인형 | `weapon_doll` |
 | `weapon:ember` | 불씨 정령 | `weapon_ember` |
 | `weapon:frost` | 서리 수정 | `weapon_frost` |
 | `weapon:hammer` | 전투망치 | `weapon_hammer` |
 | `weapon:mine` | 룬 지뢰 | `weapon_mine` |
 | `weapon:orb` | 번개 구체 | `weapon_orb` |
+| `weapon:plague` | 역병 나비 | `weapon_plague` |
 | `weapon:spear` | 관통창 | `weapon_spear` |
 | `weapon:sword` | 검 | `weapon_sword` |
+| `weapon:thorns` | 가시 갑각 | `weapon_thorns` |
 
-## 적용 · mod (30)
+## 적용 · mod (39)
 
 | ID | 이름 | 그림 파일 |
 | --- | --- | --- |
@@ -74,6 +65,9 @@
 | `mod:daggers:bleed` | 출혈 칼날 | `mod_daggers_bleed` |
 | `mod:daggers:flank` | 측면 연무 | `mod_daggers_flank` |
 | `mod:daggers:pursuit` | 추격 칼날 | `mod_daggers_pursuit` |
+| `mod:doll:firework` | 폭죽 인형 | `mod_doll_firework` |
+| `mod:doll:fleeing` | 도망치는 인형 | `mod_doll_fleeing` |
+| `mod:doll:tough` | 질긴 인형 | `mod_doll_tough` |
 | `mod:ember:reignite` | 재점화 | `mod_ember_reignite` |
 | `mod:ember:scatter` | 불씨 산개 | `mod_ember_scatter` |
 | `mod:ember:trail` | 화염 띠 | `mod_ember_trail` |
@@ -89,12 +83,18 @@
 | `mod:orb:conduct` | 전도 표식 | `mod_orb_conduct` |
 | `mod:orb:fork` | 분기 번개 | `mod_orb_fork` |
 | `mod:orb:loop` | 순환 전류 | `mod_orb_loop` |
+| `mod:plague:burst` | 역병 파열 | `mod_plague_burst` |
+| `mod:plague:deep` | 깊은 맹독 | `mod_plague_deep` |
+| `mod:plague:wide` | 넓은 전염 | `mod_plague_wide` |
 | `mod:spear:brand` | 꿰뚫는 표식 | `mod_spear_brand` |
 | `mod:spear:returning` | 귀환 검기 | `mod_spear_returning` |
 | `mod:spear:split` | 분열 창날 | `mod_spear_split` |
 | `mod:sword:crescent` | 날아가는 검광 | `mod_sword_crescent` |
 | `mod:sword:cross` | 교차 검격 | `mod_sword_cross` |
 | `mod:sword:scar` | 잔류 검흔 | `mod_sword_scar` |
+| `mod:thorns:burst` | 가시 폭발 | `mod_thorns_burst` |
+| `mod:thorns:focused` | 집중 가시 | `mod_thorns_focused` |
+| `mod:thorns:venom` | 독가시 | `mod_thorns_venom` |
 
 ## 적용 · skill (6)
 

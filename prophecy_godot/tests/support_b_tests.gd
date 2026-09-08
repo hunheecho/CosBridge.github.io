@@ -459,7 +459,11 @@ func section_cleanup() -> void:
 # ---------- 5. 측정: 인형이 대신 받아낸 공격(통과 판정 아님) ----------
 ## 같은 시드·같은 편성으로 (가) 인형 없음 (나) 인형 있음(지금 그대로) (다) 인형 있음 + 유인 훅 흉내
 ## 를 돌려 **대신 받아낸 공격 수·유인한 적 수·본체가 받은 피해**를 비교한다.
-## (다)는 enemies*.gd에 없는 훅(PSupport.lure_target을 접근 대상에 쓰는 한 줄)을 시험에서만 흉내 낸 것이다.
+##
+## 2026-09-09 통합에서 유인 훅이 실제로 붙었다(CombatState.approach가 목표를 인형 자리로 바꾼다).
+## 그래서 (나)가 이미 유인을 포함한다. (다)는 시험 안에서 좌표를 한 번 더 밀어 주는 흉내라
+## 이제 (나)와 거의 같아야 정상이고, 어느 쪽이 더 크든 문제가 아니다.
+## 남겨 두는 이유는 훅이 **끊겼을 때** 이 자리에서 바로 드러나게 하려는 것이다.
 func section_doll_measure() -> void:
 	print("--- 5. 인형 측정(통과 판정 아님) ---")
 	var a := _fight_once([], false)
@@ -469,8 +473,11 @@ func section_doll_measure() -> void:
 	ok("측정이 실제로 돌았다(전투가 진행되고 기록이 남았다)", int(a.steps) > 0 and int(b.steps) > 0 and int(c.steps) > 0,
 		"단계 %d/%d/%d" % [int(a.steps), int(b.steps), int(c.steps)])
 	ok("인형이 실제로 적을 유인한다(유인한 적 수 > 0)", int(b.lured) > 0, "유인 %d마리 · 대신 받음 %d회" % [int(b.lured), int(b.absorbed)])
-	ok("유인 훅이 붙으면 대신 받아내는 공격이 늘어난다(훅이 필요한 근거)",
-		int(c.absorbed) >= int(b.absorbed), "지금 %d회 · 훅 흉내 %d회" % [int(b.absorbed), int(c.absorbed)])
+	ok("유인 훅이 실제로 붙어 있다(인형을 놓으면 본체가 받는 피해가 줄어든다)",
+		float(b.taken) < float(a.taken) and int(b.absorbed) > 0,
+		"없음 %.0f(%d대) · 인형 %.0f(%d대) · 대신 받음 %d회" % [float(a.taken), int(a.taken_hits), float(b.taken), int(b.taken_hits), int(b.absorbed)])
+	ok("훅 흉내를 더해도 결과가 크게 달라지지 않는다(훅이 이미 붙었다는 뜻)",
+		absi(int(c.absorbed) - int(b.absorbed)) <= 2, "지금 %d회 · 훅 흉내 %d회" % [int(b.absorbed), int(c.absorbed)])
 
 func _fight_once(ids: Array, emulate_hook: bool) -> Dictionary:
 	var g := PGrowth.new_growth("sword")

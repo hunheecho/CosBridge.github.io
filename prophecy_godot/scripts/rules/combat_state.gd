@@ -577,6 +577,15 @@ func steer_dir(e: Dictionary, tx: float, ty: float) -> Array:
 
 ## 장애물을 돌아 접근한다
 func approach(e: Dictionary, tx: float, ty: float, speed: float, dt: float) -> void:
+	# **도깨비 인형 유인.** 목표가 지금 플레이어가 선 자리일 때만 인형 자리로 바꾼다.
+	# 뒤로 물러나는 이동(e.x*2-p.x)이나 옆으로 도는 이동은 목표가 플레이어 자리가 아니므로 그대로 둔다.
+	# 강제 순간 이동·끌어당기기가 아니라 **적이 스스로 걸어가는** 것이다.
+	# 이미 방향이 확정된 공격·돌진 중이면 PSupport.lure_target이 {}를 돌려주므로 여기서 따로 검사하지 않는다.
+	if is_equal_approx(tx, float(player.x)) and is_equal_approx(ty, float(player.y)):
+		var lt := PSupport.lure_target(self, e)
+		if not lt.is_empty():
+			tx = float(lt.x)
+			ty = float(lt.y)
 	if float(e.steer_t) > 0.0:
 		e.steer_t = float(e.steer_t) - dt
 	var n: Array

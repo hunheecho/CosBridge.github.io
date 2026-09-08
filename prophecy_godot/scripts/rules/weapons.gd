@@ -481,6 +481,9 @@ static func update(st: CombatState, dt: float) -> void:
 			else:
 				keep.append(d)
 		st.delayed = keep
+	# 보조무기 갱신은 자동공격 정지 훅보다 **앞**이다.
+	# 시험·시연으로 자동공격을 꺼도 독 정산·인형 수명·반격 대기시간은 계속 흘러야 하기 때문이다.
+	PSupport.update(st, dt)
 	if float(st.player.get("attack_timer", 0.0)) >= 1.0e8:
 		return # 테스트·시연 훅(첫 전투 호환): player.attack_timer를 아주 크게 두면 자동기술을 끈다
 	var CV: Dictionary = PCatalog.growth().COMMON_VALUES
@@ -517,7 +520,6 @@ static func update(st: CombatState, dt: float) -> void:
 		if PBuild.has_common(b, "echo") and int(w.count) % int(CV.echoEvery) == 0:
 			w.echo = { "t": float(CV.echoDelay), "target": target }
 	update_mines(st, dt)
-	PSupport.update(st, dt)
 
 static func pick_ember_target(st: CombatState, w: Dictionary) -> Dictionary:
 	var p := st.player
