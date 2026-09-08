@@ -12,6 +12,16 @@ func ok(name: String, cond: bool, extra: String = "") -> void:
 	results.append([cond, name, extra])
 	print(("PASS " if cond else "FAIL ") + name + ((" — " + extra) if extra != "" else ""))
 
+## 화면 안에서 보이는 버튼을 글자로 찾는다(숨은 옛 확인 창의 버튼을 잡지 않는다)
+func _find_button(node: Node, text: String) -> Button:
+	if node is Button and node.is_visible_in_tree() and String((node as Button).text).find(text) >= 0:
+		return node as Button
+	for c in node.get_children():
+		var r := _find_button(c, text)
+		if r != null:
+			return r
+	return null
+
 func _init() -> void:
 	call_deferred("_run")
 
@@ -258,7 +268,17 @@ func _run() -> void:
 	await process_frame
 	var hours0: int = int(main.run.hours)
 	base.village.button("rest").pressed.emit()
-	ok("G8 휴식 건물 → PRun.rest(시간 1칸 소비), 거점 유지", main.screen == "base" and int(main.run.hours) == hours0 - 1, "hours %d→%d" % [hours0, int(main.run.hours)])
+	await process_frame
+	# 휴식은 이제 **확인 창**을 거친다(사용자 확정, 2026-09-09). 버튼을 누른 것만으로 시간이 줄지 않는다
+	var rest_ok: Button = _find_button(base, "휴식한다")
+	ok("G8 휴식 건물 → 확인 창(누른 것만으로 시간이 줄지 않는다)",
+		rest_ok != null and main.screen == "base" and int(main.run.hours) == hours0,
+		"창=%s hours %d" % [str(rest_ok != null), int(main.run.hours)])
+	if rest_ok != null:
+		rest_ok.pressed.emit()
+		await process_frame
+	ok("G8b 확정하면 PRun.rest(시간 1칸 소비), 거점 유지",
+		main.screen == "base" and int(main.run.hours) == hours0 - 1, "hours %d→%d" % [hours0, int(main.run.hours)])
 	base._toggle_build_detail()
 	await process_frame
 	ok("G9 빌드 '상세' 토글 → 전체 패널 펼침(거점 유지)", base._build_detail_open and main.screen == "base" and base.village != null)

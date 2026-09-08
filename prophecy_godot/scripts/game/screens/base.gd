@@ -497,7 +497,7 @@ func _info_equip(r: Dictionary, slot: String, detail: bool) -> void:
 	var eid := String(id)
 	var acts := _detail_action("equip", slot, detail)
 	acts.append({ "text": "해제 (가방으로)", "cb": func(): main.unequip_item(slot) })
-	acts.append({ "text": "판매 (+%d금)" % PRun.sell_price(eid), "cb": func(): open_sell_confirm(eid) })
+	acts.append({ "text": "판매 (+%d금)" % int(PRun.sell_quote(main.run, eid).gold), "cb": func(): open_sell_confirm(eid) })
 	acts.append({ "text": "장비 화면", "cb": func(): main.show("equip") })
 	open_confirm(String(PCatalog.equipment_def(eid).name), _equip_body.bind(r, slot, eid, detail), acts, "닫기 (Esc)")
 
@@ -513,7 +513,7 @@ func _equip_body(box: VBoxContainer, r: Dictionary, slot: String, eid: String, d
 	box.add_child(PUi.rich("[b]자세한 효과[/b]", 14))
 	box.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(d.desc)), 13))
 	box.add_child(PUi.rich("[b]되팔 때[/b]", 14))
-	box.add_child(PUi.rich("[color=#9ea8b8]%d금 · 장착 중이면 해제한 뒤 팝니다.[/color]" % PRun.sell_price(eid), 13))
+	box.add_child(PUi.rich("[color=#9ea8b8]%d금 · 장착 중이면 해제한 뒤 팝니다.[/color]" % int(PRun.sell_quote(main.run, eid).gold), 13))
 
 # ---------- 출격 준비물 ----------
 ## 가진 준비물 중 1개를 골라 두면 다음 전투 입장 때 저절로 쓰인다. 해제·교체는 소모가 아니다.

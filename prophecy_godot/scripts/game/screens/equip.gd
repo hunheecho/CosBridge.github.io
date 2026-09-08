@@ -84,7 +84,7 @@ func _open_item(id: String, detail: bool = false) -> void:
 		acts.append({ "text": "지금 장착", "cb": func(): main.equip_item(id) })
 	if not detail:
 		acts.append({ "text": "상세 설명", "cb": func(): _open_item(id, true) })
-	acts.append({ "text": "판매 (+%d금)" % PRun.sell_price(id), "cb": func(): open_sell_confirm(id) })
+	acts.append({ "text": "판매 (+%d금)" % int(PRun.sell_quote(main.run, id).gold), "cb": func(): open_sell_confirm(id) })
 	open_confirm(String(d.name), _item_body.bind(r, id, worn, detail), acts, "닫기 (Esc)")
 
 func _item_body(box: VBoxContainer, r: Dictionary, id: String, worn: bool, detail: bool) -> void:
@@ -107,6 +107,6 @@ func _item_body(box: VBoxContainer, r: Dictionary, id: String, worn: bool, detai
 	box.add_child(PUi.rich("[b]자세한 효과[/b]", 14))
 	box.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(d.desc)), 13))
 	box.add_child(PUi.rich("[b]되팔 때[/b]", 14))
-	box.add_child(PUi.rich("[color=#9ea8b8]%d금 · 장착 중이면 해제한 뒤 팝니다. 판 장비는 되사올 수 없습니다.[/color]" % PRun.sell_price(id), 13))
+	box.add_child(PUi.rich("[color=#9ea8b8]%d금 · 장착 중이면 해제한 뒤 팝니다. 판 장비는 되사올 수 없습니다.[/color]" % int(PRun.sell_quote(main.run, id).gold), 13))
 	box.add_child(PUi.rich("[b]교체 규칙[/b]", 14))
 	box.add_child(PUi.rich("[color=#9ea8b8]같은 부위에는 하나만 낍니다. 새로 끼면 원래 장비는 가방으로 가고, 거점에서는 몇 번을 바꿔도 값이 들지 않습니다.[/color]", 13))

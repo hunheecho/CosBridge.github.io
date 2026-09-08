@@ -168,7 +168,13 @@ func _init() -> void:
 	sbx.hp = 100000.0
 	st_sb.damage_enemy(sbx, 100.0, { "src": { "direct": true }, "from": { "x": sbx.x, "y": sbx.y + 120.0 } })
 	var sb_side: float = 100000.0 - float(sbx.hp)
-	ok("사용자 확정: 방패병 정면 직접 피해 100 → 15(85% 감소), 측면은 100 그대로", is_equal_approx(float(sb_def.frontMult), 0.15) and is_equal_approx(sb_front, 15.0) and is_equal_approx(sb_side, 100.0), "정면 %.1f / 측면 %.1f" % [sb_front, sb_side])
+	# 2026-09-09 사용자 재확정: 85% 감소는 실제 플레이에서 과했다 → **70% 감소**(frontMult 0.30).
+	# 값의 정본은 data/pacing.json의 enemy_tuning.shieldbearer.frontMult이고 여기서는 그것을 읽는다
+	# (생성 파일 data/enemies.json은 손대지 않는다). 정예 검사의 완전 차단과는 다른 값이다.
+	var sb_front_mult := float(PEnemiesNew.tuning("shieldbearer").get("frontMult", PCatalog.enemy("shieldbearer").get("frontMult", 1.0)))
+	ok("사용자 재확정: 방패병 정면 직접 피해 100 → 30(70% 감소), 측면은 100 그대로",
+		is_equal_approx(sb_front_mult, 0.30) and is_equal_approx(sb_front, 30.0) and is_equal_approx(sb_side, 100.0),
+		"배율 %.2f · 정면 %.1f / 측면 %.1f" % [sb_front_mult, sb_front, sb_side])
 
 	# ---------- 지시 10: 금화 약 -30% ----------
 	ok("새로 지급하는 금화 ×0.7(최종 1회): 100 → 70", PPacing.gold_award(100) == 70 and PPacing.gold_mult() == 0.7)

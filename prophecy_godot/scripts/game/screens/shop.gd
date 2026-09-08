@@ -74,14 +74,14 @@ func refresh() -> void:
 		var srow := PUi.hbox(8)
 		srow.add_child(PUi.rich("[color=#9ea8b8]%s(장착)[/color] %s" % [PUi.slot_name(slot), PUi.equip_line(String(eid))], 14))
 		var sid := String(eid)
-		srow.add_child(PUi.button("판매 +%d" % PRun.sell_price(sid), func(): open_sell_confirm(sid), true, 12))
+		srow.add_child(PUi.button("판매 +%d" % int(PRun.sell_quote(main.run, sid).gold), func(): open_sell_confirm(sid), true, 12))
 		sbox.add_child(srow)
 	for id in r.bag:
 		any = true
 		var bid := String(id)
 		var brow := PUi.hbox(8)
 		brow.add_child(PUi.rich("[color=#9ea8b8]가방 · %s[/color] %s" % [PUi.slot_name(String(PCatalog.equipment_def(bid).slot)), PUi.equip_line(bid)], 14))
-		brow.add_child(PUi.button("판매 +%d" % PRun.sell_price(bid), func(): open_sell_confirm(bid), true, 12))
+		brow.add_child(PUi.button("판매 +%d" % int(PRun.sell_quote(main.run, bid).gold), func(): open_sell_confirm(bid), true, 12))
 		sbox.add_child(brow)
 	if not any:
 		sbox.add_child(PUi.rich("[color=#6a7078]팔 장비 없음[/color]", 12))

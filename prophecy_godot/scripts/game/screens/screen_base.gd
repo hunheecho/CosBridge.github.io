@@ -122,7 +122,7 @@ func open_sell_confirm(id: String) -> void:
 	if r.is_empty():
 		return
 	var nm := PRun.equip_name(id)
-	var price := PRun.sell_price(id)
+	var price := int(PRun.sell_quote(main.run, id).gold)   # 판매가 정본은 견적이다(구매액의 절반)
 	open_confirm("%s%s %d금에 판매할까요?" % [PGlossaryTip.esc(nm), PUi.josa(nm, "을", "를"), price],
 		_sell_body.bind(r, id, price), [{ "text": "판매한다", "cb": func(): main.sell_equipment(id) }])
 

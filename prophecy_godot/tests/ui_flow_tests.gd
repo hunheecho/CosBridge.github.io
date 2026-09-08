@@ -235,7 +235,9 @@ func _town_ui_tests(main: Node) -> void:
 	es = main.screens["equip"]
 	ok("상세 설명을 누르면 소제목으로 나뉜 긴 설명이 열린다", _vis_text(es, "교체 규칙") == 1 and _vis_text(es, "되팔 때") == 1)
 	# 판매 확인 창: 받을 금액 · 취소하면 그대로 · 중복 클릭해도 한 번만
-	var price := PRun.sell_price("guardian_armor")
+	# 판매가의 정본은 PRun.sell_quote다(구매액의 절반, 구매액이 없으면 정상가의 절반).
+	# 옛 PRun.sell_price는 정상가의 1/4이던 시절의 함수라 여기서 쓰지 않는다
+	var price := int(PRun.sell_quote(main.run, "guardian_armor").gold)
 	var g0: int = int(main.run.gold)
 	var bag0: int = (main.run.bag as Array).size()
 	_vis_button(es, "판매 (+").pressed.emit()
