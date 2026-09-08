@@ -201,6 +201,11 @@
       "timeout_sec": 600,
       "desc": "주무기 5종의 구분(창의 좁은 폭·쌍검 단일 대상 화력·망치 착탄점과 제압 저항·궁 근접 약화)"
     },
+    "support_b_tests": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "보조무기 B조(역병 나비·가시 갑각·도깨비 인형)와 개조 9개. 마지막 절은 인형이 대신 받아낸 공격 측정(DOLL_MEASURE 한 줄)"
+    },
     "terrain_tests": {
       "env": {},
       "timeout_sec": 900,
@@ -294,6 +299,7 @@
       "slots_tests",
       "support_tests",
       "main_weapon_tests",
+      "support_b_tests",
       "terrain_tests",
       "port_tests",
       "boss_tests",
@@ -324,6 +330,7 @@
       "slots_tests",
       "support_tests",
       "main_weapon_tests",
+      "support_b_tests",
       "terrain_tests",
       "port_tests",
       "balance_tests",

@@ -1,6 +1,6 @@
 {
  "schema": "prophecy.icons.v1",
- "source": "assets/icons/manifest_source.json (프로젝트 안에서 코드로 그린 벡터 101종, 최종 아트 아님)",
+ "source": "assets/icons/manifest_source.json (프로젝트 안에서 코드로 그린 벡터 113종, 최종 아트 아님)",
  "note": "게임 ID -> 아이콘 파일. 여기에 없는 ID는 절대 다른 효과의 아이콘으로 대체하지 않고 중립 자리표시 기호 + 실제 한국어 이름으로 그린다.",
  "generator": "tools/icon_gen.gd — manifest_source.json을 고치고 이 도구를 다시 돌려 svg/png/매핑을 함께 만든다(손으로 고치지 않는다)",
  "dir64": "res://assets/icons/png64",
@@ -612,6 +612,78 @@
    "name": "일제 공격",
    "color": "#F5D77A",
    "kind": "reward"
+  },
+  "weapon:plague": {
+   "file": "weapon_plague",
+   "name": "역병 나비",
+   "color": "#7FD46B",
+   "kind": "weapon"
+  },
+  "weapon:thorns": {
+   "file": "weapon_thorns",
+   "name": "가시 갑각",
+   "color": "#9FB3C8",
+   "kind": "weapon"
+  },
+  "weapon:doll": {
+   "file": "weapon_doll",
+   "name": "도깨비 인형",
+   "color": "#E86A5C",
+   "kind": "weapon"
+  },
+  "mod:plague:wide": {
+   "file": "mod_plague_wide",
+   "name": "넓은 전염",
+   "color": "#7FD46B",
+   "kind": "mod"
+  },
+  "mod:plague:deep": {
+   "file": "mod_plague_deep",
+   "name": "깊은 맹독",
+   "color": "#7FD46B",
+   "kind": "mod"
+  },
+  "mod:plague:burst": {
+   "file": "mod_plague_burst",
+   "name": "역병 파열",
+   "color": "#7FD46B",
+   "kind": "mod"
+  },
+  "mod:thorns:focused": {
+   "file": "mod_thorns_focused",
+   "name": "집중 가시",
+   "color": "#9FB3C8",
+   "kind": "mod"
+  },
+  "mod:thorns:burst": {
+   "file": "mod_thorns_burst",
+   "name": "가시 폭발",
+   "color": "#9FB3C8",
+   "kind": "mod"
+  },
+  "mod:thorns:venom": {
+   "file": "mod_thorns_venom",
+   "name": "독가시",
+   "color": "#9FB3C8",
+   "kind": "mod"
+  },
+  "mod:doll:tough": {
+   "file": "mod_doll_tough",
+   "name": "질긴 인형",
+   "color": "#E86A5C",
+   "kind": "mod"
+  },
+  "mod:doll:firework": {
+   "file": "mod_doll_firework",
+   "name": "폭죽 인형",
+   "color": "#E86A5C",
+   "kind": "mod"
+  },
+  "mod:doll:fleeing": {
+   "file": "mod_doll_fleeing",
+   "name": "도망치는 인형",
+   "color": "#E86A5C",
+   "kind": "mod"
   }
  },
  "alias": {
