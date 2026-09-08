@@ -446,14 +446,16 @@ func _init() -> void:
 	ok("중복 확정 불가(재료 없음·이미 보유)", not PRun.craft(rc, "bloodmoon_sword", true, true) and int(rc.gold) == 40)
 	var gold_s := int(rc.gold)
 	PRun.sell_equipment(rc, "bloodmoon_sword")
-	ok("완성품 판매 = 무기 판매가 35, 재료 환급 없음", int(rc.gold) == gold_s + 35 and rc.equipment.weapon == null and int(rc.mats.fang) == 0)
+	# 판매가 변경(사용자 확정): 구매액의 절반. 제작품은 구매액이 없으므로 정상 구매가의 절반을 기준으로 쓴다.
+	# 혈월검 정상가 140 → 70. 옛 값 35는 '정상가의 1/4'이던 시절의 수다
+	ok("완성품 판매 = 정상 구매가의 절반(혈월검 140 → 70), 재료 환급 없음", int(rc.gold) == gold_s + 70 and rc.equipment.weapon == null and int(rc.mats.fang) == 0, "금화 %d (기대 %d)" % [int(rc.gold), gold_s + 70])
 	rc.gold = 200
 	rc.bag = ["guardian_armor"]
 	rc.mats.iron = 2
 	rc.mats.pelt = 1
 	ok("가방 재료로 제작(보관): 월광 갑옷 가방에, 슬롯 비어 있음", PRun.craft(rc, "moon_armor", false, false) and (rc.bag as Array) == ["moon_armor"] and rc.equipment.armor == null and int(rc.mats.iron) == 0 and int(rc.gold) == 120)
 	var acts := PFlow.actions(rc)
-	ok("행동 목록·장비 이름이 제작품도 처리(equip/sell 항목)", acts.any(func(a): return String(a.id) == "equip:moon_armor") and acts.any(func(a): return String(a.id) == "sell:moon_armor" and int(a.data.price) == 30))
+	ok("행동 목록·장비 이름이 제작품도 처리(equip/sell 항목)", acts.any(func(a): return String(a.id) == "equip:moon_armor") and acts.any(func(a): return String(a.id) == "sell:moon_armor" and int(a.data.price) == 60)) # 월광 갑옷 정상가 120의 절반
 	# ---------- 제작 6종 효과(전투) ----------
 	st = mk({ "equipment": { "weapon": "bloodmoon_sword" } })
 	var e1 := dummy(st, st.player.x + 50.0, st.player.y)
