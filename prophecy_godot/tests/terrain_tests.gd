@@ -76,7 +76,7 @@ func _init() -> void:
 	sub = PSubset.new()
 	arenas = sub.pick("arena", (PCatalog.theme_arenas().keys() as Array) + ["clearing", "pillars", "forest"])
 	seeds = sub.pick("seed", SEEDS)
-	print("랜덤 지형 검사 — %s 전장 %d곳 × 시드 %d개." % [sub.describe(not sub.partial()), arenas.size(), seeds.size()])
+	print("랜덤 지형 검사 — %s 전장 %d곳 × 시드 %d개." % [sub.describe("랜덤 지형 검사"), arenas.size(), seeds.size()])
 	print("상한·하한(시험값): " + PTerrain.limits_text())
 
 	# ---------- 1. 여러 시드 × 여러 전장으로 뽑아 조건을 전부 검사 ----------
@@ -295,7 +295,7 @@ func _init() -> void:
 	var picked := s2.pick("arena", ["a", "b", "c"])
 	# 환경 변수가 없으면 축이 줄지 않고, 부분 실행 조건이 하나라도 있으면 줄거나 describe가 그 사실을 적는다
 	ok("PSubset: 부분 실행 조건이 없으면 축이 그대로다", (picked.size() == 3) == (not s2.partial()),
-		"%s → %d개 · %s" % [str(["a", "b", "c"]), picked.size(), s2.describe(not s2.partial())])
+		"%s → %d개 · %s" % [str(["a", "b", "c"]), picked.size(), s2.describe("축 줄이기 확인")])
 	var full_path := PTerrain.report_path("res://docs/TERRAIN_REPORT.md", false)
 	var part_path := PTerrain.report_path("res://docs/TERRAIN_REPORT.md", true)
 	ok("부분 실행이면 보고서를 _PARTIAL로 돌린다(전체 결과 파일을 덮어쓰지 않는다)",

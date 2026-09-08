@@ -39,6 +39,7 @@ SceneTree가 종료 신호 없이 계속 돌고, 프로세스가 영원히 남�
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -295,13 +296,20 @@ def judge(rules: dict, exit_code: int, text: str) -> tuple[str, dict]:
     return ST_PASS, info
 
 
+def lock_path_for(root: Path, project: Path, safe: str) -> Path:
+    """잠금 경로. **작업 공간마다** 따로 잡는다 — 프로젝트 이름만 쓰면 다른 worktree에서
+    같은 스위트를 돌릴 때 서로를 중복 실행으로 막는다(2026-09-08 관측)."""
+    wk = hashlib.sha1(str(project.resolve()).encode("utf-8")).hexdigest()[:8]
+    return root / "locks" / f"{project.name}_{wk}__{safe}.lock"
+
+
 def run_one(name: str, spec: dict, rules: dict, engine: str, project: Path,
             run_dir: Path, timeout_override: int | None, base_env: dict) -> dict:
     started = time.monotonic()
     stamp = datetime.now().strftime("%H%M%S_%f")[:-3]
     safe = re.sub(r"[^A-Za-z0-9_.-]", "_", name)         # tmp/foo 같은 이름도 파일명으로 쓸 수 있게
     log_path = run_dir / f"{safe}__{stamp}.log"          # 실행마다 고유 경로(덮어쓰기 없음)
-    lock_path = run_dir.parent / "locks" / f"{project.name}__{safe}.lock"
+    lock_path = lock_path_for(run_dir.parent, project, safe)
     rec = {"suite": name, "log": str(log_path), "desc": spec.get("desc", "")}
     if spec.get("verdict"):            # 스위트별 판정 규칙(장면 실행 등)은 공통 규칙 위에 덮어쓴다
         rules = dict(rules)
@@ -688,7 +696,7 @@ def self_test(man: dict, args) -> int:
          {"env": {}, "timeout_sec": 20, "desc": "self test"}, "tmp/selftest_hang", timeout=20)
 
     # 4) 중복 실행: 잠금을 미리 잡아 둔 상태에서 같은 스위트 실행
-    lock = run_dir.parent / "locks" / f"{project.name}__run_tests.lock"
+    lock = lock_path_for(run_dir.parent, project, "run_tests")
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("selftest holder\n", encoding="utf-8")
     try:
@@ -719,7 +727,7 @@ def self_test(man: dict, args) -> int:
     child = subprocess.Popen(child_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                              env=dict(base_env, PYTHONIOENCODING="utf-8"),
                              text=True, encoding="utf-8", errors="replace", **kw)
-    lock_file = cancel_dir / "locks" / f"{project.name}__tmp_selftest_cancel.lock"
+    lock_file = lock_path_for(cancel_dir, project, "tmp_selftest_cancel")
     lock_seen = False
     for _ in range(160):
         time.sleep(0.25)

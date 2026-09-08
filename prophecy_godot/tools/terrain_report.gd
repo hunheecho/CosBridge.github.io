@@ -20,7 +20,7 @@ func _init() -> void:
 	var sub := PSubset.new()
 	var arenas := sub.pick("arena", (PCatalog.theme_arenas().keys() as Array) + ["clearing", "pillars", "forest"])
 	var seeds := sub.pick("seed", SEEDS)
-	var head := "랜덤 지형 배치 측정 — %s 전장 %d곳 × 시드 %d개." % [sub.describe(not sub.partial()), arenas.size(), seeds.size()]
+	var head := "랜덤 지형 배치 측정 — %s 전장 %d곳 × 시드 %d개." % [sub.describe("랜덤 지형"), arenas.size(), seeds.size()]
 	print(head)
 	var entries := PTerrain.entry_points()
 	var exits := PTerrain.exit_points(W, H)
