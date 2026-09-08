@@ -18,11 +18,16 @@ func build(o: Dictionary = {}) -> Dictionary:
 	var run := PBuild.empty_run_like(g)
 	return PBuild.derive(run)
 
+## 이 파일의 보스 시험은 '패턴 하나의 판정·예고·빈틈'을 본다. 행동 개편(연계·옆뛰기, data/boss_behavior.json)은 개체 스위치 beh_off로 끄고
+## 개편 전(073f74f)과 같은 조건에서 확인한다 — 즉 아래 기대값은 이번 작업에서 바뀌지 않았다.
+## 개편 자체의 검사는 이 파일의 chain_tests()와 tests/boss_pace_tests.gd에 있다.
 func boss_state(id: String, seed_v: int = 5, hp: float = 0.0, o: Dictionary = {}) -> CombatState:
 	var opts := { "build": build(o), "seed": seed_v, "arena": "clearing", "boss": true, "boss_id": id, "region_id": "boss", "xp_kill_mult": 0.3 }
 	if hp > 0.0:
 		opts.boss_hp = hp
-	return CombatState.new(opts)
+	var st := CombatState.new(opts)
+	st.boss.beh_off = true
+	return st
 
 func steps(st: CombatState, seconds: float, input: Dictionary = {}) -> void:
 	for i in int(round(seconds / STEP)):
@@ -265,9 +270,102 @@ func _init() -> void:
 				if ob.kind == "seal" and PGeom.dist(z.x, z.y, ob.x, ob.y) <= z.r + ob.r:
 					covers = true
 	ok("위험 지형: 7초마다 플레이어 주변 최대 3개, 목표 지점을 덮지 않는다", hz2 >= 1 and hz2 <= 3 and not covers, "hz %d" % hz2)
+	chain_tests()
 	var pass_n := 0
 	for r in results:
 		if r[0]:
 			pass_n += 1
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
+
+## 행동 개편(data/boss_behavior.json, 시험값)을 켠 상태의 가시갈기 검사. 개편이 꺼져 있으면(파일 없음·enabled=false) 건너뛴다
+func chain_state(id: String, seed_v: int = 5) -> CombatState:
+	var st := CombatState.new({ "build": build(), "seed": seed_v, "arena": "forest", "boss": true, "boss_id": id,
+		"region_id": "boss", "xp_kill_mult": 0.3, "boss_hp": 1000000.0 })
+	for i in 600:
+		if String(st.boss.state) != "intro":
+			break
+		st.step({}, STEP)
+	return st
+
+func chain_tests() -> void:
+	if PBoss.chain_cfg({ "boss_id": "boss", "phase": 1 }).is_empty():
+		ok("행동 개편(boss_behavior.json)이 꺼져 있어 연계 검사를 건너뛴다", true)
+		return
+	# 근거리에서 이동 공격 후보가 남는다(검토 문서가 재현한 구조적 문제: 거리80이면 휩쓸기뿐)
+	var st := chain_state("boss")
+	var bz: Dictionary = st.boss
+	bz.actions = 3
+	bz.history = []
+	bz.last_howl = st.t
+	st.player.x = bz.x + 80.0
+	st.player.y = bz.y
+	var cands := PBoss.candidate_names(st, bz)
+	ok("가시갈기: 거리 80에서도 후보에 돌진이 남는다(옆으로 뛰어 스스로 거리를 만든다)", cands.has("dash") and cands.has("sweep"), str(cands))
+	# 옆 뛰기: 준비(dash_aim) 중에 옆으로 실제로 움직이고, 예고 각은 계속 플레이어를 따라간다
+	var x0: float = bz.x
+	var y0: float = bz.y
+	PBoss.begin(st, bz, "dash")
+	ok("가시갈기: 최소 거리(150) 안에서 돌진을 고르면 옆 뛰기가 예약된다", float(bz.hop_left) > 0.0, "hop %.2f" % float(bz.hop_left))
+	for i in 40:
+		st.step({}, STEP)
+	var moved := PGeom.dist(bz.x, bz.y, x0, y0)
+	ok("가시갈기: 옆 뛰기로 준비 중 실제로 이동한다(예고 없는 이동, 무적 없음)", moved > 30.0 and String(bz.state) == "dash_aim", "이동 %.0f 상태 %s" % [moved, String(bz.state)])
+	# 연계: 한 행동이 끝나도 바로 빈틈이 아니라 다음 행동으로 이어지고, 연계 끝에만 빈틈이 온다
+	st = chain_state("boss")
+	bz = st.boss
+	var chain_len := 0
+	var saw_recover := false
+	var rec_dur := 0.0
+	var prev_n := int(bz.get("attack_n", 0))
+	for i in 3600:
+		st.player.hp = st.player.hp_max
+		st.step({}, STEP)
+		var n := int(bz.get("attack_n", 0))
+		if n > prev_n:
+			prev_n = n
+			chain_len += 1
+		if String(bz.state) == "recover" and chain_len >= 2:
+			saw_recover = true
+			rec_dur = float(bz.recover_dur)
+			break
+	ok("가시갈기: 여러 행동을 연달아 하고(연계 %d회) 그 뒤에 빈틈이 온다" % chain_len, saw_recover and chain_len >= 2, "빈틈 %.2f초" % rec_dur)
+	ok("가시갈기: 연계가 끝난 빈틈은 원래 빈틈(휩쓸기 1.5 / 돌진 2.2) 이상", rec_dur >= 1.5 - 1e-6, "%.2f" % rec_dur)
+	# 예고: 연계 첫 공격은 원래 속도(1.0), 후속타만 빨라지되 하한을 지킨다
+	st = chain_state("boss")
+	bz = st.boss
+	var first_speed := -1.0
+	var follow_speed := -1.0
+	var follow_warn := 0.0
+	prev_n = int(bz.get("attack_n", 0))
+	for i in 3600:
+		st.player.hp = st.player.hp_max
+		st.step({}, STEP)
+		var n := int(bz.get("attack_n", 0))
+		if n > prev_n:
+			prev_n = n
+			if int(bz.chain_i) == 1 and first_speed < 0.0:
+				first_speed = float(bz.warn_speed)
+			elif int(bz.chain_i) >= 2 and follow_speed < 0.0:
+				follow_speed = float(bz.warn_speed)
+				follow_warn = PBoss.pattern_warn(PCatalog.boss_def("boss"), String((bz.history as Array)[(bz.history as Array).size() - 1])) / maxf(1.0, follow_speed)
+		if first_speed >= 0.0 and follow_speed >= 0.0:
+			break
+	var floor_s := float(PBoss.chain_cfg(bz).get("followWarnMin", 0.5))
+	ok("가시갈기: 연계 첫 공격의 예고는 데이터 원래 값 그대로(배속 1.0)", is_equal_approx(first_speed, 1.0), "%.2f" % first_speed)
+	ok("가시갈기: 후속타 예고는 빨라지되 하한 %.2f초 이상" % floor_s, follow_speed > 1.0 and follow_warn >= floor_s - 1e-6, "배속 %.2f → %.2f초" % [follow_speed, follow_warn])
+	# 감속장(Q): 연계·예고·빈틈 모두 그대로 40%로 늦춰진다(Q를 조용히 약화하지 않았다)
+	st = chain_state("boss")
+	bz = st.boss
+	bz.state = "sweep_aim"; bz.state_t = 0.0; bz.warn_speed = 1.0
+	st.player.x = bz.x; st.player.y = bz.y + 100.0
+	st.step({ "special": true }, STEP)
+	var q_first: float = float(bz.state_t)
+	bz.state = "sweep_aim"; bz.state_t = 0.0; bz.warn_speed = 2.0
+	st.step({ "special": true }, STEP)
+	var q_follow: float = float(bz.state_t)
+	ok("가시갈기: 감속장 안 예고 진행 = dt × 0.4 (연계 후속타도 배속 × 0.4로 같은 비율)",
+		absf(q_first - STEP * 0.4) < 1e-9 and absf(q_follow - STEP * 0.4 * 2.0) < 1e-9, "%.5f / %.5f" % [q_first, q_follow])
+	bz.state = "recover"; bz.state_t = 0.0; bz.recover_dur = 2.0
+	st.step({ "special": true }, STEP)
+	ok("가시갈기: 감속장 안 빈틈 진행도 dt × 0.4 (빈틈이 짧아지지 않는다)", absf(float(bz.state_t) - STEP * 0.4) < 1e-9, "%.5f" % float(bz.state_t))
