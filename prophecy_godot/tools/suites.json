@@ -362,6 +362,41 @@
         ],
         "note": "측정 도구라 'N/N PASS' 요약이 없다. 결과 JSON 한 줄과 종료 코드 0으로 판정한다(통과 판정이 아니라 기록이 남았는지 확인)."
       }
+    },
+    "synergy_probe": {
+      "env": {},
+      "script": "tools/synergy_probe.gd",
+      "timeout_sec": 1800,
+      "desc": "지금 있는 시너지 검수(감전 경로·축전·분신 모방·독 전염 세대 상한·불꽃 파열 기준점·인형 유인·가시 반격·무기 공명). 전수 시뮬레이션이 아니다. 부분 실행 PROPHECY_SUBSET=\"sec=1,4\"",
+      "verdict": {
+        "success_pattern": "SYNERGY_PROBE_JSON",
+        "forbid_patterns": [
+          "SCRIPT ERROR",
+          "Parse Error",
+          "Compile Error"
+        ],
+        "note": "통과 판정 스위트가 아니라 기록 도구. 결과 JSON 한 줄과 종료 코드 0으로 확인한다."
+      }
+    },
+    "build_probe": {
+      "env": {},
+      "script": "tools/build_probe.gd",
+      "timeout_sec": 5400,
+      "desc": "대표 빌드 10개(주무기 5종 × 2)를 단일 대상·밀집 무리·이동 전투에서 완성 전후로 비교. 전수 시뮬레이션이 아니다. 부분 실행 PROPHECY_SUBSET=\"build=sword_a;scene=single;seed=1\"",
+      "verdict": {
+        "success_pattern": "BUILD_PROBE_JSON",
+        "forbid_patterns": [
+          "SCRIPT ERROR",
+          "Parse Error",
+          "Compile Error"
+        ],
+        "note": "통과 판정 스위트가 아니라 기록 도구."
+      }
+    },
+    "synergy_tests": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "시너지 연결 검사(감전 경로별 발동·분신 모방이 감전을 부른다·독 전염 세대 상한과 파열 중복 금지·반사 자기 호출 금지·무기 공명 자격·정상 연쇄를 막지 않는다)"
     }
   },
   "groups": {
@@ -397,7 +432,8 @@
       "death_tests",
       "palette_tests",
       "hit_feel_tests",
-      "support_a_tests"
+      "support_a_tests",
+      "synergy_tests"
     ],
     "rules": [
       "run_tests",
@@ -415,7 +451,8 @@
       "endless_tests",
       "meta_tests",
       "elites_tests",
-      "support_a_tests"
+      "support_a_tests",
+      "synergy_tests"
     ],
     "boss": [
       "boss_tests",
