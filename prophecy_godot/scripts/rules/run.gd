@@ -164,11 +164,49 @@ static func current_theme(run: Dictionary, day: int = 0) -> Dictionary:
 static func is_theme_place(region_id: String) -> bool:
 	return PCatalog.theme_places().has(region_id)
 
+## 이 편성이 실제로 내보낼 정예 종류 목록(길이 = tpl.elites). 배치표·이유는 data/elites.json, 붙는 자리는 data/themes.json.
+## 템플릿이 읽는 필드(전부 선택 사항이며, 없으면 기존 늑대 우두머리라 회귀가 없다):
+##   elite_type     — 기본 정예 1종
+##   elite_type_p2  — 비용 2칸(큰 보상) 장소와 더 깊이 탐험에서 쓰는 **더 강한** 정예. 없으면 elite_type
+##   elite_types    — 정예 2마리 이상일 때의 종류 조합. 조합은 이미 최대 위험이라 장소로 더 올리지 않는다
+## 어느 경우에도 **마리 수는 바꾸지 않는다**(총 등장 수·경험치 예산 불변). 바뀌는 것은 종류뿐이다.
+static func elite_types_for(tpl: Dictionary, place_key: String, deep: bool = false) -> Array:
+	var n := int(tpl.get("elites", 0))
+	if n <= 0:
+		return []
+	var out := []
+	if tpl.has("elite_types"):
+		for t in (tpl.elite_types as Array):
+			out.append(String(t))
+	else:
+		var big := String(tpl.get("elite_type_p2", ""))
+		var one := String(tpl.get("elite_type", "wolf_alpha"))
+		out.append(big if (big != "" and (deep or place_key == "p2")) else one)
+	while out.size() < n: # 모자라면 마지막 종류로 채우고, 넘치면 자른다
+		out.append(String(out[out.size() - 1]))
+	out.resize(n)
+	return out
+
+## 정예 목록을 웨이브 항목으로(같은 종류끼리 묶는다). 마리당 경험치 기준(ref)은 1.0이므로 합계는 항상 마리 수와 같다
+static func _elite_groups(types: Array) -> Array:
+	var order := []
+	var cnt := {}
+	for t in types:
+		var tp := String(t)
+		if not cnt.has(tp):
+			cnt[tp] = 0
+			order.append(tp)
+		cnt[tp] = int(cnt[tp]) + 1
+	var out := []
+	for tp in order:
+		out.append({ "type": String(tp), "n": int(cnt[tp]), "ref": float(cnt[tp]) })
+	return out
+
 ## 템플릿 → 웨이브(최종 수 명시 + 경험치 기준 ref). 장소 규모(p1/p2)로 정수 배정, 나머지는 첫 주력에. 정예는 마지막.
 ## 총 등장 수는 날짜 예산표(PPacing.day_total, 사용자 결정 25 → 75)가 정하고 템플릿의 sizes.total은 표가 없을 때의 예비값이다.
 ## 밀도 배율(×5)을 여기에 다시 곱하지 않는다(테마 템플릿은 ref가 있어 PFormation이 배율을 적용하지 않는다).
 ## 경험치 예산(xp_ref)은 개체 수와 무관하게 고정이므로 수가 늘어도 전투당 경험치는 늘지 않는다.
-static func template_waves(tpl: Dictionary, place_key: String, day: int = 0, place_cost: int = 1) -> Array:
+static func template_waves(tpl: Dictionary, place_key: String, day: int = 0, place_cost: int = 1, deep: bool = false) -> Array:
 	var sz: Dictionary = tpl.sizes[place_key]
 	var total: int = int(sz.total)
 	if day > 0 and not bool(tpl.get("fixed_total", false)):
@@ -186,9 +224,8 @@ static func template_waves(tpl: Dictionary, place_key: String, day: int = 0, pla
 		assigned += n
 	if not wave.is_empty():
 		wave[0].n = int(wave[0].n) + (total - assigned)
-	if int(tpl.get("elites", 0)) > 0:
-		# 정예 종류는 템플릿이 정한다(없으면 기존 늑대 우두머리 — 회귀 없음). 배치표는 data/elites.json
-		wave.append({ "type": String(tpl.get("elite_type", "wolf_alpha")), "n": int(tpl.elites), "ref": float(tpl.elites) })
+	for g in _elite_groups(elite_types_for(tpl, place_key, deep)): # 정예는 마지막. 종류만 템플릿이 정하고 마리 수는 elites 그대로다
+		wave.append(g)
 	return [wave]
 
 static func theme_place_key(region_id: String) -> String:
@@ -273,13 +310,13 @@ static func formation_options(region_id: String, day: int, risk: bool = false) -
 		out.append({ "id": String(a.id), "name": String(a.name), "desc": String(a.get("desc", "")) })
 	return out
 
-static func formation_waves(region_id: String, day: int, formation_id: String) -> Array:
+static func formation_waves(region_id: String, day: int, formation_id: String, deep: bool = false) -> Array:
 	if is_theme_place(region_id):
 		var tpl := theme_template(region_id, formation_id)
 		if tpl.is_empty():
 			var t := PCatalog.theme(PCatalog.theme_of_place(region_id))
 			tpl = (t.formations.normal as Array)[0]
-		return template_waves(tpl, theme_place_key(region_id), day, place_cost(region_id))
+		return template_waves(tpl, theme_place_key(region_id), day, place_cost(region_id), deep)
 	if formation_id == "" or formation_id == "base":
 		return day_waves(region_id, day)
 	var FS: Dictionary = W().get("formation_sets", {})
@@ -692,7 +729,7 @@ static func _copy_waves(src: Array) -> Array:
 	return out
 
 static func encounter_waves(region_id: String, deep: bool, run: Dictionary, sortie: Dictionary = {}) -> Array:
-	var waves := _copy_waves(formation_waves(region_id, int(run.get("day", 1)), String(sortie.get("formationId", "base"))))
+	var waves := _copy_waves(formation_waves(region_id, int(run.get("day", 1)), String(sortie.get("formationId", "base")), deep))
 	var v = sortie.get("variant", null)
 	if v != null:
 		if bool(v.get("dropLastWave", false)) and waves.size() > 1:
@@ -712,17 +749,60 @@ static func encounter_waves(region_id: String, deep: bool, run: Dictionary, sort
 				last.append({ "type": "wolf_alpha", "n": 1 })
 	if not deep:
 		return waves
-	for w in waves: # 더 깊이: 웨이브마다 +1, 마지막에 정예 추가(없다면)
+	if not is_theme_place(region_id): # 옛 지역 일정: 기존 규칙 그대로(웨이브마다 +1, 마지막에 늑대 우두머리)
+		for w in waves:
+			for g in w:
+				g.n = int(g.n) + 1
+		var last_l: Array = waves[waves.size() - 1]
+		var has_elite := false
+		for g in last_l:
+			if String(g.type) == "wolf_alpha":
+				has_elite = true
+		if not has_elite:
+			last_l.append({ "type": "wolf_alpha", "n": 1 })
+		return waves
+	# 테마 장소의 더 깊이: **호위만** 웨이브마다 +1. 정예 수는 막별 상한(PCatalog.elite_max_per_fight)을 넘지 않고,
+	# 대신 종류가 더 강한 쪽(elite_type_p2)으로 이미 바뀌어 있다 — "강한 정예 1 + 호위" 구성.
+	var cap := PCatalog.elite_max_per_fight(int(act_of(run).get("id", 1)))
+	var elites_n := 0
+	for w in waves:
 		for g in w:
-			g.n = int(g.n) + 1
+			if bool(PCatalog.enemy(String(g.type)).get("elite", false)):
+				elites_n += int(g.n)
+			else:
+				g.n = int(g.n) + 1
 	var last: Array = waves[waves.size() - 1]
-	var has_elite := false
-	for g in last:
-		if String(g.type) == "wolf_alpha":
-			has_elite = true
-	if not has_elite:
-		last.append({ "type": "wolf_alpha", "n": 1 })
+	if elites_n <= 0: # 정예가 없는 편성이면 그 테마의 강한 정예를 하나 붙인다
+		last.append({ "type": deep_elite_type(region_id, String(sortie.get("formationId", "base"))), "n": 1, "ref": 1.0 })
+	elif elites_n > cap: # 상한을 넘으면 뒤에서부터 줄인다(경험치 예산도 함께 줄어 늘지 않는다)
+		var over := elites_n - cap
+		for i in range(last.size() - 1, -1, -1):
+			var g: Dictionary = last[i]
+			if over <= 0:
+				break
+			if not bool(PCatalog.enemy(String(g.type)).get("elite", false)):
+				continue
+			var cut: int = mini(over, int(g.n))
+			g.n = int(g.n) - cut
+			if g.has("ref"):
+				g.ref = maxf(0.0, float(g.ref) - float(cut))
+			over -= cut
 	return waves
+
+## 더 깊이 탐험·큰 보상 장소에서 이 편성이 내보내는 정예 종류(표시·보상 문구 공용)
+static func deep_elite_type(region_id: String, formation_id: String) -> String:
+	if is_theme_place(region_id):
+		var tpl := theme_template(region_id, formation_id)
+		if not tpl.is_empty():
+			var lst := elite_types_for(tpl, theme_place_key(region_id), true)
+			if not lst.is_empty():
+				return String(lst[0])
+		var t := PCatalog.theme(PCatalog.theme_of_place(region_id))
+		for f in ((t.formations.risk as Array) + (t.formations.normal as Array)): # 정예를 쓰는 편성이 있으면 그 종류를 따른다
+			var l2 := elite_types_for(f, theme_place_key(region_id), true)
+			if not l2.is_empty():
+				return String(l2[0])
+	return "wolf_alpha"
 
 ## 일반·정예·더 깊이 모두 전멸 종료. "elite"는 HUD 정보
 static func encounter_objective(region_id: String, deep: bool, _run: Dictionary) -> String:
@@ -799,10 +879,24 @@ static func deep_preview(run: Dictionary, sortie: Dictionary) -> Dictionary:
 			reward = { "kind": kind, "text": "개조 변경권 1장 (대장간에서 개조 1개를 다른 효과로 변경)", "service": "mod_swap" }
 		_:
 			reward = { "kind": kind, "text": "다음 레벨업 예약: 자동기술 개조", "steer": "weapon_mod" }
-	var out := { "extraTime": int(C().DEEP_EXPLORE_HOURS), "nextSlot": next_slot_name(run, int(C().DEEP_EXPLORE_HOURS)), "enemyChange": "웨이브마다 적 +1, 마지막에 정예(가시갈기)",
+	var out := { "extraTime": int(C().DEEP_EXPLORE_HOURS), "nextSlot": next_slot_name(run, int(C().DEEP_EXPLORE_HOURS)), "enemyChange": deep_enemy_change(run, sortie),
 		"hpMult": hp_mult_for(run, String(sortie.regionId), true), "reward": reward, "lootAtRisk": _loot_at_risk(sortie) }
 	sortie.deepPreview = out
 	return out
+
+## 더 깊이 미리보기의 '적 변화' 한 줄. 테마 장소는 실제로 나올 강한 정예 이름을 보여 준다(사전 표시)
+static func deep_enemy_change(run: Dictionary, sortie: Dictionary) -> String:
+	var rid := String(sortie.regionId)
+	if not is_theme_place(rid):
+		return "웨이브마다 적 +1, 마지막에 정예(가시갈기)"
+	var names := []
+	for w in encounter_waves(rid, true, run, sortie):
+		for g in w:
+			if bool(PCatalog.enemy(String(g.type)).get("elite", false)) and int(g.n) > 0:
+				names.append("%s%s" % [String(PCatalog.enemy(String(g.type)).name), ("×%d" % int(g.n)) if int(g.n) > 1 else ""])
+	if names.is_empty():
+		return "호위가 웨이브마다 +1"
+	return "호위가 웨이브마다 +1, 강적 %s" % " · ".join(names)
 
 static func _loot_at_risk(sortie: Dictionary) -> Dictionary:
 	return { "gold": int(sortie.loot.gold), "items": (sortie.loot.get("items", []) as Array).duplicate(), "services": (sortie.loot.get("services", []) as Array).duplicate() }
@@ -836,8 +930,23 @@ static func apply_deep_reward(_run: Dictionary, sortie: Dictionary) -> Variant:
 	return rw
 
 # ---------- 조우 정산 ----------
+## 강적(정예)을 실제로 쓰러뜨렸을 때만 붙는 추가 금화. 규칙은 data/pacing.json elite_reward에 있다.
+## **중복 금지**: 그 장소가 이미 '정예 처치 조건부 재료'(송곳니)를 주면 추가로 주지 않는다 — 같은 위험을 두 번 보상하지 않는다.
+## 더 깊이 배율·위험 조건 배율도 곱하지 않는다(그 배율은 기존 전리품에 이미 붙어 있다). 조우 1회에 정확히 1번.
+static func elite_bonus_gold(run: Dictionary, region_id: String, elite_killed: bool) -> int:
+	if not elite_killed:
+		return 0
+	var cfg: Dictionary = PCatalog.pacing().get("elite_reward", {})
+	if not bool(cfg.get("enabled", false)):
+		return 0
+	var skip := String(cfg.get("skip_if_mat", ""))
+	if skip != "" and (region(region_id).get("reward", {}).get("mats", {}) as Dictionary).has(skip):
+		return 0 # 이미 정예 조건부 재료를 주는 장소: 중복 지급하지 않는다
+	var act := int(act_of(run).get("id", 1)) if not run.is_empty() else 1
+	return int((cfg.get("gold_by_act", {}) as Dictionary).get(str(clampi(act, 1, 3)), 0))
+
 ## 조우 승리 보상(난수는 전투의 rng → 재현 가능). combat_stats: {chestGold, eliteKilled}
-static func roll_reward(_run: Dictionary, sortie: Dictionary, rng: PRng, combat_stats: Dictionary) -> Dictionary:
+static func roll_reward(run: Dictionary, sortie: Dictionary, rng: PRng, combat_stats: Dictionary) -> Dictionary:
 	var r := region(String(sortie.regionId))
 	var mult: float = float(C().DEEP_REWARD_MULT) if bool(sortie.get("deep", false)) else 1.0
 	var v = sortie.get("variant", null)
@@ -854,8 +963,10 @@ static func roll_reward(_run: Dictionary, sortie: Dictionary, rng: PRng, combat_
 			n = int(round(float(n) * mult))
 		if n > 0:
 			mats[String(k)] = n
+	# 강적 추가 보상: 실제로 정예를 잡았고, 그 장소가 이미 정예 조건부 재료를 주지 않을 때만(중복 금지)
+	var eb := PPacing.gold_award(elite_bonus_gold(run, String(sortie.regionId), bool(combat_stats.get("eliteKilled", false))))
 	# 금화 감축(사용자 결정 약 -30%, 시험값 ×0.7)은 "새로 지급하는" 금화에만 최종 1회. 판매금·환불·잔액에는 적용하지 않는다
-	return { "gold": PPacing.gold_award(gold), "mats": mats, "chestGold": PPacing.gold_award(int(combat_stats.get("chestGold", 0))) }
+	return { "gold": PPacing.gold_award(gold) + eb, "eliteGold": eb, "mats": mats, "chestGold": PPacing.gold_award(int(combat_stats.get("chestGold", 0))) }
 
 static func apply_encounter_result(run: Dictionary, sortie: Dictionary, result: String, reward: Dictionary, combat_hp: float) -> void:
 	PConsumables.clear_used(run) # 이번 전투 준비물 표시만 지운다(소모는 되돌리지 않는다 — 같은 출격의 다음 전투로 이어지지 않는다는 뜻)

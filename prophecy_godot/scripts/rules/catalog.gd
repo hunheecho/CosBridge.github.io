@@ -254,6 +254,18 @@ static func theme_arenas() -> Dictionary: return _load("themes").get("arenas", {
 static func theme_reward_weight() -> float: return float(_load("themes").get("reward_weight", 1.15))
 static func act_default_theme(act: int) -> String: return String((_load("themes").get("act_default", {}) as Dictionary).get(str(act), ""))
 
+## 특수 정예 배치표(data/elites.json). 어느 막·어떤 편성에 어떤 정예를 넣을 수 있는지의 정본이다.
+## 수치(체력·행동)는 여기가 아니라 data/enemies.json·data/pacing.json에 있다.
+static func elites() -> Dictionary: return _load("elites").get("elites", {})
+static func elite_def(id: String) -> Dictionary:
+	var E := elites()
+	return E[id] if E.has(id) else {}
+static func elite_placement() -> Dictionary: return _load("elites").get("placement", {})
+## 그 막에서 한 전투에 넣을 수 있는 정예 마리 수 상한(없으면 1)
+static func elite_max_per_fight(act: int) -> int:
+	var M: Dictionary = elite_placement().get("max_elites_per_fight", {})
+	return int(M.get(str(clampi(act, 1, 3)), 1))
+
 static func region(id: String) -> Dictionary:
 	for r in regions():
 		if String(r.id) == id:

@@ -6,12 +6,14 @@
 
 - 정의(행동 수치): `data/enemies.json` → `enemies.elite_*`
 - 규칙(행동): `scripts/rules/enemies_new.gd` → `update_elite_*`
-- 배치표·인터페이스: `data/elites.json`
-- 검사: `tests/elites_tests.gd` / 측정: `tests/elites_bot_measure.gd`
+- 배치표(어디에 무엇이 나오는가): `data/elites.json` → 실제 편성은 `data/themes.json`, 규칙은 `PRun.elite_types_for` (§10)
+- 검사: `tests/elites_tests.gd`(규칙 + 배치 회귀)
+- 측정: `tests/elites_bot_measure.gd`(1막 단독) / `tests/elite_placement_measure.gd`(2·3막 실제 편성, §12)
 - 방패병 확정 변경은 `docs/SHIELDBEARER.md`
 
 > 이름은 가칭이고 시간·체력·피해는 전부 **시험값**이다. 사용자가 확정한 값은 방패병 85%뿐이다.
-> 체력 표(`data/pacing.json enemy_hp`)는 이번 작업에서 **바꾸지 않았다.**
+> 체력 표(`data/pacing.json enemy_hp.elite_by_act`)에는 7종 1·2·3막 값이 들어 있다.
+> **배치 작업(2026-09-08)에서도 체력 수치는 바꾸지 않았다** — 바꾼 것은 어디에 어떤 정예를 넣는가와 경험치 30 통일뿐이다.
 
 ---
 
@@ -222,7 +224,7 @@
 
 ---
 
-## 9. 담당 밖 파일에 필요한 변경 (고치지 않고 남긴다)
+## 9. 담당 밖 파일에 필요한 변경 (취소선은 배치 작업에서 처리한 것)
 
 | 파일 | 무엇 | 왜 |
 |---|---|---|
@@ -230,81 +232,174 @@
 | `scripts/game/render.gd:1464` | `draw_shieldbearer`의 `open` 판정에서 `bash_aim`을 빼야 한다 | 규칙이 바뀌어 준비 중에도 방패가 닫혀 있는데 화면은 열린 것처럼 그린다(`docs/SHIELDBEARER.md` §5) |
 | `scripts/rules/observe.gd` | `threats_of()`에 정예 7종 항목이 없다 | 실력 프로필 봇(`PSkillBot`)은 이 목록을 읽는다. 없으면 정예 예고를 못 본다. `PBot`(`PEnemies.threats`)은 이미 본다 |
 | `scripts/rules/weapons.gd:334, 487` | `from` 누락 2곳 | 방패 출처 판정이 플레이어 위치로 대체된다(`docs/SHIELDBEARER.md` §3) |
-| `tools/suites.json` | `elites_tests`, `elites_bot_measure` 등록 | 아래 §11 |
-| `data/pacing.json` · `data/growth.json` · `data/themes.json` · `scripts/rules/run.gd` | 배치·체력·경험치 | 아래 §10 |
+| ~~`tools/suites.json`~~ | ~~`elites_tests`, `elites_bot_measure` 등록~~ **완료** — `elite_placement_measure`도 함께 등록했다 | 아래 §11 |
+| ~~`data/pacing.json` · `data/growth.json` · `data/themes.json` · `scripts/rules/run.gd`~~ | ~~배치·체력·경험치~~ **완료(2026-09-08)** | 아래 §10 |
 
 `scripts/rules/combat_state.gd`에 손대야 하는 일은 **없었다.** 기존 API(`may_attack` · `damage_player` ·
 `damage_enemy` · `spawn_enemy` · `add_zone` · `move_swept` · `beam_length` · `nearest_valid_pos`)만 사용했다.
 
 ---
 
-## 10. 배치 인터페이스 (`data/elites.json`)
+## 10. 실제 출격 편성 배치 (2026-09-08 완료)
 
-지금 정예를 꽂는 유일한 자리는 `PRun.template_waves`(`scripts/rules/run.gd:184~185`)이며 종류가
-`"wolf_alpha"`로 **고정**되어 있다. 아래 두 곳만 바꾸면 배치표를 그대로 쓸 수 있다(배치 담당자 몫).
+정예는 이제 **게임에서 실제로 만난다.** 붙는 자리는 `data/themes.json`의 편성 템플릿이고,
+읽는 코드는 `PRun.elite_types_for` → `PRun.template_waves`다.
 
 ```gdscript
-# scripts/rules/run.gd — template_waves() 안
-if int(tpl.get("elites", 0)) > 0:
-    wave.append({ "type": String(tpl.get("elite_type", "wolf_alpha")), "n": int(tpl.elites), "ref": float(tpl.elites) })
+# scripts/rules/run.gd
+static func elite_types_for(tpl, place_key, deep) -> Array   # 템플릿이 정한 정예 종류 목록(길이 = tpl.elites)
 ```
 
-```json
-// data/themes.json — 편성 항목에 한 줄
-{ "id": "t2a_shields", "elites": 1, "elite_type": "elite_blademaster", ... }
+| 템플릿 필드 | 뜻 |
+|---|---|
+| `elite_type` | 기본 정예 1종 |
+| `elite_type_p2` | **비용 2칸(큰 보상) 장소**와 **더 깊이 탐험**에서 쓰는 더 강한 정예. 없으면 `elite_type` |
+| `elite_types` | 정예 2마리 이상일 때의 조합. 조합은 이미 최대 위험이라 장소로 더 올리지 않는다 |
+
+값이 없으면 기존 늑대 우두머리라 회귀가 없다. **어느 경우에도 `elites`(마리 수)는 바꾸지 않았다.**
+
+### 배치 규칙
+
+1. **1막은 위험 편성에만.** 첫 만남이 사고가 되지 않게 한다(1막 일반 편성 9개는 정예 0).
+2. **평범한 출격에는 드물게.** 일반 편성 27개 중 정예를 쓰는 것은 3개(11%)다.
+3. **심층·큰 보상 장소는 강한 정예 1 + 호위.** 비용 2칸 장소와 더 깊이 탐험에서는 종류가 `elite_type_p2`로
+   바뀌고, 마리 수는 막별 상한(`data/elites.json placement.max_elites_per_fight` = 1/1/2)을 넘지 않는다.
+   더 깊이 탐험은 **호위만** 묶음마다 +1 한다(예전에는 정예도 +1 되어 2마리가 됐다).
+4. **3막 고위험은 정예 2마리 조합.** 서로 다른 두 종류를 쓰고 `avoid_with`를 어기지 않는다.
+5. `acts` · `avoid_with` · `requires_allies`(군단 기수 호위 4 이상)를 전부 지킨다.
+6. **총 등장 수·경험치 예산 불변.** 정예 종류만 바뀌므로 배치 전(늑대 우두머리)과 수·예산이 같다.
+
+### 어디에 무엇이 들어갔는가
+
+| 막 | 편성 | 종류 | 1칸 장소 | 2칸 장소·더 깊이 |
+|---|---|---|---|---|
+| 1 | `t1a_risk` 피의 송곳니 + 소수 늑대 | 위험 | 피의 송곳니 | 정예 검사 |
+| 1 | `t1b_risk` 방진 + 정예 검사 | 위험 | 정예 검사 | (같음) |
+| 1 | `t1c_risk` 포자 무리 + 군단 기수 | 위험 | 군단 기수 | 정예 검사 |
+| 2 | `t2a_elite_support` 군단 기수 + 지원병 | **일반** | 군단 기수 | 정예 검사 |
+| 2 | `t2a_risk` 의식 호위대 | 위험 | 역병 조율사 | 사슬 집행자 |
+| 2 | `t2b_risk` 붕괴 구역 | 위험 | 피의 송곳니 | 정예 궁수 |
+| 2 | `t2c_risk` 얼음 사냥 | 위험 | 균열 채굴자 | 정예 검사 |
+| 3 | `t3a_risk` 심연의 파수 | 위험 | 정예 검사 + 균열 채굴자 | (같음) |
+| 3 | `t3b_rogue_alpha` 도적 + 피의 송곳니 | **일반** | 피의 송곳니 | 정예 검사 |
+| 3 | `t3b_wolf_archer` 늑대·궁수 + 군단 기수 | **일반** | 군단 기수 | 정예 검사 |
+| 3 | `t3b_risk` 사냥왕의 전위 | 위험 | 정예 검사 + 정예 궁수 | (같음) |
+| 3 | `t3c_risk` 집행관의 근위 | 위험 | 사슬 집행자 + 역병 조율사 | (같음) |
+
+2막·3막 모두 **7종이 전부** 실제 편성 안에 있다. 정본은 `data/themes.json`이고
+`data/elites.json assigned`가 사람이 읽는 사본이다(어긋나면 `tests/elites_tests.gd`가 실패한다).
+
+### 출격 카드 사전 표시
+
+규칙은 `PSortie.elite_notice(run, card)`, 그림은 `scripts/game/screens/base.gd`가 그린다.
+실제 편성(`PRun.encounter_waves`)에서 세므로 표시와 실제가 어긋날 수 없다.
+
+```
+붉은 의식장 [1칸] 전멸 · 강적 출현
+늑대·방패병·주술사 · 금화 50~70
+강적 출현 · 역병 조율사 · 보상 금화 +18
 ```
 
-값이 없으면 기존 늑대 우두머리라 회귀가 없다.
+### 추가 보상 (중복 지급 없음)
 
-### 체력: 막별 표를 `data/pacing.json`에 넣어야 한다
+`data/pacing.json elite_reward` — 정예를 **실제로 쓰러뜨렸을 때만** 조우 1회에 1번,
+막별 금화 15 / 25 / 40(감축 ×0.7을 지나면 11 / 18 / 28).
 
-정예 체력은 등급이 아니라 **막**으로 오른다(`PPacing.elite_hp`). 지금은 `enemy_hp.elite_by_act`에
-행이 없어 **1막 값이 모든 막에 그대로 쓰인다.** 아래는 사용자 기준("그 막 주력 적의 3~5배",
-주력 = 늑대 48 / 262 / 612)으로 만든 시험값이다.
+- 이미 '정예 처치 조건부 재료'(송곳니)를 주는 장소(`t1a_core` · `t3b_domain`)에는 **주지 않는다.**
+  같은 위험을 두 번 보상하지 않기 위해서다.
+- 더 깊이 배율·위험 조건 배율·시간대 금화 배율을 곱하지 않는다(그 배율은 기존 전리품에 이미 붙어 있다).
 
-| 정예 | 1막 | 2막 | 3막 | 주력 대비 |
-|---|---:|---:|---:|---:|
-| `elite_archer` | 200 | 1090 | 2550 | ×4.17 |
-| `elite_blademaster` | 280 | 1530 | 3570 | ×5.83 (중장갑 88 대비 ×3.18) |
-| `elite_fang` | 190 | 1040 | 2420 | ×3.96 |
-| `elite_plaguecaller` | 205 | 1120 | 2610 | ×4.27 |
-| `elite_chainbreaker` | 220 | 1200 | 2800 | ×4.58 |
-| `elite_standard` | 185 | 1010 | 2360 | ×3.85 |
-| `elite_miner` | 215 | 1170 | 2740 | ×4.48 |
+### 체력·경험치
 
-(기존 늑대 우두머리 120 / 970 / 2280과 같은 자리다.)
-
-### 경험치
-
-`data/growth.json`의 `growth.XP_VALUE`에 항목이 없으면 **기본값 5**가 쓰인다(늑대 우두머리는 30).
-권장 시험값은 `data/elites.json interface.growth_json.suggest`에 적어 두었다(30~40).
-테마 편성 경로는 `formation.xp_map` 예산을 쓰므로 영향이 적지만, 그 밖의 경로에서 정예가
-일반 적보다 적은 경험치를 주는 것을 막으려면 넣어야 한다.
-
-### 배치 원칙(시험값, `data/elites.json placement`)
-
-- 동시 생존 정예 **1마리**, 전투당 1막 1 / 2막 1 / 3막 2.
-- 1막은 위험 편성(risk)에만 넣는다(첫 만남이 사고가 되지 않게).
-- `elite_standard`는 **호위가 4마리 이상 있는 편성에만** 넣는다(혼자 두면 지휘할 대상이 없다).
-- `elite_miner`는 목표 전투(호위·거점)에 넣지 않는다(§7 한계).
-- 겹치면 안 되는 조합: 궁수 + 조율사(원거리 + 바닥), 검사 + 사슬(돌진 + 끌기), 조율사 + 서리술사/포자(바닥 중복).
+- 체력은 `data/pacing.json enemy_hp.elite_by_act`에 7종 1·2·3막 값이 들어 있다(`PPacing.elite_hp`).
+- 경험치는 `data/growth.json growth.XP_VALUE`에서 **7종 모두 30**이다 — 늑대 우두머리와 같은 값으로
+  맞춰, 편성의 정예 종류를 바꿔도 전투 경험치 예산이 흔들리지 않게 했다(이전 값 32에서 내렸다).
 
 ---
 
-## 11. 검사 실행 (공통 실행기 명세는 내가 고치지 않았다)
-
-지금은 임시 실행으로 돌린다:
+## 11. 검사·측정 실행
 
 ```
-python tools/run_suites.py --suites elites_tests --allow-adhoc
-python tools/run_suites.py --suites elites_bot_measure --allow-adhoc
+python tools/run_suites.py --suites elites_tests --jobs 1              # 규칙 + 배치 회귀
+python tools/run_suites.py --suites elites_bot_measure --jobs 1        # 1막 단독 계측
+python tools/run_suites.py --suites elite_placement_measure --jobs 1   # 2·3막 실제 편성 계측
 ```
 
-`tools/suites.json` 담당자에게 아래 두 항목 추가를 요청한다.
+세 스위트 모두 `tools/suites.json`에 등록돼 있다(`--allow-adhoc` 없이 돈다).
 
-```json
-"elites_tests":       { "env": {}, "timeout_sec": 600, "desc": "방패병 정면 방어 확정값·특수 정예 7종 규칙" },
-"elites_bot_measure": { "env": {}, "timeout_sec": 900, "desc": "특수 정예 7종 봇 계측(승패는 판정 아님)" }
+### 부분 실행 (큰 측정 전에 바꾼 것만 작게)
+
+`tools/subset.gd`(`PSubset`)를 쓴다. 축을 줄이고, 줄였다는 사실을 보고서 머리와 파일 이름에 남긴다.
+
+```
+PROPHECY_SUBSET="act=2;elite=elite_miner,elite_archer;mode=single" \
+  python tools/run_suites.py --suites elite_placement_measure --jobs 1
+# → docs/sim/ELITE_PLACEMENT_PARTIAL.md (전체 결과 파일을 덮어쓰지 않는다)
 ```
 
-`elites_tests`는 `groups.rules`에도 넣으면 좋다. `elites_bot_measure`는 계측이라 `all`에 넣지 않아도 된다.
+축은 `act`(2·3) · `elite`(종류) · `seed` · `mode`(single·pair). 지정하지 않은 축은 줄이지 않고,
+목록에 없는 값만 적어 남는 값이 0이 되면 **전체를 쓴다**(조용히 0회 실행하고 통과로 보이는 것을 막는다).
+
+---
+
+## 12. 2·3막 측정 결과 (실제 편성 안, 판정이 아니라 계측)
+
+전체 표는 `docs/sim/ELITE_PLACEMENT.md`. 도구는 `tests/elite_placement_measure.gd`.
+봇 `balanced` · 시드 1·2·3 중앙값 · 그 막까지의 보통 성장(2막 12선택 / 3막 22선택).
+**봇 승패는 통과 조건이 아니다.**
+
+### 2막 (5일차, 46~50마리 편성)
+
+| 장소 | 편성 | 정예 | 체력 | 처치(초) | 실행한 공격 | 연계 완주 | 그 정예에게 받은 피해 |
+|---|---|---|---:|---:|---:|---:|---:|
+| 순례길(1칸) | 군단 기수 + 지원병 | 군단 기수 | 912 | 14.3 | 5 | 5 | 0 |
+| 의식 중심부(2칸) | 군단 기수 + 지원병 | 정예 검사 | 1381 | 21.8 | 10 | 4 | 52 |
+| 순례길(1칸) | 의식 호위대 | 역병 조율사 | 1011 | 27.9 | 15 | 5 | 0 |
+| 의식 중심부(2칸) | 의식 호위대 | 사슬 집행자 | 1085 | 27.5 | 11 | 7 | 10 |
+| 운반 갱도(1칸) | 붕괴 구역 | 피의 송곳니 | 937 | 8.9 | 6 | 2 | 0 |
+| 굴착장(2칸) | 붕괴 구역 | 정예 궁수 | 986 | 32.5 | 28 | 7 | 12 |
+| 눈길(1칸) | 얼음 사냥 | 균열 채굴자 | 1060 | 18.6 | 4 | 2 | 0 |
+| 얼음 분지(2칸) | 얼음 사냥 | 정예 검사 | 1381 | 23.5 | 12 | 4 | 20 |
+
+### 3막 (9일차, 71~76마리 편성 · 정예 2마리 편성은 1마리만 남기고 잰 값)
+
+| 장소 | 편성 | 정예 | 체력 | 처치(초) | 실행한 공격 | 연계 완주 | 그 정예에게 받은 피해 |
+|---|---|---|---:|---:|---:|---:|---:|
+| 균열 가장자리(1칸) | 심연의 파수 | 정예 검사 | 3392 | 32.0 | 17 | 5 | 23 |
+| 심연 중심부(2칸) | 심연의 파수 | 정예 검사 | 3392 | 30.7 | 14 | 5 | 18 |
+| 붉은 숲길(1칸) | 도적 + 피의 송곳니 | 피의 송곳니 | 2301 | 13.7 | 11 | 4 | 0 |
+| 사냥왕의 영역(2칸) | 도적 + 피의 송곳니 | 정예 검사 | 3392 | 25.2 | 7 | 5 | 23 |
+| 붉은 숲길(1칸) | 늑대·궁수 + 군단 기수 | 군단 기수 | 2241 | 11.4 | 7 | 7 | 0 |
+| 사냥왕의 영역(2칸) | 늑대·궁수 + 군단 기수 | 정예 검사 | 3392 | 27.3 | 7 | 6 | 0 |
+| 붉은 숲길(1칸) | 사냥왕의 전위 | 정예 검사 | 3392 | 27.7 | 11 | 5 | 36 |
+| 외성 회랑(1칸) | 집행관의 근위 | 사슬 집행자 | 2665 | 45.9 | 17 | 14 | 18 |
+| 집행 광장(2칸) | 집행관의 근위 | 사슬 집행자 | 2665 | 58.6 | 21 | 16 | 27 |
+
+### 3막 정예 2마리 조합 (넣을지 판단하려고 잰 비교)
+
+| 장소 | 조합 | 1마리 전투 | 2마리 전투 | 동시 생존 정예 최대 | 정예별 연계 완주(2마리) |
+|---|---|---:|---:|---:|---|
+| 균열 가장자리 | 정예 검사 + 균열 채굴자 | 53초 | **58초** | 2 | 검사 6 · 채굴자 3 |
+| 심연 중심부 | 정예 검사 + 균열 채굴자 | 55초 | **61초** | 2 | 검사 6 · 채굴자 3 |
+| 붉은 숲길 | 정예 검사 + 정예 궁수 | 48초 | **63초** | 2 | 검사 4 · 궁수 7 |
+| 사냥왕의 영역 | 정예 검사 + 정예 궁수 | 50초 | **67초** | 2 | 검사 4 · 궁수 7 |
+| 외성 회랑 | 사슬 집행자 + 역병 조율사 | 57초 | **66초** | 2 | 사슬 12 · 조율사 11 |
+| 집행 광장 | 사슬 집행자 + 역병 조율사 | 64초 | **67초** | 2 | 사슬 14 · 조율사 11 |
+
+**판단: 2마리를 그대로 둔다.** 전투가 5~17초 길어지지만 받은 피해는 크게 늘지 않고,
+두 정예가 동시에 연계를 시작하지 않는다(`PEnemiesNew.elite_may_start` — 동시 연계 1).
+동시 생존 정예는 정확히 2로, 배치표의 3막 상한과 같다.
+
+### 관찰
+
+- **맞기 전에 녹아 사라진 정예는 없다.** 18자리 전부에서 정예가 살아서 공격을 실행했다.
+- **고유 연계 2회 이상 완주**를 18자리 전부에서 확인했다.
+- 1차 측정에서 **균열 채굴자만 굴착장(2막 2칸)에서 완주 1회**였다. 전투가 짧고 먼저 집중당해서다.
+  체력·주기를 손대지 않고 **배치만** 바꿔 해결했다 — 굴착장은 주기가 짧은 정예 궁수로,
+  균열 채굴자는 전투가 긴 눈길(2막 1칸)로 옮겼다. 옮긴 뒤 4공격 / 완주 2회(18.6초)다.
+  바꾼 자리만 부분 실행(`PROPHECY_SUBSET="act=2;elite=elite_miner,elite_archer;mode=single"`)으로
+  먼저 확인한 뒤 전체를 다시 돌렸다.
+- 군단 기수는 **처치가 빠르다**(2막 14.3초 / 3막 11.4초). 지휘가 본체이므로 깃발이 먼저 부서지면
+  존재감이 사라진다 — 체력이 아니라 깃발 수명·명령 예산의 문제이며 사람 판단 항목으로 남긴다.
+- 사슬 집행자는 가장 오래 버티고(3막 45.9~58.6초) 연계를 가장 많이 보여 준다(14~16회).
+  3막 성채가 다른 곳보다 길게 느껴질 수 있다 — 조정 후보로 적어 둔다.

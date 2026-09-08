@@ -79,13 +79,13 @@
       "seal_device": 0,
       "guardian": 0,
       "eater": 0,
-      "elite_archer": 32,
-      "elite_blademaster": 32,
-      "elite_fang": 32,
-      "elite_plaguecaller": 32,
-      "elite_chainbreaker": 32,
-      "elite_standard": 32,
-      "elite_miner": 32
+      "elite_archer": 30,
+      "elite_blademaster": 30,
+      "elite_fang": 30,
+      "elite_plaguecaller": 30,
+      "elite_chainbreaker": 30,
+      "elite_standard": 30,
+      "elite_miner": 30
     },
     "REGION_XP_MULT": {
       "forest": 1,
@@ -158,7 +158,7 @@
       4
     ],
     "MOD_UNLOCK_NOTE": "개조 자격 레벨(시험값). 자동기술 레벨 2에서 첫 개조, 레벨 4에서 두 번째 개조를 고를 '자격'이 생긴다. 자동 지급이 아니라 그때부터 성장 선택지에 나타난다는 뜻이다. 기존 저장에서 이미 얻은 개조는 그대로 둔다(조용히 회수하지 않는다).",
-    "XP_VALUE_NOTE": "특수 정예 7종은 32(늑대 우두머리 30 근처, 시험값). 전투 경험치 예산은 개체 수·체력과 무관하게 고정이므로 이 값이 회차 전체 경험치를 늘리지 않는다."
+    "XP_VALUE_NOTE": "특수 정예 7종은 기존 늑대 우두머리와 **같은 30**이다(2026-09-08 배치 작업에서 32 → 30). 편성의 정예 종류를 바꿔도 전투 경험치 예산이 달라지지 않게 하려는 것이다(사용자 지시: 정예를 넣는다고 예산이 늘면 안 된다). 검사는 tests/elites_tests.gd. 전투 경험치 예산은 개체 수·체력과 무관하게 고정이므로 이 값이 회차 전체 경험치를 늘리지 않는다."
   },
   "commons": {
     "wide": {

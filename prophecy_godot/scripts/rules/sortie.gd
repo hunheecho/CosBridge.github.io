@@ -123,6 +123,40 @@ static func pick_formation(run: Dictionary, region_id: String, day: int, rng: PR
 		pool = opts
 	return pool[rng.int_range(0, pool.size() - 1)]
 
+## 출격 카드의 **사전 표시**: 이 카드로 나가면 강적(정예)을 만나는가, 만난다면 그 대가로 무엇을 더 받는가.
+## 화면(scripts/game/screens/base.gd)과 봇이 같은 함수를 읽는다. 실제 편성(PRun.encounter_waves)에서 세므로
+## 표시와 실제가 어긋날 수 없다. 반환: { present, types[], names[], reward, text }
+static func elite_notice(run: Dictionary, c: Dictionary) -> Dictionary:
+	var rid := String(c.get("regionId", ""))
+	var types := []
+	var names := []
+	var n := 0
+	var v: Dictionary = PRun.slot_variant(rid, PRun.slot_index(run)) if int(run.get("hours", 0)) > 0 else {}
+	for w in PRun.encounter_waves(rid, false, run, { "formationId": String(c.get("formationId", "base")), "variant": (v if not v.is_empty() else null) }):
+		for g in w:
+			if not bool(PCatalog.enemy(String(g.type)).get("elite", false)) or int(g.n) <= 0:
+				continue
+			n += int(g.n)
+			if not types.has(String(g.type)):
+				types.append(String(g.type))
+				names.append("%s%s" % [String(PCatalog.enemy(String(g.type)).name), ("×%d" % int(g.n)) if int(g.n) > 1 else ""])
+	if n <= 0:
+		return { "present": false, "types": [], "names": [], "reward": "", "text": "" }
+	var rw := elite_reward_text(run, rid)
+	return { "present": true, "types": types, "names": names, "count": n,
+		"reward": rw, "text": "강적 출현 · %s · 보상 %s" % [" · ".join(names), rw] }
+
+## 강적을 잡았을 때 추가로 받는 것(카드에 미리 보여 줄 짧은 문구). 중복 지급 금지 규칙을 그대로 읽는다:
+## 이미 정예 조건부 재료를 주는 장소는 그 재료를 말하고, 그렇지 않은 장소만 추가 금화를 말한다.
+static func elite_reward_text(run: Dictionary, region_id: String) -> String:
+	var cfg: Dictionary = PCatalog.pacing().get("elite_reward", {})
+	var skip := String(cfg.get("skip_if_mat", ""))
+	var mats: Dictionary = PRun.region(region_id).get("reward", {}).get("mats", {})
+	if skip != "" and mats.has(skip):
+		return "%s(정예 처치 시)" % String(PCatalog.materials()[skip].name)
+	var g := PPacing.gold_award(PRun.elite_bonus_gold(run, region_id, true))
+	return ("금화 +%d" % g) if g > 0 else "추가 없음"
+
 static func main_enemies(run: Dictionary, region_id: String, objective: String, risk: String) -> Array:
 	var base := []
 	for t in PRun.region_enemies(region_id, run):

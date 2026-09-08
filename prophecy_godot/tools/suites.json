@@ -191,6 +191,11 @@
       "timeout_sec": 900,
       "desc": "특수 정예 7종 봇 계측(승패는 통과 조건이 아니다)"
     },
+    "elite_placement_measure": {
+      "env": {},
+      "timeout_sec": 3600,
+      "desc": "특수 정예 7종을 실제 출격 편성 안에서 2·3막으로 계측(승패는 통과 조건이 아니다). 부분 실행은 PROPHECY_SUBSET=\"act=2;elite=elite_fang\" 같은 식으로 축을 줄인다(tools/subset.gd)"
+    },
     "mission_probe": {
       "env": {},
       "timeout_sec": 900,
