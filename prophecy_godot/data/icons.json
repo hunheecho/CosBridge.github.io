@@ -1,6 +1,6 @@
 {
  "schema": "prophecy.icons.v1",
- "source": "assets/icons/manifest_source.json (프로젝트 안에서 코드로 그린 벡터 101종, 최종 아트 아님)",
+ "source": "assets/icons/manifest_source.json (프로젝트 안에서 코드로 그린 벡터 117종, 최종 아트 아님)",
  "note": "게임 ID -> 아이콘 파일. 여기에 없는 ID는 절대 다른 효과의 아이콘으로 대체하지 않고 중립 자리표시 기호 + 실제 한국어 이름으로 그린다.",
  "generator": "tools/icon_gen.gd — manifest_source.json을 고치고 이 도구를 다시 돌려 svg/png/매핑을 함께 만든다(손으로 고치지 않는다)",
  "dir64": "res://assets/icons/png64",
@@ -612,6 +612,102 @@
    "name": "일제 공격",
    "color": "#F5D77A",
    "kind": "reward"
+  },
+  "weapon:crow": {
+   "file": "weapon_crow",
+   "name": "추격 까마귀",
+   "color": "#8E93A8",
+   "kind": "weapon"
+  },
+  "mod:crow:hunt": {
+   "file": "mod_crow_hunt",
+   "name": "집중 사냥",
+   "color": "#8E93A8",
+   "kind": "mod"
+  },
+  "mod:crow:switch": {
+   "file": "mod_crow_switch",
+   "name": "먹잇감 전환",
+   "color": "#8E93A8",
+   "kind": "mod"
+  },
+  "mod:crow:twin": {
+   "file": "mod_crow_twin",
+   "name": "쌍둥이 까마귀",
+   "color": "#8E93A8",
+   "kind": "mod"
+  },
+  "weapon:bell": {
+   "file": "weapon_bell",
+   "name": "수호 방울",
+   "color": "#FFD24D",
+   "kind": "weapon"
+  },
+  "mod:bell:layered": {
+   "file": "mod_bell_layered",
+   "name": "겹울림",
+   "color": "#FFD24D",
+   "kind": "mod"
+  },
+  "mod:bell:guard": {
+   "file": "mod_bell_guard",
+   "name": "근접 수호",
+   "color": "#FFD24D",
+   "kind": "mod"
+  },
+  "mod:bell:reflect": {
+   "file": "mod_bell_reflect",
+   "name": "되돌림",
+   "color": "#FFD24D",
+   "kind": "mod"
+  },
+  "weapon:echo": {
+   "file": "weapon_echo",
+   "name": "잔영 분신",
+   "color": "#AFA6E6",
+   "kind": "weapon"
+  },
+  "mod:echo:cross": {
+   "file": "mod_echo_cross",
+   "name": "교차 잔영",
+   "color": "#AFA6E6",
+   "kind": "mod"
+  },
+  "mod:echo:residual": {
+   "file": "mod_echo_residual",
+   "name": "잔류 잔영",
+   "color": "#AFA6E6",
+   "kind": "mod"
+  },
+  "mod:echo:chase": {
+   "file": "mod_echo_chase",
+   "name": "추격 잔영",
+   "color": "#AFA6E6",
+   "kind": "mod"
+  },
+  "weapon:wind": {
+   "file": "weapon_wind",
+   "name": "바람 정령",
+   "color": "#8FE0C4",
+   "kind": "weapon"
+  },
+  "mod:wind:broad": {
+   "file": "mod_wind_broad",
+   "name": "넓은 돌풍",
+   "color": "#8FE0C4",
+   "kind": "mod"
+  },
+  "mod:wind:focused": {
+   "file": "mod_wind_focused",
+   "name": "압축 돌풍",
+   "color": "#8FE0C4",
+   "kind": "mod"
+  },
+  "mod:wind:lingering": {
+   "file": "mod_wind_lingering",
+   "name": "잔바람",
+   "color": "#8FE0C4",
+   "kind": "mod"
   }
  },
  "alias": {
