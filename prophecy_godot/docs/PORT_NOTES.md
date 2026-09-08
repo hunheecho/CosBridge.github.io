@@ -1190,3 +1190,21 @@ PROPHECY_SUBSET="act=2;elite=elite_miner,elite_archer;mode=single" \
 
 보스 장애물 파괴(진행 중) · 신규 몬스터 3종과 일반 정예 확장 · 테마별 협공·분대 등장 ·
 특수 정예 결투 전환 · 새 보조의 화면 표시(까마귀·분신·인형 몸체가 그려지지 않는다) · 실제 속도 영상.
+
+## 31. 통합 완료 빌드 (2026-09-09, godot-1.0.0 · 5e8f48c)
+
+담당 아홉 갈래(주무기·보조·포자·적 피드백·보스 파괴·사망 경제·마을 UI·시너지 검수·신규 몬스터·테마 협공·화면 표시·자체 교차 검수)를 통합했다.
+
+| 대상 | 파일 | 크기 | SHA-256 앞 32 |
+|---|---|---:|---|
+| Windows | `prophecy_godot_build/prophecy_windows_godot-1.0.0_5e8f48c.zip` | 38.5 MB | `7aa7721be1c9ab5bb1a22a5271212ea3` |
+| 웹 | `prophecy_godot_build/prophecy_web_godot-1.0.0_5e8f48c.zip` | 11.9 MB | `60e6e4ae94ae47f31802bae5b420d590` |
+
+**최종 검사: 단언 1674/1674 · 정상 종료 36/36 · 종료 실패 0**(`--group all --jobs 1`).
+이번 실행에서 KD-1이 나오지 않았다는 뜻이지 **원인이 해결됐다는 뜻이 아니다.**
+
+10일 전체 UI 경로 `result=done` · missing 없음 · 누적 벽시계 gate1 111 / gate2 199 / gate3 296초 · 게임 속 전투 1416.3초.
+포장된 exe로도 `result=done` · 종료 0.
+
+**배포하지 않았다.** 원격 push도 하지 않았다.
+자세한 내용은 `docs/MORNING_REPORT.md`(완료·부분 완료·미구현·알려진 결함 표와 플레이 순서).
