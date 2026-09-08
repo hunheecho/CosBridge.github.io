@@ -122,6 +122,34 @@ func _run() -> void:
 	hud = main.get_node("UI/HUD/HPText").text
 	ok("결계 만료 뒤: 결계분 제거, 갑옷 보호막 15만 남고 HUD도 15", is_equal_approx(main.view.st.player.shield, 15.0) and hud.ends_with("보호막 15"), hud + " shield=%.1f ward=%.1f" % [main.view.st.player.shield, main.view.st.player.ward_shield])
 	main.view.running = false
+	# ---------- 0.7.0 새 경로(지시 17 ③): 실제 화면 함수로 확인 ----------
+	PSave.clear()
+	main.new_run_opts = {}
+	main.start_run("sword")
+	var r7: Dictionary = main.run
+	ok("새 회차 UI 경로 = 본편 10일·관문 4/7/10", String(r7.mode) == "acts" and int(PRun.mode_def(r7).days) == 10 and PRun.schedule_short(r7) == "본편 · 10일" and PRun.next_boss(r7).day == 4, PRun.schedule_label(r7))
+	main.save_run()
+	var saved7 := PSave.load()
+	ok("계속하기 라벨이 저장의 실제 일정을 말한다", PRun.schedule_short_of_save(saved7) == "본편 · 10일" and PRun.schedule_short_of_save({ "mode": "trio" }) == "이전 회차 · 7일 일정")
+	# 오늘 카드를 모두 끝낸 뒤 남는 시간 → 일반 탐험 재출격
+	for c in PSortie.cards_for(r7):
+		c.done = true
+	r7.hours = 2
+	var rep_ids := PFlow.actions(r7).filter(func(a): return bool(a.data.get("repeat", false))).map(func(a): return String(a.id))
+	ok("카드를 다 끝내고 시간이 남으면 행동 목록에 '일반 탐험'이 있다(강제 휴식 아님)", rep_ids.size() >= 1 and PRun.any_departure(r7), str(rep_ids))
+	var h_before: int = int(r7.hours)
+	main.start_sortie_card(String(rep_ids[0]).replace("sortie:", ""))
+	ok("일반 탐험 출격이 실제로 진행되고 시간 1칸을 쓴다", not main.sortie.is_empty() and bool(main.sortie.get("repeat", false)) and int(r7.hours) == h_before - 1)
+	main.view.running = false
+	# 제단 이름·짧은 효과 / 개조 변경권 용어
+	ok("제단 이름이 효과를 말한다(적 치유·소환·저주)", String(PCatalog.enemy("altar_heal").name) == "적 치유 제단" and String(PCatalog.enemy("altar_reinforce").name) == "소환 제단" and String(PCatalog.enemy("altar_hazard").name) == "저주 제단")
+	ok("이용권 용어가 '개조 변경권'으로 통일(기술 교체와 구분)", String(PCatalog.services()["mod_swap"].name) == "개조 변경권" and String(PCatalog.glossary()["voucher"].short).find("개조 변경권") >= 0)
+	# 무료 이득 사건: 지나치기 없음
+	var s_ev := PSortie.start(r7, "d1c1") if not PSortie.card(r7, "d1c1").is_empty() else {}
+	r7.pendingSortie = { "regionId": String(PRun.places_for(r7)[0]), "loot": { "gold": 0, "mats": {} }, "encounters": 1, "event": { "id": "supply", "seed": 1, "resolved": false }, "settled": false }
+	var ev_ids := PEvents.options(r7, r7.pendingSortie).map(func(o): return String(o.id))
+	ok("무료 보급 사건에는 '지나친다'가 없다(이득만 있는 선택)", not ev_ids.has("leave") and ev_ids.has("loot"), str(ev_ids))
+	r7.pendingSortie = null
 	main.queue_free()
 	await process_frame
 	PSave.clear()

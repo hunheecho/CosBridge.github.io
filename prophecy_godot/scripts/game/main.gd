@@ -110,6 +110,9 @@ func _ready() -> void:
 		_auto_stop = OS.get_environment("PROPHECY_UI_STOP")
 		if OS.get_environment("PROPHECY_UI_SPEED") != "":
 			view.time_scale = clampf(float(OS.get_environment("PROPHECY_UI_SPEED")), 1.0, 6.0)
+		# 자동 진행 검증은 실력 프로필 봇을 쓴다(기존 정책 봇은 개편된 보스를 넘지 못해 화면 순회가 4일차에서 멈춘다).
+		# 게임 규칙이 아니라 검증 경로 설정이며, PROPHECY_UI_BOT으로 바꿀 수 있다.
+		bot_profile = OS.get_environment("PROPHECY_UI_BOT") if OS.get_environment("PROPHECY_UI_BOT") != "" else "skilled"
 		_auto = true
 		_auto_snap = DisplayServer.get_name() != "headless" # 헤드리스는 PNG 없이 단계만 출력
 		_auto_quit = true
