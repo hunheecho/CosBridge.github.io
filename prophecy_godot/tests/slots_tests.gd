@@ -237,6 +237,27 @@ func _init() -> void:
 		not PGrowth.apply_choice(l3, { "kind": "weapon_new", "id": "bow" }) and PGrowth.main_weapons(l3.growth).size() == 1)
 	PSave.clear()
 
+	# ---------- 12. 회차를 끝까지 굴려도 상한이 깨지지 않는다 ----------
+	# 규칙 단위 시험만으로는 상점 교체·대장간 개조 변경·임무 보상 같은 **다른 경로**가 상한을 넘기는지 못 잡는다.
+	# 실제 회차를 한 번 끝까지 굴려서 성장 상태의 불변식을 확인한다.
+	var sim := PRunBot.simulate(21, "matched", {})
+	var rs = sim.get("run_state", null)
+	var broke := []
+	if rs != null and typeof(rs) == TYPE_DICTIONARY:
+		var gs: Dictionary = (rs as Dictionary).growth
+		for w in gs.weapons:
+			if (w.mods as Array).size() > PGrowth.mod_cap(gs, String(w.id)):
+				broke.append("%s 개조 %d > %d" % [String(w.id), (w.mods as Array).size(), PGrowth.mod_cap(gs, String(w.id))])
+			if int(w.level) > PGrowth.level_cap(gs, String(w.id)):
+				broke.append("%s 레벨 %d > %d" % [String(w.id), int(w.level), PGrowth.level_cap(gs, String(w.id))])
+		if PGrowth.main_weapons(gs).size() > 1:
+			broke.append("주무기 %d개" % PGrowth.main_weapons(gs).size())
+		if PGrowth.support_weapons(gs).size() > 2:
+			broke.append("보조 %d개" % PGrowth.support_weapons(gs).size())
+	else:
+		broke.append("회차 상태를 못 읽었다")
+	ok("회차를 끝까지 굴려도 주무기 1·보조 2·레벨·개조 상한이 깨지지 않는다", broke.is_empty(), str(broke))
+
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
