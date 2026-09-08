@@ -55,6 +55,8 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 		"storedShield": 0.0, "crafted": [],
 		"endless": null, "mainCleared": false, # 무한 모드 상태(PEndless)·본편 완주 확정(무한에서 죽어도 유지)
 		"consumables": [], "prepItem": null, "prepUsed": null, "potionBuy": { "day": 1, "count": 0 }, # 출격 준비물 가방·장착 1개·이번 전투 소모분·하루 회복약 구매 수(PConsumables)
+		"paidFor": {}, "death": {}, # 장비 개체별 실제 지불 금액(판매가 기준) · 사망 정산 기록(중복 방지 키 포함)
+		"testRetry": bool(opts.get("test_retry", OS.get_environment("PROPHECY_TEST_RETRY") != "")), # 사람 플레이가 아닌 재시도 경로(아래 retry_mode 주석). opts가 있으면 opts가 이긴다
 	}
 	var profile = opts.get("profile", null)
 	if profile != null and typeof(profile) == TYPE_DICTIONARY and not (profile as Dictionary).is_empty():
@@ -994,8 +996,9 @@ static func return_to_base(run: Dictionary, sortie: Dictionary) -> void:
 	for id in loot.get("items", []):
 		var iid := String(id)
 		if owns_equip(run, iid):
-			run.gold = int(run.gold) + sell_price(iid)
-			extras.append("%s(중복→금화 +%d)" % [equip_name(iid), sell_price(iid)])
+			var dup_gold := sell_value(run, iid) # 중복 드롭도 판매와 같은 기준(구매액 없으면 정상가의 절반)
+			run.gold = int(run.gold) + dup_gold
+			extras.append("%s(중복→금화 +%d)" % [equip_name(iid), dup_gold])
 		else:
 			(run.bag as Array).append(iid)
 			extras.append(equip_name(iid))
@@ -1020,20 +1023,105 @@ static func return_to_base(run: Dictionary, sortie: Dictionary) -> void:
 		txt += ", " + ", ".join(extras)
 	add_log(run, txt)
 
-## 일반 출격 패배: 미정산 전리품 상실, 남은 하루 상실, 다음 날 정상 체력. 정산한 재산·성장은 보존
+# ---------- 사망(2026-09-09 사용자 확정) ----------
+## 사람 플레이에서 쓰러지면 그 회차는 끝난다. 부활 수단(부활 물약)을 **가지고 있을 때에만** 한 개가 소모되고 다시 일어난다.
+## 옛 규칙(일반 패배 후 무료 체력 회복·다음 날 진행, 보스 패배 후 무료 상태 복원·무제한 재도전)은 사람 플레이에서 사라졌다.
+##
+## 시험·자동 진행용 재시도 경로(사람 플레이와 분리)
+## ------------------------------------------------
+## run.testRetry가 true인 회차만 옛 규칙(무료 회복·보스 재도전)을 그대로 쓴다. 켜는 방법은 두 가지뿐이다:
+##   - PRun.new_run(..., { "test_retry": true })  — 도구·시험이 명시적으로 켠다(PRunBot 기본값)
+##   - 환경 변수 PROPHECY_TEST_RETRY=1            — 실제 게임 화면을 자동으로 굴리는 스위트(ui_smoke_*·ui_flow_tests 등, tools/suites.json)
+## 사람이 플레이하는 회차는 이 값이 언제나 false다(새 회차 기본값·옛 저장에도 키가 없다).
+static func retry_mode(run: Dictionary) -> bool:
+	return bool(run.get("testRetry", false))
+
+## 이 회차가 사망으로 끝났는가(완주 cleared와 구분한다)
+static func is_run_over(run: Dictionary) -> bool:
+	return String(run.get("phase", "")) == "dead"
+
+## 다음 날이 있는가. 본편 마지막 날(마지막 관문일)에는 없다 — 경계 규칙은 docs/DEATH_AND_ECONOMY.md
+static func has_next_day(run: Dictionary) -> bool:
+	return int(run.get("day", 1)) < int(mode_def(run).get("days", 0))
+
+## 지금 쓰러지면 부활할 수 있는가(물약 보유 여부만 본다. 마지막 날 처리는 settle_death 주석 참고)
+static func can_revive(run: Dictionary) -> bool:
+	return PConsumables.has_revive(run)
+
+## 사망 정산(정확히 1회). ctx: { key: 중복 방지 키, cause: "sortie"|"boss", regionId, bossId }
+## 같은 사망을 두 번 넘겨도 물약이 두 개 빠지거나 하루가 두 번 지나가지 않는다(run.death.key로 못박는다).
+## 부활: 물약 1개 소모 → 남은 하루 상실 → 다음 날 최대 체력 hpFrac(25%)로 시작. 미완료 관문은 그대로 남는다(건너뛰지 않는다).
+## 부활 불가: 회차 종료(phase "dead", ended true). 완주(cleared)와 구분되며 PFlow.actions는 빈 목록을 돌려준다.
+## 마지막 날(다음 날 없음)의 구현 기본안(**시험 규칙**, 사용자 합의 전): 물약을 쓰되 날짜를 넘기지 않고 **그 날의 남은 시간을 전부** 잃는다.
+static func settle_death(run: Dictionary, ctx: Dictionary) -> Dictionary:
+	var key := String(ctx.get("key", ""))
+	var prev: Dictionary = run.get("death", {}) if typeof(run.get("death", null)) == TYPE_DICTIONARY else {}
+	if key != "" and String(prev.get("key", "")) == key:
+		return prev # 같은 사망의 두 번째 정산: 아무것도 하지 않는다
+	var b := build(run)
+	var frac: float = float(PConsumables.revive_def().get("hpFrac", 0.25))
+	var next_day := has_next_day(run)
+	var revived := PConsumables.consume_revive(run) if can_revive(run) else false
+	var rec := {
+		"key": key, "cause": String(ctx.get("cause", "sortie")), "day": int(run.get("day", 1)), "stage": int(run.get("stage", 0)),
+		"count": int(prev.get("count", 0)) + 1, "seq": int(prev.get("seq", 0)) + 1,
+		"regionId": String(ctx.get("regionId", "")), "bossId": String(ctx.get("bossId", "")),
+		"revived": revived, "endedRun": not revived, "nextDay": next_day, "hp": 0.0,
+	}
+	run.bossEntry = null # 사망 정산은 입장 스냅샷을 복구하지 않고 지운다(소모한 물약이 되살아나지 않게)
+	run.lastDefeatDay = int(run.day)
+	if not revived:
+		run.hours = 0
+		run.hp = 0.0
+		run.phase = "dead"
+		run.ended = true
+		add_log(run, "부활 수단이 없다: 회차 종료(%d일차)" % int(run.day))
+		run.death = rec
+		return rec
+	run.hours = 0
+	if next_day: # 남은 하루를 잃고 다음 날 아침
+		run.day = int(run.day) + 1
+		run.hours = int(C().HOURS_PER_DAY)
+		if not run.has("buffs") or run.buffs == null:
+			run.buffs = {}
+	run.hp = maxf(1.0, round(float(b.hp_max) * frac))
+	rec.hp = float(run.hp)
+	# 미완료 관문은 그대로 남는다: 관문 날이면 다시 관문 준비 상태, 아니면 보통 준비 상태.
+	# 순서는 end_day와 같다 — 오늘의 장소·카드·재고는 phase가 정해진 뒤에 뽑는다
+	run.phase = "boss_prep" if is_boss_day(run) else "prep"
+	if next_day:
+		places_for(run)
+		PSortie.cards_for(run)
+		refresh_stock(run)
+	if String(ctx.get("cause", "")) == "boss":
+		run.bossRetries = int(run.get("bossRetries", 0)) + 1
+	add_log(run, "부활: %s → %d일차 %s, 체력 %d/%d (미정산 전리품 상실)" % [
+		PConsumables.name_of(PConsumables.revive_id()), int(run.day), slot_name(run), int(float(run.hp)), int(float(b.hp_max))])
+	if String(run.phase) == "boss_prep":
+		add_log(run, "관문은 그대로 남아 있다: 넘기 전까지 다음 막 활동은 잠긴다")
+	run.death = rec
+	return rec
+
+## 일반 출격 패배. 사람 플레이: 미정산 전리품 상실 + 사망 정산(부활 물약이 있으면 부활, 없으면 회차 종료).
+## 시험 재시도 경로(run.testRetry)에서만 옛 규칙(남은 하루 상실 → 다음 날 정상 체력)을 쓴다.
 static func defeat(run: Dictionary, sortie: Dictionary) -> void:
+	if bool(sortie.get("lost", false)): # 같은 출격의 두 번째 패배 처리는 무시(하루가 두 번 지나가지 않는다)
+		return
 	sortie.lost = true
 	sortie.settled = true
 	sortie.loot = { "gold": 0, "mats": {}, "chestGold": 0 }
 	if PEndless.active(run): # 무한: 패배 = 종료(재도전 없음), 본편 완주 기록 유지
 		PEndless.over(run, "lost")
 		return
-	add_log(run, "%s에서 패배: 미정산 전리품 상실, 남은 하루 상실" % String(region(String(sortie.regionId)).name))
-	run.hours = 0
-	run.hp = float(build(run).hp_max)
-	run.lastDefeatDay = int(run.day)
-	if String(run.phase) == "prep":
-		end_day(run) # 구조: 하루 종료 → 다음 날(관문 날이면 관문)
+	add_log(run, "%s에서 쓰러졌다: 미정산 전리품 상실" % String(region(String(sortie.regionId)).name))
+	if retry_mode(run): # 시험·자동 진행 전용 경로(사람 플레이 아님)
+		run.hours = 0
+		run.hp = float(build(run).hp_max)
+		run.lastDefeatDay = int(run.day)
+		if String(run.phase) == "prep":
+			end_day(run)
+		return
+	settle_death(run, { "cause": "sortie", "key": "sortie:%d:%d" % [int(run.get("sortieCount", 0)), int(sortie.get("encounters", 0))], "regionId": String(sortie.get("regionId", "")) })
 
 # ---------- 거점 행동 ----------
 static func has_service(run: Dictionary, id: String) -> bool:
@@ -1051,6 +1139,31 @@ static func use_service(run: Dictionary, id: String) -> bool:
 static func can_rest(run: Dictionary) -> bool:
 	return String(run.phase) == "prep" and (int(run.hours) >= int(C().REST_HOURS) or has_service(run, "free_rest"))
 
+## 휴식권의 표시 이름. 데이터의 서비스 이름("무료 휴식권")은 다른 담당 파일이라 바꾸지 못하므로,
+## 화면이 쓸 문구는 규칙 계층이 준다 — "무료"가 아니라 "시간 소모 없음"이 사용자 확정 표현이다.
+static func rest_voucher_name() -> String:
+	return "휴식권 (시간 소모 없음)"
+
+## 휴식 견적(확인 창용, 회차를 전혀 바꾸지 않는다). 확정은 rest()가 한다 — 취소하면 아무 일도 없다.
+## 휴식권은 100금 그대로이고, 표현은 "무료"가 아니라 **"시간 소모 없음"**이다(costText를 화면이 그대로 쓴다).
+## { can, reason, useVoucher, hours, costText, slotNow, slotAfter, hp, hpAfter, hpMax, heal, voucherLeft, voucherPrice, forced, text }
+static func rest_quote(run: Dictionary) -> Dictionary:
+	var voucher := has_service(run, "free_rest")
+	var hours: int = 0 if voucher else int(C().REST_HOURS)
+	var hp_max := float(build(run).hp_max)
+	var can := can_rest(run)
+	return {
+		"can": can, "reason": "" if can else ("거점에서만" if String(run.phase) != "prep" else "시간 부족(%d칸 필요)" % int(C().REST_HOURS)),
+		"useVoucher": voucher, "hours": hours, "voucherName": rest_voucher_name(),
+		"costText": "시간 소모 없음 (휴식권 1장)" if voucher else "시간 %d칸" % hours,
+		"slotNow": slot_name(run), "slotAfter": next_slot_name(run, hours),
+		"hp": float(run.hp), "hpAfter": hp_max, "hpMax": hp_max, "heal": maxf(0.0, hp_max - float(run.hp)),
+		"voucherLeft": int(run.get("services", {}).get("free_rest", 0)), "voucherPrice": merchant_service_price("free_rest"),
+		"forced": not any_departure(run),
+		"text": "휴식하면 체력이 %d → %d(최대 %d)이 되고 %s입니다. 쉬시겠습니까?" % [int(float(run.hp)), int(hp_max), int(hp_max), ("시간이 들지 않습니다(휴식권 1장 사용)" if voucher else "%s이(가) 됩니다" % next_slot_name(run, hours))],
+	}
+
+## 휴식 확정(확인 창의 '예'). 견적은 rest_quote가 준다
 static func rest(run: Dictionary) -> bool:
 	if not can_rest(run):
 		push_error("휴식 불가")
@@ -1123,11 +1236,27 @@ static func start_boss(run: Dictionary) -> Dictionary:
 	var snap := { "growth": run.growth, "hp": run.hp, "stage": int(run.get("stage", 0)), "gold": int(run.gold), "services": run.services, "equipment": run.equipment, "bag": run.bag, "forge": int(run.forge), "forgeBySkill": run.get("forgeBySkill", {}) }
 	snap["prep"] = PConsumables.snapshot(run)
 	run.bossEntry = snap.duplicate(true)
+	run.bossEntries = { "count": boss_entries(run) + 1 } # 사망 정산 중복 방지 키(입장마다 1 증가 — 같은 입장의 패배는 한 번만 정산된다). dict 안의 "count"는 PSave가 정수로 정규화하는 키다
 	var nb := next_boss(run)
 	return { "regionId": "boss", "bossId": String(nb.id) if not nb.is_empty() else "boss", "stage": int(run.get("stage", 0)), "seed": boss_seed(run), "loot": { "gold": 0, "mats": {} }, "encounters": 0 }
 
-## 패배: 입장 시 준비 상태로 복구(레벨·경험치·선택·금화 — 전투 중 건너뛰기 금화 반복 악용 방지)
+## 관문 패배. 사람 플레이: 사망 정산(부활 물약이 있으면 하루를 잃고 다음 날 관문 앞에서 다시, 없으면 회차 종료).
+## 무료 상태 복원·무제한 재도전은 없다. 부활해도 관문은 그대로 남아 다음 막이 열리지 않는다.
+## 시험 재시도 경로(run.testRetry)에서만 옛 규칙(입장 스냅샷 복구 + 즉시 재도전)을 쓴다 — boss_defeat_retry가 그 몸통이다.
 static func boss_defeat(run: Dictionary) -> void:
+	if retry_mode(run):
+		boss_defeat_retry(run)
+		return
+	var nb := next_boss(run)
+	settle_death(run, { "cause": "boss", "key": "boss:%d:%d" % [boss_entries(run), int(run.get("stage", 0))], "bossId": (String(nb.id) if not nb.is_empty() else "boss") })
+
+## 이 회차에서 관문에 들어간 횟수(사망 정산 중복 방지 키의 재료)
+static func boss_entries(run: Dictionary) -> int:
+	var e = run.get("bossEntries", null)
+	return int((e as Dictionary).get("count", 0)) if typeof(e) == TYPE_DICTIONARY else 0
+
+## 시험·자동 진행 전용: 입장 시 준비 상태로 복구(레벨·경험치·선택·금화 — 전투 중 건너뛰기 금화 반복 악용 방지)
+static func boss_defeat_retry(run: Dictionary) -> void:
 	run.bossRetries = int(run.get("bossRetries", 0)) + 1
 	if run.get("bossEntry", null) != null:
 		var E: Dictionary = (run.bossEntry as Dictionary).duplicate(true)
@@ -1363,9 +1492,70 @@ static func merchant_open(run: Dictionary) -> bool:
 	return m != null and int(m.day) == int(run.day) and slot_index(run) >= int(m.fromSlot)
 
 static func equip_price(id: String) -> int: return int(SH().price[String(PCatalog.equipment_def(id).slot)])
-## 판매가: 같은 부위 기존 장비 판매가(35/30/30). 제작 전용도 동일(재료→완성품→판매 차익 방지, 시험값)
+## 옛 고정 판매가표(35/30/30). 지금 판매 규칙은 sell_value가 정본이며 이 함수는 옛 표를 읽는 자리(도구·대조)에만 남아 있다
 static func sell_price(id: String) -> int: return int(SH().sellPrice[String(PCatalog.equipment_def(id).slot)])
 static func equip_name(id: String) -> String: return String(PCatalog.equipment_def(id).get("name", id))
+
+# ---------- 판매(2026-09-09 사용자 확정: 구매액의 절반) ----------
+## 장비 개체별 실제 지불 금액표. 구매할 때만 적는다(할인가로 샀으면 할인가가 남아 싸게 사서 비싸게 파는 일이 없다).
+static func paid_map(run: Dictionary) -> Dictionary:
+	if typeof(run.get("paidFor", null)) != TYPE_DICTIONARY:
+		run.paidFor = {}
+	return run.paidFor
+
+## 이 장비를 실제로 얼마에 샀는가. 산 적이 없으면 -1(드롭·제작·옛 저장)
+static func paid_for(run: Dictionary, id: String) -> int:
+	var m := paid_map(run)
+	if not m.has(id):
+		return -1
+	var e = m[id]
+	return int((e as Dictionary).get("price", -1)) if typeof(e) == TYPE_DICTIONARY else int(e)
+
+## 구매 기록(구매 확정에서만 부른다). from = "stock" | "merchant"
+static func note_paid(run: Dictionary, id: String, price: int, from: String) -> void:
+	paid_map(run)[id] = { "price": maxi(0, price), "from": from, "day": int(run.get("day", 1)) }
+
+## 판매 금액: 실제 지불 금액의 50%(정수 내림). 구매액이 없는 장비(드롭·제작·옛 저장)는 **정상 기준 구매가의 절반**(첫 후보, docs/DEATH_AND_ECONOMY.md)
+static func sell_value(run: Dictionary, id: String) -> int:
+	var p := paid_for(run, id)
+	if p < 0:
+		p = equip_price(id)
+	return int(floor(float(p) * 0.5))
+
+## 판매 근거 문자열("paid" = 실제 지불액 기준 / "list" = 정상 기준 구매가 기준)
+static func sell_basis(run: Dictionary, id: String) -> String:
+	return "paid" if paid_for(run, id) >= 0 else "list"
+
+## 확인 창에 그대로 쓰는 견적(회차를 전혀 바꾸지 않는다). 화면은 이 값만 보여 주고 확정은 sell_equipment가 한다.
+## { id, name, slot, gold(받을 금액), paid(-1 = 구매액 없음), basis, equipped, unequips, hpMax, hpMaxAfter, hp, hpAfter, goldAfter, can, reason }
+static func sell_quote(run: Dictionary, id: String) -> Dictionary:
+	var d := PCatalog.equipment_def(id)
+	if d.is_empty():
+		return { "id": id, "can": false, "reason": "없는 장비", "gold": 0 }
+	var slot := String(d.slot)
+	var equipped: bool = run.equipment.get(slot, null) != null and String(run.equipment[slot]) == id
+	var gold := sell_value(run, id)
+	var hp_max := float(build(run).hp_max)
+	var hp_max_after := hp_max
+	if equipped: # 장착 중 판매는 해제를 포함한다 — 최대 체력이 줄면 현재 체력도 잘린다
+		var dup: Dictionary = run.duplicate() # 얕은 복제 + 장비 칸만 따로 복사(PBuild.derive는 읽기만 한다)
+		dup.equipment = (run.equipment as Dictionary).duplicate()
+		dup.equipment[slot] = null
+		hp_max_after = float(PBuild.derive(dup).hp_max)
+	var owned := owns_equip(run, id)
+	return {
+		"id": id, "name": equip_name(id), "slot": slot,
+		"gold": gold, "price": gold, # price는 옛 행동 목록 항목(data.price)을 읽던 자리를 위한 같은 값의 별칭이다
+		"paid": paid_for(run, id), "basis": sell_basis(run, id),
+		"equipped": equipped, "unequips": equipped,
+		"hp": float(run.hp), "hpAfter": minf(float(run.hp), hp_max_after), "hpMax": hp_max, "hpMaxAfter": hp_max_after,
+		"goldAfter": int(run.gold) + gold,
+		"can": owned, "reason": "" if owned else "보유하지 않은 장비",
+		"text": "%s을(를) %d금에 판매할까요?%s" % [equip_name(id), gold, " (장착 중이라 해제됩니다)" if equipped else ""],
+	}
+
+static func can_sell_equipment(run: Dictionary, id: String) -> bool:
+	return bool(sell_quote(run, id).can)
 
 static func equip_price_for(run: Dictionary, id: String, from: String = "stock") -> int:
 	var p := equip_price(id)
@@ -1397,7 +1587,9 @@ static func buy_equipment(run: Dictionary, id: String, equip: bool, from: String
 	if not can_buy_equipment(run, id, from):
 		push_error("구매 불가: " + id)
 		return false
-	run.gold = int(run.gold) - equip_price_for(run, id, from)
+	var paid := equip_price_for(run, id, from)
+	run.gold = int(run.gold) - paid
+	note_paid(run, id, paid, from) # 할인 구매도 실제 지불액을 남긴다(판매 차익 방지)
 	if has_service(run, "shop_discount"):
 		use_service(run, "shop_discount")
 	var target: Dictionary = run.merchant if from == "merchant" else stock(run)
@@ -1450,17 +1642,25 @@ static func unequip_item(run: Dictionary, slot: String) -> void:
 static func clamp_hp(run: Dictionary) -> void:
 	run.hp = minf(float(run.hp), float(build(run).hp_max))
 
-static func sell_equipment(run: Dictionary, id: String) -> bool:
-	if not owns_equip(run, id):
-		push_error("미보유: " + id)
+## 판매 확정(확인 창의 '예'). expect_gold >= 0이면 견적과 같을 때만 실행한다 —
+## 확인 창을 띄운 사이에 값이 바뀌었거나(저장 복구·다른 경로) 두 번 눌렸으면 아무것도 하지 않는다.
+## 두 번째 호출은 이미 보유하지 않으므로 실패한다(금화·가방 복제 없음).
+static func sell_equipment(run: Dictionary, id: String, expect_gold: int = -1) -> bool:
+	var q := sell_quote(run, id)
+	if not bool(q.can):
+		push_error("판매 불가(%s): %s" % [id, String(q.get("reason", ""))])
+		return false
+	if expect_gold >= 0 and expect_gold != int(q.gold):
+		push_error("견적이 바뀌었다(%d → %d): 판매 취소" % [expect_gold, int(q.gold)])
 		return false
 	for s in W().equip_slots:
 		if run.equipment[s] != null and String(run.equipment[s]) == id:
 			run.equipment[s] = null
-			clamp_hp(run)
 	(run.bag as Array).erase(id)
-	run.gold = int(run.gold) + sell_price(id)
-	add_log(run, "%s 판매 +%d" % [equip_name(id), sell_price(id)])
+	paid_map(run).erase(id) # 개체가 사라졌으니 지불 기록도 사라진다(다시 사면 그때 값이 다시 적힌다)
+	clamp_hp(run)
+	run.gold = int(run.gold) + int(q.gold)
+	add_log(run, "%s 판매 +%d%s" % [equip_name(id), int(q.gold), " (장착 해제)" if bool(q.equipped) else ""])
 	return true
 
 ## 빈 슬롯 획득: 새 자동기술 / 새 E (Lv1, 개조·변형 없음)
@@ -1753,6 +1953,7 @@ static func craft(run: Dictionary, id: String, use_equipped: bool = true, equip_
 			for slot in run.equipment:
 				if run.equipment[slot] != null and String(run.equipment[slot]) == e:
 					run.equipment[slot] = null
+		paid_map(run).erase(e) # 재료로 사라진 개체의 지불 기록도 사라진다(완성품은 '구매액 없는 장비'다)
 	for mid in rc.get("mats", {}):
 		run.mats[String(mid)] = int(run.mats.get(String(mid), 0)) - int(rc.mats[mid])
 	run.gold = int(run.gold) - int(rc.get("fee", 0))

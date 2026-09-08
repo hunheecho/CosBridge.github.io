@@ -439,7 +439,8 @@ static func actions(run: Dictionary) -> Array:
 				continue
 			var label := "%s · %s%s" % [String(PRun.region(String(c.regionId)).name), PSortie.objective_name(String(c.objective)), (" · " + String(PCatalog.mission_rules().riskText[String(c.risk)])) if c.get("risk", null) != null else ""]
 			out.append(_act("sortie:" + String(c.id), "sortie", label, ok, reason, { "card_id": String(c.id), "region_id": String(c.regionId), "objective": String(c.objective), "risk": c.get("risk", null), "time_cost": int(c.timeCost), "steer": PSortie.steer_state(run, c) }))
-		out.append(_act("rest", "rest", "휴식 (체력 회복 → %s)" % PRun.next_slot_name(run, 0 if PRun.has_service(run, "free_rest") else int(PCatalog.config().REST_HOURS)), PRun.can_rest(run), "" if PRun.can_rest(run) else "시간 부족"))
+		var rq := PRun.rest_quote(run) # 확인 창 견적을 그대로 실어 보낸다(화면은 계산하지 않는다). 확정은 PRun.rest
+		out.append(_act("rest", "rest", "휴식 (체력 회복 → %s · %s)" % [String(rq.slotAfter), String(rq.costText)], bool(rq.can), String(rq.reason), rq))
 		out.append(_act("end_day", "end_day", "하루 종료", true, "", PRun.preview_next_day(run)))
 	# 거점 전용(출격·전투 중 불가): 상점·대장간·장비
 	out.append(_act("shop_open", "shop_open", "상점", true))
@@ -466,11 +467,13 @@ static func actions(run: Dictionary) -> Array:
 		if run.equipment[slot] != null:
 			var eid := String(run.equipment[slot])
 			out.append(_act("unequip:" + String(slot), "unequip", "%s 해제" % PRun.equip_name(eid), true, "", { "slot": String(slot), "id": eid }))
-			out.append(_act("sell:" + eid, "sell", "%s 판매 (+%d)" % [PRun.equip_name(eid), PRun.sell_price(eid)], true, "", { "id": eid, "price": PRun.sell_price(eid) }))
+			var sq := PRun.sell_quote(run, eid)
+			out.append(_act("sell:" + eid, "sell", "%s 판매 (+%d)" % [PRun.equip_name(eid), int(sq.gold)], bool(sq.can), String(sq.get("reason", "")), sq))
 	for id in run.bag:
 		var eid := String(id)
 		out.append(_act("equip:" + eid, "equip", "%s 장착" % PRun.equip_name(eid), true, "", { "id": eid, "slot": String(PCatalog.equipment_def(eid).slot) }))
-		out.append(_act("sell:" + eid, "sell", "%s 판매 (+%d)" % [PRun.equip_name(eid), PRun.sell_price(eid)], true, "", { "id": eid, "price": PRun.sell_price(eid) }))
+		var sqb := PRun.sell_quote(run, eid)
+		out.append(_act("sell:" + eid, "sell", "%s 판매 (+%d)" % [PRun.equip_name(eid), int(sqb.gold)], bool(sqb.can), String(sqb.get("reason", "")), sqb))
 	for mid in run.mats:
 		if int(run.mats[mid]) > 0:
 			out.append(_act("sell_mat:" + String(mid), "sell_mat", "%s 판매 (+%d)" % [String(PCatalog.materials()[String(mid)].name), int(PCatalog.materials()[String(mid)].sell)], true, "", { "mat_id": String(mid), "n": int(run.mats[mid]) }))
@@ -517,6 +520,13 @@ static func actions(run: Dictionary) -> Array:
 		out.append(_act("use_potion", "use_potion", "회복약 사용 (+%d)" % int(pot.heal),
 			PConsumables.can_use_potion(run), "" if PConsumables.can_use_potion(run) else "쓸 수 없음",
 			{ "heal": int(pot.heal) }))
+	# 부활 물약: 사망 = 회차 종료 규칙의 유일한 대비책이라 봇도 살 수 있어야 한다(새 지출처가 행동 목록에 없어 봇이 못 사던 사고 재발 방지)
+	var rev := PConsumables.revive_def()
+	if not rev.is_empty():
+		var rid := PConsumables.revive_id()
+		var rreason := PConsumables.buy_reason(run, rid)
+		out.append(_act("buy_revive", "buy_revive", "%s 구매 (%d, 보유 %d)" % [PConsumables.name_of(rid), int(rev.price), PConsumables.revive_count(run)],
+			rreason == "", rreason, { "id": rid, "price": int(rev.price), "have": PConsumables.revive_count(run) }))
 	var no_offer: bool = g.get("pendingOffer", null) == null
 	var mc := PRun.mod_change_cost(run)
 	for w in g.weapons:

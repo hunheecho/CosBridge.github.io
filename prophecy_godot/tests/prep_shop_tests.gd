@@ -249,7 +249,9 @@ func _init() -> void:
 	ok("금화가 모자라면 못 산다(음수 금화 없음)", not PConsumables.can_buy(r8b, "potion") and int(r8b.gold) == 30)
 
 	# ---------- 9. 보스 재도전: 입장 스냅샷과 같은 규칙 ----------
-	var r9 := PRun.new_run(41, "sword")
+	# 재도전 자체는 2026-09-09부터 **시험·자동 진행 전용 경로**다(사람 플레이는 쓰러지면 회차가 끝난다 — tests/death_tests.gd).
+	# 여기서 보는 것은 그 경로의 스냅샷 규칙이므로 회차를 명시적으로 재시도 경로로 만든다.
+	var r9 := PRun.new_run(41, "sword", "", { "test_retry": true })
 	r9.gold = 2000
 	PConsumables.buy(r9, "guard_charm")
 	PConsumables.buy(r9, "potion")

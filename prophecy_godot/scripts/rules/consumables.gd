@@ -1,6 +1,6 @@
 class_name PConsumables
 extends RefCounted
-## 출격 준비물(단일 전투)과 회복약 규칙(2026-09-08 지시 §6·§7). 값은 data/consumables.json에만 둔다(코드에 숫자 없음).
+## 출격 준비물(단일 전투)·회복약·부활 물약 규칙(2026-09-08 지시 §6·§7, 2026-09-09 사망 규칙). 값은 data/consumables.json에만 둔다(코드에 숫자 없음).
 ##
 ## 왜 이 파일이 따로 있나
 ## ----------------------
@@ -8,15 +8,20 @@ extends RefCounted
 ## 형태다. 고르는 것·사는 것·소모하는 것·빌드에 얹는 것을 한 곳에 모아 두어야 중복 소비·복제가 생기지 않는다.
 ##
 ## 회차에 저장하는 필드(전부 PSave 정규화와 맞는 형태 — 정수 dict를 새로 만들지 않는다)
-##   run.consumables : Array[String]  가방(준비물 id와 "potion"을 그대로 넣는다. run.bag과 같은 방식)
+##   run.consumables : Array[String]  가방(준비물 id와 "potion"·"revive_potion"을 그대로 넣는다. run.bag과 같은 방식)
+##                                    상한은 셋이 서로 독립이다: 준비물 carryMax, 회복약 potionCarryMax, 부활 물약 reviveCarryMax
 ##   run.prepItem    : String|null    다음 전투에 쓸 준비물 1개(해제·교체는 소모가 아니다)
 ##   run.prepUsed    : String|null    지금 전투에서 실제로 소모된 준비물(전투가 끝나면 지운다)
 ##   run.potionBuy   : { "day": int, "count": int }  그 날 산 회복약 수(하루 상한)
 ##
 ## 소모 시점(정확히 1회): PFlow.make_encounter / make_boss_encounter가 CombatState를 만든 **뒤**에 consume_for_fight를 부른다.
 ## 빌드는 그 앞에서 계산되므로(PRun.build → apply_to_build) 효과는 이번 전투에 들어가고, 가방에서는 딱 한 번 빠진다.
-## 전투 중 종료·재접속으로 그 전투가 사라져도 이미 빠진 준비물은 돌아오지 않는다(무한 회복 악용 차단). 다만 보스 재도전은
-## 입장 스냅샷(run.bossEntry)으로 되돌리므로 보스전 준비물은 스냅샷 규칙을 따른다(PRun.start_boss/boss_defeat).
+## 전투 중 종료·재접속으로 그 전투가 사라져도 이미 빠진 준비물은 돌아오지 않는다(무한 회복 악용 차단).
+##
+## 보스 입장 스냅샷(run.bossEntry)의 복구는 2026-09-09부터 **시험·자동 진행 전용 재도전 경로**에만 남아 있다
+## (PRun.boss_defeat_retry). 사람 플레이의 관문 패배는 사망 정산(PRun.settle_death)이 처리하며, 그 경로는
+## 스냅샷을 복구하지 않고 지운다 — 그래서 사망으로 소모한 부활 물약이 스냅샷·계속하기로 되살아나지 않는다.
+## 자세한 것은 docs/DEATH_AND_ECONOMY.md.
 
 static var _cache: Dictionary = {}
 
@@ -42,16 +47,21 @@ static func reset() -> void:
 static func rules() -> Dictionary: return data().get("rules", {})
 static func prep_defs() -> Dictionary: return data().get("prep", {})
 static func potion_def() -> Dictionary: return data().get("potion", {})
+static func revive_def() -> Dictionary: return data().get("revive", {})
+## 부활 물약 id(정본은 데이터). 코드에 문자열을 흩뿌리지 않는다
+static func revive_id() -> String: return String(revive_def().get("id", "revive_potion"))
 static func prep_ids() -> Array:
 	var out := []
 	for k in prep_defs():
 		out.append(String(k))
 	return out
 
-## 준비물 또는 회복약 정의. 없으면 {}
+## 준비물 또는 회복약·부활 물약 정의. 없으면 {}
 static func def(id: String) -> Dictionary:
 	if id == "potion":
 		return potion_def()
+	if id == revive_id():
+		return revive_def()
 	var P := prep_defs()
 	return P[id] if P.has(id) else {}
 
@@ -89,13 +99,23 @@ static func prep_count(run: Dictionary) -> int:
 static func potion_count(run: Dictionary) -> int:
 	return count(run, "potion")
 
+## 가지고 있는 부활 물약 수(준비물·회복약과 별도 계정)
+static func revive_count(run: Dictionary) -> int:
+	return count(run, revive_id())
+
+static func has_revive(run: Dictionary) -> bool:
+	return revive_count(run) > 0
+
 # ---------- 구매 ----------
 ## 살 수 없는 이유(살 수 있으면 ""). 화면은 이 문구를 그대로 쓴다
 static func buy_reason(run: Dictionary, id: String) -> String:
 	var R := rules()
 	if def(id).is_empty():
 		return "없는 물건"
-	if id == "potion":
+	if id == revive_id():
+		if revive_count(run) >= int(R.get("reviveCarryMax", 2)):
+			return "부활 물약은 %d개까지 들 수 있음" % int(R.get("reviveCarryMax", 2))
+	elif id == "potion":
 		if potion_count(run) >= int(R.potionCarryMax):
 			return "회복약은 %d개까지 들 수 있음" % int(R.potionCarryMax)
 		if potion_bought_today(run) >= int(R.potionPerDay):
@@ -217,6 +237,17 @@ static func consume_for_fight(run: Dictionary) -> String:
 static func clear_used(run: Dictionary) -> void:
 	run.prepUsed = null
 
+# ---------- 부활 물약 소모(사망 정산에서만) ----------
+## 정확히 한 개를 소모한다. 없으면 false(회차가 끝난다는 뜻).
+## 여기 말고 어디에서도 부활 물약을 빼지 않는다 — PRun.settle_death가 사망 1건마다 딱 한 번 부른다.
+## 이 소모는 보스 입장 스냅샷(PConsumables.restore)으로 되돌리지 않는다: 사망 정산 경로는 스냅샷을 복구하지 않고 지운다(PRun.settle_death).
+static func consume_revive(run: Dictionary) -> bool:
+	if not has_revive(run):
+		return false
+	(bag(run) as Array).erase(revive_id())
+	PRun.add_log(run, "%s 사용: 쓰러졌지만 다시 일어난다" % name_of(revive_id()))
+	return true
+
 # ---------- 빌드 반영 ----------
 ## PRun.build가 PBuild.derive 결과 위에 얹는다. 장착 중인 준비물 1개만, 딱 한 번.
 ## 장비 효과 계산(PBuild)은 건드리지 않는다 — 여기서 더하는 값은 전부 "이미 계산된 결과에 한 번 더하기"다.
@@ -299,6 +330,7 @@ static func heal_options(run: Dictionary) -> Array:
 		"have": potion_count(run), "can": can_use_potion(run) })
 	out.append({ "id": "rest", "name": "휴식", "heal": miss, "gold": 0, "hours": int(PCatalog.config().REST_HOURS),
 		"have": -1, "can": PRun.can_rest(run) and not PRun.has_service(run, "free_rest") })
-	out.append({ "id": "free_rest", "name": "무료 휴식권", "heal": miss, "gold": int(PCatalog.shop().merchantService.free_rest), "hours": 0,
+	# 표현은 "무료"가 아니라 "시간 소모 없음"(2026-09-09 사용자 확정). 데이터의 서비스 이름은 다른 담당 파일이라 규칙 계층이 문구를 준다
+	out.append({ "id": "free_rest", "name": PRun.rest_voucher_name(), "heal": miss, "gold": int(PCatalog.shop().merchantService.free_rest), "hours": 0,
 		"have": int(run.get("services", {}).get("free_rest", 0)), "can": PRun.has_service(run, "free_rest") })
 	return out
