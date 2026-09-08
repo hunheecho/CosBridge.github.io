@@ -3,6 +3,26 @@ extends RefCounted
 ## 수동 기술(HTML skills.js 이식): Q 감속장(레벨·변형 3) + E 선택 기술(5종, 레벨·변형). 기술 피해에는 무기 숙련이 적용되지 않는다.
 ## 감속장 수치(반지름·지속·감속)는 cfg.player.slowfield(첫 전투 호환), 재사용은 build.special_cd(레벨·집중·박자·샘).
 
+## 선택 계측(도구 전용, 읽기만 한다): probe가 null이 아니면 중력핵의 사용·끌기·틱·붕괴·종료를 그대로 알려준다.
+## null이면 훅 자체가 실행되지 않는다 — 판정·수명·피해·난수를 바꾸지 않는다(PHitRecorder와 같은 방식).
+## 쓰는 곳: tools/gravity_probe.gd. 쓰고 나면 반드시 다시 null로 되돌린다.
+static var probe = null
+
+static func _tell(st: CombatState, g: Dictionary, ev: String, data: Dictionary = {}) -> void:
+	if probe != null:
+		probe.on_gravity(st, g, ev, data)
+
+## 중력핵 조절값(data/growth.json의 skills.gravity.tune). 표에 없는 값은 지금까지의 규칙 그대로다 —
+## tune이 아예 없으면 동작이 하나도 바뀌지 않는다. 시험안을 하드코딩하지 않고 데이터에서 읽기 위한 통로다.
+##  dur 유지 시간(초) · radius 반지름 · pull_base 끌어당김 기본 속도(레벨 계수 pull과 곱한다) · tick 피해 간격(초, 피해는 dps×간격이라 DPS는 그대로)
+##  collapse_r/collapse_mult 변형 '붕괴'의 마무리 폭발 · base_collapse_mult 기본형 마무리 폭발(0이면 없음) · boss_mult 보스에게 주는 틱 피해 배수
+static func gravity_tune() -> Dictionary:
+	var SK := PCatalog.skills()
+	var T: Dictionary = (SK.get("gravity", {}) as Dictionary).get("tune", {})
+	return { "dur": float(T.get("dur", 1.2)), "radius": float(T.get("radius", 140.0)), "pull_base": float(T.get("pull_base", 90.0)),
+		"tick": float(T.get("tick", 0.25)), "collapse_r": float(T.get("collapse_r", 100.0)), "collapse_mult": float(T.get("collapse_mult", 3.0)),
+		"base_collapse_mult": float(T.get("base_collapse_mult", 0.0)), "boss_mult": float(T.get("boss_mult", 1.0)) }
+
 static func init(st: CombatState) -> void:
 	st.skill_state = { "storm": {}, "gravity": {}, "ward": {}, "target": null, "field2": {} }
 	st.player.e_cd = 0.0
@@ -178,7 +198,10 @@ static func cast_e(st: CombatState) -> bool:
 			var c := cluster(st, 260.0)
 			if c.is_empty():
 				return false
-			S.gravity = { "x": c.x, "y": c.y, "t": 1.2, "hold": 1.0 if v == "orbit" else 0.0, "r": 140.0, "pull": 90.0 * float(d.pull[lv - 1]), "dps": dmg, "tick": 0.0, "collapse": v == "collapse", "dmg": dmg }
+			var GT := gravity_tune()
+			S.gravity = { "x": c.x, "y": c.y, "t": float(GT.dur), "hold": 1.0 if v == "orbit" else 0.0, "r": float(GT.radius), "pull": float(GT.pull_base) * float(d.pull[lv - 1]), "dps": dmg, "tick": 0.0, "collapse": v == "collapse", "dmg": dmg,
+				"tick_iv": float(GT.tick), "cr": float(GT.collapse_r), "cm": (float(GT.collapse_mult) if v == "collapse" else float(GT.base_collapse_mult)), "boss_mult": float(GT.boss_mult) }
+			_tell(st, S.gravity, "cast", { "level": lv, "variant": v })
 		"ward":
 			var amt := float(d.shield[lv - 1]) * link_skill_mult(st)
 			S.ward = { "t": 4.0, "amt": amt, "fortress": v == "fortress", "pulse": v == "pulse", "pulse_t": 0.0 }
@@ -261,6 +284,7 @@ static func update(st: CombatState, dt: float) -> void:
 	if not g.is_empty():
 		g.t = float(g.t) - dt
 		var active: bool = float(g.t) > -float(g.hold)
+		var pulled: Array = [] # 계측 전용(probe가 null이면 그대로 비어 있다)
 		for e in st.alive_targets():
 			if e.boss or bool(e.airborne):
 				continue
@@ -268,19 +292,35 @@ static func update(st: CombatState, dt: float) -> void:
 			if dd <= float(g.r) + e.r and dd > 8.0:
 				var n := PGeom.norm(g.x - e.x, g.y - e.y)
 				st.move_swept(e, n[0] * float(g.pull) * dt, n[1] * float(g.pull) * dt)
+				if probe != null:
+					pulled.append({ "e": e, "before": dd, "after": PGeom.dist(e.x, e.y, g.x, g.y) })
+		_tell(st, g, "pull", { "list": pulled, "dt": dt, "active": active })
+		var iv := float(g.get("tick_iv", 0.25))
 		g.tick = float(g.tick) - dt
 		if float(g.tick) <= 0.0 and float(g.t) > 0.0:
-			g.tick = 0.25
+			g.tick = iv
+			var ticked: Array = [] # 계측 전용
 			for e in st.alive_targets():
 				if PGeom.dist(e.x, e.y, g.x, g.y) <= float(g.r) + e.r:
-					hit(st, e, float(g.dps) * 0.25)
+					# 틱 피해는 dps × 간격이라 간격을 바꿔도 초당 피해는 그대로다. 보스는 끌리지 않으므로 배수(boss_mult)를 따로 둔다
+					var dealt := hit(st, e, float(g.dps) * iv * (float(g.get("boss_mult", 1.0)) if e.boss else 1.0))
+					if probe != null:
+						ticked.append({ "e": e, "dealt": dealt })
+			_tell(st, g, "tick", { "list": ticked, "each": float(g.dps) * iv })
 		if not active:
-			if bool(g.collapse):
-				st.fx({ "kind": "burst", "x": g.x, "y": g.y, "r": 100.0, "ttl": 0.35, "color": "#c9a0ff" })
+			var cm := float(g.get("cm", 3.0 if bool(g.collapse) else 0.0))
+			if cm > 0.0:
+				var cr := float(g.get("cr", 100.0))
+				st.fx({ "kind": "burst", "x": g.x, "y": g.y, "r": cr, "ttl": 0.35, "color": "#c9a0ff" })
+				var boomed: Array = [] # 계측 전용
 				for e in st.alive_targets():
-					if PGeom.dist(e.x, e.y, g.x, g.y) <= 100.0 + e.r:
-						hit(st, e, float(g.dmg) * 3.0, { "dir": PGeom.norm(e.x - g.x, e.y - g.y), "knock": 60.0 })
+					if PGeom.dist(e.x, e.y, g.x, g.y) <= cr + e.r:
+						var hurt := hit(st, e, float(g.dmg) * cm, { "dir": PGeom.norm(e.x - g.x, e.y - g.y), "knock": 60.0 })
+						if probe != null:
+							boomed.append({ "e": e, "dealt": hurt })
 				st.ev("explode")
+				_tell(st, g, "collapse", { "list": boomed, "each": float(g.dmg) * cm })
+			_tell(st, g, "end")
 			S.gravity = {}
 	var w: Dictionary = S.get("ward", {})
 	if not w.is_empty():

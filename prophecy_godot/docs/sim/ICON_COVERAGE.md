@@ -1,125 +1,158 @@
 # 아이콘 적용 범위(ICON_COVERAGE)
 
-자동 생성(scripts/game/ui/icons.gd `PIcons.write_coverage_doc`). 임시 아이콘 20종 기준.
+자동 생성(scripts/game/ui/icons.gd `PIcons.write_coverage_doc`). 그림 정본은 `assets/icons/manifest_source.json`,
+만드는 도구는 `tools/icon_gen.gd`(프로젝트 안에서 코드로 그린 벡터 → svg·png128·png64·data/icons.json). 최종 아트는 아니다.
 아이콘이 없는 항목은 다른 효과의 아이콘을 재사용하지 않고 중립 자리표시 기호 + 실제 이름으로 표시한다.
 
 - 표시 대상 ID: 101
-- 아이콘 있음: 20
-- 누락: 81
+- 아이콘 있음: 101
+- 누락: 0
 
-## 누락 · common (8)
+누락 없음. 표시 대상 ID가 늘어나면 이 문서에 다시 나타난다.
 
-| ID | 이름 |
-| --- | --- |
-| `common:burn` | 불붙은 공격 |
-| `common:ember` | 잔불 걸음 |
-| `common:flare` | 불꽃 파열 |
-| `common:frost` | 얼음 파편 |
-| `common:reach` | 긴 사거리 |
-| `common:saving` | 시간 저축 |
-| `common:stasis` | 정지된 칼날 |
-| `common:wide` | 넓어진 공격 |
+## 적용 · weapon (10)
 
-## 누락 · equipment (18)
+| ID | 이름 | 그림 파일 |
+| --- | --- | --- |
+| `weapon:blades` | 회전 칼날 | `weapon_blades` |
+| `weapon:bow` | 추적궁 | `weapon_bow` |
+| `weapon:daggers` | 쌍검 | `weapon_daggers` |
+| `weapon:ember` | 불씨 정령 | `weapon_ember` |
+| `weapon:frost` | 서리 수정 | `weapon_frost` |
+| `weapon:hammer` | 전투망치 | `weapon_hammer` |
+| `weapon:mine` | 룬 지뢰 | `weapon_mine` |
+| `weapon:orb` | 번개 구체 | `weapon_orb` |
+| `weapon:spear` | 관통창 | `weapon_spear` |
+| `weapon:sword` | 검 | `weapon_sword` |
 
-| ID | 이름 |
-| --- | --- |
-| `equip:bloodmoon_sword` | 혈월검 |
-| `equip:caster_shield` | 시전자의 방패 |
-| `equip:chrono_staff` | 시간술사의 지팡이 |
-| `equip:echo_staff` | 잔향의 지팡이 |
-| `equip:ember_sword` | 잔불검 |
-| `equip:emergency_shield` | 비상 방패 |
-| `equip:expedition_armor` | 원정대의 갑옷 |
-| `equip:guardian_armor` | 수호자의 갑옷 |
-| `equip:hunter_sword` | 사냥꾼의 검 |
-| `equip:iron_shield` | 철벽 방패 |
-| `equip:moon_armor` | 월광 갑옷 |
-| `equip:pioneer_spear` | 개척자의 창 |
-| `equip:relay_shield` | 연계 방패 |
-| `equip:renewal_coat` | 재생의 여행복 |
-| `equip:reprisal_shield` | 반격 방패 |
-| `equip:time_shield` | 시간의 방패 |
-| `equip:traveler_armor` | 여행자의 경갑 |
-| `equip:vitality_coat` | 생명력의 외투 |
+## 적용 · mod (30)
 
-## 누락 · mod (24)
+| ID | 이름 | 그림 파일 |
+| --- | --- | --- |
+| `mod:blades:dual` | 세 번째 칼날 | `mod_blades_dual` |
+| `mod:blades:launch` | 사출 칼날 | `mod_blades_launch` |
+| `mod:blades:serrated` | 톱날 | `mod_blades_serrated` |
+| `mod:bow:pierce` | 관통 화살 | `mod_bow_pierce` |
+| `mod:bow:ricochet` | 도탄 화살 | `mod_bow_ricochet` |
+| `mod:bow:spread` | 갈래 사격 | `mod_bow_spread` |
+| `mod:daggers:bleed` | 출혈 칼날 | `mod_daggers_bleed` |
+| `mod:daggers:flank` | 측면 연무 | `mod_daggers_flank` |
+| `mod:daggers:pursuit` | 추격 칼날 | `mod_daggers_pursuit` |
+| `mod:ember:reignite` | 재점화 | `mod_ember_reignite` |
+| `mod:ember:scatter` | 불씨 산개 | `mod_ember_scatter` |
+| `mod:ember:trail` | 화염 띠 | `mod_ember_trail` |
+| `mod:frost:fan` | 서리 부채 | `mod_frost_fan` |
+| `mod:frost:ground` | 차가운 바닥 | `mod_frost_ground` |
+| `mod:frost:shatter` | 깨지는 수정 | `mod_frost_shatter` |
+| `mod:hammer:aftershock` | 여진 | `mod_hammer_aftershock` |
+| `mod:hammer:pull` | 끌어당기는 망치 | `mod_hammer_pull` |
+| `mod:hammer:shockwave` | 전방 충격파 | `mod_hammer_shockwave` |
+| `mod:mine:chain` | 연결 폭발 | `mod_mine_chain` |
+| `mod:mine:frosttrap` | 서리 함정 | `mod_mine_frosttrap` |
+| `mod:mine:lure` | 유인 룬 | `mod_mine_lure` |
+| `mod:orb:conduct` | 전도 표식 | `mod_orb_conduct` |
+| `mod:orb:fork` | 분기 번개 | `mod_orb_fork` |
+| `mod:orb:loop` | 순환 전류 | `mod_orb_loop` |
+| `mod:spear:brand` | 꿰뚫는 표식 | `mod_spear_brand` |
+| `mod:spear:returning` | 귀환 검기 | `mod_spear_returning` |
+| `mod:spear:split` | 분열 창날 | `mod_spear_split` |
+| `mod:sword:crescent` | 날아가는 검광 | `mod_sword_crescent` |
+| `mod:sword:cross` | 교차 검격 | `mod_sword_cross` |
+| `mod:sword:scar` | 잔류 검흔 | `mod_sword_scar` |
 
-| ID | 이름 |
-| --- | --- |
-| `mod:blades:dual` | 세 번째 칼날 |
-| `mod:blades:launch` | 사출 칼날 |
-| `mod:blades:serrated` | 톱날 |
-| `mod:bow:pierce` | 관통 화살 |
-| `mod:bow:ricochet` | 도탄 화살 |
-| `mod:bow:spread` | 갈래 사격 |
-| `mod:daggers:bleed` | 출혈 칼날 |
-| `mod:daggers:flank` | 측면 연무 |
-| `mod:daggers:pursuit` | 추격 칼날 |
-| `mod:ember:reignite` | 재점화 |
-| `mod:ember:scatter` | 불씨 산개 |
-| `mod:ember:trail` | 화염 띠 |
-| `mod:frost:ground` | 차가운 바닥 |
-| `mod:hammer:aftershock` | 여진 |
-| `mod:hammer:pull` | 끌어당기는 망치 |
-| `mod:hammer:shockwave` | 전방 충격파 |
-| `mod:mine:chain` | 연결 폭발 |
-| `mod:mine:frosttrap` | 서리 함정 |
-| `mod:mine:lure` | 유인 룬 |
-| `mod:orb:conduct` | 전도 표식 |
-| `mod:orb:fork` | 분기 번개 |
-| `mod:orb:loop` | 순환 전류 |
-| `mod:spear:brand` | 꿰뚫는 표식 |
-| `mod:sword:crescent` | 날아가는 검광 |
+## 적용 · skill (6)
 
-## 누락 · passive (8)
+| ID | 이름 | 그림 파일 |
+| --- | --- | --- |
+| `skill:e:bladestorm` | 칼날 폭풍 | `skill_bladestorm` |
+| `skill:e:gravity` | 중력핵 | `skill_gravity` |
+| `skill:e:gust` | 돌풍 | `skill_gust` |
+| `skill:e:strike` | 낙뢰 | `skill_strike` |
+| `skill:e:ward` | 수호 결계 | `skill_ward` |
+| `skill:slowfield` | 감속장 | `skill_slowfield` |
 
-| ID | 이름 |
-| --- | --- |
-| `passive:exploit` | 빈틈 포착 |
-| `passive:focus` | 집중 |
-| `passive:haste` | 가속 |
-| `passive:mastery` | 무기 숙련 |
-| `passive:mobility` | 기동력 |
-| `passive:persistence` | 지속력 |
-| `passive:toughness` | 강인함 |
-| `passive:vitality` | 건강 |
+## 적용 · skill_variant (13)
 
-## 누락 · reward (6)
+| ID | 이름 | 그림 파일 |
+| --- | --- | --- |
+| `skill:e:bladestorm:advancing` | 칼날 폭풍 · 전진하는 폭풍 | `skill_bladestorm_advancing` |
+| `skill:e:bladestorm:condensed` | 칼날 폭풍 · 응축된 폭풍 | `skill_bladestorm_condensed` |
+| `skill:e:gravity:collapse` | 중력핵 · 붕괴 | `skill_gravity_collapse` |
+| `skill:e:gravity:orbit` | 중력핵 · 궤도 포획 | `skill_gravity_orbit` |
+| `skill:e:gust:whirl` | 돌풍 · 회오리 | `skill_gust_whirl` |
+| `skill:e:gust:windpath` | 돌풍 · 바람길 | `skill_gust_windpath` |
+| `skill:e:slowfield:echo` | 감속장 · 시간의 잔향 | `skill_slowfield_echo` |
+| `skill:e:slowfield:follow` | 감속장 · 동행하는 시간 | `skill_slowfield_follow` |
+| `skill:e:slowfield:split` | 감속장 · 분할된 시간 | `skill_slowfield_split` |
+| `skill:e:strike:chain` | 낙뢰 · 연쇄 낙뢰 | `skill_strike_chain` |
+| `skill:e:strike:storm` | 낙뢰 · 뇌우 지대 | `skill_strike_storm` |
+| `skill:e:ward:fortress` | 수호 결계 · 이동 요새 | `skill_ward_fortress` |
+| `skill:e:ward:pulse` | 수호 결계 · 공격 결계 | `skill_ward_pulse` |
 
-| ID | 이름 |
-| --- | --- |
-| `reward:clone` | 시간의 복제 |
-| `reward:resonance` | 무기 공명 |
-| `reward:seed` | 연쇄의 씨앗 |
-| `reward:tempo` | 시간의 박자 |
-| `reward:vigor` | 불굴의 심장 |
-| `reward:volley` | 일제 공격 |
+## 적용 · action (1)
 
-## 누락 · skill (4)
+| ID | 이름 | 그림 파일 |
+| --- | --- | --- |
+| `action:dodge` | 회피 | `action_dodge` |
 
-| ID | 이름 |
-| --- | --- |
-| `skill:e:bladestorm` | 칼날 폭풍 |
-| `skill:e:gravity` | 중력핵 |
-| `skill:e:gust` | 돌풍 |
-| `skill:e:strike` | 낙뢰 |
+## 적용 · common (9)
 
-## 누락 · skill_variant (13)
+| ID | 이름 | 그림 파일 |
+| --- | --- | --- |
+| `common:burn` | 불붙은 공격 | `common_burn` |
+| `common:echo` | 메아리 | `common_echo` |
+| `common:ember` | 잔불 걸음 | `common_ember` |
+| `common:flare` | 불꽃 파열 | `common_flare` |
+| `common:frost` | 얼음 파편 | `common_frost` |
+| `common:reach` | 긴 사거리 | `common_reach` |
+| `common:saving` | 시간 저축 | `common_saving` |
+| `common:stasis` | 정지된 칼날 | `common_stasis` |
+| `common:wide` | 넓어진 공격 | `common_wide` |
 
-| ID | 이름 |
-| --- | --- |
-| `skill:e:bladestorm:advancing` | 칼날 폭풍 · 전진하는 폭풍 |
-| `skill:e:bladestorm:condensed` | 칼날 폭풍 · 응축된 폭풍 |
-| `skill:e:gravity:collapse` | 중력핵 · 붕괴 |
-| `skill:e:gravity:orbit` | 중력핵 · 궤도 포획 |
-| `skill:e:gust:whirl` | 돌풍 · 회오리 |
-| `skill:e:gust:windpath` | 돌풍 · 바람길 |
-| `skill:e:slowfield:echo` | 감속장 · 시간의 잔향 |
-| `skill:e:slowfield:follow` | 감속장 · 동행하는 시간 |
-| `skill:e:slowfield:split` | 감속장 · 분할된 시간 |
-| `skill:e:strike:chain` | 낙뢰 · 연쇄 낙뢰 |
-| `skill:e:strike:storm` | 낙뢰 · 뇌우 지대 |
-| `skill:e:ward:fortress` | 수호 결계 · 이동 요새 |
-| `skill:e:ward:pulse` | 수호 결계 · 공격 결계 |
+## 적용 · passive (8)
+
+| ID | 이름 | 그림 파일 |
+| --- | --- | --- |
+| `passive:exploit` | 빈틈 포착 | `passive_exploit` |
+| `passive:focus` | 집중 | `passive_focus` |
+| `passive:haste` | 가속 | `passive_haste` |
+| `passive:mastery` | 무기 숙련 | `passive_mastery` |
+| `passive:mobility` | 기동력 | `passive_mobility` |
+| `passive:persistence` | 지속력 | `passive_persistence` |
+| `passive:toughness` | 강인함 | `passive_toughness` |
+| `passive:vitality` | 건강 | `passive_vitality` |
+
+## 적용 · equip (18)
+
+| ID | 이름 | 그림 파일 |
+| --- | --- | --- |
+| `equip:bloodmoon_sword` | 혈월검 | `equip_bloodmoon_sword` |
+| `equip:caster_shield` | 시전자의 방패 | `equip_caster_shield` |
+| `equip:chrono_staff` | 시간술사의 지팡이 | `equip_chrono_staff` |
+| `equip:echo_staff` | 잔향의 지팡이 | `equip_echo_staff` |
+| `equip:ember_sword` | 잔불검 | `equip_ember_sword` |
+| `equip:emergency_shield` | 비상 방패 | `equip_emergency_shield` |
+| `equip:expedition_armor` | 원정대의 갑옷 | `equip_expedition_armor` |
+| `equip:guardian_armor` | 수호자의 갑옷 | `equip_guardian_armor` |
+| `equip:hunter_sword` | 사냥꾼의 검 | `equip_hunter_sword` |
+| `equip:iron_shield` | 철벽 방패 | `equip_iron_shield` |
+| `equip:moon_armor` | 월광 갑옷 | `equip_moon_armor` |
+| `equip:pioneer_spear` | 개척자의 창 | `equip_pioneer_spear` |
+| `equip:relay_shield` | 연계 방패 | `equip_relay_shield` |
+| `equip:renewal_coat` | 재생의 여행복 | `equip_renewal_coat` |
+| `equip:reprisal_shield` | 반격 방패 | `equip_reprisal_shield` |
+| `equip:time_shield` | 시간의 방패 | `equip_time_shield` |
+| `equip:traveler_armor` | 여행자의 경갑 | `equip_traveler_armor` |
+| `equip:vitality_coat` | 생명력의 외투 | `equip_vitality_coat` |
+
+## 적용 · reward (6)
+
+| ID | 이름 | 그림 파일 |
+| --- | --- | --- |
+| `reward:clone` | 시간의 복제 | `reward_clone` |
+| `reward:resonance` | 무기 공명 | `reward_resonance` |
+| `reward:seed` | 연쇄의 씨앗 | `reward_seed` |
+| `reward:tempo` | 시간의 박자 | `reward_tempo` |
+| `reward:vigor` | 불굴의 심장 | `reward_vigor` |
+| `reward:volley` | 일제 공격 | `reward_volley` |
 

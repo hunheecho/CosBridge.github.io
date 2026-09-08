@@ -54,6 +54,11 @@ PROPHECY_SIM_SEEDS=11,18 godot --headless --path prophecy_godot -s tools/boss_si
 PROPHECY_SIM_SEEDS=100,101 godot --headless --path prophecy_godot -s tools/start_compare.gd  # 시작 기술 비교 → docs/sim/START_COMPARE.md
 PROPHECY_UI_SMOKE=<폴더> [PROPHECY_UI_FULL=1 PROPHECY_UI_SPEED=5] godot --path prophecy_godot  # 실제 창에서 새 회차→…→관문(→최종 보스→회차 결과→새 회차) 자동 진행, PNG 저장
 PROPHECY_CAPTURE=<폴더> godot --path prophecy_godot                   # 기준 전투 봇 캡처 7장
+godot --headless --path prophecy_godot -s tools/gravity_probe.gd      # 중력핵(E) 효용 측정: 사용·회당 피해·적중·끌어모은 적·체류 시간 → docs/sim/GRAVITY_PROBE.md
+                                                                      #   부분 실행(PSubset): PROPHECY_QUICK=1 · PROPHECY_ONLY="scene:forest;level:2" · PROPHECY_SKIP · PROPHECY_LIMIT → *_PARTIAL.md
+godot --headless --path prophecy_godot -s tools/icon_gen.gd           # 아이콘 생성: assets/icons/manifest_source.json → svg·png128·png64·data/icons.json (외부 내려받기 없음)
+PROPHECY_CLIP=<이름> PROPHECY_CLIP_SEC=<초> godot --path prophecy_godot --write-movie <파일>.avi --fixed-fps 24
+                                                                      # 실제 속도 영상 클립 1개(연속 프레임이 아니라 재생되는 파일) → docs/captures/0.8.0_clips/README.md
 PROPHECY_MOVIE=1|single godot --path prophecy_godot --write-movie out.png --fixed-fps 30   # 기준 전투 영상 프레임
 godot --headless --path prophecy_godot --export-release "Windows Desktop" <출력 exe>       # Windows 빌드(공식 4.7.2 템플릿 필요)
 ```
