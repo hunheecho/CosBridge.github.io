@@ -41,10 +41,12 @@ func refresh() -> void:
 		return
 	var cont_txt := "계속하기"
 	if not saved.is_empty():
-		cont_txt = "계속하기  (%d일차 · Lv %d · 금화 %d · 저장 %s)" % [int(saved.get("day", 1)), int(saved.growth.level), int(saved.get("gold", 0)), "v%d" % int(saved.get("version", 0))]
+		# 지시 2: 버전이 같아도 회차 설정이 같지 않다. 저장된 회차의 실제 일정을 버튼에 적는다
+		cont_txt = "계속하기  (%s · %d일차 · Lv %d · 금화 %d)" % [PRun.schedule_short_of_save(saved), int(saved.get("day", 1)), int(saved.growth.level), int(saved.get("gold", 0))]
 	var cont := PUi.button(cont_txt, func(): main.continue_run(), not saved.is_empty(), 18)
 	_menu.add_child(cont)
-	var newb := PUi.button("새 회차", _on_new, true, 18)
+	var new_days := int((PCatalog.run_modes()[PCatalog.run_mode_default()] as Dictionary).get("days", 10))
+	var newb := PUi.button("새 회차  (본편 · %d일)" % new_days, _on_new, true, 18)
 	_menu.add_child(newb)
 	default_button = cont if not saved.is_empty() else newb
 	var p: Dictionary = main.profile

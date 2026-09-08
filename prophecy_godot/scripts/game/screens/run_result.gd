@@ -12,6 +12,7 @@ func refresh() -> void:
 	var cleared: bool = String(r.phase) == "cleared"
 	var main_cleared: bool = cleared or bool(r.get("mainCleared", false))
 	heading(("회차 완주." if stages > 1 else "예언의 날을 넘겼다.") if main_cleared else "회차 결과")
+	top.add_child(PUi.rich("[color=#6a7078]%s[/color]" % PGlossaryTip.esc(PRun.settings_record(r)), 11)) # 지시 2: 결과·검증 기록에 실제 일정·밀도·상한·밸런스·시드
 	top.add_child(PUi.rich("[color=#9ea8b8]%s · %d일차 · 출격 %d회 · 전투 %d(승 %d · 패 %d)[/color]" % [PGlossaryTip.esc(PUi.settings_short(r)), int(r.day), int(r.get("sortieCount", 0)), int(r.stats.encounters), int(r.stats.wins), int(r.stats.losses)], 12))
 	var c := PUi.card("회차 결과")
 	var box: VBoxContainer = c.box

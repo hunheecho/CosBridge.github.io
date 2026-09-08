@@ -7,12 +7,32 @@ extends RefCounted
 
 static func D() -> Dictionary: return PCatalog.pacing()
 
+## 원인 분리 비교 스위치(지시 17 ⑥): full(기본) / off / counts / hp. 환경 변수 PROPHECY_PACING이 우선.
+## 금화·반복 탐험·사건·제단 이름은 이 스위치와 무관하게 항상 적용된다(비교 축이 아니다).
+static func variant() -> String:
+	var v := OS.get_environment("PROPHECY_PACING")
+	if v != "":
+		return v
+	return String(D().get("variant", {}).get("default", "full"))
+
+## 적 수·동시 상한·혼합 편성을 적용하는가
+static func counts_on() -> bool:
+	var v := variant()
+	return v == "full" or v == "counts"
+
+## 역할별 체력표·보스 체력 오버레이를 적용하는가
+static func hp_on() -> bool:
+	var v := variant()
+	return v == "full" or v == "hp"
+
 # ---------- 날짜별 총 등장 수(사용자 결정 25 → 75) ----------
 static func day_total_cfg() -> Dictionary: return D().get("day_total", {})
 
 ## 그 날짜·장소 비용의 일반 전투 총 등장 수. 표가 없으면 0(호출자가 템플릿 값을 그대로 쓴다)
 static func day_total(day: int, place_cost: int) -> int:
 	var C := day_total_cfg()
+	if not counts_on():
+		return 0
 	var arr: Array = C.get("by_day", [])
 	if arr.is_empty():
 		return 0
@@ -30,6 +50,8 @@ static func alive_cap_set_default() -> String:
 
 ## 막의 동시 상한. 세트에 값이 없으면 fallback(템플릿 값)을 그대로 쓴다(대조군 legacy)
 static func alive_cap(act: int, fallback: int, set_id: String = "") -> int:
+	if not counts_on():
+		return fallback
 	var C := alive_cap_cfg()
 	var sid := set_id if set_id != "" else alive_cap_set_default()
 	var sets: Dictionary = C.get("sets", {})
@@ -43,7 +65,7 @@ static func alive_cap(act: int, fallback: int, set_id: String = "") -> int:
 static func spawn_cfg() -> Dictionary: return D().get("spawn", {})
 
 static func squad_mixing() -> bool:
-	return bool(spawn_cfg().get("squad_mixing", false))
+	return counts_on() and bool(spawn_cfg().get("squad_mixing", false))
 
 ## 지원·통제 역할인가(혼합 분대 정렬·호위 판정용). 체력표의 roles를 그대로 쓴다
 static func is_support(type: String) -> bool:
@@ -57,7 +79,7 @@ static func support_share_per_group() -> float:
 	return float(spawn_cfg().get("support_share_per_group", 1.0))
 
 static func tail_group_mult() -> float:
-	return float(spawn_cfg().get("tail_group_mult", 1.0))
+	return float(spawn_cfg().get("tail_group_mult", 1.0)) if counts_on() else 1.0
 
 # ---------- 장판 상한(죽은 적이 남긴 위험 표시) ----------
 static func zone_cfg() -> Dictionary: return D().get("zone_cap", {})
@@ -102,7 +124,7 @@ static func elite_hp(type: String, act: int) -> float:
 ## spawn_enemy가 쓰는 최종 체력 배율. 절대표가 있으면 기본 체력 대비 배율로 바꿔 돌려준다(코드 경로는 그대로).
 ## act는 정예용(등급 대신 막으로 오른다). 표가 없으면 세계 변화 등급 배율(fallback)을 그대로 쓴다.
 static func hp_mult_for(type: String, tier: String, base_hp: float, act: int, fallback: float) -> float:
-	if base_hp <= 0.0:
+	if base_hp <= 0.0 or not hp_on():
 		return fallback
 	var el := elite_hp(type, act)
 	if el > 0.0:
@@ -115,6 +137,8 @@ static func hp_mult_for(type: String, tier: String, base_hp: float, act: int, fa
 # ---------- 보스 체력 ----------
 ## 보스 체력 오버레이. 없으면 -1(enemies.json·bosses_new.json의 기존 세트를 쓴다)
 static func boss_hp(set_id: String, boss_id: String, hp_key: String) -> float:
+	if not hp_on():
+		return -1.0
 	var S: Dictionary = D().get("boss_hp", {}).get("sets", {})
 	var sid := set_id if S.has(set_id) else "base"
 	var one: Dictionary = S.get(sid, {})
@@ -130,6 +154,17 @@ static func display_cfg() -> Dictionary: return D().get("display", {})
 
 static func enemy_name(type: String, fallback: String) -> String:
 	return String(display_cfg().get("enemy_names", {}).get(type, fallback))
+
+## 이용권 등 서비스 표시 이름·설명 오버레이(용어 통일: 개조 변경권)
+static func service_name(id: String, fallback: String) -> String:
+	return String(display_cfg().get("service_names", {}).get(id, fallback))
+
+static func service_desc(id: String, fallback: String) -> String:
+	return String(display_cfg().get("service_desc", {}).get(id, fallback))
+
+## 용어 사전 항목 덮어쓰기(키 → 바꿀 필드만)
+static func glossary_override(id: String) -> Dictionary:
+	return display_cfg().get("glossary", {}).get(id, {})
 
 ## 제단 같은 구조물의 짧은 효과 한 줄(없으면 "")
 static func enemy_short(type: String) -> String:

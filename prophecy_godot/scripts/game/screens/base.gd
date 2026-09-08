@@ -315,7 +315,7 @@ func _services_card(r: Dictionary, into: VBoxContainer) -> void:
 			parts.append("[b]%s[/b] ×%d" % [String(S[String(k)].name), int(r.services[k])])
 	if parts.is_empty():
 		return
-	into.add_child(PUi.rich("[b]보유 이용권[/b]  %s [color=#9ea8b8](개조 교체권·할인권은 상점·대장간에서 사용)[/color]" % " · ".join(parts), 12))
+	into.add_child(PUi.rich("[b]보유 이용권[/b]  %s [color=#9ea8b8](개조 변경권·할인권은 상점·대장간에서 사용)[/color]" % " · ".join(parts), 12))
 
 ## 다가오는 보스 카드(HTML bossCard). full=true면 설명·정보 줄 전부
 func _boss_card(r: Dictionary, full: bool) -> Control:

@@ -331,6 +331,7 @@ static func fire_bolt(st: CombatState, w: Dictionary, target: Dictionary, _echoe
 	var angles: Array = [ang - 0.44, ang, ang + 0.44] if has_fan else [ang]
 	if has_fan:
 		st.note_mod("fan", "proc") # 부채: 가운데는 기본 발사, 양옆 2발이 개조의 기여분
+		st.fx({ "kind": "fan_origin", "x": p.x, "y": p.y, "angle": ang, "ttl": 0.18, "mod": "fan" }) # 세 방향 발사 표시(표시 전용, 판정 없음)
 	for a in angles:
 		var side: bool = has_fan and absf(a - ang) > 1e-6
 		proj(st, w, { "kind": "bolt", "x": p.x, "y": p.y, "vx": cos(a) * float(s.speed), "vy": sin(a) * float(s.speed), "r": 5.0, "ttl": float(s.range) / float(s.speed), "chill": float(s.chill), "angle": a, "mod": ("fan" if side else ""), "shatter": (s.mods as Array).has("shatter"), "ground": (s.mods as Array).has("ground") })

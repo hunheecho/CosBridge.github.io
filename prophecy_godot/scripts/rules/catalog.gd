@@ -116,7 +116,18 @@ static func density_set(name: String) -> Dictionary:
 static func missions() -> Dictionary: return _load("missions")
 static func objectives() -> Dictionary: return _load("missions").objectives
 static func structures() -> Dictionary: return _load("missions").structures
-static func services() -> Dictionary: return _load("missions").services
+static func services() -> Dictionary:
+	if _cache.has("services_merged"):
+		return _cache["services_merged"]
+	var src: Dictionary = _load("missions").services
+	var out := {}
+	for k in src: # 표시 이름·설명 오버레이(용어 통일: 개조 변경권). 내보내기 산출물은 그대로 둔다
+		var v: Dictionary = (src[k] as Dictionary).duplicate()
+		v.name = PPacing.service_name(String(k), String(v.get("name", k)))
+		v.desc = PPacing.service_desc(String(k), String(v.get("desc", "")))
+		out[k] = v
+	_cache["services_merged"] = out
+	return out
 static func mission_rules() -> Dictionary: return _load("missions").missions
 static func events() -> Dictionary: return _load("missions").events
 static func event_ids() -> Array: return _load("missions").event_ids
@@ -134,6 +145,13 @@ static func glossary() -> Dictionary:
 	for k in meta().get("glossary", {}):
 		if not out.has(k):
 			out[k] = meta().glossary[k]
+	for k in out: # 용어 오버레이(개조 변경권 통일)
+		var ov := PPacing.glossary_override(String(k))
+		if not ov.is_empty():
+			var e: Dictionary = (out[k] as Dictionary).duplicate()
+			for f in ov:
+				e[f] = ov[f]
+			out[k] = e
 	_cache["glossary_merged"] = out
 	return out
 static func first_fight() -> Dictionary: return _load("first_fight")

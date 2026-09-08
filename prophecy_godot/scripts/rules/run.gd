@@ -790,7 +790,7 @@ static func deep_preview(run: Dictionary, sortie: Dictionary) -> Dictionary:
 			var item := String(pool[rng.int_range(0, pool.size() - 1)])
 			reward = { "kind": kind, "text": "장비 1개: %s" % String(PCatalog.equipment()[item].name), "item": item }
 		"voucher":
-			reward = { "kind": kind, "text": "개조 교체권 1장", "service": "mod_swap" }
+			reward = { "kind": kind, "text": "개조 변경권 1장 (대장간에서 개조 1개를 다른 효과로 변경)", "service": "mod_swap" }
 		_:
 			reward = { "kind": kind, "text": "다음 레벨업 예약: 자동기술 개조", "steer": "weapon_mod" }
 	var out := { "extraTime": int(C().DEEP_EXPLORE_HOURS), "nextSlot": next_slot_name(run, int(C().DEEP_EXPLORE_HOURS)), "enemyChange": "웨이브마다 적 +1, 마지막에 정예(가시갈기)",

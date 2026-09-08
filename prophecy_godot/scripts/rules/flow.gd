@@ -251,6 +251,10 @@ static func _mod_candidates(run: Dictionary, weapon_id: String, mod_id: String) 
 	return out
 
 ## 거점 서비스: 개조 교체 — 개조 1개를 떼고 그 무기의 다른 개조 3택. 후보가 없으면 되돌리고 권 유지({})
+## 그 개조를 바꿀 수 있는 후보가 있는가(화면이 버튼을 끌 때 쓰는 공개 판정 — 상태를 바꾸지 않는다)
+static func mod_change_available(run: Dictionary, weapon_id: String, mod_id: String) -> bool:
+	return not _mod_candidates(run, weapon_id, mod_id).is_empty()
+
 static func mod_swap_offer(run: Dictionary, weapon_id: String, mod_id: String) -> Dictionary:
 	var g: Dictionary = run.growth
 	var w := PGrowth.weapon_of(g, weapon_id)
@@ -273,7 +277,7 @@ static func mod_swap_offer(run: Dictionary, weapon_id: String, mod_id: String) -
 		return {}
 	return off
 
-## 대장간: 개조 변경(140금 또는 교체권). 후보가 없으면 아무것도 차감하지 않는다({}). 3택 '받지 않음'은 cancel_paid_change로 원복·환불
+## 대장간: 개조 변경(140금 또는 개조 변경권). 후보가 없으면 아무것도 차감하지 않는다({}). 3택 '받지 않음'은 cancel_paid_change로 원복·환불
 static func mod_change(run: Dictionary, weapon_id: String, mod_id: String) -> Dictionary:
 	var g: Dictionary = run.growth
 	var w := PGrowth.weapon_of(g, weapon_id)
@@ -331,7 +335,7 @@ static func variant_change(run: Dictionary) -> Dictionary:
 	g.picks.variantChange = int(g.picks.get("variantChange", 0)) + 1
 	return off
 
-## 유료 변경 3택을 받지 않음: 원래 개조/변형 복구 + 비용 환불(교체권 포함)
+## 유료 변경 3택을 받지 않음: 원래 개조/변형 복구 + 비용 환불(개조 변경권 포함)
 static func cancel_paid_change(run: Dictionary, offer: Dictionary) -> bool:
 	var pc = offer.get("paidChange", null)
 	if pc == null:
@@ -484,10 +488,10 @@ static func actions(run: Dictionary) -> Array:
 	for w in g.weapons:
 		for m in w.mods:
 			var ok: bool = no_offer and (bool(mc.voucher) or int(run.gold) >= int(mc.gold)) and not _mod_candidates(run, String(w.id), String(m)).is_empty()
-			out.append(_act("mod_change:%s:%s" % [String(w.id), String(m)], "mod_change", "%s 개조 변경: %s (%s)" % [String(PCatalog.weapons()[String(w.id)].name), String(PCatalog.weapons()[String(w.id)].mods[String(m)].name), "교체권" if bool(mc.voucher) else str(int(mc.gold))], ok, "" if ok else "후보 없음/금화 부족/제시 중", { "weapon_id": String(w.id), "mod_id": String(m), "cost": mc }))
+			out.append(_act("mod_change:%s:%s" % [String(w.id), String(m)], "mod_change", "%s 개조 변경: %s (%s)" % [String(PCatalog.weapons()[String(w.id)].name), String(PCatalog.weapons()[String(w.id)].mods[String(m)].name), "변경권 사용" if bool(mc.voucher) else str(int(mc.gold))], ok, "" if ok else "후보 없음/금화 부족/제시 중", { "weapon_id": String(w.id), "mod_id": String(m), "cost": mc }))
 	var e = g.skills.get("e", null)
 	if e != null and e.get("variant", null) != null:
 		var vc := PRun.variant_change_cost(run)
 		var ok: bool = no_offer and (bool(vc.voucher) or int(run.gold) >= int(vc.gold))
-		out.append(_act("variant_change", "variant_change", "E 변형 변경 (%s)" % ("교체권" if bool(vc.voucher) else str(int(vc.gold))), ok, "" if ok else "금화 부족/제시 중", { "cost": vc }))
+		out.append(_act("variant_change", "variant_change", "E 변형 변경 (%s)" % ("변경권 사용" if bool(vc.voucher) else "%dG로 변경" % int(vc.gold)), ok, "" if ok else "금화 부족/제시 중", { "cost": vc }))
 	return out
