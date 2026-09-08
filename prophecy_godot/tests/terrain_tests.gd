@@ -14,15 +14,22 @@ extends SceneTree
 ## 10. KD-3: 테마 경기장 14곳의 playerStart가 실제로 쓰이고, 시작 위치가 장애물 안인 곳이 없다
 ## 11. 파괴되는 지형(보스 엄폐물 파괴)·정예 돌무더기를 놓을 여지
 ##
-## 부분 실행: PROPHECY_SUBSET=2 처럼 축을 줄이면 시드·전장을 잘라 빠르게 확인한다(PSubset).
+## 부분 실행(`tools/subset.gd`, PSubset). 축 이름은 **arena**와 **seed**다. 큰 측정 전에 작게 먼저 확인한다.
+##   PROPHECY_QUICK=1                          전장 1곳 × 시드 1개
+##   PROPHECY_ONLY="arena:clearing;seed:1,3"   PROPHECY_SKIP="arena:forest"
+## 조합 상한(PROPHECY_LIMIT)은 검사 스위트에서 쓰지 않는다 — 검사가 중간에 잘리면 통과 판정이 흐려진다.
+## 첫 줄에 실행 범위가 남는다(부분 실행이면 그 사실이 그대로 적힌다).
 ## 여기 나오는 상한·하한은 전부 **시험값**이며 사람이 승인한 균형값이 아니다.
 
 const W := 960.0
 const H := 600.0
 const STEP := 1.0 / 60.0
+const SEEDS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
 var results := []
 var sub: PSubset
+var seeds: Array = []
+var arenas: Array = []
 
 func ok(name: String, cond: bool, extra: String = "") -> void:
 	results.append([cond, name, extra])
@@ -66,19 +73,18 @@ func goal_points(st: CombatState) -> Array:
 	return pts
 
 func _init() -> void:
-	sub = PSubset.new({
-		"seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-		"arenas": (PCatalog.theme_arenas().keys() as Array) + ["clearing", "pillars", "forest"],
-	})
-	print(sub.describe("랜덤 지형 검사"))
+	sub = PSubset.new()
+	arenas = sub.pick("arena", (PCatalog.theme_arenas().keys() as Array) + ["clearing", "pillars", "forest"])
+	seeds = sub.pick("seed", SEEDS)
+	print("랜덤 지형 검사 — %s 전장 %d곳 × 시드 %d개." % [sub.describe(not sub.partial()), arenas.size(), seeds.size()])
 	print("상한·하한(시험값): " + PTerrain.limits_text())
 
 	# ---------- 1. 여러 시드 × 여러 전장으로 뽑아 조건을 전부 검사 ----------
 	var lays := []          # [arena, seed, layout]
 	var t0 := Time.get_ticks_msec()
-	for aid in sub.axis("arenas"):
+	for aid in arenas:
 		var st_p := start_of(String(aid))
-		for sd in sub.axis("seeds"):
+		for sd in seeds:
 			lays.append([String(aid), int(sd), PTerrain.generate(String(aid), W, H, base_obstacles(String(aid)), st_p, int(sd))])
 	var gen_ms := Time.get_ticks_msec() - t0
 
@@ -129,7 +135,7 @@ func _init() -> void:
 			bad_reach.append(tag)
 
 	var n := lays.size()
-	ok("추첨 %d개(전장 %d × 시드 %d)가 전부 안전 기본 배치로 떨어지지 않았다" % [n, sub.count("arenas"), sub.count("seeds")],
+	ok("추첨 %d개(전장 %d × 시드 %d)가 전부 안전 기본 배치로 떨어지지 않았다" % [n, arenas.size(), seeds.size()],
 		fallbacks.is_empty(), "기본 배치로 떨어진 것: %d개 %s · 생성 %d ms(%.0f ms/개)" % [fallbacks.size(), str(fallbacks.slice(0, 5)), gen_ms, float(gen_ms) / maxf(1.0, float(n))])
 	ok("개수·면적이 상한/하한 안이다", bad_bounds.is_empty(),
 		"개수 %d~%d(허용 %d~%d) · 면적 %.2f~%.2f%%(허용 %.1f~%.1f%%) · 벗어남 %s" % [cnt_lo, cnt_hi, int(PTerrain.LIMITS.count_min), int(PTerrain.LIMITS.count_max),
@@ -148,16 +154,16 @@ func _init() -> void:
 	# ---------- 2. 재현성·다양성·저장 복원 ----------
 	var same := true
 	var diff_layouts := {}
-	var a0 := String(sub.axis("arenas")[0])
-	for sd in sub.axis("seeds"):
+	var a0 := String(arenas[0])
+	for sd in seeds:
 		var l1 := PTerrain.generate(a0, W, H, base_obstacles(a0), start_of(a0), int(sd))
 		var l2 := PTerrain.generate(a0, W, H, base_obstacles(a0), start_of(a0), int(sd))
 		if JSON.stringify(l1.obstacles) != JSON.stringify(l2.obstacles):
 			same = false
 		diff_layouts[JSON.stringify(l1.obstacles)] = true
-	ok("같은 시드는 같은 배치를 만든다", same, "전장 %s · 시드 %d개" % [a0, sub.count("seeds")])
-	ok("시드가 다르면 배치도 달라진다(다양성)", diff_layouts.size() >= mini(3, sub.count("seeds")),
-		"서로 다른 배치 %d개 / 시드 %d개" % [diff_layouts.size(), sub.count("seeds")])
+	ok("같은 시드는 같은 배치를 만든다", same, "전장 %s · 시드 %d개" % [a0, seeds.size()])
+	ok("시드가 다르면 배치도 달라진다(다양성)", diff_layouts.size() >= mini(3, seeds.size()),
+		"서로 다른 배치 %d개 / 시드 %d개" % [diff_layouts.size(), seeds.size()])
 
 	var sA := mk(a0, 4321)
 	var sB := mk(a0, 4321)
@@ -228,9 +234,9 @@ func _init() -> void:
 	var unreachable := []
 	var invalid := []
 	var goal_n := 0
-	for aid in sub.axis("arenas"):
+	for aid in arenas:
 		for objective in ["seal", "altars", "rescue"]:
-			var so := mk_obj(String(aid), int(sub.axis("seeds")[0]) + 100, String(objective))
+			var so := mk_obj(String(aid), int(seeds[0]) + 100, String(objective))
 			var pts := goal_points(so)
 			goal_n += pts.size()
 			var rs := PTerrain.reachable_all(so.arena_w, so.arena_h, so.obstacles, { "x": so.player.x, "y": so.player.y }, pts, 14.0, 46.0)
@@ -245,8 +251,8 @@ func _init() -> void:
 	# ---------- 7. 적 접근 경로(실제 조향·이동 규칙으로) ----------
 	var stuck := []
 	var worst := 0.0
-	for aid in sub.axis("arenas"):
-		var sc2 := mk(String(aid), int(sub.axis("seeds")[0]) + 200)
+	for aid in arenas:
+		var sc2 := mk(String(aid), int(seeds[0]) + 200)
 		sc2.spawn_hold = true
 		for q in PTerrain.entry_points():
 			var e := sc2.spawn_enemy("wolf", float(q[0]), float(q[1]))
@@ -263,8 +269,8 @@ func _init() -> void:
 
 	# ---------- 8. 파괴되는 지형(보스 '엄폐물 파괴')과 돌무더기 ----------
 	var broke_bad := []
-	for aid in sub.axis("arenas"):
-		var lay := PTerrain.generate(String(aid), W, H, base_obstacles(String(aid)), start_of(String(aid)), int(sub.axis("seeds")[0]) + 300)
+	for aid in arenas:
+		var lay := PTerrain.generate(String(aid), W, H, base_obstacles(String(aid)), start_of(String(aid)), int(seeds[0]) + 300)
 		var obs: Array = lay.obstacles
 		for k in obs.size():
 			var rest := obs.duplicate(true)
@@ -276,21 +282,25 @@ func _init() -> void:
 
 	var rubble_ok := true
 	var rubble_note := ""
-	for aid in sub.axis("arenas"):
-		var sr := mk(String(aid), int(sub.axis("seeds")[0]) + 400)
+	for aid in arenas:
+		var sr := mk(String(aid), int(seeds[0]) + 400)
 		var spot := sr.nearest_valid_pos(sr.arena_w / 2.0, sr.arena_h / 2.0, 22.0, 200.0)
 		if spot.is_empty():
 			rubble_ok = false
 			rubble_note += String(aid) + " "
 	ok("돌무더기(반지름 18)를 놓을 자리를 전장마다 찾을 수 있다", rubble_ok, rubble_note)
 
-	# ---------- 9. 부분 실행 도우미 ----------
-	var s2 := PSubset.new({ "seeds": [1, 2, 3], "arenas": ["a", "b"] })
-	ok("PSubset: 환경 변수가 없으면 전체 실행이고 보고서 경로를 바꾸지 않는다",
-		(not s2.partial) == (OS.get_environment("PROPHECY_SUBSET") == "" and OS.get_environment("PROPHECY_SEEDS") == "" and OS.get_environment("PROPHECY_ARENAS") == ""),
-		s2.describe("자체 확인"))
-	ok("PSubset: 부분 실행이면 보고서를 _PARTIAL로 돌린다", sub.out_path("res://docs/TERRAIN_REPORT.md").ends_with("_PARTIAL.md") == sub.partial,
-		sub.out_path("res://docs/TERRAIN_REPORT.md"))
+	# ---------- 9. 부분 실행 도우미(tools/subset.gd) ----------
+	var s2 := PSubset.new()
+	var picked := s2.pick("arena", ["a", "b", "c"])
+	# 환경 변수가 없으면 축이 줄지 않고, 부분 실행 조건이 하나라도 있으면 줄거나 describe가 그 사실을 적는다
+	ok("PSubset: 부분 실행 조건이 없으면 축이 그대로다", (picked.size() == 3) == (not s2.partial()),
+		"%s → %d개 · %s" % [str(["a", "b", "c"]), picked.size(), s2.describe(not s2.partial())])
+	var full_path := PTerrain.report_path("res://docs/TERRAIN_REPORT.md", false)
+	var part_path := PTerrain.report_path("res://docs/TERRAIN_REPORT.md", true)
+	ok("부분 실행이면 보고서를 _PARTIAL로 돌린다(전체 결과 파일을 덮어쓰지 않는다)",
+		full_path == "res://docs/TERRAIN_REPORT.md" and part_path == "res://docs/TERRAIN_REPORT_PARTIAL.md",
+		"%s / %s" % [full_path, part_path])
 
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])

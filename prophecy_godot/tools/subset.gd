@@ -1,96 +1,87 @@
 class_name PSubset
 extends RefCounted
-## 부분 실행(축 줄이기). 큰 측정을 돌리기 전에 **작게 먼저 확인**하기 위한 공용 도우미다.
-## 측정 도구·검사 스위트가 축(시드·전장 …)을 여기에 등록하면, 환경 변수로 축을 잘라 준다.
-## 하나라도 잘리면 partial = true가 되고, 보고서는 원래 파일 대신 `..._PARTIAL.md`에 쓴다.
-## (부분 결과가 전체 결과 파일을 덮어써서 나중에 전체 측정처럼 읽히는 일을 막는다.)
+## 측정 도구의 **부분 실행**. 큰 비교를 통째로 돌리기 전에 바꾼 시나리오만 작게 확인하고,
+## 필요한 범위만 넓히기 위한 공통 도구다(2026-09-08 사용자 지시).
 ##
-## 환경 변수
-##  PROPHECY_SUBSET=<n>            모든 축을 앞에서 n개만 남긴다(예: 2 → 시드 2개·전장 2곳)
-##  PROPHECY_AXIS_<축이름>=a,b,c    그 축의 값을 직접 지정한다(축 이름 대문자, 예 PROPHECY_AXIS_SEEDS=1,7)
-##  PROPHECY_SEEDS / PROPHECY_ARENAS  자주 쓰는 두 축의 짧은 이름(위와 같은 뜻)
+## 환경 변수(모두 선택):
+##   PROPHECY_QUICK=1                  각 축의 대표값 하나씩만 돌린다(가장 작은 실행)
+##   PROPHECY_ONLY=<축>:<값>[,<값>...] 그 축에서 이 값들만 돌린다. 여러 축은 `;`로 잇는다
+##                                     예) PROPHECY_ONLY="skill:sword,ember;day:9"
+##   PROPHECY_SKIP=<축>:<값>[,...]     그 축에서 이 값들을 뺀다(ONLY보다 나중에 적용)
+##   PROPHECY_LIMIT=<n>                전체 조합 수 상한(초과하면 그만 돈다)
 ##
-## 쓰는 법
-##  var sub := PSubset.new({ "seeds": [1,2,3,4], "arenas": ["clearing","pillars"] })
-##  for s in sub.axis("seeds"): ...
-##  print(sub.describe("랜덤 지형 측정"))
-##  var path := sub.out_path("res://docs/TERRAIN_REPORT.md")
+## 축 이름은 도구마다 다르다. 각 도구의 머리말에 적혀 있다.
+## 부분 실행으로 만든 보고서에는 **어떤 범위로 돌렸는지**가 함께 적힌다 — 전체 실행 결과와 섞지 않기 위해서다.
 
-var full: Dictionary = {}     # 축 이름 → 전체 값 목록
-var used: Dictionary = {}     # 축 이름 → 이번 실행에서 쓸 값 목록
-var partial := false          # 하나라도 줄었는가
-var cuts: Array = []          # 어떻게 줄였는지(보고서 머리에 그대로 적는다)
+var only: Dictionary = {}      # 축 → { 값: true }
+var skip: Dictionary = {}
+var quick: bool = false
+var limit: int = 0
+var used: int = 0
 
-func _init(axes: Dictionary) -> void:
-	full = axes.duplicate(true)
-	var n := int(OS.get_environment("PROPHECY_SUBSET"))
-	for name in axes:
-		var all: Array = axes[name]
-		var vals: Array = all.duplicate()
-		var env := _env_for(String(name))
-		if env != "":
-			vals = _parse(env, all)
-			cuts.append("%s=%s" % [String(name), _join(vals)])
-		elif n > 0 and vals.size() > n:
-			vals = vals.slice(0, n)
-			cuts.append("%s 앞 %d개" % [String(name), n])
-		used[name] = vals
-		if vals.size() != all.size():
-			partial = true
+func _init() -> void:
+	quick = OS.get_environment("PROPHECY_QUICK") != ""
+	limit = int(OS.get_environment("PROPHECY_LIMIT")) if OS.get_environment("PROPHECY_LIMIT") != "" else 0
+	only = _parse(OS.get_environment("PROPHECY_ONLY"))
+	skip = _parse(OS.get_environment("PROPHECY_SKIP"))
 
-## 이번 실행에서 쓸 축 값
-func axis(name: String) -> Array:
-	return used.get(name, [])
-
-func count(name: String) -> int:
-	return (used.get(name, []) as Array).size()
-
-## 보고서 머리에 넣는 한 줄. 전체 실행인지 부분 실행인지와 축 크기를 그대로 적는다
-func describe(title: String) -> String:
-	var parts := []
-	for name in full:
-		parts.append("%s %d/%d" % [String(name), (used[name] as Array).size(), (full[name] as Array).size()])
-	var head := "부분 실행" if partial else "전체 실행"
-	var tail := (" · 자른 방식: " + ", ".join(PackedStringArray(cuts))) if not cuts.is_empty() else ""
-	return "%s — %s (%s)%s" % [title, head, ", ".join(PackedStringArray(parts)), tail]
-
-## 부분 실행이면 파일 이름에 _PARTIAL을 붙여 전체 결과 파일을 덮어쓰지 않는다
-func out_path(base: String) -> String:
-	if not partial:
-		return base
-	var dot := base.rfind(".")
-	if dot < 0:
-		return base + "_PARTIAL"
-	return base.substr(0, dot) + "_PARTIAL" + base.substr(dot)
-
-# ---------- 내부 ----------
-func _env_for(name: String) -> String:
-	var up := name.to_upper()
-	var v := OS.get_environment("PROPHECY_AXIS_" + up)
-	if v != "":
-		return v
-	return OS.get_environment("PROPHECY_" + up)
-
-## 전체 목록의 첫 값 형에 맞춰 문자열을 값으로 바꾼다(정수·실수·문자열)
-func _parse(text: String, template: Array) -> Array:
-	var kind := TYPE_STRING
-	if not template.is_empty():
-		kind = typeof(template[0])
-	var out := []
-	for s in text.split(",", false):
-		var t := String(s).strip_edges()
-		if t == "":
+static func _parse(raw: String) -> Dictionary:
+	var out := {}
+	if raw == "":
+		return out
+	for part in raw.split(";", false):
+		var kv := String(part).split(":", false, 1)
+		if kv.size() != 2:
 			continue
-		if kind == TYPE_INT:
-			out.append(int(t))
-		elif kind == TYPE_FLOAT:
-			out.append(float(t))
-		else:
-			out.append(t)
+		var vals := {}
+		for v in String(kv[1]).split(",", false):
+			vals[String(v).strip_edges()] = true
+		out[String(kv[0]).strip_edges()] = vals
 	return out
 
-func _join(vals: Array) -> String:
+## 이 축의 이 값을 돌릴 것인가
+func keep(axis: String, value) -> bool:
+	var v := str(value)
+	if only.has(axis) and not (only[axis] as Dictionary).has(v):
+		return false
+	if skip.has(axis) and (skip[axis] as Dictionary).has(v):
+		return false
+	return true
+
+## 축의 값 목록을 부분 실행 조건에 맞게 줄인다. quick이면 남은 것 중 첫 하나만
+func pick(axis: String, values: Array) -> Array:
 	var out := []
-	for v in vals:
-		out.append(str(v))
-	return ",".join(PackedStringArray(out))
+	for v in values:
+		if keep(axis, v):
+			out.append(v)
+	if out.is_empty():
+		out = values.duplicate()   # 조건이 아무것도 남기지 않으면 원래대로(빈 실행 방지)
+	if quick and out.size() > 1:
+		out = [out[0]]
+	return out
+
+## 조합 상한. 더 돌려도 되면 true
+func more() -> bool:
+	if limit <= 0:
+		return true
+	used += 1
+	return used <= limit
+
+## 보고서 머리에 적을 실행 범위 한 줄
+func describe(full: bool) -> String:
+	if full:
+		return "전체 실행(부분 실행 조건 없음)."
+	var bits := []
+	if quick:
+		bits.append("PROPHECY_QUICK=1(축마다 대표값 하나)")
+	for a in only:
+		bits.append("only %s=%s" % [a, ",".join((only[a] as Dictionary).keys())])
+	for a in skip:
+		bits.append("skip %s=%s" % [a, ",".join((skip[a] as Dictionary).keys())])
+	if limit > 0:
+		bits.append("조합 상한 %d" % limit)
+	return "**부분 실행**: " + " · ".join(bits) + ". 전체 실행 결과와 같은 표로 취급하지 않는다."
+
+## 부분 실행 조건이 하나라도 있는가
+func partial() -> bool:
+	return quick or not only.is_empty() or not skip.is_empty() or limit > 0

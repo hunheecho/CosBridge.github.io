@@ -3,33 +3,37 @@ extends SceneTree
 ## 전장 × 시드마다 추첨을 돌려 개수·면적·통로 폭·시작 여유·고립·재추첨 횟수를 표로 남긴다.
 ## 결과: docs/TERRAIN_REPORT.md (부분 실행이면 docs/TERRAIN_REPORT_PARTIAL.md — PSubset).
 ##
-## 부분 실행(큰 측정 전에 작게 먼저):
-##   PROPHECY_SUBSET=2 ... 모든 축을 앞에서 2개만
-##   PROPHECY_SEEDS=1,7  PROPHECY_ARENAS=clearing,mine_tunnel
+## 부분 실행(큰 측정 전에 작게 먼저) — `tools/subset.gd`(PSubset). 축 이름은 **arena**와 **seed**다.
+##   PROPHECY_QUICK=1                          축마다 대표값 하나(전장 1곳 × 시드 1개)
+##   PROPHECY_ONLY="arena:clearing,mine_tunnel;seed:1,3"
+##   PROPHECY_SKIP="arena:forest"   PROPHECY_LIMIT=8
+## 부분 실행이면 결과를 docs/TERRAIN_REPORT_PARTIAL.md에 쓴다(전체 결과 파일을 덮어쓰지 않는다).
 ##
 ## 이 표의 값은 전부 **시험값**이며 사람이 승인한 균형값이 아니다. 봇 승패·조작감 판단도 아니다.
 
 const W := 960.0
 const H := 600.0
 const OUT := "res://docs/TERRAIN_REPORT.md"
+const SEEDS := [1, 2, 3, 4, 5, 6]
 
 func _init() -> void:
-	var sub := PSubset.new({
-		"seeds": [1, 2, 3, 4, 5, 6],
-		"arenas": (PCatalog.theme_arenas().keys() as Array) + ["clearing", "pillars", "forest"],
-	})
-	var head := sub.describe("랜덤 지형 배치 측정")
+	var sub := PSubset.new()
+	var arenas := sub.pick("arena", (PCatalog.theme_arenas().keys() as Array) + ["clearing", "pillars", "forest"])
+	var seeds := sub.pick("seed", SEEDS)
+	var head := "랜덤 지형 배치 측정 — %s 전장 %d곳 × 시드 %d개." % [sub.describe(not sub.partial()), arenas.size(), seeds.size()]
 	print(head)
 	var entries := PTerrain.entry_points()
 	var exits := PTerrain.exit_points(W, H)
 	var rows := []
 	var t0 := Time.get_ticks_msec()
-	for aid in sub.axis("arenas"):
+	for aid in arenas:
 		var ad := PCatalog.arena(String(aid))
 		var base: Array = ad.get("obstacles", [])
 		var start := PTerrain.arena_start(ad, W, H)
 		var b := PTerrain.check(W, H, PTerrain.copy_obstacles(base), start, entries, exits)
-		for sd in sub.axis("seeds"):
+		for sd in seeds:
+			if not sub.more(): # PROPHECY_LIMIT 조합 상한
+				break
 			var lay := PTerrain.generate(String(aid), W, H, base, start, int(sd))
 			var ck: Dictionary = lay.check
 			rows.append({ "arena": String(aid), "seed": int(sd), "base_n": base.size(), "base_area": float(b.area_ratio),
@@ -51,8 +55,8 @@ func _init() -> void:
 	for r in rows:
 		md += "| %s | %d | %d | %d | %d | %.2f%% | %.0f | %.0f | %.0f | %.4f | %.0f | %.2f | %d | %s |\n" % [
 			r.arena, r.seed, r.base_n, r.added, r.n, r.area * 100.0, r.pair, r.wall, r.start, r.iso, r.pass, r.free22, r.tries, ("예" if r.fallback else "아니오")]
-	md += "\n## 전장별 폭(시드 %d개)\n\n| 전장 | 뼈대 개수/면적 | 개수 | 면적 | 틈 최소 | 시작 여유 최소 | 이어짐 최소 | 통로 최소 | 기본 배치 |\n|---|---|---|---|---|---|---|---|---|\n" % sub.count("seeds")
-	for aid in sub.axis("arenas"):
+	md += "\n## 전장별 폭(시드 %d개)\n\n| 전장 | 뼈대 개수/면적 | 개수 | 면적 | 틈 최소 | 시작 여유 최소 | 이어짐 최소 | 통로 최소 | 기본 배치 |\n|---|---|---|---|---|---|---|---|---|\n" % seeds.size()
+	for aid in arenas:
 		var s: Array = rows.filter(func(r): return r.arena == String(aid))
 		if s.is_empty():
 			continue
@@ -63,7 +67,7 @@ func _init() -> void:
 			s.filter(func(r): return r.fallback).size(), s.size()]
 	md += "\n검사 스위트: `tests/terrain_tests.gd` (`python tools/run_suites.py --suites terrain_tests --jobs 1`).\n"
 
-	var path := sub.out_path(OUT)
+	var path := PTerrain.report_path(OUT, sub.partial())
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string(md)
 	f.close()

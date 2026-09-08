@@ -460,6 +460,14 @@ static func reachable_all(w: float, h: float, obs: Array, start: Dictionary, poi
 		out.append(_reach(g, fl.mark, r, px, py, max_px))
 	return out
 
+## 부분 실행(PSubset)으로 만든 보고서는 파일 이름에 _PARTIAL을 붙인다.
+## 전체 실행 결과 파일을 부분 결과가 덮어써서 나중에 전체 측정처럼 읽히는 일을 막는다
+static func report_path(base: String, partial: bool) -> String:
+	if not partial:
+		return base
+	var dot := base.rfind(".")
+	return (base + "_PARTIAL") if dot < 0 else (base.substr(0, dot) + "_PARTIAL" + base.substr(dot))
+
 ## 보고서·문서용 한 줄 요약
 static func limits_text() -> String:
 	return "개수 %d~%d · 면적 %.1f~%.1f%% · 통로 폭 ≥%.0f(격자 ≥%.0f) · 벽 틈 ≥%.0f · 시작 여유 ≥%.0f · 등장 지점 여유 ≥%.0f · 이어짐 ≥%.1f%% · 재추첨 ≤%d회" % [

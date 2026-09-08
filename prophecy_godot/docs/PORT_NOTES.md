@@ -931,14 +931,25 @@ R은 같은 선택 예산에서 잰 새·옛 구조 DPS 중앙값 비다(일반 
 
 | 항목 | 결과 |
 |---|---|
-| `terrain_tests` | **25/25 PASS**(전장 17 × 시드 12, 51초) |
+| `terrain_tests` | **25/25 PASS**(전장 17 × 시드 12, 51~53초). 부분 실행 `PROPHECY_QUICK=1`에서도 25/25 |
+| 랜덤 지형을 **켜고** 실제 화면 흐름 | `PROPHECY_TERRAIN=1 PROPHECY_LEGACY_PLACES=1`로 `ui_flow_tests` → **38/38 PASS**. `PFlow.make_encounter` 경로에서 지형이 추첨되어도 테마 경기장 14곳 전부 시작 겹침 0px·8방향 걷기·화면 이동이 그대로다 |
 | 회귀 `run_tests,collision_tests,theme_tests,ui_flow_tests,world_tests,terrain_tests --jobs 1`(2회) | 검사는 매번 전부 통과. 1회차는 `theme_tests`(28/28)·`world_tests`(34/34), 2회차는 `theme_tests`만 **통과 뒤 프로세스 접근 위반**(KD-1). 단독 재실행은 둘 다 종료 0 — KD-1 표에 기록 |
 | 승인된 기준 전투 보존 | `PROPHECY_COLLISION_LEGACY=1`로 `tools/density_report.gd` 재생성 → `docs/DENSITY_REPORT.md` **44행 전부 결과 열 동일**. 마지막 `시뮬 µs/단계` 열만 달라져(기계 성능) 되돌렸다 |
 
 ### 25-5. 부분 실행(PSubset)
 
-큰 측정을 돌리기 전에 작게 확인하기 위한 공용 도우미다. `PROPHECY_SUBSET=2`(모든 축 앞 2개) / `PROPHECY_SEEDS=1,7` / `PROPHECY_ARENAS=clearing,mine_tunnel`.
-축이 하나라도 잘리면 검사·보고서 첫 줄에 `부분 실행 (seeds 2/12, arenas 2/17) · 자른 방식: …`가 남고, 보고서는 `docs/TERRAIN_REPORT_PARTIAL.md`로 간다(전체 결과 파일을 덮어쓰지 않는다).
+`tools/subset.gd`(같은 날 다른 작업에서 만들어진 공용 도우미)를 **그대로 가져다 쓴다**. 축 이름은 `arena`·`seed`다.
+
+| 환경 변수 | 뜻 |
+|---|---|
+| `PROPHECY_QUICK=1` | 전장 1곳 × 시드 1개(가장 작은 실행) |
+| `PROPHECY_ONLY="arena:clearing,mine_tunnel;seed:1,3"` | 그 값만 |
+| `PROPHECY_SKIP="arena:forest"` | 그 값을 뺀다 |
+| `PROPHECY_LIMIT=8` | 조합 상한(측정 도구만. 검사 스위트는 쓰지 않는다 — 검사가 잘리면 통과 판정이 흐려진다) |
+
+검사·보고서 첫 줄에 실행 범위가 남는다(`sub.describe(...)`). 부분 실행이면 보고서는 `PTerrain.report_path()`가 `docs/TERRAIN_REPORT_PARTIAL.md`로 돌린다 — 전체 결과 파일을 덮어쓰지 않는다.
+
+**주의(담당 밖).** `tools/subset.gd`는 이 작업과 **다른 작업에서도 새로 만들고 있다**. 여기 있는 파일은 그쪽 원본을 **한 글자도 바꾸지 않고 복사**한 것이라 합칠 때 충돌이 없어야 하지만, 그쪽이 더 고치면 한 벌만 남기고 정리해야 한다.
 
 ### 25-6. 아직 하지 않은 것(사람 판단·담당 밖)
 
@@ -946,3 +957,5 @@ R은 같은 선택 예산에서 잰 새·옛 구조 DPS 중앙값 비다(일반 
 - 화면 확인(사람 눈)으로 새 장애물이 어색하지 않은지, 나무 가림(canopy)이 시야를 과하게 막지 않는지.
 - 조우별 지형 시드를 저장에 남길지(`PSortie`·`PSave`). 지금은 전투 상태 안에만 있어 **같은 전투를 이어하기로 복원할 때** 지형이 시드에서 다시 만들어진다(같은 시드면 같은 결과라 실제 차이는 없다).
 - 랜덤 지형을 켠 상태의 봇 승률·전투 시간 비교(밀도 편차) 측정.
+- **`tools/subset.gd` 한 벌로 정리하기.** 같은 날 다른 작업도 이 파일을 만들고 있다. 여기 있는 것은 그쪽 원본을 그대로 복사한 것이라 합칠 때 충돌이 없어야 하지만, 그쪽이 더 고치면 확인이 필요하다.
+- **실행기 잠금이 프로젝트 이름 기준이다.** 서로 다른 작업 폴더(worktree)에서 같은 스위트를 동시에 돌리면 `prophecy_godot__<스위트>.lock` 때문에 뒤쪽이 `config_error`로 끝난다(2026-09-08 21:41 `run_tests`에서 관측, 단독 재실행 통과). 잠금 이름에 프로젝트 경로를 넣는 것이 `tools/run_suites.py` 담당의 몫이다.
