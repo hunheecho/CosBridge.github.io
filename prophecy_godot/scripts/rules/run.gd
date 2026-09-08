@@ -48,6 +48,7 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 		"services": {}, "cards": null, "missionsDone": {}, "pendingSortie": null, "buffs": {}, "lastEvent": null, "lastSupplyDay": null, "eventsResolved": 0,
 		"ended": false, "bossEntry": null,
 		"worldStages": bool(opts.get("world_stages", true)), "densitySet": String(opts.get("density_set", "")),
+		"aliveCapSet": String(opts.get("alive_cap_set", "")), # 막별 동시 상한 세트(빈 값 = 기본 acts, "legacy" = 기존 상한 대조군)
 		"worldFeature": pick_world_feature(s), "lastFormation": {}, # 반복 콘텐츠(시드 확정, 재접속 재추첨 없음)
 		"route": pick_route(s, opts), # 10일·3막: 막마다 테마 1개(독립 경로 난수, 저장·재추첨 없음). trio는 []
 		"profileEligible": bool(opts.get("eligible", false)), "traits": [], "startWeapon": (start_weapon if start_weapon != "" else "sword"),
@@ -158,10 +159,17 @@ static func current_theme(run: Dictionary, day: int = 0) -> Dictionary:
 static func is_theme_place(region_id: String) -> bool:
 	return PCatalog.theme_places().has(region_id)
 
-## 템플릿 → 웨이브(최종 수 명시 + 경험치 기준 ref). 장소 규모(p1/p2)로 정수 배정, 나머지는 첫 주력에. 정예는 마지막
-static func template_waves(tpl: Dictionary, place_key: String) -> Array:
+## 템플릿 → 웨이브(최종 수 명시 + 경험치 기준 ref). 장소 규모(p1/p2)로 정수 배정, 나머지는 첫 주력에. 정예는 마지막.
+## 총 등장 수는 날짜 예산표(PPacing.day_total, 사용자 결정 25 → 75)가 정하고 템플릿의 sizes.total은 표가 없을 때의 예비값이다.
+## 밀도 배율(×5)을 여기에 다시 곱하지 않는다(테마 템플릿은 ref가 있어 PFormation이 배율을 적용하지 않는다).
+## 경험치 예산(xp_ref)은 개체 수와 무관하게 고정이므로 수가 늘어도 전투당 경험치는 늘지 않는다.
+static func template_waves(tpl: Dictionary, place_key: String, day: int = 0, place_cost: int = 1) -> Array:
 	var sz: Dictionary = tpl.sizes[place_key]
 	var total: int = int(sz.total)
+	if day > 0 and not bool(tpl.get("fixed_total", false)):
+		var budget := PPacing.day_total(day, place_cost)
+		if budget > 0:
+			total = budget
 	var xp_ref: float = float(sz.xp_ref)
 	var wave := []
 	var assigned := 0
@@ -195,12 +203,17 @@ static func theme_template(region_id: String, formation_id: String) -> Dictionar
 	return {}
 
 ## 템플릿의 동시 상한·묶음·간격·종류별 상한(밀도 세트 배율은 적용하지 않는다)
-static func theme_density_override(region_id: String, formation_id: String) -> Dictionary:
+## 템플릿의 동시 상한·묶음·간격·종류별 상한. act > 0이면 막별 동시 상한(PPacing, 시험값)이 템플릿 값을 덮어쓴다.
+## 승인된 첫날 기준 전투(fixed_alive_cap)는 어떤 세트에서도 템플릿 값(12) 그대로다.
+static func theme_density_override(region_id: String, formation_id: String, act: int = 0, cap_set: String = "") -> Dictionary:
 	var tpl := theme_template(region_id, formation_id)
 	if tpl.is_empty():
 		return {}
 	var pk := theme_place_key(region_id)
-	return { "alive_cap": int(tpl.sizes[pk].alive_cap), "group": int(tpl.get("group", 3)), "interval": float(tpl.get("interval", 1.0)), "type_alive_cap": (tpl.get("type_caps", {}) as Dictionary).duplicate(), "multiplier": 1.0, "multiplier_by_type": {}, "set_name": "template" }
+	var cap: int = int(tpl.sizes[pk].alive_cap)
+	if act > 0 and not bool(tpl.get("fixed_alive_cap", false)):
+		cap = PPacing.alive_cap(act, cap, cap_set)
+	return { "alive_cap": cap, "squad_mix": true, "tail_boost": not bool(tpl.get("fixed_total", false)), "group": int(tpl.get("group", 3)), "interval": float(tpl.get("interval", 1.0)), "type_alive_cap": (tpl.get("type_caps", {}) as Dictionary).duplicate(), "multiplier": 1.0, "multiplier_by_type": {}, "set_name": "template" }
 
 ## 방문 상인이 오는 날짜(회차 특징으로 바뀔 수 있음)
 static func merchant_days(run: Dictionary) -> Array:
@@ -260,7 +273,7 @@ static func formation_waves(region_id: String, day: int, formation_id: String) -
 		if tpl.is_empty():
 			var t := PCatalog.theme(PCatalog.theme_of_place(region_id))
 			tpl = (t.formations.normal as Array)[0]
-		return template_waves(tpl, theme_place_key(region_id))
+		return template_waves(tpl, theme_place_key(region_id), day, place_cost(region_id))
 	if formation_id == "" or formation_id == "base":
 		return day_waves(region_id, day)
 	var FS: Dictionary = W().get("formation_sets", {})
@@ -423,11 +436,64 @@ static func boss_hp(run: Dictionary, boss_id: String) -> float:
 	var set_id := String(run.get("bossHpSet", ""))
 	var H: Dictionary = sets[set_id] if sets.has(set_id) else sets.base
 	var mult: float = PEndless.boss_hp_mult(run) if PEndless.active(run) else 1.0 # 무한 구간 계단(시험값)
-	if not nb.is_empty() and H.has(boss_id) and (H[boss_id] as Dictionary).has(String(nb.hpKey)):
-		return float(H[boss_id][String(nb.hpKey)]) * mult
+	var hp_key := String(nb.hpKey) if not nb.is_empty() else ""
+	var over := PPacing.boss_hp(set_id, boss_id, hp_key) # 밸런스 오버레이(사용자 기록 기반 산술 후보, 시험값)
+	if over > 0.0:
+		return over * mult
+	if not nb.is_empty() and H.has(boss_id) and (H[boss_id] as Dictionary).has(hp_key):
+		return float(H[boss_id][hp_key]) * mult
 	return float(PCatalog.boss_def(boss_id).hp) * mult
 
 static func stage_count(run: Dictionary) -> int: return (mode_def(run).bosses as Array).size()
+
+## 회차 일정 한 줄(화면 표시용). 새 회차 = "본편 · 10일", 옛 저장 = "이전 회차 · 7일 일정".
+## 버전이 같아도 회차 설정이 같지 않다는 것을 화면에서 구분하기 위한 것이다(검토 문서 §1).
+static func schedule_label(run: Dictionary) -> String:
+	if run.is_empty():
+		return ""
+	var md := mode_def(run)
+	var days := int(md.get("days", 0))
+	var gates: Array = []
+	for b in md.get("bosses", []):
+		gates.append(str(int(b.day)))
+	var name := "본편" if String(run.get("mode", "")) == PCatalog.run_mode_default() else "이전 회차"
+	return "%s · %d일 일정 (관문 %s)" % [name, days, "/".join(gates)]
+
+## 짧은 형태("본편 · 10일" / "이전 회차 · 7일 일정") — 버튼·머리말용
+static func schedule_short(run: Dictionary) -> String:
+	if run.is_empty():
+		return ""
+	var days := int(mode_def(run).get("days", 0))
+	if String(run.get("mode", "")) == PCatalog.run_mode_default():
+		return "본편 · %d일" % days
+	return "이전 회차 · %d일 일정" % days
+
+## 저장 dict(회차를 만들지 않고)에서 같은 판정: 계속하기 버튼 라벨용
+static func schedule_short_of_save(saved: Dictionary) -> String:
+	if saved.is_empty():
+		return ""
+	var mode := String(saved.get("mode", "trio"))
+	var RM := PCatalog.run_modes()
+	var days := int((RM[mode] as Dictionary).get("days", 0)) if RM.has(mode) else 0
+	if mode == PCatalog.run_mode_default():
+		return "본편 · %d일" % days
+	return "이전 회차 · %d일 일정" % days
+
+## 결과 화면·검증 기록용 실제 설정 한 줄(일정·밀도 세트·밸런스 세트·동시 상한 세트·시드)
+static func settings_record(run: Dictionary) -> String:
+	if run.is_empty():
+		return ""
+	var D := PCatalog.density()
+	var ds := String(run.get("densitySet", ""))
+	if ds == "":
+		ds = String(D.get("set_default", "uniform_x5"))
+	var BS := PCatalog.balance_sets()
+	var bal := String(run.get("balance", ""))
+	var bal_name := String(BS[bal].name) if BS.has(bal) else bal
+	var cap := String(run.get("aliveCapSet", ""))
+	if cap == "":
+		cap = PPacing.alive_cap_set_default()
+	return "%s · 밀도 %s · 동시 상한 %s · %s · 시드 %d" % [schedule_label(run), ds, cap, bal_name, int(run.seed)]
 static func boss_days_left(run: Dictionary) -> int:
 	var nb := next_boss(run)
 	return int(nb.day) - int(run.day) if not nb.is_empty() else 0
@@ -480,8 +546,18 @@ static func places_for(run: Dictionary, day: int = 0) -> Array:
 	sched[key] = base
 	return base
 
-static func can_sortie(run: Dictionary, region_id: String) -> bool:
-	return String(run.phase) == "prep" and not is_boss_day(run) and places_for(run).has(region_id) and int(run.hours) >= place_cost(region_id)
+static func can_sortie(run: Dictionary, region_id: String, cost_override: int = 0) -> bool:
+	var cost: int = cost_override if cost_override > 0 else place_cost(region_id)
+	return String(run.phase) == "prep" and not is_boss_day(run) and places_for(run).has(region_id) and int(run.hours) >= cost
+
+## 오늘 남은 시간으로 나갈 수 있는 출격이 하나라도 있는가(휴식이 '선택'인지 '어쩔 수 없음'인지 구분용, 지시 8)
+static func any_departure(run: Dictionary) -> bool:
+	if String(run.phase) != "prep" or is_boss_day(run):
+		return false
+	for c in PSortie.cards_for(run):
+		if PSortie.can_start(run, c):
+			return true
+	return not PSortie.repeat_cards(run).is_empty()
 
 ## 시간대 변주 {slot, name, desc, ...}. 없으면 {}.
 ## C11(F2 도달 불가 수정): 비용 2 장소(습지·심층)의 저녁(4) 변주는 저녁에 출발할 수 없으므로(남은 칸 1 < 2) 오후(3)에 노출한다. 명시적 3 변주가 있으면 그것이 우선
@@ -505,13 +581,14 @@ static func slot_variant(region_id: String, slot: int) -> Dictionary:
 	return {}
 
 ## 출격 시작(카드 경로는 PSortie.start). 불가하면 push_error 후 {}
-static func start_sortie(run: Dictionary, region_id: String) -> Dictionary:
-	if not can_sortie(run, region_id):
-		push_error("시간 부족" if int(run.hours) < place_cost(region_id) else "오늘 갈 수 없는 장소")
+static func start_sortie(run: Dictionary, region_id: String, cost_override: int = 0) -> Dictionary:
+	var cost: int = cost_override if cost_override > 0 else place_cost(region_id)
+	if not can_sortie(run, region_id, cost):
+		push_error("시간 부족" if int(run.hours) < cost else "오늘 갈 수 없는 장소")
 		return {}
 	var slot := slot_index(run)
 	var variant := slot_variant(region_id, slot) # 출발 시점의 시간대로 편성·사건·보상 확정
-	run.hours = int(run.hours) - place_cost(region_id)
+	run.hours = int(run.hours) - cost
 	run.sortieCount = int(run.sortieCount) + 1
 	run.visited[region_id] = int(run.visited.get(region_id, 0)) + 1
 	return { "regionId": region_id, "deep": false, "loot": { "gold": 0, "mats": {}, "chestGold": 0 }, "encounters": 0,
@@ -742,7 +819,7 @@ static func apply_deep_reward(_run: Dictionary, sortie: Dictionary) -> Variant:
 	sortie.deepRewarded = true
 	var loot: Dictionary = sortie.loot
 	match String(rw.kind):
-		"gold_big": loot.gold = int(loot.gold) + int(rw.gold)
+		"gold_big": loot.gold = int(loot.gold) + PPacing.gold_award(int(rw.gold))
 		"equipment":
 			if not loot.has("items"): loot.items = []
 			(loot.items as Array).append(String(rw.item))
@@ -771,7 +848,8 @@ static func roll_reward(_run: Dictionary, sortie: Dictionary, rng: PRng, combat_
 			n = int(round(float(n) * mult))
 		if n > 0:
 			mats[String(k)] = n
-	return { "gold": gold, "mats": mats, "chestGold": int(combat_stats.get("chestGold", 0)) }
+	# 금화 감축(사용자 결정 약 -30%, 시험값 ×0.7)은 "새로 지급하는" 금화에만 최종 1회. 판매금·환불·잔액에는 적용하지 않는다
+	return { "gold": PPacing.gold_award(gold), "mats": mats, "chestGold": PPacing.gold_award(int(combat_stats.get("chestGold", 0))) }
 
 static func apply_encounter_result(run: Dictionary, sortie: Dictionary, result: String, reward: Dictionary, combat_hp: float) -> void:
 	run.stats.encounters = int(run.stats.encounters) + 1
@@ -812,7 +890,7 @@ static func return_to_base(run: Dictionary, sortie: Dictionary) -> void:
 			run.gold = int(run.gold) + 60
 			extras.append("예약 있음 → 금화 +60")
 		else:
-			g.steer = { "kind": String(loot.steer), "regionId": String(sortie.regionId), "day": int(run.day), "fallbackGold": 60, "from": "deep" }
+			g.steer = { "kind": String(loot.steer), "regionId": String(sortie.regionId), "day": int(run.day), "fallbackGold": PPacing.gold_award(60), "from": "deep" }
 			extras.append("다음 레벨업 예약(개조)")
 	var mat_parts := []
 	for k in loot.mats:
@@ -864,7 +942,11 @@ static func rest(run: Dictionary) -> bool:
 	else:
 		run.hours = int(run.hours) - int(C().REST_HOURS)
 	run.hp = float(build(run).hp_max)
-	add_log(run, "휴식: 체력 회복 → %s" % slot_name(run))
+	# 지시 8: 선택해서 쉰 휴식과 나갈 곳이 없어서 쉰 휴식을 구분해 센다(통계 전용)
+	var forced: bool = not any_departure(run)
+	run.stats["rest_forced"] = int(run.stats.get("rest_forced", 0)) + (1 if forced else 0)
+	run.stats["rest_chosen"] = int(run.stats.get("rest_chosen", 0)) + (0 if forced else 1)
+	add_log(run, "휴식: 체력 회복 → %s%s" % [slot_name(run), " (나갈 수 있는 출격 없음)" if forced else ""])
 	return true
 
 static func end_day(run: Dictionary) -> bool:

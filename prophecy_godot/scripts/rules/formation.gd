@@ -25,6 +25,8 @@ static func from_waves(waves: Array, override: Dictionary, region_id: String, st
 			godot_counts[type] = int(godot_counts.get(type, 0)) + total
 			for i in total:
 				units.append(type)
+	if bool(D.get("squad_mix", false)): # 본편 테마 편성에만. 승인된 기준 전투·옛 지역 일정은 기존 순서 그대로
+		units = mix_squads(units)
 	var tiers := assign_tiers(units, st.opts.get("tier_mix", { "normal": 1.0 }))
 	var xp_map := {}
 	var kill_mult: float = float(st.opts.get("xp_kill_mult", 0.3)) # 처치 경험치 배율(사용자 채택 ×0.3, D08). 회차가 run.balance로 넘긴다
@@ -33,7 +35,87 @@ static func from_waves(waves: Array, override: Dictionary, region_id: String, st
 		xp_map[type] = round(unit * float(html_counts[type]) / float(maxi(1, int(godot_counts[type]))) * 10000.0) / 10000.0
 	if not (override.get("alive_cap", null) == null): # 템플릿이 준 동시 상한·종류별 상한
 		D.alive_cap = int(override.alive_cap)
-	return { "units": units, "tiers": tiers, "alive_cap": int(D.alive_cap), "group": int(D.group), "interval": float(D.interval), "type_caps": D.get("type_alive_cap", {}).duplicate(), "xp_map": xp_map, "html_counts": html_counts, "godot_counts": godot_counts, "multiplier": mult, "xp_default_scale": 1.0 / mult, "tier_counts": tier_counts(tiers) }
+	return { "units": units, "tiers": tiers, "alive_cap": int(D.alive_cap), "tail_boost": bool(D.get("tail_boost", false)), "group": int(D.group), "interval": float(D.interval), "type_caps": D.get("type_alive_cap", {}).duplicate(), "xp_map": xp_map, "html_counts": html_counts, "godot_counts": godot_counts, "multiplier": mult, "xp_default_scale": 1.0 / mult, "tier_counts": tier_counts(tiers) }
+
+## 혼합 분대 배치(지시 4): 종류별 수는 그대로 두고 등장 순서만 비율에 맞춰 고르게 섞는다.
+## 같은 묶음에 근접 호위와 지원 적이 함께 나오고, 마지막에 지원 적만 하나씩 충원되는 순서를 없앤다.
+## 묶음의 첫 자리는 근접이 남아 있으면 근접이 먼저 나온다(궁수·주술사가 근접 압박 뒤에서 쏘도록).
+## 정예·구조물은 원래 순서(뒤쪽)를 지킨다. 한 종류만 있는 편성(승인된 첫 전투)은 그대로다.
+static func mix_squads(units: Array) -> Array:
+	if not PPacing.squad_mixing() or units.size() <= 1:
+		return units
+	var order := []
+	var queues := {}
+	var tail := [] # 정예·구조물: 순서 보존(정예는 마지막)
+	for u in units:
+		var tp := String(u)
+		var d := PCatalog.enemy(tp)
+		if bool(d.get("elite", false)) or bool(d.get("structure", false)) or bool(d.get("boss", false)):
+			tail.append(tp)
+			continue
+		if not queues.has(tp):
+			queues[tp] = 0
+			order.append(tp)
+		queues[tp] = int(queues[tp]) + 1
+	if order.size() <= 1:
+		return units
+	var total := 0
+	for tp in order:
+		total += int(queues[tp])
+	var emitted := {}
+	for tp in order:
+		emitted[tp] = 0
+	var out := []
+	var group_n: int = maxi(1, int(PCatalog.density().get("group", 3)))
+	var max_support: int = maxi(1, int(floor(float(group_n) * PPacing.support_share_per_group())))
+	var in_group := 0
+	var support_in_group := 0
+	while out.size() < total:
+		var best := ""
+		var best_score := -1.0
+		var best_support := false
+		for tp in order:
+			if int(emitted[tp]) >= int(queues[tp]):
+				continue
+			var sup := PPacing.is_support(tp)
+			if sup and support_in_group >= max_support:
+				continue # 한 묶음의 지원 적 비율 상한
+			if in_group == 0 and sup and _has_melee_left(order, queues, emitted):
+				continue # 묶음의 첫 자리는 근접 호위 먼저
+			# 비례 공정 배분: 아직 덜 낸 종류를 먼저(같으면 편성 순서)
+			var share: float = float(queues[tp]) / float(total)
+			var score: float = share * float(out.size() + 1) - float(emitted[tp])
+			if score > best_score + 1e-9:
+				best_score = score
+				best = tp
+				best_support = sup
+		if best == "":
+			for tp in order: # 상한 때문에 못 고르면 묶음을 끊고 다시 시도
+				if int(emitted[tp]) < int(queues[tp]):
+					best = tp
+					best_support = PPacing.is_support(tp)
+					break
+			if best == "":
+				break
+			in_group = 0
+			support_in_group = 0
+		out.append(best)
+		emitted[best] = int(emitted[best]) + 1
+		in_group += 1
+		if best_support:
+			support_in_group += 1
+		if in_group >= group_n:
+			in_group = 0
+			support_in_group = 0
+	for tp in tail:
+		out.append(tp)
+	return out
+
+static func _has_melee_left(order: Array, queues: Dictionary, emitted: Dictionary) -> bool:
+	for tp in order:
+		if int(emitted[tp]) < int(queues[tp]) and not PPacing.is_support(String(tp)):
+			return true
+	return false
 
 ## 등급 배정(세계 변화, 사용자 합의 2026-09-07): 종류별로 정수 편성. mix 비율 순서(normal→red→apex)로 등장 순서의 앞쪽이 낮은 등급, 뒤쪽이 높은 등급.
 ## 정예·구조물·보스는 항상 "normal"(등급은 정예와 별개). 경험치 단위값은 등급과 무관(예산 고정).

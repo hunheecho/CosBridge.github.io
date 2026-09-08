@@ -382,18 +382,18 @@
      },
      {
       "id": "t1b_archers",
-      "name": "궁수 중심 + 도적",
-      "desc": "사격선이 여러 갈래, 도적이 측면에서",
+      "name": "도적 돌격 + 궁수 사격",
+      "desc": "도적이 먼저 붙고 뒤에서 궁수가 쏜다",
       "comp": [
        {
-        "type": "archer",
-        "share": 0.5,
+        "type": "rogue",
+        "share": 0.6,
         "role": "주력"
        },
        {
-        "type": "rogue",
-        "share": 0.5,
-        "role": "돌파"
+        "type": "archer",
+        "share": 0.4,
+        "role": "지원"
        }
       ],
       "elites": 0,
@@ -412,8 +412,8 @@
       "group": 3,
       "interval": 1.0,
       "type_caps": {
-       "archer": 3,
-       "rogue": 3
+       "rogue": 3,
+       "archer": 3
       }
      },
      {
@@ -648,23 +648,23 @@
      },
      {
       "id": "t1c_spore_spider",
-      "name": "포자 + 거미",
-      "desc": "잔류 지대와 거미줄",
+      "name": "늑대 돌입 + 포자·거미 통제",
+      "desc": "늑대가 달려들고 포자와 거미가 물러설 공간을 지운다",
       "comp": [
        {
-        "type": "spore",
-        "share": 0.6,
+        "type": "wolf",
+        "share": 0.55,
         "role": "주력"
        },
        {
-        "type": "spider",
-        "share": 0.15,
-        "role": "지원"
+        "type": "spore",
+        "share": 0.25,
+        "role": "통제"
        },
        {
-        "type": "wolf",
-        "share": 0.25,
-        "role": "돌파"
+        "type": "spider",
+        "share": 0.2,
+        "role": "통제"
        }
       ],
       "elites": 0,
@@ -1573,23 +1573,23 @@
      },
      {
       "id": "t3a_spore_shaman",
-      "name": "상위 포자 + 주술사 1",
-      "desc": "잔류 구름 사이 치료사",
+      "name": "도적 + 포자 통제 + 주술사 1",
+      "desc": "도적이 붙고 포자가 길을 막는 사이 주술사가 회복시킨다",
       "comp": [
        {
-        "type": "spore",
-        "share": 0.75,
+        "type": "rogue",
+        "share": 0.55,
         "role": "주력"
        },
        {
-        "type": "shaman",
-        "share": 0.1,
-        "role": "지원"
+        "type": "spore",
+        "share": 0.3,
+        "role": "통제"
        },
        {
-        "type": "rogue",
+        "type": "shaman",
         "share": 0.15,
-        "role": "돌파"
+        "role": "지원"
        }
       ],
       "elites": 0,
@@ -1615,23 +1615,23 @@
      },
      {
       "id": "t3a_mixed",
-      "name": "잠복충·포자·소수 궁수",
-      "desc": "지연 공격과 잔류 영역",
+      "name": "잠복충 돌입 + 포자·궁수",
+      "desc": "잠복충이 자리를 옮겨 붙고 포자·궁수가 뒤를 압박한다",
       "comp": [
        {
         "type": "burrower",
-        "share": 0.4,
+        "share": 0.5,
         "role": "주력"
        },
        {
         "type": "spore",
-        "share": 0.4,
-        "role": "지원"
+        "share": 0.3,
+        "role": "통제"
        },
        {
         "type": "archer",
         "share": 0.2,
-        "role": "돌파"
+        "role": "지원"
        }
       ],
       "elites": 0,
@@ -1660,16 +1660,21 @@
      {
       "id": "t3a_risk",
       "name": "심연의 파수",
-      "desc": "잔류 영역 + 우두머리 2(위험 전투)",
+      "desc": "잠복충 전위 뒤로 포자와 궁수가 자리를 잡는다(위험 전투)",
       "comp": [
        {
-        "type": "spore",
+        "type": "burrower",
         "share": 0.5,
         "role": "주력"
        },
        {
+        "type": "spore",
+        "share": 0.3,
+        "role": "통제"
+       },
+       {
         "type": "archer",
-        "share": 0.5,
+        "share": 0.2,
         "role": "지원"
        }
       ],
@@ -1689,6 +1694,7 @@
       "group": 3,
       "interval": 1.0,
       "type_caps": {
+       "burrower": 2,
        "spore": 3,
        "archer": 3
       }
@@ -2689,5 +2695,15 @@
   }
  },
  "reward_weight": 1.15,
- "reward_weight_note": "테마 태그와 맞는 후보 가중치(계획서 §8 첫 시험 1.15). 기존 지역 태그 보정(WEIGHTS.regionTag)과 이중 곱하지 않고 이 값으로 통합"
+ "reward_weight_note": "테마 태그와 맞는 후보 가중치(계획서 §8 첫 시험 1.15). 기존 지역 태그 보정(WEIGHTS.regionTag)과 이중 곱하지 않고 이 값으로 통합",
+ "formation_rule": {
+  "note": "지시 4(혼합 편성): 지원·통제 역할(archer·spore·shaman·frostcaller)이 편성의 과반을 차지하지 않는다. 포자 단독 편성 없음. 주술사가 있으면 실제로 치료할 근접 호위가 함께 있어야 한다. 등장 순서는 PFormation이 역할을 섞어 배치한다(근접을 다 소진한 뒤 지원만 남지 않게).",
+  "support_roles": [
+   "archer",
+   "spore",
+   "shaman",
+   "frostcaller"
+  ],
+  "max_support_share": 0.5
+ }
 }

@@ -16,6 +16,7 @@ var mode: String = "normal"    # normal | boss
 var objective: String = "clear"
 var region_id: String = ""
 var hp_mult: Dictionary = { "normal": 1.0, "elite": 1.0, "boss": 1.0 }
+var act: int = 1 # 막(1~3). 정예 체력·역할별 고정 체력표(PPacing)가 읽는다. 시험실·기준 전투는 1
 var hit_attack_id: String = "" # 계측 전용: 투사체 명중 처리 중에만 그 투사체의 발사 시점 공격 id(PHitRecorder가 읽는다)
 ## 개조 계측(피드백 18 — 획득→장착→발동→적중): 개조 id → { procs(실제 효과 생성 횟수), hits(그 효과의 적중 횟수), damage(유효 피해), last_proc_t, last_hit_t }.
 ## 규칙·난수에 쓰지 않는 표시·통계 전용. 발동(procs)과 적중(hits)을 분리해서 기록하므로 빗나간 발동이 적중처럼 보이지 않는다
@@ -88,7 +89,7 @@ var _next_id: int = 1
 var recorder = null
 
 static func _new_stats() -> Dictionary:
-	return { "kills": 0, "damage_taken": 0.0, "damage_taken_nominal": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "e_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "level_ups": 0, "max_alive": 0, "max_dash_states": 0, "max_bite_states": 0, "chest_gold": 0, "boss_damage": 0.0, "absorbed": 0.0, "healed": 0.0, "elite_kills": 0, "saving_kills": 0, "equip_procs": {}, "tier_spawned": {}, "tier_kills": {}, "max_enemy_projectiles": 0, "max_enemy_zones": 0, "max_webs": 0, "field_hits": 0 }
+	return { "kills": 0, "damage_taken": 0.0, "damage_taken_nominal": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "e_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "level_ups": 0, "max_alive": 0, "support_only_sec": 0.0, "thin_tail_sec": 0.0, "no_target_sec": 0.0, "max_dash_states": 0, "max_bite_states": 0, "chest_gold": 0, "boss_damage": 0.0, "absorbed": 0.0, "healed": 0.0, "elite_kills": 0, "saving_kills": 0, "equip_procs": {}, "tier_spawned": {}, "tier_kills": {}, "max_enemy_projectiles": 0, "max_enemy_zones": 0, "max_webs": 0, "field_hits": 0 }
 
 static func _new_metrics() -> Dictionary:
 	return { "dmg": {}, "taken": {}, "taken_hits": {}, "enemies": {}, "hits": {}, "patterns": {}, "absorbed": 0.0, "interrupts": 0, "webs": 0, "heals": 0, "heal_amount": 0.0, "far_frac": -1.0 }
@@ -133,6 +134,8 @@ func _init(o: Dictionary) -> void:
 	if o.has("hp_mult"):
 		for k in o.hp_mult:
 			hp_mult[k] = float(o.hp_mult[k])
+	if o.has("act"):
+		act = int(o.act)
 	time_limit = float(o.get("time_limit", 0.0))
 	fixed_build = bool(o.get("fixed_build", false))
 	overlap_limit = int(o.get("overlap_limit", 0))
@@ -631,6 +634,7 @@ func update_spawner(dt: float) -> void:
 	if mode == "boss":
 		return
 	spawned_all = spawn_count >= spawn_total and pending.is_empty()
+	_tick_pace_metrics(dt)
 	if spawn_hold or spawn_count >= spawn_total:
 		return
 	spawn_timer -= dt
@@ -646,7 +650,12 @@ func update_spawner(dt: float) -> void:
 	var picked_tiers := []
 	var counts := {}
 	var i := spawn_count
-	while i < units.size() and picked.size() < mini(int(formation.group), room):
+	# 전투 말미(남은 등장이 묶음 이하)에는 마지막 묶음을 키워 한 마리씩 나오는 대기를 줄인다. 총 등장 수는 그대로다(지시 4)
+	var group_now: int = int(formation.group)
+	var left: int = units.size() - spawn_count
+	if bool(formation.get("tail_boost", false)) and spawn_count > 0 and left > 0 and left <= group_now:
+		group_now = maxi(group_now, int(ceil(float(group_now) * PPacing.tail_group_mult())))
+	while i < units.size() and picked.size() < mini(group_now, room):
 		var tp := String(units[i])
 		var cap: int = int(caps.get(tp, 9999))
 		if alive_count_of(tp) + int(counts.get(tp, 0)) >= cap:
@@ -673,6 +682,24 @@ func update_spawner(dt: float) -> void:
 		var pos := edge_pos()
 		chest = { "x": pos[0], "y": pos[1], "r": float(cfg.chest.r), "opened": false, "t": 0.0 }
 
+## 편성 측정(지시 4): 지원 적만 남은 시간 / 살아 있는 적이 1~2마리뿐인 후반 시간 / 다음 등장까지 때릴 대상이 없는 시간.
+## 읽기만 하는 계측이며 규칙·난수에 영향을 주지 않는다
+func _tick_pace_metrics(dt: float) -> void:
+	var alive := 0
+	var support := 0
+	for e in enemies:
+		if e.dead or bool(e.get("hidden", false)) or bool(e.structure):
+			continue
+		alive += 1
+		if PPacing.is_support(String(e.type)):
+			support += 1
+	if alive > 0 and support == alive:
+		stats.support_only_sec = float(stats.support_only_sec) + dt
+	if alive > 0 and alive <= 2 and not spawned_all:
+		stats.thin_tail_sec = float(stats.thin_tail_sec) + dt
+	if alive == 0 and not spawned_all:
+		stats.no_target_sec = float(stats.no_target_sec) + dt
+
 func spawn_enemy(type: String, x: float, y: float, summoned: bool = false, tier: String = "normal") -> Dictionary:
 	var d: Dictionary = cfg.enemies[type] if cfg.enemies.has(type) else PCatalog.enemy(type)
 	var TD := PCatalog.tier(tier) if tier != "normal" else { "name": "일반", "hp": 1.0, "dmg": 1.0 }
@@ -697,7 +724,12 @@ func spawn_enemy(type: String, x: float, y: float, summoned: bool = false, tier:
 		e.dashes = 0
 		e.dash_left = int(d.dash.get("dashes", 1))
 	var cls := "boss" if e.boss else ("elite" if e.elite else "normal")
-	var mult: float = float(hp_mult.get(cls, 1.0)) * float(TD.get("hp", 1.0)) # 등급 체력 배율(세계 변화, 시험값)은 정예·보스에 적용되지 않는다(TD가 normal)
+	# 역할별 고정 체력표(PPacing, 시험값)가 있으면 그 절대값을 기본 체력 대비 배율로 바꿔 쓴다. 없으면 세계 변화 등급 배율 그대로.
+	# 표는 개발 중 기준 빌드 측정으로 미리 만든 고정값이며 실행 중 플레이어 DPS를 읽지 않는다. 보스·구조물은 대상이 아니다.
+	var tier_mult: float = float(TD.get("hp", 1.0))
+	if not e.boss and not e.structure:
+		tier_mult = PPacing.hp_mult_for(type, tier, float(d.hp), act, tier_mult)
+	var mult: float = float(hp_mult.get(cls, 1.0)) * tier_mult
 	e.hp = e.hp * mult
 	e.hp_max = e.hp_max * mult
 	e.hp_class = cls
@@ -1066,6 +1098,25 @@ func kill_enemy(e: Dictionary, o: Dictionary) -> void:
 
 func add_zone(type: String, x: float, y: float, r: float, ttl: float, dmg: float) -> Dictionary:
 	var z := { "type": type, "x": x, "y": y, "r": r, "ttl": ttl, "max_ttl": ttl, "dmg": dmg, "tick": 0.0, "t": 0.0 }
+	# 적 장판 총량 상한(지시 4): 죽은 적이 남긴 장판까지 쌓여 화면이 위험 표시로 덮이지 않게 가장 오래된 것부터 지운다.
+	# 새로 만드는 장판을 취소하지는 않는다(예고와 실제가 어긋나지 않게). 플레이어 장판은 대상이 아니다.
+	var cap := PPacing.max_enemy_zones()
+	if cap > 0 and PPacing.is_enemy_zone(type):
+		var idxs := []
+		for i in zones.size():
+			if PPacing.is_enemy_zone(String(zones[i].type)):
+				idxs.append(i)
+		while idxs.size() >= cap:
+			var oldest := 0
+			for k in idxs.size():
+				if float(zones[idxs[k]].t) > float(zones[idxs[oldest]].t):
+					oldest = k
+			zones.remove_at(idxs[oldest])
+			var gone: int = idxs[oldest]
+			idxs.remove_at(oldest)
+			for k in idxs.size():
+				if int(idxs[k]) > gone:
+					idxs[k] = int(idxs[k]) - 1
 	zones.append(z)
 	return z
 
@@ -1713,7 +1764,7 @@ func summary() -> Dictionary:
 		"attacks": stats.attacks, "hits": stats.hits, "dodges": stats.dodges, "special_uses": stats.special_uses, "e_uses": stats.e_uses, "dmg": dmg, "dmg_total": snapped(total, 0.1), "taken": metrics.taken.duplicate(), "taken_hits": metrics.taken_hits.duplicate(), "enemies": en, "steps": step_n, "seed": seed_value,
 		"dodge_mode": String(cfg.player.dodge.mode), "dodge_cooldown": float(cfg.player.dodge.cooldown), "dodge_dists": stats.dodge_dists.duplicate(), "perfect_dodges": stats.perfect_dodges,
 		"formation": String(cfg.formation_id) if cfg.has("formation_id") else String(opts.get("formation_name", "?")), "spawn_total": spawn_total, "spawned": spawn_count, "xp": snapped(stats.xp, 0.0001), "level_ups": stats.level_ups,
-		"max_alive": stats.max_alive, "max_dash_states": stats.max_dash_states, "max_bite_states": stats.max_bite_states, "tier_spawned": stats.tier_spawned.duplicate(), "tier_kills": stats.tier_kills.duplicate(), "max_enemy_projectiles": stats.max_enemy_projectiles, "max_enemy_zones": stats.max_enemy_zones, "max_webs": stats.max_webs, "world_stage": int(opts.get("world_stage", 0)), "dash_max": int(cfg.enemies.wolf.dash.max_concurrent), "wolf_hp": float(cfg.enemies.wolf.hp),
+		"max_alive": stats.max_alive, "support_only_sec": snapped(float(stats.support_only_sec), 0.1), "thin_tail_sec": snapped(float(stats.thin_tail_sec), 0.1), "no_target_sec": snapped(float(stats.no_target_sec), 0.1), "max_dash_states": stats.max_dash_states, "max_bite_states": stats.max_bite_states, "tier_spawned": stats.tier_spawned.duplicate(), "tier_kills": stats.tier_kills.duplicate(), "max_enemy_projectiles": stats.max_enemy_projectiles, "max_enemy_zones": stats.max_enemy_zones, "max_webs": stats.max_webs, "world_stage": int(opts.get("world_stage", 0)), "dash_max": int(cfg.enemies.wolf.dash.max_concurrent), "wolf_hp": float(cfg.enemies.wolf.hp),
 		"boss_damage": snapped(stats.boss_damage, 0.1), "patterns": metrics.patterns.duplicate(), "chest_gold": stats.chest_gold, "healed": stats.healed, "region_id": region_id, "arena": arena_id, "objective": objective, "hp_mult": hp_mult.duplicate(), "time_limit": time_limit, "fixed_build": fixed_build, "interrupts": metrics.interrupts, "heals": metrics.heals, "webs": metrics.webs, "far_frac": metrics.far_frac, "equip_procs": stats.equip_procs.duplicate(), "boss_id": boss_id }
 	if build.has("growth") and build.growth != null:
 		var g: Dictionary = build.growth

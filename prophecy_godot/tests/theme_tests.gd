@@ -87,17 +87,17 @@ func _init() -> void:
 	ok("첫날 새벽 숲길 출격 = 늑대 25·동시 12·경험치 예산 9.0(D33 보존), 전장 공터", String(c_first.formationId) == "t1a_first" and (st_first.formation.units as Array).size() == 25 and int(st_first.formation.godot_counts.wolf) == 25 and int(st_first.formation.alive_cap) == 12 and is_equal_approx(snapped(xp_first, 0.01), 9.0) and st_first.arena_id == "clearing", "units %d cap %d xp %.2f" % [(st_first.formation.units as Array).size(), int(st_first.formation.alive_cap), xp_first])
 	var st1 := PFlow.make_encounter(r5, sortie_of(r5, p1, 1, "t1a_wolves"))
 	var f1: Dictionary = st1.formation
-	ok("숲길 '늑대 무리 + 궁수': 전체 26(늑대 21·궁수 5), 동시 10, 궁수 상한 3, 배율 1(밀도 세트 무시)", (f1.units as Array).size() == 26 and int(f1.godot_counts.wolf) == 21 and int(f1.godot_counts.archer) == 5 and int(f1.alive_cap) == 10 and int(f1.type_caps.get("archer", 0)) == 3 and is_equal_approx(float(f1.multiplier), 1.0), str(f1.godot_counts) + " cap %d" % int(f1.alive_cap))
+	ok("숲길 '늑대 무리 + 궁수'(1일차): 전체 25 = 날짜 예산표(사용자 결정 25), 늑대 20·궁수 5(0.8/0.2), 동시 12(1막 상한), 궁수 상한 3, 배율 1(밀도 세트 무시)", (f1.units as Array).size() == 25 and int(f1.godot_counts.wolf) == 20 and int(f1.godot_counts.archer) == 5 and int(f1.alive_cap) == 12 and int(f1.type_caps.get("archer", 0)) == 3 and is_equal_approx(float(f1.multiplier), 1.0), str(f1.godot_counts) + " cap %d" % int(f1.alive_cap))
 	r5.densitySet = "roles"
 	var st1b := PFlow.make_encounter(r5, sortie_of(r5, p1, 1, "t1a_wolves"))
-	ok("밀도 세트 roles를 골라도 테마 템플릿 수는 같다(이중 적용 없음)", (st1b.formation.units as Array).size() == 26)
+	ok("밀도 세트 roles를 골라도 테마 템플릿 수는 같다(이중 적용 없음)", (st1b.formation.units as Array).size() == 25)
 	r5.densitySet = ""
 	var xp1 := 0.0
 	for t in f1.html_counts:
 		xp1 += float(f1.xp_map[t]) * float(f1.godot_counts[t])
 	ok("경험치 예산 = 기준 9(늑대 7.2 상당 + 궁수 1.8 상당) × 단위값: 늑대 6×1×0.3×7.2 + 궁수 7×1×0.3×1.8 = 16.74", is_equal_approx(snapped(xp1, 0.01), 16.74), "%.2f" % xp1)
 	var st2 := PFlow.make_encounter(r5, sortie_of(r5, p2, 2, "t1a_boar"))
-	ok("사냥터 안쪽(2칸) '늑대 + 멧돼지': 전체 38, 동시 12, 전장 forest", (st2.formation.units as Array).size() == 38 and int(st2.formation.alive_cap) == 12 and st2.arena_id == "forest")
+	ok("사냥터 안쪽(2칸, 2일차) '늑대 + 멧돼지': 전체 32 = 30×1.07(핵심 장소 +7%), 동시 12(1막), 전장 forest", (st2.formation.units as Array).size() == 32 and int(st2.formation.alive_cap) == 12 and st2.arena_id == "forest", "%d/%d" % [(st2.formation.units as Array).size(), int(st2.formation.alive_cap)])
 	var opts_r := PRun.formation_options(p1, 1, true)
 	ok("위험 임무 카드는 위험 템플릿(우두머리 포함)", opts_r.size() == 1 and String(opts_r[0].id) == "t1a_risk")
 	# 카드 생성: 테마 장소 카드에 편성 이름, 같은 장소 직전 편성 회피
@@ -109,8 +109,15 @@ func _init() -> void:
 	r5.bossesDone = ["boss", "guardian"]
 	r5.stage = 2
 	var st3 := PFlow.make_encounter(r5, sortie_of(r5, String(PRun.route_theme(r5, 3).places[0].id), 7, "t3a_archer_burrow"))
-	ok("3막 템플릿(궁수 20·잠복충 20): 2차 변화라 일반 0, 붉은 24·변이 16", int(st3.formation.tier_counts.get("normal", 0)) == 0 and int(st3.formation.tier_counts.get("red", 0)) == 24 and int(st3.formation.tier_counts.get("apex", 0)) == 16, str(st3.formation.tier_counts))
-	# 보상 태그 1.15
+	var t3n: int = (st3.formation.units as Array).size()
+	ok("3막 템플릿(7일차 1칸 = 55): 2차 변화라 일반 0, 붉은 60%·변이 40%", int(st3.formation.tier_counts.get("normal", 0)) == 0 and t3n == 55 and int(st3.formation.tier_counts.get("red", 0)) + int(st3.formation.tier_counts.get("apex", 0)) == t3n and int(st3.formation.tier_counts.get("red", 0)) > int(st3.formation.tier_counts.get("apex", 0)), "%d %s" % [t3n, str(st3.formation.tier_counts)])
+	# 날짜별 총 등장 수(사용자 결정 25 → 75): 1일 25 … 9일 70, 9일차 핵심 장소 75. 10일차는 최종 관문 전용이라 일반 전투 없음
+	var day_tbl := []
+	for d in range(1, 10):
+		day_tbl.append(PPacing.day_total(d, 1))
+	ok("날짜 예산표 1~9일: 25/30/35/40/45/50/55/60/70, 9일차 핵심(2칸) 75", day_tbl == [25, 30, 35, 40, 45, 50, 55, 60, 70] and PPacing.day_total(9, 2) == 75, str(day_tbl))
+	ok("막별 동시 상한(시험값) 1막 12·2막 15·3막 18, legacy 대조군은 템플릿 값 유지", PPacing.alive_cap(1, 99) == 12 and PPacing.alive_cap(2, 99) == 15 and PPacing.alive_cap(3, 99) == 18 and PPacing.alive_cap(2, 99, "legacy") == 99)
+		# 보상 태그 1.15
 	var run_t := PRun.new_run(66, "sword", "", { "route": ["act1_hunt_forest", "act2_crimson_ritual", "act3_temporal_abyss"] })
 	run_t.growth.pendingLevelUps = 1
 	var cands := PGrowth.candidates(run_t, { "pool": "level", "region_id": p1 })

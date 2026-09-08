@@ -113,8 +113,10 @@ static func options(run: Dictionary, sortie: Dictionary) -> Array:
 			var heal := int(round(hp_max * float(E().supply.heal)))
 			var mat := _supply_mat(String(sortie.regionId))
 			out.append({ "id": "heal", "name": "치료 (+%d)" % heal, "cost": "없음", "effect": "체력 %d → %d" % [int(hp), int(minf(hp_max, hp + float(heal)))], "enabled": hp < hp_max })
-			out.append({ "id": "loot", "name": "물자 (금화 +%d%s)" % [int(E().supply.gold), (", " + String(PCatalog.materials()[mat].name) + " +1") if mat != "" else ""], "cost": "없음", "effect": "이번 출격 전리품에 추가(귀환 시 확정)", "enabled": true })
-			out.append({ "id": "leave", "name": "지나친다", "cost": "없음", "effect": "없음", "enabled": true })
+			out.append({ "id": "loot", "name": "보급품 챙기기 (금화 +%d%s)" % [int(E().supply.gold), (", " + String(PCatalog.materials()[mat].name) + " +1") if mat != "" else ""], "cost": "없음", "effect": "이번 출격 전리품에 추가(귀환 시 확정)", "enabled": true })
+			# 지시 9: 비용·위험 없이 유효한 이득만 있는 사건에서는 '지나친다'를 제공하지 않는다(무료 이득을 버리는 선택 제거)
+			if not PPacing.event_no_skip(String(ev.id)):
+				out.append({ "id": "leave", "name": "지나친다", "cost": "없음", "effect": "없음", "enabled": true })
 		"merchant":
 			var S: Dictionary = PCatalog.services().get(String(ev.service), {})
 			out.append({ "id": "fight", "name": "상인을 구한다 (추가 전투)", "cost": "지역 웨이브 + 정예 1, 체력 회복 없음(%d/%d), 패배 시 이번 출격 전리품 상실" % [int(hp), int(hp_max)],

@@ -1,0 +1,242 @@
+{
+  "schema": "prophecy_pacing/1",
+  "note": "손으로 작성한 밸런스 오버레이(내보내기 산출물 아님). enemies.json·world.json은 tools/port_export_data.js가 만들므로 여기서 덮어쓴다. 사용자 결정과 시험값을 field별로 구분해 적었다. 어떤 값도 사람이 승인한 균형값이 아니다(day_total.by_day의 25/75 목표와 금화 -30%, 등급 교체 구조만 사용자 결정).",
+  "day_total": {
+    "decision": "사용자 결정: 첫날 25마리라면 10일차 수준은 75마리. 중간 값과 장소 배율은 구현자 시험값",
+    "note": "일반 전투 1회의 총 등장 수(동시 생존 수 아님). 비용 1칸 장소 기준. 테마 템플릿의 sizes.total을 이 표가 대체한다(×5 밀도 배율과 이중 적용하지 않는다).",
+    "by_day": [
+      25,
+      30,
+      35,
+      40,
+      45,
+      50,
+      55,
+      60,
+      70,
+      75
+    ],
+    "place_cost2_mult": 1.07,
+    "cost2_note": "핵심(비용 2칸) 장소는 +7%. 9일차 비용2 = 70×1.07 = 75로 '10일차 수준 75'를 일반 탐험 마지막 날에 실제로 만난다. 10일차는 최종 관문 전용이라 일반 전투를 넣지 않는다.",
+    "deep_note": "더 깊이 탐험은 기존 규칙(웨이브 묶음마다 +1, 정예 1)을 그대로 쓴다. 날짜 표에 다시 곱하지 않는다.",
+    "legacy_note": "옛 지역 일정(trio 저장·회귀 스위트)은 이 표를 쓰지 않는다. 기존 day_waves × 밀도 배율 그대로."
+  },
+  "alive_cap": {
+    "note": "동시 생존 상한. 사용자 지시의 막별 후보(1막 12 / 2막 15 / 3막 18)는 시험값이며 legacy 대조군과 비교한다. 첫날 기준 전투(t1a_first)는 어떤 세트에서도 12를 유지한다.",
+    "set_default": "acts",
+    "sets": {
+      "acts": {
+        "1": 12,
+        "2": 15,
+        "3": 18
+      },
+      "legacy": {}
+    },
+    "legacy_set_note": "legacy는 비어 있으면 템플릿의 alive_cap을 그대로 쓴다(대조군)."
+  },
+  "spawn": {
+    "note": "혼합 분대 등장(사용자 평가: 근접을 다 잡고 나면 지원 적만 하나씩 나와 지루하다). 대기열을 역할이 섞이도록 재배치하고, 한 묶음에 지원 적이 차지할 수 있는 비율을 제한한다.",
+    "squad_mixing": true,
+    "support_share_per_group": 0.5,
+    "min_escort_alive": 1,
+    "escort_note": "지원·통제 역할(archer·shaman·spore·frostcaller)은 같은 묶음에 근접 호위가 함께 나오도록 대기열을 정렬한다. 마지막 남은 적이 지원 적만 반복 충원되는 편성을 막는다.",
+    "tail_group_mult": 1.5,
+    "tail_note": "남은 적이 묶음 크기 이하로 줄면 마지막 묶음을 1.5배로 크게 내보내 전투 말미의 한 마리씩 대기를 줄인다(총 수는 그대로)."
+  },
+  "zone_cap": {
+    "note": "이미 죽은 적이 남긴 장판까지 쌓여 화면이 위험 표시로 덮이지 않도록 하는 적 장판 총량 상한(시험값). 넘으면 가장 오래된 적 장판부터 사라진다. 플레이어 장판(잔불·냉기 바닥 등)은 대상이 아니다. 종류별 동시 상한(type_caps)과는 별개.",
+    "max_enemy_zones": 10,
+    "enemy_zone_types": [
+      "spore",
+      "rubble",
+      "ice",
+      "web",
+      "frostzone",
+      "hazard"
+    ]
+  },
+  "enemy_hp": {
+    "note": "역할별 고정 체력표(시험값). 실행 중 플레이어 DPS를 읽지 않는다. 개발 중 기준 빌드의 정지 단일표적 DPS(ref_dps) × 역할별 목표 집중 공격 시간(target_sec)으로 미리 계산했다. normal 등급은 승인된 첫 전투를 보존하려고 기존 값을 그대로 둔다.",
+    "ref_dps": {
+      "act1": 22.0,
+      "act2": 75.0,
+      "act3": 130.0,
+      "source": "act1 = 새 회차 검 Lv1 실측(검토 문서 §3). act2·act3는 10일 회차 성장 체크포인트 실측으로 채운다(tools/growth_checkpoints.gd)."
+    },
+    "target_sec": {
+      "swarm": 0.6,
+      "support": 2.0,
+      "melee_main": 2.2,
+      "armored": 4.0,
+      "elite": 8.0,
+      "range_note": "사용자 지시 범위(약한 무리 0.5~1 / 주력 근접 1.5~3 / 중장갑 3~5 / 지원 2~4 / 정예 8~15) 안에서 고른 대표값."
+    },
+    "roles": {
+      "wolf": "melee_main",
+      "boar": "melee_main",
+      "rogue": "melee_main",
+      "bomber": "swarm",
+      "spider": "swarm",
+      "burrower": "swarm",
+      "archer": "support",
+      "shaman": "support",
+      "frostcaller": "support",
+      "spore": "support",
+      "shieldbearer": "armored"
+    },
+    "tier_table": {
+      "note": "등급별 절대 체력. red = ref_dps.act2 × target_sec, apex = ref_dps.act3 × target_sec를 반올림한 고정값. 붉은 개체는 3막에서 더 강해지지 않는다(같은 붉은 개체가 나중에 쉬워지고 상위 변이가 주력 위협을 맡는 구조).",
+      "wolf": {
+        "normal": 30,
+        "red": 165,
+        "apex": 286
+      },
+      "boar": {
+        "normal": 70,
+        "red": 165,
+        "apex": 286
+      },
+      "rogue": {
+        "normal": 45,
+        "red": 165,
+        "apex": 286
+      },
+      "bomber": {
+        "normal": 35,
+        "red": 45,
+        "apex": 78
+      },
+      "spider": {
+        "normal": 40,
+        "red": 45,
+        "apex": 78
+      },
+      "burrower": {
+        "normal": 45,
+        "red": 45,
+        "apex": 78
+      },
+      "archer": {
+        "normal": 22,
+        "red": 150,
+        "apex": 260
+      },
+      "shaman": {
+        "normal": 40,
+        "red": 150,
+        "apex": 260
+      },
+      "frostcaller": {
+        "normal": 38,
+        "red": 150,
+        "apex": 260
+      },
+      "spore": {
+        "normal": 55,
+        "red": 150,
+        "apex": 260
+      },
+      "shieldbearer": {
+        "normal": 60,
+        "red": 300,
+        "apex": 520
+      }
+    },
+    "elite_by_act": {
+      "note": "정예는 등급 배정 대상이 아니므로(정예·구조물·보스 제외) 막별 절대 체력으로 둔다. 1막은 기존 120 유지.",
+      "wolf_alpha": {
+        "1": 120,
+        "2": 600,
+        "3": 1040
+      }
+    },
+    "structure_note": "제단·봉인 장치(구조물)는 목표 파괴 대상이라 이번에 올리지 않는다. 임무 길이에 직접 영향을 주므로 별도 시험 항목."
+  },
+  "boss_hp": {
+    "note": "사용자 기록 DPS가 유지될 때의 산술 후보(검토 문서 §5). 새 행동과 10일 성장에서는 실제 DPS가 달라지므로 재측정 대상. 신규 6종에는 같은 숫자를 복사하지 않고 막별 기준으로 환산했다.",
+    "sets": {
+      "base": {
+        "boss": {
+          "single": 6000,
+          "stage1": 6000
+        },
+        "guardian": {
+          "stage2": 15000
+        },
+        "eater": {
+          "stage3": 18000
+        },
+        "gate_warden": {
+          "stage1": 6000
+        },
+        "spore_matriarch": {
+          "stage1": 5400
+        },
+        "excavation_behemoth": {
+          "stage2": 13000
+        },
+        "frost_stalker": {
+          "stage2": 12500
+        },
+        "blood_hunt_king": {
+          "stage3": 17000
+        },
+        "doom_executor": {
+          "stage3": 19000
+        }
+      }
+    },
+    "act_note": "1막 관문 5400~6000 / 2막 12500~15000 / 3막 17000~19000. 보스별 행동 밀도 차이는 행동 담당이 별도로 조정한다."
+  },
+  "gold": {
+    "decision": "사용자 결정: 새로 지급하는 금화 수급을 약 30% 줄인다",
+    "mult": 0.7,
+    "applies_to": [
+      "전투 전리품",
+      "상자",
+      "사건 보상",
+      "임무 대체 금화",
+      "심층 보상"
+    ],
+    "excludes": [
+      "기존 지갑 잔액",
+      "거래 취소 환불",
+      "저장 복구 금화",
+      "장비·재료 판매금"
+    ],
+    "sell_note": "재료·장비 판매금은 제외한다(플레이어가 이미 획득한 자산의 환금이라 이중 감축이 된다). 우회 수입은 판매 수입을 따로 측정해 보고한다.",
+    "price_note": "상점 가격은 이번에 함께 바꾸지 않는다."
+  },
+  "display": {
+    "note": "data/*.json은 tools/port_export_data.js 내보내기 산출물이라 이름·문구를 여기서 덮어쓴다(지시 9: 제단은 이름과 효과로 부수는 이유를 알 수 있어야 한다).",
+    "enemy_names": {
+      "altar_heal": "적 치유 제단",
+      "altar_reinforce": "소환 제단",
+      "altar_hazard": "저주 제단"
+    },
+    "enemy_short": {
+      "altar_heal": "적 회복 중 · 파괴하면 멈춤",
+      "altar_reinforce": "적을 계속 부름 · 파괴하면 멈춤",
+      "altar_hazard": "바닥 공격을 만듦 · 파괴하면 멈춤"
+    }
+  },
+  "events": {
+    "note": "지시 9: 비용·위험·대가가 전혀 없는데 유효한 이득이 있는 선택에서는 '지나친다'를 없앤다. 비용·손실·교체·위험이 있는 사건의 거절은 그대로 둔다.",
+    "no_skip": [
+      "supply"
+    ],
+    "kept_skip": [
+      "weapon_altar(체력 비용)",
+      "merchant·challenge·sealed_loot(추가 전투 위험)",
+      "time_spring(치료는 시간 1칸 비용)"
+    ]
+  },
+  "repeat_sortie": {
+    "note": "지시 8: 오늘의 카드를 모두 끝내도 시간이 남으면 완료한 같은 장소로 '일반 탐험'을 나갈 수 있다. 임무 보상·사건·이용권은 다시 주지 않고, 시간과 위험을 지불하는 정상 전투다.",
+    "enabled": true,
+    "time_cost": 1,
+    "label": "일반 탐험",
+    "no_event": true,
+    "no_mission_reward": true
+  }
+}

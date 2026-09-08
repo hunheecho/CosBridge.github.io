@@ -93,6 +93,8 @@ static func equipment() -> Dictionary: return _load("world").equipment
 static func shop() -> Dictionary: return _load("world").shop
 static func regions() -> Array: return _load("world").regions
 static func materials() -> Dictionary: return _load("world").materials
+## 밸런스 오버레이(손으로 작성, 내보내기 아님 — PPacing이 읽는다)
+static func pacing() -> Dictionary: return _load("pacing")
 static func density() -> Dictionary: return _load("world").density
 static func world_stages() -> Dictionary: return _load("world").get("world_stages", {})
 static func tier(id: String) -> Dictionary:
@@ -197,7 +199,13 @@ static func is_crafted(id: String) -> bool:
 static func enemy(type: String) -> Dictionary:
 	var E := enemies()
 	if E.has(type):
-		return E[type]
+		var e: Dictionary = E[type]
+		var nm := PPacing.enemy_name(type, "")
+		if nm != "" and String(e.get("name", "")) != nm: # 표시 이름 오버레이(제단 이름 통일). 1회만 바꾸고 캐시에 남긴다
+			e = e.duplicate()
+			e.name = nm
+			E[type] = e
+		return e
 	push_error("알 수 없는 적: " + type)
 	return {}
 

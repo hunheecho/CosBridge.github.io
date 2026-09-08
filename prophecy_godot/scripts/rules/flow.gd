@@ -25,8 +25,8 @@ static func encounter_opts(run: Dictionary, sortie: Dictionary, extra: Dictionar
 		"hp_mult": PRun.hp_mult_for(run, region, deep), "region_id": region, "risk": risk,
 		"mission": ({ "cardId": String(sortie.get("cardId", "")), "objective": String(sortie.objective), "risk": risk } if mission else {}),
 		"pool": pool, "chest": true, "xp_kill_mult": PRun.kill_xp_mult(run), "lab_text": PRun.layout_text(run), "run": run,
-		"density": (PRun.theme_density_override(region, String(sortie.get("formationId", ""))) if PRun.is_theme_place(region) else PCatalog.density_set(String(run.get("densitySet", "")))), # 테마 장소는 템플릿 상한(배율 이중 적용 없음), 그 외 밀도 세트
-		"tier_mix": PRun.tier_mix(run), "world_stage": PRun.world_stage(run), # 세계 변화 등급 비율(관문 완료에서 도출)
+		"density": (PRun.theme_density_override(region, String(sortie.get("formationId", "")), int(PRun.act_of(run).get("id", 1)), String(run.get("aliveCapSet", ""))) if PRun.is_theme_place(region) else PCatalog.density_set(String(run.get("densitySet", "")))), # 테마 장소는 템플릿 상한(배율 이중 적용 없음), 그 외 밀도 세트
+		"tier_mix": PRun.tier_mix(run), "world_stage": PRun.world_stage(run), "act": int(PRun.act_of(run).get("id", 1)), # 막(정예 체력·역할별 고정 체력표) # 세계 변화 등급 비율(관문 완료에서 도출)
 	}
 	if sortie.get("eventFight", null) != null:
 		var fo := PEvents.fight_opts(run, sortie)
@@ -94,7 +94,7 @@ static func settle_victory(run: Dictionary, sortie: Dictionary, st: CombatState)
 		reward.heal = heal
 	reward.xp = 0.0 if reward.has("eventFight") else PRun.region_bonus_xp(run, String(sortie.regionId), bool(sortie.get("deep", false)))
 	PGrowth.add_xp(run.growth, float(reward.xp))
-	if not reward.has("eventFight") and sortie.get("event", null) == null and not bool(sortie.get("endless", false)):
+	if not reward.has("eventFight") and sortie.get("event", null) == null and not bool(sortie.get("endless", false)) and not bool(sortie.get("repeat", false)):
 		sortie.event = PEvents.roll(run, sortie) # 탐험 사건: 출격당 최대 1회, 시드 결정적(무한 전투에는 사건 없음)
 	run.pendingSortie = sortie # 전투 뒤 안전 화면 상태를 저장
 	var deep_pick: bool = bool(PCatalog.growth().get("DEEP_PICK", false))
@@ -125,7 +125,7 @@ static func make_boss_encounter(run: Dictionary, sortie: Dictionary) -> CombatSt
 	var b := PRun.build(run)
 	var boss_id := String(sortie.get("bossId", "boss"))
 	var st := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": int(sortie.seed), "boss": true, "boss_id": boss_id, "boss_hp": PRun.boss_hp(run, boss_id),
-		"arena": "clearing", "region_id": "boss", "xp_kill_mult": PRun.kill_xp_mult(run), "run": run })
+		"arena": "clearing", "region_id": "boss", "xp_kill_mult": PRun.kill_xp_mult(run), "run": run, "act": int(PRun.act_of(run).get("id", 1)) })
 	if (run.get("buffs", {}) as Dictionary).has("skillCd"):
 		st.temp_buff = "skillCd"
 	consume_stored_shield(run)
@@ -422,12 +422,15 @@ static func actions(run: Dictionary) -> Array:
 		var nb := PRun.next_boss(run)
 		out.append(_act("boss_start", "boss_start", "보스 입장: %s" % (String(PCatalog.boss_def(String(nb.id)).name) if not nb.is_empty() else "보스"), PRun.can_start_boss(run), "", { "boss_id": (String(nb.id) if not nb.is_empty() else "boss"), "stage": int(run.get("stage", 0)) }))
 	if phase == "prep":
-		for c in PSortie.cards_for(run):
+		for c in PSortie.all_cards(run):
 			var ok := PSortie.can_start(run, c)
 			var reason := ""
-			if bool(c.done): reason = "완료한 카드"
+			if bool(c.done) and not bool(c.get("repeat", false)): reason = "완료한 카드"
 			elif PRun.is_boss_day(run): reason = "관문 날"
 			elif int(run.hours) < int(c.timeCost): reason = "시간 부족(%d칸 필요)" % int(c.timeCost)
+			if bool(c.get("repeat", false)): # 남는 시간 반복 탐험(임무 보상·사건 없음)
+				out.append(_act("sortie:" + String(c.id), "sortie", "%s · %s · %d칸" % [String(PRun.region(String(c.regionId)).name), String(c.get("label", "일반 탐험")), int(c.timeCost)], ok, reason, { "card_id": String(c.id), "region_id": String(c.regionId), "objective": "clear", "risk": null, "repeat": true, "time_cost": int(c.timeCost) }))
+				continue
 			var label := "%s · %s%s" % [String(PRun.region(String(c.regionId)).name), PSortie.objective_name(String(c.objective)), (" · " + String(PCatalog.mission_rules().riskText[String(c.risk)])) if c.get("risk", null) != null else ""]
 			out.append(_act("sortie:" + String(c.id), "sortie", label, ok, reason, { "card_id": String(c.id), "region_id": String(c.regionId), "objective": String(c.objective), "risk": c.get("risk", null), "time_cost": int(c.timeCost), "steer": PSortie.steer_state(run, c) }))
 		out.append(_act("rest", "rest", "휴식 (체력 회복 → %s)" % PRun.next_slot_name(run, 0 if PRun.has_service(run, "free_rest") else int(PCatalog.config().REST_HOURS)), PRun.can_rest(run), "" if PRun.can_rest(run) else "시간 부족"))

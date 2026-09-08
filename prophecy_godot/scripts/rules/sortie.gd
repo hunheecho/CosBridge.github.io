@@ -150,15 +150,50 @@ static func card(run: Dictionary, id: String) -> Dictionary:
 	return {}
 
 static func can_start(run: Dictionary, c: Dictionary) -> bool:
-	return not c.is_empty() and not bool(c.done) and PRun.can_sortie(run, String(c.regionId))
+	if c.is_empty():
+		return false
+	if bool(c.get("repeat", false)):
+		return PRun.can_sortie(run, String(c.regionId), int(c.timeCost))
+	return not bool(c.done) and PRun.can_sortie(run, String(c.regionId))
+
+## 남는 시간용 반복 탐험 카드(지시 8): 오늘 완료한 같은 장소로 다시 나간다.
+## 임무 목표·임무 보상·사건·이용권은 다시 주지 않는다. 시간(1칸)과 전투 위험은 그대로 지불한다.
+static func repeat_cards(run: Dictionary) -> Array:
+	var out := []
+	if not PPacing.repeat_enabled() or String(run.get("phase", "")) != "prep" or PRun.is_boss_day(run):
+		return out
+	var cost := PPacing.repeat_cost()
+	if int(run.hours) < cost:
+		return out
+	for c in cards_for(run):
+		if not bool(c.done):
+			continue
+		var rid := String(c.regionId)
+		out.append({ "id": String(c.id) + ":again", "day": int(run.day), "regionId": rid, "objective": "clear", "risk": null,
+			"rewardKind": null, "rewardTarget": "", "fallbackGold": 0, "timeCost": cost, "repeat": true,
+			"enemies": (c.enemies as Array).duplicate(), "first": false, "done": false, "attempts": int(c.get("repeatAttempts", 0)), "linked": false,
+			"formationId": String(c.get("formationId", "base")), "formationName": String(c.get("formationName", "기본")), "formationDesc": String(c.get("formationDesc", "")),
+			"variantSlot": null, "variantName": null, "label": PPacing.repeat_label() })
+	return out
+
+## 오늘의 카드 + 반복 탐험 카드(행동 목록·화면 공용)
+static func all_cards(run: Dictionary) -> Array:
+	var out: Array = cards_for(run).duplicate()
+	out.append_array(repeat_cards(run))
+	return out
 
 ## 카드 출격: 지역 출격과 같은 비용·시드 규칙 + 카드 정보. 목표 'clear'는 일반 출격(임무 아님). 불가하면 {}
 static func start(run: Dictionary, id: String) -> Dictionary:
 	var c := card(run, id)
+	if c.is_empty() and id.ends_with(":again"): # 반복 탐험 카드(오늘의 카드 목록에는 없다)
+		for rc in repeat_cards(run):
+			if String(rc.id) == id:
+				c = rc
+				break
 	if not can_start(run, c):
 		push_error("임무 시작 불가: " + id)
 		return {}
-	var s := PRun.start_sortie(run, String(c.regionId))
+	var s := PRun.start_sortie(run, String(c.regionId), int(c.get("timeCost", 0)) if bool(c.get("repeat", false)) else 0)
 	if s.is_empty():
 		return {}
 	s.cardId = String(c.id)
@@ -168,6 +203,14 @@ static func start(run: Dictionary, id: String) -> Dictionary:
 		run.lastFormation = {}
 	run.lastFormation[String(c.regionId)] = s.formationId
 	c.attempts = int(c.attempts) + 1
+	if bool(c.get("repeat", false)):
+		s.repeat = true # 반복 탐험: 사건·임무 보상 없음(정상 전투 전리품만)
+		var base_id := String(c.id).replace(":again", "")
+		var bc := card(run, base_id)
+		if not bc.is_empty():
+			bc.repeatAttempts = int(bc.get("repeatAttempts", 0)) + 1
+		PRun.add_log(run, "%s: %s (시간 -%d)" % [String(PRun.region(String(c.regionId)).name), PPacing.repeat_label(), int(c.timeCost)])
+		return s
 	if String(c.objective) != "clear":
 		s.objective = String(c.objective)
 		s.risk = c.risk
