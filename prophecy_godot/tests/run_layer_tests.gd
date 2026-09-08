@@ -58,13 +58,17 @@ func _init() -> void:
 	ok("구매 가능 → 구매·장착, 같은 장비 중복 구매 불가, 재고 판매 기록 유지", PRun.can_buy_equipment(run, eq0, "stock") and PRun.buy_equipment(run, eq0, true, "stock") and PRun.owns_equip(run, eq0) and not PRun.can_buy_equipment(run, eq0, "stock") and (PRun.stock(run).sold as Array).has(eq0), "gold %d equip %s bag %s" % [int(run.gold), str(run.equipment), str(run.bag)])
 	var slot0 := String(PCatalog.equipment()[eq0].slot)
 	var price0 := PRun.equip_price(eq0)
-	ok("가격표: 무기 140·갑옷 120·방패 120, 판매 35/30/30", int(run.gold) == 500 - price0 and price0 == int(PCatalog.shop().price[slot0]) and PRun.sell_price(eq0) == int(PCatalog.shop().sellPrice[slot0]))
+	ok("가격표: 무기 140·갑옷 120·방패 120. 판매는 **실제 지불 금액의 절반**(2026-09-09) — 옛 고정표 35/30/30은 sell_price에만 남는다",
+		int(run.gold) == 500 - price0 and price0 == int(PCatalog.shop().price[slot0]) and PRun.sell_price(eq0) == int(PCatalog.shop().sellPrice[slot0])
+			and PRun.sell_value(run, eq0) == int(floor(float(price0) * 0.5)) and PRun.paid_for(run, eq0) == price0,
+		"지불 %d → 판매 %d" % [PRun.paid_for(run, eq0), PRun.sell_value(run, eq0)])
 	PRun.unequip_item(run, slot0)
 	PRun.equip_item(run, eq0)
 	PRun.unequip_item(run, slot0)
 	var gold_before := int(run.gold)
-	PRun.sell_equipment(run, eq0)
-	ok("탈착 반복으로 금화가 새지 않고 판매는 판매가만큼 1회", int(run.gold) == gold_before + PRun.sell_price(eq0) and not PRun.owns_equip(run, eq0) and (run.bag as Array).is_empty())
+	var sell_q := PRun.sell_quote(run, eq0)
+	PRun.sell_equipment(run, eq0, int(sell_q.gold))
+	ok("탈착 반복으로 금화가 새지 않고 판매는 견적(구매액의 절반)만큼 1회", int(run.gold) == gold_before + int(sell_q.gold) and int(sell_q.gold) == int(floor(float(price0) * 0.5)) and not PRun.owns_equip(run, eq0) and (run.bag as Array).is_empty())
 	run.bag.append("vitality_coat")
 	PRun.equip_item(run, "vitality_coat")
 	run.hp = 120.0
@@ -127,13 +131,21 @@ func _init() -> void:
 	var gold_after := int(run.gold)
 	PRun.return_to_base(run, sortie)
 	ok("귀환 정산 1회: 금화 반영, 두 번 정산해도 변화 없음", gold_after == gold_before2 + int(reward.gold) and int(run.gold) == gold_after and run.pendingSortie == null)
-	# 패배
+	# 패배(사망 규칙 2026-09-09): 사람 플레이는 쓰러지면 회차가 끝난다. 자세한 경계는 tests/death_tests.gd
+	var rdead := PRun.new_run(3, "sword")
+	var sdead := PSortie.start(rdead, String(PSortie.cards_for(rdead)[1].id))
+	PFlow.settle_defeat(rdead, sdead, fake_fight(rdead, sdead, false))
+	ok("일반 패배(사람 플레이): 미정산 전리품 상실 + 그 자리에서 회차 종료 — 무료 체력 회복·다음 날 진행 없음",
+		PRun.is_run_over(rdead) and bool(rdead.ended) and int(rdead.day) == 1 and int(rdead.hours) == 0 and PFlow.actions(rdead).is_empty(),
+		"day %d hours %d phase %s" % [int(rdead.day), int(rdead.hours), String(rdead.phase)])
+	# 아래 휴식·하루 종료·관문 재도전 흐름은 **시험 재시도 경로**로 본다(사람 플레이 사망 규칙과 분리된 경로, PRun.retry_mode)
+	run.testRetry = true
 	var c2: Dictionary = PSortie.cards_for(run)[1]
 	var sortie2 := PSortie.start(run, String(c2.id))
 	var stl := fake_fight(run, sortie2, false)
 	var gold_pre := int(run.gold)
 	PFlow.settle_defeat(run, sortie2, stl)
-	ok("일반 패배: 미정산 전리품 상실·남은 하루 상실 → 다음 날 새벽 정상 체력, 정산 금화 유지", int(run.day) == 2 and int(run.hours) == 5 and float(run.hp) == 100.0 and int(run.gold) == gold_pre and bool(sortie2.lost), "day %d hours %d gold %d" % [int(run.day), int(run.hours), int(run.gold)])
+	ok("[시험 재시도 경로] 일반 패배: 미정산 전리품 상실·남은 하루 상실 → 다음 날 새벽 정상 체력, 정산 금화 유지", int(run.day) == 2 and int(run.hours) == 5 and float(run.hp) == 100.0 and int(run.gold) == gold_pre and bool(sortie2.lost), "day %d hours %d gold %d" % [int(run.day), int(run.hours), int(run.gold)])
 	# 휴식·하루 종료·관문(HTML 154·34)
 	run.hp = 40.0
 	PRun.rest(run)
@@ -153,7 +165,7 @@ func _init() -> void:
 	PGrowth.add_xp(g, 100.0)
 	stb.status = "lost"
 	PFlow.settle_boss_defeat(run, stb)
-	ok("보스 패배: 금화·성장 입장 시점으로 복구, 재도전 1회, 하루 손실 없음", int(run.gold) == 300 and int(run.growth.level) == 1 and int(run.bossRetries) == 1 and String(run.phase) == "boss_prep" and int(run.day) == 4)
+	ok("[시험 재시도 경로] 보스 패배: 금화·성장 입장 시점으로 복구, 재도전 1회, 하루 손실 없음", int(run.gold) == 300 and int(run.growth.level) == 1 and int(run.bossRetries) == 1 and String(run.phase) == "boss_prep" and int(run.day) == 4)
 	g = run.growth
 	var bs2 := PRun.start_boss(run)
 	ok("재도전은 같은 시드", int(bs2.seed) == int(bs.seed))
@@ -294,8 +306,12 @@ func _init() -> void:
 	ok("패배(lost) 전투는 승리 정산 자격 없음: {} 반환, 금화·경험치 불변", rw9c.is_empty() and int(s9c.loot.gold) == 0 and float(r9c.growth.xp) == 0.0 and st9c.settled == "")
 	PFlow.settle_defeat(r9c, s9c, st9c)
 	var day9 := int(r9c.day)
+	var deaths9 := int((r9c.get("death", {}) as Dictionary).get("count", 0))
 	PFlow.settle_defeat(r9c, s9c, st9c)
-	ok("패배 정산 2회째 무시(다음 날로 두 번 넘어가지 않음)", int(r9c.day) == day9 and day9 == 2 and st9c.settled == "lost")
+	ok("패배 정산 2회째 무시(같은 사망이 두 번 정산되지 않는다). 사람 플레이 패배는 회차 종료라 날짜가 넘어가지 않는다",
+		int(r9c.day) == day9 and day9 == 1 and st9c.settled == "lost" and PRun.is_run_over(r9c) and deaths9 == 1
+			and int((r9c.get("death", {}) as Dictionary).get("count", 0)) == 1,
+		"day %d 사망 %d" % [int(r9c.day), int((r9c.get("death", {}) as Dictionary).get("count", 0))])
 	# ---------- F4(Codex 검수): 지속 피해 DPS 분모 = 원천 기술 보유 시간 ----------
 	var r10 := PRun.new_run(14, "sword")
 	r10.dmgStats = { "combats": [{ "elapsed": 20.0, "dmg": { "weapon:daggers": 100.0, "dot:bleed@daggers": 100.0, "dot:burn@ember": 40.0, "common:frost": 10.0 }, "total": 250.0, "taken": 0.0, "activeT": { "weapon:sword": 20.0, "weapon:daggers": 5.0, "weapon:ember": 10.0, "common:frost": 8.0 }, "kind": "sortie", "won": true }], "byKey": {} }

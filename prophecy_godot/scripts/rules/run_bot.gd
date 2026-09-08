@@ -145,12 +145,13 @@ func _perform(act: Dictionary, sortie: Dictionary = {}) -> Variant:
 		"buy_consumable": return PConsumables.buy(run, String(act.get("data", {}).get("id", "")))
 		"arm_consumable": return PConsumables.select(run, String(act.get("data", {}).get("id", "")))
 		"buy_potion": return PConsumables.buy(run, "potion")
+		"buy_revive": return PConsumables.buy(run, PConsumables.revive_id())
 		"use_potion": return PConsumables.use_potion(run) > 0.0
 		"equip": return PRun.equip_item(run, String(d.id))
 		"unequip":
 			PRun.unequip_item(run, String(d.slot))
 			return true
-		"sell": return PRun.sell_equipment(run, String(d.id))
+		"sell": return PRun.sell_equipment(run, String(d.id), int(d.get("gold", -1))) # 견적(행동 목록 data)과 같을 때만 확정 — 확인 단계를 봇도 그대로 지난다
 		"sell_mat": return PRun.sell(run, String(d.mat_id), int(d.n))
 		"continue_offer": return PFlow.resolve_all(run, {}, _pick_cb(), _on_pick_cb("screen"))
 	push_error("지원하지 않는 행동: " + String(act.id))
@@ -364,6 +365,10 @@ func _boss_gate() -> bool:
 		else:
 			PFlow.settle_boss_defeat(run, st)
 			L.bossRetries = int(L.bossRetries) + 1
+			if PRun.is_run_over(run): # 사람 플레이 규칙: 부활 수단이 없으면 관문 패배로 회차가 끝난다
+				L.failedAt = String(bs.bossId)
+				L.stopReason = "dead"
+				return false
 			if int(run.get("bossRetries", 0)) >= max_retries:
 				L.failedAt = String(bs.bossId)
 				return false
@@ -383,7 +388,15 @@ func _shop_bot() -> void:
 		var g0 := int(run.gold)
 		var acts := _actions()
 		var did := false
-		var sk := _find(acts, "buy_skill")
+		# 부활 물약: 사람 플레이 규칙(쓰러지면 회차 종료)으로 재는 회차에서만 산다.
+		# 시험 재시도 경로에서는 효과가 없으므로 사지 않는다(기존 측정값을 흔들지 않기 위해서다).
+		if not PRun.retry_mode(run) and PConsumables.revive_count(run) < 1:
+			var rv := _find(acts, "buy_revive")
+			if not rv.is_empty() and g0 - int(rv.data.price) >= RESERVE and bool(_perform(rv)):
+				_note_buy("revive")
+				L.revivesBought = int(L.get("revivesBought", 0)) + 1
+				did = true
+		var sk := _find(acts, "buy_skill") if not did else {}
 		if not sk.is_empty() and g0 - int(sk.data.price) >= RESERVE:
 			if bool(_perform(sk)):
 				L.skillsBought = int(L.skillsBought) + 1
@@ -520,7 +533,7 @@ func _choose_sortie(acts: Array) -> Dictionary:
 func _new_log() -> Dictionary:
 	return { "dayRows": [], "takenByDay": [], "matsByDay": [], "combatSecByDay": [], "restsByDay": [], "powerByDay": [], "spentByDay": [], "firstBuy": {}, "gateBuilds": [], "goldEarnedByDay": [], "goldSpent": 0,
 		"equipBought": [], "skillsBought": 0, "swaps": 0, "forge": 0, "deepRewards": [], "daysLostToDefeat": 0, "steered": 0, "encounters": 0, "losses": 0, "timeouts": 0, "rests": 0,
-		"deeps": 0, "cards": 0, "cardsInCombat": 0, "deepPicks": 0, "missions": 0, "missionPicks": 0, "eventCount": 0, "eventChoices": [], "eventFights": 0, "levelUpsByDay": [],
+		"deeps": 0, "cards": 0, "cardsInCombat": 0, "revivesBought": 0, "deepPicks": 0, "missions": 0, "missionPicks": 0, "eventCount": 0, "eventChoices": [], "eventFights": 0, "levelUpsByDay": [],
 		"weapon2": null, "weapon3": null, "eSkill": null, "events": [], "spawned": 0, "executed": 0, "dba": 0, "killedN": 0, "taken": 0.0, "bossTaken": 0.0, "bossPatterns": {},
 		"bosses": [], "bossSec": 0, "bossRetries": 0, "rarePicks": [], "failedAt": "", "stopDay": 0, "stopReason": "" }
 
@@ -542,7 +555,10 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 	stub_gates = bool(o.get("stub_gates", false))
 	verbose = bool(o.get("verbose", false))
 	var start := String(o.get("start", "sword"))
-	run = PRun.new_run(seed, start, String(o.get("balance", "")), { "route": o.get("route", []), "mode": String(o.get("mode", PCatalog.run_mode_default())), "legacy_places": bool(o.get("legacy_places", false)) })
+	# 사망 규칙(2026-09-09): 봇은 측정 도구라 기본값이 **시험 재시도 경로**다(관문 재도전 max_retries가 뜻을 잃지 않게).
+	# 사람 플레이와 같은 규칙(쓰러지면 회차 종료, 부활 물약만 예외)으로 재려면 opts.death_rule = "run_end"를 준다.
+	var human_death: bool = String(o.get("death_rule", "retry")) == "run_end"
+	run = PRun.new_run(seed, start, String(o.get("balance", "")), { "route": o.get("route", []), "mode": String(o.get("mode", PCatalog.run_mode_default())), "legacy_places": bool(o.get("legacy_places", false)), "test_retry": not human_death })
 	if String(o.get("density_set", "")) != "":
 		run.densitySet = String(o.density_set) # 밀도 세트(Q1 비교 후보)
 	T = { "combat": 0.0, "cards": 0.0, "screens": 0.0, "rest": 0.0, "dayEnd": 0.0, "boss": 0.0 }
@@ -578,6 +594,8 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 		var guard := 0
 		while guard < 20 and int(run.day) == day_start and not (stop_day > 0 and day > stop_day):
 			guard += 1
+			if bool(run.get("ended", false)): # 사람 플레이 규칙에서 쓰러지면 회차가 여기서 끝난다
+				break
 			var acts := _actions()
 			var hp_max := float(PRun.build(run).hp_max)
 			var rest := _find(acts, "rest")
@@ -661,7 +679,10 @@ func _run(seed: int, strat: String, o: Dictionary) -> Dictionary:
 		(L.restsByDay as Array).append(int(L.rests) - rest_start)
 		(L.spentByDay as Array).append(int(L.goldSpent) - spent_start)
 		(L.powerByDay as Array).append(_power_count() - power_start)
-		if int(run.day) != day_start: # 패배로 이미 다음 날(구조)
+		if bool(run.get("ended", false)) and PRun.is_run_over(run):
+			L.stopReason = "dead"
+			break
+		if int(run.day) != day_start: # 패배(또는 부활)로 이미 다음 날(구조)
 			L.daysLostToDefeat = int(L.daysLostToDefeat) + 1
 			continue
 		if max_days > 0 and day >= max_days:
@@ -811,6 +832,9 @@ func _finish(seed: int, start: String) -> Dictionary:
 	L.boss = " ".join(bparts)
 	L.bossStatus = "won" if (String(run.phase) == "cleared" or bool(run.get("mainCleared", false))) else String(last_b.status)
 	L.cleared = String(run.phase) == "cleared" or bool(run.get("mainCleared", false))
+	L.dead = PRun.is_run_over(run) # 사람 플레이 사망 규칙으로 회차가 끝났는가(완주와 구분)
+	L.revivesLeft = PConsumables.revive_count(run)
+	L.deaths = int((run.get("death", {}) as Dictionary).get("count", 0))
 	if bool(L.cleared):
 		L.stopReason = "cleared"
 	# 합계는 여기서 한 번만: 버킷 합 = 시계(clock)와 같아야 한다(검증)
