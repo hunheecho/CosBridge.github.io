@@ -40,6 +40,10 @@ func _setup() -> void:
 	_player = AudioStreamPlayer.new()
 	_player.name = "Synth"
 	_player.stream = gen
+	# 웹(브라우저)에서 기본 재생 방식은 '샘플'이고, 생성기 스트림은 샘플로 재생할 수 없다.
+	# 그대로 두면 브라우저에서 "cannot be sampled" 오류가 나고 소리가 하나도 나지 않는다.
+	# 어느 플랫폼에서든 이 합성음은 '스트림'으로만 재생하므로 못 박아 둔다.
+	_player.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	add_child(_player)
 	_player.play()
 	var pb := _player.get_stream_playback()

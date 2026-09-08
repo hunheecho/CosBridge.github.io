@@ -467,7 +467,7 @@ static func draw_zones(ci: Node2D, st: CombatState) -> void:
 					var ang: float = zt * 0.8 + float(i) * 1.1
 					var rr: float = zr * (0.25 + 0.6 * fmod(float(i) * 0.37 + zt * 0.2, 1.0))
 					ci.draw_circle(Vector2(zx + cos(ang) * rr, zy + sin(ang) * rr), 3.0 + float(i % 2), rgba(235, 200, 255, 0.55))
-				txt(ci, zx, zy + 5.0, "☠", 14, Color(1, 1, 1, 0.75))
+				txt(ci, zx, zy + 5.0, "독", 14, Color(1, 1, 1, 0.75))
 			"web":
 				var wc := rgba(235, 235, 245, 0.35 + 0.35 * life)
 				for i in 8:

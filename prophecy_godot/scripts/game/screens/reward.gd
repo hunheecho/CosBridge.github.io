@@ -66,7 +66,7 @@ func refresh() -> void:
 		(lc.box as VBoxContainer).add_child(lb)
 		body.add_child(lc.panel)
 	# 세부 통계: 접혀 있고, 펼쳐도 위의 '계속' 버튼은 그대로 화면에 남는다
-	var toggle := PUi.button("세부 통계 닫기 ▾" if _stats_open else "세부 통계 보기 ▸", func(): _stats_open = not _stats_open; refresh(), true, 14)
+	var toggle := PUi.button("세부 통계 닫기 ▼" if _stats_open else "세부 통계 보기 ▶", func(): _stats_open = not _stats_open; refresh(), true, 14)
 	toggle.custom_minimum_size = Vector2(0, PLayout.button_min_height())
 	body.add_child(toggle)
 	if _stats_open:

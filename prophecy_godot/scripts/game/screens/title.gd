@@ -55,7 +55,7 @@ func refresh() -> void:
 		var PK := PCatalog.meta_profiles()
 		meta_txt = "영구 성장  (%s · Lv %d · 특성 %d개)" % [String(PK[String(p.kind)].name), PProfile.level(p), PProfile.selected_traits(p).size()]
 	_menu.add_child(PUi.button(meta_txt, func(): main.show_meta(), true, 15))
-	_menu.add_child(PUi.button("검증 메뉴 " + ("▾" if _verify_open else "▸"), _toggle_verify, true, 15))
+	_menu.add_child(PUi.button("검증 메뉴 " + ("▼" if _verify_open else "▶"), _toggle_verify, true, 15))
 	if _verify_open:
 		_menu.add_child(_verify_panel())
 	_menu.add_child(PUi.button("조작법", func(): main.show_controls(true), true, 15))

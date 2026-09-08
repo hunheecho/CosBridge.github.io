@@ -114,7 +114,7 @@ func _table_card(a: Dictionary, title: String, r: Dictionary) -> Control:
 		var owner := String(gr.owner)
 		grid.add_child(PUi.icon_of(_owner_icon(owner), 30.0, "", "", 0.0, 0))
 		var nm := _owner_name(owner)
-		var btn := PUi.button(("▾ " if _open_owner == owner else "▸ ") + nm, func(): _toggle(owner), true, 12)
+		var btn := PUi.button(("▼ " if _open_owner == owner else "▶ ") + nm, func(): _toggle(owner), true, 12)
 		btn.custom_minimum_size = Vector2(140, PLayout.button_min_height())
 		grid.add_child(btn)
 		grid.add_child(PUi.rich("[b]%s[/b]" % str(gr.amount), 13))
