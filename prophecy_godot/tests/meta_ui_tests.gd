@@ -21,6 +21,15 @@ func _count_text(node: Node, needle: String) -> int:
 		n += _count_text(c, needle)
 	return n
 
+## 하위 트리의 경험치 막대(§14). 거점 '현재 빌드'와 성장 패널이 같은 위젯을 쓴다
+func _find_xp_bars(node: Node) -> Array:
+	var out := []
+	if node is PXpBar:
+		out.append(node)
+	for c in node.get_children():
+		out.append_array(_find_xp_bars(c))
+	return out
+
 func _find_button(node: Node, needle: String) -> Button:
 	if node is Button and String((node as Button).text).find(needle) >= 0:
 		return node as Button
@@ -239,6 +248,17 @@ func _run() -> void:
 	var base2: Node = main.screens["base"]
 	ok("거점에 출격 준비물 1칸과 회복약 사용 버튼이 있다(새 전투 단축키 없음)",
 		_count_text(base2, "출격 준비물") >= 1 and _find_button(base2, "수호 부적") != null and _find_button(base2, "회복약 사용") != null)
+	# §14 거점 '현재 빌드'에도 전투 최상단과 **같은** 진행 막대를 둔다(글자는 실제 값)
+	main.run.growth.level = 3
+	main.run.growth.xp = 7.0
+	main.go_base()
+	await process_frame
+	var xbars := _find_xp_bars(main.screens["base"])
+	var xb: PXpBar = xbars[0] if xbars.size() > 0 else null
+	ok("§14 거점 '현재 빌드'에 레벨·경험치 진행 막대가 있고 값이 규칙과 같다",
+		xb != null and xb.level == 3 and is_equal_approx(xb.xp, 7.0) and is_equal_approx(xb.need, float(PGrowth.xp_need(3)))
+			and _count_text(main.screens["base"], "현재 빌드 [color=#9ea8b8]Lv 3 · 경험치 7/%d" % PGrowth.xp_need(3)) == 1,
+		"막대 %d개 · %s" % [xbars.size(), "" if xb == null else xb.text_line()])
 	var sel := _find_button(base2, "수호 부적")
 	sel.pressed.emit()
 	await process_frame
