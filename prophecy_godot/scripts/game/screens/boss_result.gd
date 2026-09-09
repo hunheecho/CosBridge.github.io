@@ -70,7 +70,7 @@ func refresh() -> void:
 		var lines := defeat_lines(r)
 		for i in lines.size():
 			body.add_child(PUi.rich(String(lines[i]), 15 if i == 0 else 13))
-		body.add_child(PUi.rich("[color=#9ea8b8]전투 %d초 · 보스에게 준 피해 %d / %d · 감속장 %d회 · 재도전 %d회[/color]" % [int(round(float(sm.get("elapsed", 0.0)))), int(float(sm.get("boss_damage", 0.0))), int(PRun.boss_hp(r, String(B.id))), int(sm.get("special_uses", 0)), int(r.get("bossRetries", 0))], 12))
+		body.add_child(PUi.rich("[color=#9ea8b8]전투 %d초 · 보스에게 준 피해 %d / %d · Q %d회 · E %d회 · 재도전 %d회[/color]" % [int(round(float(sm.get("elapsed", 0.0)))), int(float(sm.get("boss_damage", 0.0))), int(PRun.boss_hp(r, String(B.id))), int(sm.get("special_uses", 0)), int(sm.get("e_uses", 0)), int(r.get("bossRetries", 0))], 12))
 		var can_retry := can_retry_now(r)
 		var retry := PUi.button(retry_label(r), func(): main.start_boss(), can_retry, 16)
 		body.add_child(retry)
@@ -86,7 +86,7 @@ func refresh() -> void:
 	top.add_child(PUi.rich("[color=#9ea8b8]%s · 보스 최대 체력 %d[/color]" % [PGlossaryTip.esc(PUi.settings_short(r)), int(PRun.boss_hp(r, String(B2.id)))], 11))
 	var c := PUi.card("기록")
 	(c.box as VBoxContainer).add_child(PUi.rich("전투 시간 [b]%s초[/b] · 재도전 [b]%d회[/b] · Lv %d" % [str(rec.get("time", 0.0)), int(rec.get("retries", 0)), int(r.growth.level)], 13))
-	(c.box as VBoxContainer).add_child(PUi.rich("감속장 사용 [b]%d[/b]회 · 보스에게 준 총피해 [b]%d[/b]%s" % [int(sm.get("special_uses", 0)), int(float(sm.get("boss_damage", 0.0))), (" · 승리 회복(장비) 체력 +%d" % int(float(rec.heal))) if rec.has("heal") else ""], 13))
+	(c.box as VBoxContainer).add_child(PUi.rich("수동 기술 사용 Q [b]%d[/b]회 · E [b]%d[/b]회(그중 감속장 [b]%d[/b]회) · 보스에게 준 총피해 [b]%d[/b]%s" % [int(sm.get("special_uses", 0)), int(sm.get("e_uses", 0)), int(sm.get("field_uses", 0)), int(float(sm.get("boss_damage", 0.0))), (" · 승리 회복(장비) 체력 +%d" % int(float(rec.heal))) if rec.has("heal") else ""], 13))
 	var award_txt := PProfile.award_text(main.last_profile_award)
 	if award_txt != "":
 		(c.box as VBoxContainer).add_child(PUi.rich("[color=#ffe066]%s[/color]" % PGlossaryTip.esc(award_txt), 12))

@@ -325,10 +325,12 @@ func _compare_note(r: Dictionary, d: Dictionary) -> String:
 					any_elite = true
 		if not any_elite:
 			return "[color=#9ea8b8]오늘 장소에는 정예가 없음[/color]"
-	if eff.has("fieldDirect") or eff.has("fieldTaken"):
-		return "[color=#9ea8b8]감속장(Q) 안에서만[/color]"
-	if eff.has("eShield") and g.skills.get("e", null) == null:
-		return "[color=#ff8c73]E 기술이 없어 발동 없음[/color]"
+	# 수동 기술 보유 조건(§8): 감속장·E 칸이 필요한 장비는 **왜 지금 안 되는지**를 말한다(조용히 빼지 않는다)
+	var why := PGrowth.equip_eff_inactive_reason(g, eff)
+	if why != "":
+		return "[color=#ff8c73]%s[/color]" % PGlossaryTip.esc(why)
+	if eff.has("fieldDirect") or eff.has("fieldTaken") or eff.has("fieldMark") or eff.has("fieldRegen"):
+		return "[color=#9ea8b8]감속장 안에서만 (%s 칸)[/color]" % PGrowth.skill_slot_of(g, "slowfield").to_upper()
 	return ""
 
 func _skill_card(r: Dictionary, st: Dictionary) -> Control:
@@ -347,7 +349,7 @@ func _skill_card(r: Dictionary, st: Dictionary) -> Control:
 		return p
 	var is_w: bool = String(sk.kind) == "weapon"
 	var d: Dictionary = PCatalog.weapons()[String(sk.id)] if is_w else PCatalog.skills()[String(sk.id)]
-	var term_id := ("w:" if is_w else "e:") + String(sk.id)
+	var term_id := ("w:" + String(sk.id)) if is_w else PUi.skill_term(String(sk.id)) # 감속장은 옛 용어 키("slowfield")를 쓴다
 	var head2 := PUi.hbox(8)
 	head2.add_child(PUi.icon_of(PIcons.weapon_key(String(sk.id)) if is_w else PIcons.e_key(String(sk.id)), 40.0, "", "", 0.0, 0))
 	head2.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s · Lv1 · 개조 없음[/color]

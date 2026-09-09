@@ -129,7 +129,7 @@ static func options(run: Dictionary, sortie: Dictionary) -> Array:
 			out.append({ "id": "leave", "name": "지나친다", "cost": "없음", "effect": "없음", "enabled": true })
 		"time_spring":
 			var has_buff: bool = (run.get("buffs", {}) as Dictionary).has("skillCd")
-			out.append({ "id": "buff", "name": "샘물을 마신다 (다음 전투 강화)", "cost": "없음", "effect": "다음 전투 1회: 감속장·E 재사용 ×0.7", "enabled": not has_buff })
+			out.append({ "id": "buff", "name": "샘물을 마신다 (다음 전투 강화)", "cost": "없음", "effect": "다음 전투 1회: Q·E 수동 기술 재사용 ×0.7", "enabled": not has_buff })
 			out.append({ "id": "heal", "name": "치료를 받는다 (1시간)", "cost": "시간 -1 (%d → %d)" % [int(run.hours), int(run.hours) - 1], "effect": "체력 %d → %d" % [int(hp), int(hp_max)], "enabled": int(run.hours) >= int(E().time_spring.hours) and hp < hp_max })
 			out.append({ "id": "leave", "name": "지나친다", "cost": "없음", "effect": "없음", "enabled": true })
 		"sealed_loot":

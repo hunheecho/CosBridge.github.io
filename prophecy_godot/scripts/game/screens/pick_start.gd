@@ -1,15 +1,34 @@
 class_name PPickStartScreen
 extends PScreen
-## 시작 자동기술 선택(HTML pickStart): 프로필 해금(PProfile.unlocked().start_weapons — 프로필이 없으면 PCatalog.startable())의 이름·설명·실제 파생 수치(PBuild.derive) → PRun.new_run.
-## 위에 이번 회차에 고정될 영구 특성 요약을 보여 준다(재선택은 영구 성장 화면, 출발하면 고정).
+## 시작 선택(HTML pickStart). **두 단계다**(2026-09-10 §7):
+##   ① 주무기 1개  → ② 수동 기술 1개(Q에 Lv1으로 장착) → 출발
+## 감속장을 기본으로 강제 지급하지 않는다 — ②에서 고른 것이 Q에 들어가고 E는 비어 있다.
+## 목록은 프로필 해금(PProfile.unlocked(): start_weapons·e_skills)을 따르고, 수치는 실제 파생값(PBuild.derive)을 읽는다.
+## ②에서 "주무기 다시 고르기"로 ①로 돌아갈 수 있고, 화면을 떠났다 오면 ①부터 다시 시작한다(취소·뒤로 연결).
+
+var _step: int = 0        # 0 = 주무기, 1 = 수동 기술
+var _weapon: String = ""  # ①에서 고른 주무기
+
+## 화면에 들어올 때마다 처음부터(다른 화면을 들렀다 오면 고르던 것이 남아 있지 않게)
+func on_enter() -> void:
+	_step = 0
+	_weapon = ""
+	super()
 
 func refresh() -> void:
 	clear_all()
+	if _step == 1 and _weapon != "":
+		_refresh_skill()
+		return
+	_refresh_weapon()
+
+# ---------- ① 주무기 ----------
+func _refresh_weapon() -> void:
 	var C := PCatalog.config()
 	var p: Dictionary = main.profile
 	var R := PCatalog.slot_rules()
-	heading("주무기 선택")
-	top.add_child(PUi.rich("[color=#9ea8b8]주무기 1개(Lv1, 개조 없음) · 감속장(Q) Lv1 · 체력 %d · 금화 %d으로 1일차 %s에 시작합니다. 주무기는 이 1개로 최대 Lv%d·개조 %d개까지 키우고, 보조무기는 회차 중에 최대 %d개(각 Lv%d·개조 %d개)를 얻습니다. 장비(무기·방어구·방패)는 상점에서 따로 삽니다.[/color]" % [int(C.PLAYER.hp), int(C.START_GOLD), String(PRun.time_slots()[0]), int(R.get("mainMax", 5)), int(R.get("mainMods", 2)), int(R.get("supports", 2)), int(R.get("supportMax", 3)), int(R.get("supportMods", 1))], 13))
+	heading("주무기 선택 (1/2)")
+	top.add_child(PUi.rich("[color=#9ea8b8]① 주무기 1개(Lv1, 개조 없음)를 고르고 ② 수동 기술 1개를 골라 Q에 장착합니다. E는 비어 있고 회차 중에 채웁니다. 체력 %d · 금화 %d으로 1일차 %s에 시작합니다. 주무기는 이 1개로 최대 Lv%d·개조 %d개까지 키우고, 보조무기는 회차 중에 최대 %d개(각 Lv%d·개조 %d개)를 얻습니다. 장비(무기·방어구·방패)는 상점에서 따로 삽니다.[/color]" % [int(C.PLAYER.hp), int(C.START_GOLD), String(PRun.time_slots()[0]), int(R.get("mainMax", 5)), int(R.get("mainMods", 2)), int(R.get("supports", 2)), int(R.get("supportMax", 3)), int(R.get("supportMods", 1))], 13))
 	var startable: Array = PCatalog.startable()
 	if not p.is_empty():
 		var u := PProfile.unlocked(p)
@@ -47,7 +66,7 @@ func refresh() -> void:
 				mods.append(String(d.mods[mid].name))
 		box.add_child(PUi.rich("[color=#9ea8b8]기본 %s · 개조 후보: %s[/color]" % [PUi.weapon_stats_text(ws), ", ".join(mods)], 12))
 		box.add_child(PUi.spacer())
-		var btn := PUi.button("이 자동기술로 시작", func(): main.start_run(id), true, 14)
+		var btn := PUi.button("이 주무기로 (다음)", func(): _pick_weapon(id), true, 14)
 		box.add_child(btn)
 		if first == null:
 			first = btn
@@ -56,3 +75,84 @@ func refresh() -> void:
 	bottom.add_child(PUi.button("돌아가기", func(): main.go_title(), true, 14))
 	if not p.is_empty():
 		bottom.add_child(PUi.button("영구 성장(특성 재선택)", func(): main.show_meta(), true, 14))
+
+func _pick_weapon(id: String) -> void:
+	_weapon = id
+	_step = 1
+	refresh_in_place()
+
+# ---------- ② 수동 기술 ----------
+## 고를 수 있는 기술: 자료의 6종 중 구현된 것 ∩ 프로필 해금(e_skills).
+## 해금 표가 없는 프로필(시험·도구)은 전부 열린 것으로 본다 — PProfile.run_unlock_ok의 기존 규칙 그대로다.
+func start_skill_options() -> Array:
+	var p: Dictionary = main.profile
+	var run_like := { "growth": { "skills": { "q": null, "e": null } } }
+	if not p.is_empty():
+		run_like["unlocks"] = PProfile.unlocked(p)
+	var SK := PCatalog.skills()
+	var out := []
+	for id in PGrowth.manual_skill_ids():
+		var sid := String(id)
+		if not SK.has(sid) or not bool(SK[sid].impl):
+			continue
+		if not PProfile.run_unlock_ok(run_like, "e_skills", sid):
+			continue
+		out.append(sid)
+	if out.is_empty():
+		out.append("slowfield") # 어떤 이유로도 고를 것이 없어지지 않게(감속장은 언제나 열려 있다)
+	return out
+
+func _refresh_skill() -> void:
+	var SK := PCatalog.skills()
+	var wd := PCatalog.weapon(_weapon)
+	heading("수동 기술 선택 (2/2)")
+	top.add_child(PUi.rich("주무기 [b]%s[/b] [color=#9ea8b8]— 이제 %s 1개를 골라 [b]Q[/b]에 Lv1으로 장착합니다. [b]E[/b]는 비어 있고, 회차 중에 다른 기술을 얻으면 그 칸에 들어갑니다(이미 Q에 가진 기술은 후보에서 빠집니다). 이 칸은 자동으로 나가는 보조무기와 다릅니다.[/color]" % [PGlossaryTip.esc(String(wd.name)), PGlossaryTip.term("e_skill", "수동 기술")], 13))
+	var row := PUi.hbox(10)
+	body.add_child(row)
+	var first: Button = null
+	for sid0 in start_skill_options():
+		var sid := String(sid0)
+		var d: Dictionary = SK[sid]
+		var c := PUi.card("", PUi.CARD)
+		var pnl: PanelContainer = c.panel
+		pnl.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		var box: VBoxContainer = c.box
+		var head := PUi.hbox(8)
+		head.add_child(PUi.icon_of(PIcons.e_key(sid), 40.0, "", "", 0.0, 0))
+		head.add_child(PUi.rich("[b]%s[/b]" % PGlossaryTip.term(PUi.skill_term(sid), String(d.name)), 17))
+		box.add_child(head)
+		box.add_child(PUi.rich(PGlossaryTip.esc(String(d.desc)), 13))
+		var cds := []
+		for v in d.cooldown:
+			cds.append(PUi.fmt(float(v)))
+		box.add_child(PUi.rich("[color=#9ea8b8]재사용 %s초(Lv1/2/3)%s[/color]" % ["/".join(cds), (" · 피해 %d/%d/%d" % [int(d.damage[0]), int(d.damage[1]), int(d.damage[2])]) if d.has("damage") else ((" · 흡수 %d/%d/%d" % [int(d.shield[0]), int(d.shield[1]), int(d.shield[2])]) if d.has("shield") else "")], 12))
+		var vn := []
+		for vid in d.get("variants", {}):
+			if bool(d.variants[vid].impl):
+				vn.append(String(d.variants[vid].name))
+		box.add_child(PUi.rich("[color=#9ea8b8]변형 후보: %s[/color]" % (", ".join(vn) if vn.size() > 0 else "없음"), 12))
+		box.add_child(PUi.spacer())
+		var btn := PUi.button("이 기술로 시작", func(): main.start_run(_weapon, sid), true, 14)
+		box.add_child(btn)
+		if first == null:
+			first = btn
+		row.add_child(pnl)
+	default_button = first
+	var back := PUi.button("주무기 다시 고르기 (Esc)", func(): _back_to_weapon(), true, 14)
+	bottom.add_child(back)
+	bottom.add_child(PUi.button("돌아가기", func(): main.go_title(), true, 14))
+
+func _back_to_weapon() -> void:
+	_step = 0
+	_weapon = ""
+	refresh_in_place()
+
+## Esc: 2단계에서는 주무기 선택으로 되돌아간다(회차를 시작하지 않는다).
+## 확인 창이 열려 있으면 그것을 먼저 닫는 것이 기존 규칙이므로 super()를 먼저 본다.
+func on_escape() -> bool:
+	if super():
+		return true
+	if _step == 1:
+		_back_to_weapon()
+		return true
+	return false

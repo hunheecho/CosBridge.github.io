@@ -92,6 +92,11 @@ func _item_body(box: VBoxContainer, r: Dictionary, id: String, worn: bool, detai
 	var slot := String(d.slot)
 	PUi.kv(box, "부위", "[b]%s[/b] [color=#9ea8b8]%s[/color]" % [PUi.slot_name(slot), "장착 중" if worn else "가방"], 15)
 	box.add_child(PUi.rich(PGlossaryTip.esc(String(d.short)), 14))
+	# 수동 기술 보유 조건(§8): 조건을 못 채우면 **지우지 않고** 지금 발동하지 않는 이유를 적는다.
+	# 감속장을 E로 교환해 잃어도 장비는 그대로 남고, 다시 얻으면 아무 조작 없이 되살아난다.
+	var why := PGrowth.equip_inactive_reason(r.growth, id)
+	if why != "":
+		box.add_child(PUi.rich("[color=#ff8c73]지금은 효과 없음 — %s[/color]" % PGlossaryTip.esc(why), 13))
 	var dup: Dictionary = r.duplicate(true)
 	if worn:
 		PRun.unequip_item(dup, slot)

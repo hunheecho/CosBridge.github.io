@@ -374,10 +374,10 @@ static func next_unlock_line(profile: Dictionary) -> String:
 			names.append(String(PCatalog.commons()[String(id)].name))
 	for id in U.q_variants:
 		if int(U.q_variants[id].get("level", 0)) == target:
-			names.append("Q " + String(PCatalog.skills().slowfield.variants[String(id)].name))
+			names.append("감속장 변형 " + String(PCatalog.skills().slowfield.variants[String(id)].name))
 	for id in U.e_skills:
 		if int(U.e_skills[id].get("level", 0)) == target:
-			names.append("E " + String(PCatalog.skills()[String(id)].name))
+			names.append("수동 기술 " + String(PCatalog.skills()[String(id)].name))
 	for id in U.equipment:
 		if int(U.equipment[id].get("level", 0)) == target:
 			names.append(String(PCatalog.equipment()[String(id)].name) + "(대체)")
@@ -391,6 +391,12 @@ static func next_unlock_line(profile: Dictionary) -> String:
 
 ## 회차 스냅샷(run.unlocks)에 대한 후보 자격. unlocks 키가 없는 회차(봇·시험실·옛 저장)는 전부 열린 것으로 본다
 static func run_unlock_ok(run: Dictionary, cat: String, id: String, sub: String = "") -> bool:
+	# **이미 가진 수동 기술은 후보가 아니다**(2026-09-10 §7: Q와 E가 같은 6종을 공유한다).
+	# 해금 여부보다 먼저 본다 — 해금 스냅샷이 없는 회차(봇·시험실·도구·옛 저장)에서도 같은 기술이
+	# 두 칸에 들어가면 안 되기 때문이다. 이 한 곳에서 막으면 성장 3택·상점 진열·기술 교체가
+	# 모두 같은 답을 낸다(교체·상점 쪽 코드는 이 함수를 지나간다).
+	if cat == "e_skills" and PGrowth.has_skill(run.get("growth", {}), id):
+		return false
 	if not run.has("unlocks") or typeof(run.unlocks) != TYPE_DICTIONARY:
 		return true
 	var U: Dictionary = run.unlocks
@@ -661,8 +667,8 @@ static func unlocked_names(diff: Dictionary) -> Array:
 					var pr := sid.split(":")
 					names.append("%s 개조 %s" % [String(W[pr[0]].name), String(W[pr[0]].mods[pr[1]].name)])
 				"commons": names.append(String(PCatalog.commons()[sid].name))
-				"q_variants": names.append("Q " + String(PCatalog.skills().slowfield.variants[sid].name))
-				"e_skills": names.append("E " + String(PCatalog.skills()[sid].name))
+				"q_variants": names.append("감속장 변형 " + String(PCatalog.skills().slowfield.variants[sid].name))
+				"e_skills": names.append("수동 기술 " + String(PCatalog.skills()[sid].name))
 				"equipment": names.append(String(PCatalog.equipment()[sid].name))
 				"recipes": names.append(String(PCatalog.crafted_equipment()[sid].name) + " 제작법")
 	return names

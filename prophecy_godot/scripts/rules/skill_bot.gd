@@ -299,12 +299,25 @@ func decide_skill(snap: Dictionary, n: int) -> Dictionary:
 			near_e += 1
 	var boss_near: bool = not snap.boss.is_empty() and not bool(snap.boss.dead) and PGeom.dist(float(snap.boss.x), float(snap.boss.y), px, py) < float(common.get("boss_q_dist", 180.0))
 	var hoard := bool(traits.get("hoard_qe", false))
-	if float(p.special_cd) <= 0.0 and (near >= int(common.get("q_min_near", 3)) or boss_near):
-		special = not hoard or float(p.hp) < float(p.hp_max) * 0.5
-	if bool(p.has_e) and float(p.e_cd) <= 0.0 and near_e >= (4 if hoard else int(common.get("e_min_near", 2))):
-		skill_e = true
-		if String(p.e_id) == "ward" and inside.is_empty() and float(p.hp) > float(p.hp_max) * 0.7:
-			skill_e = false
+	# **칸이 아니라 그 칸의 기술**로 고른다(§7). 감속장은 '판 정리'(예전 Q 기준), 결계는 방어,
+	# 나머지 4종은 '사거리 안 마릿수'(예전 E 기준). 기본 빌드(Q 감속장 · E 공격기)에서는 예전과 같은 답이 나온다.
+	for entry in [["q", bool(p.get("has_q", true)), String(p.get("q_id", "slowfield")), float(p.special_cd)], ["e", bool(p.has_e), String(p.e_id), float(p.e_cd)]]:
+		if not bool(entry[1]) or float(entry[3]) > 0.0:
+			continue
+		var sid := String(entry[2])
+		var use := false
+		if sid == "slowfield" or sid == "":
+			use = (near >= int(common.get("q_min_near", 3)) or boss_near) and (not hoard or float(p.hp) < float(p.hp_max) * 0.5)
+		elif sid == "ward":
+			use = near_e >= (4 if hoard else int(common.get("e_min_near", 2))) and (not inside.is_empty() or float(p.hp) <= float(p.hp_max) * 0.7)
+		else:
+			use = near_e >= (4 if hoard else int(common.get("e_min_near", 2)))
+		if not use:
+			continue
+		if String(entry[0]) == "q":
+			special = true
+		else:
+			skill_e = true
 	if dodge:
 		var hs := hold_steps_for(press_len, rules)
 		hold_until = (1 << 30) if hs < 0 else n + hs

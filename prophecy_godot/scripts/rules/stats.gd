@@ -2,9 +2,16 @@ class_name PStats
 extends RefCounted
 ## 런 누적 피해 통계(HTML stats.js 이식). 전투 정산 시 st.metrics(실제 체력 감소 기준, 과잉 피해 제외)를 출처별로 기록하고
 ## 출처별 유효 피해·비중·DPS(기술 보유 시간 기준)·분류별·보스 전용 보기를 만든다. 저장 파일에 남는다.
-## 출처 키(docs/PORT_CONVENTIONS.md): weapon:<id> · dot:burn@<src> · dot:bleed@<src> · skill:q · skill:<e> · common:<id> · reward:<id> · other
+## 출처 키(docs/PORT_CONVENTIONS.md): weapon:<id> · dot:burn@<src> · dot:bleed@<src> · skill:q(감속장) · skill:<기술 id> · common:<id> · reward:<id> · other
+##
+## 수동 기술 키는 **슬롯이 아니라 기술 id**로 정한다(2026-09-10 §7: Q와 E가 같은 6종을 공유한다).
+## 감속장만 예전 기록과 같은 "skill:q"를 그대로 쓴다 — 옛 저장의 통계가 이름을 잃지 않게 하기 위해서다.
 
 const CATS := { "direct": "직접 공격", "projectile": "투사체", "ground": "바닥 지대", "dot": "지속 피해", "skill": "Q/E", "extra": "추가 효과" }
+
+## 수동 기술 id → 통계·보유 시간 키. 감속장은 옛 기록과 같은 "skill:q"(슬롯이 아니라 이름표다)
+static func skill_key(id: String) -> String:
+	return "skill:q" if id == "slowfield" or id == "q" else "skill:" + id
 
 static func _r1(v: float) -> float: return round(v * 10.0) / 10.0
 
@@ -30,7 +37,7 @@ static func owner_key(src: String) -> String:
 	if src == "q" or src == "slowfield":
 		return "skill:q"
 	if PCatalog.skills().has(src):
-		return "skill:" + src
+		return skill_key(src)
 	if PCatalog.commons().has(src):
 		return "common:" + src
 	return ""
@@ -52,10 +59,11 @@ static func classify(key: String) -> Dictionary:
 			var base := "화상" if dk == "burn" else ("출혈" if dk == "bleed" else dk)
 			return { "name": base + (("(" + _src_name(src) + ")") if src != "" else ""), "cat": "dot", "skill": owner_key(src) }
 		"skill":
+			# 이름에 슬롯을 붙이지 않는다: 같은 기술이 Q에도 E에도 올 수 있다(§7)
 			if id == "q" or id == "slowfield":
-				return { "name": "감속장(Q)", "cat": "skill", "skill": "skill:q" }
+				return { "name": "감속장", "cat": "skill", "skill": "skill:q" }
 			var SK := PCatalog.skills()
-			return { "name": (String(SK[id].name) + "(E)") if SK.has(id) else id, "cat": "skill", "skill": key }
+			return { "name": String(SK[id].name) if SK.has(id) else id, "cat": "skill", "skill": key }
 		"common":
 			var CM := PCatalog.commons()
 			return { "name": String(CM[id].name) if CM.has(id) else id, "cat": "extra", "skill": key }

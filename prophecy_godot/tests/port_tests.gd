@@ -76,7 +76,9 @@ func _init() -> void:
 	var EQ := PCatalog.equipment()
 	# 주무기·보조 분리(2026-09-08): 주무기 5 + 보조 12 = 17종, 개조는 종당 3개로 51개.
 	# 옛 값(10종·30개)은 보조 7종·개조 21개가 늘기 전의 수다.
-	ok("카탈로그: 자동기술 17(주무기 5·보조 12)·개조 51·공용 9·패시브 8·E 5·변형 10·Q 변형 3·희귀 6·장비 12", W.size() == 17 and _mod_count(W) == 51 and CM.size() == 9 and PS.size() == 8 and PCatalog.e_skills().size() == 5 and _variant_count(SK) == 13 and PCatalog.boss_rewards().size() == 6 and EQ.size() == 12, "무기 %d mods %d variants %d" % [W.size(), _mod_count(W), _variant_count(SK)])
+	# **명세 변경**(2026-09-10 §7): Q와 E가 같은 6종을 공유하게 되어 e_skills 목록에 감속장이 들어갔다(5 → 6).
+	# 변형 총수 13(감속장 3 + 나머지 10)은 그대로다 — 기술이 늘어난 것이 아니라 **고를 수 있는 칸**이 늘었다.
+	ok("카탈로그: 자동기술 17(주무기 5·보조 12)·개조 51·공용 9·패시브 8·수동 기술 6(감속장 포함)·변형 13·희귀 6·장비 12", W.size() == 17 and _mod_count(W) == 51 and CM.size() == 9 and PS.size() == 8 and PCatalog.e_skills().size() == 6 and _variant_count(SK) == 13 and PCatalog.boss_rewards().size() == 6 and EQ.size() == 12, "무기 %d mods %d variants %d" % [W.size(), _mod_count(W), _variant_count(SK)])
 	var n_main := 0
 	var n_sup := 0
 	for wid in W:

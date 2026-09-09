@@ -6,12 +6,15 @@ extends RefCounted
 
 static func G() -> Dictionary: return PCatalog.growth()
 
-static func new_growth(start_weapon: String = "sword") -> Dictionary:
+## 시작 성장. start_skill = **Q에 장착할 수동 기술 1개**(시작 화면에서 고른다, §7).
+## 기본값을 "slowfield"로 둔 이유: 도구·봇·시험·첫 전투가 값을 주지 않을 때 예전과 같은 빌드를 만들기 위해서다.
+## 사람이 실제로 시작하는 경로(PMain.start_run)는 **언제나 고른 기술을 넘긴다** — 감속장을 강제로 지급하지 않는다.
+static func new_growth(start_weapon: String = "sword", start_skill: String = "slowfield") -> Dictionary:
 	return {
 		"level": 1, "xp": 0.0, "pendingLevelUps": 0, "choiceSeq": 0, "pendingOffer": null, "lastKind": null,
 		"structure": STRUCTURE, # 주무기 1 + 공통 보조 2. 이 표시가 없는 저장은 옛 구조("v1")로 본다
 		"weapons": [{ "id": start_weapon, "level": 1, "mods": [] }],
-		"commons": {}, "passives": {}, "skills": { "q": { "id": "slowfield", "level": 1, "variant": null }, "e": null },
+		"commons": {}, "passives": {}, "skills": { "q": { "id": (start_skill if PCatalog.skills().has(start_skill) else "slowfield"), "level": 1, "variant": null }, "e": null },
 		"bossRewards": [], "steer": null,
 		"picks": { "weapon_new": 0, "weapon_level": 0, "weapon_mod": 0, "common": 0, "skill_new": 0, "skill_level": 0, "skill_variant": 0, "passive": 0, "skip": 0 },
 		"log": [], "pendingDeepPick": null, "pendingBossPick": null, "pendingMissionPick": null, "pendingEventPick": null,
@@ -203,6 +206,64 @@ static func weapon_mod_has_tag(weapon_id: String, mod_id: String, tag: String) -
 		return false
 	return (mods[mod_id].get("tags", []) as Array).has(tag)
 
+# ---------- 수동 기술 Q/E 공용 도우미(2026-09-10 §7) ----------
+## 두 칸 이름. 화면·규칙·통계가 같은 순서를 쓴다
+const SKILL_SLOTS := ["q", "e"]
+
+## 고를 수 있는 수동 기술 6종. data/growth.json e_skills가 정본이며 감속장도 여기 들어 있다
+static func manual_skill_ids() -> Array:
+	var out: Array = (PCatalog.e_skills() as Array).duplicate()
+	if not out.has("slowfield"):
+		out.append("slowfield") # 자료가 옛 형태(5종)라도 감속장은 언제나 고를 수 있어야 한다
+	return out
+
+## 그 기술이 든 칸("q"|"e"). 없으면 ""
+static func skill_slot_of(g: Dictionary, id: String) -> String:
+	for s in SKILL_SLOTS:
+		var sk = g.get("skills", {}).get(s, null)
+		if sk != null and String(sk.id) == id:
+			return String(s)
+	return ""
+
+## Q나 E에 그 기술이 있는가(= "감속장 사용 시" 같은 **기술 조건**의 판정)
+static func has_skill(g: Dictionary, id: String) -> bool:
+	return skill_slot_of(g, id) != ""
+
+## 그 칸의 기술 id("" = 비어 있음)
+static func skill_id_in(g: Dictionary, slot: String) -> String:
+	var sk = g.get("skills", {}).get(slot, null)
+	return String(sk.id) if sk != null else ""
+
+## 변형 해금 표의 종류. 감속장 변형은 **어느 칸에 있든** 옛 q_variants 표를 그대로 쓴다
+## (프로필에 이미 쌓인 해금을 슬롯이 바뀌었다는 이유로 버리지 않기 위해서다). 나머지 5종은 e_variants.
+static func variant_unlock_cat(skill_id: String) -> String:
+	return "q_variants" if skill_id == "slowfield" else "e_variants"
+
+## 장비 효과가 **지금 빌드에서 동작하지 않는 이유** 한 줄. 동작하면 ""(§8).
+##
+## 왜 삭제가 아니라 설명인가: 사용자 지시대로 **이미 가진 효과나 장비를 조용히 지우지 않는다.**
+## 감속장을 E로 교환해 잃으면 시간술사의 지팡이는 가방에 그대로 남고, 화면이 "지금은 발동하지 않는다"고 말한다.
+## 다시 감속장을 얻으면 아무 조작 없이 되살아난다.
+##
+## eff 키 → 조건
+##   fieldDirect·fieldTaken·fieldMark·fieldRegen : 감속장(Q·E 어디든) 보유
+##   eShield                                     : E 칸에 수동 기술 보유(슬롯 조건)
+##   relay                                       : Q·E 두 칸 모두 보유(Q 뒤 4초 안에 E — 슬롯 조건)
+static func equip_inactive_reason(g: Dictionary, equip_id: String) -> String:
+	var d := PCatalog.equipment_def(equip_id)
+	return equip_eff_inactive_reason(g, d.get("eff", {})) if not d.is_empty() else ""
+
+## 같은 판정을 장비 정의(eff)만 가지고 한다 — 화면이 id를 들고 있지 않은 자리에서 쓴다
+static func equip_eff_inactive_reason(g: Dictionary, eff: Dictionary) -> String:
+	for k in ["fieldDirect", "fieldTaken", "fieldMark", "fieldRegen"]:
+		if eff.has(k) and not has_skill(g, "slowfield"):
+			return "지금 빌드에 감속장이 없어 효과가 나오지 않습니다(Q나 E에 감속장을 넣으면 그대로 되살아납니다)."
+	if eff.has("eShield") and g.get("skills", {}).get("e", null) == null:
+		return "E 칸이 비어 있어 발동하지 않습니다(E에 수동 기술을 넣으면 되살아납니다)."
+	if eff.has("relay") and (g.get("skills", {}).get("e", null) == null or g.get("skills", {}).get("q", null) == null):
+		return "Q와 E 두 칸이 모두 차 있어야 발동합니다(Q를 쓴 뒤 창 안에 E를 쓰는 효과입니다)."
+	return ""
+
 static func has_bleed_source(g: Dictionary) -> bool:
 	for w in g.weapons:
 		for m in w.mods:
@@ -243,7 +304,10 @@ static func boss_reward_applies(g: Dictionary, id: String) -> bool:
 		# 방어 보조를 골랐다는 이유로 작동하지 않는 보상을 설명 없이 제시하지 않는다).
 		"resonance": return attack_source_count(g) >= 3
 		"seed": return has_dot_source(g)
-		"clone": return has_projectile_weapon(g)
+		# 시간의 복제는 **감속장 조건**이다(감속장을 통과하는 투사체를 복제한다).
+		# Q에 있든 E에 있든 되고, 감속장이 아예 없으면 발동할 수 없으므로 후보에서 뺀다(§8).
+		"clone": return has_projectile_weapon(g) and has_skill(g, "slowfield")
+		# 일제 공격은 **슬롯 조건**이다(E 사용 시). 감속장과는 무관하다
 		"volley": return g.skills.get("e") != null
 	return true
 
@@ -251,9 +315,14 @@ static func _requires_ok(g: Dictionary, d: Dictionary) -> bool:
 	if not d.has("requiresAny"):
 		return true
 	for r in d.requiresAny:
-		if String(r) == "common:ember" and has_common(g, "ember"):
+		var req := String(r)
+		if req == "common:ember" and has_common(g, "ember"):
 			return true
-		if String(r) == "weapon:ember" and not weapon_of(g, "ember").is_empty():
+		if req == "weapon:ember" and not weapon_of(g, "ember").is_empty():
+			return true
+		# 수동 기술 보유 전제(§8): "skill:<기술 id>" — Q에 있든 E에 있든 만족한다.
+		# 감속장 전용 증강(시간 저축·정지된 칼날)이 감속장 없는 빌드에 나오지 않게 하는 자리다
+		if req.begins_with("skill:") and has_skill(g, req.substr(6)):
 			return true
 	return false
 
@@ -351,11 +420,18 @@ static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 			continue
 		push.call({ "kind": "common", "id": String(id), "tags": d.get("tags", []) })
 	var SK := PCatalog.skills()
+	# 새 수동 기술은 **E 칸이 비어 있을 때만** 후보가 된다(§7: 시작은 Q 하나, E는 빈칸).
+	# **이미 Q에 가진 기술은 후보에서 뺀다** — 같은 기술을 두 칸에 둘 수 없다. 감속장도 후보에 들어간다.
 	if g.skills.get("e") == null:
-		for id in PCatalog.e_skills():
-			if bool(SK[id].impl) and PProfile.run_unlock_ok(run, "e_skills", String(id)):
-				push.call({ "kind": "skill_new", "id": String(id), "tags": [] })
-	for slot in ["q", "e"]:
+		var q_id := skill_id_in(g, "q")
+		for id in manual_skill_ids():
+			var sid := String(id)
+			if not SK.has(sid) or not bool(SK[sid].impl) or sid == q_id:
+				continue
+			if not PProfile.run_unlock_ok(run, "e_skills", sid):
+				continue
+			push.call({ "kind": "skill_new", "id": sid, "tags": [] })
+	for slot in SKILL_SLOTS:
 		var sk = g.skills.get(slot)
 		if sk == null:
 			continue
@@ -363,12 +439,14 @@ static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 		if int(sk.level) < int(S.skillMax):
 			push.call({ "kind": "skill_level", "id": String(sk.id), "slot": slot, "tags": [] })
 		if sk.get("variant") == null:
+			# 변형 해금은 **칸이 아니라 기술**을 따른다(감속장 변형은 어느 칸에 있어도 q_variants 표)
+			var vcat := variant_unlock_cat(String(sk.id))
 			for vid in d.get("variants", {}):
 				if not bool(d.variants[vid].impl):
 					continue
-				if slot == "q" and not PProfile.run_unlock_ok(run, "q_variants", String(vid)):
+				if vcat == "q_variants" and not PProfile.run_unlock_ok(run, "q_variants", String(vid)):
 					continue
-				if slot == "e" and not PProfile.run_unlock_ok(run, "e_variants", String(sk.id), String(vid)):
+				if vcat == "e_variants" and not PProfile.run_unlock_ok(run, "e_variants", String(sk.id), String(vid)):
 					continue
 				push.call({ "kind": "skill_variant", "id": String(sk.id), "slot": slot, "variant": String(vid), "tags": [] })
 	var PS := PCatalog.passives()
@@ -595,6 +673,12 @@ static func apply_choice(run: Dictionary, choice: Dictionary, dry: bool = false)
 		"skill_new":
 			if g.skills.get("e") != null:
 				push_error("E 슬롯"); return false
+			# **확정에서도 다시 막는다**(§8: 후보 생성과 선택 확정 양쪽에서 자격 확인).
+			# 후보 목록을 지나 들어와도(옛 화면·저장된 조작·도구) 같은 기술을 두 칸에 두지 않는다
+			if skill_id_in(g, "q") == String(choice.id):
+				push_error("이미 Q에 가진 기술입니다: " + String(choice.id)); return false
+			if not PProfile.run_unlock_ok(run, "e_skills", String(choice.id)):
+				push_error("해금되지 않은 기술입니다: " + String(choice.id)); return false
 			g.skills.e = { "id": String(choice.id), "level": 1, "variant": null }
 		"skill_level":
 			var sk = g.skills.get(String(choice.slot))
@@ -605,6 +689,11 @@ static func apply_choice(run: Dictionary, choice: Dictionary, dry: bool = false)
 			var sk = g.skills.get(String(choice.slot))
 			if sk == null or String(sk.id) != String(choice.id) or sk.get("variant") != null:
 				push_error("기술 변형"); return false
+			# 확정에서도 해금 자격을 다시 본다(기술 교환 뒤 남아 있던 옛 후보를 그대로 받지 않게)
+			var vcat2 := variant_unlock_cat(String(choice.id))
+			var vok: bool = PProfile.run_unlock_ok(run, "q_variants", String(choice.variant)) if vcat2 == "q_variants" else PProfile.run_unlock_ok(run, "e_variants", String(choice.id), String(choice.variant))
+			if not vok:
+				push_error("해금되지 않은 변형입니다: %s %s" % [String(choice.id), String(choice.variant)]); return false
 			sk.variant = String(choice.variant)
 		"passive":
 			var d: Dictionary = PCatalog.passives()[String(choice.id)]
@@ -750,8 +839,8 @@ static func describe(run: Dictionary, c: Dictionary) -> Dictionary:
 			out.slot = "슬롯 소비 없음(단계 상승)" if lv > 0 else "공용 슬롯 %d/%d" % [common_count(g) + 1, int(S.commons)]
 		"skill_new":
 			var d: Dictionary = PCatalog.skills()[String(c.id)]
-			out.title = "E 기술 습득: %s" % String(d.name); out.type = "수동 기술"; out.stage = "E 슬롯 비어 있음 → 장착"; out.change = String(d.desc)
-			out.scope = "재사용 %s초" % _fmt(float(d.cooldown[0]) * float(before.skill_cd_mult)); out.slot = "E 슬롯"
+			out.title = "수동 기술 습득: %s" % String(d.name); out.type = "수동 기술"; out.stage = "E 칸 비어 있음 → 장착"; out.change = String(d.desc)
+			out.scope = "재사용 %s초" % _fmt(float(d.cooldown[0]) * float(before.skill_cd_mult) * float(before.get("e_cd_mult", 1.0))); out.slot = "수동 기술 E 칸"
 		"skill_level":
 			var sk: Dictionary = g.skills[String(c.slot)]
 			var d: Dictionary = PCatalog.skills()[String(c.id)]
@@ -764,11 +853,11 @@ static func describe(run: Dictionary, c: Dictionary) -> Dictionary:
 				out.change += " · 피해 %d → %d" % [int(d.damage[int(sk.level) - 1]), int(d.damage[int(sk.level)])]
 			elif d.has("shield"):
 				out.change += " · 흡수 %d → %d" % [int(d.shield[int(sk.level) - 1]), int(d.shield[int(sk.level)])]
-			out.scope = "%s 기술" % String(d.key); out.slot = "슬롯 소비 없음"
+			out.scope = "%s 칸의 %s" % [String(c.slot).to_upper(), String(d.name)]; out.slot = "슬롯 소비 없음"
 		"skill_variant":
 			var d: Dictionary = PCatalog.skills()[String(c.id)]
 			var v: Dictionary = d.variants[String(c.variant)]
-			out.title = "%s 변형: %s" % [String(d.name), String(v.name)]; out.type = "기술 변형"; out.stage = "변형 없음 → 선택(기술당 1개)"; out.change = String(v.desc); out.scope = "%s 기술" % String(d.key); out.slot = "변형 슬롯 1/1"
+			out.title = "%s 변형: %s" % [String(d.name), String(v.name)]; out.type = "기술 변형"; out.stage = "변형 없음 → 선택(기술당 1개)"; out.change = String(v.desc); out.scope = "%s 칸의 %s" % [String(c.get("slot", "")).to_upper(), String(d.name)]; out.slot = "변형 슬롯 1/1"
 		"passive":
 			var d: Dictionary = PCatalog.passives()[String(c.id)]
 			var lv: int = int(g.passives.get(c.id, 0))
@@ -780,7 +869,7 @@ static func describe(run: Dictionary, c: Dictionary) -> Dictionary:
 				"vitality": ch += " · 최대 체력 %d → %d" % [int(before.hp_max), int(after.hp_max)]
 				"mastery": ch += " · %s 피해 %s → %s" % [wname.call(String(w0.id)), _fmt(float(w0.damage)), _fmt(float(w0b.damage))]
 				"haste": ch += " · %s 주기 %s → %s초" % [wname.call(String(w0.id)), _fmt(float(w0.interval)), _fmt(float(w0b.interval))]
-				"focus": ch += " · 감속장 %s → %s초" % [_fmt(float(before.special_cd)), _fmt(float(after.special_cd))]
+				"focus": ch += " · Q 재사용 %s → %s초" % [_fmt(float(before.special_cd)), _fmt(float(after.special_cd))]
 				"exploit": ch += " · 빈틈 ×%s → ×%s" % [_fmt(float(before.exposed_mult)), _fmt(float(after.exposed_mult))]
 			out.change = ch; out.scope = "캐릭터 전체"
 			out.slot = "슬롯 소비 없음" if lv > 0 else "패시브 슬롯 %d/%d" % [passive_count(g) + 1, int(S.passives)]
@@ -806,10 +895,12 @@ static func describe(run: Dictionary, c: Dictionary) -> Dictionary:
 				"seed":
 					var srcs := status_sources(g)
 					out.scope = "적용: %s" % ("·".join(srcs) if srcs.size() > 0 else "상태 이상 없음")
-				"clone": out.scope = "적용: 투사체 자동기술 · 감속장 안을 지나는 투사체가 1회 복제"
-				"volley": out.scope = "적용: E %s · E 사용 시 자동기술이 즉시 1회씩 추가 공격" % (String(PCatalog.skills()[String(g.skills.e.id)].name) if g.skills.get("e") != null else "없음")
+				"clone":
+					var cslot := skill_slot_of(g, "slowfield")
+					out.scope = ("적용: 투사체 자동기술 · 감속장(%s 칸) 안을 지나는 투사체가 1회 복제" % cslot.to_upper()) if cslot != "" else "적용 없음: 지금 빌드에 감속장이 없습니다"
+				"volley": out.scope = "적용: E 칸 %s · E 사용 시 자동기술이 즉시 1회씩 추가 공격(Q 사용은 해당 없음)" % (String(PCatalog.skills()[String(g.skills.e.id)].name) if g.skills.get("e") != null else "없음(E 칸이 비어 있어 발동하지 않습니다)")
 				"vigor": out.scope = "적용: 캐릭터 전체 · 최대 체력 %d → %d" % [int(before.hp_max), int(before.hp_max) + 25]
-				"tempo": out.scope = "적용: 감속장 %s → %s초%s" % [_fmt(float(before.special_cd)), _fmt(float(before.special_cd) * 0.85), ", E 재사용도 15% 감소" if g.skills.get("e") != null else ""]
+				"tempo": out.scope = "적용: Q 재사용 %s → %s초%s" % [_fmt(float(before.special_cd)), _fmt(float(before.special_cd) * 0.85), ", E 재사용도 15% 감소" if g.skills.get("e") != null else ""]
 				_: out.scope = "모든 자동기술·기술"
 			out.slot = "별도 보관(슬롯 소비 없음)"
 	return out

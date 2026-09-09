@@ -29,6 +29,11 @@
       "timeout_sec": 600,
       "desc": "전투 규칙 회귀(기준 전투 포함)"
     },
+    "qe_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "수동 기술 Q/E 구조(§7)·보유 조건과 보상(§8)·감속장 투사체 감속(§9)·결투 연속 처리(KD-12)"
+    },
     "port_tests": {
       "env": {},
       "timeout_sec": 600,
@@ -527,6 +532,7 @@
   "groups": {
     "all": [
       "run_tests",
+      "qe_tests",
       "collision_tests",
       "spore_tests",
       "slots_tests",

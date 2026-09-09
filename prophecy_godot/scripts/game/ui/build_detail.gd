@@ -188,7 +188,7 @@ func _manual_card(build: Dictionary) -> Control:
 	dr.add_child(PUi.rich("[b]Space[/b] 회피 [color=#9ea8b8]무적은 회피 이동 중에만[/color]", 14))
 	box.add_child(dr)
 	var SK := PCatalog.skills()
-	for slot in ["q", "e"]:
+	for slot in PGrowth.SKILL_SLOTS:
 		var sk = build.skills.get(slot, null)
 		var row := PUi.hbox(8)
 		if sk == null:
@@ -196,23 +196,24 @@ func _manual_card(build: Dictionary) -> Control:
 			et.empty = true
 			et.set_icon_px(40.0, 40.0, 0)
 			row.add_child(et)
-			row.add_child(PUi.rich("[b]E[/b] [color=#6a7078]미보유[/color]", 14))
+			row.add_child(PUi.rich("[b]%s[/b] [color=#6a7078]미보유[/color]" % String(slot).to_upper(), 14))
 		else:
 			var sid := String(sk.id)
 			var d: Dictionary = SK[sid]
-			var key := "skill:slowfield" if slot == "q" else PIcons.e_key(sid, sk.get("variant", null))
+			var key := PIcons.e_key(sid, sk.get("variant", null))
 			var t := PIconTile.new(key, PIconTile.STYLE_MANUAL)
 			t.set_icon_px(40.0, 40.0, 0)
 			row.add_child(t)
 			var vtxt := (" · 변형 " + String(d.variants[String(sk.variant)].name)) if sk.get("variant", null) != null else ""
 			var col := PUi.vbox(1)
-			col.add_child(PUi.rich("[b]%s[/b] %s Lv%d%s" % [String(d.key), PGlossaryTip.esc(String(d.name)), int(sk.level), vtxt], 15))
+			col.add_child(PUi.rich("[b]%s[/b] %s Lv%d%s" % [String(slot).to_upper(), PGlossaryTip.esc(String(d.name)), int(sk.level), vtxt], 15))
 			col.add_child(PUi.rich("[color=#9ea8b8]재사용[/color] [b]%s초[/b] [color=#9ea8b8]%s[/color]" % [PUi.fmt(cd_of_build(build, String(slot))), PGlossaryTip.esc(String(d.get("desc", "")))], 13))
 			row.add_child(col)
 		box.add_child(row)
 	return c.panel
 
-## 빌드의 최종 재사용 시간(초). 규칙(PSkills.cd_of / PBuild.derive)이 이미 계산한 값을 읽기만 한다
+## 빌드의 최종 재사용 시간(초). 규칙(PSkills.cd_of / PBuild.derive)이 이미 계산한 값을 읽기만 한다.
+## q는 PBuild.derive가 그 칸의 기술 표로 이미 계산해 둔 special_cd다(감속장 고정이 아니다).
 static func cd_of_build(build: Dictionary, slot: String) -> float:
 	var sk = build.get("skills", {}).get(slot, null)
 	if sk == null:

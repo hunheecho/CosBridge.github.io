@@ -269,9 +269,9 @@ static func icon_key(c: Dictionary) -> String:
 		"passive":
 			return "passive:" + id
 		"skill_new", "skill_level":
-			return "skill:slowfield" if String(c.get("slot", "")) == "q" else PIcons.e_key(id)
+			return PIcons.e_key(id) # 칸이 아니라 기술 id가 아이콘을 정한다(감속장도 여기서 풀린다)
 		"skill_variant":
-			return "skill:slowfield" if String(c.get("slot", "")) == "q" else PIcons.e_key(id, String(c.get("variant", "")))
+			return PIcons.e_key(id, String(c.get("variant", "")))
 		"boss_reward":
 			return "reward:" + id
 	return ""
@@ -283,12 +283,12 @@ static func parent_icon_key(c: Dictionary) -> String:
 		"weapon_mod", "weapon_level":
 			return PIcons.weapon_key(String(c.get("id", "")))
 		"skill_variant", "skill_level":
-			return "skill:slowfield" if String(c.get("slot", "")) == "q" else PIcons.e_key(String(c.get("id", "")))
+			return PIcons.e_key(String(c.get("id", "")))
 	return ""
 
 ## 수동 기술 재사용 시간의 전 → 후({} = 이 후보로는 바뀌지 않음).
 ## 계산은 규칙(PBuild.derive · PBuild.preview_with_choice)이 낸 값을 읽기만 한다 — 표시를 쉽게 하려고 계산 규칙을 바꾸지 않는다.
-## formula: 어떤 기본값에 어떤 배율이 곱해졌는지(감속장 Lv별 기본 [14,12,10]초 × 집중 등).
+## formula: 어떤 기본값에 어떤 배율이 곱해졌는지(그 칸에 든 기술의 Lv별 기본값 × 집중 등).
 static func cd_change(run: Dictionary, c: Dictionary) -> Dictionary:
 	if run.is_empty():
 		return {}
