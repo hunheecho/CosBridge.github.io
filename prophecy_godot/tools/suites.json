@@ -119,6 +119,14 @@
       "desc": "입력 라우터·터치",
       "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
     },
+    "orient_tests": {
+      "env": {
+        "PROPHECY_TOUCH": "1"
+      },
+      "timeout_sec": 900,
+      "desc": "화면 방향(세로/가로)·전체화면: 제목의 '전체화면으로 시작', 실패해도 막지 않음, 세로 안내, 전투 중 세로 → 일시정지·입력 해제·무변화, '계속' 재개, 전체화면 복귀 버튼, 화면 크기 신호",
+      "env_reason": "PROPHECY_TOUCH=1: 세로 전환 순간 '눌려 있던 터치 입력이 해제되는가'를 보려면 터치 오버레이가 켜져 있어야 한다. 헤드리스에는 터치 화면이 없으므로 이 값으로 켠다(PC 시험용 경로, 규칙과 무관)."
+    },
     "run_layer_tests": {
       "env": {
         "PROPHECY_LEGACY_PLACES": "1"
@@ -501,6 +509,7 @@
       "meta_ui_tests",
       "font_tests",
       "input_tests",
+      "orient_tests",
       "run_layer_tests",
       "world_tests",
       "content_tests",
@@ -549,6 +558,7 @@
       "meta_ui_tests",
       "font_tests",
       "input_tests",
+      "orient_tests",
       "ui_flow_tests",
       "render_tests"
     ],
