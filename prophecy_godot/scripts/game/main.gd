@@ -996,7 +996,17 @@ func _make_orient_gate() -> void:
 
 ## 창·화면 크기가 바뀌었다: 배치를 다시 맞추고, 세로/가로를 다시 판정하고, 바뀐 크기를 알린다.
 ## 주소창이 뜨고 지는 것도 폰에서는 이 경로로 온다(크기 변화).
+## 화면 크기가 바뀌면 글자·버튼 배율을 다시 정한다(주소창 등장·전체화면·회전 전부 여기로 온다)
+func _sync_ui_scale() -> void:
+	var before := PLayout.cur_ui_scale()
+	PLayout.set_ui_scale(PLayout.ui_scale(get_viewport()))
+	if not is_equal_approx(before, PLayout.cur_ui_scale()):
+		var scr: Node = screens.get(screen, null)
+		if scr != null and scr.has_method("refresh"):
+			scr.refresh()   # 이미 그려진 화면도 새 크기로 다시 그린다
+
 func _on_viewport_resized() -> void:
+	_sync_ui_scale()
 	_layout_hud()
 	refresh_orientation()
 

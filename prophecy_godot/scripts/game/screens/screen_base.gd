@@ -156,6 +156,7 @@ func on_enter() -> void:
 	_apply_safe_margins()
 	_bucket = bucket()
 	refresh()
+	_keep_scroll = 0          # 화면에 새로 들어올 때는 맨 위에서 시작한다
 	scroll.scroll_vertical = 0
 
 ## 화면 비율 묶음(PLayout): 화면들이 열 비율·마을 높이를 고를 때 쓴다
@@ -182,10 +183,31 @@ func on_escape() -> bool:
 		return true
 	return false
 
+var _keep_scroll := 0        # 다시 그리기 전에 보고 있던 세로 자리
+var _restore_queued := false
+
+## 화면을 다시 그린다. **보고 있던 자리를 잃지 않는다.**
+##
+## 사람 플레이 보고(2026-09-09, 친구): 상점에서 아래로 내려가 '팔기 x1'을 누르면 창이 맨 위로
+## 튀어 올라, 4개를 팔려면 네 번 내려가야 했다("걍 갖다 버리고 싶었음").
+## 파는 동작은 목록만 바꾸므로 보던 자리는 그대로 두는 것이 맞다.
+## 화면에 처음 들어올 때(on_enter)는 예전처럼 맨 위에서 시작한다.
 func clear_all() -> void:
+	_keep_scroll = int(scroll.scroll_vertical) if scroll != null else 0
 	PUi.clear(top)
 	PUi.clear(body)
 	PUi.clear(bottom)
+	if _keep_scroll > 0 and not _restore_queued:
+		_restore_queued = true
+		call_deferred("_restore_scroll")
+
+func _restore_scroll() -> void:
+	_restore_queued = false
+	if scroll == null or not is_inside_tree():
+		return
+	await get_tree().process_frame   # 새 내용이 배치돼야 스크롤 범위가 정해진다
+	if scroll != null and _keep_scroll > 0:
+		scroll.scroll_vertical = _keep_scroll
 
 func heading(text: String, sub: String = "") -> void:
 	top.add_child(PUi.rich("[b]%s[/b]%s" % [text, ("  [color=#9ea8b8]%s[/color]" % sub) if sub != "" else ""], 22))

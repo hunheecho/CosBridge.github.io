@@ -42,8 +42,11 @@ static func rich(text: String, size: int = 14, color: Color = Color.WHITE) -> Ri
 	r.scroll_active = false
 	r.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	r.add_theme_font_size_override("normal_font_size", size)
-	r.add_theme_font_size_override("bold_font_size", size)
+	# 손가락 끌기를 여기서 삼키면 바깥 스크롤이 못 받는다. 글상자는 누르는 대상이 아니므로 위로 넘긴다
+	# (친구 보고: "스크롤이 화면 사이로 드래그해야만 됨" — 카드 사이 틈에서만 스크롤됐다)
+	r.mouse_filter = Control.MOUSE_FILTER_PASS
+	r.add_theme_font_size_override("normal_font_size", PLayout.fs(size))
+	r.add_theme_font_size_override("bold_font_size", PLayout.fs(size))
 	r.add_theme_font_size_override("italics_font_size", size)
 	r.add_theme_color_override("default_color", color)
 	r.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
@@ -62,7 +65,8 @@ static func button(text: String, cb: Callable, enabled: bool = true, size: int =
 	var b := Button.new()
 	b.text = text
 	b.disabled = not enabled
-	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_font_size_override("font_size", PLayout.fs(size))
+	b.custom_minimum_size = Vector2(b.custom_minimum_size.x, maxf(b.custom_minimum_size.y, PLayout.button_min_height()))
 	if cb.is_valid():
 		b.pressed.connect(cb)
 	return b
@@ -99,6 +103,7 @@ static func card(title: String = "", color: Color = CARD, title_size: int = 15) 
 	var p := PanelContainer.new()
 	p.add_theme_stylebox_override("panel", stylebox(color))
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	p.mouse_filter = Control.MOUSE_FILTER_PASS  # 카드 판이 손가락 끌기를 삼키지 않게(스크롤이 위로 간다)
 	var v := vbox(4)
 	p.add_child(v)
 	if title != "":
@@ -285,7 +290,10 @@ static func header(run: Dictionary) -> Control:
 	h.add_child(rich_nowrap("[color=#9ea8b8]금화[/color] [color=#ffd966][b]%d[/b][/color]" % int(run.gold), 14))
 	var sp := spacer()
 	h.add_child(sp)
-	h.add_child(rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(settings_short(run)), 11))
+	# 판본·시드는 **참고 정보**다. 줄바꿈을 허용하면 좁은 화면에서 한 글자씩 세로로 접혀
+	# 머리줄이 화면 절반을 먹는다(폰 가로 854x400에서 실제로 그랬다). 접지 않고, 좁으면 아예 뺀다.
+	if not PLayout.is_touch():
+		h.add_child(rich_nowrap("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(settings_short(run)), 11))
 	return h
 
 ## 장비 한 줄(이름은 용어 링크)
@@ -455,9 +463,14 @@ static func _slot_group(run: Dictionary, title: String, ws: Array, slots: int, l
 		unlock: Variant, icon_px: float, mod_px: float, highlight: String, on_pick: Callable) -> Control:
 	var col := vbox(4)
 	col.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var cap := "%d칸 · 최대 Lv%d · 개조 %d" % [slots, lv_max, mod_slots]
-	if slots > 1:
+	# 좁은 화면(터치)에서는 설명을 줄인다. 긴 문구는 1.6배 글자에서 두 줄로 접혀 칸을 밀어낸다
+	var cap := ""
+	if PLayout.is_touch():
+		cap = "%d칸 · Lv%d · 개조%d" % [slots, lv_max, mod_slots]
+	elif slots > 1:
 		cap = "%d칸 · 각 최대 Lv%d · 개조 %d" % [slots, lv_max, mod_slots]
+	else:
+		cap = "%d칸 · 최대 Lv%d · 개조 %d" % [slots, lv_max, mod_slots]
 	col.add_child(rich("[b]%s[/b] [color=#8a93a6]%s[/color]" % [title, cap], 13))
 	var row := hbox(10)
 	row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN

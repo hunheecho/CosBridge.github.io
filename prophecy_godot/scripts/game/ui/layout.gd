@@ -139,10 +139,45 @@ static func village_height(bucket: String) -> float:
 		"narrow": return 220.0
 		_: return 180.0
 
-## 버튼 최소 높이(터치면 44, 아니면 0 = 기본)
+## 화면 글자·버튼 확대 배율.
+##
+## 왜 필요한가(2026-09-09 사람 플레이 보고, 친구): "모바일로 하기엔 버튼이 넘 작고 글자도 안 보임".
+## 이 게임은 캔버스 960x640을 화면에 맞춰 **줄여서** 그린다(stretch canvas_items).
+## 폰 가로처럼 짧은 화면에서는 그 축소율이 0.5배 아래로 내려가, 13px 글자가 실제로는 7px가 된다.
+## 그래서 **축소율의 역수만큼** 글자·버튼을 키워 실제 화면에서의 크기를 되돌린다.
+##
+## 터치가 아니면 1.0이다 — **PC 화면은 하나도 바뀌지 않는다.**
+## 상한 1.6배: 그 이상 키우면 한 줄에 들어가던 글이 넘쳐 배치가 깨진다(직접 확인한 값).
+const UI_SCALE_MAX := 1.6
+static func ui_scale(vp: Viewport) -> float:
+	if not is_touch() or vp == null:
+		return 1.0
+	var cv := vp.get_visible_rect().size
+	if cv.y <= 0.0:
+		return 1.0
+	var win := DisplayServer.window_get_size()
+	if win.y <= 0:
+		return 1.0
+	var eff := float(win.y) / cv.y      # 캔버스 1단위가 실제 몇 px로 그려지는가
+	if eff >= 1.0:
+		return 1.0
+	return clampf(1.0 / eff, 1.0, UI_SCALE_MAX)
+
+## 지금 배율(화면이 크기를 바꿀 때 main이 넣어 준다). 정적이라 PUi가 인자 없이 읽는다
+static var _ui_scale := 1.0
+static func set_ui_scale(v: float) -> void:
+	_ui_scale = clampf(v, 1.0, UI_SCALE_MAX)
+static func cur_ui_scale() -> float:
+	return _ui_scale
+
+## 글자 크기 하나를 지금 배율로 바꾼다. 화면 코드는 전부 이걸 지난다
+static func fs(size: int) -> int:
+	return int(round(float(size) * _ui_scale))
+
+## 버튼 최소 높이(터치면 44, 아니면 0 = 기본). 배율을 함께 적용한다
 static func button_min_height() -> float:
-	return TOUCH_BUTTON_H if is_touch() else 0.0
+	return TOUCH_BUTTON_H * _ui_scale if is_touch() else 0.0
 
 ## 큰 행동 버튼(출격·입장 등)의 최소 높이
 static func primary_button_height() -> float:
-	return 56.0 if is_touch() else 44.0
+	return 56.0 * _ui_scale if is_touch() else 44.0
