@@ -128,6 +128,7 @@ func _init() -> void:
 		PCatalog.enemies().has("bat") and PCatalog.enemies().has("lizard") and PCatalog.enemies().has("toad") and PCatalog.enemies().has("toad_elite"))
 	bat_tests()
 	lizard_tests()
+	lizard_startup_tests()
 	toad_tests()
 	common_elite_tests()
 	var pass_n := results.filter(func(r): return r[0]).size()
@@ -524,3 +525,65 @@ func common_elite_tests() -> void:
 			layer_bad.append("%s ≥ 특수 정예 검사" % tp)
 	ok("일반 정예 9종의 1막 체력이 계층을 지킨다(바탕 일반 개체보다 위 · 가장 두꺼운 특수 정예보다 아래)",
 		layer_bad.is_empty(), str(layer_bad))
+
+# =========================================================================
+# §12 불씨 도마뱀: 첫 실제 분사까지의 **지연과 준비시간** 단축(2026-09-10, 전부 시험값)
+# 무엇이 문제였나: 등장 뒤 1.2초(코드에 박힌 지연) + 준비 1.05초 = 2.25초가 지나야 첫 불이 나왔고,
+# 중거리까지 걸어오는 시간까지 더하면 **분사 전에 죽는 개체가 많았다**.
+# 유지한 것: 중거리(keepMax 260) · 좁은 화염 폭(flameW 46) · 분사 중 느린 방향 회전(flameTurn 0.55).
+# =========================================================================
+func lizard_startup_tests() -> void:
+	print("")
+	print("[§12 불씨 도마뱀] 첫 분사까지의 지연·준비시간 · 분사 전에 죽는 비율")
+	var D := PEnemiesNew.tuning("lizard")
+	var first: float = float(D.get("flameFirst", 1.2))
+	var aim: float = float(D.flameAim)
+	var lock: float = float(D.flameLock)
+	ok("§12 시험값: 첫 분사 지연 1.2 → %.2f초 · 예고 0.85 → %.2f초 · 확정 0.20 → %.2f초 (합 2.25 → %.2f초)" % [first, aim, lock, first + aim + lock],
+		first < 1.2 and aim < 0.85 and lock < 0.2 and (first + aim + lock) < 1.4,
+		"지연 %.2f + 예고 %.2f + 확정 %.2f = %.2f초" % [first, aim, lock, first + aim + lock])
+	ok("§12 유지: 중거리(keepMax %.0f) · 좁은 화염 폭(%.0f) · 분사 중 느린 회전(%.2f rad/s)은 그대로다" % [float(D.keepMax), float(D.flameW), float(D.flameTurn)],
+		is_equal_approx(float(D.keepMax), 260.0) and is_equal_approx(float(D.flameW), 46.0) and is_equal_approx(float(D.flameTurn), 0.55))
+
+	# 실제 분사 시점: 중거리에 세워 두고 첫 "flame" 상태까지 잰다
+	var st := lab(2)
+	var lz := put(st, "lizard", st.player.x + 220.0, st.player.y)
+	var t_flame := until(st, lz, "flame", 8.0)
+	ok("§12 실측: 중거리에 서 있는 도마뱀의 **첫 실제 분사 시각** %.2f초" % t_flame,
+		t_flame >= 0.0 and t_flame <= first + aim + lock + 0.15,
+		"기대 %.2f초 이내" % (first + aim + lock + 0.15))
+
+	# 분사 전에 죽는 비율: 봇이 싸우는 판에서 '첫 분사'를 보기 전에 죽은 개체를 센다
+	var died_before := 0
+	var lived := 0
+	var times: Array = []
+	for seed_v in [1, 2, 3, 4, 5, 6]:
+		var g := PGrowth.new_growth("sword")
+		var b := PBuild.derive(PBuild.empty_run_like(g))
+		var s2 := CombatState.new({ "build": b, "seed": seed_v, "waves": [], "arena": "clearing", "region_id": "lab", "act": 2, "fixed_build": true })
+		s2.spawn_hold = true
+		var e := s2.spawn_enemy("lizard", s2.player.x + 300.0, s2.player.y)
+		var bot := PBot.new("balanced")
+		var fired := -1.0
+		for i in int(round(12.0 / STEP)):
+			s2.step(bot.step_input(s2), STEP)
+			s2.player.hp = s2.player.hp_max
+			s2.player.dead = false
+			if s2.status == "lost":
+				s2.status = "running"
+			if fired < 0.0 and String(e.state) == "flame":
+				fired = s2.t
+			if bool(e.dead):
+				break
+		if fired >= 0.0:
+			lived += 1
+			times.append(fired)
+		else:
+			died_before += 1
+	var avg := 0.0
+	for t in times:
+		avg += float(t)
+	if not times.is_empty():
+		avg /= float(times.size())
+	ok("§12 분사 전에 죽는 비율: 봇 6판 중 **%d판**(%d판은 분사까지 갔고 첫 분사 평균 %.2f초)" % [died_before, lived, avg],
+		lived >= 4, "죽은 판 %d · 분사한 판 %d · 첫 분사 시각 %s" % [died_before, lived, str(times)])

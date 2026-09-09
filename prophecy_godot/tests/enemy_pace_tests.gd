@@ -161,9 +161,75 @@ func _init() -> void:
 		bad.is_empty() and share.size() > 0 and int(P.get("min_cap", 0)) >= 2,
 		"%d종 · 최소 %d %s" % [share.size(), int(P.get("min_cap", 0)), str(bad)])
 
+	lizard_tail_tests()
+
 	var pass_n := 0
 	for r in results:
 		if r[0]:
 			pass_n += 1
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
+
+# =========================================================================
+# §12 도마뱀 말미 등장(2026-09-10). 네 가지를 **구분해서** 본다:
+#   ㉠ 종류별 동시 생존 상한 · ㉡ 등장 간격 · ㉢ 분대 이월 · ㉣ 위험 공격 제한
+# 이 넷은 서로 다른 규칙이고, 말미가 늘어진 원인은 그중 **㉠ 하나**였다.
+# =========================================================================
+func lizard_tail_tests() -> void:
+	print("")
+	print("[§12 도마뱀 말미 등장] 종류별 생존 상한 · 등장 간격 · 분대 이월 · 위험 공격 제한을 구분해 본다")
+	var P: Dictionary = PCatalog.pacing().get("type_alive_cap_proposal", {})
+	var share: Dictionary = P.get("share_by_type", {})
+	# ㉠ 누락 확인: 이 표에 도마뱀이 없으면 편성표의 고정값(2)에 묶인다
+	ok("§12 ㉠ 종류별 생존 상한 비율표에 **도마뱀(lizard)**이 들어 있다(2026-09-10 이전에는 빠져 있었다)",
+		share.has("lizard"), "lizard %s · bat %s · toad %s" % [str(share.get("lizard", "없음")), str(share.get("bat", "없음")), str(share.get("toad", "없음"))])
+	var missing: Array = []
+	for t in ["lizard", "bat", "toad"]:
+		if not share.has(String(t)):
+			missing.append(String(t))
+	ok("§12 ㉠ 신규 일반 3종이 모두 표에 있다(같은 이유로 함께 빠져 있었다)", missing.is_empty(), str(missing))
+
+	# ㉠ 실제 계산: 2막 동시 상한 15에서 편성표 고정값 2가 비율로 커진다
+	var caps := PPacing.type_alive_cap({ "lizard": 2, "shieldbearer": 3, "shaman": 1 }, 15)
+	ok("§12 ㉠ 2막(동시 상한 15) 도마뱀 상한 2 → %d(비율 %.2f). 총 등장 수·경험치는 건드리지 않는다" % [int(caps.lizard), float(share.get("lizard", 0.0))],
+		int(caps.lizard) > 2 and int(caps.lizard) == maxi(2, int(round(15.0 * float(share.lizard)))),
+		"보정 뒤 %s" % str(caps))
+	ok("§12 ㉠ 편성에 없는 종류를 새로 만들지 않는다(표에 있어도 0이면 그대로 0)",
+		not PPacing.type_alive_cap({ "shieldbearer": 3 }, 15).has("lizard"))
+
+	# ㉣ 위험 공격 제한: 종류별 동시 상한이 **따로** 있다(생존 상한을 올려도 동시 화염이 부풀지 않게)
+	var DL: Dictionary = PCatalog.pacing().get("danger_limit", {})
+	var by_type: Dictionary = DL.get("by_type", {})
+	ok("§12 ㉣ 종류별 **동시 위험 공격** 상한이 따로 있고 도마뱀이 %s로 묶여 있다" % str(by_type.get("lizard", "없음")),
+		by_type.has("lizard") and int(by_type.lizard) >= 1,
+		"전체 상한 by_act %s · 종류별 %s" % [str(DL.get("by_act", {})), str(by_type)])
+	ok("§12 ㉣ 표에 없는 종류는 상한이 없다(기존 동작 그대로)", PEnemiesNew.danger_type_max("boar") >= 9999)
+
+	# ㉣ 실제로 걸린다: 도마뱀 6마리를 둘러 세워도 동시에 불을 뿜는 수가 상한을 넘지 않는다
+	var st := lab(3, 2)
+	var lz := ring(st, "lizard", 6, 210.0)
+	var seen := play_watch(st, 12.0)
+	var maxfire := 0
+	var st2 := lab(3, 2)
+	var lz2 := ring(st2, "lizard", 6, 210.0)
+	for i in int(round(12.0 / STEP)):
+		st2.step({}, STEP)
+		st2.player.hp = st2.player.hp_max
+		st2.player.dead = false
+		if st2.status == "lost":
+			st2.status = "running"
+		var n := 0
+		for e in st2.enemies:
+			if not bool(e.dead) and PEnemiesNew.danger_busy(e):
+				n += 1
+		maxfire = maxi(maxfire, n)
+	ok("§12 ㉣ 도마뱀 %d마리를 둘러 세워도 동시에 불을 준비·분사하는 수가 상한 %d를 넘지 않는다 — **피할 수 없는 동시 화염**을 만들지 않는다" % [lz2.size(), int(by_type.get("lizard", 9999))],
+		maxfire <= int(by_type.get("lizard", 9999)), "관찰한 최고 동시 수 %d (첫 관찰 %d마리)" % [maxfire, int(seen.get("max_danger", 0))])
+	ok("§12 ㉣ 상한은 **새 공격만** 막는다 — 여전히 모두가 번갈아 공격한다(굶는 개체가 없다)",
+		int(seen.get("entered", 0)) >= lz.size() - 1, "예고에 들어간 개체 %d/%d" % [int(seen.get("entered", 0)), lz.size()])
+
+	# ㉡·㉢은 다른 규칙이라는 것을 값으로 남긴다(이번에 바꾸지 않았다)
+	var SP: Dictionary = PCatalog.pacing().get("spawn", {})
+	ok("§12 ㉡ 등장 간격·㉢ 분대 이월은 **이번에 바꾸지 않았다**(말미 원인은 ㉠이었다)",
+		is_equal_approx(float(SP.get("tail_group_mult", 0.0)), 1.5) and bool(SP.get("squad_mixing", false)),
+		"말미 묶음 배율 %.1f · 분대 혼합 %s" % [float(SP.get("tail_group_mult", 0.0)), str(SP.get("squad_mixing", false))])

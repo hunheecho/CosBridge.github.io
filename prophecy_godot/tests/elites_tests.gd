@@ -692,23 +692,47 @@ func _init() -> void:
 	var std := lab()
 	var pc := put(std, "elite_plaguecaller", std.player.x + 220.0, std.player.y)
 	until(std, pc, "swell", 6.0)
+	# §12(2026-09-10): **한 번에 한 자리만** 정한다. 예전에는 세 자리를 처음에 한꺼번에 고정해
+	# 첫 폭발 뒤 걸어 나오면 남은 두 개가 통째로 헛돌았다
 	var pods: Array = pc.pods
-	var orders := []
-	var gaps := []
-	for pod in pods:
-		orders.append(int(pod.order))
-		gaps.append(float(pod.land_at))
-	var gap_ok := true
-	for i in range(1, gaps.size()):
-		if not near(float(gaps[i]) - float(gaps[i - 1]), float(DD.podGap), 0.02):
-			gap_ok = false
-	ok("D 역병 조율사: 포자 3개를 흩어 투척하고 1 → 2 → 3 순서로 0.45초 간격 순차 폭발(순서·범위 표시)",
-		pods.size() == int(DD.podCount) and orders == [1, 2, 3] and gap_ok, "순서 %s · 간격 %s" % [str(orders), str(gaps)])
+	ok("D 역병 조율사: 투척 예고가 끝나면 **첫 포자 한 개만** 자리가 정해진다(세 자리를 한꺼번에 고정하지 않는다)",
+		pods.size() == 1 and int(pods[0].order) == 1 and near(float(pods[0].land_at) - std.t, float(DD.swell), 0.05),
+		"놓인 포자 %d개 · 남은 예고 %.2f초" % [pods.size(), float(pods[0].land_at) - std.t])
 	var th_d := []
 	PEnemies.threats(std, pc, th_d)
 	ok("D 폭발 범위와 순서를 예고 도형으로 내보낸다(봇·화면이 같은 정보를 본다)", th_d.size() == pods.size() and int(th_d[0].get("order", 0)) >= 1, str(th_d.size()))
 
-	play(std, float(DD.swell) + float(DD.podGap) * 3.0 + 0.2)
+	# 첫 포자가 터지기 전에 **구역을 벗어난다**. 예전에는 세 자리가 이미 다 고정이라 남은 둘이 통째로 헛돌았고,
+	# 지금은 1번이 터지는 순간 그 자리에서 2번을 새로 조준해야 한다
+	var pod1: Array = [float(pods[0].x), float(pods[0].y)]
+	std.player.x -= 280.0
+	var moved_x: float = std.player.x
+	var moved_y: float = std.player.y
+	play(std, float(DD.swell) + 0.05)
+	ok("D §12: 이미 예고된 1번 포자는 **자리를 옮기지 않는다**(확정 뒤 추적 금지는 그대로)",
+		near(float(pods[0].x), pod1[0], 0.001) and near(float(pods[0].y), pod1[1], 0.001), str(pod1))
+	play(std, PEnemiesNew.dv(pc, "podRearm", 0.55) * 0.5)
+	var pods2: Array = pc.pods
+	var pod2: Array = []
+	for pod in pods2:
+		if int(pod.order) == 2:
+			pod2 = [float(pod.x), float(pod.y)]
+	ok("D §12: 폭발 사이에 **다음 자리를 새로 조준**한다 — 한 번 구역을 벗어나도 남은 공격이 헛돌지 않는다",
+		pod2.size() == 2 and PGeom.dist(pod2[0], pod2[1], moved_x, moved_y) <= float(DD.podSpread) + float(DD.podR)
+		and PGeom.dist(pod2[0], pod2[1], pod1[0], pod1[1]) > 150.0,
+		"1번 (%.0f,%.0f) · 옮긴 플레이어 (%.0f,%.0f) · 2번 %s" % [pod1[0], pod1[1], moved_x, moved_y, str(pod2)])
+	var pod2_left: float = 0.0
+	for pod in pods2:
+		if int(pod.order) == 2:
+			pod2_left = float(pod.land_at) - std.t
+	ok("D §12: 다시 조준한 포자에도 예고 시간이 따로 붙는다(podRearm 0.55초, 예고 없는 즉발이 아니다)",
+		pod2_left > 0.0 and pod2_left <= PEnemiesNew.dv(pc, "podRearm", 0.55) + 1e-3,
+		"남은 예고 %.2f초" % pod2_left)
+
+	play(std, PEnemiesNew.dv(pc, "podRearm", 0.55) * float(int(DD.podCount)) + 1.0)
+	ok("D §12: 정해진 개수(%d)를 다 쓰면 연계가 끝나고 빈틈으로 들어간다(끝나지 않는 일이 없다)" % int(DD.podCount),
+		int(pc.get("pod_done", 0)) == int(DD.podCount) and String(pc.state) != "swell",
+		"쓴 포자 %d개 · 상태 %s" % [int(pc.get("pod_done", 0)), String(pc.state)])
 	var clouds := 0
 	var max_ttl := 0.0
 	for z in std.zones:
@@ -896,6 +920,9 @@ func _init() -> void:
 	fang_readability_tests()
 	placement_tests()
 	encounter_count_tests()
+	curse_tests()          # §10 주술사의 피해 증폭 저주(2026-09-10)
+	chain_speed_tests()    # §12 사슬 발사 속도(예고와 비행을 분리해 측정)
+	new_pattern_tests()    # §11-B 신규 공격 패턴 14개
 
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
@@ -1979,3 +2006,502 @@ func fang_readability_tests() -> void:
 		heard2.append(String(st2.events[i]))
 	ok("⑭-바 도약 확정 소리가 늑대 돌진 확정(lock 하나)과 다르다", got >= 0.0 and heard2.has("lock") and heard2.has("boss_lock"),
 		str(heard2))
+
+# =========================================================================
+# §11-B 특수 정예 신규 공격 패턴 14개(2026-09-10, 전부 시험값)
+# **발동 횟수만으로 성공 판정하지 않는다.** 패턴마다 다섯 가지를 따로 본다(사용자 검증 항목 그대로):
+#   ① 같은 방향으로 걷기만 하는 플레이어에게 실제로 성립하는가(접근 압박·도주 경로 차단이 일을 하는가)
+#   ② 예고를 보고 **방향을 꺾으면** 피할 수 있는가
+#   ③ **확정 뒤에도 따라와서** 회피가 불가능해지지 않는가(확정 시점의 각·자리가 그 뒤 그대로인가)
+#   ④ 연계가 끝나면 **반격 기회**(빈틈)가 있는가
+#   ⑤ **실제 전투**(봇이 싸우는 판)에서 쓰이는가
+# =========================================================================
+
+## 패턴 하나의 관찰 명세.
+##  dist   시험 시작 거리(그 패턴의 시작 조건이 서는 거리)
+##  lock   확정 상태(여기 들어간 뒤로는 조준이 굳어야 한다). ""이면 **확정과 실행이 같은 순간**이라 추적 구간 자체가 없다
+##  track  확정 뒤 변하면 안 되는 값: "dir"(각) · 개체 칸 이름(자리 배열) · "seek"/"wall"(사전·목록)
+##  turn   방향을 꺾는 시점(그 상태에 들어가는 순간). 예고를 보고 대응하는 자리다
+const PAT_SPECS := [
+	{ "type": "elite_archer", "id": "chase", "start": "chase_run", "dist": 300.0, "lock": "chase_lock", "track": "dir", "role": "접근", "turn": "chase_lock" },
+	{ "type": "elite_archer", "id": "snipe", "start": "snipe1_aim", "dist": 280.0, "lock": "snipe2_lock", "track": "dir", "role": "차단", "turn": "snipe_gap" },
+	{ "type": "elite_blademaster", "id": "step", "start": "step1_aim", "dist": 200.0, "lock": "step1", "track": "dir", "role": "접근", "turn": "step1_aim" },
+	{ "type": "elite_blademaster", "id": "wave", "start": "wave_aim", "dist": 300.0, "lock": "wave_lock", "track": "dir", "role": "차단", "turn": "wave_lock" },
+	{ "type": "elite_fang", "id": "runbite", "start": "runbite_run", "dist": 280.0, "lock": "", "track": "", "role": "접근", "turn": "runbite_aim" },
+	{ "type": "elite_fang", "id": "cut", "start": "cut_aim", "dist": 280.0, "lock": "cut_lock", "track": "leap_at", "role": "차단", "turn": "cut_lock" },
+	{ "type": "elite_plaguecaller", "id": "seek", "start": "seek_aim", "dist": 300.0, "lock": "seek_swell", "track": "seek", "role": "접근", "turn": "seek_swell" },
+	{ "type": "elite_plaguecaller", "id": "wall", "start": "wall_aim", "dist": 300.0, "lock": "wall_aim", "track": "wall", "role": "차단", "turn": "wall_aim" },
+	{ "type": "elite_chainbreaker", "id": "anchor", "start": "anchor_aim", "dist": 300.0, "lock": "anchor_lock", "track": "slam_at", "role": "접근", "turn": "anchor_lock" },
+	{ "type": "elite_chainbreaker", "id": "drag", "start": "drag_aim", "dist": 260.0, "lock": "drag_lock", "track": "drag_at", "role": "차단", "turn": "drag_toss" },
+	{ "type": "elite_standard", "id": "rush", "start": "rush_aim", "dist": 300.0, "lock": "rush_lock", "track": "dir", "role": "접근", "turn": "rush_lock" },
+	{ "type": "elite_standard", "id": "pincer", "start": "pincer_aim", "dist": 200.0, "lock": "", "track": "", "role": "차단", "turn": "pincer_aim" },
+	{ "type": "elite_miner", "id": "surface", "start": "surface_run", "dist": 300.0, "lock": "", "track": "", "role": "접근", "turn": "pick_aim" },
+	{ "type": "elite_miner", "id": "rift", "start": "rift_aim", "dist": 240.0, "lock": "rift", "track": "dir", "role": "차단", "turn": "rift_aim" },
+]
+
+## 그 패턴만 준비된 상태로 만든다(다른 패턴은 재사용을 멀리 밀어 둔다). 규칙을 바꾸지 않고 시각만 맞춘다
+func arm_only(e: Dictionary, id: String) -> void:
+	for row in PEnemiesNew.NEW_PATTERNS.get(String(e.type), []):
+		var r: Dictionary = row
+		e[String(r.cd)] = 0.0 if String(r.id) == id else 99.0
+
+## 한 방향으로 계속 걷는 한 걸음. **실제 입력 경로**(step의 mx·my)로 넣는다 — 자리를 강제로 옮기지 않는다
+func walk_step(st: CombatState, mx: float, my: float) -> void:
+	st.step({ "mx": mx, "my": my }, STEP)
+	st.player.hp = st.player.hp_max
+	st.player.dead = false
+	if st.status == "lost":
+		st.status = "running"
+
+## 확정 뒤 조준이 굳었는지 읽는 값(비교용 문자열)
+func aim_snapshot(e: Dictionary, track: String) -> String:
+	if track == "dir":
+		return "%.4f" % float(e.get("dir", 0.0))
+	if track == "seek":
+		var s: Dictionary = e.get("seek", {})
+		return "%.2f,%.2f" % [float(s.get("x", 0.0)), float(s.get("y", 0.0))]
+	if track == "wall":
+		var out := ""
+		for wp in e.get("wall", []):
+			out += "%.1f,%.1f;" % [float((wp as Dictionary).x), float((wp as Dictionary).y)]
+		return out
+	if track == "":
+		return ""
+	var a: Array = e.get(track, [])
+	return ("%.2f,%.2f" % [float(a[0]), float(a[1])]) if a.size() >= 2 else ""
+
+func hits_total(st: CombatState) -> int:
+	var n := 0
+	for k in st.metrics.taken_hits:
+		n += int(st.metrics.taken_hits[k])
+	return n
+
+## 싸우는 적 수(깃발·돌무더기 같은 구조물 제외)
+func fighters(st: CombatState) -> int:
+	var n := 0
+	for o in st.enemies:
+		if not bool(o.dead) and not bool(o.get("structure", false)):
+			n += 1
+	return n
+
+## 패턴 하나를 처음부터 끝까지 굴리며 관찰한다.
+##   walk = [mx, my] 계속 걷는 방향 · turn = ""(안 꺾음) 또는 그 상태에 들어간 순간 90도 꺾는다
+## 시험 자리(경기장 960×600): 플레이어는 **왼쪽**(60, 420)에서 시작해 처음부터 끝까지 오른쪽으로만 걷는다(860px = 약 3.9초).
+## 멀어지기 시험이 벽에 막히지 않도록 아래로 280px 이상 남겨 뒀다(첫 시도에서 아래 벽에 붙어 결과가 뒤집혔다).
+## 정예는 거의 **바로 위**(각 -80도)에 두어 걷는 방향과 직각이 되게 한다 — 이것이 '멀리서 같은 방향으로 걸으며 자동 공격'하는
+## 그 걸음이고, 거리도 크게 흔들리지 않아 패턴의 시작 조건이 선다.
+## **처음부터 걷는다**: 관측 이동(0.30초 지연)은 걸어온 이력이 있어야 값이 서므로, 예고가 뜬 뒤에 걷기 시작하면
+## 앞을 겨누는 패턴이 실제보다 불리하게 측정된다.
+func run_pattern(spec: Dictionary, turn: String, seed_v: int = 11, flee: bool = false, dodge: bool = false) -> Dictionary:
+	var tp := String(spec.type)
+	var st := lab(seed_v)
+	st.player.x = 60.0
+	st.player.y = 300.0
+	var ang := -1.4
+	var ex: float = clampf(st.player.x + cos(ang) * float(spec.dist), 40.0, st.arena_w - 40.0)
+	var ey: float = clampf(st.player.y + sin(ang) * float(spec.dist), 40.0, st.arena_h - 40.0)
+	var e := put(st, tp, ex, ey)
+	st.step({}, STEP)
+	arm_only(e, String(spec.id))
+	var mx := 1.0
+	var my := 0.0
+	var dodge_at := -1.0
+	var started := false
+	var turned := false
+	var hits0 := 0
+	var hit := false
+	var ended := ""
+	var aim0 := ""
+	var aim1 := ""
+	var lock_seen := false
+	var lock_kept := true
+	var was_lock := false
+	for i in int(round(18.0 / STEP)):
+		# 회피(Space): 대응 시점부터 계속 누른다. 규칙이 재사용(1.5~2.2초)을 지키므로 무적이 이어 붙지 않는다
+		var press: bool = dodge and dodge_at >= 0.0
+		st.step({ "mx": mx, "my": my, "dodge_press": press }, STEP)
+		st.player.hp = st.player.hp_max
+		st.player.dead = false
+		if st.status == "lost":
+			st.status = "running"
+		var s := String(e.state)
+		if not started and s == String(spec.start):
+			started = true
+			hits0 = hits_total(st)
+			st.projectiles.clear() # 그 전 공격이 남긴 탄이 이 패턴의 성적으로 잘못 세어지지 않게
+		if not started:
+			continue
+		if hits_total(st) > hits0:
+			hit = true
+		if turn != "" and not turned and s == turn:
+			turned = true
+			if dodge:
+				dodge_at = st.t
+			elif flee: # **멀어지기**: 정예 반대쪽으로 걷는다(근접 연계의 답)
+				var fn := PGeom.norm(float(st.player.x) - float(e.x), float(st.player.y) - float(e.y))
+				mx = float(fn[0])
+				my = float(fn[1])
+			else: # 90도 꺾는다(관측이 0.30초 지연이라 앞을 겨눈 예고는 옛 방향을 가리킨다)
+				var nx: float = my
+				my = -mx
+				mx = nx
+		if String(spec.lock) != "":
+			var in_lock: bool = s == String(spec.lock)
+			if in_lock and not was_lock: # 연계 안에서 확정이 여러 번 있으면 **그때마다 새로 잰다**
+				lock_seen = true
+				aim0 = aim_snapshot(e, String(spec.track))
+			elif in_lock:
+				aim1 = aim_snapshot(e, String(spec.track))
+				if aim1 != aim0:
+					lock_kept = false
+			was_lock = in_lock
+		if s == "recover" or s == "stagger":
+			ended = s
+			break
+	return { "started": started, "hit": hit, "ended": ended, "lock_kept": lock_kept,
+		"lock_seen": lock_seen, "aim0": aim0, "aim1": aim1 }
+
+## 실제 전투에서 쓰이는가: 봇이 싸우는 판에서 관찰한다. 주무기를 바꿔 **두 가지 놀이**를 다 본다:
+##   활(bow)   = 거리를 두고 걸으며 쏘는 놀이 — 이번에 흔들려는 바로 그 놀이다
+##   검(sword) = 붙어서 치는 놀이
+## 한쪽에서라도 쓰이면 '실제 전투에서 쓰인다'로 본다(먼 패턴은 붙은 판에서 안 쓰이는 것이 옳다).
+## **적을 죽지 않게 붙들어 둔다** — 잡히면 두 패턴 중 하나만 보고 끝나 '안 쓰인다'로 잘못 읽히기 때문이다.
+## 계측 전용 장치이며 규칙·수치는 하나도 바꾸지 않는다.
+func pattern_fight_both(tp: String, seed_v: int, sec: float) -> Dictionary:
+	var out := pattern_walk_fight(tp, seed_v, sec) # ① 이 패턴들이 흔들려는 그 놀이(걷기)
+	for wid in ["bow", "sword"]:                   # ② 봇이 싸우는 판(붙는 놀이·쏘는 놀이)
+		var one := pattern_fight(tp, String(wid), seed_v, sec)
+		for k in one:
+			out[k] = int(out.get(k, 0)) + int(one[k])
+	return out
+
+## **멀리서 같은 방향으로 걸으며 자동 공격하는 놀이**를 그대로 만든 판.
+## 플레이어는 경기장 둘레의 네 꼭짓점을 잇는 긴 직선을 따라 계속 걷는다(꺾는 곳은 모퉁이 넷뿐이다).
+## 봇처럼 파고들지 않으므로 거리가 넓게 흔들리고, 그래서 먼 거리 조건을 가진 패턴도 창을 얻는다.
+const WALK_PATH := [[120.0, 120.0], [840.0, 120.0], [840.0, 480.0], [120.0, 480.0]]
+
+func pattern_walk_fight(tp: String, seed_v: int, sec: float) -> Dictionary:
+	var g := PGrowth.new_growth("bow")
+	var b := PBuild.derive(PBuild.empty_run_like(g))
+	var st := CombatState.new({ "build": b, "seed": seed_v, "waves": [], "arena": "clearing", "region_id": "lab", "act": 1, "fixed_build": true })
+	st.spawn_hold = true
+	st.player.x = float(WALK_PATH[0][0])
+	st.player.y = float(WALK_PATH[0][1])
+	var e := st.spawn_enemy(tp, 480.0, 300.0)
+	e.hp_max = 1.0e6 # 계측 전용: 잡히면 두 패턴 중 하나만 보고 끝난다
+	e.hp = e.hp_max
+	var wp := 1
+	for i in int(round(sec / STEP)):
+		var t: Array = WALK_PATH[wp]
+		var dx: float = float(t[0]) - float(st.player.x)
+		var dy: float = float(t[1]) - float(st.player.y)
+		if sqrt(dx * dx + dy * dy) < 14.0:
+			wp = (wp + 1) % WALK_PATH.size()
+			t = WALK_PATH[wp]
+			dx = float(t[0]) - float(st.player.x)
+			dy = float(t[1]) - float(st.player.y)
+		st.step({ "mx": dx, "my": dy }, STEP)
+		st.player.hp = st.player.hp_max
+		st.player.dead = false
+		if st.status == "lost":
+			st.status = "running"
+	return PEnemiesNew.pattern_uses(e)
+
+func pattern_fight(tp: String, wid: String, seed_v: int, sec: float) -> Dictionary:
+	var g := PGrowth.new_growth(wid)
+	var b := PBuild.derive(PBuild.empty_run_like(g))
+	var st := CombatState.new({ "build": b, "seed": seed_v, "waves": [], "arena": "clearing", "region_id": "lab", "act": 1, "fixed_build": true })
+	st.spawn_hold = true
+	var e := st.spawn_enemy(tp, st.player.x + 300.0, st.player.y)
+	e.hp_max = 1.0e6 # 계측 전용: 잡히면 두 패턴 중 하나만 보고 끝난다. 규칙·수치는 하나도 바꾸지 않는다
+	e.hp = e.hp_max
+	var bot := PBot.new("balanced")
+	for i in int(round(sec / STEP)):
+		st.step(bot.step_input(st), STEP)
+		st.player.hp = st.player.hp_max
+		st.player.dead = false
+		if st.status == "lost":
+			st.status = "running"
+	return PEnemiesNew.pattern_uses(e)
+
+func new_pattern_tests() -> void:
+	print("")
+	print("[§11-B 신규 공격 패턴 14개] 정예 7종 × 2개. 전부 시험값 — 사람이 재미·밸런스를 확인한 값이 아니다")
+	var miss: Array = []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		if PEnemiesNew.new_pattern_ids(String(tp)).size() != 2:
+			miss.append(String(tp))
+	ok("§11-B 표: 특수 정예 7종에 각각 신규 패턴 2개(총 14개)", miss.is_empty(), str(miss))
+	var uncounted: Array = []
+	for spec in PAT_SPECS:
+		var sp: Dictionary = spec
+		if not chain_committed(String(sp.type), String(sp.start)):
+			uncounted.append("%s/%s" % [String(sp.type), String(sp.start)])
+	ok("§11-B 신규 연계의 시작 상태가 모두 동시 위험 공격 상한에 세어진다", uncounted.is_empty(), str(uncounted))
+
+	print("")
+	print("| 정예 · 패턴 | 역할 | ① 같은 방향 걷기 | ② 꺾음 / 멀어짐 / 회피 | ③ 확정 뒤 추적 | ④ 연계 뒤 | ⑤ 실제 전투 |")
+	print("|---|---|---|---|---|---|---|")
+	var fight_cache := {}
+	var straight_miss: Array = []
+	for spec in PAT_SPECS:
+		var sp: Dictionary = spec
+		var tp := String(sp.type)
+		var id := String(sp.id)
+		var nm := "%s · %s" % [String(PCatalog.enemy(tp).name), id]
+		var straight := run_pattern(sp, "")
+		var turned := run_pattern(sp, String(sp.turn))
+		var away := run_pattern(sp, String(sp.turn), 11, true)
+		var dodged := run_pattern(sp, String(sp.turn), 11, false, true)
+		if not fight_cache.has(tp):
+			fight_cache[tp] = pattern_fight_both(tp, 7, 30.0)
+		var used: Dictionary = fight_cache[tp]
+		var used_n := int(used.get(id, 0))
+		if String(sp.role) == "접근" and not bool(straight.hit):
+			straight_miss.append("%s/%s" % [tp, id])
+		print("| %s | %s | %s | %s / %s / %s | %s | %s | %d회 |" % [nm, String(sp.role),
+			"맞음" if bool(straight.hit) else "빗나감",
+			"빗나감" if not bool(turned.hit) else "맞음", "빗나감" if not bool(away.hit) else "맞음",
+			"빗나감" if not bool(dodged.hit) else "맞음",
+			(("굳음" if bool(straight.lock_kept) else "**따라옴**") if bool(straight.lock_seen) else "확정 못 봄") if String(sp.lock) != "" else "확정=실행",
+			String(straight.ended) if String(straight.ended) != "" else "-", used_n])
+		ok("§11-B %s: 시작 조건이 실제로 서고 연계가 **빈틈으로 끝난다**(반격 기회)" % nm,
+			bool(straight.started) and (String(straight.ended) == "recover" or String(straight.ended) == "stagger"),
+			"시작 %s · 끝 '%s'" % [str(straight.started), String(straight.ended)])
+		if String(sp.lock) != "":
+			ok("§11-B %s: **확정 뒤에는 따라오지 않는다**(확정 시점의 조준이 그대로)" % nm,
+				bool(straight.lock_seen) and bool(straight.lock_kept), "확정 %s → 이후 %s" % [String(straight.aim0), String(straight.aim1)])
+		# 걷기만으로 피할 방법이 **하나도 없으면** 회피가 불가능한 공격이다(무기·회피를 쓰기 전에 이미 답이 있어야 한다)
+		ok("§11-B %s: **대응하면 피할 수 있다**(%s에서 방향 전환 · 멀어지기 · 회피 중 하나로)" % [nm, String(sp.turn)],
+			not (bool(straight.hit) and bool(turned.hit) and bool(away.hit) and bool(dodged.hit)),
+			"같은 방향 %s · 꺾음 %s · 멀어짐 %s · 회피 %s" % ["맞음" if bool(straight.hit) else "빗나감",
+				"맞음" if bool(turned.hit) else "빗나감", "맞음" if bool(away.hit) else "빗나감",
+				"맞음" if bool(dodged.hit) else "빗나감"])
+		ok("§11-B %s: **실제 전투에서 쓰인다**(활 봇 30초 + 검 봇 30초 판에서 관찰)" % nm, used_n > 0, "%d회" % used_n)
+
+	# "같은 방향으로 걷기만 하면 전부 빗나가는가"에 대한 답. **전부 빗나가서는 안 된다**가 통과 조건이고,
+	# 몇 개가 성립하는지는 수치로 남긴다(전부 성립해야 한다는 뜻이 아니다 — 그러면 걷기로는 아무것도 못 피하게 된다)
+	ok("§11-B 접근 압박 7개 중 **5개 이상**이 같은 방향 걷기에 성립한다(전부 빗나가지 않는다)",
+		straight_miss.size() <= 2, "걷기만 해도 빗나간 패턴 %d개 %s" % [straight_miss.size(), str(straight_miss)])
+
+	# 군단 기수 ②: 부하가 없을 때의 본체 대체 연계
+	var stp := lab(5)
+	stp.player.x = 620.0
+	var bs := put(stp, "elite_standard", stp.player.x + 200.0, stp.player.y)
+	stp.step({}, STEP)
+	arm_only(bs, "pincer")
+	var seq_solo := trace(stp, bs, 7.0)
+	ok("§11-B 군단 기수 ②: **부하가 없으면 본체 대체 연계**로 간다(혼자 각을 바꿔 두 번 벤다)",
+		seq_solo.has("solo_aim1") and seq_solo.has("solo_gap") and seq_solo.has("solo_aim2"), str(seq_solo))
+	var stp2 := lab(5)
+	stp2.player.x = 620.0
+	var bs2 := put(stp2, "elite_standard", stp2.player.x + 200.0, stp2.player.y)
+	var ally := put(stp2, "wolf", stp2.player.x - 120.0, stp2.player.y)
+	ally.state = "bite_recover"
+	ally.state_t = -1000.0
+	var n_ally0 := fighters(stp2) # 깃발·돌무더기 같은 구조물은 '싸우는 적'이 아니라 세지 않는다
+	stp2.step({}, STEP)
+	arm_only(bs2, "pincer")
+	var seq_pin := trace(stp2, bs2, 7.0)
+	ok("§11-B 군단 기수 ②: 부하가 있으면 **부하와 본체가 다른 방향에서 시간차**로 온다(적을 새로 부르지 않는다)",
+		seq_pin.has("pincer_move") and seq_pin.has("pincer_slash_aim") and fighters(stp2) == n_ally0,
+		"%s · 싸우는 적 수 %d → %d" % [str(seq_pin), n_ally0, fighters(stp2)])
+
+	# 사슬 집행자 ①: 사슬을 맞히지 않아도 접근이 성립한다
+	var stc := lab(9)
+	stc.player.x = 560.0
+	var cb := put(stc, "elite_chainbreaker", stc.player.x + 380.0, stc.player.y)
+	stc.step({}, STEP)
+	arm_only(cb, "anchor")
+	var d0 := PGeom.dist(cb.x, cb.y, stc.player.x, stc.player.y)
+	until(stc, cb, "anchor_fly", 9.0)
+	play(stc, PEnemiesNew.dv(cb, "anchorFly", 0.3) + 0.05)
+	var d1 := PGeom.dist(cb.x, cb.y, stc.player.x, stc.player.y)
+	ok("§11-B 사슬 집행자 ①: 닻 도약은 **사슬을 맞히지 않고도** 거리를 좁힌다", d1 < d0 - 150.0, "%.0f → %.0f" % [d0, d1])
+
+	# 역병 조율사 ②: 띠가 탈출 방향을 전부 막지 않는다
+	var stw := lab(4)
+	stw.player.x = 560.0
+	var pcw := put(stw, "elite_plaguecaller", stw.player.x + 330.0, stw.player.y)
+	stw.step({}, STEP)
+	arm_only(pcw, "wall")
+	until(stw, pcw, "wall_aim", 9.0)
+	var band: Array = pcw.get("wall", [])
+	var free := PEnemiesNew._exits_open(stw, band, PEnemiesNew.dv(pcw, "probe", 90.0))
+	ok("§11-B 역병 조율사 ②: 띠를 세워도 탈출 방향이 남는다(피할 곳 없는 벽을 만들지 않는다)",
+		band.size() >= 2 and free >= int(PEnemiesNew.dv(pcw, "minExits", 6.0)), "칸 %d개 · 열린 방향 %d" % [band.size(), free])
+
+	# 역병 조율사 ①: 추적 포자탄은 끝까지 쫓지 않는다
+	var sts := lab(6)
+	sts.player.x = 560.0
+	var pcs := put(sts, "elite_plaguecaller", sts.player.x + 330.0, sts.player.y)
+	sts.step({}, STEP)
+	arm_only(pcs, "seek")
+	until(sts, pcs, "seek_swell", 11.0)
+	var sk0: Dictionary = pcs.seek
+	var sx0: float = float(sk0.x)
+	var sy0: float = float(sk0.y)
+	sts.player.x -= 260.0
+	play(sts, PEnemiesNew.dv(pcs, "seekSwell", 0.6) * 0.6)
+	var sk1: Dictionary = pcs.seek
+	ok("§11-B 역병 조율사 ①: 추적 포자탄은 가까워지면 **추적을 멈춘다**(끝까지 따라오는 확정 피해가 아니다)",
+		near(float(sk1.x), sx0, 0.001) and near(float(sk1.y), sy0, 0.001), "(%.0f,%.0f) → (%.0f,%.0f)" % [sx0, sy0, float(sk1.x), float(sk1.y)])
+
+	# 무적·강제 생존·피해 상한을 새로 만들지 않았다(패턴을 보여주려고 규칙을 비틀지 않는다)
+	# 적 규칙이 무적을 **주는** 자리가 없어야 한다(플레이어의 회피 무적을 **읽는** 것은 그 반대다 — 무시하지 않기 위해 읽는다)
+	var src := FileAccess.get_file_as_string("res://scripts/rules/enemies_new.gd")
+	var banned: Array = []
+	for w in ["invuln_t =", "invuln_t\"] =", "immune", "damage_cap", "min_hp", "hp = maxf"]:
+		if src.contains(w):
+			banned.append(w)
+	ok("§11-B 패턴을 보여주려고 **무적·강제 생존·체력 구간 피해 상한**을 만들지 않았다",
+		banned.is_empty(), "적 규칙에 나타난 낱말 %s" % str(banned))
+	ok("§11-B 그 대신 회피 무적·피격 보호를 **읽어서 존중한다**(저주가 그 둘을 무시하지 않는다)",
+		src.contains("invuln_t") and src.contains("hit_protected"))
+
+# =========================================================================
+# §10 주술사의 피해 증폭 저주(2026-09-10, 전부 시험값)
+# 기존 저주 문양을 **개편**한 것이다(비슷한 문양을 하나 더 추가하지 않았다).
+# =========================================================================
+func curse_tests() -> void:
+	print("")
+	print("[§10 주술사 저주] 문양 직접 피해 0 · 받는 피해 +50% · 4초 · 개체별 재사용 10초 · 상한 ×1.5")
+	var T := PEnemiesNew.tuning("shaman")
+	ok("§10 시험값: 문양 직접 피해 0 · 예고 0.8초 · 지속 4초 · 개체별 재사용 10초 · 증폭 +50%",
+		is_equal_approx(float(T.runeDamage), 0.0) and is_equal_approx(float(T.runeAim), 0.8)
+		and is_equal_approx(float(T.curseDur), 4.0) and is_equal_approx(float(T.runeInterval), 10.0)
+		and is_equal_approx(float(T.curseAdd), 0.5),
+		"피해 %.0f · 예고 %.2f · 지속 %.1f · 재사용 %.1f · 증폭 %.2f" % [float(T.runeDamage), float(T.runeAim), float(T.curseDur), float(T.runeInterval), float(T.curseAdd)])
+
+	# 가) 문양에 맞아도 **직접 피해가 없다**. 대신 저주가 걸린다
+	var st := lab(2)
+	var sh := put(st, "shaman", st.player.x + 250.0, st.player.y)
+	sh.heal_t = 99.0
+	sh.hex_t = 99.0
+	sh.rune_t = 0.0
+	sh.act_t = 0.0
+	var hp0: float = st.player.hp
+	until(st, sh, "rune_aim", 5.0)
+	play(st, float(T.runeAim) + 0.05)
+	ok("§10 가: 문양이 터져도 **직접 피해가 0**이다(체력이 줄지 않는다)", is_equal_approx(float(st.player.hp), hp0),
+		"%.1f → %.1f" % [hp0, float(st.player.hp)])
+	ok("§10 가: 대신 저주가 걸린다 — 배율 ×%.2f · 남은 %.2f초" % [PEnemiesNew.curse_mult(st), PEnemiesNew.curse_left(st)],
+		PEnemiesNew.curse_on(st) and is_equal_approx(PEnemiesNew.curse_mult(st), 1.5)
+		and PEnemiesNew.curse_left(st) > float(T.curseDur) - 0.2,
+		PEnemiesNew.curse_label(st))
+	ok("§10 가: 화면에 적을 한 줄을 규칙이 내준다(체력바 옆에 그대로 쓴다)",
+		PEnemiesNew.curse_label(st) == "저주 · 받는 피해 +50%", PEnemiesNew.curse_label(st))
+
+	# 나) 저주는 시간이 지나면 저절로 풀린다
+	play(st, float(T.curseDur) + 0.1)
+	ok("§10 나: %.0f초가 지나면 저주가 저절로 풀린다(배율 ×1.0)" % float(T.curseDur),
+		not PEnemiesNew.curse_on(st) and is_equal_approx(PEnemiesNew.curse_mult(st), 1.0),
+		"남은 %.2f초" % PEnemiesNew.curse_left(st))
+
+	# 다) 여러 주술사가 걸어도 배율이 ×1.5를 넘지 않고, 재적중은 남은 시간을 갱신한다
+	var st2 := lab(3)
+	var sa := put(st2, "shaman", st2.player.x + 250.0, st2.player.y)
+	var sb2 := put(st2, "shaman", st2.player.x + 260.0, st2.player.y + 30.0)
+	for s in [sa, sb2]:
+		(s as Dictionary).heal_t = 99.0
+		(s as Dictionary).hex_t = 99.0
+		(s as Dictionary).rune_t = 0.0
+		(s as Dictionary).act_t = 0.0
+	var mults: Array = []
+	var hp1: float = st2.player.hp
+	for i in int(round(9.0 / STEP)):
+		st2.step({}, STEP)
+		st2.player.hp = st2.player.hp_max
+		st2.player.dead = false
+		if st2.status == "lost":
+			st2.status = "running"
+		if PEnemiesNew.curse_on(st2):
+			mults.append(PEnemiesNew.curse_mult(st2))
+	var mx := 1.0
+	for m in mults:
+		mx = maxf(mx, float(m))
+	ok("§10 다: 주술사 둘이 겹쳐 걸어도 배율이 **×1.5를 넘지 않는다**", is_equal_approx(mx, 1.5) or mx <= 1.5 + 1e-6,
+		"관찰한 최대 배율 ×%.2f (%d프레임 걸려 있었다)" % [mx, mults.size()])
+	ok("§10 다: 저주가 걸린 동안에도 문양 자체는 체력을 깎지 않는다", is_equal_approx(float(st2.player.hp), st2.player.hp_max),
+		"%.1f / %.1f" % [float(st2.player.hp), float(st2.player.hp_max)])
+
+	# 라) 재적중은 남은 시간을 4초로 **갱신**한다(길이가 쌓이지 않는다)
+	var st3 := lab(4)
+	var sc := put(st3, "shaman", st3.player.x + 250.0, st3.player.y)
+	sc.heal_t = 99.0
+	sc.hex_t = 99.0
+	sc.rune_t = 0.0
+	sc.act_t = 0.0
+	until(st3, sc, "rune_aim", 5.0)
+	play(st3, float(T.runeAim) + 0.05)
+	play(st3, 2.0)
+	var before_re: float = PEnemiesNew.curse_left(st3)
+	PEnemiesNew.try_curse(st3, sc, st3.player.x, st3.player.y, 70.0)
+	var after_re: float = PEnemiesNew.curse_left(st3)
+	ok("§10 라: 재적중은 남은 시간을 **%.0f초로 갱신**한다(더해서 8초가 되지 않는다)" % float(T.curseDur),
+		after_re > before_re and after_re <= float(T.curseDur) + 1e-3,
+		"%.2f초 → %.2f초" % [before_re, after_re])
+
+	# 마) 회피 무적·피격 보호를 무시하지 않는다
+	var st4 := lab(5)
+	var sd := put(st4, "shaman", st4.player.x + 250.0, st4.player.y)
+	st4.player.invuln_t = 1.0
+	var got_inv := PEnemiesNew.try_curse(st4, sd, st4.player.x, st4.player.y, 70.0)
+	ok("§10 마: **회피 무적** 중에는 저주가 걸리지 않는다", not got_inv and not PEnemiesNew.curse_on(st4))
+	st4.player.invuln_t = 0.0
+	st4.player.hit_prot = 0.5
+	var got_prot := PEnemiesNew.try_curse(st4, sd, st4.player.x, st4.player.y, 70.0)
+	ok("§10 마: **피격 보호** 중에는 저주가 걸리지 않는다", not got_prot and not PEnemiesNew.curse_on(st4))
+	st4.player.hit_prot = 0.0
+	var got_far := PEnemiesNew.try_curse(st4, sd, st4.player.x + 400.0, st4.player.y, 70.0)
+	ok("§10 마: 문양 원 **밖**이면 걸리지 않는다(걸어 나오면 피할 수 있다)", not got_far and not PEnemiesNew.curse_on(st4))
+	var got_in := PEnemiesNew.try_curse(st4, sd, st4.player.x, st4.player.y, 70.0)
+	ok("§10 마: 원 안이고 무적·보호가 없으면 걸린다", got_in and PEnemiesNew.curse_on(st4))
+
+	# 바) 곱하는 자리는 아직 붙지 않았다 — 규칙이 그 사실을 스스로 밝힌다
+	var cs := FileAccess.get_file_as_string("res://scripts/rules/combat_state.gd")
+	ok("§10 바 [보고] 저주를 **실제 피해에 곱하는 한 줄**은 담당 밖 파일(combat_state.gd)이라 아직 붙지 않았다 — docs/CURSE.md의 자리에 붙이면 된다",
+		true, "combat_state.gd에 curse_mult 사용 %s" % ("있음" if cs.contains("curse_mult") else "없음(예상대로)"))
+
+# =========================================================================
+# §12 사슬 집행자: 발사 속도(예고 시간과 **분리해** 잰다)
+# =========================================================================
+func chain_speed_tests() -> void:
+	print("")
+	print("[§12 사슬 집행자] 예고 시간과 비행 시간을 분리해 잰다 · 거리별 도착 시간")
+	var D: Dictionary = PCatalog.enemy("elite_chainbreaker")
+	var sp := float(PEnemiesNew.tuning("elite_chainbreaker").get("chainSpeed", D.chainSpeed))
+	var aim := float(D.chainAim)
+	var lock := float(D.chainLock)
+	ok("§12 사슬 발사 속도 620 → %.0f px/s(예고 %.2f + 확정 %.2f = %.2f초는 그대로)" % [sp, aim, lock, aim + lock],
+		sp > 620.0 and is_equal_approx(aim, 0.6) and is_equal_approx(lock, 0.15), "%.0f px/s" % sp)
+	print("| 거리(px) | 예고(초) | 비행(초) | 예고+비행(초) | 개편 전 예고+비행(초) |")
+	print("|---:|---:|---:|---:|---:|")
+	for dd in [120.0, 200.0, 260.0, 330.0]:
+		var tel := aim + lock
+		print("| %.0f | %.2f | %.2f | %.2f | %.2f |" % [dd, tel, dd / sp, tel + dd / sp, tel + dd / 620.0])
+	# 실제로 재 본다: 확정(chain_lock) 끝 → 사슬 머리가 그 거리에 닿을 때까지
+	var st := lab(7)
+	st.player.x = 300.0
+	var cb := put(st, "elite_chainbreaker", st.player.x + 260.0, st.player.y)
+	st.step({}, STEP)
+	for row in PEnemiesNew.NEW_PATTERNS.get("elite_chainbreaker", []):
+		cb[String((row as Dictionary).cd)] = 99.0 # 신규 패턴을 밀어 두고 **기존 직선 사슬**만 잰다
+	var t_aim := until(st, cb, "chain_aim", 9.0)
+	var t_fly := until(st, cb, "chain_fly", 4.0)
+	# **비행 속도만** 잰다: 사슬 머리가 나아간 거리 / 지난 시간. 플레이어에게 닿으면 끌기로 넘어가므로 짧게 잰다
+	var d_a: float = float(cb.get("chain_d", 0.0))
+	var t_a: float = st.t
+	for i in int(round(0.08 / STEP)):
+		st.step({}, STEP)
+		st.player.hp = st.player.hp_max
+		st.player.dead = false
+		if st.status == "lost":
+			st.status = "running"
+	var measured: float = (float(cb.get("chain_d", 0.0)) - d_a) / maxf(1e-4, st.t - t_a)
+	ok("§12 실측: 예고 %.2f초(발사까지) · 비행 속도 %.0f px/s — **둘은 다른 값이다**" % [t_fly - t_aim, measured],
+		t_aim >= 0.0 and t_fly > t_aim and near(t_fly - t_aim, aim + lock, 0.03) and absf(measured - sp) < 40.0,
+		"예고 시작 %.2f · 발사 %.2f · 실측 속도 %.0f(표 %.0f)" % [t_aim, t_fly, measured, sp])
+	# 맞은 뒤 강타를 피할 기회는 그대로 남아 있다
+	ok("§12 맞은 뒤 강타를 피할 기회(끌기 %.2f + 예고 %.2f + 확정 %.2f = %.2f초)를 줄이지 않았다" % [float(D.pullTime), float(D.slamAim), float(D.slamLock), float(D.pullTime) + float(D.slamAim) + float(D.slamLock)],
+		is_equal_approx(float(D.pullTime), 0.35) and is_equal_approx(float(D.slamAim), 0.55) and is_equal_approx(float(D.slamLock), 0.15))
