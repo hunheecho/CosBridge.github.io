@@ -393,6 +393,21 @@
         "note": "통과 판정 스위트가 아니라 기록 도구."
       }
     },
+    "build_pair_probe": {
+      "env": {},
+      "script": "tools/build_pair_probe.gd",
+      "timeout_sec": 10800,
+      "desc": "대표 조합 10개(주무기 5종 × 장점 강화형·약점 보완형)를 일반 무리·튼튼한 정예·보스에서 **핵심 개조 하나** 전후로 비교. build_probe와 출력 파일이 다르다(BUILD_PAIR_PROBE.md). 전수 시뮬레이션이 아니다. 부분 실행 PROPHECY_SUBSET=\"combo=sword_swarm;scene=pack;state=after;seed=1\"",
+      "verdict": {
+        "success_pattern": "BUILD_PAIR_PROBE_JSON",
+        "forbid_patterns": [
+          "SCRIPT ERROR",
+          "Parse Error",
+          "Compile Error"
+        ],
+        "note": "통과 판정 스위트가 아니라 기록 도구."
+      }
+    },
     "synergy_tests": {
       "env": {},
       "timeout_sec": 900,
