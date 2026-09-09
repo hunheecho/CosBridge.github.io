@@ -24,7 +24,7 @@ static func is_committed(e: Dictionary) -> bool:
 ## 준비 단계(예고 진행 중)인가 — 표시·통계용
 static func is_preparing(e: Dictionary) -> bool:
 	var s := String(e.get("state", ""))
-	return s.ends_with("_aim") or s == "slash_warn" or s == "shot_cast" or s == "rock_cast" or s == "sidestep" or s == "guard"
+	return s.ends_with("_aim") or s == "slash_warn" or s == "shot_cast" or s == "rock_cast" or s == "sidestep" or s == "guard" or s == "nx_wall_cast" or s == "nx_fore_cast"
 
 ## 행동이 끝났을 때: 연계가 남아 있으면 빈틈 대신 짧은 이동 구간으로 잇고, 아니면 연계 전체의 빈틈을 한 번 준다(PBoss 공통 엔진)
 static func to_recover(st: CombatState, e: Dictionary, dur: float, label: String = "빈틈!") -> void:
@@ -235,6 +235,7 @@ static func candidates(st: CombatState, e: Dictionary) -> Array:
 				cands.append(["guard", float(W.guard)])
 			if can_summon(st, e):
 				cands.append(["summon", float(W.summon)])
+	PBoss4.extra_candidates(st, e, cands) # 신규 패턴(§11-A)
 	return cands
 
 static func choose(st: CombatState, e: Dictionary) -> String:
@@ -286,6 +287,9 @@ static func begin(st: CombatState, e: Dictionary, pat: String) -> void:
 	st.note_attack(e, "prepare")
 	st.metrics.patterns[pat] = int(st.metrics.patterns.get(pat, 0)) + 1
 	e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+	if PBoss4.has_pattern(e, pat): # 신규 패턴(§11-A)
+		PBoss4.begin(st, e, pat)
+		return
 	match pat:
 		"guard":
 			if String(e.boss_id) == "doom_executor":

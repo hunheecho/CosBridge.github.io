@@ -10,7 +10,7 @@ static func cfg_of(e: Dictionary) -> Dictionary:
 	return PCatalog.boss_def(String(e.get("boss_id", "boss")))
 
 static func is_committed(e: Dictionary) -> bool:
-	return String(e.get("state", "")) in COMMITTED or PBoss3.is_committed(e)
+	return String(e.get("state", "")) in COMMITTED or PBoss3.is_committed(e) or PBoss4.is_committed(e)
 
 ## 행동이 끝났을 때: 연계가 남아 있으면 빈틈 대신 짧은 이동 구간으로 잇고, 아니면 연계 전체의 빈틈을 한 번 준다(PBoss 공통 엔진)
 static func to_recover(st: CombatState, e: Dictionary, dur: float) -> void:
@@ -80,6 +80,7 @@ static func candidates(st: CombatState, e: Dictionary) -> Array:
 			cands.append(["sweep", float(cfg.weights.sweep)])
 		if d >= float(cfg.shock.minDist) and d <= float(cfg.shock.maxDist):
 			cands.append(["shock", float(cfg.weights.shock)])
+		PBoss4.extra_candidates(st, e, cands) # 신규 패턴(§11-A)
 		return cands
 	var busy: bool = not (e.get("marks", []) as Array).is_empty()
 	var allow: Array = B.get("markBusy", [])
@@ -93,6 +94,7 @@ static func candidates(st: CombatState, e: Dictionary) -> Array:
 		cands.append(["wide", float(cfg.weights.wide)])
 	if can_summon(st, e) and (not busy or allow.has("summon")):
 		cands.append(["summon", float(cfg.weights.summon)])
+	PBoss4.extra_candidates(st, e, cands) # 신규 패턴(§11-A)
 	return cands
 
 static func choose(st: CombatState, e: Dictionary) -> String:
@@ -131,6 +133,9 @@ static func begin(st: CombatState, e: Dictionary, pat: String) -> void:
 	PBoss.chain_note_begin(e, cfg, pat)
 	st.note_attack(e, "prepare")
 	st.metrics.patterns[pat] = int(st.metrics.patterns.get(pat, 0)) + 1
+	if PBoss4.has_pattern(e, pat): # 신규 패턴(§11-A)
+		PBoss4.begin(st, e, pat)
+		return
 	if pat == "sweep":
 		e.state = "sweep_aim"
 	elif pat == "shock":

@@ -3316,6 +3316,7 @@ static func draw_boss_telegraphs(ci: Node2D, st: CombatState, flash_t: float) ->
 	var st_t: float = float(bz.state_t)
 	var id := String(bz.get("boss_id", "boss"))
 	var p: Dictionary = st.player
+	draw_boss4_telegraphs(ci, st, bz, flash_t) # 신규 공격 패턴 18개(§11-A) — 9종 공통, 예약된 폭발·잔상도 포함
 	if PBoss3.has(id):
 		draw_boss3_telegraphs(ci, st, bz, cfg, flash_t)
 		return
@@ -3417,6 +3418,38 @@ static func draw_boss_telegraphs(ci: Node2D, st: CombatState, flash_t: float) ->
 		var k: float = st_t / maxf(0.001, float(cfg.howl.duration))
 		for i in 3:
 			stroke_circle(ci, bx, by - 20.0, 40.0 + fmod(k * 3.0 + float(i), 3.0) * 40.0, rgba(255, 200, 120, 0.6 * (1.0 - k)), 3.0)
+
+## 신규 공격 패턴 18개(§11-A)의 예고. **PBoss4.threats()가 돌려주는 기하 그대로** 그린다 —
+## 화면이 그리는 것 = 봇이 보는 것 = 실제 판정이고, 여기서 크기·각도를 새로 만들지 않는다.
+## 연출은 최소한이다: 부채꼴·직선·원과 순서 번호, 그리고 패턴 이름 한 줄뿐(주무기 애니메이션·화면 정지 없음).
+## 예약된 폭발(뿌리·미래 표식)과 잔상은 보스가 다음 행동으로 넘어간 뒤에도 계속 그려진다.
+static func draw_boss4_telegraphs(ci: Node2D, st: CombatState, bz: Dictionary, flash_t: float) -> void:
+	var out: Array = []
+	PBoss4.threats(st, bz, out)
+	if out.is_empty():
+		return
+	for th in out:
+		var k := String(th.kind)
+		var prog: float = clampf(float(th.get("prog", 0.0)), 0.0, 1.0)
+		var locked: bool = bool(th.get("locked", false))
+		var tx: float = float(th.x)
+		var ty: float = float(th.y)
+		if k == "beam":
+			_beam(ci, tx, ty, float(th.ang), float(th.len), float(th.w), locked, prog, flash_t)
+		elif k == "arc":
+			var ghost: bool = bool(th.get("echo", false))
+			_tel_sector(ci, tx, ty, float(th.r), float(th.ang), float(th.half), 1.0 if locked else prog, flash_t if not ghost else 0.6)
+			if ghost: # 잔상은 본체가 아니라 '지나간 자리'다 — 둘레를 점선으로 갈라 준다
+				dashed_circle(ci, tx, ty, float(th.r), tel_soft(0.45), 2.0, 10.0, 8.0)
+		elif k == "circle":
+			ci.draw_circle(Vector2(tx, ty), float(th.r), tel_fill(0.12 + 0.28 * prog))
+			tel_stroke_circle(ci, tx, ty, float(th.r), flash_t if locked else 0.7, 3.0)
+			if int(th.get("order", 0)) > 0:
+				txt(ci, tx, ty + 5.0, str(int(th.order)), 16, tel_label(1.0), 0, true)
+	if String(bz.state).begins_with("nx_"):
+		var lbl := String(PBoss4.cur(bz).get("label", ""))
+		if lbl != "":
+			txt(ci, float(bz.x), float(bz.y) - float(bz.r) - 46.0, lbl, 12, tel_label(1.0), 0, true)
 
 ## 신규 보스 6종 예고: PBoss3.threats()와 같은 기하(봇이 보는 것 = 화면이 보는 것). 순서 번호·색으로 구분
 static func draw_boss3_telegraphs(ci: Node2D, st: CombatState, bz: Dictionary, cfg: Dictionary, flash_t: float) -> void:
@@ -3699,6 +3732,21 @@ static func draw_projectiles(ci: Node2D, st: CombatState) -> void:
 			ci.draw_set_transform_matrix(xf(c, float(pr.get("angle", atan2(vy, vx))), Vector2.ONE))
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(r2 * 1.6, 0), Vector2(0, -r2), Vector2(-r2 * 1.4, 0), Vector2(0, r2)]), rgba(200, 240, 255, 0.95))
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(-r2 * 1.4, 0), Vector2(-r2 * 2.6, -r2 * 0.5), Vector2(-r2 * 2.6, r2 * 0.5)]), rgba(191, 239, 255, 0.45))
+			ci.draw_set_transform_matrix(IDENT)
+		elif kind == "boss_nx_boulder": # 굴착 거수가 굴리는 큰 바위(그리는 크기 = 판정 반지름. 눈으로 보고 선 옆으로 비켜야 한다)
+			var br2: float = pr.r
+			ci.draw_circle(c, br2, C("#8a6f4a"))
+			ci.draw_circle(c, br2 * 0.72, C("#a8865a"))
+			for i in 3:
+				var qa: float = atan2(vy, vx) + st.t * 5.0 + float(i) * TAU / 3.0
+				ci.draw_line(Vector2(x - cos(qa) * br2 * 0.6, y - sin(qa) * br2 * 0.6), Vector2(x + cos(qa) * br2 * 0.6, y + sin(qa) * br2 * 0.6), rgba(90, 70, 46, 0.7), 3.0)
+		elif kind == "boss_nx_shard": # 그 바위가 부서지며 좌우 사선으로 튀는 파편
+			ci.draw_set_transform_matrix(xf(c, atan2(vy, vx), Vector2.ONE))
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(10, 0), Vector2(-4, -6), Vector2(-6, 0), Vector2(-4, 6)]), C("#a8865a"))
+			ci.draw_set_transform_matrix(IDENT)
+		elif kind == "boss_nx_shock": # 봉인 협공의 본체 충격파(기존 충격파와 같은 모양, 봉인 색)
+			ci.draw_set_transform_matrix(xf(c, float(pr.get("angle", atan2(vy, vx))), Vector2.ONE))
+			ci.draw_arc(Vector2(-10, 0), pr.r, -1.2, 1.2, 12, rgba(159, 214, 255, 0.95), 5.0)
 			ci.draw_set_transform_matrix(IDENT)
 		elif kind == "shard" and String(pr.get("mod", "")) == "split":
 			# 분열 창날의 파편: 창 금색 뾰족 실루엣 + 갈라져 나온 방향의 꼬리(어느 갈래인지 읽힌다)

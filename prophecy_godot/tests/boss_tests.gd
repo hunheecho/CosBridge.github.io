@@ -275,6 +275,8 @@ func _init() -> void:
 	mission_tests()
 	guardian_tests()
 	tree_break_tests()
+	new_pattern_tests()
+	nx_used_tests()
 	var pass_n := 0
 	for r in results:
 		if r[0]:
@@ -351,8 +353,12 @@ func chain_tests() -> void:
 			if int(bz.chain_i) == 1 and first_speed < 0.0:
 				first_speed = float(bz.warn_speed)
 			elif int(bz.chain_i) >= 2 and follow_speed < 0.0:
+				# 신규 패턴(§11-A)은 배속 대상이 아니다(예고를 데이터 값 그대로 쓴다) — 배속 검사는 기존 패턴으로만 한다
+				var lastp := String((bz.history as Array)[(bz.history as Array).size() - 1])
+				if PBoss4.has_pattern(bz, lastp):
+					continue
 				follow_speed = float(bz.warn_speed)
-				follow_warn = PBoss.pattern_warn(PCatalog.boss_def("boss"), String((bz.history as Array)[(bz.history as Array).size() - 1])) / maxf(1.0, follow_speed)
+				follow_warn = PBoss.pattern_warn(PCatalog.boss_def("boss"), lastp) / maxf(1.0, follow_speed)
 		if first_speed >= 0.0 and follow_speed >= 0.0:
 			break
 	var floor_s := float(PBoss.chain_cfg(bz).get("followWarnMin", 0.5))
@@ -671,3 +677,286 @@ func tree_break_tests() -> void:
 	ok("나무 뒤에서 그 나무가 안 부서진 보스가 없다", no_break.is_empty(), str(no_break))
 	ok("예고가 지목한 것과 실제로 부서진 것이 어긋난 보스가 없다", mismatch.is_empty(), str(mismatch))
 	ok("파괴 뒤 보이지 않는 벽이 남은 보스가 없다", wall_left.is_empty(), str(wall_left))
+
+# ---------- 신규 공격 패턴 18개(§11-A, PBoss4) ----------
+## 사용자 검증 항목을 그대로 옮긴 시험이다. **발동 횟수만으로 성공 판정하지 않는다.**
+##  ① 같은 방향으로 걷기만 하면 전부 빗나가는가 → 직선 보행자가 실제로 맞는지(맞아야 한다).
+##  ② 방향을 바꾸면 피할 수 있는가 → 확정 순간에 반대로 꺾은 보행자가 덜 맞는지(예측 조준 계열은 0회).
+##  ③ 확정 뒤에도 따라오는가 → 확정 값(각·착지점·벽 자리)이 실행까지 한 번도 바뀌지 않는지.
+##  ④ 반격 기회 → 연계를 끄고 한 패턴만 돌렸을 때 반드시 빈틈(recover)으로 끝나는지.
+##  ⑤ 탈출 경로 → 퇴로 차단 계열이 플레이어 주위 방향을 전부 막지 않는지.
+## 모든 수치는 시험값이다.
+const NX_BOSSES := ["boss", "guardian", "eater", "gate_warden", "spore_matriarch", "excavation_behemoth", "frost_stalker", "blood_hunt_king", "doom_executor"]
+## 예측 조준(가는 쪽을 겨눔) 계열 — 방향을 꺾으면 **한 번도 맞지 않아야** 한다.
+## 나머지(전진 연타·이동 분사·측면 추격·몰이)는 몸으로 밀고 들어오는 압박이라 '덜 맞는다'로 본다.
+## 한 번 확정하면 끝인 예측 조준 계열 — 방향을 꺾으면 **한 번도 맞지 않아야** 한다.
+## 여러 발을 따로 다시 겨누는 것(전진 연사·교차 얼음창·미래 표식)과 본체 후속이 붙는 것(퇴로 절단)은
+## 방향을 꺾어도 **다음 발이 새로 겨눠지므로** 여기에 넣지 않는다(그것이 설계다).
+const NX_LEAD_ONLY := ["cutoff", "chase_leap", "roots", "sealtrap", "boulder"]
+## 시험 거리(px). 그 패턴이 실제로 쓰이는 교전 거리이며 균형값이 아니다(근접 연타 계열은 사거리 안, 원거리 계열은 멀리)
+const NX_DIST := { "cutoff": 300.0, "chase_leap": 320.0, "boulder": 300.0, "crossbolt": 300.0, "volley": 260.0,
+	"drive": 260.0, "foremark": 300.0, "roots": 260.0, "sealtrap": 260.0, "cutpath": 260.0, "driftspray": 200.0 }
+
+func nx_state(bid: String, seed_v: int = 5) -> CombatState:
+	# 장애물 없는 전장(forest): 이 시험이 보는 것은 '예고와 회피'이지 엄폐물이 아니다(엄폐는 boss_break_tests가 본다)
+	var st := CombatState.new({ "build": build(), "seed": seed_v, "arena": "forest", "boss": true, "boss_id": bid,
+		"region_id": "boss", "xp_kill_mult": 0.3, "boss_hp": 1000000.0 })
+	for i in 900:
+		if String(st.boss.state) != "intro" and st.intro <= 0.0:
+			break
+		st.step({}, STEP)
+	return st
+
+func nx_begin(st: CombatState, bz: Dictionary, pat: String) -> void:
+	var bid := String(bz.boss_id)
+	if bid == "boss":
+		PBoss.begin(st, bz, pat)
+	elif PBoss3.has(bid):
+		PBoss3.begin(st, bz, pat)
+	else:
+		PBoss2.begin(st, bz, pat)
+
+## 이 순간이 '확정'인가(각·자리가 굳은 뒤). 벽·표식은 예고 원이 놓인 순간이 확정이다
+func nx_confirmed(bz: Dictionary) -> bool:
+	var s := String(bz.state)
+	return s.ends_with("_lock") or s == "nx_leap_fly" or s == "nx_spray_on" or not (bz.get("nx_blasts", []) as Array).is_empty()
+
+func boss_threat_list(st: CombatState) -> Array:
+	var out: Array = []
+	PBoss4.threats(st, st.boss, out)
+	return out
+
+## 회피 조종자가 보는 것: 신규 패턴 예고 + 날아오는 적 투사체(구르는 바위도 눈에 보인다)
+func nx_seen_threats(st: CombatState) -> Array:
+	var out := boss_threat_list(st)
+	for pr in st.projectiles:
+		if String(pr.owner) == "enemy":
+			out.append({ "kind": "beam", "x": float(pr.x), "y": float(pr.y), "ang": atan2(float(pr.vy), float(pr.vx)),
+				"len": 260.0, "w": 40.0 + float(pr.r) * 2.0, "prog": 1.0, "locked": true })
+	return out
+
+## 확정 뒤 바뀌면 안 되는 값들. **한 번의 확정(에피소드) 안에서만** 비교한다 —
+## 연타 2타의 각이 1타와 다른 것은 '추적'이 아니라 새로 예고·확정한 다른 공격이다.
+func nx_confirm_values(bz: Dictionary) -> Dictionary:
+	var out: Dictionary = { "dir": snappedf(float(bz.get("dir", 0.0)), 0.0001) }
+	var land: Dictionary = bz.get("nx_land", {})
+	if not land.is_empty() and String(bz.state).begins_with("nx_leap"):
+		out.land = [snappedf(float(land.x), 0.01), snappedf(float(land.y), 0.01)]
+	return out
+
+## 예고된 폭발은 놓인 뒤 자리가 바뀌면 안 된다. 열쇠 = 순서 + 터질 시각(새로 놓인 것은 새 열쇠다)
+func nx_blast_moved(bz: Dictionary, seen: Dictionary) -> bool:
+	var moved := false
+	for b in bz.get("nx_blasts", []):
+		var key := "%d|%.3f" % [int(b.order), float(b.at)]
+		var val := "%.2f,%.2f" % [float(b.x), float(b.y)]
+		if seen.has(key) and String(seen[key]) != val:
+			moved = true
+		seen[key] = val
+	return moved
+
+func nx_same(a: Dictionary, b: Dictionary) -> bool:
+	for k in a:
+		if not b.has(k):
+			continue # 상태가 넘어가 그 값이 사라진 것은 '추적'이 아니다
+		if str(a[k]) != str(b[k]):
+			return false
+	return true
+
+## 보스가 맞은 횟수(출처 이름이 boss_로 시작하는 것만). 소환수·바닥 지역과 섞이지 않는다
+## 예고를 읽고 대응하는 조종자(결정적). 지금 예고 안이거나 **이대로 걸으면 0.35초 뒤 예고 안**이면
+## 그 예고 밖으로 걸어 나가고 회피도 쓴다. 감속장·기술은 쓰지 않는다 — 움직임과 회피만으로 피할 수 있는지 본다
+func nx_evade_input(st: CombatState, base: Dictionary) -> Dictionary:
+	var pp: Dictionary = st.player
+	var ahead := { "x": float(pp.x) + float(base.mx) * 220.0 * 0.35, "y": float(pp.y) + float(base.my) * 220.0 * 0.35, "r": float(pp.r) }
+	for th in nx_seen_threats(st):
+		if PBot.inside(th, pp) or PBot.inside(th, ahead):
+			var dir := PBot.escape_dir(th, pp)
+			return { "mx": float(dir[0]), "my": float(dir[1]), "dodge_press": true, "dodge_held": true }
+	return base
+
+## 전장 벽에서 margin 이상 떨어져 있는가(탈출 방향 계산이 벽 때문에 왜곡되지 않게)
+func nx_inside_arena(st: CombatState, margin: float) -> bool:
+	var pp: Dictionary = st.player
+	return float(pp.x) > margin and float(pp.y) > margin and float(pp.x) < st.arena_w - margin and float(pp.y) < st.arena_h - margin
+
+func nx_boss_hits(st: CombatState) -> int:
+	var n := 0
+	for k in st.metrics.taken_hits:
+		if String(k).begins_with("boss_"):
+			n += int(st.metrics.taken_hits[k])
+	return n
+
+## 한 패턴을 끝까지 돌리고 결과를 돌려준다.
+## mode "straight" = 같은 방향으로만 걷는다(자동 공격하며 걷는 그 플레이)
+##      "turn"     = 확정 순간 반대 방향으로 꺾는다
+##      "evade"    = 화면에 뜬 예고를 보고 그 밖으로 걸어 나간다
+func nx_run(bid: String, pat: String, mode: String) -> Dictionary:
+	var st := nx_state(bid)
+	var bz: Dictionary = st.boss
+	var dist: float = float(NX_DIST.get(pat, 200.0))
+	# 전장 대각선을 달리게 세운다: 직선 보행자가 벽에 막혀 멈추면 '같은 방향으로 걷기' 시험이 아니게 된다.
+	# 보스는 그 진행 방향의 옆(수직)에 둔다 — 가장 맞히기 어려운 배치다
+	st.player.x = 180.0
+	st.player.y = st.arena_h * 0.72
+	bz.x = clampf(st.player.x - 0.436 * dist, 70.0, st.arena_w - 70.0)
+	bz.y = clampf(st.player.y - 0.9 * dist, 70.0, st.arena_h - 70.0)
+	bz.state = "approach"
+	bz.state_t = 0.0
+	bz.approach_t = 0.0
+	# 예열: 같은 방향(+y)으로 1초 걷는다 — 보스가 '관측'할 이동을 실제로 만든다
+	var go: Dictionary = { "mx": 0.9, "my": -0.436 }
+	for i in 96:
+		st.player.hp = st.player.hp_max
+		bz.approach_t = 0.0 # 예열 중에는 스스로 공격을 고르지 않게 한다
+		st.step(go, STEP)
+	var hit0: int = nx_boss_hits(st)
+	var warn_t := -1.0
+	var hit_t := -1.0
+	var turned := false
+	var conf: Dictionary = {}
+	var seen_blast: Dictionary = {}
+	var chase := ""
+	var min_exits := 99
+	nx_begin(st, bz, pat)
+	var ended := false
+	var rec_dur := 0.0
+	var base: Dictionary = { "mx": 0.9, "my": -0.436 }
+	var cur: Dictionary = base
+	for i in int(round(9.0 / STEP)):
+		st.player.hp = st.player.hp_max
+		var was_conf: bool = nx_confirmed(bz)
+		if mode == "turn" and was_conf and not turned:
+			turned = true
+			base = { "mx": -0.9, "my": 0.436 } # 방향 전환(관측된 이동과 반대로)
+		cur = nx_evade_input(st, base) if mode == "evade" else base
+		if warn_t < 0.0 and not boss_threat_list(st).is_empty():
+			warn_t = st.t
+		# 확정 값은 '한 번의 확정' 안에서만 비교한다(연타 2타는 새로 예고·확정한 다른 공격이다)
+		if String(bz.state).ends_with("_lock") or String(bz.state) == "nx_leap_fly":
+			var now := nx_confirm_values(bz)
+			if conf.is_empty():
+				conf = now
+			elif chase == "" and not nx_same(conf, now):
+				chase = String(bz.state)
+		else:
+			conf = {}
+		if nx_blast_moved(bz, seen_blast) and chase == "":
+			chase = "blast"
+		# 탈출 방향은 '벽이 실제로 위협하는 동안'만 센다. 전장 벽에 붙어 있으면 바깥 방향이 빠져 수가 왜곡되므로 건너뛴다
+		var blasts: Array = bz.get("nx_blasts", [])
+		if not blasts.is_empty() and nx_inside_arena(st, 130.0):
+			min_exits = mini(min_exits, PBoss4.free_dirs(st, blasts, 110.0))
+		st.step(cur, STEP)
+		if hit_t < 0.0 and nx_boss_hits(st) > hit0:
+			hit_t = st.t
+		if String(bz.state) == "recover":
+			ended = true
+			rec_dur = float(bz.recover_dur)
+			break
+		if String(bz.state) == "approach" and (bz.get("nx_blasts", []) as Array).is_empty():
+			break
+	# 남은 예고(벽·표식·바위)가 다 끝날 때까지 조금 더 본다 — 피해는 그때 들어온다
+	for i in int(round(2.5 / STEP)):
+		if (bz.get("nx_blasts", []) as Array).is_empty() and (bz.get("nx_echo", []) as Array).is_empty() and (bz.get("nx_boulder", {}) as Dictionary).is_empty():
+			break
+		st.player.hp = st.player.hp_max
+		cur = nx_evade_input(st, base) if mode == "evade" else base # 남은 예고·구르는 바위에도 계속 대응한다
+		st.step(cur, STEP)
+		if hit_t < 0.0 and nx_boss_hits(st) > hit0:
+			hit_t = st.t
+	var srcs: Dictionary = {}
+	for k in st.metrics.taken_hits:
+		if String(k).begins_with("boss_"):
+			srcs[String(k)] = int(st.metrics.taken_hits[k])
+	return { "dmg": float(nx_boss_hits(st) - hit0), "srcs": srcs, "ended_recover": ended, "recover_dur": rec_dur,
+		"chase": chase, "min_exits": min_exits, "warn_t": warn_t, "hit_t": hit_t }
+
+func new_pattern_tests() -> void:
+	if PBoss.beh_of("boss").is_empty():
+		ok("행동 개편이 꺼져 있어 신규 패턴 검사를 건너뛴다", true)
+		return
+	# 0) 18개가 자료에 다 있는가
+	var total := 0
+	var missing: Array = []
+	for bid in NX_BOSSES:
+		var np: Dictionary = PBoss.beh_of(String(bid)).get("newPatterns", {})
+		total += np.size()
+		if np.size() != 2:
+			missing.append("%s(%d)" % [String(bid), np.size()])
+	ok("보스 9종에 신규 패턴이 2개씩, 모두 18개 있다", total == 18 and missing.is_empty(), "총 %d개 %s" % [total, str(missing)])
+	# 1~5) 패턴마다
+	var no_hit: Array = []
+	var no_dodge: Array = []
+	var chased: Array = []
+	var no_gap: Array = []
+	var late_warn: Array = []
+	var boxed: Array = []
+	for bid in NX_BOSSES:
+		var np2: Dictionary = PBoss.beh_of(String(bid)).get("newPatterns", {})
+		for k in np2:
+			var pat := String(k)
+			var a := nx_run(String(bid), pat, "straight")
+			var b := nx_run(String(bid), pat, "evade")
+			var c := nx_run(String(bid), pat, "turn")
+			var key := "%s.%s" % [String(bid), pat]
+			if float(a.dmg) <= 0.0:
+				no_hit.append(key)
+			var lead_only: bool = NX_LEAD_ONLY.has(pat)
+			# 예고를 보고 나오면 안 맞아야 한다. 예측 조준 계열은 방향 전환만으로도 0이어야 한다
+			var dodged: bool = float(b.dmg) <= 0.0 or float(b.dmg) < float(a.dmg)
+			if lead_only and float(c.dmg) > 0.0:
+				dodged = false # 예측 조준 계열은 방향 전환만으로도 빗나가야 한다
+			if not dodged:
+				no_dodge.append("%s(직선%.0f%s 예고회피%.0f%s 방향전환%.0f)" % [key, float(a.dmg), JSON.stringify(a.srcs), float(b.dmg), JSON.stringify(b.srcs), float(c.dmg)])
+			if String(a.chase) != "":
+				chased.append("%s@%s" % [key, String(a.chase)])
+			if not bool(a.ended_recover) or float(a.recover_dur) < 1.0:
+				no_gap.append("%s(%.2f)" % [key, float(a.recover_dur)])
+			if float(a.hit_t) >= 0.0 and (float(a.warn_t) < 0.0 or float(a.warn_t) > float(a.hit_t)):
+				late_warn.append(key)
+			if int(a.min_exits) < 3:
+				boxed.append("%s(%d)" % [key, int(a.min_exits)])
+			ok("%s: 직선 보행 피해 %.0f / 예고 보고 회피 %.0f / 방향 전환 %.0f / 확정 뒤 추적 %s / 빈틈 %.2f초" % [
+				key, float(a.dmg), float(b.dmg), float(c.dmg), "없음" if String(a.chase) == "" else String(a.chase), float(a.recover_dur)],
+				float(a.dmg) > 0.0 and dodged and String(a.chase) == "" and bool(a.ended_recover) and float(a.recover_dur) >= 1.0)
+	ok("같은 방향으로 걷기만 해도 전부 빗나가는 신규 패턴이 없다(18개 모두 실제로 맞힌다)", no_hit.is_empty(), str(no_hit))
+	ok("예고를 보고 대응하면 피해가 사라지거나 줄어든다 — 단발 예측 조준 계열은 방향 전환만으로도 0회", no_dodge.is_empty(), str(no_dodge))
+	ok("공격 확정 뒤에는 각·착지점·벽 자리가 바뀌지 않는다(끝까지 따라와 맞히는 방식 없음)", chased.is_empty(), str(chased))
+	ok("모든 신규 패턴은 빈틈(1.0초 이상)으로 끝난다 — 반격 기회", no_gap.is_empty(), str(no_gap))
+	ok("피해보다 예고가 먼저 뜬다(예고 없는 새 판정 없음)", late_warn.is_empty(), str(late_warn))
+	ok("퇴로 차단 계열도 플레이어 주위 방향을 전부 막지 않는다(열린 방향 3개 이상)", boxed.is_empty(), str(boxed))
+
+## 실제 전투에서 쓰이는가: 봇이 조종하는 보스전을 굴려 패턴 실행 수를 센다.
+## **발동 횟수만으로 성공 판정하지 않는다** — 위의 판정·회피·빈틈 시험을 통과한 패턴이
+## 전투에서 실제로 선택되는지까지 확인하는 마지막 관문이다.
+func nx_fight(bid: String, seed_v: int, sec: float, out: Dictionary) -> void:
+	var st := CombatState.new({ "build": build(), "seed": seed_v, "arena": "forest", "boss": true, "boss_id": bid,
+		"region_id": "boss", "xp_kill_mult": 0.3, "boss_hp": 1000000.0 })
+	var bot := PBot.new("balanced")
+	for i in int(round(sec / STEP)):
+		st.player.hp = st.player.hp_max # 사망으로 전투가 끝나지 않게(측정 조건)
+		st.step(bot.step_input(st), STEP)
+	for k in st.metrics.patterns:
+		out[String(k)] = int(out.get(String(k), 0)) + int(st.metrics.patterns[k])
+
+func nx_used_tests() -> void:
+	if PBoss.beh_of("boss").is_empty():
+		return
+	var unused: Array = []
+	var lines: Array = []
+	for bid in NX_BOSSES:
+		var np: Dictionary = PBoss.beh_of(String(bid)).get("newPatterns", {})
+		var used: Dictionary = {}
+		nx_fight(String(bid), 11, 45.0, used)
+		nx_fight(String(bid), 23, 45.0, used)
+		var part: Array = []
+		for k in np:
+			var n: int = int(used.get(String(k), 0))
+			part.append("%s %d회" % [String(k), n])
+			if n <= 0:
+				unused.append("%s.%s" % [String(bid), String(k)])
+		lines.append("%s: %s" % [String(bid), ", ".join(part)])
+	for l in lines:
+		print("NX_USE " + String(l))
+	ok("신규 18개가 실제 전투(봇 조종, 보스별 90초)에서 모두 선택된다", unused.is_empty(), str(unused))

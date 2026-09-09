@@ -1951,6 +1951,15 @@ const CLIPS := {
 	"boss_chill": { "desc": "보스 결빙 — 멈추지 않는다. 그래도 파쇄 피해와 파편은 난다",
 		"kind": "boss", "boss": "guardian", "build": "stage2",
 		"weapons": [{ "id": "sword", "level": 5, "mods": ["cross", "trail"] }, { "id": "frost", "level": 3, "mods": ["ground"] }] },
+
+	# ---------- §11-A 보스 신규 공격 패턴 18개(2026-09-10) ----------
+	# 확인하려는 것은 하나다: **가는 쪽을 겨누는 예고**가 화면에 읽히고, 확정 뒤에는 따라오지 않으며, 끝에 빈틈이 오는가.
+	# 보스마다 신규 2개가 기존 패턴과 섞여 나오므로 길게(12초) 찍는다.
+	"nx_boss": { "desc": "가시갈기 — 몰아붙이기(전진 연타) · 길목 덮치기(가는 쪽 착지)", "kind": "boss", "boss": "boss", "build": "stage2" },
+	"nx_warden": { "desc": "성문 파수장 — 추격 도약 + 밀치기 · 전진 연사(이동 경로 조준)", "kind": "boss", "boss": "gate_warden", "build": "stage2" },
+	"nx_matriarch": { "desc": "포자 어미 — 이동 분사(느린 선회) · 뿌리 포위(퇴로 차단 1→2→3)", "kind": "boss", "boss": "spore_matriarch", "build": "stage2" },
+	"nx_behemoth": { "desc": "굴착 거수 — 굴착 행진(연속 예고) · 암석 굴리기(구르는 바위와 파열 예고)", "kind": "boss", "boss": "excavation_behemoth", "build": "stage2" },
+	"nx_executor": { "desc": "종말의 집행관 — 처형 행진 · 퇴로 절단 + 찌르며 접근", "kind": "boss", "boss": "doom_executor", "build": "stage2" },
 }
 
 ## 방패병 클립 전용 조작(사람 입력 자리): 정면에서 버티거나, 뒤로 돌아 들어간다. 규칙은 건드리지 않는다

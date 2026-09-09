@@ -17,7 +17,10 @@
     "doom_executor.gapStep: 3막 관문의 위치 변주. 코드는 scripts/rules/boss3.gd의 gap_step. 예고·피해·시간은 그대로 두고 보스 위치만 바꾼다.",
     "terrain: 지형 파괴 규칙(파괴 가능한 전투 장애물 / 파괴할 수 없는 외곽 경계). 코드는 scripts/rules/terrain.gd의 role_of·breakable과 CombatState.break_obstacle 한 곳뿐이다.",
     "<보스>.breaker: 그 보스의 성격에 맞는 장애물 파괴 행동. pattern = 파괴가 붙는 행동, shape = 파괴 판정 모양(보스마다 다르다). 코드는 scripts/rules/boss.gd의 cover_pre/break_do와 각 보스 파일의 실행 지점.",
-    "<보스>.cover: 파괴가 불가능할 때의 엄폐 대응(우회 재배치·간접 공격)과 장판 탈출(zoneOut). 항목을 지우면 그 보스는 개편 전(돌 뒤 무피해)."
+    "<보스>.cover: 파괴가 불가능할 때의 엄폐 대응(우회 재배치·간접 공격)과 장판 탈출(zoneOut). 항목을 지우면 그 보스는 개편 전(돌 뒤 무피해).",
+    "<보스>.newPatterns: 신규 공격 패턴 18개(§11-A, 보스마다 2개). engine = 코드의 행동 엔진(march/leap/volley/wall/foremark/boulder/mspray/flank/drive), label = 화면 이름표, w·minDist·maxDist·minPhase·needLos = 후보 조건. 코드는 scripts/rules/boss4.gd 한 곳이고 상태 이름은 모두 nx_로 시작한다. 항목을 지우면 그 보스는 신규 패턴 없이 돌아간다. 표·근거는 docs/BOSS_NEW_PATTERNS.md.",
+    "newPatterns의 겨눔: 코드가 '남은 확정 시간 + 도달 시간'을 계산하므로 자료에는 상한(leadMax)만 둔다. leadCap/leadTau(보스별, 없으면 260/0.22)는 플레이어 이동을 관측하는 상한과 평활 시간이다 — 평활 때문에 예측이 늦어서 방향을 바꾸면 빗나간다.",
+    "newPatterns의 chargeSpeed/walk/cutSpeed/sideSpeed는 **초당 픽셀**이다(보스 기본 속도의 배수가 아니다). 예고 구간에만 쓰이고 확정(_lock)에 들어가면 멈춘다."
   ],
   "enabled": true,
   "terrain": {
@@ -33,6 +36,16 @@
   "bosses": {
     "boss": {
       "minApproach": 0.08,
+      "newPatterns": {
+        "rush": { "engine": "march", "label": "몰아붙이기", "w": 1.3, "maxDist": 380,
+          "hits": 3, "aim": 0.5, "lock": 0.22, "radius": 150, "arcDeg": 105, "offDeg": 30, "damage": 12,
+          "finalAim": 0.75, "finalLock": 0.32, "finalRadius": 185, "finalArcDeg": 190, "finalDamage": 20,
+          "chargeSpeed": 330, "closeFrac": 0.55, "recover": 1.8, "src": "boss_nx_rush", "endText": "물어뜯기 뒤 — 빈틈!" },
+        "cutoff": { "engine": "leap", "label": "길목 덮치기", "w": 1.1, "minDist": 150, "maxDist": 560, "needLos": false,
+          "leadMax": 1.2, "aim": 0.7, "lock": 0.3, "fly": 0.4, "radius": 108, "damage": 17,
+          "after": { "label": "몸통 공격 — 정면", "aim": 0.45, "lock": 0.25, "radius": 150, "arcDeg": 130, "damage": 14, "src": "boss_nx_cutoff2" },
+          "recover": 1.7, "src": "boss_nx_cutoff", "endText": "몸통 공격 뒤 — 빈틈!" }
+      },
       "pounce": { "minDist": 240, "minPhase": 2 },
       "hop": { "patterns": ["dash"], "time": 0.42, "speed": 260, "back": 0.35, "text": "옆으로!" },
       "cover": { "mode": "reposition", "trigger": 1.2, "cd": 2.0, "speed": 1.2, "spotDist": 190, "moveMax": 2.5, "maxDist": 420, "text": "돌아 들어간다", "pad": 14.0, "zoneOut": 0.7, "zoneSpeed": 1.0 },
@@ -41,16 +54,30 @@
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
         "follow": {
-          "sweep": [["sweep", 1.6], ["dash", 0.8], ["pounce", 0.6]],
-          "dash": [["sweep", 2.2], ["pounce", 0.6], ["dash", 0.4]],
-          "pounce": [["sweep", 2.2], ["dash", 0.7]],
-          "howl": [["sweep", 1.6], ["dash", 1.0], ["pounce", 0.6]],
-          "*": [["sweep", 1.8], ["dash", 0.9], ["pounce", 0.6], ["howl", 0.4]]
+          "sweep": [["sweep", 1.6], ["dash", 0.8], ["pounce", 0.6], ["rush", 1.0], ["cutoff", 0.6]],
+          "dash": [["sweep", 2.2], ["pounce", 0.6], ["dash", 0.4], ["rush", 1.0]],
+          "pounce": [["sweep", 2.2], ["dash", 0.7], ["rush", 0.8]],
+          "howl": [["sweep", 1.6], ["dash", 1.0], ["pounce", 0.6], ["rush", 0.8]],
+          "rush": [["cutoff", 1.0], ["sweep", 1.2], ["dash", 0.8]],
+          "cutoff": [["sweep", 1.4], ["rush", 0.8], ["dash", 0.6]],
+          "*": [["sweep", 1.8], ["dash", 0.9], ["pounce", 0.6], ["howl", 0.4], ["rush", 1.1], ["cutoff", 0.8]]
         }
       }
     },
     "guardian": {
       "minApproach": 0.08,
+      "newPatterns": {
+        "march_slam": { "engine": "march", "label": "진격 강타", "w": 1.1, "maxDist": 400,
+          "hits": 3, "aim": 0.55, "lock": 0.25, "radius": 145, "arcDeg": 95, "offDeg": 30, "damage": 14,
+          "finalAim": 0.7, "finalLock": 0.3, "finalRadius": 175, "finalArcDeg": 170, "finalDamage": 22,
+          "chargeSpeed": 320, "closeFrac": 0.55, "recover": 1.9, "src": "boss_nx_slam", "endText": "강타 끝 — 빈틈!" },
+        "sealtrap": { "engine": "wall", "label": "봉인 협공", "w": 1.0, "minDist": 90, "maxDist": 560, "needLos": false,
+          "cast": 0.65, "leadMax": 1.2, "segments": 3, "segR": 56, "spacing": 128,
+          "warn": 1.0, "gap": 0.2, "damage": 15, "minExits": 5, "probe": 110,
+          "follow": { "kind": "shock", "label": "본체 충격파 — 시간차", "aim": 0.6, "lock": 0.3,
+            "speed": 880, "damage": 16, "r": 30, "len": 520, "width": 60, "kind2": "boss_nx_shock" },
+          "recover": 1.7, "src": "boss_nx_seal", "color": "#9fd6ff", "endText": "협공 끝 — 빈틈!" }
+      },
       "cover": {
         "mode": "reposition", "trigger": 1.0, "cd": 2.0, "speed": 1.25, "spotDist": 190, "moveMax": 2.5, "maxDist": 420, "text": "우회한다", "pad": 36.0,
         "warn": 1.1, "ttl": 1.4, "r": 70, "dmg": 14, "breakWarn": 1.1,
@@ -66,15 +93,27 @@
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
         "follow": {
-          "sweep": [["shock", 1.4], ["sweep", 0.7]],
-          "shock": [["sweep", 1.4], ["shock", 0.7]],
-          "*": [["sweep", 1.0], ["shock", 1.2]]
+          "sweep": [["shock", 1.4], ["sweep", 0.7], ["march_slam", 1.0], ["sealtrap", 0.8]],
+          "shock": [["sweep", 1.4], ["shock", 0.7], ["march_slam", 0.9], ["sealtrap", 0.7]],
+          "march_slam": [["shock", 1.2], ["sealtrap", 0.9], ["sweep", 0.8]],
+          "sealtrap": [["sweep", 1.2], ["march_slam", 0.9], ["shock", 0.8]],
+          "*": [["sweep", 1.0], ["shock", 1.2], ["march_slam", 1.1], ["sealtrap", 0.9]]
         }
       }
     },
     "eater": {
       "minApproach": 0.08,
-      "markBusy": ["lanes"],
+      "newPatterns": {
+        "echo_rush": { "engine": "march", "label": "잔향 추격", "w": 1.1, "maxDist": 420,
+          "hits": 3, "aim": 0.5, "lock": 0.24, "radius": 160, "arcDeg": 100, "offDeg": 30, "damage": 12,
+          "finalAim": 0.7, "finalLock": 0.3, "finalRadius": 190, "finalArcDeg": 175, "finalDamage": 20,
+          "chargeSpeed": 330, "closeFrac": 0.55, "echo": { "delay": 0.85, "dmgMult": 0.6 },
+          "recover": 1.8, "src": "boss_nx_echo_cut", "color": "#c080ff", "endText": "잔향까지 지나갔다 — 빈틈!" },
+        "foremark": { "engine": "foremark", "label": "미래 표식", "w": 1.1, "maxDist": 640, "needLos": false,
+          "cast": 0.6, "recast": 0.45, "delay": 0.85, "leadMax": 1.2, "r": 64, "damage": 16, "count": 3,
+          "recover": 1.5, "src": "boss_nx_fore", "color": "#c080ff", "endText": "표식 끝 — 빈틈!" }
+      },
+      "markBusy": ["lanes", "echo_rush"],
       "mark": { "chainAfter": 0.45 },
       "lanes": { "minDist": 60 },
       "cover": { "mode": "reposition", "trigger": 1.2, "cd": 2.0, "speed": 1.2, "spotDist": 200, "moveMax": 2.5, "maxDist": 420, "text": "자리를 옮긴다", "pad": 46.0, "zoneOut": 0.7, "zoneSpeed": 1.0 },
@@ -83,16 +122,28 @@
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
         "follow": {
-          "mark": [["lanes", 1.4]],
-          "lanes": [["wide", 1.0], ["mark", 1.0], ["lanes", 0.6]],
-          "wide": [["lanes", 1.2], ["mark", 1.0]],
-          "summon": [["lanes", 1.2], ["mark", 1.0], ["wide", 0.8]],
-          "*": [["lanes", 1.2], ["mark", 1.0], ["wide", 0.9], ["summon", 0.6]]
+          "mark": [["lanes", 1.4], ["echo_rush", 1.0]],
+          "lanes": [["wide", 1.0], ["mark", 1.0], ["lanes", 0.6], ["echo_rush", 1.0], ["foremark", 0.9]],
+          "wide": [["lanes", 1.2], ["mark", 1.0], ["foremark", 0.9]],
+          "summon": [["lanes", 1.2], ["mark", 1.0], ["wide", 0.8], ["foremark", 0.9]],
+          "echo_rush": [["foremark", 1.1], ["lanes", 1.0], ["wide", 0.8]],
+          "foremark": [["echo_rush", 1.1], ["lanes", 1.0], ["mark", 0.7]],
+          "*": [["lanes", 1.2], ["mark", 1.0], ["wide", 0.9], ["summon", 0.6], ["echo_rush", 1.1], ["foremark", 1.0]]
         }
       }
     },
     "gate_warden": {
       "minApproach": 0.08,
+      "newPatterns": {
+        "chase_leap": { "engine": "leap", "label": "추격 도약", "w": 1.1, "minDist": 200, "maxDist": 620, "needLos": false,
+          "leadMax": 1.2, "aim": 0.75, "lock": 0.3, "fly": 0.45, "radius": 105, "damage": 15,
+          "after": { "label": "전방 밀치기", "aim": 0.45, "lock": 0.25, "radius": 130, "arcDeg": 110, "damage": 15, "src": "boss_nx_shove" },
+          "recover": 1.6, "src": "boss_nx_chase", "endText": "밀치기 뒤 — 빈틈!" },
+        "volley": { "engine": "volley", "label": "전진 연사", "w": 1.2, "minDist": 120, "maxDist": 640,
+          "shots": 3, "aim": 0.5, "lock": 0.22, "walk": 150, "stopDist": 150,
+          "speed": 560, "damage": 10, "r": 7, "len": 640, "width": 16, "kind": "boss_bolt",
+          "leadMult": 1.0, "leadMax": 1.2, "recover": 1.5, "endText": "연사 끝 — 빈틈!" }
+      },
       "hop": { "patterns": ["breach", "bolts"], "time": 0.45, "speed": 240, "back": 0.5, "text": "옆으로 물러선다" },
       "cover": { "mode": "reposition", "trigger": 1.2, "cd": 2.0, "speed": 1.2, "spotDist": 190, "moveMax": 2.5, "maxDist": 420, "text": "옆문으로 돈다", "pad": 20.0, "zoneOut": 0.7, "zoneSpeed": 1.0 },
       "breaker": { "pattern": "breach", "shape": "ram", "trigger": 1.2, "cd": 7.0, "max": 2, "perHit": 1, "types": ["rock", "tree"], "wantTtl": 6.0, "aimText": "방패로 저것을 들이받는다!", "text": "방패 돌파 — 막던 것이 무너졌다!" },
@@ -100,16 +151,27 @@
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
         "follow": {
-          "guard": [["breach", 1.3], ["bolts", 1.0], ["guard", 0.5]],
-          "breach": [["guard", 1.2], ["bolts", 1.0]],
-          "bolts": [["breach", 1.2], ["guard", 1.0]],
-          "*": [["guard", 1.0], ["breach", 1.1], ["bolts", 1.0]]
+          "guard": [["breach", 1.3], ["bolts", 1.0], ["guard", 0.5], ["volley", 1.0], ["chase_leap", 0.8]],
+          "breach": [["guard", 1.2], ["bolts", 1.0], ["volley", 1.0]],
+          "bolts": [["breach", 1.2], ["guard", 1.0], ["chase_leap", 0.9]],
+          "chase_leap": [["volley", 1.1], ["guard", 1.0], ["breach", 0.8]],
+          "volley": [["chase_leap", 1.1], ["breach", 1.0], ["guard", 0.8]],
+          "*": [["guard", 1.0], ["breach", 1.1], ["bolts", 1.0], ["volley", 1.1], ["chase_leap", 0.9]]
         }
       }
     },
     "spore_matriarch": {
       "minApproach": 0.08,
-      "markBusy": ["ring", "spray"],
+      "newPatterns": {
+        "driftspray": { "engine": "mspray", "label": "이동 분사", "w": 1.1, "maxDist": 340,
+          "aim": 0.7, "dur": 2.2, "turnDeg": 45, "radius": 420, "arcDeg": 55, "damage": 9, "tick": 0.5,
+          "walk": 150, "recover": 1.6, "src": "boss_nx_spray", "color": "#c090ff", "endText": "분사 끝 — 빈틈!" },
+        "roots": { "engine": "wall", "label": "뿌리 포위", "w": 1.0, "maxDist": 460, "needLos": false,
+          "cast": 0.7, "leadMax": 1.2, "segments": 4, "segR": 54, "spacing": 124,
+          "warn": 0.95, "gap": 0.2, "damage": 15, "minExits": 4, "probe": 110, "chainAfter": 0.35,
+          "recover": 1.5, "src": "boss_nx_roots", "color": "#8fd08f", "endText": "뿌리가 다 터졌다 — 빈틈!" }
+      },
+      "markBusy": ["ring", "spray", "driftspray"],
       "shot": { "chainAfter": 0.3 },
       "cover": { "mode": "reposition", "trigger": 1.2, "cd": 2.0, "speed": 1.15, "spotDist": 200, "moveMax": 2.8, "maxDist": 420, "text": "군락을 옮긴다", "pad": 14.0, "zoneOut": 0.7, "zoneSpeed": 1.0 },
       "breaker": { "pattern": "shot", "shape": "spore", "trigger": 1.2, "cd": 7.0, "max": 2, "perHit": 1, "types": ["tree"], "wantTtl": 6.0, "aimText": "저 나무를 삭힌다!", "text": "포자 부식 — 나무가 삭아 무너졌다!" },
@@ -117,16 +179,29 @@
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
         "follow": {
-          "shot": [["ring", 1.2], ["spray", 1.0]],
-          "ring": [["spray", 1.2], ["shot", 1.0]],
-          "spray": [["shot", 1.2], ["ring", 1.0]],
-          "summon": [["shot", 1.2], ["ring", 1.0], ["spray", 1.0]],
-          "*": [["shot", 1.0], ["ring", 1.1], ["spray", 1.0], ["summon", 0.6]]
+          "shot": [["ring", 1.2], ["spray", 1.0], ["driftspray", 1.0]],
+          "ring": [["spray", 1.2], ["shot", 1.0], ["roots", 1.0]],
+          "spray": [["shot", 1.2], ["ring", 1.0], ["roots", 0.9]],
+          "summon": [["shot", 1.2], ["ring", 1.0], ["spray", 1.0], ["roots", 0.9]],
+          "driftspray": [["roots", 1.1], ["shot", 1.0], ["ring", 0.9]],
+          "roots": [["driftspray", 1.1], ["ring", 1.0], ["shot", 0.9]],
+          "*": [["shot", 1.0], ["ring", 1.1], ["spray", 1.0], ["summon", 0.6], ["driftspray", 1.1], ["roots", 1.0]]
         }
       }
     },
     "excavation_behemoth": {
       "minApproach": 0.08,
+      "newPatterns": {
+        "dig_march": { "engine": "march", "label": "굴착 행진", "w": 1.1, "maxDist": 420,
+          "hits": 4, "aim": 0.5, "lock": 0.24, "radius": 155, "arcDeg": 105, "offDeg": 22, "damage": 13,
+          "finalAim": 0.8, "finalLock": 0.32, "finalRadius": 190, "finalArcDeg": 200, "finalDamage": 22,
+          "chargeSpeed": 345, "closeFrac": 0.5, "recover": 2.0, "src": "boss_nx_dig", "endText": "마지막 강타 뒤 — 빈틈!" },
+        "boulder": { "engine": "boulder", "label": "암석 굴리기", "w": 1.2, "minDist": 110, "maxDist": 620, "needLos": false,
+          "aim": 0.8, "lock": 0.3, "leadMax": 2.2, "walk": 150, "stopDist": 200, "speed": 380, "r": 30, "damage": 20, "len": 900,
+          "width": 60, "kind": "boss_nx_boulder", "burstR": 62,
+          "shard": { "speed": 480, "r": 11, "damage": 11, "len": 300, "width": 22, "shardDeg": 55 },
+          "recover": 1.9, "src": "boss_nx_boulder", "endText": "바위를 밀고 멈춤 — 빈틈!" }
+      },
       "rockfall": { "chainAfter": 0.35 },
       "hop": { "patterns": ["burrow"], "time": 0.5, "speed": 210, "back": 0.6, "text": "몸을 튼다" },
       "cover": { "mode": "reposition", "trigger": 1.2, "cd": 2.0, "speed": 1.15, "spotDist": 200, "moveMax": 2.8, "maxDist": 460, "text": "옆으로 파고든다", "pad": 14.0, "zoneOut": 0.7, "zoneSpeed": 1.0 },
@@ -135,15 +210,27 @@
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
         "follow": {
-          "burrow": [["rockfall", 1.4], ["burrow", 0.5]],
-          "rockfall": [["burrow", 1.4], ["rockfall", 0.5]],
-          "summon": [["rockfall", 1.2], ["burrow", 1.2]],
-          "*": [["burrow", 1.2], ["rockfall", 1.0], ["summon", 0.6]]
+          "burrow": [["rockfall", 1.4], ["burrow", 0.5], ["dig_march", 1.1]],
+          "rockfall": [["burrow", 1.4], ["rockfall", 0.5], ["boulder", 1.1]],
+          "summon": [["rockfall", 1.2], ["burrow", 1.2], ["dig_march", 1.0]],
+          "dig_march": [["boulder", 1.2], ["rockfall", 1.0], ["burrow", 0.8]],
+          "boulder": [["dig_march", 1.2], ["burrow", 1.0], ["rockfall", 0.8]],
+          "*": [["burrow", 1.2], ["rockfall", 1.0], ["summon", 0.6], ["dig_march", 1.1], ["boulder", 1.0]]
         }
       }
     },
     "frost_stalker": {
       "minApproach": 0.08,
+      "newPatterns": {
+        "flank_slash": { "engine": "flank", "label": "측면 추격", "w": 1.1, "maxDist": 380,
+          "side": 0.45, "sideSpeed": 330, "orbitDeg": 55, "holdDist": 130, "walk": 260, "aim": 0.55, "lock": 0.25, "leadMax": 0.5,
+          "radius": 205, "arcDeg": 68, "offDeg": 20, "damage": 16,
+          "recover": 1.4, "src": "boss_nx_flank", "color": "#bfefff", "aimText": "사선 베기 준비", "endText": "사선 베기 뒤 — 빈틈!" },
+        "crossbolt": { "engine": "volley", "label": "교차 얼음창", "w": 1.1, "minDist": 130, "maxDist": 660,
+          "shots": 2, "aim": 0.55, "lock": 0.28, "walk": 0, "stopDist": 0,
+          "speed": 700, "damage": 14, "r": 9, "len": 660, "width": 18, "kind": "boss_icebolt",
+          "leadMult": 1.0, "leadMax": 1.2, "recover": 1.4, "endText": "교차 사격 끝 — 빈틈!" }
+      },
       "hop": { "patterns": ["bolt", "dash"], "time": 0.4, "speed": 300, "back": 0.4, "text": "미끄러진다" },
       "cover": { "mode": "reposition", "trigger": 1.1, "cd": 2.0, "speed": 1.3, "spotDist": 200, "moveMax": 2.2, "maxDist": 460, "text": "돌아 사냥한다", "pad": 36.0, "zoneOut": 0.6, "zoneSpeed": 1.1 },
       "breaker": { "pattern": "icepath", "shape": "lanes", "trigger": 1.1, "cd": 7.0, "max": 2, "perHit": 1, "types": ["rock", "tree"], "wantTtl": 6.0, "aimText": "얼려서 깨뜨린다!", "text": "빙결 파쇄 — 얼음길 위가 부서졌다!" },
@@ -151,15 +238,28 @@
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
         "follow": {
-          "bolt": [["icepath", 1.2], ["dash", 1.2]],
-          "icepath": [["dash", 1.5], ["bolt", 1.0]],
-          "dash": [["bolt", 1.2], ["icepath", 1.0]],
-          "*": [["bolt", 1.0], ["icepath", 1.1], ["dash", 1.2]]
+          "bolt": [["icepath", 1.2], ["dash", 1.2], ["flank_slash", 1.0]],
+          "icepath": [["dash", 1.5], ["bolt", 1.0], ["crossbolt", 1.0]],
+          "dash": [["bolt", 1.2], ["icepath", 1.0], ["flank_slash", 1.1]],
+          "flank_slash": [["crossbolt", 1.1], ["icepath", 1.0], ["dash", 0.8]],
+          "crossbolt": [["flank_slash", 1.1], ["dash", 1.0], ["icepath", 0.9]],
+          "*": [["bolt", 1.0], ["icepath", 1.1], ["dash", 1.2], ["flank_slash", 1.1], ["crossbolt", 1.0]]
         }
       }
     },
     "blood_hunt_king": {
       "minApproach": 0.08,
+      "newPatterns": {
+        "rampage": { "engine": "march", "label": "추격 난무", "w": 1.2, "maxDist": 420,
+          "hits": 4, "aim": 0.45, "lock": 0.2, "radius": 150, "arcDeg": 110, "offDeg": 30, "damage": 12,
+          "finalAim": 0.7, "finalLock": 0.3, "finalRadius": 185, "finalArcDeg": 180, "finalDamage": 22,
+          "chargeSpeed": 350, "closeFrac": 0.55, "recover": 2.0, "src": "boss_nx_rampage", "endText": "깊은 일격 뒤 — 긴 빈틈!" },
+        "drive": { "engine": "drive", "label": "몰이 사냥", "w": 1.0, "minDist": 120, "maxDist": 620, "needLos": false,
+          "leadT": 1.2, "cut": 1.4, "cutSpeed": 340, "holdDist": 70,
+          "aim": 0.6, "lock": 0.3, "radius": 185, "arcDeg": 150, "damage": 19,
+          "herd": true, "herdDeg": 80, "recover": 1.8, "src": "boss_nx_drive",
+          "aimText": "길목을 막고 친다", "endText": "몰이 끝 — 빈틈!" }
+      },
       "claw": { "maxDist": 340, "closeFrac": 0.55, "rushMult": 1.0 },
       "hop": { "patterns": ["dash"], "time": 0.4, "speed": 280, "back": 0.4, "text": "옆으로!" },
       "cover": { "mode": "reposition", "trigger": 1.1, "cd": 2.0, "speed": 1.3, "spotDist": 190, "moveMax": 2.2, "maxDist": 460, "text": "몰이한다", "pad": 14.0, "zoneOut": 0.6, "zoneSpeed": 1.1 },
@@ -168,15 +268,29 @@
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
         "follow": {
-          "claw": [["claw", 0.7], ["dash", 1.4]],
-          "dash": [["claw", 1.5], ["dash", 0.5]],
-          "summon": [["dash", 1.3], ["claw", 1.2]],
-          "*": [["claw", 1.2], ["dash", 1.2], ["summon", 0.6]]
+          "claw": [["claw", 0.7], ["dash", 1.4], ["drive", 1.0]],
+          "dash": [["claw", 1.5], ["dash", 0.5], ["rampage", 1.2]],
+          "summon": [["dash", 1.3], ["claw", 1.2], ["drive", 1.0]],
+          "rampage": [["drive", 1.1], ["dash", 1.0], ["claw", 0.8]],
+          "drive": [["rampage", 1.2], ["claw", 1.0], ["dash", 0.8]],
+          "*": [["claw", 1.2], ["dash", 1.2], ["summon", 0.6], ["rampage", 1.2], ["drive", 1.0]]
         }
       }
     },
     "doom_executor": {
       "minApproach": 0.08,
+      "newPatterns": {
+        "exec_march": { "engine": "march", "label": "처형 행진", "w": 1.1, "maxDist": 460,
+          "hits": 3, "aim": 0.55, "lock": 0.26, "radius": 185, "arcDeg": 85, "offDeg": 30, "damage": 15,
+          "finalAim": 0.75, "finalLock": 0.32, "finalRadius": 205, "finalArcDeg": 165, "finalDamage": 23,
+          "chargeSpeed": 320, "closeFrac": 0.6, "recover": 2.0, "src": "boss_nx_exec", "color": "#c8b8ff", "endText": "행진 끝 — 빈틈!" },
+        "cutpath": { "engine": "wall", "label": "퇴로 절단", "w": 1.0, "maxDist": 560, "needLos": false,
+          "cast": 0.7, "leadMax": 1.2, "segments": 3, "segR": 58, "spacing": 132,
+          "warn": 1.0, "gap": 0.2, "damage": 17, "minExits": 5, "probe": 110,
+          "follow": { "kind": "lunge", "label": "찌르며 접근", "aim": 0.55, "lock": 0.28, "walk": 300,
+            "radius": 190, "arcDeg": 55, "damage": 18, "src": "boss_nx_lunge" },
+          "recover": 1.8, "src": "boss_nx_cutpath", "color": "#c8b8ff", "endText": "찌르기 뒤 — 빈틈!" }
+      },
       "guard": { "maxDist": 420, "dur": 1.1, "minDur": 0.5 },
       "slash": { "gap": 0.35 },
       "cover": { "mode": "reposition", "trigger": 1.2, "cd": 2.0, "speed": 1.15, "spotDist": 210, "moveMax": 2.8, "maxDist": 460, "text": "각을 바꾼다", "pad": 14.0, "zoneOut": 0.7, "zoneSpeed": 1.0 },
@@ -186,10 +300,12 @@
         "maxByPhase": [6, 8, 10], "linkGap": 0.04, "followWarnSpeed": 2.4, "followWarnMin": 0.45,
         "endBonusFrom": 3, "endRecoverAdd": 0.2, "summonRecover": 0.9,
         "follow": {
-          "slash": [["guard", 1.2], ["summon", 0.8]],
-          "guard": [["slash", 1.4], ["summon", 0.5]],
-          "summon": [["slash", 1.4], ["guard", 1.0]],
-          "*": [["slash", 1.0], ["guard", 1.2], ["summon", 0.6]]
+          "slash": [["guard", 1.2], ["summon", 0.8], ["exec_march", 1.1]],
+          "guard": [["slash", 1.4], ["summon", 0.5], ["cutpath", 1.0]],
+          "summon": [["slash", 1.4], ["guard", 1.0], ["exec_march", 1.0]],
+          "exec_march": [["cutpath", 1.1], ["slash", 1.0], ["guard", 0.8]],
+          "cutpath": [["exec_march", 1.1], ["slash", 1.0], ["guard", 0.8]],
+          "*": [["slash", 1.0], ["guard", 1.2], ["summon", 0.6], ["exec_march", 1.1], ["cutpath", 1.0]]
         }
       }
     }

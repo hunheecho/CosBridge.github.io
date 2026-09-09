@@ -160,6 +160,7 @@ static func threats(st: CombatState) -> Array:
 
 ## 가시갈기(boss_id "boss") 위협. 다른 보스는 PBoss2.threats
 static func boss_threats(st: CombatState, bz: Dictionary, out: Array) -> void:
+	PBoss4.threats(st, bz, out) # 신규 공격 패턴 18개(§11-A)의 예고 — 보스 9종 공통
 	var bid := String(bz.get("boss_id", ""))
 	if bid != "" and bid != "boss":
 		PBoss2.threats(st, bz, out)

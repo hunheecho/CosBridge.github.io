@@ -144,7 +144,10 @@ static func chain_note_begin(e: Dictionary, cfg: Dictionary, pat: String) -> voi
 	e.chain_i = int(e.get("chain_i", 0)) + 1
 	var C := chain_cfg(e)
 	var sp := 1.0
-	if not C.is_empty() and int(e.chain_i) >= 2:
+	# 신규 패턴(§11-A)은 연계 후속타여도 예고를 줄이지 않는다.
+	# 한 패턴 안에 예고가 여러 번 뜨는 구조(연타 3~4회·도약 뒤 후속·표식 재예고)라 배속을 걸면
+	# 그중 짧은 예고가 하한(followWarnMin) 밑으로 내려간다 — 읽을 수 없는 예고를 만들지 않는다.
+	if not C.is_empty() and int(e.chain_i) >= 2 and not PBoss4.has_pattern(e, pat):
 		var base := pattern_warn(cfg, pat)
 		var lo := float(C.get("followWarnMin", 0.5))
 		if base > lo:
@@ -304,7 +307,7 @@ static func wolf_attacking(st: CombatState) -> bool:
 	return false
 
 static func boss_committed(e: Dictionary) -> bool:
-	return e.state == "sweep_lock" or e.state == "dash_lock" or e.state == "dash" or e.state == "pounce_lock" or e.state == "leap" or PBoss2.is_committed(e)
+	return e.state == "sweep_lock" or e.state == "dash_lock" or e.state == "dash" or e.state == "pounce_lock" or e.state == "leap" or PBoss2.is_committed(e) or PBoss4.is_committed(e)
 
 static func summoned_alive(st: CombatState) -> int:
 	var n := 0
@@ -371,6 +374,7 @@ static func candidates(st: CombatState, e: Dictionary) -> Array:
 		cands.append(["pounce", float(cfg.weights.pounce)])
 	if can_howl(st, e):
 		cands.append(["howl", float(cfg.weights.howl)])
+	PBoss4.extra_candidates(st, e, cands) # 신규 패턴(§11-A)
 	return cands
 
 ## 후보 이름만(시험·계측용)
@@ -430,6 +434,9 @@ static func begin(st: CombatState, e: Dictionary, pattern: String) -> void:
 	chain_note_begin(e, cfg_of(e), pattern)
 	hop_note_begin(st, e, cfg_of(e), pattern)
 	st.note_attack(e, "prepare")
+	if PBoss4.has_pattern(e, pattern): # 신규 패턴(§11-A)
+		PBoss4.begin(st, e, pattern)
+		return
 	if pattern == "sweep":
 		e.state = "sweep_aim"
 	elif pattern == "dash":
@@ -500,6 +507,8 @@ static func spawn_orb(st: CombatState, e: Dictionary) -> void:
 
 ## 현재 위험 예고 한가운데인가(돌진 통로·휩쓸기 부채꼴·착지 원). pt = {x, y}
 static func in_danger(st: CombatState, e: Dictionary, pt: Dictionary) -> bool:
+	if PBoss4.in_danger(st, e, pt): # 신규 패턴의 예고(9종 공통)
+		return true
 	if String(e.get("boss_id", "boss")) != "boss":
 		return PBoss2.in_danger(st, e, pt)
 	var cfg := _B()
@@ -915,6 +924,15 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 		return
 	# 엄폐 대응·지형 파괴 자격(보스 9종 공통). 재배치·파쇄 중이면 아래 본체는 아무 상태도 처리하지 않는다
 	cover_pre(st, e, dt)
+	# 신규 공격 패턴 18개(§11-A, PBoss4). 보스 9종이 모두 이 한 곳을 지난다.
+	#  ① observe: 지난 프레임의 **실제 위치 변화**만으로 플레이어 이동을 관측한다(입력을 미리 읽지 않는다).
+	#  ② tick: 이미 예고된 폭발·잔상·바위 파열은 보스가 다음 행동으로 넘어가도 제 시각에 일어난다.
+	#  ③ 지금이 새 패턴 상태(nx_...)면 여기서 갱신하고 끝낸다 — 기존 상태 기계는 하나도 건드리지 않는다.
+	PBoss4.observe(st, e, dt)
+	PBoss4.tick(st, e, dt)
+	if PBoss4.owns(e):
+		PBoss4.update(st, e, dt)
+		return
 	if String(e.get("boss_id", "boss")) != "boss":
 		if String(e.get("boss_id", "")) == "guardian":
 			# 봉인 수호자 보정: 양갈래 충격파의 중앙 공백(엄폐 대응은 위 cover_pre가 9종 공통으로 한다)
