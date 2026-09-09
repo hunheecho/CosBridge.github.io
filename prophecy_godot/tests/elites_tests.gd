@@ -892,6 +892,8 @@ func _init() -> void:
 
 	dodge_tests()
 	dodge_measure()
+	dodge_chain_tests()
+	fang_readability_tests()
 	placement_tests()
 	encounter_count_tests()
 
@@ -1790,3 +1792,190 @@ func dodge_measure() -> void:
 			gain / float(maxi(1, cnt)), outn, cnt, float(row[2])])
 	print("")
 	ok("측정: 짧은 사거리 무기가 불리해지는 정도를 값으로 남겼다(회피 %d건 · **보정 수치는 넣지 않았다**)" % esc_rows, esc_rows > 0)
+
+# =========================================================================
+# ⑬ 회피와 '연계 완주'(2026-09-09). 앞선 보고에서 회피를 넣은 뒤 정예의 연계 완주가 조금 줄었다.
+# **횟수만으로 단정하지 않고 행동 순서(상태 전이)로** 세 가지를 가른다:
+#   ㉮ 연계가 진행 중인데 회피로 끊겼는가   ㉯ 연계 종료 후 다음 공격 시작이 늦어졌는가   ㉰ 적이 먼저 죽어 시간이 줄었는가
+# 그리고 사용자 요구("자기 공격 준비·실행 중에는 회피하지 않는다")를 **실제 전투 전체**에서 확인한다 —
+# 기존 ④는 첫 확정 상태에 6초 붙여 두는 합성 장면이라, 판 전체를 훑는 이 검사와 서로 보완한다.
+# 조사 도구(같은 셈법·더 넓은 표): tools/probe_dodge.gd → docs/sim/PROBE_DODGE.md
+# =========================================================================
+
+const CHAIN_COMBO := {
+	"elite_archer": ["aim", ["fan_lock"]],
+	"elite_blademaster": ["dash1_aim", ["slam_aim"]],
+	"elite_fang": ["bite_aim", ["leap"]],
+	"elite_plaguecaller": ["throw_aim", ["swell"]],
+	"elite_chainbreaker": ["chain_aim", ["slam_lock", "retract"]],
+	"elite_standard": ["plant_aim", ["plant_aim", "slash_aim"]],
+	"elite_miner": ["dive", ["erupt"]],
+}
+const CHAIN_SEC := 40.0
+
+func chain_committed(tp: String, s: String) -> bool:
+	return (PEnemiesNew.COMMITTED.get(tp, []) as Array).has(s)
+
+## 정예 1마리 대 봇 1판을 상태 전이로 기록한다. 회피를 끈 판은 비교 전용 스위치로만 만든다
+func chain_run(tp: String, seed_v: int, dodge_on: bool) -> Dictionary:
+	PEnemiesNew.set_dodge_on(dodge_on)
+	var g := PGrowth.new_growth("sword")
+	var b := PBuild.derive(PBuild.empty_run_like(g))
+	var st := CombatState.new({ "build": b, "seed": seed_v, "waves": [], "arena": "clearing", "region_id": "lab", "act": 1, "fixed_build": true })
+	st.spawn_hold = true
+	var e := st.spawn_enemy(tp, st.player.x + 260.0, st.player.y)
+	var bot := PBot.new("balanced")
+	var cs: Array = CHAIN_COMBO[tp]
+	var start_state := String(cs[0])
+	var fin: Array = cs[1]
+	var last := String(e.state)
+	var finishes := 0
+	var chain_open := false
+	var in_chain := 0          # ㉮ 연계가 열린 채로 회피가 시작된 횟수
+	var from_committed := 0    # 요구 위반: 공격 준비·실행 중에 회피가 시작됐다
+	var locked_committed := 0  # 요구 위반: 회피 단계가 도는 동안 COMMITTED였다
+	var gaps: Array = []       # ㉯ 공격이 끝난 뒤 다음 공격 시작까지의 초
+	var last_end := -1.0
+	var alive := 0.0
+	for i in int(round(CHAIN_SEC / STEP)):
+		st.step(bot.step_input(st), STEP)
+		alive = float(st.t)
+		if bool(e.dead) or bool(st.player.dead):
+			break
+		if String(e.get("dodge_phase", "")) != "" and chain_committed(tp, String(e.state)):
+			locked_committed += 1
+		var s := String(e.state)
+		if s == last:
+			continue
+		if fin.has(s):
+			finishes += 1
+		if s == start_state:
+			chain_open = true
+		elif fin.has(s) or s == "approach" or s == "recover":
+			chain_open = false
+		var was_c := chain_committed(tp, last)
+		if chain_committed(tp, s) and not was_c:
+			if last_end >= 0.0:
+				gaps.append(float(st.t) - last_end)
+		if was_c and not chain_committed(tp, s):
+			last_end = float(st.t)
+		if s == "dodge":
+			if chain_open:
+				in_chain += 1
+			if was_c:
+				from_committed += 1
+			chain_open = false
+		last = s
+	PEnemiesNew.set_dodge_on(true)
+	var gm := 0.0
+	if not gaps.is_empty():
+		gaps.sort()
+		gm = float(gaps[gaps.size() / 2])
+	return { "finishes": finishes, "gap": gm, "alive": alive, "in_chain": in_chain,
+		"from_committed": from_committed, "locked_committed": locked_committed,
+		"uses": int(e.get("dodge_uses", 0)), "dead": bool(e.dead) }
+
+func dodge_chain_tests() -> void:
+	print("")
+	print("[⑬ 회피와 연계 완주] 정예 1마리 · 봇 '보통' · 최대 %.0f초 · 시드 %d — 회피 켬/끔을 같은 시드로 나란히" % [CHAIN_SEC, DSEED])
+	print("| 정예 | 완주(끔→켬) | 공격 사이 빈 시간(끔→켬) | 살아 있던 시간(끔→켬) | 회피 | ㉮ 연계 중 끊김 | 위반(준비·실행 중 회피) |")
+	print("|---|---|---|---|---:|---:|---|")
+	var tot_in_chain := 0
+	var tot_violation := 0
+	var tot_uses := 0
+	var slower := 0
+	var earlier := 0
+	for tp in PEnemiesNew.ELITE_TYPES:
+		var on := chain_run(String(tp), DSEED, true)
+		var off := chain_run(String(tp), DSEED, false)
+		tot_in_chain += int(on.in_chain)
+		tot_violation += int(on.from_committed) + int(on.locked_committed)
+		tot_uses += int(on.uses)
+		if float(on.gap) > float(off.gap) + 0.01:
+			slower += 1
+		if float(on.alive) < float(off.alive) - 0.05:
+			earlier += 1
+		print("| %s | %d → %d | %.2f초 → %.2f초 | %.1f초 → %.1f초 | %d회 | %d회 | %s |" % [
+			String(PCatalog.enemy(String(tp)).name), int(off.finishes), int(on.finishes),
+			float(off.gap), float(on.gap), float(off.alive), float(on.alive),
+			int(on.uses), int(on.in_chain),
+			("**있다(직전 %d · 단계 중 %d)**" % [int(on.from_committed), int(on.locked_committed)]) if (int(on.from_committed) + int(on.locked_committed)) > 0 else "없다"])
+	print("")
+	ok("⑬-가 실제 전투 전체에서 **자기 공격 준비·실행 중에는 회피가 시작되지 않는다**(회피 %d회 · 위반 %d건)" % [tot_uses, tot_violation],
+		tot_uses > 0 and tot_violation == 0)
+	ok("⑬-나 **진행 중인 연계를 회피가 끊지 않는다**(연계가 열린 채 시작된 회피 %d회)" % tot_in_chain, tot_in_chain == 0)
+	ok("⑬-다 [관찰] 연계 완주가 줄어든 자리는 **연계 종료 후 다음 공격이 늦어진 것**이다 — 공격 사이 빈 시간이 늘어난 종류 %d/7 · 먼저 죽은 종류 %d/7 (판정이 아니라 계측)" % [slower, earlier],
+		true, "회피에 묶이는 시간 = 반응 지연 + 이동 + 추스르는 틈(설계 그대로). 수치·적용 범위는 바꾸지 않았다")
+
+# =========================================================================
+# ⑭ 피의 송곳니 가독성(2026-09-09 사용자 판정 ㉢ "실행은 되는데 알아보기 어렵다").
+# **체력·속도·예고 시간은 하나도 바꾸지 않았다** — 이 검사가 그 사실을 값으로 붙들어 둔다.
+# 더한 것: 물기 예고의 **짧은 낱말 + 짧은 경고음**, 물기 준비 자세·표식(화면), 도적과 갈리는 색.
+# =========================================================================
+
+## 이번 작업 **전과 같아야 하는** 수치(시험값 자체는 2026-09-08 것 그대로다)
+const FANG_FIXED := { "hp": 190.0, "speed": 190.0, "biteAim": 0.35, "biteRange": 52.0, "biteDeg": 90.0,
+	"biteDamage": 16.0, "backoffTime": 0.5, "leapAim": 0.6, "leapLock": 0.15, "leapTime": 0.38,
+	"leapRange": 260.0, "leapR": 74.0, "leapDamage": 22.0, "recover": 1.1, "missStagger": 1.6 }
+
+## 색을 색상각·채도·명도로 갈라 본다(색만으로 가르지 않지만, '거의 같은 색'은 그 자체가 결함이었다)
+func hsv_of(hex: String) -> Array:
+	var c := Color(hex)
+	return [c.h * 360.0, c.s, c.v]
+
+func hue_gap(a: float, b: float) -> float:
+	var d: float = absf(a - b)
+	return minf(d, 360.0 - d)
+
+func fang_readability_tests() -> void:
+	var fg: Dictionary = PCatalog.enemy("elite_fang")
+	var ro: Dictionary = PCatalog.enemy("rogue")
+	var wo: Dictionary = PCatalog.enemy("wolf")
+	# 가) 수치 불변
+	var moved: Array = []
+	for k in FANG_FIXED:
+		if not is_equal_approx(float(fg.get(String(k), -1.0)), float(FANG_FIXED[k])):
+			moved.append("%s %.3f(기대 %.3f)" % [String(k), float(fg.get(String(k), -1.0)), float(FANG_FIXED[k])])
+	ok("⑭-가 송곳니의 체력·이동 속도·예고 시간·사거리·피해가 그대로다(표시만 고쳤다)", moved.is_empty(), str(moved))
+	# 나) 색이 쌍날 도적과 실제로 갈린다
+	var f := hsv_of(String(fg.color))
+	var r := hsv_of(String(ro.color))
+	var w := hsv_of(String(wo.color))
+	var hg := hue_gap(float(f[0]), float(r[0]))
+	ok("⑭-나 송곳니 색이 쌍날 도적과 갈린다(색상각 ≥12도 또는 채도 차 ≥0.15)",
+		hg >= 12.0 or absf(float(f[1]) - float(r[1])) >= 0.15,
+		"송곳니 %s(H %.0f S %.2f V %.2f) · 도적 %s(H %.0f S %.2f V %.2f) · 색상각 차 %.1f도 · 채도 차 %.2f · 명도 차 %.2f" % [
+			String(fg.color), float(f[0]), float(f[1]), float(f[2]), String(ro.color), float(r[0]), float(r[1]), float(r[2]),
+			hg, absf(float(f[1]) - float(r[1])), absf(float(f[2]) - float(r[2]))])
+	ok("⑭-나2 송곳니 색이 늑대와도 갈린다(늑대는 회색 = 채도가 아주 낮다)", absf(float(f[1]) - float(w[1])) >= 0.3,
+		"채도 %.2f vs %.2f" % [float(f[1]), float(w[1])])
+	# 다) 물기 예고에 글자와 소리가 있다(늑대·도적과 다른 소리 이름)
+	var st := lab(3)
+	var e := put(st, "elite_fang", float(st.player.x) + 70.0, float(st.player.y))
+	var ev0: int = st.events.size()
+	var fx0: int = st.effects.size()
+	var t := until(st, e, "bite_aim", 8.0)
+	var said := ""
+	for i in range(fx0, st.effects.size()):
+		var f2: Dictionary = st.effects[i]
+		if String(f2.get("kind", "")) == "text" and PGeom.dist(float(f2.x), float(f2.y), float(e.x), float(e.y)) < 80.0:
+			said = String(f2.get("text", ""))
+	var heard: Array = []
+	for i in range(ev0, st.events.size()):
+		heard.append(String(st.events[i]))
+	ok("⑭-다 물기 예고 시작에 **짧은 낱말**이 뜬다(예전에는 글자가 없었다)", t >= 0.0 and said != "" and said.length() <= 6,
+		"'%s'" % said)
+	ok("⑭-라 물기 예고 시작에 **짧은 경고음**이 난다(예전에는 소리가 없었다)", heard.has("boss_lock"), str(heard))
+	ok("⑭-마 그 소리가 늑대의 물기 확정(bite_lock)·돌진 확정(lock)과 다른 이름이다",
+		not heard.has("bite_lock"), str(heard))
+	# 바) 도약 확정 소리 집합이 늑대 돌진 확정과 다르다(lock 하나가 아니다)
+	var st2 := lab(3)
+	var e2 := put(st2, "elite_fang", float(st2.player.x) + 70.0, float(st2.player.y))
+	until(st2, e2, "leap_aim", 10.0)
+	var ev2: int = st2.events.size()
+	var got := until(st2, e2, "leap_lock", 4.0)
+	var heard2: Array = []
+	for i in range(ev2, st2.events.size()):
+		heard2.append(String(st2.events[i]))
+	ok("⑭-바 도약 확정 소리가 늑대 돌진 확정(lock 하나)과 다르다", got >= 0.0 and heard2.has("lock") and heard2.has("boss_lock"),
+		str(heard2))

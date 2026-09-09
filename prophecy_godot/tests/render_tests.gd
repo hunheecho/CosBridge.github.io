@@ -626,6 +626,37 @@ func _run() -> void:
 		over.is_empty() and new_fns.find("arena_w") < 0 and new_fns.find("arena_h") < 0 and new_fns.find("Rect2(0") < 0,
 		"넘친 것=%s" % str(over))
 
+	# ================= 8. 피의 송곳니 가독성(2026-09-09) =================
+	# 사용자 판정 ㉢ "실행은 되는데 알아보기 어렵다". 화면 쪽 몫은 셋이다:
+	#  ① 물기 **준비 자세**가 도약 준비·평소와 다르다  ② 몸에 붙박이 표식(뼛빛 목덜미 갈기·등줄기 가시)
+	#  ③ 물기 예고 도형이 쌍날 도적의 베기 부채꼴과 **도형 자체로** 갈리고, 착지 원은 두꺼비 원과 안쪽 도형으로 갈린다
+	var body_fn := _fn(src, "elite_body")
+	var tell_fn := _fn(src, "elite_tell")
+	var held_fn := _fn(src, "elite_held")
+	var tele_fn := _fn(src, "draw_elite_telegraph")
+	ok("송곳니 몸: 물기 준비(bite_aim)가 도약 준비와 다른 자세로 그려진다",
+		body_fn.find("bite_aim") >= 0 and body_fn.find("leap_aim") >= 0 and body_fn.find("lunge") >= 0,
+		"자세 분기 없음" if body_fn.find("bite_aim") < 0 else "")
+	ok("송곳니 몸: 늑대에게 없는 붙박이 표식(목덜미 갈기·등줄기 가시)을 그린다",
+		body_fn.find("ruff") >= 0 and body_fn.find("bristle") >= 0)
+	ok("송곳니 송곳니(held): 물기 준비에서 턱이 벌어진다", held_fn.find("bite_aim") >= 0 and held_fn.find("gap") >= 0)
+	ok("송곳니 예고 부위: 물기는 앞(턱) · 도약은 뒤(뒷다리)로 갈린다", tell_fn.find("bite_aim") >= 0)
+	ok("송곳니 물기 예고 도형: 부채꼴 말고 **닫히는 송곳니 표식**이 함께 그려진다(도적 베기와 갈린다)",
+		tele_fn.find("spread") >= 0 and tele_fn.find("draw_colored_polygon") >= 0)
+	# 실제로 그려 보고 죽지 않는가(물기 준비·도약 준비 두 자세)
+	var fang_st := mk([{ "id": "sword", "level": 1, "mods": [] }])
+	var fang := fang_st.spawn_enemy("elite_fang", 560.0, 300.0)
+	fang.state = "bite_aim"
+	fang.state_t = 0.2
+	fang.aim_angle = PI
+	await _paint(fang_st, "fang_bite_aim")
+	fang.state = "leap_aim"
+	fang.state_t = 0.3
+	fang.leap_at = [430.0, 300.0]
+	fang.leap_from = [560.0, 300.0]
+	await _paint(fang_st, "fang_leap_aim")
+	ok("송곳니를 물기 준비·도약 준비 자세로 실제로 그려도 오류가 없다", true)
+
 	await _close_view()
 	PSave.clear()
 	var pass_n := 0

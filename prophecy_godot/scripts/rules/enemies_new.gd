@@ -1418,8 +1418,21 @@ static func strafe(st: CombatState, e: Dictionary, speed: float, dt: float) -> v
 ## 개체별 필드(지연 초기화): dodge_phase, dodge_t, dodge_cd, dodge_wait, dodge_dx, dodge_dy, dodge_dist,
 ##   dodge_from, dodge_kind, dodge_hit_t, 그리고 계측용 dodge_seen(조건 충족) · dodge_uses(실제 발동) · dodge_skip(마지막으로 쓰지 않은 이유)
 
+## 비교 측정 전용 스위치(기본 켬). 끄면 회피가 아예 없던 개편 전 동작이 된다 —
+## "연계 완주가 줄어든 것이 회피 때문인가"를 같은 시드로 가르려면 켠 판과 끈 판이 둘 다 필요하다.
+## 게임 실행에는 영향이 없다(아무도 부르지 않으면 켜진 채다). PBoss.set_break_on과 같은 방식이다
+static var _dodge_on := true
+
+static func set_dodge_on(v: bool) -> void:
+	_dodge_on = v
+
+static func dodge_enabled() -> bool:
+	return _dodge_on
+
 ## 그 종류의 회피 설정. 특수 정예가 아니면 빈 사전이다(여기가 '누가 회피를 가지는가'의 정본)
 static func dodge_cfg(type: String) -> Dictionary:
+	if not _dodge_on:
+		return {}
 	if not ELITE_TYPES.has(type):
 		return {}
 	var row: Dictionary = PCatalog.elite_def(type)
@@ -1825,7 +1838,10 @@ static func update_elite_fang(st: CombatState, e: Dictionary, dt: float) -> void
 				var s: float = float(e.side)
 				st.approach(e, p.x - n[0] * 26.0 + (-n[1]) * s * float(d.flankOffset), p.y - n[1] * 26.0 + n[0] * s * float(d.flankOffset), float(d.speed) * sm, dt)
 			if dist <= float(d.biteRange) + e.r and elite_may_start(st, e, dt):
-				elite_begin(st, e, "bite_aim", "", "#ffb0b0")
+				# 2026-09-09 가독성(표시만): 물기 예고에는 글자도 소리도 없어 평범한 늑대보다 경고가 부실했다.
+				# 짧은 낱말 하나 + **짧은 경고음**을 예고 시작에 붙인다. 예고 시간(biteAim 0.35)·속도·피해는 그대로다.
+				elite_begin(st, e, "bite_aim", "문다!", "#ff6b93")
+				st.ev("boss_lock") # 낮은 두 음(늑대 물기 bite_lock·돌진 lock, 두꺼비 lock+hazard_warn과 갈린다)
 		"bite_aim":
 			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 			e.state_t += adv
@@ -1851,7 +1867,10 @@ static func update_elite_fang(st: CombatState, e: Dictionary, dt: float) -> void
 				e.state_t = 0.0
 				e.leap_at = _leap_target(st, e, float(d.leapRange)) # 착지 위치 확정 — 여기서부터 추적하지 않는다
 				e.leap_from = [e.x, e.y]
+				# 도약 확정 소리. lock만 쓰면 늑대 돌진 확정과 같은 소리라 구분이 안 됐다(2026-09-09).
+				# 낮은 두 음을 겹쳐 '송곳니의 확정'만 다른 소리로 들리게 한다. 확정 시각(leapAim 0.6 뒤)은 그대로다
 				st.ev("lock")
+				st.ev("boss_lock")
 		"leap_lock":
 			e.state_t += adv
 			if float(e.state_t) >= float(d.leapLock):
