@@ -571,6 +571,11 @@ func _run() -> void:
 		cnt_bad.is_empty() and int(miss_sig.n) == 0 and (miss_sig.dirs as PackedFloat32Array).is_empty() and same_shape,
 		"어긋남=%s / 다른 신호 %d개" % [str(cnt_bad), int(miss_sig.n)])
 	var imp2 := _fn(src, "draw_impacts")
+	var fz_i := imp2.find("\"freeze_on\":")
+	var fz_body := imp2.substr(fz_i, maxi(0, imp2.find("\"shatter\":") - fz_i)) if fz_i >= 0 else ""
+	ok("얼어붙는 순간(freeze_on) 갈래가 있고 hard/soft를 서로 다른 도형(닫힌 고리 vs 열린 호 셋)으로 가른다",
+		fz_i >= 0 and fz_body.find("f.get(\"freeze_kind\", \"hard\")") >= 0 and fz_body.find("0.0, TAU, 28") >= 0 and fz_body.find("za - 0.5, za + 0.5") >= 0,
+		"갈래 위치 %d" % fz_i)
 	var sh_i := imp2.find("\"shatter\":")
 	var sh_body := imp2.substr(sh_i, maxi(0, imp2.find("\"hitflash\":") - sh_i)) if sh_i >= 0 else ""
 	ok("파쇄를 그리는 갈래가 계획(shatter_plan)의 개수만 돌고, 장식 파편을 따로 만들지 않는다",
@@ -597,6 +602,8 @@ func _run() -> void:
 	dw2.focus.n = 6
 	dw2.focus.t = rs.t
 	rs.fx({ "kind": "shatter", "x": float(frozen.x), "y": float(frozen.y), "r": 24.0, "shards": 5, "ttl": 0.3 })
+	rs.fx({ "kind": "freeze_on", "x": float(frozen.x), "y": float(frozen.y), "r": 22.0, "ttl": 0.3 })                          # 적지 않으면 hard
+	rs.fx({ "kind": "freeze_on", "x": float(bosslike.x), "y": float(bosslike.y), "r": 30.0, "freeze_kind": "soft", "ttl": 0.3 })
 	var rng_before: int = rs.rng._a
 	var eff_before: int = rs.effects.size()
 	await _paint(rs, "frost_focus_shatter")

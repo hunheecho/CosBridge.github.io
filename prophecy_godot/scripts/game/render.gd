@@ -3665,6 +3665,28 @@ static func draw_impacts(ci: Node2D, st: CombatState) -> void:
 				for i in 2:
 					var d0: float = 6.0 + 10.0 * float(i) + 14.0 * (1.0 - k)
 					ci.draw_polyline(PackedVector2Array([Vector2(ex2 + cos(ea + 0.9) * d0, ey2 + sin(ea + 0.9) * d0), Vector2(ex2 + cos(ea) * (d0 + 9.0), ey2 + sin(ea) * (d0 + 9.0)), Vector2(ex2 + cos(ea - 0.9) * d0, ey2 + sin(ea - 0.9) * d0)]), rgba(200, 235, 255, (0.9 - 0.35 * float(i)) * k), 2.5)
+			"freeze_on": # 얼어붙는 순간(계약 3절). hard는 **안으로 조여드는 닫힌 고리**(붙잡혔다), soft는 **열린 호 셋**(붙잡지 못했다)
+				# 계약 3절은 이 신호의 hard/soft 칸 이름을 "kind"라고 적었지만, st.fx의 "kind"는 연출 종류(freeze_on)라 이미 쓰였다.
+				# 그래서 계약 1절이 적 dict에 쓰는 **같은 이름 freeze_kind**를 읽는다. 없으면 hard로 본다(docs/FROST_VISUAL.md 5절).
+				var zx: float = f.x
+				var zy: float = f.y
+				var zr: float = float(f.get("r", 20.0))
+				var soft: bool = String(f.get("freeze_kind", "hard")) == "soft"
+				var zg: float = 1.0 - k
+				var rr2: float = zr * (0.8 + 0.6 * zg) if soft else zr * (1.6 - 0.6 * zg)
+				if soft:
+					# 열린 호 셋 = 몸을 감싸지 못한다(보스는 멈추지 않는다)
+					for i in 3:
+						var za: float = float(i) * TAU / 3.0 + 0.5
+						ci.draw_arc(Vector2(zx, zy), rr2, za - 0.5, za + 0.5, 10, rgba(210, 245, 255, 0.85 * k), 2.5)
+				else:
+					# 닫힌 고리가 안으로 조여든다 = 붙잡혔다
+					ci.draw_arc(Vector2(zx, zy), rr2, 0.0, TAU, 28, rgba(210, 245, 255, 0.85 * k), 2.5)
+				for i in 6:
+					var za2: float = float(i) * TAU / 6.0 + (0.0 if not soft else 0.5)
+					var d0z: float = rr2 - 6.0
+					var d1z: float = rr2 + 6.0
+					ci.draw_line(Vector2(zx + cos(za2) * d0z, zy + sin(za2) * d0z), Vector2(zx + cos(za2) * d1z, zy + sin(za2) * d1z), rgba(224, 246, 255, 0.8 * k), 2.0)
 			"shatter": # 빙결 파쇄(계약 3절): 규칙이 보낸 파편 수를 **그대로** 그린다. 장식 파편은 하나도 없다
 				var sx: float = f.x
 				var sy: float = f.y
