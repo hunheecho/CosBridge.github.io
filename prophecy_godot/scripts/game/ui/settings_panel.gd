@@ -56,6 +56,14 @@ func _ready() -> void:
 	_shake.button_pressed = PRender.shake_on()
 	_shake.toggled.connect(func(on: bool): PRender.set_shake(on))
 	v.add_child(_shake)
+	# 이동 방식(터치에서만 뜻이 있다). 규칙·판정은 두 방식이 같고 만드는 이동 벡터도 같다
+	if PLayout.is_touch():
+		var mv := CheckBox.new()
+		mv.text = "이동을 방향 버튼으로 (끄면 스틱)"
+		mv.button_pressed = PLayout.is_dpad()
+		mv.toggled.connect(func(on: bool): PLayout.set_move_mode(PLayout.MOVE_DPAD if on else PLayout.MOVE_STICK))
+		v.add_child(mv)
+		v.add_child(PUi.rich("[color=#8a93a6]방향 버튼은 키보드 WASD와 같은 8방향입니다. 스틱은 360°입니다.[/color]", 11))
 	_note = PUi.rich("", 11, PUi.DIM)
 	v.add_child(_note)
 	# 글꼴 고지: SIL OFL 1.1이 저작권 표시와 라이선스를 함께 배포하라고 요구한다.

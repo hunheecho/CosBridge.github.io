@@ -57,6 +57,49 @@ var gesture_pad := PLayout.GESTURE_PAD  # 시스템 제스처 여백(시험이 �
 var _stick_idx := -1
 var _stick_origin := Vector2.ZERO
 var _stick_pos := Vector2.ZERO
+
+# ---------- 방향 버튼(설정에서 스틱 대신 고를 수 있다) ----------
+## 상·하·좌·우 넷. 둘을 함께 누르면 대각이 된다 — **키보드 WASD와 완전히 같은 8방향**이다.
+## 규칙에는 스틱과 똑같이 방향 벡터 하나로 전달된다(대각은 정규화해 속도가 빨라지지 않게).
+## 손가락 하나가 두 칸에 걸쳐도 **가까운 하나만** 잡는다(pick_at과 같은 원칙).
+const DPAD_DIRS := { "up": Vector2(0.0, -1.0), "down": Vector2(0.0, 1.0),
+	"left": Vector2(-1.0, 0.0), "right": Vector2(1.0, 0.0) }
+const DPAD_ARROW := { "up": "▲", "down": "▼", "left": "◀", "right": "▶" }
+var _dpad_pos: Dictionary = {}
+var _dpad_idx: Dictionary = { "up": -1, "down": -1, "left": -1, "right": -1 }
+
+func dpad_on() -> bool:
+	return PLayout.is_dpad()
+
+func dpad_center(dir: String) -> Vector2:
+	return _dpad_pos.get(dir, Vector2.ZERO)
+
+func dpad_held(dir: String) -> bool:
+	return int(_dpad_idx.get(dir, -1)) >= 0
+
+## 지금 눌린 방향 버튼들을 하나의 이동 벡터로 합친다(대각은 정규화 — 대각이 더 빠르면 안 된다)
+func _dpad_vector() -> Vector2:
+	var v := Vector2.ZERO
+	for d in DPAD_DIRS:
+		if dpad_held(String(d)):
+			v += Vector2(DPAD_DIRS[d])
+	return v.normalized() if v.length() > 0.0 else Vector2.ZERO
+
+func _dpad_push() -> void:
+	if router != null:
+		router.set_virtual_move(_dpad_vector())
+
+## 방향 버튼 중 좌표에 걸리는 것(가장 가까운 하나). 없으면 ""
+func _dpad_at(pos: Vector2) -> String:
+	var best := ""
+	var bd := INF
+	for d in _dpad_pos:
+		var c: Vector2 = _dpad_pos[d]
+		var dist := pos.distance_to(c)
+		if dist <= BTN_SMALL_R and dist < bd:
+			bd = dist
+			best = String(d)
+	return best
 var _btn_idx: Dictionary = { "dodge": -1, "special": -1, "e": -1 }
 var _btn_pos: Dictionary = {}
 var _zone := Rect2()
@@ -104,6 +147,17 @@ func layout(safe: Rect2) -> void:
 	var limit: float = (qx - BTN_SMALL_R - BTN_GAP) - _safe.position.x
 	_zone = Rect2(_safe.position.x, top, maxf(0.0, minf(want, limit)), maxf(0.0, _safe.end.y - top))
 	_guide = _guide_center()
+	# 방향 버튼 십자: 안내 원이 있던 자리를 그대로 쓴다(왼손 엄지가 닿던 곳).
+	# 칸 사이 간격은 버튼 지름 + 최소 틈이라 손가락 하나가 두 칸에 걸치지 않는다.
+	var step: float = BTN_SMALL_R * 2.0 + BTN_GAP
+	var cx: float = clampf(_guide.x, _zone.position.x + step + BTN_SMALL_R, maxf(_zone.position.x + step + BTN_SMALL_R, _zone.end.x - step - BTN_SMALL_R))
+	var cy: float = clampf(_guide.y, top + step + BTN_SMALL_R, maxf(top + step + BTN_SMALL_R, _safe.end.y - EDGE_PAD - step - BTN_SMALL_R))
+	_dpad_pos = {
+		"up": Vector2(cx, cy - step),
+		"down": Vector2(cx, cy + step),
+		"left": Vector2(cx - step, cy),
+		"right": Vector2(cx + step, cy),
+	}
 
 ## 안내 원 중심: 끌기 영역의 왼쪽 아래에 두되 원이 영역 밖으로 나가지 않게 가둔다(보이는 원 = 누를 수 있는 자리)
 func _guide_center() -> Vector2:
@@ -223,6 +277,12 @@ func handle_touch(idx: int, pos: Vector2, pressed: bool) -> void:
 			if pick == "dodge":
 				router.set_virtual_held(true)       # 누르는 동안 유지(길이=거리)
 		return                                      # 버튼 위의 터치는 스틱을 잡지 않는다
+	if dpad_on():
+		var d := _dpad_at(pos)
+		if d != "" and int(_dpad_idx[d]) < 0:
+			_dpad_idx[d] = idx
+			_dpad_push()
+		return                                      # 방향 버튼 방식에서는 스틱을 잡지 않는다
 	if _stick_idx < 0 and _zone.has_point(pos):
 		_stick_idx = idx
 		_stick_origin = pos
@@ -249,6 +309,13 @@ func _release(idx: int) -> void:
 		_stick_idx = -1
 		if router != null:
 			router.set_virtual_move(Vector2.ZERO)
+	var dpad_changed := false
+	for d in _dpad_idx:
+		if int(_dpad_idx[d]) == idx:
+			_dpad_idx[d] = -1
+			dpad_changed = true
+	if dpad_changed:
+		_dpad_push()          # 남은 방향만으로 다시 계산한다(대각에서 하나만 떼면 직선이 된다)
 	for k in _btn_idx:
 		if int(_btn_idx[k]) == idx:
 			_btn_idx[k] = -1
@@ -259,6 +326,8 @@ func release_all() -> void:
 	_stick_idx = -1
 	for k in _btn_idx:
 		_btn_idx[k] = -1
+	for d in _dpad_idx:
+		_dpad_idx[d] = -1
 	if router != null:
 		router.reset()
 
@@ -308,6 +377,15 @@ func draw_geometry() -> Dictionary:
 	var fill := { "dodge": 1.0, "special": 1.0, "e": 0.0, "has_e": false }
 	if view != null and view.st != null:
 		fill = cooldown_fill(view.st)
+	var dpad := {}
+	if dpad_on():
+		for d in _dpad_pos:
+			dpad[String(d)] = {
+				"center": _dpad_pos[d],
+				"radius": BTN_SMALL_R,
+				"held": dpad_held(String(d)),
+				"arrow": String(DPAD_ARROW[d]),
+			}
 	var btns := {}
 	for k in _btn_pos:
 		var kind := String(k)
@@ -339,7 +417,7 @@ func draw_geometry() -> Dictionary:
 			"held": held, "label_font": FS_MOVE,
 			"label_y": minf(origin.y + STICK_R + float(FS_MOVE) + 2.0, _safe.end.y - 4.0),
 		},
-		"buttons": btns,
+		"buttons": btns, "dpad": dpad,
 		"build": { "center": _build_pos, "radius": BTN_BUILD_R, "font": FS_BUILD },
 	}
 
@@ -348,6 +426,20 @@ func _draw() -> void:
 		return
 	var f: Font = ThemeDB.fallback_font
 	var g: Dictionary = draw_geometry()
+	# 방향 버튼 방식: 스틱 자리에 십자 넷을 그린다(키보드 WASD와 같은 8방향)
+	if dpad_on():
+		for k in (g.dpad as Dictionary):
+			var d: Dictionary = (g.dpad as Dictionary)[k]
+			var dc: Vector2 = d.center
+			var dr: float = float(d.radius)
+			var on: bool = bool(d.held)
+			draw_circle(dc, dr, Color(1, 1, 1, 0.30 if on else 0.12))
+			draw_arc(dc, dr, 0.0, TAU, 48, Color(1, 1, 1, 0.85 if on else 0.40), 2.0)
+			var aw: float = f.get_string_size(String(d.arrow), HORIZONTAL_ALIGNMENT_LEFT, -1.0, FS_SMALL).x
+			draw_string(f, Vector2(dc.x - aw * 0.5, dc.y + FS_SMALL * 0.36), String(d.arrow),
+				HORIZONTAL_ALIGNMENT_LEFT, -1.0, FS_SMALL, Color(1, 1, 1, 0.95 if on else 0.6))
+		_draw_action_buttons(f, g)
+		return
 	# 스틱: 누르고 있으면 누른 자리, 아니면 영역 왼쪽 아래의 안내 원
 	var s: Dictionary = g.stick
 	var origin: Vector2 = s.origin
@@ -360,6 +452,11 @@ func _draw() -> void:
 	draw_circle(knob, float(s.knob_radius), Color(1, 1, 1, alpha + 0.2))
 	if not held:
 		draw_string(f, Vector2(origin.x - sr, float(s.label_y)), "이동", HORIZONTAL_ALIGNMENT_CENTER, sr * 2.0, int(s.label_font), Color(1, 1, 1, 0.5))
+	_draw_action_buttons(f, g)
+
+## 회피·Q·E·빌드 그리기. 스틱 방식과 방향 버튼 방식이 **같은 함수**를 쓴다
+## (이동 방식을 바꿔도 오른쪽 조작은 한 글자도 달라지지 않는다)
+func _draw_action_buttons(f: Font, g: Dictionary) -> void:
 	# 버튼: 재사용 대기 = 채워지는 고리 + 남은 초, 준비됨 = 꽉 찬 금색 고리(HUD 아이콘의 흑백/컬러와 같은 뜻)
 	var btns: Dictionary = g.buttons
 	for k in btns:

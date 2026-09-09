@@ -569,9 +569,60 @@ func _run() -> void:
 	main.queue_free()
 	await process_frame
 	PSave.clear()
+	sec_j_dpad()
 	var pass_n := 0
 	for r in results:
 		if r[0]:
 			pass_n += 1
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
+
+## ---------- J. 이동 방식: 방향 버튼(설정에서 스틱 대신 고른다) ----------
+## 사용자 확정(2026-09-09): "방향 버튼 한번 만들어봐. 어차피 키보드 WASD랑 같잖아. 옵션으로 바꿀 수 있게."
+## 두 방식이 **같은 이동 벡터**를 만드는지, 규칙 쪽은 어느 방식인지 몰라도 되는지를 못박는다.
+func sec_j_dpad() -> void:
+	var prev := PLayout.move_mode()
+	PLayout.set_move_mode(PLayout.MOVE_DPAD)
+	var fk := FakeView.new()
+	fk.st = _new_state()
+	root.add_child(fk)
+	var tc := PTouchControls.new()
+	root.add_child(tc)
+	tc.enabled = true
+	var rt := PInputRouter.new()
+	tc.bind(fk, rt)
+	tc.layout(Rect2(0.0, 0.0, 960.0, 640.0))
+	ok("J1 설정을 바꾸면 방향 버튼 방식이 된다", tc.dpad_on() and PLayout.is_dpad())
+	var up: Vector2 = tc.dpad_center("up")
+	var right: Vector2 = tc.dpad_center("right")
+	var down: Vector2 = tc.dpad_center("down")
+	var left: Vector2 = tc.dpad_center("left")
+	ok("J2 네 칸이 서로 겹치지 않는다(손가락 하나가 두 칸에 안 걸린다)",
+		up.distance_to(right) > PTouchControls.BTN_SMALL_R * 2.0 and up.distance_to(left) > PTouchControls.BTN_SMALL_R * 2.0
+		and down.distance_to(right) > PTouchControls.BTN_SMALL_R * 2.0 and up.distance_to(down) > PTouchControls.BTN_SMALL_R * 2.0,
+		"위-오 %.0f · 위-아 %.0f (지름 %.0f)" % [up.distance_to(right), up.distance_to(down), PTouchControls.BTN_SMALL_R * 2.0])
+	tc.handle_touch(0, right, true)
+	ok("J3 오른쪽을 누르면 이동 벡터가 (1,0)", rt.virtual_move.is_equal_approx(Vector2(1.0, 0.0)), str(rt.virtual_move))
+	tc.handle_touch(1, up, true)
+	var diag := rt.virtual_move
+	ok("J4 위+오른쪽 = 대각. 길이가 1이라 대각이 더 빠르지 않다",
+		absf(diag.length() - 1.0) < 0.001 and diag.x > 0.0 and diag.y < 0.0, "%s 길이 %.3f" % [str(diag), diag.length()])
+	ok("J5 그 대각이 키보드 WASD와 같은 값이다",
+		diag.is_equal_approx(Vector2(1.0, -1.0).normalized()), str(diag))
+	tc.handle_touch(1, up, false)
+	ok("J6 위를 떼면 남은 오른쪽만으로 다시 계산된다", rt.virtual_move.is_equal_approx(Vector2(1.0, 0.0)), str(rt.virtual_move))
+	tc.handle_touch(0, right, false)
+	ok("J7 다 떼면 이동이 0이다(눌림이 남지 않는다)", rt.virtual_move == Vector2.ZERO)
+	tc.handle_touch(0, right, true)
+	tc.release_all()
+	ok("J8 전체 놓기(세로 전환 등)에서도 방향 버튼 눌림이 남지 않는다",
+		rt.virtual_move == Vector2.ZERO and not tc.dpad_held("right"))
+	# 스틱으로 되돌리면 예전 동작 그대로
+	PLayout.set_move_mode(PLayout.MOVE_STICK)
+	var tc2 := PTouchControls.new()
+	root.add_child(tc2)
+	tc2.enabled = true
+	tc2.bind(fk, rt)
+	tc2.layout(Rect2(0.0, 0.0, 960.0, 640.0))
+	ok("J9 설정을 되돌리면 다시 스틱이다(회귀)", not tc2.dpad_on())
+	PLayout.set_move_mode(prev)

@@ -139,6 +139,46 @@ static func village_height(bucket: String) -> float:
 		"narrow": return 220.0
 		_: return 180.0
 
+# ---------- 이동 방식(스틱 / 방향 버튼) ----------
+## 사용자 확정(2026-09-09): "방향 버튼 한번 만들어봐. 어차피 키보드 WASD랑 같잖아. 옵션으로 바꿀 수 있게."
+##
+## 두 방식 모두 **같은 이동 벡터**를 만든다. 규칙은 어느 쪽인지 알지 못하고 알 필요도 없다.
+##   스틱      손가락을 댄 자리가 중심이 되는 360° 방향 선택기(미는 거리는 속도와 무관)
+##   방향 버튼 상·하·좌·우 넷. 둘을 함께 누르면 대각 — **키보드 WASD와 완전히 같은 8방향**이다
+##
+## 값은 기기에 남는다(user://move_prefs.json). 회차 저장과 섞지 않는다 —
+## 조작 취향은 회차마다 다시 고를 것이 아니다.
+const MOVE_STICK := "stick"
+const MOVE_DPAD := "dpad"
+const MOVE_PREFS := "user://move_prefs.json"
+static var _move_mode := MOVE_STICK
+static var _move_loaded := false
+
+static func move_mode() -> String:
+	if not _move_loaded:
+		_move_loaded = true
+		if OS.get_environment("PROPHECY_MOVE") != "":
+			_move_mode = OS.get_environment("PROPHECY_MOVE")      # 검사·촬영용
+		elif FileAccess.file_exists(MOVE_PREFS):
+			var f := FileAccess.open(MOVE_PREFS, FileAccess.READ)
+			if f != null:
+				var parsed = JSON.parse_string(f.get_as_text())
+				if typeof(parsed) == TYPE_DICTIONARY and (parsed as Dictionary).has("move"):
+					var m := String((parsed as Dictionary).move)
+					if m == MOVE_STICK or m == MOVE_DPAD:
+						_move_mode = m
+	return _move_mode
+
+static func set_move_mode(m: String) -> void:
+	_move_mode = MOVE_DPAD if m == MOVE_DPAD else MOVE_STICK
+	_move_loaded = true
+	var f := FileAccess.open(MOVE_PREFS, FileAccess.WRITE)
+	if f != null:
+		f.store_string(JSON.stringify({ "move": _move_mode }))
+
+static func is_dpad() -> bool:
+	return move_mode() == MOVE_DPAD
+
 ## 화면 글자·버튼 확대 배율.
 ##
 ## 왜 필요한가(2026-09-09 사람 플레이 보고, 친구): "모바일로 하기엔 버튼이 넘 작고 글자도 안 보임".

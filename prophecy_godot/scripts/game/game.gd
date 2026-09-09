@@ -6,7 +6,7 @@ extends Node
 ##   작은 수정 → 1.1.1, 1.1.2 …    큼직한 변경 → 1.2.0
 ## 규칙과 올리는 방법은 docs/VERSIONING.md. **배포할 때마다 끝자리를 올린다** —
 ## 그래야 "지금 네가 보는 게 어느 판이냐"에 번호 하나로 답할 수 있다.
-const VERSION := "1.1.1"
+const VERSION := "1.2.0"
 const HTML_SOURCE := "html v0.8.0 (ee10fc7)"
 const DATA_PATH := "res://data/first_fight.json"
 ## 화면 글꼴. 저장소에 함께 들어 있고(2026-09-09), 두 내보내기(웹·윈도우)에 모두 담긴다.
