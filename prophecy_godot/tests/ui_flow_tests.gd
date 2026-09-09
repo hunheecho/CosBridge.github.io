@@ -25,6 +25,106 @@ func _win(main: Node) -> void: # 상태 주입: 진행 중 전투를 승리로 �
 ## PInputRouter.poll → PStepDriver.frame)로 걸어지는지, (3) 3택·일시정지·설정·빌드 상세·포커스·터치를
 ## 거친 뒤에도 이동이 살아 있는지를 본다.
 
+## **실제 UI 경로 하나로** 임무 완료 → 거점 복귀 → 일반 탐험 출발까지 확인한다.
+## 카드에 done을 찍거나 규칙 함수를 직접 부르지 않는다 — 화면의 버튼을 누르고 전투를 실제로 이긴다.
+##
+## 일반 탐험은 **오늘 카드를 다 끝낸 뒤** 남는 시간에 열린다(PSortie.repeat_cards).
+## 그래서 한 판만 이기고 확인하면 "버튼이 없다"가 나오는데, 그건 결함이 아니라 아직 카드가 남은 것이다.
+## 여기서는 오늘 카드를 전부 실제로 이겨서 끝낸다.
+
+## 출격 버튼 하나를 눌러 실제로 이기고 거점까지 돌아온다. 왜 멈췄는지 알 수 있게 사유 문자열을 돌려준다
+func _one_sortie_to_base(main: Node) -> String:
+	var bs: Node = main.screens["base"]
+	var go: Button = _vis_enabled_button(bs, "출격 (")
+	if go == null:
+		return "출격 버튼 없음"
+	go.pressed.emit()
+	await process_frame
+	if main.screen != "combat":
+		return "출격을 눌렀는데 전투로 안 감(screen=%s)" % main.screen
+	main.view.bot = main.make_bot("skilled") # 이 검사의 목적은 승패가 아니라 '승리 뒤 흐름'이다
+	var frames := 0
+	while main.view.st != null and String(main.view.st.status) == "running" and frames < 60 * 300:
+		main.view._process(1.0 / 60.0)
+		frames += 1
+	if main.view.st == null:
+		return "전투 상태가 사라짐"
+	if String(main.view.st.status) != "won":
+		return "봇이 못 이김(status=%s %.0f초)" % [String(main.view.st.status), float(frames) / 60.0]
+	# 승리 뒤 정산·보상 화면 전환에는 몇 프레임이 더 필요하다
+	var wait := 0
+	while main.screen == "combat" and wait < 60 * 20:
+		main.view._process(1.0 / 60.0)
+		if wait % 6 == 0:
+			await process_frame
+		wait += 1
+	await process_frame
+	for i in 12:
+		if main.screen == "base":
+			return ""
+		if main.choice != null and main.choice.visible: # 3택은 첫 후보를 고른다(사람과 같은 경로)
+			var pick: Button = _vis_enabled_button(main.choice, "")
+			if pick != null:
+				pick.pressed.emit()
+			await process_frame
+			continue
+		var scr: Node = main.screens.get(main.screen, null)
+		if scr == null:
+			return "알 수 없는 화면 %s" % main.screen
+		var nxt: Button = _vis_enabled_button(scr, "귀환")
+		if nxt == null:
+			nxt = _vis_enabled_button(scr, "계속")
+		if nxt == null:
+			nxt = _vis_enabled_button(scr, "")
+		if nxt == null:
+			return "%s 화면에서 누를 버튼이 없음" % main.screen
+		nxt.pressed.emit()
+		await process_frame
+	return "귀환까지 못 감(screen=%s)" % main.screen
+
+func _repeat_after_real_sortie(main: Node) -> void:
+	main.new_run_opts = { "seed": 4021 } # **시드를 고정한다.** 안 하면 시간 기반 시드라 검사가 흔들린다
+	main.start_run("sword")
+	await process_frame
+	main.sortie = {}
+	main.show("base")
+	await process_frame
+	# 일반 탐험은 "출격을 한 번 마치면" 열린다(TOWN_UI.md·PSortie.repeat_cards: 완료한 카드마다 1장).
+	# 그러니 오늘 카드를 다 이길 필요는 없다 — **한 판을 실제로 이기고 거점까지 돌아오면 된다.**
+	var why: String = await _one_sortie_to_base(main)
+	var done_n := 0
+	for c in PSortie.cards_for(main.run):
+		if bool(c.get("done", false)):
+			done_n += 1
+	ok("실제 경로 ①~④ 출격 → 전투 승리 → 보상 '계속' → 거점 복귀가 실제 버튼으로 이어진다",
+		why == "" and main.screen == "base",
+		"화면 %s%s" % [main.screen, (" · 멈춘 이유: " + why) if why != "" else ""])
+	ok("실제 경로 ④-2 이긴 출격의 카드가 실제로 완료로 남는다(목표가 'clear'인 평범한 출격도)",
+		done_n >= 1, "완료 표시된 카드 %d장" % done_n)
+	if why != "" or main.screen != "base":
+		ok("실제 경로 ⑤ 남은 시간으로 일반 탐험을 실제로 출발한다", false, "앞 단계에서 멈춤: " + why)
+		return
+	var bs2: Node = main.screens["base"]
+	var rname0 := PPacing.repeat_label()
+	var rep0: Button = _vis_enabled_button(bs2, rname0)
+	var left: int = int(main.run.hours)
+	ok("실제 경로 ⑤ 출격을 한 판 마치고 시간이 남으면 '%s' 버튼이 실제로 눌린다" % rname0,
+		rep0 != null and left > 0 and done_n >= 1,
+		"남은 시간 %d · 완료 카드 %d · 버튼 %s" % [left, done_n, str(rep0 != null)])
+	if rep0 == null:
+		return
+	var h1: int = int(main.run.hours)
+	var gold1: int = int(main.run.gold)
+	rep0.pressed.emit()
+	await process_frame
+	ok("실제 경로 ⑥ '%s'이 전투를 시작하고 시간 1칸을 쓴다" % rname0,
+		main.screen == "combat" and bool(main.sortie.get("repeat", false)) and int(main.run.hours) == h1 - 1,
+		"screen=%s hours=%d→%d repeat=%s" % [main.screen, h1, int(main.run.hours), str(main.sortie.get("repeat", false))])
+	ok("실제 경로 ⑦ 일반 탐험에는 사건이 붙지 않는다(이용권·사건 재지급 금지)",
+		main.sortie.get("event", null) == null, "event=%s gold=%d" % [str(main.sortie.get("event", null)), gold1])
+	if main.view != null:
+		main.view.running = false
+
 ## 같은 상태를 매번 새로 만들어 8방향으로 0.5초씩 걷고 최소 이동량(px)을 돌려준다
 func _walk_min(st: CombatState) -> float:
 	var worst := 99999.0
@@ -81,6 +181,11 @@ func _town_ui_tests(main: Node) -> void:
 		went = main.screen == "combat" and int(r.hours) < h0
 		main.view.running = false
 	ok("거점: 시간이 남으면 '출격' 버튼이 실제로 눌리고 전투가 시작된다", went, "hours %d → %d · screen=%s" % [h0, int(r.hours), main.screen])
+	# ②-0 **실제 UI 경로로** 임무 완료 → 거점 복귀 → 남은 시간으로 일반 탐험 출발까지.
+	# 사용자 지적: "버튼 존재나 내부 함수 호출만으로 완료 처리하지 마라."
+	# 앞선 검사는 카드에 done을 찍어 두고 버튼만 눌렀다. 여기서는 **전투를 실제로 이겨서** 돌아온다.
+	await _repeat_after_real_sortie(main)
+
 	# ② 오늘 카드를 다 끝낸 뒤 남는 시간: '일반 탐험'이 자기 영역에서 눌린다
 	main.sortie = {}
 	main.run.phase = "prep"
@@ -538,7 +643,14 @@ func _run() -> void:
 	main._on_pick(String(off.choices[0].key))
 	ok("전투 중 3택 선택 뒤 자동 저장: pendingSortie 없음, 선택은 저장됨(성장 유지)", PSave.load().get("pendingSortie", null) == null and int(PSave.load().growth.level) == int(main.run.growth.level) and int(PSave.load().growth.pendingLevelUps) == 0)
 	_reopen(main)
-	ok("그 상태로 종료 → 계속하기: 거점, 시간 2칸, 성장 유지", main.screen == "base" and int(main.run.hours) == 2 and int(main.run.growth.level) == level0)
+	# 남는 시간 1칸: 5 - d1c1(숲길 1칸) - 더 깊이(1칸) - d1c2(사냥터 안쪽 **2칸**) = 1.
+	# 2026-09-09 기대값 정정: 예전 일정은 1일차가 forest·ridge(둘 다 1칸)라 2칸이 남았다.
+	# 막 테마 경로가 들어오면서 1일차 둘째 장소가 t1a_core(themes.json cost 2)로 바뀌었다 —
+	# 규칙이 바뀐 것이지 흐름이 깨진 것이 아니므로 기대값을 실제 비용표에 맞춘다.
+	var c2_cost := PRun.place_cost(String(PSortie.card(main.run, "d1c2").get("regionId", "")))
+	ok("그 상태로 종료 → 계속하기: 거점, 시간 %d칸(=3-둘째 카드 %d칸), 성장 유지" % [3 - c2_cost, c2_cost],
+		main.screen == "base" and int(main.run.hours) == 3 - c2_cost and int(main.run.growth.level) == level0,
+		"screen=%s hours=%d level=%d(기대 %d)" % [main.screen, int(main.run.hours), int(main.run.growth.level), level0])
 	# ---------- F1: 사건 추가 전투 ----------
 	main.run.hours = 5
 	main.run.day = 2

@@ -891,6 +891,42 @@ func placement_tests() -> void:
 				if int(d.get("requires_allies", 0)) > 0 and int(tpl.sizes[pk].total) < int(d.requires_allies):
 					bad_escort.append("%s(%s) 호위 부족" % [String(tpl.id), String(tp)])
 	ok("배치한 정예가 그 막에 허용된 종류다(elites.json acts)", bad_act.is_empty(), str(bad_act))
+
+	# **결투 후보도 같은 제한을 지킨다.** 편성 안 정예만 보던 검사라 결투 후보(themes[].special_elites)가
+	# 막 제한을 어겨도 잡히지 않았다 — 1막 포자 정원의 역병 조율사·균열 채굴자가 그런 경우였다.
+	# acts_extra는 '그 테마에서만' 여는 예외다(다른 테마로 넓히지 않는다).
+	var bad_duel := []
+	var T2 := PCatalog.themes()
+	for tid in T2:
+		var th2: Dictionary = T2[tid]
+		var act2 := int(th2.act)
+		for tp2 in th2.get("special_elites", []):
+			var d2: Dictionary = E.get(String(tp2), {})
+			if d2.is_empty():
+				continue
+			var okk := false
+			for a2 in (d2.acts as Array):
+				if int(a2) == act2:
+					okk = true
+			if not okk:
+				var ex: Array = (d2.get("acts_extra", {}) as Dictionary).get(str(act2), [])
+				if ex.has(String(tid)):
+					okk = true
+			if not okk:
+				bad_duel.append("%s(%s) %d막" % [String(tid), String(tp2), act2])
+	ok("결투 후보(테마별 특수 정예)도 그 막에 허용된 종류다", bad_duel.is_empty(), str(bad_duel))
+
+	# 예외가 **그 테마에만** 열려 있는지(다른 테마로 새지 않았는지)
+	var leaked := []
+	for k2 in E:
+		var ex2: Dictionary = (E[k2] as Dictionary).get("acts_extra", {})
+		for a3 in ex2:
+			for tid2 in (ex2[a3] as Array):
+				if not T2.has(String(tid2)):
+					leaked.append("%s: 없는 테마 %s" % [String(k2), String(tid2)])
+				elif int(T2[String(tid2)].act) != int(a3):
+					leaked.append("%s: %s는 %d막인데 %s막 예외" % [String(k2), String(tid2), int(T2[String(tid2)].act), String(a3)])
+	ok("막 예외(acts_extra)가 실제로 그 막의 그 테마만 가리킨다", leaked.is_empty(), str(leaked))
 	ok("상극 조합(avoid_with)이 같은 편성에 함께 들어가지 않는다", bad_avoid.is_empty(), str(bad_avoid))
 	ok("호위가 필요한 정예(군단 기수)는 호위가 충분한 편성에만 있다", bad_escort.is_empty(), str(bad_escort))
 

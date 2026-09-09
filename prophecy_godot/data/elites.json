@@ -1,452 +1,577 @@
 {
- "schema": "prophecy_elites/1",
- "note": "특수 정예 7종의 **배치표**(손으로 작성한 시험값, 2026-09-08). 행동·수치 정의는 data/enemies.json에 있고 규칙 코드는 scripts/rules/enemies_new.gd다. 이 파일은 '어떤 정예를 어느 막·어떤 편성에 몇 마리 넣을지'만 담는다. 실제 출격 편성에 꽂는 작업은 data/pacing.json·scripts/rules/run.gd 담당자 몫이며, 붙이는 방법은 아래 interface와 examples, 자세한 설명은 docs/ELITES.md에 있다. 배치는 2026-09-08에 끝났다: 실제 편성은 data/themes.json의 elite_type·elite_type_p2·elite_types이고, 이 파일은 PCatalog.elites()/elite_placement()로 규칙 코드와 검사(tests/elites_tests.gd)가 읽는 정본이다. 아래 assigned 표가 지금 게임에서 실제로 나오는 배치다.",
- "anchor": {
-  "note": "체력 기준선. 사용자 지시 '강화된 그 막 주력 적의 3~5배'를 그대로 쓴다. 주력 = 그 막의 주력 근접(늑대). 2차 상향 뒤 값(docs/sim/HP_TABLE_2.md).",
-  "main_melee_hp": {
-   "1": 48,
-   "2": 262,
-   "3": 612
-  },
-  "armored_hp": {
-   "1": 88,
-   "2": 465,
-   "3": 1104
-  },
-  "ref_dps": {
-   "1": 22.0,
-   "2": 68.0,
-   "3": 150.0
-  }
- },
- "elites": {
-  "elite_archer": {
-   "name": "정예 궁수",
-   "kind": "range_pressure",
-   "hp_by_act": {
-    "1": 200,
-    "2": 1090,
-    "3": 2550
-   },
-   "hp_ratio_to_main_melee": 4.17,
-   "acts": [
-    1,
-    2,
-    3
-   ],
-   "max_alive": 1,
-   "max_per_fight": 1,
-   "wants": "열린 전장. 바위가 많아도 스스로 사격 위치를 바꾸므로 막히지 않는다",
-   "escort_hint": "근접 2~3(궁수만 두면 계속 도망만 친다)",
-   "avoid_with": [
-    "elite_plaguecaller"
-   ],
-   "avoid_reason": "원거리 압박 + 바닥 통제가 겹치면 서 있을 자리가 사라진다",
-   "read": {
-    "held": "긴 활 + 등에 멘 화살통",
-    "silhouette": "가볍고 마른 몸 · 무릎을 굽힌 사격 자세",
-    "tell": "시위를 당긴 팔과 활 — 부채꼴 3발 전에는 화살 세 대가 함께 보인다",
-    "role_text": "원거리 압박 · 계속 자리를 옮긴다",
-    "distance": "붙어야 한다(멀면 계속 쏜다)"
-   }
-  },
-  "elite_blademaster": {
-   "name": "정예 검사",
-   "kind": "charger_armored",
-   "hp_by_act": {
-    "1": 280,
-    "2": 1530,
-    "3": 3570
-   },
-   "hp_ratio_to_main_melee": 5.83,
-   "hp_ratio_to_armored": 3.18,
-   "acts": [
-    1,
-    2,
-    3
-   ],
-   "max_alive": 1,
-   "max_per_fight": 1,
-   "wants": "돌진할 직선이 있는 전장. 기둥이 많으면 근접 연계(방패 자세 → 내려찍기)로 바뀐다",
-   "escort_hint": "원거리 1~2(방패 자세 정면을 피해 도는 동안 압박)",
-   "avoid_with": [
-    "elite_chainbreaker"
-   ],
-   "avoid_reason": "끌기 + 돌진이 겹치면 확정 뒤 회피 창이 사라진다",
-   "read": {
-    "held": "큰 검 + **방패**",
-    "silhouette": "두꺼운 중갑 · 어깨가 넓다",
-    "tell": "방패 자세일 때 방패가 정면을 완전히 덮는다(그동안 정면 직접 피해 0)",
-    "role_text": "돌진 베기 2연 → 방패 자세 → 내려찍기",
-    "distance": "측·후면으로 돌아야 한다(정면은 막힌다)"
-   }
-  },
-  "elite_fang": {
-   "name": "피의 송곳니",
-   "kind": "flanker_leap",
-   "hp_by_act": {
-    "1": 190,
-    "2": 1040,
-    "3": 2420
-   },
-   "hp_ratio_to_main_melee": 3.96,
-   "acts": [
-    1,
-    2,
-    3
-   ],
-   "max_alive": 1,
-   "max_per_fight": 2,
-   "wants": "옆으로 돌 공간. 좁은 통로에서는 도약이 자주 빗나가 빈틈이 길어진다",
-   "escort_hint": "늑대·도적 같은 근접과 잘 맞는다(측면 압박이 겹친다)",
-   "avoid_with": [],
-   "avoid_reason": "",
-   "read": {
-    "held": "무기 없음 — 드러난 송곳니",
-    "silhouette": "낮게 웅크린 늑대 · 몸이 길다",
-    "tell": "도약 전에 뒷다리가 접히고 바닥에 착지 원이 뜬다",
-    "role_text": "측면으로 돌아 물기 → 이탈 → 도약",
-    "distance": "옆으로 돌 공간을 뺏는다(벽을 등지면 도약이 자주 빗나간다)"
-   }
-  },
-  "elite_plaguecaller": {
-   "name": "역병 조율사",
-   "kind": "zone_control",
-   "hp_by_act": {
-    "1": 205,
-    "2": 1120,
-    "3": 2610
-   },
-   "hp_ratio_to_main_melee": 4.27,
-   "acts": [
-    2,
-    3
-   ],
-   "max_alive": 1,
-   "max_per_fight": 1,
-   "wants": "넓은 전장. 좁은 전장에서는 포자 배치가 출구 검사에 걸려 자주 생략된다",
-   "escort_hint": "근접 2~3(구름 밖으로 나가면 근접이 맞이하도록)",
-   "avoid_with": [
-    "frostcaller",
-    "spore",
-    "elite_archer"
-   ],
-   "avoid_reason": "바닥 통제가 겹치면 서 있을 자리가 사라진다(장판 총량 상한과 별개로 편성에서 막는다)",
-   "read": {
-    "held": "허리에 매단 **포자 주머니 3개**",
-    "silhouette": "후드를 쓴 굽은 등",
-    "tell": "주머니가 하나씩 사라지며 바닥에 순서 번호가 붙은 원 3개가 생긴다",
-    "role_text": "바닥 통제 · 포자 3개를 순서대로 터뜨린다",
-    "distance": "중거리 유지 후 원 사이로 빠진다"
-   }
-  },
-  "elite_chainbreaker": {
-   "name": "사슬 집행자",
-   "kind": "grab_slam",
-   "hp_by_act": {
-    "1": 220,
-    "2": 1200,
-    "3": 2800
-   },
-   "hp_ratio_to_main_melee": 4.58,
-   "acts": [
-    2,
-    3
-   ],
-   "max_alive": 1,
-   "max_per_fight": 1,
-   "wants": "바위가 있는 전장(사슬이 바위에 막혀 대처가 생긴다)",
-   "escort_hint": "근접 1~2. 끌린 직후 강타를 피할 자리는 반드시 비워 둔다",
-   "avoid_with": [
-    "elite_blademaster",
-    "boar"
-   ],
-   "avoid_reason": "끌기 뒤 회피 창에 돌진이 겹치면 탈출이 불가능해진다",
-   "read": {
-    "held": "**사슬 갈고리** + 한손 망치",
-    "silhouette": "한쪽 팔이 크다 · 사슬이 바닥에 끌린다",
-    "tell": "사슬이 곧게 펴지며 직선 예고가 뜬다(바위에 막히면 거기서 끊긴다)",
-    "role_text": "끌어당긴 뒤 강타 · 끌린 뒤에도 0.70초의 회피 창이 있다",
-    "distance": "바위를 사이에 둔다"
-   }
-  },
-  "elite_standard": {
-   "name": "군단 기수",
-   "kind": "commander",
-   "hp_by_act": {
-    "1": 185,
-    "2": 1010,
-    "3": 2360
-   },
-   "hp_ratio_to_main_melee": 3.85,
-   "acts": [
-    1,
-    2,
-    3
-   ],
-   "max_alive": 1,
-   "max_per_fight": 1,
-   "wants": "**호위가 반드시 함께 있어야 한다**(혼자 두면 지휘할 대상이 없어 그냥 약한 근접이 된다)",
-   "escort_hint": "같은 편성에 일반 적 4마리 이상",
-   "requires_allies": 4,
-   "avoid_with": [],
-   "avoid_reason": "",
-   "economy_note": "적을 새로 소환하지 않는다. 깃발(구조물)은 경험치·금화를 주지 않으므로 반복 파괴가 수급 경로가 되지 않는다",
-   "read": {
-    "held": "**깃발 장대** + 짧은 검",
-    "silhouette": "장대 때문에 키가 가장 크다",
-    "tell": "깃발을 땅에 꽂는 동작 — 꽂힌 깃발은 부술 수 있다",
-    "role_text": "지휘 · 범위 안 아군을 모으고 돌격을 명령한다(적을 새로 부르지는 않는다)",
-    "distance": "깃발을 먼저 부순다"
-   }
-  },
-  "elite_miner": {
-   "name": "균열 채굴자",
-   "kind": "burrow_terrain",
-   "hp_by_act": {
-    "1": 215,
-    "2": 1170,
-    "3": 2740
-   },
-   "hp_ratio_to_main_melee": 4.48,
-   "acts": [
-    2,
-    3
-   ],
-   "max_alive": 1,
-   "max_per_fight": 1,
-   "wants": "장애물이 적은 전장(돌무더기를 놓을 자리가 있어야 한다)",
-   "escort_hint": "근접 2(지하 구간 동안 압박이 끊기지 않게)",
-   "avoid_with": [
-    "objective:escort",
-    "objective:hold"
-   ],
-   "avoid_reason": "돌무더기가 호위 경로·거점을 좁힐 수 있다. 출구 검사가 있지만 목표 전투에서는 넣지 않는 편이 안전하다",
-   "read": {
-    "held": "**곡괭이**",
-    "silhouette": "굵은 팔 · 등에 굴착 장비",
-    "tell": "지하 이동 중 바닥에 흙 자국이 이어지고, 나오기 전에 출현 원이 고정된다",
-    "role_text": "지하 이동 · 솟구치며 돌무더기를 만든다",
-    "distance": "출현 원 밖으로 걸어 나간다"
-   }
-  }
- },
- "readability": {
-  "note": "**역할을 읽을 수 있게 하는 자료**(2026-09-09). 외형(실루엣)을 그리는 것은 scripts/game/render.gd 담당이고, 여기 있는 것은 '무엇을 들고 있어야 역할이 읽히는가'라는 규칙 쪽 자료다. 화면이 이 표를 읽어 실루엣을 정하면 플레이어가 붙기 전에 대응을 고를 수 있다. 설명은 docs/ELITES.md §역할 읽기.",
-  "why": "사용자 지시: 특수 정예는 일반 경로에서도 존재를 알 수 있어야 한다. 체력을 올려 강적처럼 보이게 하는 대신, **무엇을 들었는지**로 역할이 보이게 한다.",
-  "fields": {
-   "held": "손에 든 것(실루엣에서 가장 먼저 읽혀야 하는 것)",
-   "silhouette": "몸 형태의 특징",
-   "tell": "예고 때 커지거나 빛나야 하는 부위 — 무엇이 올지 알려 주는 곳",
-   "role_text": "한 줄 역할(출격 카드·도감 문구와 같은 말)",
-   "distance": "플레이어가 취해야 하는 거리"
-  },
-  "where": "각 정예 항목의 read 블록에 들어 있다(PCatalog.elite_def(id).read). 새 접근자를 만들 필요가 없도록 일부러 elites 안에 뒀다."
- },
- "common_elites": {
-  "note": "**일반 정예 확장 10종**(2026-09-09, 시험값). 위 elites(특수 정예 7종)와 **다른 계층**이라 일부러 따로 뒀다 — PCatalog.elites()/elite_def()는 여기를 읽지 않으며, 규칙 표의 정본은 scripts/rules/enemies_new.gd의 COMMON_ELITES, 수치의 정본은 data/pacing.json(enemy_tuning · enemy_hp.elite_by_act)이다. 이 블록은 사람이 읽는 배치 자료다.",
-  "principle": "익숙한 일반 몬스터의 **강화형**이고 기본 행동에 **눈에 띄는 변화 하나**를 더한다. 체력만 크게 늘려 정예로 만들지 않는다. 여러 고유 패턴을 잇는 특수 정예와 구분하고, 붉은·상위 변이(세계 변화 등급)와도 별개다(체력 배율을 겹쳐 적용하지 않는다 — enemy_hp.elite_by_act의 절대값이 등급 배율을 대신한다).",
-  "placement_status": "**아직 어느 편성에도 배치되지 않았다.** 실제 배치는 data/themes.json의 elite_type·elite_type_p2·elite_types이며 그 파일은 다른 담당 몫이다. 배치할 때 필요한 훅은 docs/MONSTERS.md §필요한 훅에 적어 뒀다(PCatalog.enemies()가 PEnemiesNew.extra_defs()를 합치는 한 줄, growth.json XP_VALUE, render.gd 그림).",
-  "types": {
-   "wolf_alpha": { "name": "늑대 우두머리", "base": "wolf", "extra": "없음(이미 있는 정예 — 확장 구조에 등록만 했다)", "note": "0.3.1 늑대 규칙과 승인된 첫 전투(D33)를 보존해야 하므로 행동을 더하지 않았다. PEnemies.update가 is_wolf를 먼저 보므로 갱신 경로도 그대로다." },
-   "boar_elite": { "name": "쇄도 멧돼지", "base": "boar", "extra": "돌진 끝 예고된 짧은 충격파", "state": "shock_aim", "test_values": { "shockAim": 0.45, "shockR": 100, "shockDamage": 14 }, "note": "바위에 부딪혀 비틀거린 돌파에는 충격파가 없다." },
-   "archer_elite": { "name": "연사 궁수", "base": "archer", "extra": "조준 후 빠른 두 발 사격", "state": "shot2_lock", "test_values": { "shot2Lock": 0.2 }, "note": "두 번째 발은 새로 조준하지 않고 이미 예고·확정된 같은 선으로 나간다." },
-   "shieldbearer_elite": { "name": "돌격 방패병", "base": "shieldbearer", "extra": "방패 타격 뒤 짧은 전진 공격", "state": "push_aim", "test_values": { "pushAim": 0.35, "pushLunge": 46, "pushRange": 62, "pushDeg": 90, "pushDamage": 12 } },
-   "spider_elite": { "name": "두겹 거미", "base": "spider", "extra": "두 방향 거미줄", "state": "web2_aim", "test_values": { "web2Aim": 0.45, "web2Deg": 115, "web2Dist": 90 }, "note": "전장 거미줄 총 상한(maxWebs 4)은 바탕 그대로다." },
-   "spore_elite": { "name": "역병 포자", "base": "spore", "extra": "본체 폭발 뒤 제한된 작은 포자 구역 잔류", "state": "residue_aim", "test_values": { "residueAim": 0.4, "residueFrac": 0.45, "residueTtl": 3.0, "residueDamage": 4, "residueMax": 1 } },
-   "rogue_elite": { "name": "삼연 도적", "base": "rogue", "extra": "접근 베기 뒤 측면 이동과 후속 베기", "state": "flank_move → slash3_aim", "test_values": { "flankTime": 0.45, "flankSpeed": 210, "aim3": 0.35 }, "note": "자리를 옮기는 동안에는 공격 판정이 없다." },
-   "burrower_elite": { "name": "이중 잠복충", "base": "burrower", "extra": "첫 출현 뒤 짧게 재잠복하고 두 번째 위치를 예고해 다시 출현", "state": "redive → reunder → rewarn", "test_values": { "redive": 0.3, "reunder": 0.45, "rewarn": 0.55, "reEmergeR": 56, "reDamage": 12 }, "note": "재잠복은 연계 안에서 한 차례뿐이고 끝나면 바탕과 같은 지상 빈틈으로 들어간다." },
-   "toad_elite": { "name": "충격 두꺼비", "base": "toad", "extra": "착지 뒤 한 차례 예고된 지면 충격", "state": "slam_aim", "test_values": { "slamAim": 0.5, "slamR": 90, "slamDamage": 12 }, "note": "충격은 한 차례뿐이며 뒤에 바탕의 빈틈과 도약 재사용(4.5초)이 온다 — 무한 연속 점프가 되지 않는다." },
-   "frostcaller_elite": { "name": "서리 이중술사", "base": "frostcaller", "extra": "한 지점 대신 두 지점 순차 공격", "state": "cast2_aim", "test_values": { "cast2Aim": 0.5, "cast2Deg": 120, "cast2Count": 2, "cast2Delays": [0.9, 1.5], "minExits": 4, "probe": 110 }, "note": "두 번째 묶음은 살아 있는 서리 영역까지 합쳐 플레이어 주위 탈출 방향이 minExits개 남는 자리에만 놓는다 — 동시에 전 방향을 막지 않는다." }
-  },
-  "hp_note": "체력은 data/pacing.json enemy_hp.elite_by_act에 있다. 산식(시험값): 1막 = 바탕 적의 일반 등급 체력 × 2.5, 2·3막은 특수 정예와 같은 막별 화력비(×4.93 · ×12.11). 늑대 우두머리의 기존 1막 값 120이 곧 늑대 48 × 2.5라 이미 있는 정예와 같은 자리에서 출발한다(우두머리의 2·3막 값은 기존 유도 그대로 두었다).",
-  "read_note": "특수 정예의 read 블록(무엇을 들었는지·예고에서 어디가 커지는지)에 해당하는 자료는 일반 정예에는 아직 만들지 않았다. 일반 정예는 바탕 몬스터와 같은 실루엣을 쓰되 **더한 행동의 예고**로 구분되도록 설계했다 — 화면 담당이 실루엣 표식을 원하면 여기에 read 블록을 같은 모양으로 추가하면 된다."
- },
- "placement": {
-  "note": "동시 등장·간격 시험값. 규칙 코드의 '정예 동시 연계 1'(enemies_new.elite_may_start)과 별개로, 편성 단계에서도 겹치지 않게 한다.",
-  "max_elites_alive": 1,
-  "max_elites_per_fight": {
-   "1": 1,
-   "2": 1,
-   "3": 2
-  },
-  "min_gap_sec": 20,
-  "first_elite_after_frac": 0.35,
-  "risk_only_acts": [
-   1
-  ],
-  "risk_only_note": "1막에서는 위험 편성(risk)에만 넣어 첫 만남이 사고가 되지 않게 한다"
- },
- "assigned": {
-  "note": "실제 출격 편성 배치(2026-09-08, 시험값). 정본은 data/themes.json이고 이 표는 사람이 읽는 사본이다 — 두 곳이 어긋나면 tests/elites_tests.gd가 실패한다. p1 = 비용 1칸 장소, p2 = 비용 2칸(큰 보상) 장소와 더 깊이 탐험.",
-  "rules": [
-   "1막은 위험 편성에만 넣는다(첫 만남이 사고가 되지 않게). 1막 평범한 편성에는 정예가 없다",
-   "평범한 편성은 테마당 최대 1개만 정예를 쓴다 — 27개 중 3개(t2a_elite_support · t3b_rogue_alpha · t3b_wolf_archer)",
-   "비용 2칸(큰 보상) 장소와 더 깊이 탐험은 '강한 정예 1 + 호위'다. 종류가 elite_type_p2로 바뀌고 마리 수는 막별 상한(max_elites_per_fight)을 넘지 않는다",
-   "3막 위험 편성의 정예 2마리는 서로 다른 두 종류(elite_types)이며 장소로 더 올리지 않는다",
-   "마리 수(themes.json의 elites)는 어느 편성도 바꾸지 않았다 — 총 등장 수·경험치 예산 불변",
-   "출격 카드에 '강적 출현 · 이름 · 보상'을 미리 보여 준다(PSortie.elite_notice)"
-  ],
-  "by_formation": {
-   "t1a_risk": {
-    "act": 1,
-    "kind": "risk",
-    "p1": "elite_fang",
-    "p2": "elite_blademaster"
-   },
-   "t1b_risk": {
-    "act": 1,
-    "kind": "risk",
-    "p1": "elite_blademaster",
-    "p2": "elite_blademaster"
-   },
-   "t1c_risk": {
-    "act": 1,
-    "kind": "risk",
-    "p1": "elite_standard",
-    "p2": "elite_blademaster"
-   },
-   "t2a_elite_support": {
-    "act": 2,
-    "kind": "normal",
-    "p1": "elite_standard",
-    "p2": "elite_blademaster"
-   },
-   "t2a_risk": {
-    "act": 2,
-    "kind": "risk",
-    "p1": "elite_plaguecaller",
-    "p2": "elite_chainbreaker"
-   },
-   "t2b_risk": {
-    "act": 2,
-    "kind": "risk",
-    "p1": "elite_fang",
-    "p2": "elite_archer"
-   },
-   "t2c_risk": {
-    "act": 2,
-    "kind": "risk",
-    "p1": "elite_miner",
-    "p2": "elite_blademaster"
-   },
-   "t3a_risk": {
-    "act": 3,
-    "kind": "risk",
-    "pair": [
-     "elite_blademaster",
-     "elite_miner"
-    ]
-   },
-   "t3b_rogue_alpha": {
-    "act": 3,
-    "kind": "normal",
-    "p1": "elite_fang",
-    "p2": "elite_blademaster"
-   },
-   "t3b_wolf_archer": {
-    "act": 3,
-    "kind": "normal",
-    "p1": "elite_standard",
-    "p2": "elite_blademaster"
-   },
-   "t3b_risk": {
-    "act": 3,
-    "kind": "risk",
-    "pair": [
-     "elite_blademaster",
-     "elite_archer"
-    ]
-   },
-   "t3c_risk": {
-    "act": 3,
-    "kind": "risk",
-    "pair": [
-     "elite_chainbreaker",
-     "elite_plaguecaller"
-    ]
-   }
-  },
-  "coverage_note": "2막·3막 모두 7종이 전부 실제 편성 안에 있다(2막은 p1 4종 + p2 3종, 3막은 8자리에 7종). 측정은 docs/sim/ELITE_PLACEMENT.md.",
-  "measure_note": "1차 측정에서 균열 채굴자가 굴착장(t2b p2)에서 고유 연계를 1회밖에 마치지 못했다 — 전투가 짧고 먼저 집중당한다. 체력·주기를 손대지 않고 **배치만** 바꿔 해결했다: 굴착장은 주기가 짧은 정예 궁수로, 균열 채굴자는 전투가 긴 눈길(t2c p1)로 옮겼다. 2차 측정 결과는 docs/sim/ELITE_PLACEMENT.md."
- },
- "interface": {
-  "note": "**적용 완료(2026-09-08).** 정예를 꽂는 자리는 PRun.elite_types_for → PRun.template_waves이며, 템플릿의 elite_type(기본) · elite_type_p2(비용 2칸 장소와 더 깊이 탐험) · elite_types(2마리 조합)를 읽는다. 값이 없으면 기존 늑대 우두머리라 회귀가 없다. 아래는 그때 바꾼 자리의 기록이다.",
-  "run_gd": {
-   "file": "scripts/rules/run.gd",
-   "at": "template_waves() 안 `if int(tpl.get(\"elites\", 0)) > 0:` 블록",
-   "before": "wave.append({ \"type\": \"wolf_alpha\", \"n\": int(tpl.elites), \"ref\": float(tpl.elites) })",
-   "after": "wave.append({ \"type\": String(tpl.get(\"elite_type\", \"wolf_alpha\")), \"n\": int(tpl.elites), \"ref\": float(tpl.elites) })",
-   "why": "템플릿이 정예 종류를 고르게 한다. 값이 없으면 기존 늑대 우두머리라 회귀가 없다"
-  },
-  "themes_json": {
-   "file": "data/themes.json",
-   "at": "각 formations.normal / formations.risk 항목",
-   "add": "\"elite_type\": \"elite_fang\"  (elites: 1 과 함께)",
-   "why": "편성마다 어울리는 정예를 지정한다. elites가 0이면 무시된다"
-  },
-  "pacing_json": {
-   "file": "data/pacing.json",
-   "at": "enemy_hp.elite_by_act",
-   "add": "위 elites[*].hp_by_act 표를 그대로 행으로 넣는다(예: \"elite_fang\": { \"1\": 190, \"2\": 1040, \"3\": 2420 })",
-   "why": "정예 체력은 등급이 아니라 막으로 오른다(PPacing.elite_hp). 표가 없으면 data/enemies.json의 1막 값이 모든 막에 쓰인다",
-   "current_state": "적용 완료 — data/pacing.json enemy_hp.elite_by_act에 7종 1·2·3막 값이 들어 있다(PPacing.elite_hp)"
-  },
-  "growth_json": {
-   "file": "data/growth.json",
-   "at": "growth.XP_VALUE",
-   "add": "정예 7종의 마리당 경험치. **적용 완료: 늑대 우두머리와 같은 30.** 편성의 정예 종류를 바꿔도 전투 경험치 예산이 달라지지 않게 하려는 것이다(제안했던 32~40은 예산을 늘려 쓰지 않았다).",
-   "suggest": {
-    "elite_archer": 34,
-    "elite_blademaster": 40,
-    "elite_fang": 32,
-    "elite_plaguecaller": 34,
-    "elite_chainbreaker": 36,
-    "elite_standard": 30,
-    "elite_miner": 34
-   },
-   "why": "밀도 예산(formation.xp_map)이 없는 경로에서 정예가 일반 적보다 적은 경험치를 주는 것을 막는다"
-  }
- },
- "examples": [
-  {
-   "name": "1막 위험 편성에 피의 송곳니 1마리",
-   "theme_formation_patch": {
-    "id": "t1a_wolves_risk",
-    "elites": 1,
-    "elite_type": "elite_fang"
-   },
-   "expect": "총 등장 수는 그대로, 마지막에 정예 1마리가 붙는다. 동시 상한(alive_cap)은 건드리지 않는다"
-  },
-  {
-   "name": "2막 방패 편성에 정예 검사 1마리",
-   "theme_formation_patch": {
-    "id": "t2a_shields",
-    "elites": 1,
-    "elite_type": "elite_blademaster"
-   },
-   "pacing_patch": {
-    "enemy_hp": {
-     "elite_by_act": {
-      "elite_blademaster": {
-       "1": 280,
-       "2": 1530,
-       "3": 3570
-      }
-     }
+  "schema": "prophecy_elites/1",
+  "note": "특수 정예 7종의 **배치표**(손으로 작성한 시험값, 2026-09-08). 행동·수치 정의는 data/enemies.json에 있고 규칙 코드는 scripts/rules/enemies_new.gd다. 이 파일은 '어떤 정예를 어느 막·어떤 편성에 몇 마리 넣을지'만 담는다. 실제 출격 편성에 꽂는 작업은 data/pacing.json·scripts/rules/run.gd 담당자 몫이며, 붙이는 방법은 아래 interface와 examples, 자세한 설명은 docs/ELITES.md에 있다. 배치는 2026-09-08에 끝났다: 실제 편성은 data/themes.json의 elite_type·elite_type_p2·elite_types이고, 이 파일은 PCatalog.elites()/elite_placement()로 규칙 코드와 검사(tests/elites_tests.gd)가 읽는 정본이다. 아래 assigned 표가 지금 게임에서 실제로 나오는 배치다.",
+  "anchor": {
+    "note": "체력 기준선. 사용자 지시 '강화된 그 막 주력 적의 3~5배'를 그대로 쓴다. 주력 = 그 막의 주력 근접(늑대). 2차 상향 뒤 값(docs/sim/HP_TABLE_2.md).",
+    "main_melee_hp": {
+      "1": 48,
+      "2": 262,
+      "3": 612
+    },
+    "armored_hp": {
+      "1": 88,
+      "2": 465,
+      "3": 1104
+    },
+    "ref_dps": {
+      "1": 22.0,
+      "2": 68.0,
+      "3": 150.0
     }
-   },
-   "expect": "2막에서 1530 체력. 방패 자세 정면 완전 차단이라 측·후면 공략을 배우게 된다"
   },
-  {
-   "name": "3막 혼합 편성에 군단 기수(호위 필수)",
-   "theme_formation_patch": {
-    "id": "t3a_mixed",
-    "elites": 1,
-    "elite_type": "elite_standard"
-   },
-   "requires": "같은 편성에 일반 적 4마리 이상(comp에 근접이 있어야 지휘가 의미를 갖는다)",
-   "expect": "깃발 1~2개, 돌격 명령 최대 6회. 추가 소환은 없다"
-  }
- ]
+  "elites": {
+    "elite_archer": {
+      "name": "정예 궁수",
+      "kind": "range_pressure",
+      "hp_by_act": {
+        "1": 200,
+        "2": 1090,
+        "3": 2550
+      },
+      "hp_ratio_to_main_melee": 4.17,
+      "acts": [
+        1,
+        2,
+        3
+      ],
+      "max_alive": 1,
+      "max_per_fight": 1,
+      "wants": "열린 전장. 바위가 많아도 스스로 사격 위치를 바꾸므로 막히지 않는다",
+      "escort_hint": "근접 2~3(궁수만 두면 계속 도망만 친다)",
+      "avoid_with": [
+        "elite_plaguecaller"
+      ],
+      "avoid_reason": "원거리 압박 + 바닥 통제가 겹치면 서 있을 자리가 사라진다",
+      "read": {
+        "held": "긴 활 + 등에 멘 화살통",
+        "silhouette": "가볍고 마른 몸 · 무릎을 굽힌 사격 자세",
+        "tell": "시위를 당긴 팔과 활 — 부채꼴 3발 전에는 화살 세 대가 함께 보인다",
+        "role_text": "원거리 압박 · 계속 자리를 옮긴다",
+        "distance": "붙어야 한다(멀면 계속 쏜다)"
+      }
+    },
+    "elite_blademaster": {
+      "name": "정예 검사",
+      "kind": "charger_armored",
+      "hp_by_act": {
+        "1": 280,
+        "2": 1530,
+        "3": 3570
+      },
+      "hp_ratio_to_main_melee": 5.83,
+      "hp_ratio_to_armored": 3.18,
+      "acts": [
+        1,
+        2,
+        3
+      ],
+      "max_alive": 1,
+      "max_per_fight": 1,
+      "wants": "돌진할 직선이 있는 전장. 기둥이 많으면 근접 연계(방패 자세 → 내려찍기)로 바뀐다",
+      "escort_hint": "원거리 1~2(방패 자세 정면을 피해 도는 동안 압박)",
+      "avoid_with": [
+        "elite_chainbreaker"
+      ],
+      "avoid_reason": "끌기 + 돌진이 겹치면 확정 뒤 회피 창이 사라진다",
+      "read": {
+        "held": "큰 검 + **방패**",
+        "silhouette": "두꺼운 중갑 · 어깨가 넓다",
+        "tell": "방패 자세일 때 방패가 정면을 완전히 덮는다(그동안 정면 직접 피해 0)",
+        "role_text": "돌진 베기 2연 → 방패 자세 → 내려찍기",
+        "distance": "측·후면으로 돌아야 한다(정면은 막힌다)"
+      }
+    },
+    "elite_fang": {
+      "name": "피의 송곳니",
+      "kind": "flanker_leap",
+      "hp_by_act": {
+        "1": 190,
+        "2": 1040,
+        "3": 2420
+      },
+      "hp_ratio_to_main_melee": 3.96,
+      "acts": [
+        1,
+        2,
+        3
+      ],
+      "max_alive": 1,
+      "max_per_fight": 2,
+      "wants": "옆으로 돌 공간. 좁은 통로에서는 도약이 자주 빗나가 빈틈이 길어진다",
+      "escort_hint": "늑대·도적 같은 근접과 잘 맞는다(측면 압박이 겹친다)",
+      "avoid_with": [],
+      "avoid_reason": "",
+      "read": {
+        "held": "무기 없음 — 드러난 송곳니",
+        "silhouette": "낮게 웅크린 늑대 · 몸이 길다",
+        "tell": "도약 전에 뒷다리가 접히고 바닥에 착지 원이 뜬다",
+        "role_text": "측면으로 돌아 물기 → 이탈 → 도약",
+        "distance": "옆으로 돌 공간을 뺏는다(벽을 등지면 도약이 자주 빗나간다)"
+      }
+    },
+    "elite_plaguecaller": {
+      "name": "역병 조율사",
+      "kind": "zone_control",
+      "hp_by_act": {
+        "1": 205,
+        "2": 1120,
+        "3": 2610
+      },
+      "hp_ratio_to_main_melee": 4.27,
+      "acts": [
+        2,
+        3
+      ],
+      "max_alive": 1,
+      "max_per_fight": 1,
+      "wants": "넓은 전장. 좁은 전장에서는 포자 배치가 출구 검사에 걸려 자주 생략된다",
+      "escort_hint": "근접 2~3(구름 밖으로 나가면 근접이 맞이하도록)",
+      "avoid_with": [
+        "frostcaller",
+        "spore",
+        "elite_archer"
+      ],
+      "avoid_reason": "바닥 통제가 겹치면 서 있을 자리가 사라진다(장판 총량 상한과 별개로 편성에서 막는다)",
+      "read": {
+        "held": "허리에 매단 **포자 주머니 3개**",
+        "silhouette": "후드를 쓴 굽은 등",
+        "tell": "주머니가 하나씩 사라지며 바닥에 순서 번호가 붙은 원 3개가 생긴다",
+        "role_text": "바닥 통제 · 포자 3개를 순서대로 터뜨린다",
+        "distance": "중거리 유지 후 원 사이로 빠진다"
+      },
+      "acts_extra": {
+        "1": [
+          "act1_spore_garden"
+        ]
+      },
+      "acts_extra_why": "사용자 배정(2026-09-09): 1막 포자 정원의 특수 정예는 역병 조율사·균열 채굴자다. acts는 2·3막이지만 **그 테마 하나에서만** 1막을 허용한다. 다른 1막 테마(사냥 숲·버려진 요새)로는 넓히지 않는다."
+    },
+    "elite_chainbreaker": {
+      "name": "사슬 집행자",
+      "kind": "grab_slam",
+      "hp_by_act": {
+        "1": 220,
+        "2": 1200,
+        "3": 2800
+      },
+      "hp_ratio_to_main_melee": 4.58,
+      "acts": [
+        2,
+        3
+      ],
+      "max_alive": 1,
+      "max_per_fight": 1,
+      "wants": "바위가 있는 전장(사슬이 바위에 막혀 대처가 생긴다)",
+      "escort_hint": "근접 1~2. 끌린 직후 강타를 피할 자리는 반드시 비워 둔다",
+      "avoid_with": [
+        "elite_blademaster",
+        "boar"
+      ],
+      "avoid_reason": "끌기 뒤 회피 창에 돌진이 겹치면 탈출이 불가능해진다",
+      "read": {
+        "held": "**사슬 갈고리** + 한손 망치",
+        "silhouette": "한쪽 팔이 크다 · 사슬이 바닥에 끌린다",
+        "tell": "사슬이 곧게 펴지며 직선 예고가 뜬다(바위에 막히면 거기서 끊긴다)",
+        "role_text": "끌어당긴 뒤 강타 · 끌린 뒤에도 0.70초의 회피 창이 있다",
+        "distance": "바위를 사이에 둔다"
+      }
+    },
+    "elite_standard": {
+      "name": "군단 기수",
+      "kind": "commander",
+      "hp_by_act": {
+        "1": 185,
+        "2": 1010,
+        "3": 2360
+      },
+      "hp_ratio_to_main_melee": 3.85,
+      "acts": [
+        1,
+        2,
+        3
+      ],
+      "max_alive": 1,
+      "max_per_fight": 1,
+      "wants": "**호위가 반드시 함께 있어야 한다**(혼자 두면 지휘할 대상이 없어 그냥 약한 근접이 된다)",
+      "escort_hint": "같은 편성에 일반 적 4마리 이상",
+      "requires_allies": 4,
+      "avoid_with": [],
+      "avoid_reason": "",
+      "economy_note": "적을 새로 소환하지 않는다. 깃발(구조물)은 경험치·금화를 주지 않으므로 반복 파괴가 수급 경로가 되지 않는다",
+      "read": {
+        "held": "**깃발 장대** + 짧은 검",
+        "silhouette": "장대 때문에 키가 가장 크다",
+        "tell": "깃발을 땅에 꽂는 동작 — 꽂힌 깃발은 부술 수 있다",
+        "role_text": "지휘 · 범위 안 아군을 모으고 돌격을 명령한다(적을 새로 부르지는 않는다)",
+        "distance": "깃발을 먼저 부순다"
+      }
+    },
+    "elite_miner": {
+      "name": "균열 채굴자",
+      "kind": "burrow_terrain",
+      "hp_by_act": {
+        "1": 215,
+        "2": 1170,
+        "3": 2740
+      },
+      "hp_ratio_to_main_melee": 4.48,
+      "acts": [
+        2,
+        3
+      ],
+      "max_alive": 1,
+      "max_per_fight": 1,
+      "wants": "장애물이 적은 전장(돌무더기를 놓을 자리가 있어야 한다)",
+      "escort_hint": "근접 2(지하 구간 동안 압박이 끊기지 않게)",
+      "avoid_with": [
+        "objective:escort",
+        "objective:hold"
+      ],
+      "avoid_reason": "돌무더기가 호위 경로·거점을 좁힐 수 있다. 출구 검사가 있지만 목표 전투에서는 넣지 않는 편이 안전하다",
+      "read": {
+        "held": "**곡괭이**",
+        "silhouette": "굵은 팔 · 등에 굴착 장비",
+        "tell": "지하 이동 중 바닥에 흙 자국이 이어지고, 나오기 전에 출현 원이 고정된다",
+        "role_text": "지하 이동 · 솟구치며 돌무더기를 만든다",
+        "distance": "출현 원 밖으로 걸어 나간다"
+      },
+      "acts_extra": {
+        "1": [
+          "act1_spore_garden"
+        ]
+      },
+      "acts_extra_why": "사용자 배정(2026-09-09): 1막 포자 정원의 특수 정예는 역병 조율사·균열 채굴자다. acts는 2·3막이지만 **그 테마 하나에서만** 1막을 허용한다. 다른 1막 테마(사냥 숲·버려진 요새)로는 넓히지 않는다."
+    }
+  },
+  "readability": {
+    "note": "**역할을 읽을 수 있게 하는 자료**(2026-09-09). 외형(실루엣)을 그리는 것은 scripts/game/render.gd 담당이고, 여기 있는 것은 '무엇을 들고 있어야 역할이 읽히는가'라는 규칙 쪽 자료다. 화면이 이 표를 읽어 실루엣을 정하면 플레이어가 붙기 전에 대응을 고를 수 있다. 설명은 docs/ELITES.md §역할 읽기.",
+    "why": "사용자 지시: 특수 정예는 일반 경로에서도 존재를 알 수 있어야 한다. 체력을 올려 강적처럼 보이게 하는 대신, **무엇을 들었는지**로 역할이 보이게 한다.",
+    "fields": {
+      "held": "손에 든 것(실루엣에서 가장 먼저 읽혀야 하는 것)",
+      "silhouette": "몸 형태의 특징",
+      "tell": "예고 때 커지거나 빛나야 하는 부위 — 무엇이 올지 알려 주는 곳",
+      "role_text": "한 줄 역할(출격 카드·도감 문구와 같은 말)",
+      "distance": "플레이어가 취해야 하는 거리"
+    },
+    "where": "각 정예 항목의 read 블록에 들어 있다(PCatalog.elite_def(id).read). 새 접근자를 만들 필요가 없도록 일부러 elites 안에 뒀다."
+  },
+  "common_elites": {
+    "note": "**일반 정예 확장 10종**(2026-09-09, 시험값). 위 elites(특수 정예 7종)와 **다른 계층**이라 일부러 따로 뒀다 — PCatalog.elites()/elite_def()는 여기를 읽지 않으며, 규칙 표의 정본은 scripts/rules/enemies_new.gd의 COMMON_ELITES, 수치의 정본은 data/pacing.json(enemy_tuning · enemy_hp.elite_by_act)이다. 이 블록은 사람이 읽는 배치 자료다.",
+    "principle": "익숙한 일반 몬스터의 **강화형**이고 기본 행동에 **눈에 띄는 변화 하나**를 더한다. 체력만 크게 늘려 정예로 만들지 않는다. 여러 고유 패턴을 잇는 특수 정예와 구분하고, 붉은·상위 변이(세계 변화 등급)와도 별개다(체력 배율을 겹쳐 적용하지 않는다 — enemy_hp.elite_by_act의 절대값이 등급 배율을 대신한다).",
+    "placement_status": "**아직 어느 편성에도 배치되지 않았다.** 실제 배치는 data/themes.json의 elite_type·elite_type_p2·elite_types이며 그 파일은 다른 담당 몫이다. 배치할 때 필요한 훅은 docs/MONSTERS.md §필요한 훅에 적어 뒀다(PCatalog.enemies()가 PEnemiesNew.extra_defs()를 합치는 한 줄, growth.json XP_VALUE, render.gd 그림).",
+    "types": {
+      "wolf_alpha": {
+        "name": "늑대 우두머리",
+        "base": "wolf",
+        "extra": "없음(이미 있는 정예 — 확장 구조에 등록만 했다)",
+        "note": "0.3.1 늑대 규칙과 승인된 첫 전투(D33)를 보존해야 하므로 행동을 더하지 않았다. PEnemies.update가 is_wolf를 먼저 보므로 갱신 경로도 그대로다."
+      },
+      "boar_elite": {
+        "name": "쇄도 멧돼지",
+        "base": "boar",
+        "extra": "돌진 끝 예고된 짧은 충격파",
+        "state": "shock_aim",
+        "test_values": {
+          "shockAim": 0.45,
+          "shockR": 100,
+          "shockDamage": 14
+        },
+        "note": "바위에 부딪혀 비틀거린 돌파에는 충격파가 없다."
+      },
+      "archer_elite": {
+        "name": "연사 궁수",
+        "base": "archer",
+        "extra": "조준 후 빠른 두 발 사격",
+        "state": "shot2_lock",
+        "test_values": {
+          "shot2Lock": 0.2
+        },
+        "note": "두 번째 발은 새로 조준하지 않고 이미 예고·확정된 같은 선으로 나간다."
+      },
+      "shieldbearer_elite": {
+        "name": "돌격 방패병",
+        "base": "shieldbearer",
+        "extra": "방패 타격 뒤 짧은 전진 공격",
+        "state": "push_aim",
+        "test_values": {
+          "pushAim": 0.35,
+          "pushLunge": 46,
+          "pushRange": 62,
+          "pushDeg": 90,
+          "pushDamage": 12
+        }
+      },
+      "spider_elite": {
+        "name": "두겹 거미",
+        "base": "spider",
+        "extra": "두 방향 거미줄",
+        "state": "web2_aim",
+        "test_values": {
+          "web2Aim": 0.45,
+          "web2Deg": 115,
+          "web2Dist": 90
+        },
+        "note": "전장 거미줄 총 상한(maxWebs 4)은 바탕 그대로다."
+      },
+      "spore_elite": {
+        "name": "역병 포자",
+        "base": "spore",
+        "extra": "본체 폭발 뒤 제한된 작은 포자 구역 잔류",
+        "state": "residue_aim",
+        "test_values": {
+          "residueAim": 0.4,
+          "residueFrac": 0.45,
+          "residueTtl": 3.0,
+          "residueDamage": 4,
+          "residueMax": 1
+        }
+      },
+      "rogue_elite": {
+        "name": "삼연 도적",
+        "base": "rogue",
+        "extra": "접근 베기 뒤 측면 이동과 후속 베기",
+        "state": "flank_move → slash3_aim",
+        "test_values": {
+          "flankTime": 0.45,
+          "flankSpeed": 210,
+          "aim3": 0.35
+        },
+        "note": "자리를 옮기는 동안에는 공격 판정이 없다."
+      },
+      "burrower_elite": {
+        "name": "이중 잠복충",
+        "base": "burrower",
+        "extra": "첫 출현 뒤 짧게 재잠복하고 두 번째 위치를 예고해 다시 출현",
+        "state": "redive → reunder → rewarn",
+        "test_values": {
+          "redive": 0.3,
+          "reunder": 0.45,
+          "rewarn": 0.55,
+          "reEmergeR": 56,
+          "reDamage": 12
+        },
+        "note": "재잠복은 연계 안에서 한 차례뿐이고 끝나면 바탕과 같은 지상 빈틈으로 들어간다."
+      },
+      "toad_elite": {
+        "name": "충격 두꺼비",
+        "base": "toad",
+        "extra": "착지 뒤 한 차례 예고된 지면 충격",
+        "state": "slam_aim",
+        "test_values": {
+          "slamAim": 0.5,
+          "slamR": 90,
+          "slamDamage": 12
+        },
+        "note": "충격은 한 차례뿐이며 뒤에 바탕의 빈틈과 도약 재사용(4.5초)이 온다 — 무한 연속 점프가 되지 않는다."
+      },
+      "frostcaller_elite": {
+        "name": "서리 이중술사",
+        "base": "frostcaller",
+        "extra": "한 지점 대신 두 지점 순차 공격",
+        "state": "cast2_aim",
+        "test_values": {
+          "cast2Aim": 0.5,
+          "cast2Deg": 120,
+          "cast2Count": 2,
+          "cast2Delays": [
+            0.9,
+            1.5
+          ],
+          "minExits": 4,
+          "probe": 110
+        },
+        "note": "두 번째 묶음은 살아 있는 서리 영역까지 합쳐 플레이어 주위 탈출 방향이 minExits개 남는 자리에만 놓는다 — 동시에 전 방향을 막지 않는다."
+      }
+    },
+    "hp_note": "체력은 data/pacing.json enemy_hp.elite_by_act에 있다. 산식(시험값): 1막 = 바탕 적의 일반 등급 체력 × 2.5, 2·3막은 특수 정예와 같은 막별 화력비(×4.93 · ×12.11). 늑대 우두머리의 기존 1막 값 120이 곧 늑대 48 × 2.5라 이미 있는 정예와 같은 자리에서 출발한다(우두머리의 2·3막 값은 기존 유도 그대로 두었다).",
+    "read_note": "특수 정예의 read 블록(무엇을 들었는지·예고에서 어디가 커지는지)에 해당하는 자료는 일반 정예에는 아직 만들지 않았다. 일반 정예는 바탕 몬스터와 같은 실루엣을 쓰되 **더한 행동의 예고**로 구분되도록 설계했다 — 화면 담당이 실루엣 표식을 원하면 여기에 read 블록을 같은 모양으로 추가하면 된다."
+  },
+  "placement": {
+    "note": "동시 등장·간격 시험값. 규칙 코드의 '정예 동시 연계 1'(enemies_new.elite_may_start)과 별개로, 편성 단계에서도 겹치지 않게 한다.",
+    "max_elites_alive": 1,
+    "max_elites_per_fight": {
+      "1": 1,
+      "2": 1,
+      "3": 2
+    },
+    "min_gap_sec": 20,
+    "first_elite_after_frac": 0.35,
+    "risk_only_acts": [
+      1
+    ],
+    "risk_only_note": "1막에서는 위험 편성(risk)에만 넣어 첫 만남이 사고가 되지 않게 한다"
+  },
+  "assigned": {
+    "note": "실제 출격 편성 배치(2026-09-08, 시험값). 정본은 data/themes.json이고 이 표는 사람이 읽는 사본이다 — 두 곳이 어긋나면 tests/elites_tests.gd가 실패한다. p1 = 비용 1칸 장소, p2 = 비용 2칸(큰 보상) 장소와 더 깊이 탐험.",
+    "rules": [
+      "1막은 위험 편성에만 넣는다(첫 만남이 사고가 되지 않게). 1막 평범한 편성에는 정예가 없다",
+      "평범한 편성은 테마당 최대 1개만 정예를 쓴다 — 27개 중 3개(t2a_elite_support · t3b_rogue_alpha · t3b_wolf_archer)",
+      "비용 2칸(큰 보상) 장소와 더 깊이 탐험은 '강한 정예 1 + 호위'다. 종류가 elite_type_p2로 바뀌고 마리 수는 막별 상한(max_elites_per_fight)을 넘지 않는다",
+      "3막 위험 편성의 정예 2마리는 서로 다른 두 종류(elite_types)이며 장소로 더 올리지 않는다",
+      "마리 수(themes.json의 elites)는 어느 편성도 바꾸지 않았다 — 총 등장 수·경험치 예산 불변",
+      "출격 카드에 '강적 출현 · 이름 · 보상'을 미리 보여 준다(PSortie.elite_notice)"
+    ],
+    "by_formation": {
+      "t1a_risk": {
+        "act": 1,
+        "kind": "risk",
+        "p1": "elite_fang",
+        "p2": "elite_blademaster"
+      },
+      "t1b_risk": {
+        "act": 1,
+        "kind": "risk",
+        "p1": "elite_blademaster",
+        "p2": "elite_blademaster"
+      },
+      "t1c_risk": {
+        "act": 1,
+        "kind": "risk",
+        "p1": "elite_standard",
+        "p2": "elite_blademaster"
+      },
+      "t2a_elite_support": {
+        "act": 2,
+        "kind": "normal",
+        "p1": "elite_standard",
+        "p2": "elite_blademaster"
+      },
+      "t2a_risk": {
+        "act": 2,
+        "kind": "risk",
+        "p1": "elite_plaguecaller",
+        "p2": "elite_chainbreaker"
+      },
+      "t2b_risk": {
+        "act": 2,
+        "kind": "risk",
+        "p1": "elite_fang",
+        "p2": "elite_archer"
+      },
+      "t2c_risk": {
+        "act": 2,
+        "kind": "risk",
+        "p1": "elite_miner",
+        "p2": "elite_blademaster"
+      },
+      "t3a_risk": {
+        "act": 3,
+        "kind": "risk",
+        "pair": [
+          "elite_blademaster",
+          "elite_miner"
+        ]
+      },
+      "t3b_rogue_alpha": {
+        "act": 3,
+        "kind": "normal",
+        "p1": "elite_fang",
+        "p2": "elite_blademaster"
+      },
+      "t3b_wolf_archer": {
+        "act": 3,
+        "kind": "normal",
+        "p1": "elite_standard",
+        "p2": "elite_blademaster"
+      },
+      "t3b_risk": {
+        "act": 3,
+        "kind": "risk",
+        "pair": [
+          "elite_blademaster",
+          "elite_archer"
+        ]
+      },
+      "t3c_risk": {
+        "act": 3,
+        "kind": "risk",
+        "pair": [
+          "elite_chainbreaker",
+          "elite_plaguecaller"
+        ]
+      }
+    },
+    "coverage_note": "2막·3막 모두 7종이 전부 실제 편성 안에 있다(2막은 p1 4종 + p2 3종, 3막은 8자리에 7종). 측정은 docs/sim/ELITE_PLACEMENT.md.",
+    "measure_note": "1차 측정에서 균열 채굴자가 굴착장(t2b p2)에서 고유 연계를 1회밖에 마치지 못했다 — 전투가 짧고 먼저 집중당한다. 체력·주기를 손대지 않고 **배치만** 바꿔 해결했다: 굴착장은 주기가 짧은 정예 궁수로, 균열 채굴자는 전투가 긴 눈길(t2c p1)로 옮겼다. 2차 측정 결과는 docs/sim/ELITE_PLACEMENT.md."
+  },
+  "interface": {
+    "note": "**적용 완료(2026-09-08).** 정예를 꽂는 자리는 PRun.elite_types_for → PRun.template_waves이며, 템플릿의 elite_type(기본) · elite_type_p2(비용 2칸 장소와 더 깊이 탐험) · elite_types(2마리 조합)를 읽는다. 값이 없으면 기존 늑대 우두머리라 회귀가 없다. 아래는 그때 바꾼 자리의 기록이다.",
+    "run_gd": {
+      "file": "scripts/rules/run.gd",
+      "at": "template_waves() 안 `if int(tpl.get(\"elites\", 0)) > 0:` 블록",
+      "before": "wave.append({ \"type\": \"wolf_alpha\", \"n\": int(tpl.elites), \"ref\": float(tpl.elites) })",
+      "after": "wave.append({ \"type\": String(tpl.get(\"elite_type\", \"wolf_alpha\")), \"n\": int(tpl.elites), \"ref\": float(tpl.elites) })",
+      "why": "템플릿이 정예 종류를 고르게 한다. 값이 없으면 기존 늑대 우두머리라 회귀가 없다"
+    },
+    "themes_json": {
+      "file": "data/themes.json",
+      "at": "각 formations.normal / formations.risk 항목",
+      "add": "\"elite_type\": \"elite_fang\"  (elites: 1 과 함께)",
+      "why": "편성마다 어울리는 정예를 지정한다. elites가 0이면 무시된다"
+    },
+    "pacing_json": {
+      "file": "data/pacing.json",
+      "at": "enemy_hp.elite_by_act",
+      "add": "위 elites[*].hp_by_act 표를 그대로 행으로 넣는다(예: \"elite_fang\": { \"1\": 190, \"2\": 1040, \"3\": 2420 })",
+      "why": "정예 체력은 등급이 아니라 막으로 오른다(PPacing.elite_hp). 표가 없으면 data/enemies.json의 1막 값이 모든 막에 쓰인다",
+      "current_state": "적용 완료 — data/pacing.json enemy_hp.elite_by_act에 7종 1·2·3막 값이 들어 있다(PPacing.elite_hp)"
+    },
+    "growth_json": {
+      "file": "data/growth.json",
+      "at": "growth.XP_VALUE",
+      "add": "정예 7종의 마리당 경험치. **적용 완료: 늑대 우두머리와 같은 30.** 편성의 정예 종류를 바꿔도 전투 경험치 예산이 달라지지 않게 하려는 것이다(제안했던 32~40은 예산을 늘려 쓰지 않았다).",
+      "suggest": {
+        "elite_archer": 34,
+        "elite_blademaster": 40,
+        "elite_fang": 32,
+        "elite_plaguecaller": 34,
+        "elite_chainbreaker": 36,
+        "elite_standard": 30,
+        "elite_miner": 34
+      },
+      "why": "밀도 예산(formation.xp_map)이 없는 경로에서 정예가 일반 적보다 적은 경험치를 주는 것을 막는다"
+    }
+  },
+  "examples": [
+    {
+      "name": "1막 위험 편성에 피의 송곳니 1마리",
+      "theme_formation_patch": {
+        "id": "t1a_wolves_risk",
+        "elites": 1,
+        "elite_type": "elite_fang"
+      },
+      "expect": "총 등장 수는 그대로, 마지막에 정예 1마리가 붙는다. 동시 상한(alive_cap)은 건드리지 않는다"
+    },
+    {
+      "name": "2막 방패 편성에 정예 검사 1마리",
+      "theme_formation_patch": {
+        "id": "t2a_shields",
+        "elites": 1,
+        "elite_type": "elite_blademaster"
+      },
+      "pacing_patch": {
+        "enemy_hp": {
+          "elite_by_act": {
+            "elite_blademaster": {
+              "1": 280,
+              "2": 1530,
+              "3": 3570
+            }
+          }
+        }
+      },
+      "expect": "2막에서 1530 체력. 방패 자세 정면 완전 차단이라 측·후면 공략을 배우게 된다"
+    },
+    {
+      "name": "3막 혼합 편성에 군단 기수(호위 필수)",
+      "theme_formation_patch": {
+        "id": "t3a_mixed",
+        "elites": 1,
+        "elite_type": "elite_standard"
+      },
+      "requires": "같은 편성에 일반 적 4마리 이상(comp에 근접이 있어야 지휘가 의미를 갖는다)",
+      "expect": "깃발 1~2개, 돌격 명령 최대 6회. 추가 소환은 없다"
+    }
+  ],
+  "acts_extra_note": "acts는 그 정예가 나올 수 있는 막이다. acts_extra는 '막 → 그 막에서 예외로 허용하는 테마 id 목록'이며, 합의된 배정과 막 제한이 어긋날 때 **그 테마만** 여는 데 쓴다. 검사(tests/elites_tests.gd)가 둘을 함께 본다."
 }

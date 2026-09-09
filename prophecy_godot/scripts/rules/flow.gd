@@ -93,6 +93,8 @@ static func settle_victory(run: Dictionary, sortie: Dictionary, st: CombatState)
 			reward.gold = int(round(float(reward.gold) * PRun.risk_reward_mult(run)))
 		reward.mission = true
 		reward.missionPick = PSortie.on_mission_win(run, sortie)
+	elif not bool(sortie.get("repeat", false)) and not bool(sortie.get("endless", false)) and sortie.get("eventFight", null) == null:
+		PSortie.on_clear_win(run, sortie) # 목표 'clear' 카드도 완료로 남긴다(보상 없음). 반복 탐험·무한·사건 전투는 카드가 아니다
 	PRun.apply_encounter_result(run, sortie, "won", reward, float(st.player.hp))
 	var heal := PRun.on_victory_heal(run)
 	if heal > 0.0:

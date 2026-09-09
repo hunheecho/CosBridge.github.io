@@ -22,6 +22,8 @@
 | 2026-09-08 15:15 단독 3회 | `--suites ui_flow_tests` | 21/21 PASS | 종료 0 | 통과 |
 | 2026-09-08 15:18 (`20260908_151847`) | `--group all --jobs 2` | 21/21 PASS | 종료 0 | 통과 |
 | 2026-09-08 15:25 (`20260908_152529`) | `--group all --jobs 2` | 21/21 PASS | 종료 0 | 통과 |
+| 2026-09-09 (`cardfix1`) | `--suites` 9개 `--jobs 1` | `world_tests` 34/34 PASS | 종료 코드 3221225477 | 실패 |
+| 2026-09-09 (`cardfix1b`) | `--suites world_tests` 단독 | 34/34 PASS | 종료 0 | 통과 |
 
 **2026-09-08 17:50 추가 관측 — 이 스위트만의 문제가 아니다.** 같은 증상이 `collision_tests`·`balance_tests`·`input_tests`·`ui_flow_tests`·`elites_tests`에서도 나왔다. 공통점은 **동시 실행**이다.
 
@@ -87,7 +89,7 @@
 **다음에 할 것.** 정적 초기화에서 사전·배열을 만드는 다른 자리를 찾아 같은 증상이 나는지 본다.
 그것이 원인이라면 지금까지의 불규칙한 사례들도 설명될 수 있다. **아직 확정이 아니므로 이 항목은 열린 상태다.**
 
-**아직 모르는 것.** 무엇이 원인인지. 지금까지 걸린 스위트가 `ui_flow_tests`·`content_tests`·`theme_tests`·`balance_tests`·`boss_pace_tests`·`input_tests`·`collision_tests`·`elites_tests`로 **특정 스위트에 묶이지 않는다.** 실제 장면을 띄우지 않는 스위트에서도 난다.
+**아직 모르는 것.** 무엇이 원인인지. 지금까지 걸린 스위트가 `ui_flow_tests`·`content_tests`·`theme_tests`·`balance_tests`·`boss_pace_tests`·`input_tests`·`collision_tests`·`elites_tests`·`world_tests`로 **특정 스위트에 묶이지 않는다.** 실제 장면을 띄우지 않는 스위트에서도 난다.
 한 실행에 보통 **한 개**가 걸리고, 다음 실행에서는 다른 스위트가 걸린다 — 무작위에 가깝다. 표본이 늘어도 규칙이 보이지 않는다.
 
 **당장의 대응.** 판정이 걸린 실행은 `--jobs 1`로 돌린다. 실행기는 이 경우를 **실패로 남기고** `crash_after_pass` 표시를 붙이며, 성공한 재실행이 앞선 실패 기록을 지우지 않는다.
@@ -240,3 +242,37 @@ JSON에 담기는 것: `입력`(mx·my·held) · `장치`(키보드 4방향 실�
 
 **할 일.** 예산 검사를 벽시계 대신 결정적인 값(처리한 전투 수·모의 시계)으로 바꾸거나,
 이 스위트를 동시 실행에서 빼는 것 중 하나를 고른다. 아직 고르지 않았다.
+
+---
+
+## KD-7. 목표가 'clear'인 출격 카드가 영영 완료되지 않는다 (**닫힘, 2026-09-09** — 이 작업에서 고침)
+
+**어떻게 찾았나.** "일반 탐험은 실제 UI에서 임무 완료 → 거점 복귀 → 남은 시간으로 일반 탐험 출발까지 확인해라.
+버튼 존재나 내부 함수 호출만으로 완료 처리하지 마라"는 지시대로 `tests/ui_flow_tests.gd`에
+**실제 출격 버튼을 누르고 봇이 실제로 이기는** 경로를 넣었더니, 거점에 돌아온 뒤 '일반 탐험' 버튼이 없었다
+(`남은 시간 4 · 버튼 false`). 자체 교차 검수가 "일반 탐험: 확인 못 함"으로 남겨 둔 바로 그 자리다.
+
+**원인.** 카드 완료 표시(`c.done = true`)를 찍는 자리가 `PSortie.on_mission_win` **하나뿐**이었고,
+그 함수는 첫 줄에서 `String(c.objective) == "clear"`이면 곧바로 `false`로 빠져나갔다.
+`PSortie.repeat_cards`는 **완료한 카드에만** 반복 탐험을 붙이므로, 임무가 아닌 평범한 출격만 있는 날
+(1일차는 두 장 다 `clear`, 이후에도 둘째 카드는 `clear`일 수 있다)에는 일반 탐험이 한 번도 열리지 않았다.
+
+**같이 딸려 있던 구멍.** 완료가 안 되니 `PSortie.can_start`의 `not bool(c.done)`도 계속 참이었다 —
+같은 카드를 정상 비용으로 몇 번이든 다시 나갈 수 있었고, 그때마다 **사건·이용권이 새로 굴렀다.**
+반복 탐험 규칙(`no_event`·`no_mission_reward`)이 막으려던 바로 그 반복 지급이 우회되고 있었다.
+화면 쪽(`screens/base.gd`의 완료 줄, `flow.gd`의 "완료한 카드" 사유)은 이미 완료 카드를 다룰 줄 알았다 —
+**규칙에서 완료를 찍어 주지 않았을 뿐이다.**
+
+**고친 것.** `PSortie.on_clear_win(run, sortie)`를 새로 두고 `PFlow.settle_victory`에서 임무가 아닌
+출격(반복 탐험·무한 전투·사건 전투 제외)의 승리에 호출한다. **보상은 건드리지 않고 완료 표시만** 한다.
+
+**확인.** `tests/ui_flow_tests.gd` 73/73 통과. 그중 실제 경로 여섯 줄이 버튼만으로 이어진다:
+출격 버튼 → 봇이 실제 승리(상태 주입 없음) → 보상 '계속' → 거점 → **'일반 탐험' 버튼 존재** →
+누르면 전투 시작·시간 4→3칸·`repeat=true`·`sortie.event == null`.
+`run_tests`·`run_layer_tests`·`death_tests`·`endless_tests`·`acts_tests`·`balance_tests`·`meta_tests`·
+`prep_shop_tests`·`world_tests`·`bot_tests`·`ui_smoke_short`·`meta_ui_tests`·`content_tests`·`mission_probe`·
+`elites_tests` 재실행에서 회귀 없음.
+
+**사람이 판단할 몫(재미·균형).** 이 고침으로 같은 카드를 정상 비용에 사건까지 받으며 반복하던 길이 막히고,
+남는 시간은 1칸짜리 일반 탐험(전리품·경험치만)으로 간다. 하루 벌이가 줄어드는 방향이므로
+**금화·경험치 총량이 사람 눈에 어떤지는 측정이 아니라 플레이로 판단해야 한다.**

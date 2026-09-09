@@ -282,6 +282,19 @@ static func steer_state(run: Dictionary, c: Dictionary) -> Dictionary:
 static func kind_name(kind: String) -> String:
 	return String({ "weapon_level": "자동기술 레벨", "weapon_mod": "자동기술 개조", "skill": "Q/E 강화", "service": "거점 서비스", "common": "공용 증강" }.get(kind, kind))
 
+## 목표가 'clear'인 **평범한 출격도 이기면 그 카드를 완료로 남긴다.**
+## 임무 카드는 아래 on_mission_win이 보상과 함께 완료를 찍지만, clear 카드에는 그 경로가 없어서
+## 카드가 영영 완료되지 않았다 — 완료 카드가 접히지도 않고('오늘 완료  숲 · 능선'),
+## 남는 시간의 '일반 탐험'도 열리지 않았다(repeat_cards는 완료한 카드만 대상으로 한다).
+## 같은 카드를 정상 비용으로 계속 다시 나갈 수 있어 **사건·이용권이 반복 지급되는 구멍**이기도 했다.
+## 2026-09-09 실제 UI 확인(tests/ui_flow_tests.gd '실제 경로')에서 발견. 보상은 건드리지 않고 완료 표시만 한다.
+static func on_clear_win(run: Dictionary, sortie: Dictionary) -> bool:
+	var c := card(run, String(sortie.get("cardId", "")))
+	if c.is_empty() or bool(c.done) or String(c.objective) != "clear":
+		return false
+	c.done = true
+	return true
+
 ## 임무 승리 정산(PFlow.settle_victory에서): 카드 완료 → 서비스는 즉시 3택 보류, 그 외는 단일 예약(steer). 예약이 이미 있으면 금화 대체.
 ## 반환: false(임무 아님/이미 완료) | true(서비스 3택 보류) | {gold} | {steer}
 static func on_mission_win(run: Dictionary, sortie: Dictionary) -> Variant:
