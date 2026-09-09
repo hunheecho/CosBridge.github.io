@@ -264,6 +264,8 @@
       "plague_burst": "역병 파열의 즉시 방출",
       "mine_blast": "지뢰 폭발",
       "doll_blast": "폭죽 인형 폭발",
+      "frost_shatter": "파쇄가 얼어붙은 적에게 준 추가 피해",
+      "frost_shard": "파쇄가 내보낸 얼음 파편이 주변 적에게 준 피해",
       "enemy_melee": "적의 근접 타격을 맞음",
       "enemy_projectile": "적의 투사체를 맞음",
       "enemy_zone": "적의 장판·폭발을 맞음"
@@ -284,9 +286,11 @@
           "shock_bonus",
           "plague_burst",
           "mine_blast",
-          "doll_blast"
+          "doll_blast",
+          "frost_shatter",
+          "frost_shard"
         ],
-        "why": "지시 4절 2번: 분신의 모방 타격은 자격이 있고, 장판 틱·독·출혈·반사에는 발동하지 않는다. shock_bonus 자신을 막아 순환을 끊는다."
+        "why": "지시 4절 2번: 분신의 모방 타격은 자격이 있고, 장판 틱·독·출혈·반사에는 발동하지 않는다. shock_bonus 자신을 막아 순환을 끊는다. 파쇄 추가 피해·얼음 파편(frost_shatter·frost_shard)도 막는다 — 한 번 깨뜨린 것이 감전 후속을 여러 마리에게 동시에 터뜨리는 재귀 통로가 되지 않게."
       },
       "plague_spread": {
         "desc": "감염된 적이 죽으면 주변에 독 전염",
@@ -321,9 +325,11 @@
           "zone_tick",
           "dot",
           "reflect",
-          "shock_bonus"
+          "shock_bonus",
+          "frost_shatter",
+          "frost_shard"
         ],
-        "why": "지시 4절 8번: 주무기 개조와 다른 보조를 통째로 복제하지 않는다. 분신이 분신을 만드는 순환 금지."
+        "why": "지시 4절 8번: 주무기 개조와 다른 보조를 통째로 복제하지 않는다. 분신이 분신을 만드는 순환 금지. 파쇄 추가 피해·얼음 파편도 복제하지 않는다."
       },
       "crow_mark": {
         "desc": "까마귀가 표적을 새로 지정하는 계기",
@@ -337,9 +343,54 @@
           "zone_tick",
           "dot",
           "reflect",
-          "shock_bonus"
+          "shock_bonus",
+          "frost_shatter",
+          "frost_shard"
         ],
-        "why": "'주무기로 직접 맞힌 대상'이 지정 조건(지시 4절 6번). 보조가 계속 다른 적을 건드려도 표적이 흔들리지 않는다."
+        "why": "'주무기로 직접 맞힌 대상'이 지정 조건(지시 4절 6번). 보조가 계속 다른 적을 건드려도 표적이 흔들리지 않는다. 얼음 파편이 스친 적으로 표적이 갈아엎히지도 않는다."
+      },
+      "frost_shatter": {
+        "desc": "빙결·결빙 중인 적을 깨뜨리는 계기(파쇄)",
+        "allow": [
+          "main_direct",
+          "main_extra"
+        ],
+        "deny": [
+          "support_direct",
+          "echo_direct",
+          "zone_tick",
+          "dot",
+          "reflect",
+          "shock_bonus",
+          "plague_burst",
+          "mine_blast",
+          "doll_blast",
+          "frost_shatter",
+          "frost_shard",
+          "enemy_melee",
+          "enemy_projectile",
+          "enemy_zone"
+        ],
+        "why": "사용자 확정: **파쇄를 터뜨리는 것은 주무기 공격이다.** 불씨 장판·독·출혈 같은 지속 피해나 보조의 공격이 먼저 깨뜨리면 '얼리고 내가 깬다'는 선택이 사라진다. main_extra는 주무기 개조가 만든 직접 추가 타격(교차 검격·잔류 검흔·분열 창날)과 공용 메아리·일제 공격의 주무기 재타격을 뜻한다 — 모두 주무기가 낸 타격이므로 자격이 있다. 반대로 잔영 분신의 모방(echo_direct)은 보조가 낸 타격이라 자격이 없다. frost_shatter·frost_shard를 스스로 막아 파쇄가 파쇄를 부르는 순환을 끊는다."
+      },
+      "frost_stack": {
+        "desc": "냉기 중첩이 쌓이는 계기",
+        "allow": [
+          "*"
+        ],
+        "deny": [
+          "frost_shatter",
+          "frost_shard"
+        ],
+        "why": "냉기를 실어 나른 적중이면 경로를 가리지 않는다(장판·다중 탄환·다른 보조가 함께 쌓을 수 있어야 조합이 성립한다). 다만 **파쇄 추가 피해와 파편은 다시 냉기를 쌓지 않는다** — 한 번의 파쇄가 곧바로 다음 빙결의 밑돌을 놓으면 얼음이 스스로를 먹여 살린다. 중복 적중 방지는 이 표가 아니라 규칙이 맡는다: 피해 이벤트 하나당 중첩은 최대 1이고 장판은 틱마다 1이다."
+      },
+      "frost_stack_note": {
+        "desc": "읽기 전용 메모(효과가 아니다 — 이 이름으로 eligible을 부르는 코드는 없다)",
+        "allow": [
+          "*"
+        ],
+        "deny": [],
+        "why": "**파편이 어떤 후속을 부르고 못 부르는가**를 표 안에 명시해 둔다(사용자 지시: 재귀 경로 점검). 못 부르는 것: 감전 후속(shock_bonus)·까마귀 표적(crow_mark)·분신 모방(echo_copy)·파쇄(frost_shatter)·냉기 중첩(frost_stack) — 위 다섯 항목의 deny에 frost_shard가 직접 적혀 있다. 부르는 것: 독 전염(plague_spread, allow '*') — '처치는 무엇으로 죽였든 전염된다'는 기존 규칙을 파편만 예외로 두지 않는다. 죽음 자체가 방아쇠인 효과(공용 얼음 파편의 처치 파편·불꽃 파열)도 마찬가지로 정상 발동한다."
       }
     }
   },
@@ -369,6 +420,57 @@
     "why": "지시 5절: 둔화·밀어내기·유인으로 정예와 보스가 영구히 행동하지 못하는 조합을 막는다. slowFloor는 어떤 둔화를 겹쳐도 내려갈 수 없는 최저 이동 속도 비율이다."
   },
   "weapons": {
+    "frost": {
+      "name": "서리 수정",
+      "kind": "bolt",
+      "startable": false,
+      "impl": true,
+      "base": {
+        "damage": 7,
+        "interval": 1,
+        "range": 260,
+        "speed": 360,
+        "chill": 2
+      },
+      "reach": true,
+      "width": false,
+      "category": "projectile",
+      "tags": [
+        "dot",
+        "projectile"
+      ],
+      "desc": "주기적으로 냉기 탄환 발사. 적중하면 냉기 중첩이 쌓이고, 다 차면 얼어붙는다. 얼어붙은 적을 주무기로 때리면 파쇄한다.",
+      "descNote": "빙결·파쇄는 **개조 없이도** 일어난다(사용자 확정). 아래 세 개조는 그 기본 기능을 켜는 것이 아니라 각각 다른 방향으로 늘린다. 생성 파일 data/weapons.json의 옛 정의(개조 이름: 서리 부채·깨지는 수정·차가운 바닥)를 이 항목이 통째로 덮는다 — PCatalog.weapons()가 supports.json 쪽을 이긴다. **개조 id는 그대로 두었다**(fan·shatter·ground): 옛 저장에 든 개조가 조용히 사라지거나 다시 추첨되지 않게 하려는 것이며, 아이콘 파일(mod_frost_fan·mod_frost_shatter·mod_frost_ground)도 그대로 쓴다.",
+      "mods": {
+        "fan": {
+          "name": "넓은 빙결",
+          "desc": "냉기 탄환을 3발 부채꼴로 쏜다. 여러 적에게 동시에 냉기를 공급한다",
+          "impl": true,
+          "tags": [
+            "projectile"
+          ],
+          "was": "서리 부채"
+        },
+        "shatter": {
+          "name": "파쇄 강화",
+          "desc": "파쇄할 때 얼음 파편이 3개에서 6개로 늘고, 파편 피해와 퍼지는 범위가 커진다",
+          "impl": true,
+          "tags": [
+            "projectile"
+          ],
+          "was": "깨지는 수정"
+        },
+        "ground": {
+          "name": "빠른 빙결",
+          "desc": "적중 지점에 차가운 바닥이 남아 그 안의 적에게 계속 냉기를 더한다. 한 대상을 훨씬 빨리 얼린다",
+          "impl": true,
+          "tags": [
+            "zone"
+          ],
+          "was": "차가운 바닥"
+        }
+      }
+    },
     "crow": {
       "name": "추격 까마귀",
       "kind": "crow",
@@ -812,6 +914,26 @@
       "dischargeR": 96.0,
       "dischargeMult": 0.6,
       "why": "사용자 확정: 번개 구체의 **기본 연쇄가 감전을 부여**한다. 예전에는 개조 축전을 골라야만 감전이 붙어서 감전 연계가 아예 일어나지 않았다. shockDur=감전 지속(초). bonusMult/bonusR=감전된 적을 직접 타격했을 때 터지는 추가 번개의 피해 배율과 반경. 축전(conduct)은 이제 별개 효과다 — 감전 후속을 chargeNeed번 쌓으면 dischargeR 안에 dischargeMult 배율로 방전한다. **방전은 감전을 다시 걸지 않는다.**"
+    },
+    "frost": {
+      "stackMax": 5,
+      "stackTtl": 3.0,
+      "stackDecay": "all",
+      "freezeSec": {
+        "normal": 1.0,
+        "elite": 0.6,
+        "boss": 0.8
+      },
+      "refreezeSec": 3.0,
+      "shatterDamage": 16.0,
+      "shards": 3,
+      "shardDamage": 6.0,
+      "shardRadius": 80.0,
+      "zoneStackTick": 0.5,
+      "modShatterShards": 6,
+      "modShatterDamageMult": 1.5,
+      "modShatterRadiusMult": 1.5,
+      "why": "냉기 기본 특성(사용자 확정 2026-09-09). **전부 시험값이다.** stackMax 5와 freezeSec.normal 1.0초는 사용자가 준 출발점이다. freezeSec.elite 0.6은 이미 있는 제압 저항표 resist.slow.elite(0.6)를 그대로 곱한 값이라 '정예는 둔화도 빙결도 같은 비율로 덜 받는다'로 설명이 하나가 된다. freezeSec.boss 0.8은 **정지가 없는 결빙**이라 길이가 위협을 만들지 않는다 — 대신 가장 느린 원거리 주무기 활의 주기(0.8초)와 같게 잡아, 검(0.55)·창(0.7)·쌍검(0.75)은 결빙 창 안에 대체로 한 번 맞히고 전투망치(1.4)는 조준해야 맞히도록 했다. refreezeSec 3.0은 일반 적 기준 '빙결 1.0 + 제한 3.0 = 4.0초 주기'라 최악의 경우에도 행동 불능 비율이 25%를 넘지 않는다(영구 행동 불능 방지). stackTtl 3.0초·stackDecay all은 서리 수정 기본 주기(1.0초)로 다섯 발을 이어 맞히는 동안에는 절대 끊기지 않고, 공급이 끊기면 3초 뒤 **한 번에** 0이 된다 — 1씩 줄이면 화면 표시가 계속 흔들리고 '언제 얼지'를 읽을 수 없다. shatterDamage 16은 공용 증강 '불꽃 파열'의 처치 폭발 20보다 낮다(파쇄는 처치가 아니라 상태를 소모하는 것이므로). shards 3·shardDamage 6·shardRadius 80은 그 불꽃 파열과 같은 반경에서 시작하되 개당 피해는 공용 '얼음 파편'(8)보다 낮게 잡았다 — 처치 보상이 아니라 매번 나는 효과이기 때문이다. zoneStackTick 0.5초는 탄환 주기(1.0초)의 절반이라 개조 '빠른 빙결'을 고르면 같은 대상 중첩 속도가 초당 1 → 초당 3으로 약 3배가 된다. mod* 세 값은 개조 '파쇄 강화'가 파편 수를 3 → 6으로, 파편 피해와 반경을 1.5배로 올린다는 뜻이며 **단일 대상 추가 피해(shatterDamage)는 건드리지 않는다** — 그 개조의 역할이 '파편과 주변 피해'이기 때문이다."
     }
   }
 }
