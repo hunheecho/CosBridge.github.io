@@ -6,11 +6,15 @@ extends SceneTree
 ##  1) 부활 수단이 없으면 일반 전투·보스전 모두 그 회차가 즉시 끝난다(무료 회복·다음 날 진행·재도전 없음).
 ##  2) 부활 물약은 보유했을 때만 한 개 소모되고, 남은 하루를 잃고 다음 날 최대 체력 25%로 부활한다.
 ##     죽은 출격의 미정산 전리품은 잃고, 이미 정산한 재산·성장은 남는다.
-##  3) 사망 정산은 정확히 1회다. 저장 복구·입장 스냅샷으로 소모한 물약이 되살아나지 않는다.
+##  2-1) **마지막 날(다음 날이 없는 날)**: 물약 1개를 쓰고 **날짜를 늘리지 않은 채 같은 날 관문 앞**에서 최대 체력 25%로 복귀하며
+##     그날 남은 시간은 전부 소진한다. 물약이 없으면 회차 종료. 반복 부활은 매번 한 개씩 든다(§11).
+##  3) 사망 정산은 정확히 1회다. 저장 복구·입장 스냅샷으로 소모한 물약이 되살아나지 않는다(개수와 사용 횟수 둘 다).
 ##  4) 부활해도 미완료 관문은 건너뛰어지지 않고, 넘기 전까지 출격이 잠긴다.
 ##  5) 판매 = 실제 지불 금액의 절반(정수 내림). 할인가로 샀으면 할인가 기준, 구매액이 없으면 정상가의 절반.
 ##     장착 중이면 해제되고, 취소·중복 클릭으로 금화·가방이 복제되지 않는다.
 ##  6) 휴식은 견적(rest_quote)과 확정(rest)이 나뉘어 있고, 취소하면 상태가 변하지 않는다. 휴식권은 100금·시간 소모 없음.
+##  7) 화면 문구가 세 갈래(회차 종료 / 마지막 날 부활 / 보통 날 부활)를 **서로 다르게** 안내한다(§12).
+##     화면을 띄우지 않고 화면이 쓰는 static 함수(PDefeatScreen.death_lines·PBossResultScreen.defeat_lines)를 그대로 부른다.
 ##
 ## 주의: 여기서는 **사람 플레이 경로**만 본다. 시험·자동 진행용 재시도 경로(run.testRetry)는 아래 §7에서 따로 확인한다.
 
@@ -154,6 +158,10 @@ func _init() -> void:
 		int(r6.day) == 5 and String(r6.phase) == "boss_prep" and int(r6.stage) == stage6 and (r6.bossesDone as Array).is_empty()
 			and PRun.is_boss_day(r6) and is_equal_approx(float(r6.hp), round(float(PRun.build(r6).hp_max) * float(RD.hpFrac))),
 		"day %d phase %s stage %d hp %.0f" % [int(r6.day), String(r6.phase), int(r6.stage), float(r6.hp)])
+	ok("회귀: 마지막 날이 **아닌** 날의 부활은 그대로 '다음 날'이다(같은 날 부활이 아니고 하루가 통째로 남는다)",
+		bool(r6.death.nextDay) and not bool(r6.death.sameDay) and not PRun.revived_same_day(r6)
+			and int(r6.hours) == int(PCatalog.config().HOURS_PER_DAY) and PRun.revive_uses(r6) == 1,
+		"nextDay %s sameDay %s hours %d 사용 %d" % [str(r6.death.nextDay), str(r6.death.get("sameDay", null)), int(r6.hours), PRun.revive_uses(r6)])
 	ok("부활해도 미완료 관문 앞에서는 출격이 잠긴다(다음 막 활동 불가)",
 		not PRun.can_sortie(r6, "forest") and not PFlow.actions(r6).any(func(a): return String(a.kind) == "sortie" and bool(a.enabled))
 			and PFlow.actions(r6).any(func(a): return String(a.id) == "boss_start"))
@@ -353,22 +361,116 @@ func _init() -> void:
 		int(bot_retry.get("revivesBought", 0)) == 0 and not bool(bot_retry.get("dead", false)),
 		JSON.stringify({ "revivesBought": bot_retry.get("revivesBought"), "dead": bot_retry.get("dead") }))
 
-	# ---------- 11. 마지막 날 경계(구현 기본안 = 시험 규칙, 사용자 합의 전) ----------
-	var r16 := human_run(501)
-	r16.gold = 2000
-	PConsumables.buy(r16, REV)
-	r16.day = int(PRun.mode_def(r16).days)
-	r16.stage = PRun.stage_count(r16) - 1
-	r16.phase = "boss_prep"
-	ok("마지막 날에는 다음 날이 없다", not PRun.has_next_day(r16) and PRun.is_boss_day(r16))
-	var bs16 := PRun.start_boss(r16)
-	var stb16 := PFlow.make_boss_encounter(r16, bs16)
-	stb16.status = "lost"
-	PFlow.settle_boss_defeat(r16, stb16)
-	ok("[시험 규칙] 마지막 날 사망: 물약을 쓰고 날짜는 넘기지 않으며 남은 시간을 전부 잃는다(관문은 그대로)",
-		PConsumables.revive_count(r16) == 0 and int(r16.day) == int(PRun.mode_def(r16).days) and int(r16.hours) == 0
-			and String(r16.phase) == "boss_prep" and not PRun.is_run_over(r16) and PRun.can_start_boss(r16),
-		"day %d hours %d phase %s hp %.0f" % [int(r16.day), int(r16.hours), String(r16.phase), float(r16.hp)])
+	# ---------- 11. 마지막 날(다음 날이 없는 날) 부활 — 2026-09-09 사용자 확정 ----------
+	# 확정 내용: 물약이 있으면 1개를 쓰고 **날짜를 늘리지 않은 채 같은 날 관문 앞**에서 최대 체력 25%로 복귀한다.
+	# 그날 남은 시간은 전부 소진한다. 물약이 없으면 회차 종료. 부활을 반복하려면 매번 물약을 소비한다.
+	var last_day_run := func(seed_v: int, revives: int) -> Dictionary:
+		var rr := human_run(seed_v)
+		rr.gold = 3000
+		for _i in revives:
+			PConsumables.buy(rr, REV)
+		rr.day = int(PRun.mode_def(rr).days)
+		rr.stage = PRun.stage_count(rr) - 1
+		rr.phase = "boss_prep"
+		return rr
+	## 관문에 들어가서 쓰러진다(입장마다 중복 방지 키가 바뀐다 = 새 사망)
+	var die_at_gate := func(rr: Dictionary) -> void:
+		var stb := PFlow.make_boss_encounter(rr, PRun.start_boss(rr))
+		stb.status = "lost"
+		PFlow.settle_boss_defeat(rr, stb)
+
+	var r16: Dictionary = last_day_run.call(501, 2)
+	var hp_max16 := float(PRun.build(r16).hp_max)
+	var day16 := int(r16.day)
+	var stage16 := int(r16.stage)
+	ok("마지막 날에는 다음 날이 없다(그리고 마지막 관문 날이다)", not PRun.has_next_day(r16) and PRun.is_boss_day(r16) and PConsumables.revive_count(r16) == 2)
+	die_at_gate.call(r16)
+	ok("[확정] 마지막 날 + 물약 있음: 날짜가 안 늘어난다 · 같은 날 관문 앞 · 체력 = 최대의 25% · 남은 시간 0 · 물약 1개 감소",
+		int(r16.day) == day16 and String(r16.phase) == "boss_prep" and PRun.can_start_boss(r16) and int(r16.stage) == stage16
+			and is_equal_approx(float(r16.hp), round(hp_max16 * float(RD.hpFrac))) and int(r16.hours) == 0
+			and PConsumables.revive_count(r16) == 1 and not PRun.is_run_over(r16),
+		"day %d hours %d phase %s hp %.0f/%.0f 물약 %d" % [int(r16.day), int(r16.hours), String(r16.phase), float(r16.hp), hp_max16, PConsumables.revive_count(r16)])
+	ok("마지막 날 부활은 기록에도 '같은 날'로 남는다(화면이 문구를 고르는 근거) · 사용 횟수 1",
+		bool(r16.death.revived) and bool(r16.death.sameDay) and not bool(r16.death.nextDay) and PRun.revived_same_day(r16)
+			and PRun.revive_uses(r16) == 1 and int(r16.death.count) == 1,
+		JSON.stringify({ "sameDay": r16.death.get("sameDay"), "nextDay": r16.death.get("nextDay"), "uses": PRun.revive_uses(r16) }))
+	# 같은 사망이 두 번 정산되지 않는다(마지막 날에도)
+	var snap16 := _json(r16)
+	PRun.boss_defeat(r16)                                                                # 같은 입장의 두 번째 정산
+	PRun.settle_death(r16, { "cause": "boss", "key": String(r16.death.key), "bossId": "boss" }) # 같은 키로 한 번 더
+	ok("마지막 날에도 같은 사망은 두 번 정산되지 않는다(물약·날짜·남은 시간·사용 횟수 그대로)",
+		_json(r16) == snap16 and PConsumables.revive_count(r16) == 1 and PRun.revive_uses(r16) == 1 and int(r16.hours) == 0,
+		"물약 %d 사용 %d" % [PConsumables.revive_count(r16), PRun.revive_uses(r16)])
+	# 저장 → 이어하기: 개수와 사용 횟수 둘 다 되살아나지 않는다
+	var back16 := _roundtrip(r16)
+	ok("저장 → 이어하기 뒤에도 마지막 날에 쓴 물약이 되살아나지 않는다(개수와 사용 횟수 둘 다)",
+		PConsumables.revive_count(back16) == 1 and PRun.revive_uses(back16) == 1 and int(back16.day) == day16
+			and int(back16.hours) == 0 and String(back16.phase) == "boss_prep" and _json(back16) == _json(r16),
+		"물약 %d 사용 %d" % [PConsumables.revive_count(back16), PRun.revive_uses(back16)])
+	# 이어한 회차에서 같은 날 다시 도전 → 또 쓰러진다: 물약이 한 개 더 든다(한 번 쓰고 무한 재도전이 되지 않는다)
+	die_at_gate.call(back16)
+	ok("마지막 날에 두 번 죽으면 물약이 두 개 든다(이어하기를 거쳐도 반복 부활은 매번 소비)",
+		PConsumables.revive_count(back16) == 0 and PRun.revive_uses(back16) == 2 and int(back16.death.count) == 2
+			and int(back16.day) == day16 and int(back16.hours) == 0 and not PRun.is_run_over(back16) and PRun.revived_same_day(back16),
+		"물약 %d 사용 %d day %d" % [PConsumables.revive_count(back16), PRun.revive_uses(back16), int(back16.day)])
+	die_at_gate.call(back16)
+	ok("물약이 떨어진 뒤의 죽음은 회차 종료다(마지막 날에도 무한 재도전은 없다)",
+		PRun.is_run_over(back16) and bool(back16.ended) and int(back16.day) == day16 and not bool(back16.death.revived)
+			and not PRun.revived_same_day(back16) and PRun.revive_uses(back16) == 2 and PFlow.actions(back16).is_empty(),
+		"phase %s 사용 %d" % [String(back16.phase), PRun.revive_uses(back16)])
+
+	var r17: Dictionary = last_day_run.call(502, 0)
+	die_at_gate.call(r17)
+	ok("[확정] 마지막 날 + 물약 없음: 회차 종료(is_run_over) · 행동 없음",
+		PRun.is_run_over(r17) and bool(r17.ended) and int(r17.hours) == 0 and PRun.revive_uses(r17) == 0
+			and PFlow.actions(r17).is_empty() and not PRun.can_start_boss(r17),
+		"phase %s day %d" % [String(r17.phase), int(r17.day)])
+
+	# ---------- 12. 화면 문구: 마지막 날 부활을 다른 문구로 안내한다 ----------
+	# 화면이 쓰는 static 함수를 그대로 부른다(화면과 시험이 같은 문자열을 본다).
+	var scr_last: Dictionary = last_day_run.call(503, 1)
+	PRun.settle_death(scr_last, { "cause": "boss", "key": "screen:last", "bossId": "boss" })
+	var scr_mid := human_run(504)
+	scr_mid.gold = 2000
+	PConsumables.buy(scr_mid, REV)
+	scr_mid.day = 4
+	scr_mid.phase = "boss_prep"
+	PRun.settle_death(scr_mid, { "cause": "boss", "key": "screen:mid", "bossId": "boss" })
+	var scr_over: Dictionary = last_day_run.call(505, 0)
+	PRun.settle_death(scr_over, { "cause": "boss", "key": "screen:over", "bossId": "boss" })
+	var t_last := " ".join(PDefeatScreen.death_lines(scr_last))
+	var t_mid := " ".join(PDefeatScreen.death_lines(scr_mid))
+	var t_over := " ".join(PDefeatScreen.death_lines(scr_over))
+	ok("패배 화면: 마지막 날 부활을 '같은 날 관문 앞'으로 안내하고, 보통 날 부활·회차 종료와 문구가 서로 다르다",
+		t_last != t_mid and t_last != t_over and t_mid != t_over
+			and t_last.find("마지막 날") >= 0 and t_last.find("날짜는 넘어가지 않습니다") >= 0 and t_last.find("남은 시간은 전부 사라집니다") >= 0
+			and t_mid.find("남은 하루를 잃고") >= 0 and t_mid.find("마지막 날") < 0,
+		t_last)
+	ok("패배 화면의 주 버튼도 마지막 날에는 '같은 날 관문 앞으로'다(다음 날로 간다고 적지 않는다)",
+		PDefeatScreen.next_label(scr_last) == "같은 날 관문 앞으로 (Enter)" and PDefeatScreen.next_label(scr_mid).find("일차") >= 0
+			and PDefeatScreen.next_label(scr_last) != PDefeatScreen.next_label(scr_mid) and PDefeatScreen.next_label(scr_over) == "회차 결과 보기 (Enter)",
+		"%s / %s / %s" % [PDefeatScreen.next_label(scr_last), PDefeatScreen.next_label(scr_mid), PDefeatScreen.next_label(scr_over)])
+	var b_last := " ".join(PBossResultScreen.defeat_lines(scr_last))
+	var b_mid := " ".join(PBossResultScreen.defeat_lines(scr_mid))
+	var b_over := " ".join(PBossResultScreen.defeat_lines(scr_over))
+	ok("관문 결과 화면도 마지막 날 부활을 따로 안내한다(옛 '무료 상태 복원·무제한 재도전' 문구가 사람 플레이에 나오지 않는다)",
+		b_last != b_mid and b_last.find("날짜는 넘어가지 않습니다") >= 0 and b_last.find("또 한 개") >= 0
+			and b_mid.find("남은 하루를 잃고") >= 0 and b_over.find("회차가 여기서 끝납니다") >= 0
+			and b_last.find("입장 시점의 상태로 복구") < 0 and b_mid.find("입장 시점의 상태로 복구") < 0,
+		b_last)
+	ok("관문 결과 화면: 바로 다시 들어가기는 마지막 날 부활에서만 열린다(회차 종료·다음 날 부활에서는 잠긴다)",
+		PBossResultScreen.can_retry_now(scr_last) and not PBossResultScreen.can_retry_now(scr_mid) and not PBossResultScreen.can_retry_now(scr_over)
+			and PBossResultScreen.retry_label(scr_last).find("같은 날") >= 0 and PBossResultScreen.retry_label(scr_over).find("재도전 없음") >= 0,
+		"%s / %s" % [PBossResultScreen.retry_label(scr_last), PBossResultScreen.retry_label(scr_over)])
+	ok("부활 물약 설명이 마지막 날 동작을 안내한다(사람이 사기 전에 알 수 있다)",
+		String(RD.get("short", "")).find("마지막 날") >= 0 and String(RD.get("desc", "")).find("마지막 날") >= 0
+			and String(RD.get("desc", "")).find("같은 날 관문 앞") >= 0 and String(RD.get("lastDayShort", "")).find("같은 날 관문 앞") >= 0,
+		String(RD.get("short", "")))
+	var line_mid := PConsumables.revive_when_line(human_run(506))
+	var line_last := PConsumables.revive_when_line(last_day_run.call(507, 0))
+	ok("상점용 한 줄 안내가 날짜에 따라 달라진다(마지막 날에는 같은 날 관문 앞이라고 적는다)",
+		line_mid != line_last and line_last.find("마지막 날") >= 0 and line_last.find("같은 날 관문 앞") >= 0 and line_mid.find("다음 날") >= 0,
+		"%s // %s" % [line_mid, line_last])
 
 	var pass_n := 0
 	for x in results:

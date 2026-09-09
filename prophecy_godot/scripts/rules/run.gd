@@ -1213,6 +1213,7 @@ static func return_to_base(run: Dictionary, sortie: Dictionary) -> void:
 
 # ---------- 사망(2026-09-09 사용자 확정) ----------
 ## 사람 플레이에서 쓰러지면 그 회차는 끝난다. 부활 수단(부활 물약)을 **가지고 있을 때에만** 한 개가 소모되고 다시 일어난다.
+## 부활 자리는 날짜가 정한다: 다음 날이 있으면 하루를 잃고 다음 날 아침, 마지막 날이면 같은 날 관문 앞(날짜를 늘리지 않는다).
 ## 옛 규칙(일반 패배 후 무료 체력 회복·다음 날 진행, 보스 패배 후 무료 상태 복원·무제한 재도전)은 사람 플레이에서 사라졌다.
 ##
 ## 시험·자동 진행용 재시도 경로(사람 플레이와 분리)
@@ -1228,19 +1229,39 @@ static func retry_mode(run: Dictionary) -> bool:
 static func is_run_over(run: Dictionary) -> bool:
 	return String(run.get("phase", "")) == "dead"
 
-## 다음 날이 있는가. 본편 마지막 날(마지막 관문일)에는 없다 — 경계 규칙은 docs/DEATH_AND_ECONOMY.md
+## 다음 날이 있는가. 본편 마지막 날(마지막 관문일)에는 없다 — 그 날의 부활 규칙은 settle_death 주석과 docs/DEATH_AND_ECONOMY.md
 static func has_next_day(run: Dictionary) -> bool:
 	return int(run.get("day", 1)) < int(mode_def(run).get("days", 0))
 
-## 지금 쓰러지면 부활할 수 있는가(물약 보유 여부만 본다. 마지막 날 처리는 settle_death 주석 참고)
+## 지금 쓰러지면 부활할 수 있는가(물약 보유 여부만 본다 — 마지막 날에도 물약만 있으면 부활한다)
 static func can_revive(run: Dictionary) -> bool:
 	return PConsumables.has_revive(run)
 
+## 이 회차에서 부활 물약을 실제로 쓴 횟수. 저장에 남으므로 이어하기로 되돌아가지 않는다.
+## dict 안의 "count"는 PSave가 정수로 정규화하는 키다(bossEntries와 같은 방식 — 저장 정규화 표를 건드리지 않으려고 이 형태를 쓴다)
+static func revive_uses(run: Dictionary) -> int:
+	var u = run.get("reviveUses", null)
+	return int((u as Dictionary).get("count", 0)) if typeof(u) == TYPE_DICTIONARY else 0
+
+## 마지막 사망이 **같은 날 관문 앞 부활**이었는가(마지막 날 부활). 화면이 안내 문구를 고르는 데 쓴다
+static func revived_same_day(run: Dictionary) -> bool:
+	var d = run.get("death", null)
+	if typeof(d) != TYPE_DICTIONARY:
+		return false
+	return bool((d as Dictionary).get("revived", false)) and bool((d as Dictionary).get("sameDay", false))
+
 ## 사망 정산(정확히 1회). ctx: { key: 중복 방지 키, cause: "sortie"|"boss", regionId, bossId }
 ## 같은 사망을 두 번 넘겨도 물약이 두 개 빠지거나 하루가 두 번 지나가지 않는다(run.death.key로 못박는다).
-## 부활: 물약 1개 소모 → 남은 하루 상실 → 다음 날 최대 체력 hpFrac(25%)로 시작. 미완료 관문은 그대로 남는다(건너뛰지 않는다).
 ## 부활 불가: 회차 종료(phase "dead", ended true). 완주(cleared)와 구분되며 PFlow.actions는 빈 목록을 돌려준다.
-## 마지막 날(다음 날 없음)의 구현 기본안(**시험 규칙**, 사용자 합의 전): 물약을 쓰되 날짜를 넘기지 않고 **그 날의 남은 시간을 전부** 잃는다.
+##
+## 부활할 때(2026-09-09 사용자 확정, 두 갈래 모두 물약 1개 소모)
+## ------------------------------------------------------------
+##  - 다음 날이 있는 날: 남은 하루를 잃고 **다음 날** 아침에 최대 체력 hpFrac(25%)로 선다.
+##  - 다음 날이 없는 **마지막 날**: 날짜를 늘리지 않고 **같은 날 관문 앞**에 최대 체력 25%로 선다.
+##    그날 남은 시간은 전부 소진한다(run.hours = 0). 일정(10일)을 늘리지 않는 대신 그 날의 시간을 되돌려 주지도 않는다.
+## 어느 쪽이든 미완료 관문은 그대로 남는다(건너뛰지 않고 다음 막도 열리지 않는다).
+## 부활을 반복하려면 매번 물약이 한 개씩 든다 — 중복 방지 키는 관문 입장마다 새로 생기므로(start_boss가 bossEntries를 1 올린다)
+## 다시 들어가서 또 쓰러지면 새 사망으로 정산된다. 물약이 떨어지면 그다음 죽음이 회차 종료다.
 static func settle_death(run: Dictionary, ctx: Dictionary) -> Dictionary:
 	var key := String(ctx.get("key", ""))
 	var prev: Dictionary = run.get("death", {}) if typeof(run.get("death", null)) == TYPE_DICTIONARY else {}
@@ -1254,7 +1275,9 @@ static func settle_death(run: Dictionary, ctx: Dictionary) -> Dictionary:
 		"key": key, "cause": String(ctx.get("cause", "sortie")), "day": int(run.get("day", 1)), "stage": int(run.get("stage", 0)),
 		"count": int(prev.get("count", 0)) + 1, "seq": int(prev.get("seq", 0)) + 1,
 		"regionId": String(ctx.get("regionId", "")), "bossId": String(ctx.get("bossId", "")),
-		"revived": revived, "endedRun": not revived, "nextDay": next_day, "hp": 0.0,
+		"revived": revived, "endedRun": not revived, "nextDay": next_day,
+		"sameDay": revived and not next_day, # 마지막 날 부활 = 날짜를 넘기지 않고 같은 날 관문 앞(화면이 다른 문구를 쓴다)
+		"hp": 0.0,
 	}
 	run.bossEntry = null # 사망 정산은 입장 스냅샷을 복구하지 않고 지운다(소모한 물약이 되살아나지 않게)
 	run.lastDefeatDay = int(run.day)
@@ -1266,7 +1289,9 @@ static func settle_death(run: Dictionary, ctx: Dictionary) -> Dictionary:
 		add_log(run, "부활 수단이 없다: 회차 종료(%d일차)" % int(run.day))
 		run.death = rec
 		return rec
-	run.hours = 0
+	# 쓴 횟수는 회차에 누적해 저장한다(개수와 함께 이어하기로 되살아나지 않는 것을 검사로 못박는다)
+	run.reviveUses = { "count": revive_uses(run) + 1 }
+	run.hours = 0 # 어느 갈래든 그 날의 남은 시간은 사라진다
 	if next_day: # 남은 하루를 잃고 다음 날 아침
 		run.day = int(run.day) + 1
 		run.hours = int(C().HOURS_PER_DAY)
@@ -1275,7 +1300,8 @@ static func settle_death(run: Dictionary, ctx: Dictionary) -> Dictionary:
 	run.hp = maxf(1.0, round(float(b.hp_max) * frac))
 	rec.hp = float(run.hp)
 	# 미완료 관문은 그대로 남는다: 관문 날이면 다시 관문 준비 상태, 아니면 보통 준비 상태.
-	# 순서는 end_day와 같다 — 오늘의 장소·카드·재고는 phase가 정해진 뒤에 뽑는다
+	# 순서는 end_day와 같다 — 오늘의 장소·카드·재고는 phase가 정해진 뒤에 뽑는다.
+	# 마지막 날에는 날짜가 그대로이므로 장소·카드·재고를 다시 뽑지 않는다(같은 날의 재고가 새로 열리면 안 된다)
 	run.phase = "boss_prep" if is_boss_day(run) else "prep"
 	if next_day:
 		places_for(run)
@@ -1283,8 +1309,12 @@ static func settle_death(run: Dictionary, ctx: Dictionary) -> Dictionary:
 		refresh_stock(run)
 	if String(ctx.get("cause", "")) == "boss":
 		run.bossRetries = int(run.get("bossRetries", 0)) + 1
-	add_log(run, "부활: %s → %d일차 %s, 체력 %d/%d (미정산 전리품 상실)" % [
-		PConsumables.name_of(PConsumables.revive_id()), int(run.day), slot_name(run), int(float(run.hp)), int(float(b.hp_max))])
+	if next_day:
+		add_log(run, "부활: %s → %d일차 %s, 체력 %d/%d (미정산 전리품 상실)" % [
+			PConsumables.name_of(PConsumables.revive_id()), int(run.day), slot_name(run), int(float(run.hp)), int(float(b.hp_max))])
+	else:
+		add_log(run, "부활: %s → 마지막 날(%d일차)이라 날짜는 그대로, 같은 날 관문 앞에서 체력 %d/%d (남은 시간 전부 소진 · 미정산 전리품 상실)" % [
+			PConsumables.name_of(PConsumables.revive_id()), int(run.day), int(float(run.hp)), int(float(b.hp_max))])
 	if String(run.phase) == "boss_prep":
 		add_log(run, "관문은 그대로 남아 있다: 넘기 전까지 다음 막 활동은 잠긴다")
 	run.death = rec
@@ -1428,7 +1458,8 @@ static func start_boss(run: Dictionary) -> Dictionary:
 	var nb := next_boss(run)
 	return { "regionId": "boss", "bossId": String(nb.id) if not nb.is_empty() else "boss", "stage": int(run.get("stage", 0)), "seed": boss_seed(run), "loot": { "gold": 0, "mats": {} }, "encounters": 0 }
 
-## 관문 패배. 사람 플레이: 사망 정산(부활 물약이 있으면 하루를 잃고 다음 날 관문 앞에서 다시, 없으면 회차 종료).
+## 관문 패배. 사람 플레이: 사망 정산(부활 물약이 있으면 다시 관문 앞에 서고, 없으면 회차 종료).
+## 다음 날이 있으면 하루를 잃고 다음 날 관문 앞, 마지막 날이면 날짜를 늘리지 않고 같은 날 관문 앞이다(둘 다 물약 1개).
 ## 무료 상태 복원·무제한 재도전은 없다. 부활해도 관문은 그대로 남아 다음 막이 열리지 않는다.
 ## 시험 재시도 경로(run.testRetry)에서만 옛 규칙(입장 스냅샷 복구 + 즉시 재도전)을 쓴다 — boss_defeat_retry가 그 몸통이다.
 static func boss_defeat(run: Dictionary) -> void:
