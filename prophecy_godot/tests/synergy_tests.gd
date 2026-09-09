@@ -99,6 +99,9 @@ func _init() -> void:
 	sec4_reflect()
 	sec5_chain_allowed()
 	sec6_resonance()
+	sec7_supply_chain()
+	sec8_mod_coverage()
+	sec9_spread_gen_knob()
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("기록한 결함(단언 실패로 세지 않음): %d" % defects)
 	print("%d/%d PASS" % [pass_n, results.size()])
@@ -407,3 +410,220 @@ func sec6_resonance() -> void:
 		var applies: bool = PGrowth.boss_reward_applies(g, "resonance")
 		ok("무기 공명 후보 자격 — %s(%s)" % [" + ".join(c[0]), String(c[2])], applies == bool(c[1]),
 			"공격 출처 %d" % PGrowth.attack_source_count(g))
+
+# ---------- 7. 공급 → 소비 사슬 ----------
+## 상태를 **공급**하는 곳과 그것을 **받아 추가 효과를 내는** 곳을 따로 단언한다.
+## 공급만 있고 소비가 없는 상태(냉기·독)는 여기서 "공급은 된다"까지만 못박는다 —
+## 소비가 없다는 사실 자체는 결함이 아니라 설계 공백이므로 docs/SUPPORT_MATRIX.md 5절에 적었다.
+func sec7_supply_chain() -> void:
+	# (가) 냉기 공급원 셋이 실제로 냉기를 건다
+	var st: CombatState = lab([["frost", 1, []]])
+	var e: Dictionary = dummy(st, 120.0)
+	PWeapons.fire(st, wep(st, "frost"), e, false)
+	run_for(st, 1.0)
+	ok("서리 수정의 탄환이 냉기를 건다", float(e.chill) > 0.0, "chill=%s" % str(snappedf(float(e.chill), 0.01)))
+
+	var st2: CombatState = lab([["frost", 1, ["ground"]]])
+	var e2: Dictionary = dummy(st2, 120.0)
+	PWeapons.fire(st2, wep(st2, "frost"), e2, false)
+	run_for(st2, 1.0)
+	var cold := 0
+	for z in st2.zones:
+		if String((z as Dictionary).type) == "coldground":
+			cold += 1
+	ok("차가운 바닥이 냉기 장판을 남긴다", cold >= 1, "냉기 장판 %d개" % cold)
+
+	var st3: CombatState = lab([["mine", 1, ["frosttrap"]]])
+	var e3: Dictionary = dummy(st3, 30.0)
+	PWeapons.fire_mine(st3, wep(st3, "mine"))
+	for i in int(2.0 / STEP):
+		PWeapons.update_mines(st3, STEP)
+		if st3.mines.is_empty():
+			break
+	ok("서리 함정(룬 지뢰)이 냉기를 건다", float(e3.chill) > 0.0, "chill=%s" % str(snappedf(float(e3.chill), 0.01)))
+
+	# (나) 냉기의 소비: 이동 속도가 실제로 느려진다
+	var slowed := st3.enemy_speed_mult(e3)
+	ok("냉기를 받은 적의 이동 속도 배율이 1보다 작다", slowed < 1.0, "배율 %s" % str(snappedf(slowed, 0.01)))
+
+	# (다) 바람의 잔바람 둔화는 **냉기와 다른 경로**다(같은 '둔화'로 보이지만 e.chill을 쓰지 않는다).
+	# 이 단언이 깨지면 두 경로가 하나로 합쳐진 것이므로 docs/SUPPORT_MATRIX.md SM-3을 다시 읽어야 한다
+	var st4: CombatState = lab([["wind", 1, ["lingering"]]])
+	var e4: Dictionary = dummy(st4, 60.0)
+	PWeapons.fire(st4, wep(st4, "wind"), e4, false)
+	run_for(st4, 0.5)
+	var gusts := 0
+	for z in st4.zones:
+		if String((z as Dictionary).type) == "windgust":
+			gusts += 1
+	ok("잔바람이 둔화 장판을 남긴다", gusts >= 1, "잔바람 %d개" % gusts)
+	ok("잔바람의 둔화는 냉기(e.chill)를 쓰지 않는다", is_zero_approx(float(e4.chill)),
+		"chill=%s (0이 아니면 두 둔화 경로가 합쳐진 것이다)" % str(snappedf(float(e4.chill), 0.01)))
+
+	# (라) 독 공급: 나비의 독과 독가시의 독은 **전염 자격이 다르다**
+	var st5: CombatState = lab([["plague", 1, []]])
+	var v1: Dictionary = dummy(st5, 120.0)
+	PWeapons.fire(st5, wep(st5, "plague"), v1, false)
+	run_for(st5, 1.0)
+	var pg1: Dictionary = v1.get("plague", {})
+	ok("역병 나비의 독은 전염 자격이 있다", not pg1.is_empty() and bool(pg1.get("spread", false)))
+	var st6: CombatState = lab([["thorns", 1, ["venom"]]])
+	var v2: Dictionary = dummy(st6, 40.0)
+	PSupport.after_player_damage(st6, 10.0, "wolf:bite", v2)
+	var pg2: Dictionary = v2.get("plague", {})
+	ok("독가시의 독은 전염 자격이 없다", not pg2.is_empty() and not bool(pg2.get("spread", true)))
+
+	# (마) 자격표 어휘: 회전 칼날 접촉은 '보조 직접 타격'으로 읽혀야 감전 후속을 터뜨린다
+	var st7: CombatState = lab([["blades", 1, []]])
+	ok("자격표 어휘: 회전 칼날 접촉(orbit)은 보조 직접 타격이다",
+		PSupport.cause_of(st7, { "weapon": "blades" }) == "support_direct",
+		"cause=%s" % PSupport.cause_of(st7, { "weapon": "blades" }))
+
+# ---------- 8. 개조 36개가 자료와 코드에 모두 있는가 ----------
+## '구현 누락'과 '설계만 있음'을 자료 쪽에서 확인한다. 코드 쪽 확인은 docs/SUPPORT_MATRIX.md 4절 표에 있다.
+const SUPPORT_IDS := ["blades", "orb", "frost", "ember", "mine", "crow", "bell", "echo", "wind", "plague", "thorns", "doll"]
+
+func sec8_mod_coverage() -> void:
+	var total := 0
+	var missing := []
+	var not_impl := []
+	for id in SUPPORT_IDS:
+		var W: Dictionary = PCatalog.weapon(String(id))
+		if W.is_empty():
+			missing.append(String(id))
+			continue
+		if not bool(W.get("impl", false)):
+			not_impl.append(String(id))
+		var mods: Dictionary = W.get("mods", {})
+		for m in mods:
+			total += 1
+			if not bool((mods[m] as Dictionary).get("impl", false)):
+				not_impl.append("%s.%s" % [String(id), String(m)])
+	ok("보조 12종이 모두 카탈로그에 있다", missing.is_empty(), "빠진 것: %s" % str(missing))
+	ok("보조 개조가 36개다", total == 36, "실제 %d개" % total)
+	ok("보조 12종·개조 36개가 모두 impl:true다", not_impl.is_empty(), "impl:false: %s" % str(not_impl))
+
+	# 자격표의 다섯 효과가 전부 표에 있는가(설계만 있고 이름이 사라진 항목을 잡는다).
+	# 실제 호출 여부는 1~4절이 경로로 확인한다
+	var E: Dictionary = PCatalog.eligibility().get("effects", {})
+	for eff in ["shock_bonus", "plague_spread", "thorns_reflect", "echo_copy", "crow_mark"]:
+		ok("자격표에 %s가 있다" % eff, E.has(eff))
+
+	# 보조마다 개조를 켜면 그 개조가 실제로 수치·상태를 바꾸는가(대표 셋)
+	var stc: CombatState = lab([["crow", 1, ["twin"]]])
+	var n_twin := PSupportA._crow_bird_count(stc, wep(stc, "crow"))
+	ok("쌍둥이 까마귀를 켜면 까마귀가 2마리가 된다", n_twin == 2, "마리 수 %d" % n_twin)
+
+	var stb: CombatState = lab([["bell", 1, ["layered"]]])
+	var stb0: CombatState = lab([["bell", 1, []]])
+	var cap1 := PSupportA.bell_max(stb, wep(stb, "bell"))
+	var cap0 := PSupportA.bell_max(stb0, wep(stb0, "bell"))
+	var rc1 := PSupportA.bell_recharge(stb, wep(stb, "bell"))
+	var rc0 := PSupportA.bell_recharge(stb0, wep(stb0, "bell"))
+	ok("겹울림을 켜면 방울 저장 상한이 늘고 충전이 느려진다", cap1 > cap0 and rc1 > rc0,
+		"방울 %d→%d · 충전 %s→%s" % [cap0, cap1, str(snappedf(rc0, 0.01)), str(snappedf(rc1, 0.01))])
+
+	var stp: CombatState = lab([["plague", 1, ["deep"]]])
+	var vp: Dictionary = dummy(stp, 120.0)
+	PSupportB._infect(stp, vp, 0, -1.0)
+	var stp0: CombatState = lab([["plague", 1, []]])
+	var vp0: Dictionary = dummy(stp0, 120.0)
+	PSupportB._infect(stp0, vp0, 0, -1.0)
+	var d1: Dictionary = vp.get("plague", {})
+	var d0: Dictionary = vp0.get("plague", {})
+	ok("깊은 맹독을 켜면 독이 세지고 전염 대상이 줄어든다",
+		not d1.is_empty() and not d0.is_empty()
+		and float(d1.dps) > float(d0.dps) and int(d1.spread_n) <= int(d0.spread_n),
+		"독 %s→%s · 대상 %d→%d" % [str(snappedf(float(d0.get("dps", 0.0)), 0.1)), str(snappedf(float(d1.get("dps", 0.0)), 0.1)),
+			int(d0.get("spread_n", 0)), int(d1.get("spread_n", 0))])
+
+	# ----- 결함 기록(고치지 않는다) -----
+	# 유인 룬은 적을 끌어당기면서 등급 저항(PSupport.knock_dist)을 거치지 않는다.
+	# 보스만 빼고 정예는 온전히 끌린다 — 다른 밀어내기(바람 정령)와 규칙이 다르다
+	# 지뢰는 플레이어 발밑에 깔린다. 정예를 폭발 조건(trigger 30 + 반지름) 밖, 유인 반경(70) 안에 세운다.
+	# 준비 시간(arm 0.5초)이 지나야 당기기 시작하므로 1.5초를 굴린다
+	var stm: CombatState = lab([["mine", 1, ["lure"]]])
+	var elite: Dictionary = stm.spawn_enemy("elite_fang", stm.player.x + 64.0, stm.player.y)
+	PWeapons.fire_mine(stm, wep(stm, "mine"))
+	var ex0: float = float(elite.x)
+	for i in int(1.5 / STEP):
+		PWeapons.update_mines(stm, STEP)
+		if stm.mines.is_empty():
+			break
+	var moved: float = absf(float(elite.x) - ex0)
+	ok("정예로 세운 시험 대상이 실제로 정예다(SM-2 재현 조건)", bool(elite.get("elite", false)))
+	if moved > 0.5:
+		defect("SM-2", "유인 룬(룬 지뢰)이 정예를 등급 저항 없이 끌어당긴다",
+			"위치를 강제로 바꾸는 것은 PSupport.knock_dist를 거쳐 정예 0.35배·보스 0이 되어야 한다",
+			"정예가 %s만큼 끌려왔다" % str(snappedf(moved, 0.1)),
+			"scripts/rules/weapons.gd:596~602 — `if not e.boss and not bool(e.airborne)`만 보고 st.move_swept로 바로 당긴다. 같은 규칙의 바람 정령(supports_a.gd:684)은 knock_dist를 거친다")
+
+# ---------- 9. 전염 세대 상한이 실제로 달린 손잡이인가 ----------
+## `data/supports.json`은 읽기만 한다. 메모리에 올라온 자격표의 gen_max만 잠시 바꾸고 되돌린다.
+## **값을 바꾸자는 것이 아니라, 그 손잡이가 실제로 사슬 길이를 정하는지**를 못박는 검사다.
+## 비교표와 권장안은 docs/sim/SPREAD_PROBE.md와 docs/SYNERGY.md에 있다.
+func sec9_spread_gen_knob() -> void:
+	var eff: Dictionary = (PCatalog.eligibility().get("effects", {}) as Dictionary).get("plague_spread", {})
+	var saved := int(eff.get("gen_max", 2))
+	var got := {}
+	for gm in [2, 4]:
+		eff["gen_max"] = gm
+		got[gm] = _spread_pack(0.3)
+	eff["gen_max"] = saved
+	ok("세대 상한을 2에서 4로 올리면 전염이 실제로 더 이어진다",
+		int((got[4] as Dictionary).spreads) > int((got[2] as Dictionary).spreads),
+		"전염 %d → %d · 도달 세대 %d → %d" % [int((got[2] as Dictionary).spreads), int((got[4] as Dictionary).spreads),
+			int((got[2] as Dictionary).max_gen), int((got[4] as Dictionary).max_gen)])
+	ok("세대 상한 2에서는 2세대를 넘지 않는다", int((got[2] as Dictionary).max_gen) <= 2,
+		"도달 세대 %d" % int((got[2] as Dictionary).max_gen))
+	ok("검사가 끝난 뒤 자격표의 세대 상한이 원래 값으로 돌아왔다",
+		PSupport.gen_max("plague_spread") == saved, "gen_max=%d" % PSupport.gen_max("plague_spread"))
+
+	# 상한을 올려도 **남은 시간 상속**이라는 두 번째 제동 장치는 그대로여야 한다.
+	# 온전한 체력의 적에게는 상한을 올려도 사슬이 길어지지 않는다는 것을 못박는다
+	# (앞선 보고의 '상한 2가 연쇄를 70% 깎는다'가 한 조건에서만 나온 값이라는 근거이기도 하다)
+	var full := {}
+	for gm in [2, 4]:
+		eff["gen_max"] = gm
+		full[gm] = _spread_pack(1.0)
+	eff["gen_max"] = saved
+	ok("온전한 체력의 적에게는 세대 상한을 올려도 사슬이 길어지지 않는다(제동 장치가 남은 시간이다)",
+		int((full[2] as Dictionary).spreads) == int((full[4] as Dictionary).spreads),
+		"전염 %d(상한 2) 대 %d(상한 4) — 다르면 상속 규칙이 바뀐 것이다" % [
+			int((full[2] as Dictionary).spreads), int((full[4] as Dictionary).spreads)])
+
+	# 전염은 지속 시간을 최대치로 되돌리지 않는다(무한 연장 금지)
+	var st3: CombatState = lab([["plague", 1, []]])
+	var a3: Dictionary = st3.spawn_enemy("wolf", st3.player.x + 60.0, st3.player.y)
+	var b3: Dictionary = dummy(st3, 100.0)
+	PSupportB._infect(st3, a3, 0, -1.0)
+	run_for(st3, 2.0)
+	var left: float = float((a3.plague as Dictionary).t)
+	st3.kill_enemy(a3, {})
+	var pb: Dictionary = b3.get("plague", {})
+	ok("전염이 지속 시간을 최대치로 되돌리지 않고 남은 시간을 물려받는다",
+		not pb.is_empty() and float(pb.t) <= left + 1e-3 and float(pb.t) < float(pb.max) - 1e-3,
+		"물려준 남은 시간 %s → 받은 시간 %s (최대 %s)" % [str(snappedf(left, 0.01)),
+			str(snappedf(float(pb.get("t", 0.0)), 0.01)), str(snappedf(float(pb.get("max", 0.0)), 0.01))])
+
+## 늑대 16마리를 4×4 밀집으로 세우고 가운데 하나만 감염시킨 뒤 그 하나를 처치한다.
+## hp_frac은 시작 체력 비율(0.3 = 주무기가 이미 긁어 놓은 상태, 1.0 = 온전)
+func _spread_pack(hp_frac: float) -> Dictionary:
+	var st: CombatState = lab([["plague", 3, []]])
+	var pack := []
+	for iy in 4:
+		for ix in 4:
+			var e: Dictionary = st.spawn_enemy("wolf", 380.0 + float(ix) * 70.0, 220.0 + float(iy) * 70.0)
+			e.hp = float(e.hp_max) * hp_frac
+			pack.append(e)
+	PSupportB._infect(st, pack[5], 0, -1.0)
+	run_for(st, 0.5)
+	st.kill_enemy(pack[5], {})
+	run_for(st, 14.0)
+	var P: Dictionary = st.support.get("plague", {})
+	var dead := 0
+	for e in pack:
+		if bool(e.dead):
+			dead += 1
+	return { "spreads": int(P.get("spreads", 0)), "max_gen": int(P.get("max_gen", 0)),
+		"blocked": int(P.get("spread_blocked", 0)), "dead": dead }

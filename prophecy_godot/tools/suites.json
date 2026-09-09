@@ -383,6 +383,21 @@
         "note": "통과 판정 스위트가 아니라 기록 도구. 결과 JSON 한 줄과 종료 코드 0으로 확인한다."
       }
     },
+    "spread_probe": {
+      "env": {},
+      "script": "tools/spread_probe.gd",
+      "timeout_sec": 3600,
+      "desc": "독 전염 세대 상한 2·3·4 비교(무제한은 참고용). 밀집한 약한 적과 폭발 후에도 살아남는 튼튼한 적을 나눠 재고, 격리 시험실(사슬 크기)과 실전 장면(처리 비용 = 전투 시간·받은 피해)을 따로 잰다. data/supports.json은 읽기만 하고 메모리의 gen_max만 잠시 바꾼다. 부분 실행 PROPHECY_SUBSET=\"gen=2,3;mob=dense;scene=lab;seed=1\"",
+      "verdict": {
+        "success_pattern": "SPREAD_PROBE_JSON",
+        "forbid_patterns": [
+          "SCRIPT ERROR",
+          "Parse Error",
+          "Compile Error"
+        ],
+        "note": "통과 판정 스위트가 아니라 기록 도구. 결과 JSON 한 줄과 종료 코드 0으로 확인한다."
+      }
+    },
     "build_probe": {
       "env": {},
       "script": "tools/build_probe.gd",
