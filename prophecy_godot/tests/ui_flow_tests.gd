@@ -16,6 +16,10 @@ func _win(main: Node) -> void: # 상태 주입: 진행 중 전투를 승리로 �
 	main.view.running = false
 	main.view.st.status = "won"
 	main.view.st.player.hp = 70.0
+	# 결투가 예정된 편성이면 규칙이 "특수 정예전 미완료 상태의 승리 정산"으로 막는다(정상 동작).
+	# 여기서는 승리 **뒤의 흐름**만 보므로 결투를 끝난 것으로 표시해 규칙과 앞뒤를 맞춘다.
+	# 이걸 빼면 로그에 진짜 오류가 아닌 ERROR가 남아 실제 결함을 가린다.
+	main.view.st.mark_duel_done_for_test()
 	main._on_finished(main.view.st.summary())
 
 # ---------- 이동 불능 회귀(2026-09-08 "9일차에 움직이지 않아 죽었다" 보고) ----------
