@@ -272,6 +272,9 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 					marks.append({ "x": float(q.x), "y": float(q.y), "r": float(M.r), "explode_at": st.t + float(M.delay) + float(i) * float(M.gap), "done": false })
 				if marks.is_empty():
 					marks = [{ "x": p.x, "y": p.y, "r": float(M.r), "explode_at": st.t + float(M.delay), "done": false }]
+				# 파괴 자격이 표식에 걸려 있으면("지난 자리를 통째로 먹는다!") 지목한 장애물에 **가장 가까운 표식 하나만**
+				# 그 장애물을 덮을 만큼 옮긴다. 나머지 표식과 개수·시각·반지름은 그대로다
+				_aim_break_mark(st, e, marks, float(M.r))
 				e.marks = marks
 				e.state = "mark_wait"
 				e.state_t = 0.0
@@ -342,6 +345,25 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 			if float(e.state_t) >= float(cfg.stagger):
 				to_approach(st, e)
 	st.push_out(e)
+
+## 파괴 자격이 표식에 걸려 있을 때, 지목한 장애물에 가장 가까운 표식 하나를 그 장애물이 판정 안에 들어올 만큼만 옮긴다.
+## 표식 수·터지는 시각·반지름은 그대로다. 자격이 없으면 아무것도 하지 않는다(개편 전과 같다).
+static func _aim_break_mark(st: CombatState, e: Dictionary, marks: Array, r: float) -> void:
+	var ob := PBoss.break_target(st, e, "mark")
+	if ob.is_empty() or marks.is_empty():
+		return
+	var best: int = 0
+	var bd := INF
+	for i in marks.size():
+		var mk: Dictionary = marks[i]
+		var d: float = PGeom.dist(float(mk.x), float(mk.y), float(ob.x), float(ob.y))
+		if d < bd:
+			bd = d
+			best = i
+	var tgt: Dictionary = marks[best]
+	var np: Array = PBoss.break_point(st, e, "mark", float(tgt.x), float(tgt.y), r)
+	tgt.x = float(np[0])
+	tgt.y = float(np[1])
 
 ## 표식 폭발: 공개된 위치, 정해진 시각에 순차. 감속장은 표식 시계를 늦추지 않는다(위치 기반 예고이므로 회피 여유가 이미 큼)
 static func update_marks(st: CombatState, e: Dictionary, _dt: float) -> void:
