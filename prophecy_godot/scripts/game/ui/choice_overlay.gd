@@ -13,10 +13,14 @@ signal picked(key: String)
 signal skipped()
 signal rerolled()
 
+## 이 창이 그릴 줄 아는 보상 종류. 여기 없는 이름이 들어오면 **기록을 남긴다**(조용히 레벨업 화면으로 그리지 않는다).
+const KNOWN_POOLS := ["level", "boss", "deep", "mission"]
+
 var offer: Dictionary = {}
 var _run: Dictionary = {}
 var _detail := ""             # 상세를 펼친 카드의 key("" = 없음)
 var _build_open := false      # '내 빌드 보기'를 펼쳤는가
+var _note := ""               # 이번 창에 보일 사람 말 한 줄(빈 후보의 사유 · 알 수 없는 pool). open()에서만 정한다
 ## 마지막으로 그렸을 때 **창을 닫거나 진행시키는** 조작이 하나라도 있었는가.
 ## '내 빌드 보기'는 여기에 세지 않는다 — 눌러도 창이 안 닫히므로 탈출구가 아니다
 var _can_leave := false
@@ -63,11 +67,30 @@ func is_open() -> bool:
 func has_exit() -> bool:
 	return _can_leave
 
+## 이번 창이 '왜 이렇게 보이는지' 한 줄("" = 할 말 없음). 검사가 이것으로 사유 전달을 확인한다
+func note() -> String:
+	return _note
+
 func open(run: Dictionary, off: Dictionary) -> void:
 	offer = off
 	_run = run
 	_detail = ""
 	_build_open = false
+	_note = ""
+	# **모르는 보상 종류를 조용히 넘기지 않는다.**(2026-09-09 사용자 지시)
+	# 전에는 pool 이름을 모르면 그냥 레벨업 화면으로 그리고 '계속'만 붙였다 —
+	# 받을 것이 있었는데 사라졌어도 아무 데도 남지 않았다.
+	var pool := String(off.get("pool", "level"))
+	if not KNOWN_POOLS.has(pool):
+		_note = "알 수 없는 보상 종류(%s)입니다. 받을 것이 있었다면 사라졌을 수 있어 기록을 남겼습니다." % pool
+		push_error("3택 창: 알 수 없는 보상 종류(pool) '%s'" % pool)
+		if not run.is_empty():
+			PRun.add_log(run, "3택 창: 알 수 없는 보상 종류 '%s'" % pool)
+	elif (off.get("choices", []) as Array).is_empty():
+		# 빈 후보의 사유는 규칙(PGrowth.empty_reason)이 실어 보낸다. 정상 소진이면 설명만, 생성 오류면 그렇게 적는다
+		var rt := String(off.get("reasonText", ""))
+		if rt != "":
+			_note = ("[생성 오류] " if String(off.get("reason", "")) == "error" else "") + rt
 	_render()
 	visible = true
 
@@ -99,6 +122,9 @@ func _render() -> void:
 	bbtn.custom_minimum_size = Vector2(0, PLayout.button_min_height())
 	head.add_child(bbtn)
 	_box.add_child(head)
+	# 사람 말 한 줄: 후보가 비었으면 왜 비었는지, 모르는 보상 종류면 그 사실. 카드 위에 둔다
+	if _note != "":
+		_box.add_child(PUi.rich("[color=#ffb066]%s[/color]" % PGlossaryTip.esc(_note), 14))
 	var rid = off.get("regionId", null)
 	if rid != null and String(rid) != "" and pool != "boss":
 		_box.add_child(PUi.rich("[color=#9ea8b8]지역 계열: %s[/color]" % PGlossaryTip.esc(String(PCatalog.region_tag_text().get(String(rid), "—"))), 13))

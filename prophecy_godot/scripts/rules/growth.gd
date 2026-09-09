@@ -411,6 +411,73 @@ static func weight_of(g: Dictionary, c: Dictionary) -> float:
 static func key_of(c: Dictionary) -> String:
 	return String(c.kind) + ":" + String(c.id) + ((":" + String(c.mod)) if c.has("mod") else "") + ((":" + String(c.variant)) if c.has("variant") else "")
 
+# ---------- 빈 후보의 사유 구분(2026-09-09 사용자 지시) ----------
+## apply_choice가 아는 선택 종류 전부. 여기 없는 종류를 임무 3택으로 요청하면 **생성 오류**다
+const CHOICE_KINDS := ["weapon_new", "weapon_level", "weapon_mod", "common", "skill_new", "skill_level", "skill_variant", "passive", "service", "boss_reward"]
+
+## 이 pool이 애초에 자료에서 몇 개를 가져올 수 있는가(보유·상한을 보기 전의 원재료 수).
+## 0이면 자료가 비어 있다는 뜻이고, 그것은 정상 소진이 아니라 **생성 오류**다.
+## { total: int, what: String, text: String(사람 말 한 줄) }
+##
+## **여기서 candidates()를 다시 부르지 않는다.** 후보 생성 도중에 후보 생성을 다시 부르면
+## 종료할 때 프로세스가 죽었다(2026-09-09: run_tests·acts_tests가 단언은 전부 통과하고
+## 종료 코드 3221225477로 끝났다 — 그것은 통과가 아니라 종료 실패다).
+## 여기서 알고 싶은 것은 '자료가 비었나'뿐이므로 카탈로그 크기만 센다.
+static func _pool_stock(_run: Dictionary, ctx: Dictionary) -> Dictionary:
+	var pool_name := String(ctx.get("pool", "level"))
+	if pool_name == "boss":
+		var BR := PCatalog.boss_rewards()
+		var n := 0
+		for id in BR:
+			if bool((BR[id] as Dictionary).get("impl", false)):
+				n += 1
+		return { "total": n, "what": "보스 희귀 보상",
+			"text": "받을 수 있는 희귀 보상이 없습니다(이미 받았거나 지금 빌드에 적용되지 않습니다)." }
+	if pool_name == "deep":
+		return { "total": PCatalog.weapons().size() + PCatalog.commons().size() + PCatalog.passives().size(), "what": "지역 보상",
+			"text": "이 지역 계열에 맞는 후보가 없습니다." }
+	if pool_name == "mission":
+		var kinds: Array = ctx.get("kinds", [])
+		var n2 := 0
+		var names := []
+		for k in kinds:
+			names.append(String(k))
+			match String(k):
+				"service": n2 += PCatalog.services().size()
+				"common": n2 += PCatalog.commons().size()
+				"passive": n2 += PCatalog.passives().size()
+				"skill_new", "skill_level", "skill_variant": n2 += PCatalog.skills().size()
+				_: n2 += PCatalog.weapons().size()
+		return { "total": n2, "what": "임무 보상(%s)" % ", ".join(names),
+			"text": "이 임무 보상으로 지금 줄 수 있는 것이 없습니다(전부 최대치이거나 이미 보유)." }
+	return { "total": PCatalog.weapons().size() + PCatalog.commons().size() + PCatalog.passives().size() + PCatalog.skills().size(),
+		"what": "레벨업 후보", "text": "더 올릴 것이 없습니다(자동기술·증강·기술이 모두 최대치입니다)." }
+
+## 빈 후보를 **정상 소진 / 생성 오류**로 가른다. 화면은 text를 사람 말 한 줄로 보인다.
+##  - "ok"        : 후보가 있다
+##  - "exhausted" : 정말 더 줄 것이 없다 → 조용히 '계속'이 맞다
+##  - "error"     : 후보가 있어야 하는데 0이 됐다(자료·요청·추첨 문제) → **기록을 남긴다**
+static func empty_reason(run: Dictionary, ctx: Dictionary, draw_n: int, picked_n: int) -> Dictionary:
+	if picked_n > 0:
+		return { "code": "ok", "text": "" }
+	var pool_name := String(ctx.get("pool", "level"))
+	if pool_name == "mission":
+		var kinds: Array = ctx.get("kinds", [])
+		if kinds.is_empty():
+			return { "code": "error", "text": "임무 보상의 종류가 비어 있습니다(요청 자체가 잘못됐습니다)." }
+		var unknown := []
+		for k in kinds:
+			if not CHOICE_KINDS.has(String(k)):
+				unknown.append(String(k))
+		if not unknown.is_empty():
+			return { "code": "error", "text": "알 수 없는 보상 종류입니다: %s" % ", ".join(unknown) }
+	if draw_n > 0:
+		return { "code": "error", "text": "후보 %d개가 있었는데 추첨에서 하나도 뽑히지 않았습니다." % draw_n }
+	var stock := _pool_stock(run, ctx)
+	if int(stock.total) <= 0:
+		return { "code": "error", "text": "이 종류의 보상이 자료에 하나도 없습니다(%s)." % String(stock.what) }
+	return { "code": "exhausted", "text": String(stock.text) }
+
 ## 시드 결정적 3택(HTML generateOffer). 같은 seq는 같은 결과. 성장 예약(steer)은 level 풀에만 적용, 후보가 없으면 금화 대체(기록)
 static func generate_offer(run: Dictionary, ctx: Dictionary = {}) -> Dictionary:
 	var g: Dictionary = run.growth
@@ -435,6 +502,7 @@ static func generate_offer(run: Dictionary, ctx: Dictionary = {}) -> Dictionary:
 	var rng := PRng.new((int(run.seed) * 7919 + int(g.choiceSeq) * 104729 + int(g.level) * 31) & 0xFFFFFFFF)
 	var picked := []
 	var remaining := pool.duplicate()
+	var draw_n: int = pool.size()   # 추첨에 들어간 후보 수(빈 결과의 사유를 가를 때 쓴다)
 	# 유형 가중치와 유형 안 후보 분리(meta.json offer.kind_normalized, 사용자 지시 §5): 후보 가중치 = 유형 가중치 × 후보 보정 ÷ 그 유형의 남은 후보 수.
 	# 해금으로 새 기술 후보가 늘어도 '새 기술' 유형의 총 출현 확률은 그대로이고, 보유 기술의 개조 확률도 희석되지 않는다
 	var normalize: bool = bool((PCatalog.meta().get("offer", {}) as Dictionary).get("kind_normalized", false))
@@ -474,7 +542,23 @@ static func generate_offer(run: Dictionary, ctx: Dictionary = {}) -> Dictionary:
 		var cc: Dictionary = c.duplicate()
 		cc.key = key_of(c)
 		choices.append(cc)
-	g.pendingOffer = { "seq": int(g.choiceSeq), "pool": pool_name, "regionId": ctx.get("region_id", null), "steer": steer_kind, "choices": choices }
+	# **빈 목록을 그냥 내보내지 않는다.** 정상 소진(더 줄 것이 없다)과 생성 오류(있어야 하는데 0이 됐다)를 갈라
+	# 사유를 실어 보낸다. 화면은 그 이유를 사람 말 한 줄로 보이고, 오류만 기록을 남긴다.
+	# (2026-09-09 사용자 지시: "오류 때문에 받을 보상이 사라졌는데 '계속'으로 조용히 폐기하지 마라.")
+	var reason := empty_reason(run, ctx, draw_n, choices.size())
+	var code := String(reason.code)
+	if code == "error":
+		var msg := "보상 후보 생성 오류(%s): %s" % [pool_name, String(reason.text)]
+		push_error(msg)
+		PRun.add_log(run, msg)
+		g.offerErrors = int(g.get("offerErrors", 0)) + 1
+		if not g.has("offerErrorLog"):
+			g.offerErrorLog = []
+		(g.offerErrorLog as Array).append("%s|%s" % [pool_name, String(reason.text)])
+	elif code == "exhausted":
+		g.offerExhausted = int(g.get("offerExhausted", 0)) + 1
+	g.pendingOffer = { "seq": int(g.choiceSeq), "pool": pool_name, "regionId": ctx.get("region_id", null), "steer": steer_kind, "choices": choices,
+		"reason": code, "reasonText": String(reason.text) }
 	g.choiceSeq = int(g.choiceSeq) + 1
 	return g.pendingOffer
 

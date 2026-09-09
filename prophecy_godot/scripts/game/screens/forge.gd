@@ -125,7 +125,9 @@ func refresh() -> void:
 		var q := PRun.swap_quote(r, "weapon", i)
 		var row := PUi.hbox(8)
 		row.add_child(PUi.icon_of(PIcons.weapon_key(String(w.id)), 28.0, "", "", 0.0, 0))
-		row.add_child(PUi.rich("[b]%s[/b] Lv%d · 개조 %d [color=#9ea8b8]→ 교체[/color] [color=#ffd966][b]%d금[/b][/color] [color=#9ea8b8](레벨·개조 수 보존, 새 개조는 새 기술에서 선택)[/color]" % [PGlossaryTip.esc(String(PCatalog.weapon(String(w.id)).name)), int(w.level), (w.mods as Array).size(), int(q.price)], 13))
+		# 자리 이름을 먼저 적는다 — 주무기 자리는 주무기끼리, 보조 자리는 보조끼리만 바뀐다(PRun.swap_quote)
+		var rname := "주무기" if String(q.get("role", "")) == "main" else ("보조" if String(q.get("role", "")) == "support" else "자동기술")
+		row.add_child(PUi.rich("[color=#8a93a6]%s[/color] [b]%s[/b] Lv%d · 개조 %d [color=#9ea8b8]→ 같은 %s 중에서 교체[/color] [color=#ffd966][b]%d금[/b][/color] [color=#9ea8b8](레벨·개조 수 보존, 새 개조는 새 기술에서 선택)[/color]" % [rname, PGlossaryTip.esc(String(PCatalog.weapon(String(w.id)).name)), int(w.level), (w.mods as Array).size(), rname, int(q.price)], 13))
 		var has_opt: bool = (q.options as Array).size() > 0
 		var idx := i
 		row.add_child(PUi.button(("교체" if bool(q.affordable) else "%d 부족" % (int(q.price) - int(r.gold))) if has_opt else "후보 없음", func(): _swap_open("weapon", idx), has_opt and bool(q.affordable), 12))

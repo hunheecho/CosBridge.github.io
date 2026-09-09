@@ -223,8 +223,20 @@ static func next_offer(run: Dictionary, ctx: Dictionary = {}) -> Variant:
 ## 제시된 선택을 적용(choice) 또는 건너뜀(null). 레벨업 건너뜀은 금화, 유료 변경 건너뜀은 원복·환불, 그 외는 제시만 닫힘
 static func resolve_offer(run: Dictionary, offer: Dictionary, choice: Variant) -> void:
 	if choice != null:
-		PGrowth.apply_choice(run, choice)
-	elif String(offer.pool) == "level":
+		if PGrowth.apply_choice(run, choice):
+			return
+		# **적용이 거부됐다**(상한 초과·전제 미충족·알 수 없는 종류).
+		# 예전에는 그대로 돌아갔고, pendingOffer가 남아 **같은 3택이 다시 떴다** —
+		# 사람에게는 "골라도 아무 일이 없는 화면"이고, 왜인지는 어디에도 남지 않았다.
+		# 기록을 남기고 이 제시를 닫는다. 금화로 조용히 바꿔치지 않는다(무엇을 잃었는지 보이게 둔다).
+		var g: Dictionary = run.growth
+		g.applyFailures = int(g.get("applyFailures", 0)) + 1
+		PRun.add_log(run, "보상 적용 실패(%s): 지금 상태에 적용할 수 없어 이 제시를 닫습니다" % String((choice as Dictionary).get("kind", "?")))
+		if String(offer.get("pool", "level")) == "level":
+			g.pendingLevelUps = maxi(0, int(g.pendingLevelUps) - 1)
+		g.pendingOffer = null
+		return
+	if String(offer.pool) == "level":
 		PGrowth.skip_choice(run)
 	elif offer.get("paidChange", null) != null:
 		cancel_paid_change(run, offer)

@@ -277,9 +277,12 @@
       "desc": "방패병 정면 방어 확정값·특수 정예 7종 규칙"
     },
     "overlay_tests": {
-      "env": {},
-      "timeout_sec": 300,
-      "desc": "화면을 막는 창은 언제나 나갈 수 있다(3택 창의 pool별 탈출구를 실제로 눌러서 확인)"
+      "env": {
+        "PROPHECY_TEST_RETRY": "1"
+      },
+      "timeout_sec": 1200,
+      "desc": "화면을 막는 창은 언제나 나갈 수 있다: ① 창 단독에서 탈출구를 실제로 눌러 신호 확인 ② 실제 main.tscn에서 눌러 창이 닫히고 전투 입력 관문이 풀리는지 ③ 포로 구출·봉인 임무를 실제로 태워 증상 재현 여부 기록(REPRO 줄) ④ 빈 후보의 정상 소진/생성 오류/미정의 pool 구분",
+      "env_reason": "PROPHECY_TEST_RETRY=1: ③에서 실제 게임 화면과 전투 봇을 굴린다. 사람 플레이의 패배를 재현하는 스위트가 아니므로 hud_tests·ui_flow_tests와 같은 시험 재시도 경로를 쓴다(사망 규칙 자체는 death_tests가 이 환경 없이 검증한다)."
     },
     "screen_keep_tests": {
       "env": {},

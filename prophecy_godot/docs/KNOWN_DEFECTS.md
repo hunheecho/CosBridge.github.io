@@ -396,3 +396,37 @@ PC에서는 휠로 스크롤하므로 **여태 드러나지 않았다.**
    다르면 뿌리로 간다. 실패하면 아무것도 하지 않는다(게임을 막지 않는다).
 
 **확인.** `/b/e721ed3/?v=e721ed3` → 302 → `/` · 열쇠 없으면 그대로 401 · 현재 판 주소는 200.
+
+---
+
+## KD-11. 임무 전투에 특수 정예 결투가 붙으면 승리 정산이 거부되고 보상 화면에 버튼이 하나도 없다 (**열림 — 근본 원인은 전투 규칙 담당**)
+
+**누가 찾았나.** 사람 플레이 보고(2026-09-09): "포로 구출했는데 또 봉인돼서 화면 아무것도 누를 수 없는 상태가 되냐고."
+그 뒤 `tests/overlay_tests.gd` ③에서 **실제 화면 경로로 재현**했다(봉인 해제 임무, seed 2, 3일차, 봇이 실제로 승리).
+
+**관측한 상태.** `status=won` · `duel_type='elite_archer'` · `duel_stage='normal'` · `settled='won'`
+→ `PFlow.settle_victory`가 "특수 정예전 미완료 상태의 승리 정산"으로 거부하고 `{}`를 돌려준다
+→ `main.last_reward`가 빈 사전 → `PRewardScreen.refresh()`가 **아무것도 그리지 않고 반환**
+→ 그 화면의 버튼 수 **0개**. 3택 창이 아니라 보상 화면 자체가 갇힌 화면이 된다.
+
+**근본 원인(고치지 않음 — `scripts/rules/combat_state.gd`는 다른 담당).**
+`check_objective()`의 결투 관문이 `clear`·`elite` 갈래에만 있다:
+
+```gdscript
+elif (objective == "clear" or objective == "elite") and spawned_all and pending.is_empty() and alive_units() == 0:
+    if duel_type != "" and duel_stage != "done":
+        return   # ← 이 관문
+    status = "won"
+```
+
+그런데 임무 목표(`rescue`·`seal`·`altars`·`hunt`)는 그 위의 `PObjectives.check(self)` 갈래에서
+관문 없이 바로 `status = "won"`이 된다. `PRun.assign_duel`은 하루 카드 한 장에 결투를 붙이고,
+그 카드가 임무 카드일 수 있다. 그러면 결투는 시작도 못 하고 전투가 끝난다.
+
+**이 작업에서 한 것(화면이 죽지 않게만).** `scripts/game/main.gd::_on_finished`에서
+정산이 `{}`를 돌려주면 보상 화면으로 보내지 않는다. 대신
+회차 기록(`전투 정산 실패(...)`)·`run.settleFailures` 회수·`push_error`를 남기고 거점으로 보낸다.
+**보상이 사라진 사실을 조용히 넘기지 않는다.** 회귀 단언은 `overlay_tests` ③-4.
+
+**남은 것(다음 담당).** 임무 목표 승리 판정에도 같은 결투 관문을 넣거나,
+임무 카드에는 결투를 붙이지 않는다. 그때까지 이 회차의 그 전투 보상은 실제로 지급되지 않는다.
