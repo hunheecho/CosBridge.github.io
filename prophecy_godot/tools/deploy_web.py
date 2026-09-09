@@ -240,7 +240,8 @@ def main():
     for n, s in files.items():
         print("  b/%s/%-30s %10d" % (short, n, s))
     print("  %-34s %10d (%.1f MB)" % ("합계", total, total / 1048576.0))
-    print("판본 표시: %s (%s) · 남긴 판: %s" % (ver, short, ", ".join(kept)))
+    print("판본 표시: v%s   (빌드 %s) · 남긴 판: %s" % (ver, short, ", ".join(kept)))
+    print("※ 사람에게 알릴 때는 **v%s** 로 말한다. 해시는 추적용이다 — docs/VERSIONING.md" % ver)
     print("\n확인: python tools/serve_web.py --dir %s --port 8794" % out)
     return 0
 

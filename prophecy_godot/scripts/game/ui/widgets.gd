@@ -214,11 +214,17 @@ static var _stamp_read := false
 
 ## 화면에 보이는 판본. 배포한 빌드에는 커밋 표식이 괄호로 붙는다(예: godot-1.1.0 (2396eda)).
 ## 폰에서 "지금 보는 것이 어느 판인가"를 이 한 줄로 가른다.
+## 화면에 보이는 판본. **우리가 정한 번호만** 보여 준다(예: v1.1.1).
+## 예전에는 뒤에 커밋 해시를 붙였는데(v1.1.0 (dafc8bc)) 사람이 읽고 말하기 나빴다.
+## 해시는 추적용이라 설정 화면과 version.json 에만 남긴다 — build_stamp()로 따로 읽는다.
 static func version() -> String:
 	var gs: GDScript = load("res://scripts/game/game.gd")
-	var v := String(gs.get_script_constant_map().get("VERSION", "?"))
+	return "v" + String(gs.get_script_constant_map().get("VERSION", "?"))
+
+## 판본 + 커밋 표식(설정 화면·기록용). 개발 중 실행에는 해시가 없어 판본만 나온다
+static func version_full() -> String:
 	var b := build_stamp()
-	return v if b == "" else "%s (%s)" % [v, b]
+	return version() if b == "" else "%s · 빌드 %s" % [version(), b]
 
 ## 내보내기 도구가 남기는 배포 표식(res://data/build.json). 개발 중 실행에는 없다 → 빈 문자열.
 ## 규칙에 영향이 없는 표시 전용 값이라 PCatalog에 태우지 않고 직접 읽는다.

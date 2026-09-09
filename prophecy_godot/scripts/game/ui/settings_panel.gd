@@ -62,6 +62,8 @@ func _ready() -> void:
 	# 전문은 내보내기에 함께 담기는 assets/fonts/OFL.txt에 있고, 여기서는 그 경로까지 알려 준다.
 	_font_note = PUi.rich("%s\n전문: %s" % [PUi.font_notice(), PUi.font_license_path()], 11, PUi.DIM)
 	v.add_child(_font_note)
+	# 판본은 여기서만 커밋 표식까지 보여 준다(제목 화면에는 번호만 — docs/VERSIONING.md)
+	v.add_child(PUi.rich("[color=#9ea8b8]판본[/color] [b]%s[/b]" % PUi.version_full(), 12))
 	v.add_child(PUi.button("닫기 (Esc)", func(): close(), true, 14))
 	visible = false
 
