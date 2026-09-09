@@ -87,19 +87,79 @@ func fire_once(st: CombatState, weapon_id: String, target: Dictionary, wait: flo
 func dmg_of(st: CombatState, weapon_id: String) -> float:
 	return float(st.metrics.dmg.get("weapon:" + weapon_id, 0.0))
 
-## 표적 하나에 붙어서 seconds 동안 넣은 총 피해(같은 레벨·같은 성장 투자, 같은 거리)
-func sustained(weapon_id: String, dist: float, seconds: float = 12.0, level: int = 1) -> float:
-	var st := mk(weapon_id, [], level)
+## 표적 하나에 붙어서 seconds 동안 넣은 총 피해(같은 레벨·같은 성장 투자, 같은 거리).
+## **그 무기가 낸 모든 피해**를 센다 — 직접 피해에 그 무기가 붙인 지속 피해(출혈)를 더한다.
+## 출혈은 metrics에 `dot:bleed@<무기 id>`로 따로 쌓이므로 직접 피해만 보면 개조의 몫이 빠진다
+func sustained(weapon_id: String, dist: float, seconds: float = 12.0, level: int = 1, mods: Array = []) -> float:
+	var st := mk(weapon_id, mods, level)
 	var pos := at(st, dist, 0.0)
 	var e := dummy(st, pos[0], pos[1])
 	steps_pinned(st, seconds, [[e, pos[0], pos[1]]])
-	return dmg_of(st, weapon_id)
+	var total := dmg_of(st, weapon_id)
+	for k in (st.metrics.dmg as Dictionary):
+		if String(k).begins_with("dot:") and String(k).ends_with("@" + weapon_id):
+			total += float(st.metrics.dmg[k])
+	return total
 
 ## 이론 단일 대상 DPS(움직이지 않는 표적 하나에 붙어서 전부 적중할 때 초당 피해).
 ## 30초로 재는 이유: 짧은 창으로 재면 무기마다 발사 수가 반올림되어 비율이 흔들린다
 ## (12초면 검 22회·쌍검 16회라 소수 자리가 튄다). 측정 방식은 tools/dps_probe.gd와 같다
-func theory_dps(weapon_id: String, level: int) -> float:
-	return sustained(weapon_id, THEORY_DIST, THEORY_SEC, level) / THEORY_SEC
+func theory_dps(weapon_id: String, level: int, mods: Array = []) -> float:
+	return sustained(weapon_id, THEORY_DIST, THEORY_SEC, level, mods) / THEORY_SEC
+
+# ---------- 개조 자격과 '단일 대상에 가장 유리한 조합' 고르기(tools/dps_probe.gd와 같은 방식) ----------
+## 그 레벨에서 **실제로 가질 수 있는** 개조 수. 규칙 코드(PGrowth)에 그대로 물어본다 —
+## 여기서 숫자(Lv2·Lv4)를 베끼면 자격표가 바뀌었을 때 시험이 거짓말을 한다
+func quota_at(weapon_id: String, level: int) -> int:
+	var g := PGrowth.new_growth(weapon_id)
+	g.weapons = [{ "id": weapon_id, "level": level, "mods": [] }]
+	return PGrowth.mod_quota_of(g, g.weapons[0])
+
+func impl_mods(weapon_id: String) -> Array:
+	var out: Array = []
+	var d := PCatalog.weapon(weapon_id)
+	for mid in (d.get("mods", {}) as Dictionary):
+		if bool(d.mods[mid].get("impl", false)):
+			out.append(String(mid))
+	return out
+
+func combos(all: Array, k: int) -> Array:
+	var out: Array = []
+	if k == 1:
+		for m in all:
+			out.append([String(m)])
+	elif k == 2:
+		for i in all.size():
+			for j in range(i + 1, all.size()):
+				out.append([String(all[i]), String(all[j])])
+	return out
+
+var mod_pick := {}   # "무기|레벨|개조 수" → 고른 조합(같은 값을 두 번 재지 않는다)
+
+## 개조 k개 중 **단일 대상 이론 DPS가 가장 높은** 조합. 목록 순서로 고르면 비교가 한쪽으로 기운다
+## (검의 잔류 검흔은 단일 대상에 가장 강한데 목록 3번째다)
+func best_mods(weapon_id: String, level: int, k: int) -> Array:
+	var key := "%s|%d|%d" % [weapon_id, level, k]
+	if mod_pick.has(key):
+		return (mod_pick[key] as Array).duplicate()
+	if k <= 0:
+		mod_pick[key] = []
+		return []
+	var best: Array = []
+	var best_dps := -1.0
+	for c in combos(impl_mods(weapon_id), k):
+		var v := theory_dps(weapon_id, level, c)
+		if v > best_dps + 1e-9:
+			best_dps = v
+			best = (c as Array).duplicate()
+	mod_pick[key] = best.duplicate()
+	return best.duplicate()
+
+## 한 주기(3연타)만 넣고 그 주기의 직접 피해를 돌려준다. st.t는 흐르지 않으므로 중첩 창은 닫히지 않는다
+func dagger_cycle(st: CombatState, target: Dictionary) -> float:
+	var before := dmg_of(st, "daggers")
+	fire_once(st, "daggers", target, 0.3)
+	return dmg_of(st, "daggers") - before
 
 func _init() -> void:
 	var sw := stats_of("sword")
@@ -227,6 +287,40 @@ func _init() -> void:
 			and is_equal_approx(float(sw.range), 95.0) and is_equal_approx(float(sw.arc_deg), 110.0),
 		"피해 %.1f · 주기 %.2f · 사거리 %.0f · %.0f°" % [float(sw.damage), float(sw.interval), float(sw.range), float(sw.arc_deg)])
 
+	# ---------- 3-2b. 개조 1개·2개에서도 쌍검 ≥ 검 × 1.5 (사용자 확정, 자격 있는 레벨만) ----------
+	# **실제로 고를 수 있는 성장 단계에서만 비교한다.** 주무기 개조는 Lv2에 첫 개, Lv4에 두 번째가
+	# 열린다(data/supports.json slots.modUnlockMain). Lv1에 개조 2개를 끼운 가상 조합은 만들지 않는다.
+	# 두 무기 모두 **그 무기의 단일 대상 이론 DPS가 가장 높아지는 조합**을 골라 비교한다.
+	ok("주무기 개조 자격이 Lv2에 첫 개, Lv4에 두 번째다(이 시험이 쓰는 레벨의 근거)",
+		quota_at("daggers", 1) == 0 and quota_at("daggers", 2) == 1 and quota_at("daggers", 3) == 1
+			and quota_at("daggers", 4) == 2 and quota_at("daggers", 5) == 2
+			and quota_at("sword", 2) == 1 and quota_at("sword", 4) == 2,
+		"쌍검 Lv1~5 개조 수 %d %d %d %d %d" % [quota_at("daggers", 1), quota_at("daggers", 2), quota_at("daggers", 3), quota_at("daggers", 4), quota_at("daggers", 5)])
+	# 개조 1개는 자격이 열리는 가장 이른 레벨(Lv2)과 최고 레벨(Lv5), 개조 2개는 Lv4와 Lv5에서 본다
+	var mod_cells := [[1, 2], [1, 5], [2, 4], [2, 5]]
+	for cell in mod_cells:
+		var k := int(cell[0])
+		var lv := int(cell[1])
+		if quota_at("daggers", lv) < k or quota_at("sword", lv) < k:
+			ok("자격표가 바뀌었다: Lv%d에서 개조 %d개를 고를 수 없다(이 시험의 전제가 깨졌다)" % [lv, k], false)
+			continue
+		var ms_sw := best_mods("sword", lv, k)
+		var ms_dg := best_mods("daggers", lv, k)
+		var d_sw := theory_dps("sword", lv, ms_sw)
+		var d_dg := theory_dps("daggers", lv, ms_dg)
+		var rt: float = d_dg / d_sw if d_sw > 0.0 else 0.0
+		ok("Lv%d 개조 %d개(같은 개조 투자)에서 쌍검 %.2f는 검 %.2f의 %.1f배 이상이다" % [lv, k, d_dg, d_sw, TARGET_RATIO],
+			rt >= TARGET_RATIO, "쌍검 %s %.2f ÷ 검 %s %.2f = %.3f배" % [str(ms_dg), d_dg, str(ms_sw), d_sw, rt])
+		# 검을 약화해서 비율을 맞추지 않았다는 확인 — 검의 개조 포함 절대 수치도 내려가지 않았다.
+		# 잔류 검흔은 같은 자리를 50%로 한 번 더 치므로 기준선의 1.49배 아래로 내려가면 안 된다
+		var want_sw: float = float(sw.damage) / float(sw.interval) * float(LM[lv - 1]) * 1.49
+		ok("검 Lv%d 개조 %d개의 이론 DPS %.2f도 내려가지 않았다(기준선 %.2f 이상)" % [lv, k, d_sw, want_sw],
+			d_sw >= want_sw - 1e-6, "%.3f ≥ %.3f (%s)" % [d_sw, want_sw, str(ms_sw)])
+	ok("레벨이 달라도 같은 개조가 뽑힌다(레벨 배율이 한 무기의 모든 경로에 똑같이 곱해진다)",
+		best_mods("sword", 2, 1) == best_mods("sword", 5, 1) and best_mods("daggers", 2, 1) == best_mods("daggers", 5, 1)
+			and best_mods("sword", 4, 2) == best_mods("sword", 5, 2) and best_mods("daggers", 4, 2) == best_mods("daggers", 5, 2),
+		"검 %s / %s · 쌍검 %s / %s" % [str(best_mods("sword", 2, 1)), str(best_mods("sword", 4, 2)), str(best_mods("daggers", 2, 1)), str(best_mods("daggers", 4, 2))])
+
 	# ---------- 3-3. 카드·빌드 화면이 "6 × 3연타"로 적을 수 있는 파생 수치가 있는가 ----------
 	# 화면 코드는 이 작업의 소유가 아니다. 여기서는 **읽을 값이 파생 수치에 실제로 있는지**만 못박는다
 	# (docs/MAIN_WEAPONS.md의 '표기 자료' 절이 무엇을 읽으면 되는지 적는다).
@@ -244,6 +338,96 @@ func _init() -> void:
 	ok("쌍검의 리치 62·폭 70°는 그대로다(사거리를 늘려 화력을 맞추지 않았다)",
 		is_equal_approx(float(dg.range), 62.0) and is_equal_approx(float(dg.arc_deg), 70.0),
 		"사거리 %.0f · %.0f°" % [float(dg.range), float(dg.arc_deg)])
+
+	# ---------- 3-4. 출혈 칼날의 집중 중첩(같은 적을 연속으로 벨수록 깊어진다) ----------
+	# 이 개조가 쌍검의 '짧은 리치 · 붙어서 연타'라는 대가와 맞물리는 자리다.
+	# 수치는 data/main_weapons.json daggers.modTuning.bleed(전부 시험값)에서 읽는다.
+	var bt: Dictionary = PWeapons.mod_tune(dg, "bleed", {})
+	var bmax: int = int(bt.get("maxStack", 0))
+	var bper: float = float(bt.get("perStack", 0.0))
+	var base_cycle: float = float(dg.damage) * (float(int(dg.hits) - 1) + float(dg.finalMult))
+	ok("집중 중첩 수치가 자료에 있다(최대 %d중첩 · 중첩마다 +%.0f%% · 창 %.2f초)" % [bmax, bper * 100.0, float(bt.get("window", 0.0))],
+		bmax > 0 and bper > 0.0 and float(bt.get("window", 0.0)) > float(dg.interval),
+		"창 %.2f초 > 주기 %.2f초 · 최대 배율 ×%.2f" % [float(bt.get("window", 0.0)), float(dg.interval), 1.0 + float(bmax) * bper])
+
+	# 같은 적을 계속 벤다: 주기마다 피해가 커지고 최대 중첩에서 멈춘다
+	var st_fc := mk_manual("daggers", ["bleed"])
+	var fp := at(st_fc, THEORY_DIST, 0.0)
+	var e_fc := dummy(st_fc, fp[0], fp[1])
+	var cyc: Array = []
+	for c in 5:
+		cyc.append(dagger_cycle(st_fc, e_fc))
+	ok("같은 적을 연속으로 벨수록 한 주기 피해가 커진다(%.1f → %.1f → %.1f)" % [float(cyc[0]), float(cyc[1]), float(cyc[2])],
+		float(cyc[1]) > float(cyc[0]) and float(cyc[2]) > float(cyc[1]),
+		"주기별 %s" % str(cyc))
+	ok("첫 주기는 아직 중첩이 없다 — 개조 없는 한 주기 피해 %.1f보다 조금 클 뿐이다" % base_cycle,
+		float(cyc[0]) > base_cycle and float(cyc[0]) < base_cycle * (1.0 + float(bmax) * bper),
+		"첫 주기 %.2f · 개조 없음 %.2f" % [float(cyc[0]), base_cycle])
+	var capped: float = base_cycle * (1.0 + float(bmax) * bper)
+	ok("최대 중첩에서 멈춘다: 한 주기 피해가 %.2f(= %.1f × %.2f)에서 더 오르지 않는다" % [capped, base_cycle, 1.0 + float(bmax) * bper],
+		absf(float(cyc[3]) - capped) < 0.01 and absf(float(cyc[4]) - float(cyc[3])) < 0.01,
+		"4번째 %.2f · 5번째 %.2f · 상한 %.2f" % [float(cyc[3]), float(cyc[4]), capped])
+
+	# 대상을 바꾸면 풀린다(집중 공격의 보상이지 무조건 붙는 화력이 아니다)
+	var st_sw2 := mk_manual("daggers", ["bleed"])
+	var pa2 := at(st_sw2, THEORY_DIST, 90.0)
+	var pb2 := at(st_sw2, THEORY_DIST, -90.0)
+	var e_a := dummy(st_sw2, pa2[0], pa2[1])
+	var e_b := dummy(st_sw2, pb2[0], pb2[1])
+	for c in 4:
+		dagger_cycle(st_sw2, e_a)
+	var b_first := dagger_cycle(st_sw2, e_b)
+	var a_again := dagger_cycle(st_sw2, e_a)
+	ok("대상을 바꾸면 중첩이 풀린다(새 적의 첫 주기 %.2f = 처음부터 다시)" % b_first,
+		absf(b_first - float(cyc[0])) < 0.01, "새 적 %.2f · 처음 주기 %.2f" % [b_first, float(cyc[0])])
+	ok("되돌아가도 다시 처음부터다(이전 대상 %.2f) — 중첩은 한 대상에만 붙는다" % a_again,
+		absf(a_again - float(cyc[0])) < 0.01, "%.2f" % a_again)
+
+	# 잠깐 못 치면(창 %.2f초) 풀린다 — 늑대가 돌진으로 지나가 사거리 밖으로 나갔을 때가 이 경우다
+	var st_gap := mk_manual("daggers", ["bleed"])
+	var gp := at(st_gap, THEORY_DIST, 0.0)
+	var e_gap := dummy(st_gap, gp[0], gp[1])
+	for c in 4:
+		dagger_cycle(st_gap, e_gap)
+	steps_pinned(st_gap, float(bt.get("window", 1.2)) + 0.2, [[e_gap, gp[0], gp[1]]]) # 자동 발사는 꺼져 있고 시간만 흐른다
+	var after_gap := dagger_cycle(st_gap, e_gap)
+	ok("창(%.2f초)보다 오래 그 적을 못 치면 중첩이 풀린다(%.2f = 처음 주기)" % [float(bt.get("window", 1.2)), after_gap],
+		absf(after_gap - float(cyc[0])) < 0.01, "%.2f" % after_gap)
+
+	# 옆에 있는 다른 적은 중첩 배율을 받지 않는다(집중 공격이라는 뜻)
+	var st_side := mk_manual("daggers", ["bleed"])
+	var sp_main := at(st_side, THEORY_DIST, 0.0)
+	var sp_side := at(st_side, THEORY_DIST, 25.0)   # 부채꼴 70°(반각 35°) 안이라 같이 맞는다
+	var e_main := dummy(st_side, sp_main[0], sp_main[1])
+	var e_side := dummy(st_side, sp_side[0], sp_side[1])
+	for c in 4:
+		fire_once(st_side, "daggers", e_main, 0.3)
+	var main_lost: float = float(e_main.hp_max) - float(e_main.hp)
+	var side_lost: float = float(e_side.hp_max) - float(e_side.hp)
+	ok("옆에 있는 적도 부채꼴에 함께 맞는다(중첩 판정의 전제)", side_lost > 0.0, "옆 적 %.1f" % side_lost)
+	ok("중첩 배율은 겨눈 적 한 마리에게만 붙는다(겨눈 적 %.1f · 옆 적 %.1f)" % [main_lost, side_lost],
+		main_lost > side_lost * 1.2, "%.2f 대 %.2f" % [main_lost, side_lost])
+
+	# 출혈 자체는 설명대로 그대로 걸린다(개조 이름이 거짓말이 되지 않게)
+	var st_bl := mk_manual("daggers", ["bleed"])
+	var blp := at(st_bl, THEORY_DIST, 0.0)
+	var e_bl := dummy(st_bl, blp[0], blp[1])
+	fire_once(st_bl, "daggers", e_bl, 0.3)
+	ok("출혈은 그대로 걸린다(%.1f초 · 초당 %.1f = 기본 피해 × 0.3)" % [float(e_bl.bleed.get("t", 0.0)), float(e_bl.bleed.get("dps", 0.0))],
+		not (e_bl.bleed as Dictionary).is_empty() and absf(float(e_bl.bleed.t) - float(bt.get("bleedSec", 2.0))) < 0.05
+			and absf(float(e_bl.bleed.dps) - float(dg.damage) * 0.3) < 1e-6,
+		str(e_bl.bleed))
+
+	# 개조가 없으면 중첩도 없다(기본 쌍검의 수치는 하나도 바뀌지 않았다)
+	var st_no := mk_manual("daggers")
+	var np2 := at(st_no, THEORY_DIST, 0.0)
+	var e_no := dummy(st_no, np2[0], np2[1])
+	var no_cyc: Array = []
+	for c in 3:
+		no_cyc.append(dagger_cycle(st_no, e_no))
+	ok("개조가 없으면 한 주기 피해가 %.1f로 고정이다(기본 쌍검은 그대로다)" % base_cycle,
+		absf(float(no_cyc[0]) - base_cycle) < 0.01 and absf(float(no_cyc[2]) - base_cycle) < 0.01,
+		"주기별 %s" % str(no_cyc))
 
 	# ---------- 4. 전투망치: 예고 → 착탄 위치 확정 → 내려찍기 ----------
 	var st_h := mk_manual("hammer")

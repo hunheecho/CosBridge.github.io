@@ -7,7 +7,7 @@ static func init(st: CombatState) -> Array:
 	var list := []
 	var i := 0
 	for s in st.build.weapons:
-		list.append({ "stats": s, "id": String(s.id), "timer": 0.25 + float(i) * 0.2, "count": 0, "orbit": 0.0, "launch_t": 0.0, "last_hit": {}, "echo": {}, "blade_pos": [] })
+		list.append({ "stats": s, "id": String(s.id), "timer": 0.25 + float(i) * 0.2, "count": 0, "orbit": 0.0, "launch_t": 0.0, "last_hit": {}, "echo": {}, "blade_pos": [], "focus": new_focus() })
 		i += 1
 	return list
 
@@ -24,8 +24,12 @@ static func refresh(st: CombatState) -> void:
 			prev.stats = s
 			out.append(prev)
 		else:
-			out.append({ "stats": s, "id": String(s.id), "timer": 0.3, "count": 0, "orbit": 0.0, "launch_t": 0.0, "last_hit": {}, "echo": {}, "blade_pos": [] })
+			out.append({ "stats": s, "id": String(s.id), "timer": 0.3, "count": 0, "orbit": 0.0, "launch_t": 0.0, "last_hit": {}, "echo": {}, "blade_pos": [], "focus": new_focus() })
 	st.weapons = out
+
+## 쌍검 '출혈 칼날'의 집중 중첩 상태(대상 id · 중첩 수 · 마지막으로 그 적을 벤 시각)
+static func new_focus() -> Dictionary:
+	return { "id": -1, "n": 0, "t": -9.0 }
 
 # ---------- 공통 ----------
 static func src(w: Dictionary, extra: Dictionary = {}) -> Dictionary:
@@ -89,7 +93,9 @@ static func mod_tune(s: Dictionary, mid: String, fallback: Dictionary) -> Dictio
 		out[k] = T[mid][k]
 	return out
 
-static func hit_arc(st: CombatState, w: Dictionary, fx0: float, fy0: float, angle: float, R: float, half: float, mult: float, opt: Dictionary) -> int:
+## focus_id·focus_mult는 쌍검의 집중 중첩 전용이다. 그 id를 가진 적 **한 마리에게만** 배율을 더 곱한다.
+## 기본값(-1 · 1.0)이면 예전과 똑같이 동작하므로 검·망치 경로는 영향을 받지 않는다.
+static func hit_arc(st: CombatState, w: Dictionary, fx0: float, fy0: float, angle: float, R: float, half: float, mult: float, opt: Dictionary, focus_id: int = -1, focus_mult: float = 1.0) -> int:
 	var n := 0
 	for e in st.alive_targets():
 		if PGeom.in_arc(fx0, fy0, R, angle, half, e.x, e.y, e.r) and reachable(st, fx0, fy0, e):
@@ -97,7 +103,7 @@ static func hit_arc(st: CombatState, w: Dictionary, fx0: float, fy0: float, angl
 			o.dir = PGeom.norm(e.x - fx0, e.y - fy0)
 			o.knock = float(w.stats.knock)
 			o["from"] = { "x": fx0, "y": fy0 }
-			dmg_to(st, e, w, mult, o)
+			dmg_to(st, e, w, mult * (focus_mult if int(e.id) == focus_id else 1.0), o)
 			n += 1
 	return n
 
@@ -238,13 +244,40 @@ static func fire_beam(st: CombatState, w: Dictionary, target: Dictionary, echoed
 			hit_beam(st, w, ex, ey, ang + PI, L, W, 1.0, { "no_mods": true, "mod": "returning" }))
 	st.ev("swing", { "form": "beam" })
 
+## 쌍검 '출혈 칼날'의 집중 중첩. **겨눈 적에게 타격이 실제로 들어갈 때만** 자란다.
+## 대상이 바뀌거나 window 초 동안 그 적을 못 치면 0으로 풀린다. 돌려주는 값은 이번 타격에 곱할 배율이다.
+## 중첩이 최대에 닿는 순간에만 개조 점등(note_mod)과 글자를 낸다 — 매 타격마다 내면 화면이 시끄럽다.
+static func dagger_focus(st: CombatState, w: Dictionary, e: Dictionary, bt: Dictionary) -> float:
+	if not w.has("focus"):
+		w["focus"] = new_focus()
+	var f: Dictionary = w.focus
+	var mx: int = maxi(0, int(bt.maxStack))
+	if int(f.id) == int(e.id) and st.t - float(f.t) <= float(bt.window) and int(f.n) < mx:
+		f.n = int(f.n) + 1
+		if int(f.n) == mx:
+			st.note_mod("bleed", "proc")
+			st.text(e.x, e.y - e.r - 30.0, "깊은 상처!", "#ff8a8a")
+	elif int(f.id) != int(e.id) or st.t - float(f.t) > float(bt.window):
+		f.id = int(e.id)
+		f.n = 0
+	f.t = st.t
+	return 1.0 + float(f.n) * float(bt.perStack)
+
+## 중첩을 그 자리에서 푼다(겨눈 적을 못 맞혔을 때)
+static func dagger_focus_drop(w: Dictionary) -> void:
+	w["focus"] = new_focus()
+
 ## 쌍검: 매우 짧은 리치·좁은 폭의 3연타. **마지막 일격만 더 무겁다**(data/main_weapons.json base.finalMult, 시험값).
 ## 3연타를 다 넣으려면 사거리 안에 계속 붙어 있어야 하므로, 근접 위험을 감수한 만큼 단일 대상 화력이 가장 높다.
+## 개조 **출혈 칼날**은 출혈을 걸면서 **같은 적을 연속으로 벨수록** 그 적에게 주는 피해를 키운다
+## (modTuning.bleed, 전부 시험값). 붙어 있는 시간 자체가 보상이라 짧은 리치의 대가와 맞물린다.
 static func fire_melee(st: CombatState, w: Dictionary, target: Dictionary, _echoed: bool) -> void:
 	var s: Dictionary = w.stats
 	var p := st.player
 	var hits: int = int(s.hits)
 	var final_mult: float = float(s.get("finalMult", 1.0))
+	var has_bleed: bool = (s.mods as Array).has("bleed")
+	var bt := mod_tune(s, "bleed", { "maxStack": 6, "perStack": 0.08, "window": 1.2, "bleedSec": 2.0 })
 	var one := func(i: int):
 		var tg: Dictionary = pick_target(st, w, float(s.range), true) if target.dead else target
 		if tg.is_empty():
@@ -262,7 +295,18 @@ static func fire_melee(st: CombatState, w: Dictionary, target: Dictionary, _echo
 			for da in [PI / 2.0, -PI / 2.0]:
 				st.fx({ "kind": "arc", "x": p.x, "y": p.y, "angle": ang + da, "r": float(s.range) * 1.3, "half": 0.9, "ttl": 0.14 })
 				hit_arc(st, w, p.x, p.y, ang + da, float(s.range) * 1.3, 0.9, mult, {})
-		hit_arc(st, w, p.x, p.y, ang, float(s.range), half, mult, { "bleed": 2.0 } if (s.mods as Array).has("bleed") else {})
+		var opt := {}
+		var focus_id := -1
+		var focus_mult := 1.0
+		if has_bleed:
+			opt["bleed"] = float(bt.bleedSec)
+			# 겨눈 적이 이번 부채꼴 안에 실제로 있을 때만 중첩이 자란다. 빗나가면 그 자리에서 풀린다
+			if PGeom.in_arc(p.x, p.y, float(s.range), ang, half, tg.x, tg.y, tg.r) and reachable(st, p.x, p.y, tg):
+				focus_id = int(tg.id)
+				focus_mult = dagger_focus(st, w, tg, bt)
+			else:
+				dagger_focus_drop(w)
+		hit_arc(st, w, p.x, p.y, ang, float(s.range), half, mult, opt, focus_id, focus_mult)
 	one.call(0)
 	for i in range(1, hits):
 		var idx := i

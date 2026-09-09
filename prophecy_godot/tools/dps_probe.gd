@@ -33,6 +33,11 @@ extends SceneTree
 ## 임의로 목록 순서대로 고르면 비교가 유리한 쪽으로 기울 수 있다(예: 검의 잔류 검흔은 단일 대상에
 ## 매우 강한데 목록 3번째라 '개조 2'에서 빠진다). 고른 개조 id는 보고서에 적는다.
 ##
+## **자격 없는 칸은 재지 않는다.** 주무기 개조는 Lv2에 첫 개, Lv4에 두 번째가 열린다
+## (data/supports.json slots.modUnlockMain, PGrowth.mod_quota_of). 그래서 Lv1에 개조 2개를 끼운
+## 가상 조합은 이 도구가 만들지 않는다 — 실제로 고를 수 있는 성장 단계에서만 비교한다는 뜻이다.
+## 그래서 레벨 축에 첫 자격 레벨(2·4)을 함께 넣었다: 개조 1은 Lv2가, 개조 2는 Lv4가 가장 이른 칸이다.
+##
 ## 이 도구가 재지 않는 것
 ## ---------------------
 ## 봇은 무기 리치를 모른다(모든 무기에 같은 유지 거리 55를 쓴다 — data/bots.json common.keep_dist).
@@ -55,7 +60,7 @@ const SWARM_N := 6
 const HUGE_HP := 1.0e9       # 표적이 죽으면 시간 창이 무기마다 달라진다. 죽지 않게 둔다
 const HUGE_PLAYER_HP := 1.0e6 # 플레이어가 죽어도 시간 창이 달라진다. 측정 대상은 화력이라 살려 둔다
 const WEAPONS := ["sword", "spear", "daggers", "hammer", "bow"]
-const LEVELS := [1, 3, 5]
+const LEVELS := [1, 2, 3, 4, 5]   # 2·4는 개조 1·2가 처음 열리는 레벨이다(자격표 modUnlockMain)
 const MODS := [0, 1, 2]
 const SEEDS := [1, 2, 3]
 const BOT := "skilled"
@@ -67,6 +72,17 @@ var real_rows: Array = []     # 실제 결과(시드별)
 var swarm_rows: Array = []    # 무리 결과(시드별)
 var far_rows: Array = []      # 원거리 참고
 var mod_pick: Dictionary = {} # "weapon|level|k" → [개조 id]
+
+# ---------- 개조 자격(Lv2에 첫 개, Lv4에 두 번째) ----------
+## 그 레벨에서 실제로 가질 수 있는 개조 수. 규칙 코드(PGrowth)를 그대로 물어본다 — 여기서 숫자를 베끼지 않는다
+func quota_at(wid: String, level: int) -> int:
+	var g: Dictionary = PGrowth.new_growth(wid)
+	g.weapons = [{ "id": wid, "level": level, "mods": [] }]
+	return PGrowth.mod_quota_of(g, g.weapons[0])
+
+## 이 칸(레벨 × 개조 수)이 실제로 고를 수 있는 조합인가
+func eligible(wid: String, level: int, k: int) -> bool:
+	return k <= quota_at(wid, level)
 
 # ---------- 전투 준비 ----------
 ## 주무기 하나만 든 전투(장애물 없음 — 가림 때문에 값이 흔들리지 않게)
@@ -185,10 +201,19 @@ func real_one(wid: String, level: int, mods: Array, seed_v: int, theo: Dictionar
 	var rng_v: float = float(w.stats.range)
 	var no_target_steps := 0
 	var n := int(round(REAL_SEC / STEP))
+	# 쌍검 '출혈 칼날'의 집중 중첩이 실제로 얼마나 유지되는지(읽기만 한다 — 규칙에 영향 없음).
+	# 이론 실행에서는 늘 최대지만, 움직이는 적을 상대로는 붙었다 떨어질 때마다 풀린다
+	var focus_sum := 0.0
+	var focus_full := 0
+	var focus_max: int = int(PWeapons.mod_tune(w.stats, "bleed", { "maxStack": 0 }).maxStack) if mods.has("bleed") else 0
 	for i in n:
 		# 발사 자격이 있는가(사거리 안 + 가림 없음)를 규칙 코드와 같은 함수로 본다. 규칙은 건드리지 않는다
 		if PWeapons.pick_target(st, w, rng_v, true).is_empty():
 			no_target_steps += 1
+		var fs: int = int((w.get("focus", {}) as Dictionary).get("n", 0))
+		focus_sum += float(fs)
+		if focus_max > 0 and fs >= focus_max:
+			focus_full += 1
 		st.step(bot.step_input(st), STEP)
 	var d := dmg_of(st, wid)
 	var fires: int = int(w.count)
@@ -209,6 +234,7 @@ func real_one(wid: String, level: int, mods: Array, seed_v: int, theo: Dictionar
 		"approach_loss": maxf(0.0, float(theo.direct_dps) - dps_after_approach),
 		"leash_loss": maxf(0.0, dps_after_approach - float(d[0]) / REAL_SEC),
 		"missed_hits": missed_hits, "missed_dmg": missed_dmg,
+		"focus_avg": focus_sum / float(n), "focus_full_frac": float(focus_full) / float(n), "focus_max": focus_max,
 		"taken": float(st.stats.damage_taken) }
 
 # ---------- ③ 무리 상대(참고) ----------
@@ -252,6 +278,13 @@ func theory_of(wid: String, level: int, k: int) -> Dictionary:
 func wname(wid: String) -> String:
 	return String(PCatalog.weapon(wid).get("name", wid))
 
+## 그 개조 수의 자격이 열리는 **가장 이른 레벨**에서 고른 조합. 자격이 없으면 빈 배열
+func first_pick(wid: String, levels: Array, k: int) -> Array:
+	for lv_v in levels:
+		if eligible(wid, int(lv_v), k):
+			return best_mods(wid, int(lv_v), k)
+	return []
+
 func mods_text(wid: String, mods: Array) -> String:
 	if mods.is_empty():
 		return "-"
@@ -273,6 +306,9 @@ func _init() -> void:
 			var lv := int(lv_v)
 			for k_v in mods_ax:
 				var k := int(k_v)
+				if not eligible(wid, lv, k):
+					printerr("skip %s Lv%d 개조%d — 자격 없음(개조 %d개까지)" % [wid, lv, k, quota_at(wid, lv)])
+					continue
 				var ms := best_mods(wid, lv, k)
 				var th := theory(wid, lv, ms, THEORY_DIST)
 				th["mods_k"] = k
@@ -308,15 +344,21 @@ func write_report(weapons: Array, levels: Array, mods_ax: Array, seeds: Array) -
 	md += "| 무리(참고) | 늑대 %d기를 %.0f초. **검이 유리해야 정상**이다 |\n\n" % [SWARM_N, SWARM_SEC]
 	md += "표적·플레이어 모두 죽지 않게 체력을 크게 둔다. 죽으면 무기마다 시간 창이 달라져 DPS를 비교할 수 없기 때문이다.\n"
 	md += "개조 1·2개는 **그 무기의 단일 대상 이론 DPS가 가장 높아지는 조합을 측정으로 골랐다**(목록 순서가 아니다).\n\n"
+	md += "**자격 없는 칸은 재지 않았다(표에 `-`).** 주무기 개조는 Lv2에 첫 개, Lv4에 두 번째가 열린다\n"
+	var unlock_txt := []
+	for u in (PCatalog.slot_rules().get("modUnlockMain", []) as Array):
+		unlock_txt.append("Lv%d" % int(u))
+	md += "(`data/supports.json` slots.modUnlockMain = %s, 판정은 `PGrowth.mod_quota_of`). Lv1에 개조 2개를 끼운\n" % ", ".join(unlock_txt)
+	md += "가상 조합으로는 비교하지 않는다는 뜻이다. 레벨 축에 2·4를 넣은 이유도 그것이 각 개조 수의 **가장 이른 칸**이기 때문이다.\n\n"
 
 	# ---- 개조 선택표 ----
 	md += "## 고른 개조(단일 대상에 가장 유리한 조합)\n\n"
 	md += "| 무기 | 개조 1 | 개조 2 |\n|---|---|---|\n"
 	for wid_v in weapons:
 		var wid := String(wid_v)
-		var lv0: int = int(levels[0])
-		md += "| %s | %s | %s |\n" % [wname(wid), mods_text(wid, best_mods(wid, lv0, 1)), mods_text(wid, best_mods(wid, lv0, 2))]
-	md += "\n(레벨이 달라도 같은 조합이 뽑히면 한 줄로 적었다 — Lv%d 기준.)\n\n" % int(levels[0])
+		md += "| %s | %s | %s |\n" % [wname(wid), mods_text(wid, first_pick(wid, levels, 1)), mods_text(wid, first_pick(wid, levels, 2))]
+	md += "\n레벨 배율은 한 무기의 모든 경로에 똑같이 곱해지므로 레벨이 달라도 같은 조합이 뽑힌다.\n"
+	md += "**자격이 열리는 가장 이른 레벨** 기준으로 적었다(개조 1은 Lv2, 개조 2는 Lv4).\n\n"
 
 	# ---- 이론 DPS 표 ----
 	md += "## 1. 이론 단일 대상 DPS (거리 %.0f · 전부 적중)\n\n" % THEORY_DIST
@@ -334,15 +376,16 @@ func write_report(weapons: Array, levels: Array, mods_ax: Array, seeds: Array) -
 			md += "| %d | %d |" % [lv, k]
 			for wid_v in weapons:
 				var r := theory_of(String(wid_v), lv, k)
-				md += " %.2f |" % (float(r.dps) if not r.is_empty() else 0.0)
+				md += (" %.2f |" % float(r.dps)) if not r.is_empty() else " - |"
 			var dg := theory_of("daggers", lv, k)
 			var sw := theory_of("sword", lv, k)
 			if dg.is_empty() or sw.is_empty() or float(sw.dps) <= 0.0:
-				md += " - | - |\n"
+				md += " - | 자격 없음 |\n"
 			else:
 				var ratio: float = float(dg.dps) / float(sw.dps)
 				md += " **%.3f** | %s |\n" % [ratio, "달성" if ratio >= TARGET_RATIO else "미달"]
-	md += "\n"
+	md += "\n`-`는 그 레벨에서 그 개조 수를 **고를 수 없다**는 뜻이다(개조 1은 Lv2부터, 개조 2는 Lv4부터).\n"
+	md += "레벨 배율표가 두 무기에 똑같이 곱해지므로 쌍검/검 비율은 레벨과 무관하다 — 자격이 열린 레벨마다 같은 값이 나온다.\n\n"
 
 	# ---- 실제 DPS 표 ----
 	md += "## 2. 실제 단일 대상 DPS와 손실 분해 (시드 %s 평균)\n\n" % str(seeds)
@@ -390,7 +433,24 @@ func write_report(weapons: Array, levels: Array, mods_ax: Array, seeds: Array) -
 			md += "| %d | %d | %.2f | %.2f | **%.3f** | %.3f |\n" % [lv, k, s_dps, d_dps,
 				(d_dps / s_dps) if s_dps > 0.0 else 0.0,
 				(float(th_d.dps) / float(th_s.dps)) if (not th_s.is_empty() and float(th_s.dps) > 0.0) else 0.0]
-	md += "\n"
+	md += "\n**1.5배 목표는 '전부 적중했을 때'(§1)에 걸린 것이고, 이 표는 움직이는 적을 상대한 별도 기록이다.**\n"
+	md += "둘의 차이가 곧 접근·이탈 손실이다(§2).\n\n"
+
+	# ---- 집중 중첩 유지율 ----
+	md += "### 3-2. 쌍검 '출혈 칼날'의 집중 중첩이 실제로 얼마나 유지되나\n\n"
+	md += "중첩은 같은 적을 연속으로 벨 때만 자란다. 이론 실행에서는 첫 두 주기 뒤 계속 최대지만,\n"
+	md += "움직이는 적을 상대로는 붙었다 떨어질 때마다 풀린다. 아래는 **매 단계 중첩 수를 읽어 평균낸 값**이다.\n\n"
+	md += "| 무기 | 레벨 | 개조 | 최대 중첩 | 평균 중첩 | 최대 유지 시간 비율 |\n|---|---:|---:|---:|---:|---:|\n"
+	for lv_v in levels:
+		var lv := int(lv_v)
+		for k_v in mods_ax:
+			var k := int(k_v)
+			var rs3 := pick(real_rows, "daggers", lv, k)
+			if rs3.is_empty() or int(rs3[0].focus_max) <= 0:
+				continue
+			md += "| %s | %d | %d | %d | %.2f | %.0f%% |\n" % [wname("daggers"), lv, k,
+				int(rs3[0].focus_max), avg(rs3, "focus_avg"), avg(rs3, "focus_full_frac") * 100.0]
+	md += "\n중첩이 0인 칸은 개조를 고르지 않았거나 그 개조가 뽑히지 않은 경우다(표에서 뺐다).\n\n"
 
 	# ---- 무리 ----
 	md += "## 4. 무리 상대(참고 — 검이 유리해야 정상)\n\n"
@@ -407,7 +467,8 @@ func write_report(weapons: Array, levels: Array, mods_ax: Array, seeds: Array) -
 			var k := int(k_v)
 			md += "| %d | %d |" % [lv, k]
 			for wid_v in weapons:
-				md += " %.1f |" % avg(pick(swarm_rows, String(wid_v), lv, k), "dps")
+				var rs2 := pick(swarm_rows, String(wid_v), lv, k)
+				md += (" %.1f |" % avg(rs2, "dps")) if not rs2.is_empty() else " - |"
 			md += "\n"
 	md += "\n늑대 %d기 %.0f초. 총 피해 ÷ 시간이다.\n\n" % [SWARM_N, SWARM_SEC]
 
