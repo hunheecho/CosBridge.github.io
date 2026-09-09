@@ -60,7 +60,11 @@ func one(type: String, policy: String, seed_v: int, act: int = 1) -> Dictionary:
 		if bool(st.player.dead):
 			break
 	return { "ttk": ttk, "executed": int(st.metrics_for(e).executed), "taken": float(st.stats.damage_taken),
-		"combos": combos, "finishes": finishes, "hp_left": maxf(0.0, float(e.hp)), "hp0": hp0, "player_dead": bool(st.player.dead) }
+		"combos": combos, "finishes": finishes, "hp_left": maxf(0.0, float(e.hp)), "hp0": hp0, "player_dead": bool(st.player.dead),
+		# 2026-09-09 추가: 회피는 조건 충족(dodge_seen)과 실제 발동(dodge_uses)을 따로 센다(사용자 지시).
+		# 경직은 전투 전체의 누적 초이며, 정예 1마리 장면이라 사실상 그 정예가 멈춰 있던 시간이다
+		"dodge_seen": int(e.get("dodge_seen", 0)), "dodge_uses": int(e.get("dodge_uses", 0)),
+		"stagger_sec": float(st.stagger_stats.get("sec", 0.0)) }
 
 func med(a: Array) -> float:
 	if a.is_empty():
@@ -76,8 +80,8 @@ func _init() -> void:
 	print("")
 	print("### 정예 7종 봇 측정(시드 1·2·3 중앙값, 1막 시작 빌드 · 정예 1마리 · 최대 %d초)" % int(MAX_SEC))
 	print("")
-	print("| 정예 | 봇 | 체력 | 처치 시간(초) | 살아서 실행한 공격 수 | 연계 시작/완주 | 플레이어가 받은 피해 |")
-	print("|---|---|---:|---:|---:|---:|---:|")
+	print("| 정예 | 봇 | 체력 | 처치 시간(초) | 살아서 실행한 공격 수 | 연계 시작/완주 | 플레이어가 받은 피해 | 회피 충족/발동 | 총 경직(초) |")
+	print("|---|---|---:|---:|---:|---:|---:|---:|---:|")
 	var measured := 0
 	var no_attack := []
 	var no_two_combos := []
@@ -88,6 +92,9 @@ func _init() -> void:
 			var tks := []
 			var cbs := []
 			var fns := []
+			var dsn := []
+			var dus := []
+			var sgs := []
 			var hp0 := 0.0
 			var dead_n := 0
 			for sd in seeds:
@@ -98,14 +105,17 @@ func _init() -> void:
 				tks.append(float(r.taken))
 				cbs.append(float(r.combos))
 				fns.append(float(r.finishes))
+				dsn.append(float(r.dodge_seen))
+				dus.append(float(r.dodge_uses))
+				sgs.append(float(r.stagger_sec))
 				if bool(r.player_dead):
 					dead_n += 1
 				measured += 1
 			var mt := med(ttks)
-			print("| %s | %s | %.0f | %s | %.0f | %.0f / %.0f | %.0f |" % [
+			print("| %s | %s | %.0f | %s | %.0f | %.0f / %.0f | %.0f | %.0f / %.0f | %.2f |" % [
 				String(PCatalog.enemy(String(tp)).name), String(pol), hp0,
 				("%.1f" % mt) if mt < MAX_SEC else "미처치(%d초)" % int(MAX_SEC),
-				med(exs), med(cbs), med(fns), med(tks)])
+				med(exs), med(cbs), med(fns), med(tks), med(dsn), med(dus), med(sgs)])
 			if med(exs) < 1.0:
 				no_attack.append("%s/%s" % [String(tp), String(pol)])
 			if med(fns) < 2.0:

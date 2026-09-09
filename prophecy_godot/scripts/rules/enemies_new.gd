@@ -1454,7 +1454,7 @@ static func _dodge_init(e: Dictionary, c: Dictionary) -> void:
 static func _dodge_deny(e: Dictionary) -> String:
 	if float(e.get("freeze", 0.0)) > 0.0:
 		return "freeze"
-	if float(e.get("stagger", 0.0)) > 0.0: # 큰 타격 경직(다른 담당의 필드. 없으면 0.0)
+	if float(e.get("stagger_t", 0.0)) > 0.0: # 연계 완성 경직(combat_state.gd. 필드가 없으면 0.0)
 		return "stagger"
 	if bool(e.get("hidden", false)) or bool(e.get("airborne", false)):
 		return "airborne"
