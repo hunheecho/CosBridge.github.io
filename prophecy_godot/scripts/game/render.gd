@@ -25,6 +25,10 @@ extends RefCounted
 ##   · 주술사 개편: hex_lock 세 줄 · rune_aim 고정 원 · 치료 연결선(PEnemies.support_links)과 대상의 회복 반응.
 ##   · 방패병: 방패가 닫힌 방향(guard 부채꼴)과 열린 상태를 도형으로 가르고, 막힌 순간은 흰 방패 + '막음'.
 ##   · 보스 지형 파괴: 파괴 자격이 선 장애물(e.break_ob) 위에 전용 예고(부서짐 금 + 카운트 고리)를 공격 예고보다 먼저 그린다.
+##   · 쌍검 집중 중첩(draw_focus) · 냉기/빙결(draw_frost) · 파쇄(draw_impacts "shatter"):
+##     자료 이름은 docs/FROST_CONTRACT.md가 정본이고 그리는 규칙은 docs/FROST_VISUAL.md에 적었다.
+##     전부 개체 층에서 그려 적 예고보다 아래이고, 개체 둘레(mark_limit) 밖으로 나가지 않는다.
+##     파쇄 파편은 신호의 shards 수와 **정확히 같은 수**만 그린다(장식 파편 없음).
 ##
 ## 색(막·테마): data/palette.json이 정본이다. 이 파일에 배경·예고 색을 새로 적지 않는다(palette_for → use_palette → _pal).
 ##   1막 초록 / 2막 연주황 / 3막 붉은 주황이며, 테마 9종은 막 색 위에 몇 개 키만 덮어쓴다.
@@ -1123,6 +1127,194 @@ static func status_icon(ci: Node2D, x: float, y: float, kind: String) -> void:
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(x, y - 7.0), Vector2(x + 4.0, y + 1.0), Vector2(x - 4.0, y + 1.0)]), C("#ff5a5a"))
 		"conduct":
 			ci.draw_polyline(PackedVector2Array([Vector2(x + 3.0, y - 7.0), Vector2(x - 3.0, y), Vector2(x + 2.0, y), Vector2(x - 3.0, y + 7.0)]), C("#bfe8ff"), 2.0)
+
+# ---------- 쌍검 집중 중첩 · 냉기/빙결/파쇄 표시(2026-09-09 사용자 지시) ----------
+## 지키는 것
+##  · 새 패널·상시 설명문을 만들지 않는다. 모든 표시는 **그 개체 둘레**에만 그린다(전장을 가리지 않는다).
+##    닿는 거리는 mark_reach()가 셈하고, 시험이 그 값을 mark_limit() 안인지 잰다.
+##  · 색만으로 가르지 않는다 — 중첩/최대, 빙결/결빙은 **그리는 도형 자체가 다르다**.
+##  · 규칙 자료(docs/FROST_CONTRACT.md)에 적힌 필드만 읽는다. 없는 필드를 지어내지 않는다.
+##  · 표시용 난수는 fx_rng()로만 만든다. 전투 난수(st.rng)는 읽지도 쓰지도 않는다.
+##  · 이 표시는 전부 개체 층에서 그린다 → 적 공격 예고(draw_telegraphs)가 언제나 그 **위**다.
+
+const FOCUS_R := 7.0     # 집중 눈금 고리가 몸 반지름 밖으로 나간 거리(px)
+const FOCUS_FADE := 0.4  # 남은 유지 시간이 이보다 짧으면 옅어진다(곧 풀린다는 예고)
+const CHILL_OUT := 8.0   # 냉기 중첩 눈금이 몸 밖으로 나간 거리(px)
+const CHILL_STEP := 0.38 # 냉기 중첩 눈금 사이 각(rad). 왼쪽에서 위로 자란다
+
+## 집중 중첩 표시 계획. 그리기와 시험이 **같은 값**을 보도록 계획을 먼저 만든다.
+## parts: "pips"(1~최대−1 — 눈금 수 = 중첩 수) / "ring"+"spike"(최대 — 모양 자체를 바꾼다)
+## 대상 변경·시간 만료·대상 사망이 곧바로 반영된다:
+##   변경·만료는 PWeapons.dagger_focus_view가 규칙과 같은 식으로 판정하고, 사망·은신은 여기서 끊는다.
+static func focus_plan(st: CombatState, e: Dictionary) -> Dictionary:
+	var out := { "show": false, "n": 0, "max": 0, "full": false, "fade": 1.0, "parts": [] }
+	if bool(e.get("dead", false)) or bool(e.get("hidden", false)):
+		return out
+	for w in st.weapons:
+		var v: Dictionary = PWeapons.dagger_focus_view(st, w)
+		if int(v.id) != int(e.get("id", -1)) or int(v.n) <= 0:
+			continue
+		out.show = true
+		out.n = int(v.n)
+		out.max = int(v.max)
+		out.full = int(v.max) > 0 and int(v.n) >= int(v.max)
+		out.fade = clampf(float(v.t) / FOCUS_FADE, 0.3, 1.0)
+		out.parts = ["ring", "spike"] if bool(out.full) else ["pips"]
+		break
+	return out
+
+## 냉기·빙결 표시 계획(docs/FROST_CONTRACT.md 1절 필드만 읽는다).
+## parts
+##   "chill"           냉기 중첩 눈금(개수 = chill_n). chill_n이 0이면 아예 없다
+##   빙결 hard         "shell"(몸을 덮는 육각 얼음) + "crack"(속 결정 금) + "lock"(발밑 **실선** 서리 고리 = 멎었다)
+##   결빙 soft(보스)   "patch"(몸에 붙은 서리 조각 셋 — 덮개가 아니다) + "drift"(둘레를 도는 서리 = 여전히 움직인다)
+## soft에는 shell·lock을 **절대** 넣지 않는다 — 보스를 완전히 멈춘 것처럼 그리지 말라는 사용자 지시.
+static func frost_plan(e: Dictionary) -> Dictionary:
+	var out := { "chill_n": 0, "freeze": false, "kind": "", "parts": [] }
+	if bool(e.get("dead", false)) or bool(e.get("hidden", false)):
+		return out
+	var parts: Array = out.parts
+	out.chill_n = maxi(0, int(e.get("chill_n", 0)))
+	if int(out.chill_n) > 0:
+		parts.append("chill")
+	if float(e.get("freeze", 0.0)) > 0.0:
+		out.freeze = true
+		out.kind = String(e.get("freeze_kind", "hard"))
+		if String(out.kind) == "soft":
+			parts.append_array(["patch", "drift"])
+		else:
+			parts.append_array(["shell", "crack", "lock"])
+	return out
+
+## 이번 표시가 몸 중심에서 실제로 닿는 가장 먼 거리. 시험이 '전장을 가리지 않는다'를 수치로 잰다
+static func mark_reach(e: Dictionary, fp: Dictionary, kp: Dictionary) -> float:
+	var r: float = float(e.get("r", 0.0))
+	var reach := 0.0
+	if bool(fp.show):
+		reach = maxf(reach, r + FOCUS_R + 10.0)  # 눈금 고리(+7) 위의 쌍검 X 표식까지
+	var parts: Array = kp.parts
+	if parts.has("chill"):
+		reach = maxf(reach, r + CHILL_OUT)
+	if parts.has("shell"):
+		reach = maxf(reach, r * 1.25 + 4.0)
+	if parts.has("lock"):
+		reach = maxf(reach, r * 1.35)
+	if parts.has("patch"):
+		reach = maxf(reach, r * 1.05 + 2.0)
+	if parts.has("drift"):
+		reach = maxf(reach, r * 1.3 + 5.0)
+	return reach
+
+## 표시가 넘어서면 안 되는 선. 기존 냉기 둔화 점선 고리(r×1.4+3)와 같은 자리다 —
+## 새 표시가 그보다 넓어지면 전장을 덮기 시작한다는 뜻이라 시험이 실패한다
+static func mark_limit(e: Dictionary) -> float:
+	return float(e.get("r", 0.0)) * 1.4 + 18.0
+
+## 집중 중첩: 대상의 몸을 감싸는 **작은 눈금 고리**(눈금 하나 = 중첩 하나).
+## 최대에 닿으면 눈금 대신 **닫힌 고리 + 바깥 가시 여섯**으로 모양을 바꾼다(짧고 분명한 구분, 색만이 아니다).
+## 고리 위의 작은 X는 '이건 쌍검의 집중'이라는 표식이다(냉기 점선 고리·표식 고리와 헷갈리지 않게).
+static func draw_focus(ci: Node2D, st: CombatState, e: Dictionary, plan: Dictionary) -> void:
+	if not bool(plan.show):
+		return
+	var ex: float = e.x
+	var ey: float = e.y
+	var rr: float = float(e.r) + FOCUS_R
+	var a: float = float(plan.fade)
+	if bool(plan.full):
+		var pulse: float = 0.6 + 0.4 * sin(st.t * 9.0)
+		stroke_circle(ci, ex, ey, rr, C("#ffd0d0", a), 2.0)
+		stroke_circle(ci, ex, ey, rr + 2.0, C("#ff8a8a", 0.55 * a * pulse), 2.0)
+		for i in 6:
+			var sa: float = -PI / 2.0 + float(i) * TAU / 6.0
+			ci.draw_line(Vector2(ex + cos(sa) * (rr + 2.0), ey + sin(sa) * (rr + 2.0)),
+				Vector2(ex + cos(sa) * (rr + 7.0), ey + sin(sa) * (rr + 7.0)), C("#ffd0d0", 0.9 * a), 2.0)
+	else:
+		var mx: int = maxi(1, int(plan.max))
+		for i in mx:
+			var a0: float = -PI / 2.0 + float(i) * TAU / float(mx) + 0.12
+			var a1: float = a0 + TAU / float(mx) - 0.24
+			var on: bool = i < int(plan.n)
+			# 빈 칸도 옅게 남긴다 — '몇 칸 중 몇 칸'이 읽힌다
+			ci.draw_arc(Vector2(ex, ey), rr, a0, a1, 8, C("#ff8a8a", 0.95 * a) if on else C("#7a4a4a", 0.4 * a), 3.0 if on else 1.5)
+	var tx: float = ex
+	var ty: float = ey - rr - 6.0
+	ci.draw_line(Vector2(tx - 3.5, ty - 3.5), Vector2(tx + 3.5, ty + 3.5), C("#ffd0d0", 0.9 * a), 1.5)
+	ci.draw_line(Vector2(tx + 3.5, ty - 3.5), Vector2(tx - 3.5, ty + 3.5), C("#ffd0d0", 0.9 * a), 1.5)
+
+## 냉기·빙결. 몸 위·정보 아래에 그린다(체력 막대·상태 아이콘·이름을 덮지 않는다).
+## 얼음 덮개는 반투명이라 실루엣이 비쳐 보이고, 적 공격 예고는 이 뒤(draw_telegraphs)에 그려 언제나 위다.
+static func draw_frost(ci: Node2D, st: CombatState, e: Dictionary, plan: Dictionary) -> void:
+	var parts: Array = plan.parts
+	if parts.is_empty():
+		return
+	var ex: float = e.x
+	var ey: float = e.y
+	var r: float = e.r
+	if parts.has("chill"):
+		# 냉기 중첩: 몸 왼쪽에서 위로 자라는 서리 눈금(개수 = chill_n). 둔화(chill)의 점선 고리와 별개다
+		for i in int(plan.chill_n):
+			var ca: float = PI - float(i) * CHILL_STEP
+			ci.draw_line(Vector2(ex + cos(ca) * (r + 2.0), ey + sin(ca) * (r + 2.0)),
+				Vector2(ex + cos(ca) * (r + CHILL_OUT), ey + sin(ca) * (r + CHILL_OUT)), C("#9fe8ff", 0.95), 2.0)
+	if parts.has("shell"):
+		var hexp := PackedVector2Array()
+		for i in 6:
+			var ha: float = -PI / 2.0 + float(i) * TAU / 6.0
+			hexp.append(Vector2(ex + cos(ha) * (r * 1.25 + 4.0), ey + sin(ha) * (r * 1.25 + 4.0)))
+		ci.draw_colored_polygon(hexp, rgba(180, 232, 255, 0.30))
+		var edge := hexp.duplicate()
+		edge.append(hexp[0])
+		ci.draw_polyline(edge, rgba(224, 246, 255, 0.9), 2.0)
+	if parts.has("crack"):
+		for i in 3:
+			var ka: float = -PI / 2.0 + float(i) * TAU / 3.0 + 0.4
+			ci.draw_line(Vector2(ex + cos(ka) * r * 0.2, ey + sin(ka) * r * 0.2),
+				Vector2(ex + cos(ka) * r * 1.1, ey + sin(ka) * r * 1.1), rgba(224, 246, 255, 0.75), 1.5)
+	if parts.has("lock"):
+		# 멎었다: 발밑 **실선** 서리 고리 + 좌우 쐐기. 둔화의 점선 고리와 선 종류로 갈린다
+		var ly: float = ey + r * 0.5
+		ci.draw_polyline(ellipse_pts(ex, ly, r * 0.85, r * 0.34, 0.0, 20), rgba(200, 240, 255, 0.85), 2.0)
+		for s in [-1.0, 1.0]:
+			var bx: float = ex + float(s) * r * 0.85
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(bx, ly - 5.0), Vector2(bx + float(s) * 6.0, ly), Vector2(bx, ly + 5.0)]), rgba(224, 246, 255, 0.9))
+	if parts.has("patch"):
+		# 보스 결빙: 몸 일부에만 붙은 서리 조각(열린 호). 덮개가 아니라 '멈춤'으로 읽히지 않는다
+		for i in 3:
+			var pa: float = -PI / 2.0 + float(i) * TAU / 3.0
+			ci.draw_arc(Vector2(ex, ey), r * 1.05, pa - 0.45, pa + 0.45, 10, rgba(200, 240, 255, 0.85), 3.0)
+	if parts.has("drift"):
+		# 여전히 움직인다: 서리 알갱이가 둘레를 돈다. 시간으로만 움직인다(난수 없음)
+		for i in 5:
+			var da: float = st.t * 1.6 + float(i) * TAU / 5.0
+			var dd: float = r * 1.3 + 3.0 * sin(st.t * 2.0 + float(i))
+			ci.draw_circle(Vector2(ex + cos(da) * dd, ey + sin(da) * dd), 2.0, rgba(224, 246, 255, 0.8))
+
+## 표시 전용 난수(계약 3절: 전투 난수 st.rng를 소비하지 않는다).
+## 씨앗을 연출의 자리·파편 수에서 만들어 **같은 연출은 매 프레임 같은 모양**이 되게 한다(프레임마다 흔들리지 않는다).
+static func fx_rng(f: Dictionary, salt: int) -> PRng:
+	var sx: int = int(round(float(f.get("x", 0.0)) * 4.0))
+	var sy: int = int(round(float(f.get("y", 0.0)) * 4.0))
+	return PRng.new(absi(sx * 73856093 + sy * 19349663 + int(f.get("shards", 0)) * 83492791 + salt) | 1)
+
+## 파쇄 표시 계획(계약 3절). **규칙이 보낸 shards 수만큼만** 그린다 — 장식 파편을 하나도 더하지 않는다.
+## kind가 "shatter"가 아니면 빈 계획이다: 빗나간 공격은 신호 자체가 오지 않으므로 파쇄가 보일 수 없다.
+static func shatter_plan(f: Dictionary) -> Dictionary:
+	var out := { "n": 0, "dirs": PackedFloat32Array(), "len": PackedFloat32Array() }
+	if String(f.get("kind", "")) != "shatter":
+		return out
+	var n: int = maxi(0, int(f.get("shards", 0)))
+	if n <= 0:
+		return out
+	var rng := fx_rng(f, 91)
+	var dirs := PackedFloat32Array()
+	var lens := PackedFloat32Array()
+	for i in n:
+		dirs.append(float(i) * TAU / float(n) + rng.range_f(-0.22, 0.22))
+		lens.append(rng.range_f(0.85, 1.25))
+	out.n = n
+	out.dirs = dirs
+	out.len = lens
+	return out
 
 # ---------- 늑대(측면, 좌우 반전). 상태: approach|bite_track|bite_lock|bite_hit|bite_recover|crouch|lock|dash|recover ----------
 static func draw_wolf(ci: Node2D, st: CombatState, e: Dictionary) -> void:
@@ -2410,6 +2602,8 @@ static func draw_enemy(ci: Node2D, st: CombatState, e: Dictionary) -> void:
 	if float(e.flash) > 0.0:
 		var fk: float = clampf(float(e.flash) / 0.12, 0.0, 1.0)
 		stroke_circle(ci, float(e.x), float(e.y), float(e.r) + 2.0, Color(1, 1, 1, 0.7 * fk), 2.0 + 1.5 * fk)
+	# 냉기 중첩·빙결(계약 자료만 읽는다). 몸 위·정보 아래이고, 적 예고는 draw_telegraphs가 이 뒤에 그린다
+	draw_frost(ci, st, e, frost_plan(e))
 	tier_mark(ci, e)
 	var ex: float = e.x
 	var ey: float = e.y
@@ -2446,6 +2640,8 @@ static func draw_enemy(ci: Node2D, st: CombatState, e: Dictionary) -> void:
 		status_icon(ci, ex, ey - r - 44.0, "mark")
 	if float(e.chill) > 0.0:
 		dashed_circle(ci, ex, ey, r * 1.4 + 3.0, rgba(160, 230, 255, 0.85), 2.0, 3.0, 4.0, st.t * 1.5)
+	# 쌍검 집중 중첩(계약 5절). 겨눈 적 위에서 대상과 중첩을 한 번에 읽게 한다
+	draw_focus(ci, st, e, focus_plan(st, e))
 	var stasis: int = int(e.get("stasis", 0))
 	if stasis > 0:
 		var w: float = float(stasis) * 7.0
@@ -3469,6 +3665,30 @@ static func draw_impacts(ci: Node2D, st: CombatState) -> void:
 				for i in 2:
 					var d0: float = 6.0 + 10.0 * float(i) + 14.0 * (1.0 - k)
 					ci.draw_polyline(PackedVector2Array([Vector2(ex2 + cos(ea + 0.9) * d0, ey2 + sin(ea + 0.9) * d0), Vector2(ex2 + cos(ea) * (d0 + 9.0), ey2 + sin(ea) * (d0 + 9.0)), Vector2(ex2 + cos(ea - 0.9) * d0, ey2 + sin(ea - 0.9) * d0)]), rgba(200, 235, 255, (0.9 - 0.35 * float(i)) * k), 2.5)
+			"shatter": # 빙결 파쇄(계약 3절): 규칙이 보낸 파편 수를 **그대로** 그린다. 장식 파편은 하나도 없다
+				var sx: float = f.x
+				var sy: float = f.y
+				var sr: float = float(f.get("r", 18.0))
+				var gr: float = 1.0 - k
+				# ① 얼음이 깨진 자리: 밖으로 벌어지는 육각 테두리(짧게 한 번)
+				var hexp := PackedVector2Array()
+				for i in 7:
+					var ha: float = float(i) * TAU / 6.0
+					var hr: float = sr * (0.5 + 0.7 * gr)
+					hexp.append(Vector2(sx + cos(ha) * hr, sy + sin(ha) * hr))
+				ci.draw_polyline(hexp, rgba(224, 246, 255, 0.9 * k), 2.5)
+				# ② 파편: **채운** 쐐기 = 실제 피해. 이 파일의 규약(점선·윤곽 = 무해한 잔상)과 갈린다
+				var sp := shatter_plan(f)
+				var dirs: PackedFloat32Array = sp.dirs
+				var lens: PackedFloat32Array = sp.len
+				for i in int(sp.n):
+					var sa: float = dirs[i]
+					var d0: float = sr * 0.35
+					var d1: float = sr * (0.6 + 0.9 * gr) * lens[i]
+					var tipv := Vector2(sx + cos(sa) * d1, sy + sin(sa) * d1)
+					var basev := Vector2(sx + cos(sa) * d0, sy + sin(sa) * d0)
+					var nv := Vector2(-sin(sa), cos(sa)) * (3.2 * k + 1.2)
+					ci.draw_colored_polygon(PackedVector2Array([tipv, basev + nv, basev - nv]), rgba(144, 229, 244, 0.95 * k))
 			"hitflash": # 내가 맞았다: 몸 주위 고리 + 화면 가장자리만 붉게(경기장 전체를 덮지 않는다 — 예고가 묻힌다)
 				stroke_circle(ci, float(f.x), float(f.y), 18.0 + 16.0 * (1.0 - k), C("#ff5050", k * 0.55), 3.0)
 				var w: float = st.arena_w

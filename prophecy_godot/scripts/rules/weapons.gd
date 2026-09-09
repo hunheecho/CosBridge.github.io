@@ -261,11 +261,45 @@ static func dagger_focus(st: CombatState, w: Dictionary, e: Dictionary, bt: Dict
 		f.id = int(e.id)
 		f.n = 0
 	f.t = st.t
+	dagger_focus_expose(w, float(bt.window))
 	return 1.0 + float(f.n) * float(bt.perStack)
 
 ## 중첩을 그 자리에서 푼다(겨눈 적을 못 맞혔을 때)
 static func dagger_focus_drop(w: Dictionary) -> void:
 	w["focus"] = new_focus()
+	dagger_focus_expose(w, 0.0)
+
+## ── 화면 표시용 노출(docs/FROST_CONTRACT.md 5절) ─────────────────────────────
+## 규칙·수치는 하나도 바꾸지 않는다. 위에서 **이미 계산한** 집중 상태를 무기 dict의
+## focus_id·focus_n·focus_t로 비춰만 둔다(화면이 w.focus 속을 뒤지지 않게).
+## focus_t는 '갱신된 순간의 남은 유지 시간'(= window)이라, 프레임마다 줄어드는 값은
+## 아래 dagger_focus_view가 다시 셈한다.
+static func dagger_focus_expose(w: Dictionary, win: float) -> void:
+	var f: Dictionary = w.get("focus", new_focus())
+	w["focus_id"] = int(f.id)
+	w["focus_n"] = int(f.n)
+	w["focus_t"] = win
+
+## 화면 전용 읽기: **지금 이 순간의** 집중 대상·중첩·남은 시간. 아무것도 바꾸지 않는다.
+## 만료 판정은 dagger_focus와 똑같은 식(st.t − f.t > window)을 쓴다 — 규칙과 화면이 같은 순간에 풀린다.
+## 쌍검 + 출혈 칼날이 아니면 언제나 '없음'이다.
+static func dagger_focus_view(st: CombatState, w: Dictionary) -> Dictionary:
+	var out := { "id": -1, "n": 0, "t": 0.0, "max": 0 }
+	var s: Dictionary = w.get("stats", {})
+	if String(w.get("id", "")) != "daggers" or s.is_empty() or not (s.get("mods", []) as Array).has("bleed"):
+		return out
+	var f: Dictionary = w.get("focus", new_focus())
+	if int(f.id) < 0:
+		return out
+	var bt := mod_tune(s, "bleed", { "maxStack": 6, "perStack": 0.08, "window": 1.2, "bleedSec": 2.0 })
+	var left: float = float(f.t) + float(bt.window) - st.t
+	if left <= 0.0:
+		return out
+	out.id = int(f.id)
+	out.n = int(f.n)
+	out.t = left
+	out.max = maxi(0, int(bt.maxStack))
+	return out
 
 ## 쌍검: 매우 짧은 리치·좁은 폭의 3연타. **마지막 일격만 더 무겁다**(data/main_weapons.json base.finalMult, 시험값).
 ## 3연타를 다 넣으려면 사거리 안에 계속 붙어 있어야 하므로, 근접 위험을 감수한 만큼 단일 대상 화력이 가장 높다.
