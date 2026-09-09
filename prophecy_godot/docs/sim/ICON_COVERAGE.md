@@ -72,7 +72,7 @@
 | `mod:orb:conduct` | 전도 표식 | `mod_orb_conduct` |
 | `mod:orb:fork` | 분기 번개 | `mod_orb_fork` |
 | `mod:orb:loop` | 순환 전류 | `mod_orb_loop` |
-| `mod:plague:burst` | 역병 파열 | `mod_plague_burst` |
+| `mod:plague:burst` | 숙주 파열 | `mod_plague_burst` |
 | `mod:plague:deep` | 깊은 맹독 | `mod_plague_deep` |
 | `mod:plague:wide` | 넓은 전염 | `mod_plague_wide` |
 | `mod:spear:brand` | 꿰뚫는 표식 | `mod_spear_brand` |
