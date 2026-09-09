@@ -294,17 +294,32 @@ func sec3_plague() -> void:
 	ok("전염 자격은 죽음의 출처를 가리지 않는다(모든 경로 허용)",
 		PSupport.eligible("plague_spread", "main_direct") and PSupport.eligible("plague_spread", "dot")
 		and PSupport.eligible("plague_spread", "plague_burst"))
-	ok("전염 세대 상한이 2다", PSupport.gen_max("plague_spread") == 2)
+	# 2026-09-09 시험값 2 → 3(사용자 승인). 상한 자체가 비교의 축이라 단언도 새 값에 맞춘다 —
+	# 2/3/4 비교표는 docs/sim/SPREAD_PROBE.md에 그대로 남아 있고 여기서 다시 재지 않는다.
+	# 이 단언의 뜻은 "권장값이 실제로 자료에 들어갔다"이고, 아래 두 검사가 "그 상한이 지켜진다"를 본다.
+	var gmax := PSupport.gen_max("plague_spread")
+	ok("전염 세대 상한이 3이다(시험값 2 → 3)", gmax == 3, "gen_max=%d" % gmax)
 
-	# 세대 상한: 3세대는 일어나지 않는다
+	# 세대 상한: 상한 세대인 독은 더 옮지 않는다(무한 재귀 방지가 상한을 올려도 그대로인가)
 	var st: CombatState = lab([["plague", 1, []]])
 	var a: Dictionary = st.spawn_enemy("wolf", st.player.x + 60.0, st.player.y)
 	var b: Dictionary = st.spawn_enemy("wolf", st.player.x + 100.0, st.player.y)
-	PSupportB._infect(st, a, 2, 3.0)      # 이미 2세대인 독
+	PSupportB._infect(st, a, gmax, 3.0)      # 이미 상한 세대인 독
 	st.kill_enemy(a, {})
-	ok("세대 상한 2를 넘는 전염은 일어나지 않는다",
+	ok("세대 상한(%d)을 넘는 전염은 일어나지 않는다" % gmax,
 		(b.get("plague", {}) as Dictionary).is_empty(),
 		"막힌 전염 %d" % int((st.support.get("plague", {}) as Dictionary).get("spread_blocked", 0)))
+
+	# 정상적인 연쇄는 막지 않는다: 상한 바로 아래 세대는 한 번 더 옮아야 한다
+	var st1b: CombatState = lab([["plague", 1, []]])
+	var a1b: Dictionary = st1b.spawn_enemy("wolf", st1b.player.x + 60.0, st1b.player.y)
+	var b1b: Dictionary = st1b.spawn_enemy("wolf", st1b.player.x + 100.0, st1b.player.y)
+	PSupportB._infect(st1b, a1b, gmax - 1, 3.0)
+	st1b.kill_enemy(a1b, {})
+	var got1b: Dictionary = b1b.get("plague", {})
+	ok("상한 바로 아래 세대(%d)의 독은 정상적으로 한 번 더 옮는다" % (gmax - 1),
+		not got1b.is_empty() and int(got1b.get("gen", -1)) == gmax,
+		"받은 세대 %d" % int(got1b.get("gen", -1)))
 
 	# 같은 죽음으로 파열이 두 번 정산되지 않는다
 	var st2: CombatState = lab([["plague", 1, ["burst"]]])

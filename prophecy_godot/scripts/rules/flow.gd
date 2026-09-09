@@ -3,6 +3,14 @@ extends RefCounted
 ## 회차 진행 공유 흐름(HTML flow.js 이식): 조우 생성·정산·다음 선택을 화면과 회차 봇이 같은 함수로 처리한다.
 ## 화면은 결과를 표시하고 선택을 전달할 뿐, 보상·경험치·3택의 규칙은 여기서만 결정된다. actions(run)은 거점에서 지금 가능한 행동 목록(F1 재발 방지: UI·봇 공용).
 
+## KD-7 대조군 스위치(전후 비교 전용, 게임 기본값 아님). PROPHECY_CLEAR_DONE=0 이면 목표 'clear' 카드의
+## 완료 표시를 찍지 않던 **옛 규칙**으로 돌아간다 — 일반 탐험이 열리지 않고, 같은 카드를 정상 비용으로
+## 몇 번이든 다시 나가며 사건·이용권이 매번 새로 굴렀던 그 상태다.
+## 기본값은 지금 규칙(켜짐)이다. PROPHECY_PACING·PROPHECY_LEGACY_PLACES와 같은 자리의 장치다.
+## 도구가 한 프로세스 안에서 두 규칙을 번갈아 재려면 이 변수를 직접 바꿨다가 되돌린다
+## (tools/repeat_income_probe.gd). 규칙 코드는 아래 settle_victory 한 곳에서만 읽는다.
+static var clear_done_on := OS.get_environment("PROPHECY_CLEAR_DONE") != "0"
+
 ## 조우 시드: 출격 시드 + 조우 순번×1000 + (더 깊이 7)
 static func encounter_seed(sortie: Dictionary) -> int:
 	return int(sortie.seed) + int(sortie.get("encounters", 0)) * 1000 + (7 if bool(sortie.get("deep", false)) else 0)
@@ -93,7 +101,7 @@ static func settle_victory(run: Dictionary, sortie: Dictionary, st: CombatState)
 			reward.gold = int(round(float(reward.gold) * PRun.risk_reward_mult(run)))
 		reward.mission = true
 		reward.missionPick = PSortie.on_mission_win(run, sortie)
-	elif not bool(sortie.get("repeat", false)) and not bool(sortie.get("endless", false)) and sortie.get("eventFight", null) == null:
+	elif clear_done_on and not bool(sortie.get("repeat", false)) and not bool(sortie.get("endless", false)) and sortie.get("eventFight", null) == null:
 		PSortie.on_clear_win(run, sortie) # 목표 'clear' 카드도 완료로 남긴다(보상 없음). 반복 탐험·무한·사건 전투는 카드가 아니다
 	PRun.apply_encounter_result(run, sortie, "won", reward, float(st.player.hp))
 	var heal := PRun.on_victory_heal(run)
