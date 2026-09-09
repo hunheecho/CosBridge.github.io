@@ -5,6 +5,12 @@ extends RefCounted
 ## - safe_rect(): DisplayServer.get_display_safe_area()(화면 px)를 창 위치·stretch 변환으로 canvas 좌표에 옮긴 것. PC(창)는 보통 canvas 전체.
 ## - aspect_bucket(): wide(≥2.0, 예 2340×1080) · standard(16:9·16:10) · narrow(<1.5, 예 1024×768 → canvas 960×720).
 ## 화면들은 여기서 준 여백·열 비율·최소 버튼 높이만 쓰고, 좌표를 직접 계산하지 않는다.
+##
+## 다른 화면(전체화면 전환·가로 고정·세로 안내·일시정지)이 물어볼 창구는 아래 넷이다(docs/TOUCH_CONTROLS.md):
+##   screen_size(vp)     지금 canvas 크기(주소창이 나타나거나 전체화면·회전으로 바뀐 뒤의 값)
+##   safe_insets(vp)     보이는 영역 대비 안전 영역이 잘려 나간 양 {left, top, right, bottom}(노치·상태 표시줄)
+##   touch_safe_rect(vp) 안전 영역에서 시스템 제스처 여백까지 더 들인 '터치 조작을 놓아도 되는' 영역
+##   orientation(vp)     "landscape" | "portrait"(세로 안내를 띄울지 판단)
 
 const BASE_W := 960.0
 const BASE_H := 640.0
@@ -12,6 +18,7 @@ const WIDE_RATIO := 2.0
 const NARROW_RATIO := 1.5
 const TOUCH_TARGET := 72.0     # 터치 대상 한 변 최소(px, canvas)
 const TOUCH_BUTTON_H := 44.0   # 터치일 때 일반 버튼 최소 높이
+const GESTURE_PAD := 16.0      # 시스템 제스처(홈 표시줄·가장자리 스와이프)를 피해 터치 조작을 안쪽으로 들이는 여백(canvas px)
 
 static func is_touch() -> bool:
 	return DisplayServer.is_touchscreen_available() or OS.get_environment("PROPHECY_TOUCH") == "1"
@@ -56,6 +63,47 @@ static func map_safe(vis: Rect2, window_px: Rect2i, safe_px: Rect2i, canvas_to_w
 	if r.size.x < vis.size.x * 0.5 or r.size.y < vis.size.y * 0.5:
 		return vis # 비정상 값(창이 화면 밖 등) 방어: 전체 사용
 	return r
+
+# ---------- 다른 화면이 쓰는 창구(전체화면·가로 고정·세로 안내·일시정지 담당용) ----------
+
+## 지금 canvas 크기(주소창 표시 여부·전체화면 전환·회전 뒤의 값). 창이 없으면 기준 설계 크기
+static func screen_size(vp: Viewport) -> Vector2:
+	return vp.get_visible_rect().size if vp != null else Vector2(BASE_W, BASE_H)
+
+## 보이는 영역 대비 안전 영역이 잘려 나간 양(canvas px). 노치·상태 표시줄이 있는 쪽만 0보다 크다
+static func safe_insets(vp: Viewport) -> Dictionary:
+	if vp == null:
+		return { "left": 0.0, "top": 0.0, "right": 0.0, "bottom": 0.0 }
+	var vis: Rect2 = vp.get_visible_rect()
+	var safe: Rect2 = safe_rect(vp)
+	return {
+		"left": maxf(0.0, safe.position.x - vis.position.x),
+		"top": maxf(0.0, safe.position.y - vis.position.y),
+		"right": maxf(0.0, vis.end.x - safe.end.x),
+		"bottom": maxf(0.0, vis.end.y - safe.end.y),
+	}
+
+## 시스템 제스처 여백(canvas px). 터치 화면일 때만 들인다(PC HUD 크기는 그대로 둔다)
+static func gesture_pad() -> float:
+	return GESTURE_PAD if is_touch() else 0.0
+
+## 순수 계산(헤드리스 시험용): 사각형을 네 변에서 pad만큼 들인다. 여백이 사각형보다 크면 원래대로 둔다
+static func inset_rect(r: Rect2, pad: float) -> Rect2:
+	if pad <= 0.0 or r.size.x <= pad * 2.0 or r.size.y <= pad * 2.0:
+		return r
+	return Rect2(r.position + Vector2(pad, pad), r.size - Vector2(pad * 2.0, pad * 2.0))
+
+## 터치 조작을 놓아도 되는 영역 = 안전 영역(노치 밖) − 시스템 제스처 여백
+static func touch_safe_rect(vp: Viewport) -> Rect2:
+	return inset_rect(safe_rect(vp), gesture_pad())
+
+## 화면 방향("landscape" | "portrait"). 세로 안내를 띄울지 판단하는 쪽이 쓴다
+static func orientation(vp: Viewport) -> String:
+	var s: Vector2 = screen_size(vp)
+	return "portrait" if s.y > s.x else "landscape"
+
+static func is_landscape(vp: Viewport) -> bool:
+	return orientation(vp) == "landscape"
 
 ## 화면 여백: 기본 여백 + (보이는 영역과 안전 영역의 차). {left, top, right, bottom}
 static func margins(vp: Viewport, base_side: int = 14, base_tb: int = 10) -> Dictionary:

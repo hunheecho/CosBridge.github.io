@@ -68,6 +68,54 @@ class FakeView extends Node:
 	var driver := PStepDriver.new()
 	var st: CombatState = null
 
+# ---------- 모바일 조작 배치 점검 도구(H절) ----------
+## 조작 원 목록 [이름, 중심, 반지름]. 스틱 끌기 영역은 사각형이라 따로 본다
+static func _circles(tc: PTouchControls) -> Array:
+	var out := []
+	for kind in ["dodge", "special", "e"]:
+		out.append([kind, tc.button_center(kind), PTouchControls.button_radius(kind)])
+	out.append(["build", tc.build_button_center(), PTouchControls.BTN_BUILD_R])
+	return out
+
+## 원과 사각형이 겹치는가(사각형에서 가장 가까운 점까지의 거리가 반지름보다 작으면 겹친다)
+static func _circle_hits_rect(c: Vector2, r: float, rect: Rect2) -> bool:
+	var near := Vector2(clampf(c.x, rect.position.x, rect.end.x), clampf(c.y, rect.position.y, rect.end.y))
+	return near.distance_to(c) < r - 0.001
+
+## 배치 문제 목록(비면 통과): ① 안전 영역 밖으로 잘림 ② 조작끼리 겹침(버튼 사이 빈 틈 BTN_GAP 미만 포함)
+## ③ 스틱 끌기 영역과 버튼이 겹침 ④ 안내 원이 끌기 영역 밖(그림만 있고 누를 수 없는 자리)
+static func _layout_problems(tc: PTouchControls, safe: Rect2, tag: String) -> Array:
+	var bad := []
+	var cs := _circles(tc)
+	var zone: Rect2 = tc.zone_rect()
+	var gap_min: float = PTouchControls.BTN_GAP
+	for i in range(cs.size()):
+		var a: Array = cs[i]
+		var ac: Vector2 = a[1]
+		var ar: float = a[2]
+		if ac.x - ar < safe.position.x - 0.001 or ac.y - ar < safe.position.y - 0.001 or ac.x + ar > safe.end.x + 0.001 or ac.y + ar > safe.end.y + 0.001:
+			bad.append("%s %s 잘림 %s r%.0f" % [tag, String(a[0]), str(ac), ar])
+		if _circle_hits_rect(ac, ar, zone):
+			bad.append("%s %s 가 스틱 영역과 겹침" % [tag, String(a[0])])
+		for j in range(i + 1, cs.size()):
+			var b: Array = cs[j]
+			var bc: Vector2 = b[1]
+			var br: float = b[2]
+			var gap: float = ac.distance_to(bc) - ar - br
+			if gap < gap_min - 0.001:
+				bad.append("%s %s↔%s 빈 틈 %.2f < %.0f" % [tag, String(a[0]), String(b[0]), gap, gap_min])
+	if not safe.encloses(zone):
+		bad.append("%s 스틱 영역이 안전 영역 밖 %s ⊄ %s" % [tag, str(zone), str(safe)])
+	var g: Vector2 = tc.guide_center()
+	var R: float = PTouchControls.STICK_R
+	if g.x - R < zone.position.x - 0.001 or g.y - R < zone.position.y - 0.001 or g.x + R > zone.end.x + 0.001 or g.y + R > zone.end.y + 0.001:
+		bad.append("%s 안내 원(%s r%.0f)이 끌기 영역 %s 밖" % [tag, str(g), R, str(zone)])
+	return bad
+
+## 노치·제스처 여백을 넣은 안전 영역(화면 px 아니라 canvas 좌표)
+static func _notched(sz: Vector2) -> Rect2:
+	return Rect2(24.0, 10.0, sz.x - 24.0 - 16.0, sz.y - 10.0 - 12.0)
+
 func _run() -> void:
 	var STEP: float = PStepDriver.STEP
 	# ---------- A. 키보드 경로 = 0.4.3 인라인 코드 ----------
@@ -155,20 +203,23 @@ func _run() -> void:
 	tc.layout(Rect2(0.0, 0.0, 960.0, 640.0))
 	await process_frame
 	var zone := tc.zone_rect()
-	ok("E1 스틱 영역 = 안전 영역 왼쪽 45%, HUD 아래", zone.position == Vector2(0.0, 44.0) and is_equal_approx(zone.size.x, 432.0) and is_equal_approx(zone.end.y, 640.0), str(zone))
+	# 확대 뒤(2026-09-09): 안전 영역에서 제스처 여백 16을 들인 뒤 그 왼쪽 45%(928×0.45 = 417.6)가 끌기 영역이다
+	ok("E1 스틱 영역 = (안전 영역 − 제스처 여백)의 왼쪽 45%, 상단 띠 아래", zone.position == Vector2(16.0, 44.0) and is_equal_approx(zone.size.x, 417.6) and is_equal_approx(zone.end.y, 624.0), str(zone))
 	var dc := tc.button_center("dodge")
 	var qc := tc.button_center("special")
 	var ec := tc.button_center("e")
-	ok("E2 버튼 지름 ≥ 72(회피 96, Q·E 76), 모두 안전 영역 안", PTouchControls.button_radius("dodge") * 2.0 >= 72.0 and PTouchControls.button_radius("special") * 2.0 >= 72.0 and dc.x + 48.0 <= 960.0 and dc.y + 48.0 <= 640.0 and qc.x - 38.0 >= zone.end.x and ec.y - 38.0 >= 44.0, "dodge=%s q=%s e=%s" % [dc, qc, ec])
-	ok("E3 버튼끼리 겹치지 않음", dc.distance_to(qc) >= 48.0 + 38.0 and dc.distance_to(ec) >= 48.0 + 38.0 and qc.distance_to(ec) >= 76.0)
+	var RD: float = PTouchControls.BTN_DODGE_R
+	var RS: float = PTouchControls.BTN_SMALL_R
+	ok("E2 버튼 지름 ≥ 72(회피 144, Q·E 114), 모두 안전 영역 안", RD * 2.0 >= 72.0 and RS * 2.0 >= 72.0 and dc.x + RD <= 944.0 and dc.y + RD <= 624.0 and qc.x - RS >= zone.end.x and ec.y - RS >= 44.0, "dodge=%s q=%s e=%s" % [dc, qc, ec])
+	ok("E3 버튼끼리 겹치지 않음", dc.distance_to(qc) >= RD + RS and dc.distance_to(ec) >= RD + RS and qc.distance_to(ec) >= RS * 2.0)
 	ok("E4 active(): 진행 중·봇 없음·정지 아님", tc.active())
 	tc.handle_touch(0, Vector2(150.0, 400.0), true)
 	ok("E5 왼쪽 영역 터치 0 → 스틱 잡음, 이동 0", tc.stick_held() and r2.virtual_move == Vector2.ZERO)
-	tc.handle_drag(0, Vector2(214.0, 400.0))
-	ok("E6 끌기 +64px → 이동 (1,0)", r2.virtual_move.is_equal_approx(Vector2(1.0, 0.0)), str(r2.virtual_move))
+	tc.handle_drag(0, Vector2(150.0 + PTouchControls.STICK_R, 400.0))
+	ok("E6 끌기 +바깥 반지름(128px) → 이동 (1,0)", r2.virtual_move.is_equal_approx(Vector2(1.0, 0.0)), str(r2.virtual_move))
 	tc.handle_touch(1, dc, true)
 	ok("E7 터치 1로 회피 버튼 → 누름 기록 + 유지 true", tc.button_held("dodge") and r2.virtual_held and fake.driver.press_pending)
-	tc.handle_drag(0, Vector2(150.0, 336.0))
+	tc.handle_drag(0, Vector2(150.0, 400.0 - PTouchControls.STICK_R))
 	ok("E8 스틱을 움직여도(터치 0) 회피 유지는 그대로(터치 1)", r2.virtual_move.is_equal_approx(Vector2(0.0, -1.0)) and r2.virtual_held and tc.button_held("dodge"), str(r2.virtual_move))
 	var st2: CombatState = fake.st
 	var pv2 := r2.preview(fake.driver)
@@ -192,7 +243,7 @@ func _run() -> void:
 	tc.handle_touch(5, Vector2(700.0, 300.0), true)
 	ok("E16 오른쪽 빈 곳 터치 → 스틱도 버튼도 아님", tc.stick_held() and not tc.button_held("dodge") and not tc.button_held("special") and not tc.button_held("e"))
 	tc.handle_touch(5, Vector2(700.0, 300.0), false)
-	tc.handle_touch(0, Vector2(150.0, 336.0), false)
+	tc.handle_touch(0, Vector2(150.0, 400.0 - PTouchControls.STICK_R), false)
 	ok("E17 터치 0 뗌 → 스틱 해제, 이동 0", not tc.stick_held() and r2.virtual_move == Vector2.ZERO)
 	fake.driver.reset()
 	fake.paused = true
@@ -228,6 +279,235 @@ func _run() -> void:
 	var off := PLayout.map_safe(vis, Rect2i(0, 0, 2340, 1080), Rect2i(2000, 0, 340, 1080), xf)
 	ok("F5 비정상(절반 미만) → 전체로 방어", off == vis)
 	ok("F6 열 비율·마을 높이: wide 0.6/200 · standard 0.57/180 · narrow 0.55/220", PLayout.left_ratio("wide") == 0.6 and PLayout.village_height("wide") == 200.0 and PLayout.left_ratio("standard") == 0.57 and PLayout.village_height("narrow") == 220.0)
+	# ---------- H. 모바일 조작 확대(사용자가 실제 폰으로 플레이한 뒤의 지시, 2026-09-09) ----------
+	# H1 배율은 **반지름** 기준이다(면적이 아니다). 확대 전 값은 touch_controls.gd의 BASE_*에 남아 있다
+	ok("H1 조이스틱 바깥 반지름 정확히 2배 · 회피/Q/E 정확히 1.5배(반지름 기준)",
+		PTouchControls.BASE_STICK_R == 64.0 and PTouchControls.STICK_R == PTouchControls.BASE_STICK_R * 2.0 and PTouchControls.STICK_R == 128.0
+		and PTouchControls.BASE_BTN_DODGE_R == 48.0 and PTouchControls.BTN_DODGE_R == PTouchControls.BASE_BTN_DODGE_R * 1.5 and PTouchControls.BTN_DODGE_R == 72.0
+		and PTouchControls.BASE_BTN_SMALL_R == 38.0 and PTouchControls.BTN_SMALL_R == PTouchControls.BASE_BTN_SMALL_R * 1.5 and PTouchControls.BTN_SMALL_R == 57.0
+		and PTouchControls.KNOB_R == PTouchControls.BASE_KNOB_R * 2.0 and PTouchControls.KNOB_R == 44.0,
+		"스틱 %.0f · 손잡이 %.0f · 회피 %.0f · Q·E %.0f" % [PTouchControls.STICK_R, PTouchControls.KNOB_R, PTouchControls.BTN_DODGE_R, PTouchControls.BTN_SMALL_R])
+	ok("H1b 아이콘·숫자 글자도 같은 배율(회피 16→24 · Q·E 18→27 · 남은 초 13→20 · 미보유 11→17 · '이동' 12→24)",
+		PTouchControls.FS_DODGE == 24 and PTouchControls.FS_SMALL == 27 and PTouchControls.FS_CD == 20 and PTouchControls.FS_NONE == 17 and PTouchControls.FS_MOVE == 24)
+	var fake2 := FakeView.new()
+	fake2.st = _new_state()
+	root.add_child(fake2)
+	var tc2 := PTouchControls.new()
+	root.add_child(tc2)
+	tc2.enabled = true
+	var r3 := PInputRouter.new()
+	tc2.bind(fake2, r3)
+	tc2.gesture_pad = PLayout.GESTURE_PAD
+	tc2.layout(Rect2(0.0, 0.0, 960.0, 640.0))
+	await process_frame
+	# H2 그림 반지름 = 터치 판정 반지름(둘 중 하나만 커지지 않았다). 판정은 실제 터치로 확인한다
+	var g2 := tc2.draw_geometry()
+	var draw_ok := true
+	var hit_ok := true
+	var hit_note := ""
+	for kind in ["dodge", "special", "e"]:
+		var spec: Dictionary = g2.buttons[kind]
+		var r: float = PTouchControls.button_radius(kind)
+		if not is_equal_approx(float(spec.radius), r):
+			draw_ok = false
+		var c: Vector2 = tc2.button_center(kind)
+		tc2.handle_touch(60, c + Vector2(r - 0.5, 0.0), true)
+		var inside: bool = tc2.button_held(kind)
+		tc2.handle_touch(60, c, false)
+		tc2.handle_touch(61, c + Vector2(r + 1.5, 0.0), true)
+		var outside: bool = tc2.button_held(kind)
+		tc2.handle_touch(61, c, false)
+		if not inside or outside:
+			hit_ok = false
+		hit_note += "%s 안=%s 밖=%s " % [kind, str(inside), str(outside)]
+	var gs2: Dictionary = g2.stick
+	ok("H2 그림 반지름 = 터치 판정 반지름(버튼 3종 · 스틱)", draw_ok and hit_ok and is_equal_approx(float(gs2.radius), PTouchControls.STICK_R), hit_note)
+	tc2.release_all()
+	# H3 PC(키보드) HUD 크기 회귀: 터치 확대와 무관하게 조작 아이콘 3칸은 그대로다
+	var pchud := PCombatHud.new()
+	pchud.touch_mode = false
+	root.add_child(pchud)
+	await process_frame
+	pchud.relayout(Rect2(0.0, 0.0, 960.0, 640.0))
+	var mrow: Rect2 = pchud.manual_rect()
+	# 확대 전과 같은 값이어야 한다: 아이콘 px은 비율 묶음별 narrow 44 · standard 48 · wide 52,
+	# 칸 폭 = 아이콘 + 10, 칸 높이 = 아이콘 + 8 + 14(이름 한 줄), 3칸 사이 간격 8 두 번.
+	var bk: String = PLayout.bucket_of(pchud.get_viewport())
+	var icon_px: float = 48.0
+	if bk == "narrow":
+		icon_px = 44.0
+	elif bk == "wide":
+		icon_px = 52.0
+	var expect_row := Vector2((icon_px + 10.0) * 3.0 + 16.0, icon_px + 22.0)
+	ok("H3 PC 키보드 HUD 크기 불변(%s: 아이콘 %.0f → 칸 %.0f×%.0f → 줄 %s)" % [bk, icon_px, icon_px + 10.0, icon_px + 22.0, str(expect_row)], mrow.size.is_equal_approx(expect_row), str(mrow.size))
+	ok("H3b PC 버튼 최소 크기 규격도 그대로(터치 대상 72 · 버튼 44 · 큰 버튼 PC 44)",
+		PLayout.TOUCH_TARGET == 72.0 and PLayout.TOUCH_BUTTON_H == 44.0 and PLayout.primary_button_height() == (56.0 if PLayout.is_touch() else 44.0))
+	# H4·H5 작은 가로 화면 전수: 겹침·잘림
+	var sizes := [Vector2(640, 360), Vector2(720, 360), Vector2(854, 400), Vector2(960, 440), Vector2(1280, 540)]
+	var probs := []
+	var seen := []
+	for sz in sizes:
+		var rect_all := Rect2(Vector2.ZERO, sz)
+		var tag := "%dx%d" % [int(sz.x), int(sz.y)]
+		tc2.gesture_pad = 0.0
+		tc2.layout(rect_all)
+		probs += _layout_problems(tc2, rect_all, tag + " 여백0")
+		tc2.gesture_pad = PLayout.GESTURE_PAD
+		tc2.layout(rect_all)
+		probs += _layout_problems(tc2, rect_all, tag + " 제스처16")
+		seen.append(tag)
+	var cut := []
+	var ovl := []
+	for m in probs:
+		if String(m).find("잘림") >= 0:
+			cut.append(m)
+		else:
+			ovl.append(m)
+	ok("H4 확대 뒤에도 어떤 두 조작 영역도 겹치지 않는다(%s)" % " · ".join(seen), ovl.is_empty(), " / ".join(ovl))
+	ok("H5 확대 뒤에도 안전 영역 밖으로 잘리지 않는다(같은 크기 목록)", cut.is_empty(), " / ".join(cut))
+	# H6 노치·제스처 여백을 준 상태에서도 4·5가 성립한다
+	var probs6 := []
+	for sz in sizes:
+		var notch := _notched(sz)
+		tc2.gesture_pad = PLayout.GESTURE_PAD
+		tc2.layout(notch)
+		probs6 += _layout_problems(tc2, notch, "%dx%d 노치+제스처" % [int(sz.x), int(sz.y)])
+	ok("H6 노치(좌24·우16·상10·하12) + 제스처 여백 16에서도 겹침·잘림 없음", probs6.is_empty(), " / ".join(probs6))
+	# H7 이동 속도 불변의 근거: '끝까지 민' 입력 벡터가 확대 전후 같다
+	var v_before := PInputRouter.stick_vector(Vector2(PTouchControls.BASE_STICK_R, 0.0), PTouchControls.BASE_STICK_R)
+	var v_after := PInputRouter.stick_vector(Vector2(PTouchControls.STICK_R, 0.0), PTouchControls.STICK_R)
+	var d_before := PInputRouter.stick_vector(Vector2(-0.6, 0.8) * PTouchControls.BASE_STICK_R, PTouchControls.BASE_STICK_R)
+	var d_after := PInputRouter.stick_vector(Vector2(-0.6, 0.8) * PTouchControls.STICK_R, PTouchControls.STICK_R)
+	ok("H7 손잡이를 끝까지 민 입력 벡터가 확대 전후 같다(최대 편차 기준을 반지름과 함께 키웠다)",
+		v_before == v_after and v_after.is_equal_approx(Vector2(1.0, 0.0)) and d_before.is_equal_approx(d_after) and is_equal_approx(d_after.length(), 1.0),
+		"%s = %s · 대각 %s" % [str(v_before), str(v_after), str(d_after)])
+	tc2.gesture_pad = PLayout.GESTURE_PAD
+	tc2.layout(Rect2(0.0, 0.0, 960.0, 640.0))
+	var zp := Vector2(150.0, 400.0)
+	tc2.handle_touch(70, zp, true)
+	tc2.handle_drag(70, zp + Vector2(PTouchControls.STICK_R, 0.0))
+	var real_full: Vector2 = r3.virtual_move
+	tc2.handle_drag(70, zp + Vector2(PTouchControls.STICK_R * 3.0, 0.0))
+	var over_full: Vector2 = r3.virtual_move
+	var knob: Vector2 = tc2.draw_geometry().stick.knob
+	ok("H7b 실제 경로도 같다: 반지름만큼 밀면 (1,0), 더 밀어도 (1,0)이고 손잡이는 반지름에서 멈춘다",
+		real_full.is_equal_approx(Vector2(1.0, 0.0)) and over_full.is_equal_approx(Vector2(1.0, 0.0)) and is_equal_approx(knob.distance_to(zp), PTouchControls.STICK_R),
+		"%s · %s · 손잡이 %.1f" % [str(real_full), str(over_full), knob.distance_to(zp)])
+	ok("H7c 규칙은 이동 벡터를 PGeom.norm으로 다시 정규화한다(방향만 쓴다) → 스틱 크기는 속도에 닿지 않는다",
+		PGeom.norm(1.0, 0.0) == PGeom.norm(0.5, 0.0) and PGeom.norm(0.3, 0.4) == PGeom.norm(0.6, 0.8))
+	# H8 이동을 누른 채 회피·Q·E를 각각 쓸 수 있다(동시 입력 3가지)
+	var dc2 := tc2.button_center("dodge")
+	var qc2 := tc2.button_center("special")
+	var ec2 := tc2.button_center("e")
+	tc2.handle_drag(70, zp + Vector2(PTouchControls.STICK_R, 0.0))
+	fake2.driver.reset()
+	tc2.handle_touch(71, dc2, true)
+	var both_dodge: bool = r3.virtual_move.is_equal_approx(Vector2(1.0, 0.0)) and r3.virtual_held and fake2.driver.press_pending
+	tc2.handle_touch(71, dc2, false)
+	fake2.driver.reset()
+	tc2.handle_touch(72, qc2, true)
+	var both_q: bool = r3.virtual_move.is_equal_approx(Vector2(1.0, 0.0)) and fake2.driver.special_pending and tc2.stick_held()
+	tc2.handle_touch(72, qc2, false)
+	fake2.driver.reset()
+	tc2.handle_touch(73, ec2, true)
+	var both_e: bool = r3.virtual_move.is_equal_approx(Vector2(1.0, 0.0)) and fake2.driver.e_pending and tc2.stick_held()
+	tc2.handle_touch(73, ec2, false)
+	ok("H8 이동을 누른 채 회피·Q·E가 각각 눌린다", both_dodge and both_q and both_e, "회피=%s Q=%s E=%s" % [str(both_dodge), str(both_q), str(both_e)])
+	# H9 한 번의 터치가 두 버튼을 누르지 않는다(가장 가까운 하나만)
+	var pairs := [["dodge", "special"], ["dodge", "e"], ["special", "e"], ["dodge", "build"], ["e", "build"]]
+	var two_hit := []
+	for pr in pairs:
+		var an := String(pr[0])
+		var bn := String(pr[1])
+		var ac: Vector2 = tc2.build_button_center() if an == "build" else tc2.button_center(an)
+		var bc: Vector2 = tc2.build_button_center() if bn == "build" else tc2.button_center(bn)
+		var ar: float = PTouchControls.BTN_BUILD_R if an == "build" else PTouchControls.button_radius(an)
+		var br: float = PTouchControls.BTN_BUILD_R if bn == "build" else PTouchControls.button_radius(bn)
+		var mid: Vector2 = (ac + bc) * 0.5
+		if mid.distance_to(ac) <= ar and mid.distance_to(bc) <= br:
+			two_hit.append("%s↔%s 가운데가 둘 다 안" % [an, bn])
+		fake2.driver.reset()
+		tc2.handle_touch(74, mid, true)
+		var held_n := 0
+		for kind in ["dodge", "special", "e"]:
+			if tc2.button_held(kind):
+				held_n += 1
+		if held_n > 1:
+			two_hit.append("%s↔%s 가운데 터치로 %d개 눌림" % [an, bn, held_n])
+		tc2.handle_touch(74, mid, false)
+	ok("H9 버튼 사이 어디를 눌러도 두 기술이 동시에 나가지 않는다(가장 깊이 들어간 하나만)", two_hit.is_empty(), " / ".join(two_hit))
+	# H10 손가락이 영역 밖으로 나가거나 입력이 취소되면 이동·버튼 눌림이 남지 않는다
+	tc2.release_all()
+	tc2.handle_touch(80, zp, true)
+	tc2.handle_drag(80, zp + Vector2(PTouchControls.STICK_R, 0.0))
+	tc2.handle_touch(81, dc2, true)
+	var before_cancel: bool = tc2.stick_held() and tc2.button_held("dodge") and r3.virtual_move != Vector2.ZERO and r3.virtual_held
+	tc2.handle_cancel(80)
+	var stick_gone: bool = not tc2.stick_held() and r3.virtual_move == Vector2.ZERO and tc2.button_held("dodge")
+	tc2.handle_cancel(81)
+	var btn_gone: bool = not tc2.button_held("dodge") and not r3.virtual_held
+	ok("H10 입력 취소(touch canceled): 그 손가락이 잡은 것만 풀리고 이동·눌림이 남지 않는다", before_cancel and stick_gone and btn_gone)
+	tc2.handle_touch(82, zp, true)
+	tc2.handle_drag(82, zp + Vector2(PTouchControls.STICK_R, 0.0))
+	tc2.handle_drag(82, Vector2(-8.0, 400.0)) # 손가락이 화면(안전 영역) 왼쪽 밖으로 빠졌다
+	var off_screen: bool = not tc2.stick_held() and r3.virtual_move == Vector2.ZERO
+	tc2.handle_touch(83, zp, true)
+	tc2.handle_touch(84, dc2, true)
+	tc2._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	var focus_gone: bool = not tc2.stick_held() and not tc2.button_held("dodge") and r3.virtual_move == Vector2.ZERO and not r3.virtual_held
+	ok("H10b 손가락이 화면 밖으로 빠지거나 창이 뒤로 가면 스스로 놓는다", off_screen and focus_gone, "밖=%s 포커스=%s" % [str(off_screen), str(focus_gone)])
+	# H11 화면 크기가 바뀌면(주소창 등장·전체화면·회전) 조작 자리와 터치 좌표를 다시 잡는다
+	tc2.release_all()
+	tc2.layout(Rect2(0.0, 0.0, 960.0, 640.0))
+	var old_dodge := tc2.button_center("dodge")
+	var old_zone := tc2.zone_rect()
+	tc2.layout(Rect2(0.0, 0.0, 960.0, 540.0)) # 주소창이 나타나 화면이 낮아졌다
+	var new_dodge := tc2.button_center("dodge")
+	tc2.handle_touch(90, old_dodge, true)
+	var stale: bool = tc2.button_held("dodge")
+	tc2.handle_touch(90, old_dodge, false)
+	tc2.handle_touch(91, new_dodge, true)
+	var fresh: bool = tc2.button_held("dodge")
+	tc2.handle_touch(91, new_dodge, false)
+	tc2.layout(Rect2(0.0, 0.0, 1280.0, 540.0)) # 가로로 회전(더 넓어짐)
+	var wide_zone := tc2.zone_rect()
+	ok("H11 화면 크기가 바뀌면 조작 자리와 터치 판정이 함께 옮겨간다(옛 자리는 더 이상 눌리지 않는다)",
+		new_dodge != old_dodge and not stale and fresh and wide_zone.size.x > old_zone.size.x,
+		"회피 %s → %s · 영역 폭 %.1f → %.1f" % [str(old_dodge), str(new_dodge), old_zone.size.x, wide_zone.size.x])
+	# H12 쿨다운 중 흑백 · 준비 시 컬러 · 준비 알림(회귀)
+	var st3 := _new_state()
+	st3.player.dodge_cd = 0.0
+	st3.player.special_cd = 2.5
+	pchud.sync_ready_silent(st3)
+	pchud.update_from(st3)
+	var qtile: PIconTile = pchud.manual_tile("q")
+	var dtile: PIconTile = pchud.manual_tile("dodge")
+	ok("H12 HUD 회귀: 재사용 대기 = 흑백 + 남은 초, 준비 = 컬러",
+		pchud.ability_state("dodge") == PIconTile.ST_READY and pchud.ability_state("q") == PIconTile.ST_COOLDOWN and qtile.is_gray() and not dtile.is_gray() and is_equal_approx(qtile.cd_left, 2.5),
+		"dodge=%s q=%s" % [pchud.ability_state("dodge"), pchud.ability_state("q")])
+	var fired2 := []
+	pchud.ready_signal.connect(func(a): fired2.append(a))
+	st3.player.special_cd = 0.0
+	pchud.update_from(st3)
+	pchud.update_from(st3)
+	ok("H12b 준비 알림은 false→true 순간에만 1회(그대로)", fired2 == ["q"], str(fired2))
+	fake2.st.player.dodge_cd = 0.0
+	fake2.st.player.special_cd = 2.5
+	var g3 := tc2.draw_geometry()
+	var bd3: Dictionary = g3.buttons["dodge"]
+	var bq3: Dictionary = g3.buttons["special"]
+	var be3: Dictionary = g3.buttons["e"]
+	var ring_d: Color = bd3.ring
+	var ring_q: Color = bq3.ring
+	ok("H12c 터치 버튼도 같은 뜻: 준비 = 금색 꽉 찬 고리, 대기 = 채워지는 고리 + 남은 초, E 미보유 = '미보유'",
+		ring_d == PTouchControls.RING_READY and float(bd3.ready) >= 1.0 and String(bd3.cd_text) == ""
+		and ring_q == PTouchControls.RING_WAIT and float(bq3.ready) < 1.0 and String(bq3.cd_text) == "2.5"
+		and not bool(be3.usable) and String(be3.cd_text) == "미보유",
+		"회피=%s Q=%s(%s) E=%s" % [String(bd3.cd_text), String(bq3.cd_text), str(float(bq3.ready)), String(be3.cd_text)])
+	tc2.queue_free()
+	fake2.queue_free()
+	pchud.queue_free()
+	await process_frame
 	# ---------- G. 거점 마을(실제 main.tscn, headless) ----------
 	PSave.clear()
 	var packed: PackedScene = load("res://scenes/main.tscn")

@@ -116,7 +116,7 @@
         "PROPHECY_TEST_RETRY": "1"
       },
       "timeout_sec": 900,
-      "desc": "입력 라우터·터치",
+      "desc": "입력 라우터·터치(H절: 모바일 조작 확대 배율·그림=판정·겹침/잘림·입력 벡터 불변 — docs/TOUCH_CONTROLS.md)",
       "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
     },
     "run_layer_tests": {
