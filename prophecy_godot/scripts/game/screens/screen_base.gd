@@ -9,6 +9,7 @@ var top: VBoxContainer
 var body: VBoxContainer
 var bottom: HBoxContainer
 var scroll: ScrollContainer
+var touch_scroll: PTouchScroll        # 손가락으로 목록 넘기기(터치 전용). 화면 14개가 이 하나를 함께 쓴다
 var default_button: Button = null
 var _margin: MarginContainer          # 여백 = 기본(14·10) + 안전 영역 밖(PLayout.margins)
 var _bucket := ""                      # 마지막 refresh 때의 화면 비율 묶음(wide/standard/narrow)
@@ -42,6 +43,10 @@ func setup(m: Node) -> void:
 	bottom = PUi.hbox(10)
 	root.add_child(bottom)
 	_make_modal()
+	# 손가락 끌기로 스크롤 — 화면마다 따로 만들지 않고 공통 뼈대에서 한 번만 붙인다.
+	# 확인 창이 열려 있으면 뒤쪽 목록이 따라 움직이지 않게 새 끌기를 시작하지 않는다.
+	touch_scroll = PTouchScroll.attach(self, scroll)
+	touch_scroll.blocked = confirm_open
 	_build()
 
 # ---------- 확인 창(모든 화면 공용) ----------
@@ -158,6 +163,8 @@ func on_enter() -> void:
 	refresh()
 	_keep_scroll = 0          # 화면에 새로 들어올 때는 맨 위에서 시작한다
 	scroll.scroll_vertical = 0
+	if touch_scroll != null:
+		touch_scroll.stop()   # 앞 화면에서 미끄러지던 관성을 물려받지 않는다
 
 ## 화면 비율 묶음(PLayout): 화면들이 열 비율·마을 높이를 고를 때 쓴다
 func bucket() -> String:
@@ -191,48 +198,10 @@ var _restore_queued := false
 ## **버튼 위에서 시작한 끌기**는 버튼이 먹어서 스크롤이 되지 않았다(KD-8 잔여분).
 ## 상점처럼 버튼이 빽빽한 화면에서는 그게 곧 "스크롤이 안 된다"였다.
 ##
-## 그래서 화면 계층에서 끌기를 직접 받는다:
-##  · 12px 넘게 움직이면 그때부터 **끌기**로 보고 스크롤한다.
-##  · 끌기로 판정한 순간, 눌려 있던 버튼에 **취소**를 보낸다(손을 떼도 눌리지 않는다).
-##    그래서 "넘기려다 실수로 팔았다"가 생기지 않는다.
-##  · 12px 안이면 아무것도 안 한다 — 평범한 탭은 예전 그대로다.
+## 그 처리는 이제 여기 있지 않다 — `PTouchScroll`(scripts/game/ui/touch_scroll.gd)이 통째로 맡는다.
+## 문턱 12px·버튼 누름 취소·소수점 이동·관성·경계·여러 손가락이 모두 그쪽에 있고,
+## 이 뼈대가 화면마다 하나씩 붙여 준다. 왜 그렇게 만들었는지는 docs/TOUCH_SCROLL.md 를 봐라.
 ## 터치 기기에서만 돈다. PC는 휠을 그대로 쓴다.
-const DRAG_START_PX := 12.0
-var _drag_id := -1
-var _drag_from := Vector2.ZERO
-var _dragging := false
-
-func _input(event: InputEvent) -> void:
-	if scroll == null or not visible or not PLayout.is_touch():
-		return
-	if event is InputEventScreenTouch:
-		var t := event as InputEventScreenTouch
-		if t.pressed:
-			_drag_id = t.index
-			_drag_from = t.position
-			_dragging = false
-		elif t.index == _drag_id:
-			_drag_id = -1
-			_dragging = false
-		return
-	if not (event is InputEventScreenDrag):
-		return
-	var d := event as InputEventScreenDrag
-	if d.index != _drag_id:
-		return
-	if not _dragging:
-		if d.position.distance_to(_drag_from) < DRAG_START_PX:
-			return
-		_dragging = true
-		# 탭이 아니라 끌기였다 — 눌려 있던 버튼의 누름을 취소한다
-		var c := InputEventScreenTouch.new()
-		c.index = d.index
-		c.position = d.position
-		c.pressed = false
-		c.canceled = true
-		get_viewport().push_input(c)
-	scroll.scroll_vertical = int(scroll.scroll_vertical) - int(d.relative.y)
-	get_viewport().set_input_as_handled()
 
 ## 화면을 다시 그린다. **보고 있던 자리를 잃지 않는다.**
 ##
@@ -256,6 +225,8 @@ func _restore_scroll() -> void:
 	await get_tree().process_frame   # 새 내용이 배치돼야 스크롤 범위가 정해진다
 	if scroll != null and _keep_scroll > 0:
 		scroll.scroll_vertical = _keep_scroll
+		if touch_scroll != null:
+			touch_scroll.sync()      # 되살린 자리를 손가락 스크롤도 같은 값으로 본다
 
 func heading(text: String, sub: String = "") -> void:
 	top.add_child(PUi.rich("[b]%s[/b]%s" % [text, ("  [color=#9ea8b8]%s[/color]" % sub) if sub != "" else ""], 22))
