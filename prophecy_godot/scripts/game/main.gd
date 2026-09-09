@@ -1776,6 +1776,40 @@ const CLIPS := {
 		"kind": "sortie", "region": "t1a_path", "day": 2, "build": "stage1", "duelType": "elite_fang", "warmup_until": "transition" },
 	"duel_standard": { "desc": "특수 정예 결투 — 군단 기수(부하 소환은 유지된다)",
 		"kind": "sortie", "region": "t1b_yard", "day": 2, "build": "stage1", "duelType": "elite_standard", "warmup_until": "transition" },
+
+	# ---------- 1.1.0 이번에 고치거나 새로 넣은 것(2026-09-09) ----------
+	# 사용자 지시: 쌍검 중첩 · 정상화된 창 분열 · 잔바람의 보스 적용 · 일반 적 빙결/파쇄 ·
+	# 보스 결빙/파쇄를 **실제 속도로** 보여 준다.
+	# 보스를 상대로 찍는다. 일반 적은 중첩이 차기 전에 죽어 고리가 화면에 남지 않는다
+	"dagger_focus": { "desc": "쌍검 집중 중첩 — 겨눈 적을 칠 때마다 중첩이 차고 최대 6에서 모양이 바뀐다",
+		"kind": "boss", "boss": "guardian", "build": "stage2",
+		"weapons": [{ "id": "daggers", "level": 4, "mods": ["bleed"] }] },
+	# 창 분열: 첫 적 뒤에 둘째·셋째를 세워 **분열탄이 뒤쪽 적을 맞히는** 것을 본다.
+	# 고치기 전에는 창날이 첫 적에게 다시 흡수돼 뒤쪽에 아무것도 닿지 않았다
+	"spear_split": { "desc": "정상화된 분열 창날 — 첫 적을 뚫고 나온 창날이 뒤쪽 적을 맞힌다",
+		"kind": "arena", "types": ["wolf"], "count": 6, "bot": "balanced",
+		"weapons": [{ "id": "spear", "level": 4, "mods": ["split"] }] },
+	# 잔바람: 보스는 밀리지 않는다. 그런데도 **돌풍이 지나간 자리**에 둔화 바람이 남는지 본다
+	# **근접 주무기 + 긴 클립으로 찍는다.** 활로 찍으면 봇이 거리를 벌려 돌풍 발동 거리(120px)
+	# 안에 보스가 안 들어온다. 검으로 바꿔도 8초로는 붙기 전에 끝나 fires 0이었고,
+	# 25초를 굴리니 fires 3 · 밀린 거리 0.0(보스 면역 유지) · 둔화 4.33 적·초가 나왔다
+	"wind_boss": { "desc": "잔바람이 보스에게도 걸린다 — 밀리지 않아도 지나간 자리에 바람이 남는다",
+		"kind": "boss", "boss": "guardian", "build": "stage2",
+		"weapons": [{ "id": "sword", "level": 4, "mods": ["cross"] }, { "id": "wind", "level": 3, "mods": ["lingering"] }] },
+	# 일반 적 빙결·파쇄: 냉기 5중첩 → 얼음 덮개 → 주무기로 깨면 파편
+	# **버티는 적으로, 개조 없이 찍는다.** 늑대로 찍었더니 5중첩 전에 죽었고(freezes 0),
+	# '넓은 빙결'(fan)을 끼웠더니 세 갈래로 나뉘어 한 적이 5중첩에 못 닿았다(중첩 유지 3초).
+	# 기본형으로도 5중첩까지 안 찼다 — 탄환이 14초에 5발(약 2.8초에 한 발)인데
+	# 중첩 유지가 3초라 움직이는 적에게는 좀처럼 쌓이지 않는다(측정: chill_stacks 5 · freezes 0).
+	# 그래서 개조 '빠른 빙결'(ground)로 찍는다. 이건 **촬영 조건**이지 밸런스 판단이 아니다 —
+	# "기본형으로는 일반 적을 얼리기 어렵다"는 측정 결과는 보고에 그대로 남긴다
+	"frost_shatter": { "desc": "냉기 → 빙결 → 주무기 파쇄 — 얼음이 씌워지고 깨지면 파편이 퍼진다",
+		"kind": "arena", "types": ["shieldbearer"], "count": 2, "bot": "balanced",
+		"weapons": [{ "id": "sword", "level": 3, "mods": [] }, { "id": "frost", "level": 3, "mods": ["ground"] }] },
+	# 보스 결빙: 몸이 멈추지 않는다(서리 조각과 둘레를 도는 알갱이만). 파쇄 피해와 파편은 난다
+	"boss_chill": { "desc": "보스 결빙 — 멈추지 않는다. 그래도 파쇄 피해와 파편은 난다",
+		"kind": "boss", "boss": "guardian", "build": "stage2",
+		"weapons": [{ "id": "sword", "level": 5, "mods": ["cross", "trail"] }, { "id": "frost", "level": 3, "mods": ["ground"] }] },
 }
 
 ## 방패병 클립 전용 조작(사람 입력 자리): 정면에서 버티거나, 뒤로 돌아 들어간다. 규칙은 건드리지 않는다

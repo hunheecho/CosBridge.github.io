@@ -17,6 +17,7 @@ prophecy_godot/docs/captures/0.8.0_clips/*.avi
 # 0.9.x 실제 속도 영상 클립(초당 약 1.5MB): 명령으로 다시 만든다
 prophecy_godot/docs/captures/0.9.0_clips/*.avi
 prophecy_godot/docs/captures/1.0.0_clips/*.avi
+prophecy_godot/docs/captures/1.1.0_clips/*.avi
 
 # 빌드 산출물은 저장소에 넣지 않는다. deploy/ 는 별도 저장소(prophecy-web-test)로 나간다
 prophecy_godot_build/
