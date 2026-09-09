@@ -21,7 +21,8 @@ extends RefCounted
 ## 보스 입장 스냅샷(run.bossEntry)의 복구는 2026-09-09부터 **시험·자동 진행 전용 재도전 경로**에만 남아 있다
 ## (PRun.boss_defeat_retry). 사람 플레이의 관문 패배는 사망 정산(PRun.settle_death)이 처리하며, 그 경로는
 ## 스냅샷을 복구하지 않고 지운다 — 그래서 사망으로 소모한 부활 물약이 스냅샷·계속하기로 되살아나지 않는다.
-## 자세한 것은 docs/DEATH_AND_ECONOMY.md.
+## 마지막 날(다음 날이 없는 날)의 부활도 같은 규칙이다: 물약 1개를 쓰고 날짜를 늘리지 않은 채 같은 날 관문 앞에 서며,
+## 다시 죽으면 또 한 개가 든다(반복 부활에 무료가 없다). 자세한 것은 docs/DEATH_AND_ECONOMY.md.
 
 static var _cache: Dictionary = {}
 
@@ -240,13 +241,24 @@ static func clear_used(run: Dictionary) -> void:
 # ---------- 부활 물약 소모(사망 정산에서만) ----------
 ## 정확히 한 개를 소모한다. 없으면 false(회차가 끝난다는 뜻).
 ## 여기 말고 어디에서도 부활 물약을 빼지 않는다 — PRun.settle_death가 사망 1건마다 딱 한 번 부른다.
+## **부활 한 번에 물약 한 개다.** 마지막 날처럼 같은 날 관문 앞으로 돌아가는 경우에도 다시 죽으면 또 한 개가 든다
+## (관문에 다시 들어가면 PRun.start_boss가 중복 방지 키를 바꾸므로 새 사망으로 정산된다). 한 번 쓰고 무한 재도전이 되지 않는다.
 ## 이 소모는 보스 입장 스냅샷(PConsumables.restore)으로 되돌리지 않는다: 사망 정산 경로는 스냅샷을 복구하지 않고 지운다(PRun.settle_death).
 static func consume_revive(run: Dictionary) -> bool:
 	if not has_revive(run):
 		return false
 	(bag(run) as Array).erase(revive_id())
-	PRun.add_log(run, "%s 사용: 쓰러졌지만 다시 일어난다" % name_of(revive_id()))
+	PRun.add_log(run, "%s 사용: 쓰러졌지만 다시 일어난다 (남은 %d개)" % [name_of(revive_id()), revive_count(run)])
 	return true
+
+## 부활 물약을 **사기 전에** 알아야 할 것을 화면이 그대로 쓸 수 있게 규칙 계층이 준다.
+## data/consumables.json의 short/desc가 정본이고, 여기는 그 중 "지금 이 회차에서 어떻게 되는지"를 한 줄로 덧붙인다.
+## 마지막 날(다음 날이 없는 날)에는 날짜가 늘지 않고 같은 날 관문 앞으로 돌아가며 그날 남은 시간이 전부 사라진다.
+static func revive_when_line(run: Dictionary) -> String:
+	var pct := int(round(float(revive_def().get("hpFrac", 0.25)) * 100.0))
+	if PRun.has_next_day(run):
+		return "지금 쓰러지면: 남은 하루를 잃고 다음 날 최대 체력 %d%%로 부활" % pct
+	return "지금은 마지막 날: 날짜는 그대로, 같은 날 관문 앞에서 최대 체력 %d%%로 부활(그날 남은 시간은 전부 소진)" % pct
 
 # ---------- 빌드 반영 ----------
 ## PRun.build가 PBuild.derive 결과 위에 얹는다. 장착 중인 준비물 1개만, 딱 한 번.
