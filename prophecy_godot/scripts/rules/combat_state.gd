@@ -18,8 +18,18 @@ var region_id: String = ""
 var hp_mult: Dictionary = { "normal": 1.0, "elite": 1.0, "boss": 1.0 }
 ## 보조무기별 전투 중 상태(까마귀 표적·방울 충전·인형 개체 등). PSupport가 관리한다
 var support: Dictionary = {}
-## 번개 구체 '축전'(개조)이 쌓은 감전 후속 횟수. 정해진 수를 채우면 방전하고 0으로 돌아간다
+## 번개 구체 '축전'(개조)이 쌓은 감전 후속 횟수. 정해진 수를 채우면 방전하고 0으로 돌아간다.
+## **전투 전역 하나**이며 적별이 아니다(data/supports.json tuning.orb.chargeNote에 이유를 적어 두었다)
 var support_charge: int = 0
+## 위 누적이 마지막으로 오른 뒤 남은 유지 시간(초). 0이 되면 누적이 **한 번에** 0으로 떨어진다
+var support_charge_t: float = 0.0
+## '연계 완성' 경직 계측(2026-09-09). 규칙·난수에 쓰지 않는 읽기 전용 집계다.
+##  tries   = 경직을 **시도한** 횟수(= 발동 조건을 채운 횟수). 목록 밖 출처는 세지 않는다
+##  applied = **실제로 경직이 걸린** 횟수. tries와 반드시 나누어 본다
+##  blocked = 걸리지 않은 이유별 횟수(cooldown/보스/이동 패턴/이미 경직/대상 아님)
+##  bursts  = 그 연계의 폭발·발동 자체가 일어난 횟수(경직 성공 여부와 무관)
+##  sec     = 실제로 흐른 총 경직 시간(초)
+var stagger_stats: Dictionary = { "tries": {}, "applied": {}, "blocked": {}, "bursts": {}, "sec": 0.0 }
 var act: int = 1 # 막(1~3). 정예 체력·역할별 고정 체력표(PPacing)가 읽는다. 시험실·기준 전투는 1
 var hit_attack_id: String = "" # 계측 전용: 투사체 명중 처리 중에만 그 투사체의 발사 시점 공격 id(PHitRecorder가 읽는다)
 ## 공격 원인 계측(2026-09-08, 중복 발사 검사용). 규칙·난수에 영향을 주지 않는 읽기 전용 집계다.
@@ -545,6 +555,7 @@ func try_shatter(e: Dictionary, o: Dictionary) -> bool:
 	if boosted:
 		note_mod("shatter", "proc")
 	PSupport.meter(self, "frost", "shatters")
+	note_link_burst("frost_shatter") # 파쇄 발동 자체의 횟수(경직이 걸렸는지와 따로 센다)
 	var ex: float = float(e.x)
 	var ey: float = float(e.y)
 	# 파편은 **즉시 반경 판정**이다(투사체가 아니다). 계약 3절이 "그린 파편 수 = 실제 판정에 쓰인 수"를
@@ -586,8 +597,113 @@ func try_shatter(e: Dictionary, o: Dictionary) -> bool:
 	# 얼어붙은 적 본인에게 주는 추가 피해. 이것도 냉기를 쌓지 않고 다시 파쇄하지 않는다
 	damage_enemy(e, float(F.get("shatterDamage", 16.0)) * mm, { "knock": 0.0, "no_conduct": true,
 		"cause": "frost_shatter", "src": { "extra": true, "direct": false, "tag": "frost:shatter" } })
+	# **연계 완성 경직**(사용자 지시 ①). 파쇄를 실제로 발동시킨 순간, **파쇄당한 본체에만** 준다.
+	# 파편을 맞은 주변 적에게는 주지 않는다(사용자: 임의로 확대하지 마라).
+	# 빙결이 아직 남아 있어도 그대로 건다 — 둘은 **동시에 흐르고 시간을 합산하지 않는다**.
+	# 여기서 죽었으면(파쇄 추가 피해로) 경직은 걸지 않는다
+	if not e.dead:
+		apply_stagger(e, "frost_shatter")
 	_end_freeze(e) # 파쇄하면 빙결을 해제하고 중첩을 초기화하며 재빙결 제한을 건다
 	return true
+
+# ---------- '연계 완성' 경직(2026-09-09 사용자 지시 · docs/STAGGER.md) ----------
+## 무엇인가: **연계가 완성된 그 순간에만** 나는 아주 짧은 행동 정지다. '큰 타격에 경직'이 아니다.
+## 못박은 것:
+##  ① 일으킬 수 있는 것은 data/supports.json stagger.sources에 적힌 **네 이름뿐**이다.
+##     일반 공격·장판 틱·일반 감전 후속(shock_bonus)·파쇄 파편(frost_shard)은 목록에 없다. 룬 지뢰는 보류다.
+##  ② 네 연계가 **적마다 재경직 제한 하나(stagger_cd)를 함께 쓴다.** 번갈아 무한 경직시킬 수 없다.
+##  ③ 시간을 **누적하거나 갱신하지 않는다.** 이미 경직 중이면 새로 걸지 않는다.
+##  ④ 보스는 sec.boss = 0(제압 저항표 resist.stagger.boss와 같은 뜻)이라 **행동이 멈추지 않는다.**
+##     피해·중첩·폭발은 정상이다.
+##  ⑤ **막혀도 아무것도 취소하지 않는다.** 이 함수는 피해가 이미 들어간 **뒤에** 불리고, false를 돌려줄 뿐이다.
+##  ⑥ 적 상태 기계의 상태 이름 "stagger"(빈틈)와 **다른 것**이다. e.state를 건드리지 않으므로
+##     치명타 창(damage_enemy의 crit = state in [recover, stagger])이 **열리지 않는다.**
+##  ⑦ 이미 **실행 중인 돌진·도약 등 핵심 이동 패턴**은 끊지 않는다(STAGGER_MOVE_STATES).
+##     예고(aim·lock)는 끊지 않고 **멈췄다가 이어 간다** — 취소·재시작이 아니다.
+## 상태 우선순위(회피 담당과 합의): **빙결 > 경직 > 회피 > 고유 패턴.**
+## 돌진·도약처럼 **이미 실행 중이면 경직으로 끊지 않는** 상태 이름. 예고(aim·lock)는 여기 없다 —
+## 예고는 끊는 것이 아니라 멈췄다가 이어 가는 것이고, 그래야 예고와 실제 판정이 어긋나지 않는다
+const STAGGER_MOVE_STATES: Array = ["dash", "dash1", "dash2", "charge", "leap", "chain_fly", "pull",
+	"breach", "dive", "under", "emerge", "erupt"]
+
+## 이 적이 지금 **끊으면 안 되는 이동 패턴**을 실행 중인가
+func in_move_pattern(e: Dictionary) -> bool:
+	return STAGGER_MOVE_STATES.has(String(e.get("state", "")))
+
+func stagger_cfg() -> Dictionary:
+	return PCatalog.link_stagger()
+
+## 이 출처 이름이 신규 경직을 일으킬 자격이 있는가(표에 적힌 네 이름뿐)
+func stagger_source_ok(source: String) -> bool:
+	return (stagger_cfg().get("sources", []) as Array).has(source)
+
+## 이 적에게 걸릴 경직 길이(초). 0이면 걸리지 않는다(보스가 0이다)
+func stagger_dur_for(e: Dictionary) -> float:
+	var S := stagger_cfg()
+	if S.is_empty():
+		return 0.0
+	var D: Dictionary = S.get("sec", {})
+	var cls := PSupport.tier_class(e) # normal | elite | boss (특수 정예도 elite다)
+	if PSupport.resist_mult("stagger", e) <= 0.0:
+		return 0.0 # 기존 제압 저항표가 0이면(보스) 신규 경직도 0이다 — 저항 정본을 둘로 나누지 않는다
+	return float(D.get(cls, 0.0))
+
+func _stagger_note(bucket: String, key: String) -> void:
+	var d: Dictionary = stagger_stats[bucket]
+	d[key] = int(d.get(key, 0)) + 1
+
+## 연계 폭발·발동 자체를 센다(경직이 걸렸는지와 무관). 부르는 곳: 파쇄·불꽃 파열·감전 방전·표식 폭발
+func note_link_burst(source: String) -> void:
+	_stagger_note("bursts", source)
+
+## 경직을 건다. **네 연계의 완성 순간에만** 부른다. 실제로 걸렸으면 true.
+## false여도 부르는 쪽은 피해·중첩 소비·폭발을 그대로 진행한다(사용자: 경직이 막혔다고 공격 효과를 취소하지 마라)
+func apply_stagger(e: Dictionary, source: String) -> bool:
+	if not stagger_source_ok(source):
+		_stagger_note("blocked", "source") # 표에 없는 이름 — 시도로도 세지 않는다
+		return false
+	_stagger_note("tries", source)
+	if e.dead or bool(e.get("structure", false)) or bool(e.get("airborne", false)):
+		_stagger_note("blocked", "target")
+		return false
+	var dur := stagger_dur_for(e)
+	if dur <= 0.0:
+		_stagger_note("blocked", "boss") # 보스: 피해는 이미 들어갔고 행동만 멈추지 않는다
+		return false
+	if float(e.get("stagger_t", 0.0)) > 0.0:
+		_stagger_note("blocked", "already") # 누적·갱신 금지
+		return false
+	if float(e.get("stagger_cd", 0.0)) > 0.0:
+		_stagger_note("blocked", "cooldown") # 네 연계가 함께 쓰는 재경직 제한
+		return false
+	if in_move_pattern(e):
+		_stagger_note("blocked", "move") # 이미 실행 중인 돌진·도약은 끊지 않는다
+		return false
+	e["stagger_t"] = dur
+	e["stagger_src"] = source
+	_stagger_note("applied", source)
+	# 화면 신호: **실제로 걸린 순간에만** 보낸다. 화면 전체 정지·흔들림은 넣지 않는다(사용자 지시 5절)
+	fx({ "kind": "stagger_hit", "x": float(e.x), "y": float(e.y), "r": float(e.r), "ttl": minf(0.22, dur + 0.12), "src": source })
+	ev("stagger_link", { "src": source })
+	return true
+
+## 매 프레임 경직·재경직 제한 진행. **빙결 중에도 함께 흐른다**(사용자: 동시에 흐르게 하고 시간을 합산하지 않는다).
+## 그래서 이 함수는 빙결 관문(is_hard_frozen)보다 **앞에서** 불린다
+func _tick_stagger(e: Dictionary, dt: float) -> void:
+	if float(e.get("stagger_cd", 0.0)) > 0.0:
+		e["stagger_cd"] = maxf(0.0, float(e.stagger_cd) - dt)
+	if float(e.get("stagger_t", 0.0)) <= 0.0:
+		return
+	stagger_stats.sec = float(stagger_stats.sec) + minf(dt, float(e.stagger_t))
+	e["stagger_t"] = float(e.stagger_t) - dt
+	if float(e.stagger_t) <= 0.0:
+		e["stagger_t"] = 0.0
+		e["stagger_src"] = ""
+		# 재경직 제한은 경직이 **끝난 뒤에** 시작한다(사용자: 경직 종료 후 약 0.8초)
+		e["stagger_cd"] = float(stagger_cfg().get("cooldownSec", 0.8))
+
+func is_staggered(e: Dictionary) -> bool:
+	return float(e.get("stagger_t", 0.0)) > 0.0
 
 # ---------- 지형 ----------
 func los_blocked(ax: float, ay: float, bx: float, by: float) -> bool:
@@ -1319,6 +1435,9 @@ func spawn_enemy(type: String, x: float, y: float, summoned: bool = false, tier:
 		"chill": 0.0, "burn": {}, "bleed": {}, "stasis": 0, "conduct": 0.0, "flash": 0.0, "dead": false, "death_t": 0.0,
 		# 냉기 중첩·빙결·파쇄(docs/FROST_CONTRACT.md 1절). 전투 상태이며 저장하지 않는다
 		"chill_n": 0, "chill_n_t": 0.0, "freeze": 0.0, "freeze_kind": "", "freeze_broke": false, "refreeze_t": 0.0,
+		# '연계 완성' 경직(docs/STAGGER.md). stagger_t = 남은 경직 초, stagger_cd = 네 연계가 **함께 쓰는** 재경직 제한,
+		# stagger_src = 마지막으로 건 연계 이름(표시·계측용). 적 상태 기계의 상태 이름 "stagger"와는 다른 것이다
+		"stagger_t": 0.0, "stagger_cd": 0.0, "stagger_src": "",
 		"vx": 0.0, "vy": 0.0, "hit_by": false, "steer_side": 0, "steer_t": 0.0, "face_x": 1.0, "last_x": x, "last_y": y, "bite_t": 9.0, "move_t": 0.0, "anim_t": 0.0,
 		"elite": bool(d.get("elite", false)), "boss": bool(d.get("boss", false)), "structure": bool(d.get("structure", false)), "hidden": false, "airborne": false,
 		"summoned": summoned, "grace": 0.0, "ready_t": -1.0, "recover_dur": 0.0, "blocked_t": 0.0, "resonance": {}, "resonance_t": -999.0, "brand": 0, "leash": 0.0, "leash_boost": 1.0,
@@ -1765,10 +1884,17 @@ func kill_enemy(e: Dictionary, o: Dictionary) -> void:
 		if on_fire:
 			var F2: Dictionary = cfg.flare
 			PSupport.meter(self, "common", "flare_bursts")
+			note_link_burst("flare_burst") # 폭발 자체의 횟수(경직이 걸렸는지와 따로 센다)
 			fx({ "kind": "flare", "x": e.x, "y": e.y, "r": float(F2.radius), "ttl": 0.35 })
 			for oth in enemies:
 				if not oth.dead and oth != e and PGeom.dist(oth.x, oth.y, e.x, e.y) <= float(F2.radius) + oth.r:
-					damage_enemy(oth, float(F2.damage) * float(build.mastery_mult), { "dir": PGeom.norm(oth.x - e.x, oth.y - e.y), "knock": 40.0, "src": { "extra": true, "direct": false, "tag": "common:flare" } })
+					var hp_b: float = float(oth.hp)
+					damage_enemy(oth, float(F2.damage) * float(build.mastery_mult), { "dir": PGeom.norm(oth.x - e.x, oth.y - e.y), "knock": 40.0, "cause": "flare_burst", "src": { "extra": true, "direct": false, "tag": "common:flare" } })
+					# 연계 완성 경직(사용자 지시 ②): **실제 폭발 피해를 받은 살아 있는 적에게만.**
+					# 불씨의 설치·일반 틱에는 없다(여기는 처치 폭발 한 곳뿐이다).
+					# 여러 폭발이 같은 적에게 이어져도 적별 재경직 제한(stagger_cd)을 함께 쓴다
+					if float(oth.hp) < hp_b and not oth.dead:
+						apply_stagger(oth, "flare_burst")
 			text(e.x, e.y - 34.0, "불꽃 파열!", "#ff9f43")
 			ev("explode")
 	PWeapons.on_kill(self, e, o)
@@ -1977,6 +2103,9 @@ func update_enemies(dt: float) -> void:
 		if float(e.chill) > 0.0:
 			e.chill = float(e.chill) - dt
 		_tick_frost(e, dt) # 냉기 중첩 유지 시간·빙결 남은 시간·재빙결 제한만 줄인다(중첩을 올리지 않는다)
+		# 연계 완성 경직. **빙결 관문보다 앞이라 빙결과 동시에 흐른다**(시간을 합산하지도, 빙결이 끝난 뒤로
+		# 미루지도 않는다). 중첩을 올리지 않고 남은 시간만 줄인다 — 저프레임에서 복제될 수 없다
+		_tick_stagger(e, dt)
 		if float(e.conduct) > 0.0:
 			e.conduct = float(e.conduct) - dt
 		if float(e.blocked_t) > 0.0:
@@ -2003,10 +2132,16 @@ func update_enemies(dt: float) -> void:
 			if not bool(e.get("hidden", false)):
 				push_out(e) # 지형 밖으로 밀려나 있으면 되돌린다(스스로 움직이는 것이 아니다)
 			continue
-		if e.boss:
-			PBoss.update(self, e, dt)
-		else:
-			PEnemies.update(self, e, dt)
+		# 연계 완성 경직: **행동 갱신만** 건너뛴다(빙결처럼 continue로 통째로 빠지지 않는다).
+		# 상태·예고 타이머가 그 자리에 멈추므로 공격 준비가 취소·재시작되지 않고 **멈췄다가 이어 간다**.
+		# 아래 속도 적분(밀어내기)과 지형 밀어냄은 그대로 돈다 — 불꽃 파열의 밀어내기가 사라지지 않게.
+		# 회피 담당과의 약속: 빙결 > 경직 > 회피 > 고유 패턴. 회피는 PEnemies.update 안에서 시작되므로
+		# **경직 중에는 회피를 새로 시작할 수 없고**, 이미 진행 중이던 회피는 취소가 아니라 함께 멈춘다
+		if not is_staggered(e):
+			if e.boss:
+				PBoss.update(self, e, dt)
+			else:
+				PEnemies.update(self, e, dt)
 		e.dash_granted = false
 		if bool(e.get("airborne", false)):
 			continue
@@ -2256,6 +2391,13 @@ func update_zones(dt: float) -> void:
 		relay_window -= dt
 	if link_t > 0.0:
 		link_t -= dt
+	# 감전 누적(축전)의 유지 시간. 연타가 끊기면 **한 번에** 0으로 떨어진다(1씩 줄이면 화면 눈금이 흔들린다).
+	# 여기서 중첩을 올리지 않는다 — 올리는 곳은 감전 후속이 실제로 터진 자리 하나뿐이다
+	if support_charge_t > 0.0:
+		support_charge_t -= dt
+		if support_charge_t <= 0.0:
+			support_charge_t = 0.0
+			support_charge = 0
 	if not relay_shield.is_empty():
 		relay_shield.t = float(relay_shield.t) - dt
 		if float(relay_shield.t) <= 0.0:

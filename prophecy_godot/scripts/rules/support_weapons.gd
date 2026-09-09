@@ -228,7 +228,7 @@ static func metered(st: CombatState, id: String, key: String) -> float:
 ##
 ## 규칙에는 영향이 없다(계측 전용). 값을 더하지 않고 **덮어쓴다** — 내부 계수기가 이미 누계이기 때문이다.
 const METER_MAP := {
-	"crow":   { "marks": "marks", "hits": "strikes", "dmg": "damage" },
+	"crow":   { "marks": "marks", "hits": "strikes", "dmg": "damage", "bursts": "bursts" },
 	"bell":   { "blocked": "blocked", "blocked_dmg": "blocked_damage",
 				"guards": "guarded", "reduced_dmg": "reduced", "reflects": "reflects", "reflect_dmg": "reflect_damage" },
 	"echo":   { "copies": "spawned", "hits": "strikes", "copy_dmg": "damage" },

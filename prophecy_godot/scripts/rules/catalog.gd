@@ -81,6 +81,8 @@ static func slot_rules() -> Dictionary: return supports().get("slots", {})
 static func level_scale() -> Dictionary: return supports().get("levelScale", {})
 static func eligibility() -> Dictionary: return supports().get("eligibility", {})
 static func support_resist() -> Dictionary: return supports().get("resist", {})
+## '연계 완성' 경직표(sources·sec·cooldownSec). CombatState.apply_stagger만 읽는다
+static func link_stagger() -> Dictionary: return supports().get("stagger", {})
 ## 기존 보조 5종의 손으로 정한 값(생성 파일을 고치지 않기 위한 겹쳐쓰기). 전부 시험값
 static func support_tuning(id: String) -> Dictionary:
 	return supports().get("tuning", {}).get(id, {})

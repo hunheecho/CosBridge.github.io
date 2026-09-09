@@ -37,7 +37,7 @@ static func _new_state(id: String) -> Dictionary:
 	match id:
 		"crow":
 			return { "birds": [], "target": null, "alt": null, "hold": 0.0, "next_bonus": 0.0,
-				"marks": 0, "retargets": 0, "strikes": 0, "damage": 0.0, "switch_procs": 0 }
+				"marks": 0, "retargets": 0, "strikes": 0, "damage": 0.0, "switch_procs": 0, "bursts": 0 }
 		"bell":
 			return { "charges": -1, "rt": 0.0, "blocked": 0, "blocked_damage": 0.0,
 				"guarded": 0, "reduced": 0.0, "reflects": 0, "reflect_damage": 0.0 }
@@ -256,6 +256,10 @@ static func _crow_fire(st: CombatState, w: Dictionary) -> void:
 			if i > 0:
 				mid = "twin"
 				st.note_mod("twin", "proc")
+		# **표식 = 집중 사냥 단계와 같은 값**(b.hunt). 새 중첩을 따로 만들지 않았다.
+		# 달라진 것 둘: ① 개조 '집중 사냥'이 없어도 표식은 쌓인다(피해 증가는 여전히 그 개조를 골라야 붙는다),
+		#              ② 상한이 huntMax(4)가 아니라 markMax(8)다. 피해 증가는 min(표식, huntMax)만 읽으므로
+		#                 개조의 수치(단계당 +15%, 상한 4단계 = +60%)는 하나도 바뀌지 않는다.
 		if hunt:
 			var stage: int = mini(int(b.hunt), int(s.huntMax))
 			if stage > 0:
@@ -263,7 +267,6 @@ static func _crow_fire(st: CombatState, w: Dictionary) -> void:
 				if mid == "":
 					mid = "hunt"
 					st.note_mod("hunt", "proc")
-			b.hunt = mini(int(b.hunt) + 1, int(s.huntMax))
 		if swap and i == 0 and float(S.next_bonus) > 0.0:
 			mult *= float(S.next_bonus)
 			S.next_bonus = 0.0
@@ -278,6 +281,54 @@ static func _crow_fire(st: CombatState, w: Dictionary) -> void:
 		var dealt := PWeapons.dmg_to(st, e, w, mult, opt)
 		S.strikes = int(S.strikes) + 1
 		S.damage = float(S.damage) + dealt
+		# 표식 한 칸. **한 번의 쪼기 = 정확히 1**이고, 쌍둥이의 두 마리는 서로 다른 적을 물기 때문에
+		# 한 타격이 여러 표식을 만들 수 없다. 쌓는 자격은 자격표 crow_burst 한 곳이 정한다(까마귀의 쪼기뿐).
+		if e.dead or not PSupport.eligible("crow_burst", "support_direct"):
+			continue
+		b.hunt = mini(int(b.hunt) + 1, int(s.get("markMax", s.huntMax)))
+		if int(b.hunt) >= int(s.get("markMax", s.huntMax)):
+			_crow_burst(st, w, e)
+			b.hunt = 0 # 폭발이 표식을 **전부 소비**한다. 표적을 유지하면 1부터 다시 쌓인다
+
+## 표식 폭발(사용자 지시 ④, 2026-09-09). **표식이 최대(markMax)에 닿은 그 쪼기에서** 한 번 터진다.
+## 다음 타격으로 미루지 않는다 — 미루면 "찼는데 왜 안 터지지"가 되고, 그사이 표적이 죽으면 사라진다.
+## 재귀 금지: 이 폭발 피해는 cause "crow_burst"를 달고 나가며, 자격표가 crow_burst로는
+##  · 표식을 다시 쌓지 못하고(crow_burst.deny에 crow_burst)
+##  · 표적을 새로 지정하지 못하고(crow_mark.deny에 crow_burst)
+##  · 감전 후속·냉기 중첩·파쇄·분신 모방을 부르지 못하게 막는다.
+## 경직은 **표적 본체에만** 준다(파쇄와 같은 규칙 — 단일 대상을 완성한 보상이다). 주변 적은 피해만 받는다
+static func _crow_burst(st: CombatState, w: Dictionary, tgt: Dictionary) -> void:
+	var s: Dictionary = w.stats
+	var S := _state(st, "crow")
+	var mult := float(s.get("burstMult", 2.5))
+	var rad := float(s.get("burstRadius", 70.0))
+	var split := float(s.get("burstSplit", 0.5))
+	var tx: float = float(tgt.x)
+	var ty: float = float(tgt.y)
+	S.bursts = int(S.bursts) + 1 # 표준 지표 이름으로는 PSupport.sync_meters가 옮긴다(METER_MAP crow.bursts)
+	st.note_link_burst("crow_burst")
+	st.fx({ "kind": "crow_burst", "x": tx, "y": ty, "r": rad, "ttl": 0.35 })
+	st.text(tx, ty - float(tgt.r) - 30.0, "표식 폭발!", "#c8b4f0")
+	st.ev("explode")
+	var opt := { "cause": "crow_burst", "direct": false, "knock": 0.0,
+		"from": { "x": tx, "y": ty }, "src_extra": { "extra": true, "direct": false } }
+	var hp_b: float = float(tgt.hp)
+	var o0 := opt.duplicate(true)
+	o0["dir"] = [0.0, 0.0]
+	PWeapons.dmg_to(st, tgt, w, mult, o0)
+	# 경직: 폭발 피해를 실제로 받고 살아 있을 때만. 막혀도 피해와 중첩 소비는 위에서 이미 끝났다
+	if float(tgt.hp) < hp_b and not bool(tgt.dead):
+		st.apply_stagger(tgt, "crow_burst")
+	for o in st.alive_targets():
+		if o == tgt or bool(o.get("structure", false)):
+			continue
+		if PGeom.dist(float(o.x), float(o.y), tx, ty) > rad + float(o.r):
+			continue
+		var o2 := opt.duplicate(true)
+		o2["dir"] = PGeom.norm(float(o.x) - tx, float(o.y) - ty)
+		PWeapons.dmg_to(st, o, w, mult * split, o2)
+	# 폭발로 표적이 죽어도 여기서 표적을 비우지 않는다 — 기존 자동 재지정 경로(_crow_update → _crow_retarget)가
+	# 그대로 처리하고 재지정 횟수도 거기서만 센다
 
 # ---------- 4. ⑦ 수호 방울 ----------
 ## 무엇이 차단 가능한가는 data/supports.json bell.base.incoming이 정본이다.

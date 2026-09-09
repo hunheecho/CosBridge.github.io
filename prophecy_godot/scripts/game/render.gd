@@ -984,6 +984,31 @@ static func draw_supports(ci: Node2D, st: CombatState) -> void:
 	draw_echo_clones(ci, st, S.get("echo", {}))
 	draw_doll(ci, st, S.get("doll_obj", {}))
 	draw_bell_charges(ci, st, S.get("bell", {}))
+	draw_shock_charge(ci, st)
+
+## 감전 누적(축전)의 진행. 누적은 **전투 전역 하나**라 어느 적에게도 붙일 수 없어서 플레이어 **발밑**에 그린다
+## (머리 위는 수호 방울이 이미 쓰고, 적 공격 예고를 가리지 않는 자리다).
+## 채운 칸 = 쌓인 수, 윤곽만 = 남은 칸. **색이 아니라 채움 여부로 갈린다.**
+## 상시 설명문·패널을 만들지 않는다 — 축전을 고르고 실제로 하나라도 쌓였을 때만 나온다.
+## 완성(방전)은 여기가 아니라 그 자리의 discharge 연출이 알린다: 이 눈금은 다시 0칸이 될 뿐이다
+static func draw_shock_charge(ci: Node2D, st: CombatState) -> void:
+	if not PSupport.equipped(st, "orb") or not PSupport.has_mod(st, "orb", "conduct"):
+		return
+	var need: int = maxi(1, int(PCatalog.support_tuning("orb").get("chargeNeed", 3)))
+	var have: int = clampi(int(st.support_charge), 0, need)
+	if have <= 0:
+		return
+	var p: Dictionary = st.player
+	var y: float = float(p.y) + float(p.r) * VS + 12.0
+	var x0: float = float(p.x) - float(need - 1) * 5.5
+	for i in need:
+		var cx: float = x0 + float(i) * 11.0
+		if i < have:
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(cx + 2.0, y - 5.0), Vector2(cx - 2.5, y + 0.5),
+				Vector2(cx + 0.5, y + 0.5), Vector2(cx - 2.0, y + 5.0), Vector2(cx + 3.0, y - 0.5), Vector2(cx, y - 0.5)]), C("#9fd8ff"))
+		else:
+			ci.draw_polyline(PackedVector2Array([Vector2(cx + 2.0, y - 5.0), Vector2(cx - 2.5, y + 0.5),
+				Vector2(cx + 0.5, y + 0.5), Vector2(cx - 2.0, y + 5.0)]), rgba(159, 216, 255, 0.4), 1.0)
 
 ## 수호 방울의 남은 충전. 날아오는 투사체가 없을 때는 "지금 막을 수 있나"를 알 길이 없어서
 ## 플레이어 머리 위에 저장된 방울을 그린다. 상한(charges + 겹울림)과 다음 한 개까지의 진행도는
@@ -1018,7 +1043,8 @@ static func draw_bell_charges(ci: Node2D, st: CombatState, S: Dictionary) -> voi
 
 ## 추격 까마귀: 날개를 젓는 새 실루엣(걸어 다니는 개체와 달리 그림자 없이 뜬 채로).
 ## 표적이 있으면 표적까지 가는 점선과 표적 위 고리를 함께 그린다(누구를 쫓는지 읽히게).
-## 집중 사냥 단계(b.hunt)는 꼬리 깃 개수로 드러낸다 — 색이 아니라 도형으로.
+## 표식(= 집중 사냥 단계와 같은 값 b.hunt)은 꼬리 깃 개수와 **표적 발밑 눈금**으로 드러낸다 — 색이 아니라 도형으로.
+## 완성(폭발)은 여기가 아니라 그 자리의 crow_burst 연출이 알리고, 눈금은 0칸으로 돌아간다.
 static func draw_crow_birds(ci: Node2D, st: CombatState, S: Dictionary) -> void:
 	if S.is_empty():
 		return
@@ -1027,6 +1053,7 @@ static func draw_crow_birds(ci: Node2D, st: CombatState, S: Dictionary) -> void:
 		var t2: Dictionary = tgt
 		stroke_circle(ci, float(t2.x), float(t2.y), float(t2.r) + 7.0, rgba(190, 170, 230, 0.5), 1.5)
 		txt(ci, float(t2.x), float(t2.y) - float(t2.r) - 30.0, "까마귀 표적", 10, rgba(200, 185, 235, 0.85))
+		draw_crow_marks(ci, st, S, t2)
 	var birds: Array = S.get("birds", [])
 	for i in birds.size():
 		var b: Dictionary = birds[i]
@@ -1042,8 +1069,34 @@ static func draw_crow_birds(ci: Node2D, st: CombatState, S: Dictionary) -> void:
 		ci.draw_polyline(PackedVector2Array([Vector2(bx - 2.0, by + 1.0), Vector2(bx - 6.0, by + 6.0 + 6.0 * flap), Vector2(bx + 3.0, by + 4.0 + 4.0 * flap)]), C("#463a58"), 2.5)
 		ci.draw_colored_polygon(PackedVector2Array([Vector2(bx + 10.0, by), Vector2(bx + 16.0, by + 1.0), Vector2(bx + 10.0, by + 2.0)]), C("#d8b45a"))
 		ci.draw_circle(Vector2(bx + 7.0, by - 1.5), 1.3, C("#ffd166"))
-		for h in mini(4, int(b.get("hunt", 0))):     # 집중 사냥 단계 = 꼬리 깃 수
+		for h in mini(4, int(b.get("hunt", 0))):     # 피해가 오르는 단계(min(표식, huntMax)) = 꼬리 깃 수
 			ci.draw_line(Vector2(bx - 10.0, by), Vector2(bx - 17.0 - 3.0 * float(h), by - 4.0 + 3.0 * float(h)), C("#a88fd0"), 1.5)
+
+## 표식 진행. 표적 **발밑**에 눈금으로 그린다(머리 위는 이름·체력·상태 아이콘과 적 공격 예고 자리다).
+## 채운 칸 = 쌓인 표식, 윤곽만 = 남은 칸. 상한(markMax)은 규칙 값을 그대로 읽는다 — 화면이 수치를 만들지 않는다
+static func draw_crow_marks(ci: Node2D, st: CombatState, S: Dictionary, tgt: Dictionary) -> void:
+	var birds: Array = S.get("birds", [])
+	if birds.is_empty():
+		return
+	var w := {}
+	for it in st.weapons:
+		if String(it.id) == "crow":
+			w = it
+			break
+	if w.is_empty():
+		return
+	var cap: int = maxi(1, int((w.stats as Dictionary).get("markMax", 8)))
+	var have: int = clampi(int((birds[0] as Dictionary).get("hunt", 0)), 0, cap)
+	if have <= 0:
+		return
+	var y: float = float(tgt.y) + float(tgt.r) + 6.0
+	var x0: float = float(tgt.x) - float(cap - 1) * 3.0
+	for i in cap:
+		var cx: float = x0 + float(i) * 6.0
+		if i < have:
+			ci.draw_circle(Vector2(cx, y), 2.0, C("#c8b4f0"))
+		else:
+			stroke_circle(ci, cx, y, 2.0, rgba(200, 185, 235, 0.4), 1.0)
 
 ## 잔영 분신: 본체와 같은 실루엣이 아니라 **윤곽만 있는 반투명 잔상**(진짜 나와 헷갈리지 않게).
 ## 타격 차례(next)까지 남은 시간을 발밑 호로 채워, 언제 때리는지 보이게 한다.
@@ -3747,6 +3800,46 @@ static func draw_misc(ci: Node2D, st: CombatState) -> void:
 					ci.draw_circle(Vector2(fx + cos(a) * r * (1.0 - k) * 0.9, fy + sin(a) * r * (1.0 - k) * 0.9 - 14.0 * k), 3.0, C("#8a6b45", k))
 			"burst":
 				stroke_circle(ci, float(f.x), float(f.y), float(f.r) * (1.0 - k * 0.6), C(String(f.get("color", "#ffffff")), k), 4.0)
+			"discharge": # 감전 누적 방전이 **실제로 터진** 순간: 밖으로 퍼지는 고리 + 꺾인 번개살 여섯
+				# 평소 감전 후속(burst)과 도형으로 갈린다 — 그쪽은 매끈한 고리 하나뿐이다
+				var dx0: float = f.x
+				var dy0: float = f.y
+				var dr0: float = f.r
+				stroke_circle(ci, dx0, dy0, dr0 * (0.45 + 0.55 * (1.0 - k)), C("#9fd8ff", k), 4.0)
+				for i in 6:
+					var da0: float = float(i) * TAU / 6.0 + 0.26
+					var d1: float = dr0 * (0.35 + 0.55 * (1.0 - k))
+					var d2: float = dr0 * (0.7 + 0.5 * (1.0 - k))
+					var mx: float = dx0 + cos(da0 + 0.22) * (d1 + d2) * 0.5
+					var my: float = dy0 + sin(da0 + 0.22) * (d1 + d2) * 0.5
+					ci.draw_polyline(PackedVector2Array([Vector2(dx0 + cos(da0) * d1, dy0 + sin(da0) * d1),
+						Vector2(mx, my), Vector2(dx0 + cos(da0) * d2, dy0 + sin(da0) * d2)]), C("#e0f4ff", k), 2.0)
+			"crow_burst": # 까마귀 표식이 다 차서 터진 순간: 안쪽으로 모였다 튀는 깃 여덟(까마귀 색)
+				var cx0: float = f.x
+				var cy0: float = f.y
+				var cr0: float = f.r
+				stroke_circle(ci, cx0, cy0, cr0 * (0.4 + 0.6 * (1.0 - k)), C("#c8b4f0", k * 0.9), 3.0)
+				for i in 8:
+					var ca0: float = float(i) * TAU / 8.0
+					var e0: float = cr0 * (0.25 + 0.5 * (1.0 - k))
+					var e1: float = cr0 * (0.55 + 0.55 * (1.0 - k))
+					var nv0 := Vector2(-sin(ca0), cos(ca0)) * 2.6
+					ci.draw_colored_polygon(PackedVector2Array([
+						Vector2(cx0 + cos(ca0) * e1, cy0 + sin(ca0) * e1),
+						Vector2(cx0 + cos(ca0) * e0, cy0 + sin(ca0) * e0) + nv0,
+						Vector2(cx0 + cos(ca0) * e0, cy0 + sin(ca0) * e0) - nv0]), C("#a88fd0", k))
+			"stagger_hit": # '연계 완성' 경직이 **실제로 걸린** 적의 짧은 반응.
+				# 화면 전체 정지·흔들림은 넣지 않는다(사용자 지시 5절). 몸 옆 짧은 진동선 두 쌍뿐이고
+				# 머리 위(적 공격 예고가 그려지는 자리)에는 아무것도 두지 않는다 — 모바일에서 예고를 가리지 않게
+				var sx0: float = f.x
+				var sy0: float = f.y
+				var sr0: float = float(f.get("r", 14.0))
+				var jd: float = 3.0 + 4.0 * (1.0 - k)
+				for sgn in [-1.0, 1.0]:
+					var bx0: float = sx0 + float(sgn) * (sr0 + 5.0)
+					for j in 2:
+						var oy: float = -3.0 + 6.0 * float(j)
+						ci.draw_line(Vector2(bx0 - jd, sy0 + oy), Vector2(bx0 + jd, sy0 + oy), C("#ffd166", 0.85 * k), 2.0)
 			"slashline": # 집행관 세로 절단(순서별 색)
 				var first: bool = int(f.get("order", 1)) == 1
 				var w: float = float(f.w) * (1.0 - k * 0.5)
