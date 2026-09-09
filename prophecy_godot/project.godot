@@ -39,6 +39,13 @@ movie_writer/movie_file=""
 movie_writer/disable_vsync=true
 movie_writer/fps=24
 
+[gui]
+
+; 화면 기본 글꼴(한글). 이 값이 엔진 시작 때 기본 테마의 글꼴과 ThemeDB.fallback_font를 함께 채운다.
+; 웹 빌드에는 운영체제 글꼴이 없어 이것이 없으면 한글이 전부 네모(□)로 나온다 — docs/WEB_BUILD.md §2.
+; 파일과 라이선스: assets/fonts/ui.ttf · assets/fonts/OFL.txt · docs/FONT_LICENSE.md
+theme/custom_font="res://assets/fonts/ui.ttf"
+
 [input]
 
 move_left={

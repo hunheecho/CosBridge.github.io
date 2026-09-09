@@ -106,6 +106,11 @@
       "desc": "영구 성장 화면",
       "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
     },
+    "font_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "한글 글꼴 연결(파일·가져오기 표식·기본 테마 세 곳·두 내보내기 포함·OFL 고지). 눈으로 보는 검사가 아니라 '붙었는가'만 본다"
+    },
     "input_tests": {
       "env": {
         "PROPHECY_TEST_RETRY": "1"
@@ -443,6 +448,7 @@
       "endless_tests",
       "meta_tests",
       "meta_ui_tests",
+      "font_tests",
       "input_tests",
       "run_layer_tests",
       "world_tests",
@@ -489,6 +495,7 @@
     "ui": [
       "hud_tests",
       "meta_ui_tests",
+      "font_tests",
       "input_tests",
       "ui_flow_tests",
       "render_tests"

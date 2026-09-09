@@ -5,8 +5,10 @@ prophecy_godot/docs/sim/bot_runs/*/replays/
 
 # 부분 실행 보고서(측정 범위가 좁아 전체 결과와 섞으면 안 된다)
 prophecy_godot/docs/sim/*_PARTIAL.md
-# 화면 글꼴(제3자 파일, 저장소에 넣지 않는다 — docs/WEB_BUILD.md §2에서 직접 넣는다)
-prophecy_godot/assets/fonts/
+# 화면 글꼴은 이제 저장소에 넣는다(2026-09-09 사용자 결정을 되돌린 방침).
+# 웹 빌드에는 운영체제 글꼴이 없어 이 파일이 빠지면 한글이 전부 네모(□)로 나오기 때문이다.
+# 재배포가 허용된 글꼴만 넣는다 — 지금은 Noto Sans KR(SIL OFL 1.1) 부분집합.
+# 라이선스 전문과 출처·부분집합 범위는 prophecy_godot/docs/FONT_LICENSE.md에 있다.
 .claude/
 # 실제 속도 영상 클립(Movie Maker AVI, 초당 약 1.5MB): 저장소에 넣기엔 커서 파일은 두지 않는다.
 # 무엇을 어떤 명령으로 찍었는지는 같은 폴더의 README.md에 있고, 그 명령으로 언제든 다시 만든다.

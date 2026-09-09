@@ -71,6 +71,10 @@ func refresh() -> void:
 	var foot := PUi.label(line, 11, PUi.DIM)
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_menu.add_child(foot)
+	# 글꼴 고지(SIL OFL 1.1이 요구하는 표시). 전문은 설정 화면과 assets/fonts/OFL.txt에 있다.
+	var font_foot := PUi.label(PUi.font_notice_short(), 10, PUi.DIM)
+	font_foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_menu.add_child(font_foot)
 
 func _on_new() -> void:
 	if PSave.exists():

@@ -5,9 +5,16 @@ extends Node
 const VERSION := "godot-0.7.0"
 const HTML_SOURCE := "html v0.8.0 (ee10fc7)"
 const DATA_PATH := "res://data/first_fight.json"
-## 화면 글꼴. 파일이 있으면 _apply_ui_font()가 깔고, 없으면 엔진 기본 글꼴을 그대로 쓴다(PC는 그래도 한글이 나온다).
-## 웹(브라우저)에는 운영체제 글꼴이 없어서 이 파일이 없으면 한글이 전부 네모(□)로 나온다 — docs/WEB_BUILD.md §2 참고.
+## 화면 글꼴. 저장소에 함께 들어 있고(2026-09-09), 두 내보내기(웹·윈도우)에 모두 담긴다.
+## 웹(브라우저)에는 운영체제 글꼴이 없어서 이 파일이 빠지면 한글이 전부 네모(□)로 나온다 — docs/WEB_BUILD.md §2 참고.
+## 파일이 없어도 게임은 돌아간다(_apply_ui_font가 아무것도 하지 않고, PC는 엔진이 운영체제 글꼴로 대신 그린다).
 const UI_FONT_PATH := "res://assets/fonts/ui.ttf"
+## 글꼴 라이선스 전문(내보내기에 함께 담긴다. 설정 화면의 고지가 이 경로를 가리킨다).
+const UI_FONT_LICENSE_PATH := "res://assets/fonts/OFL.txt"
+## 화면에 그대로 띄우는 짧은 고지. OFL 1.1은 저작권 표시와 라이선스를 함께 배포하라고 요구한다.
+const UI_FONT_NOTICE := "글꼴 Noto Sans KR (c) 2014-2021 Adobe · SIL Open Font License 1.1"
+## 제목 화면 아래 줄에 덧붙이는 한 마디(자리가 좁아 더 짧다).
+const UI_FONT_NOTICE_SHORT := "글꼴 Noto Sans KR · OFL 1.1"
 var config: Dictionary = {}
 var last_seed: int = 7
 # 다음 재시작에 적용될 비교 설정(기본값은 데이터의 값)
@@ -26,6 +33,8 @@ func _ready() -> void:
 		dash_max = int(config.enemies.wolf.dash.max_concurrent)
 
 ## 글꼴 깔기: 파일이 있을 때만. 없으면 아무것도 하지 않는다(PC는 엔진이 운영체제 글꼴로 대신 그린다).
+## project.godot의 gui/theme/custom_font가 이미 같은 일을 하지만, 이 함수를 남겨 둔다 —
+## 자동 로드보다 먼저 도는 엔진 초기화에 기대지 않고 코드에서도 한 번 더 확실히 못 박기 위해서다(같은 값이라 덮어써도 무해).
 ## 두 군데를 모두 바꿔야 한다 — 한 쪽만 바꾸면 화면 절반이 네모로 남는다:
 ##   ① 기본 테마의 default_font — Label·Button·RichTextLabel 같은 Control이 실제로 읽는 곳.
 ##      ThemeDB.fallback_font만 바꿔서는 기본 테마가 먼저 걸려 바뀌지 않는다(4.7에서 확인).
