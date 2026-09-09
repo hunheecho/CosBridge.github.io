@@ -118,6 +118,10 @@
    - **넓은 돌풍**: 각도 `broadArc`, 밀어내기 `×broadKnock`.
    - **압축 돌풍**: 각도 `focusedArc`, 밀어내기 `×focusedKnock`.
      두 각도는 절대값이지만 공용 폭 증강 비율(`arcDeg / 기본 arcDeg`)을 그대로 물려받는다.
+     **2026-09-09 추가: 이 개조만 장애물 충돌(⑤)을 낸다.** 밀린 적이 `move_swept`에서 벽·바위에 막히고
+     실제로 `slamMinMove` 이상 밀려갔으며 막힌 거리가 `slamMinBlock` 이상일 때, 바람 피해 ×`slamMult`의
+     추가 피해와 짧은 경직을 준다. **한 번의 돌풍당 적마다 1회**이고 이미 벽에 붙은 적에게는 나지 않는다.
+     각도·밀어내기 수치는 하나도 바뀌지 않았다. 자세한 것은 `docs/STAGGER.md` 13절.
    - **잔바람**: 밀어낸 경로에 `windgust` 장판을 `gustStep` 간격으로 한 번에 `gustPerBlast`개까지 놓는다.
      전장 전체 `gustMax`개를 넘으면 오래된 것부터 지운다(화면을 덮지 않게).
      둔화는 **`PSupport.stack_slow(현재, gustSlow, 적)`** 로 겹치므로 몇 개를 겹쳐도 `slowFloor`(0.35) 아래로 안 내려간다.
@@ -177,6 +181,7 @@
 | `knock` | 150 | 밀어내는 거리(일반 기준. 정예 52.5, 보스 0) |
 | `broadArc` / `broadKnock` | 150도 / ×0.6 | 넓은 돌풍 |
 | `focusedArc` / `focusedKnock` | 45도 / ×1.6 | 압축 돌풍 |
+| `slamMult` / `slamMinMove` / `slamMinBlock` | ×1.6 / 12 / 20 | 압축 돌풍의 장애물 충돌(⑤). 충돌 피해 배율 · 충돌로 치는 최소 이동 거리 · 최소 막힌 거리 |
 | `gustTtl` / `gustR` / `gustSlow` | 2.0초 / 64 / 0.35 | 잔바람 수명 / 반지름 / 겹치는 둔화 비율 |
 | `gustStep` / `gustPerBlast` / `gustMax` | 70 / 3개 / 12개 | 경로에 놓는 간격 / 한 번에 / 동시 상한 |
 

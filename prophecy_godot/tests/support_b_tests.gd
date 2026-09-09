@@ -174,6 +174,28 @@ func section_plague() -> void:
 	ok("독·전염·파열 피해가 출처별로 따로 기록된다", rows_ok and tags_ok,
 		"독 %.1f · 전염 %.1f · 파열 %.1f" % [float(box.poison), float(box.spread), float(box.burst)])
 
+	# 1-6b. ⑥ 숙주 파열: **주무기 처치일 때만** 열린다(2026-09-09 · 예전에는 어떤 죽음이든 터졌다).
+	#       전염은 그 자격과 무관하게 예전 그대로 일어난다 — 둘의 발동을 구분한다.
+	var st6 := lab([["plague", 1, ["burst"]]])
+	var g1 := put(st6, "wolf", 400.0, 300.0)
+	var g2 := put(st6, "wolf", 450.0, 300.0)
+	PSupport.fire(st6, wep(st6, "plague"), g1, false)
+	run_for(st6, 2.2)
+	var P6 := PSupportB.plague_stat(st6)
+	var g2hp: float = g2.hp
+	# 보조무기가 낸 마지막 일격
+	st6.damage_enemy(g1, 1.0e6, { "cause": "support_direct", "src": { "weapon_id": "plague", "direct": true } })
+	ok("보조무기 처치로는 숙주 파열이 열리지 않는다(피해가 나가지 않는다)",
+		int(P6.bursts) == 0 and int(P6.burst_blocked) >= 1 and near(g2.hp, g2hp, 0.001),
+		"파열 %d회 · 막힘 %d회" % [int(P6.bursts), int(P6.burst_blocked)])
+	ok("그때에도 독 전염은 예전처럼 일어난다", int(P6.spreads) >= 1 and not (g2.get("plague", {}) as Dictionary).is_empty(),
+		"전염 %d회" % int(P6.spreads))
+	var mods6: Dictionary = ((PCatalog.supports().weapons as Dictionary).plague as Dictionary).get("mods", {})
+	ok("개조 이름과 설명이 '주무기 처치'를 밝힌다",
+		String((mods6.get("burst", {}) as Dictionary).get("name", "")) == "숙주 파열"
+		and String((mods6.get("burst", {}) as Dictionary).get("desc", "")).find("주무기로 처치") >= 0,
+		String((mods6.get("burst", {}) as Dictionary).get("desc", "")))
+
 	# 1-7. 개조가 실제로 수치를 바꾼다(넓은 전염 · 깊은 맹독)
 	var wide_r := _spread_radius_of(["wide"])
 	var deep_r := _spread_radius_of(["deep"])

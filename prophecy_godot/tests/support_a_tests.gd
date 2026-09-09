@@ -90,6 +90,7 @@ func _init() -> void:
 	sec3_bell()
 	sec4_echo()
 	sec5_wind()
+	sec5_wind_slam()
 	sec6_lifetime()
 	sec7_frame_path()
 	var pass_n := results.filter(func(r): return r[0]).size()
@@ -575,6 +576,31 @@ func sec5_wind() -> void:
 ## 잔바람 회귀(2026-09-09 BP-1): '밀어낸 경로' → '돌풍이 지나간 자리'.
 ## 여기서 못박는 것 — (1) 밀리지 않는 상대에게도 장판이 남고 실제로 둔화가 걸린다,
 ## (2) 조각이 몇 겹이든 최저 이동 속도 바닥 아래로 못 내려간다, (3) 조각 수가 적 수에 비례하지 않는다.
+## ⑤ 돌풍 → 장애물 충돌(2026-09-09). **압축 돌풍 하나에만** 붙었고 나머지 둘은 그대로인지 본다.
+## 자세한 규칙(세 관문·중복 방지·보스)은 tests/stagger_tests.gd 11절이 맡는다.
+func sec5_wind_slam() -> void:
+	var rock := [{ "id": "rock_t", "type": "rock", "x": 640.0, "y": 300.0, "r": 40.0 }]
+	var got := { "": 0, "broad": 0, "focused": 0, "lingering": 0 }
+	for mid in got:
+		var mods: Array = [] if String(mid) == "" else [String(mid)]
+		var ms := mk([{ "id": "sword", "level": 1, "mods": [] }, { "id": "wind", "level": 1, "mods": mods }], rock.duplicate(true))
+		var me := put(ms, "wolf", 540.0, 300.0)
+		me.hp = 99999.0
+		PWeapons.fire(ms, wep(ms, "wind"), me, false)
+		got[mid] = int((wind_state(ms) as Dictionary).get("slams", 0))
+	ok("장애물 충돌은 압축 돌풍에만 붙는다(기본·넓은 돌풍·잔바람은 그대로다)",
+		int(got.focused) == 1 and int(got[""]) == 0 and int(got.broad) == 0 and int(got.lingering) == 0,
+		"기본 %d · 넓은 %d · 압축 %d · 잔바람 %d" % [int(got[""]), int(got.broad), int(got.focused), int(got.lingering)])
+	# 잔바람 개조는 이번에 건드리지 않았다 — 개조 문구·조각 놓는 자리가 그대로인지 확인만 한다
+	var M: Dictionary = ((PCatalog.supports().weapons as Dictionary).wind as Dictionary).get("mods", {})
+	ok("잔바람 개조와 문구를 그대로 두었다(사용자가 최근 승인한 개조)",
+		(M.get("lingering", {}) as Dictionary).get("name", "") == "잔바람"
+		and String((M.get("lingering", {}) as Dictionary).get("desc", "")).begins_with("돌풍이 지나간 자리"),
+		String((M.get("lingering", {}) as Dictionary).get("desc", "")))
+	ok("압축 돌풍의 설명이 장애물 충돌을 밝힌다",
+		String((M.get("focused", {}) as Dictionary).get("desc", "")).find("부딪히면") >= 0,
+		String((M.get("focused", {}) as Dictionary).get("desc", "")))
+
 func sec5_wind_lingering_place() -> void:
 	# (1) 보스: PSupport.knock_dist가 0이라 한 걸음도 안 밀리지만 돌풍은 지나갔다
 	var bs := mk([{ "id": "sword", "level": 1, "mods": [] }, { "id": "wind", "level": 1, "mods": ["lingering"] }])
