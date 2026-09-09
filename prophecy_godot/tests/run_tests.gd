@@ -23,22 +23,31 @@ const PRESS := { "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": true }
 const HOLD := { "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": true } # 이동 입력 없이 누르고 있음(걸어서 벽에 닿지 않게)
 const FREE := { "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": false }
 
-## 회피 1회를 재생: 누른 뒤 hold_steps 단계 동안 누르고 있다가 뗀다. 회피가 끝날 때까지(최대 200단계) 진행. 이동 거리·무적 단계 수를 돌려준다
+## 회피 1회를 재생: 누른 뒤 hold_steps 단계 동안 누르고 있다가 뗀다. **이동**이 끝날 때까지(최대 200단계) 진행.
+## 이동 거리·이동 단계 수를 돌려준다. 무적은 이동과 따로 흐르므로 여기서 재지 않는다(invuln_steps_after가 잰다)
 func play_dodge(st: CombatState, hold_steps: int, max_steps: int = 200) -> Dictionary:
 	var x0: float = st.player.x
 	var y0: float = st.player.y
-	var inv := 0
+	var mvn := 0
 	var n := 0
 	st.step(PRESS if hold_steps > 0 else { "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": false }, STEP)
 	n += 1
 	if st.player.dodge_active:
-		inv += 1
+		mvn += 1
 	while st.player.dodge_active and n < max_steps:
 		st.step(HOLD if n < hold_steps else FREE, STEP)
 		n += 1
 		if st.player.dodge_active:
-			inv += 1
-	return { "dist": PGeom.dist(x0, y0, st.player.x, st.player.y), "invuln_steps": inv, "steps": n, "end": st.player.dodge_end }
+			mvn += 1
+	return { "dist": PGeom.dist(x0, y0, st.player.x, st.player.y), "move_steps": mvn, "steps": n, "end": st.player.dodge_end }
+
+## 지금부터 무적이 몇 단계 더 남았는지 센다(이동은 이미 끝났을 수 있다)
+func invuln_steps_left(st: CombatState, max_steps: int = 200) -> int:
+	var k := 0
+	while float(st.player.invuln_t) > 0.0 and k < max_steps:
+		st.step(FREE, STEP)
+		k += 1
+	return k
 
 func steps(st: CombatState, seconds: float, input: Dictionary = {}, dt: float = STEP) -> void:
 	var n := int(round(seconds / dt))
@@ -78,21 +87,22 @@ func _init() -> void:
 	st = mk(); no_enemies(st)
 	var y0: float = st.player.y
 	st.step({ "mx": 0.0, "my": -1.0, "dodge_press": true, "dodge_held": true }, STEP)
-	var invul: bool = st.player.dodge_active
+	var invul: bool = float(st.player.invuln_t) > 0.0
+	var cd0: float = float(st.player.dodge_cd_time) # 검의 재사용 대기(주무기별, data/config.json PLAYER.dodge.byWeapon)
 	var hp0: float = st.player.hp
 	st.damage_player(50.0, "test")
 	var no_dmg: bool = st.player.hp == hp0 and st.stats.perfect_dodges == 1
 	for i in 60:
 		st.step({ "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": true }, STEP)
 	var dist_moved: float = y0 - st.player.y
-	ok("회피(hold): 누르는 단계에 출발·무적, 계속 누르면 위로 150, 재사용 1.5초가 출발 순간부터 감", invul and no_dmg and absf(dist_moved - 150.0) < 0.01 and absf(st.player.dodge_cd - (1.5 - 61.0 * STEP)) < 1e-6, "거리 %.2f cd %.4f" % [dist_moved, st.player.dodge_cd])
+	ok("회피(hold): 누르는 단계에 출발·무적, 계속 누르면 위로 150, 재사용 %.1f초(검)가 출발 순간부터 감" % cd0, invul and no_dmg and absf(dist_moved - 150.0) < 0.01 and absf(st.player.dodge_cd - (cd0 - 61.0 * STEP)) < 1e-6, "거리 %.2f cd %.4f" % [dist_moved, st.player.dodge_cd])
 	st.step({ "dodge_press": true, "dodge_held": true }, STEP)
 	ok("회피 재사용 중에는 새로 눌러도 회피 불가", not st.player.dodge_active)
 	while st.player.dodge_cd > 0.0 and st.step_n < 1000:
 		st.step({}, STEP)
 	var steps_to_ready: int = st.step_n
 	st.step({ "dodge_press": true, "dodge_held": true }, STEP)
-	ok("1.5초(180단계)가 되면 새 누름으로 회피 가능", steps_to_ready == 180 and st.player.dodge_active, "%d단계" % steps_to_ready)
+	ok("%.1f초(%d단계)가 되면 새 누름으로 회피 가능" % [cd0, int(round(cd0 / STEP))], steps_to_ready == int(round(cd0 / STEP)) and st.player.dodge_active, "%d단계" % steps_to_ready)
 	# 3. 늑대: 접근 → 준비(0.6) → 확정(0.15) → 돌진(0.32, 256) → 빈틈(0.9). 확정 뒤 플레이어를 추적하지 않음. 예고 통로 = 실제 판정
 	st = mk(); no_enemies(st)
 	st.player.y = 585.0
@@ -236,42 +246,55 @@ func _init() -> void:
 	st = mk(); no_enemies(st)
 	var r1 := play_dodge(st, 0)
 	ok("D1 짧은 탭: 즉시 출발, 70 이동, 종료 사유 release", absf(r1.dist - 70.0) < 0.01 and r1.end == "release" and st.stats.dodges == 1, "거리 %.2f %s %d단계" % [r1.dist, r1.end, r1.steps])
-	# D2. 충분히 누르면 150(초과 이동 없음), 무적은 회피 이동 중에만 = 0.26초 이내
+	# D2. 충분히 누르면 150(초과 이동 없음). **이동**은 duration(0.26초) 안에 끝난다 — 무적 길이와는 별개다
 	st = mk(); no_enemies(st)
 	var r2 := play_dodge(st, 100)
-	ok("D2 계속 누름: 정확히 150, 마지막 이동량 제한, 무적 단계 ≤ 0.26초", absf(r2.dist - 150.0) < 0.01 and r2.end == "max" and r2.invuln_steps * STEP <= 0.26 + 1e-9, "거리 %.3f 무적 %d단계(%.4f초)" % [r2.dist, r2.invuln_steps, r2.invuln_steps * STEP])
+	ok("D2 계속 누름: 정확히 150, 마지막 이동량 제한, 이동 단계 ≤ 0.26초", absf(r2.dist - 150.0) < 0.01 and r2.end == "max" and r2.move_steps * STEP <= 0.26 + 1e-9, "거리 %.3f 이동 %d단계(%.4f초)" % [r2.dist, r2.move_steps, r2.move_steps * STEP])
 	# D3. 중간 해제(0.15초 = 18단계 누름)는 70~150 사이에서 끝난다
 	st = mk(); no_enemies(st)
 	var r3 := play_dodge(st, 18)
 	ok("D3 중간 해제: 70 < 거리 < 150, 뗀 뒤 곧 종료", r3.dist > 70.0 and r3.dist < 150.0 and r3.end == "release" and r3.steps <= 19, "거리 %.2f %d단계" % [r3.dist, r3.steps])
-	# D4. 짧게 끝낸 뒤 무적이 남지 않는다(종료 직후 피해가 들어간다)
+	# D4. **이동과 무적은 따로 센다**(2026-09-09 규칙 변경). 짧은 탭은 70을 0.12초에 가고 이동이 끝나지만,
+	#     무적은 회피 **시작 순간**부터 주무기 무적 시간(검 0.32초)까지 이어진다. 그 뒤에는 피해가 들어간다
 	st = mk(); no_enemies(st)
-	play_dodge(st, 0)
+	var r4 := play_dodge(st, 0)
+	var inv_w: float = float(st.player.dodge_invuln_time)
+	var hp_mid: float = st.player.hp
+	st.damage_player(10.0, "test")
+	var still_invuln: bool = st.player.hp == hp_mid and not st.player.dodge_active
+	var left := invuln_steps_left(st)
+	var total_inv: float = float(r4.steps + left) * STEP
 	var hp_before: float = st.player.hp
 	st.damage_player(10.0, "test")
-	ok("D4 짧은 회피 종료 직후 무적 없음(피해 10 적용)", not st.player.dodge_active and st.player.hp == hp_before - 10.0 and st.stats.perfect_dodges == 0)
+	ok("D4 짧은 회피: 이동(%d단계)이 끝나도 무적은 주무기 값(%.2f초)까지 이어지고, 그 뒤에는 피해가 들어간다" % [int(r4.steps), inv_w],
+		still_invuln and st.player.hp == hp_before - 10.0 and absf(total_inv - inv_w) <= STEP + 1e-9,
+		"이동 %.3f초 · 무적 %.3f초(설정 %.2f) · 완벽회피 %d회" % [r4.steps * STEP, total_inv, inv_w, int(st.stats.perfect_dodges)])
 	# D5. 고정 거리 방식은 떼어도 150까지 간다
 	st = mk_dodge("fixed", 1.5); no_enemies(st)
 	var r5 := play_dodge(st, 0)
 	ok("D5 고정 거리 방식: 탭해도 150", absf(r5.dist - 150.0) < 0.01 and r5.end == "max", "거리 %.2f" % r5.dist)
-	# D6. 두 방식 모두 선택한 재사용 대기 적용(0.9/1.2/1.5/1.8): 직전 단계 불가, 도달 단계 가능
+	# D6. 재사용 대기는 **든 주무기**를 따른다(2026-09-09). 비교 설정(0.9/1.2/1.5/1.8)은 표에 있는 주무기를
+	#     덮지 않는다 — 기준 전투는 검이므로 어떤 비교 설정을 줘도 검의 값이 그대로 쓰인다.
+	#     경계는 예전과 같게 못 박는다: 직전 단계 불가, 도달 단계 새 누름으로 가능.
 	var all_cd_ok := true
 	var cd_detail := []
 	for mode in ["fixed", "hold"]:
 		for cdv in [0.9, 1.2, 1.5, 1.8]:
 			var s6 := mk_dodge(mode, float(cdv)); no_enemies(s6)
 			play_dodge(s6, 100)
-			var total := int(round(float(cdv) / STEP))
+			var eff: float = float(s6.player.dodge_cd_time)
+			var total := int(round(eff / STEP))
 			while s6.step_n < total - 1:
 				s6.step(FREE, STEP)
 			s6.step(PRESS, STEP) # 대기 마지막 단계: cd가 아직 남아 있어 불가
 			var early: bool = s6.player.dodge_active
 			s6.step(PRESS, STEP) # 정확히 cd초 경과: 가능
 			var on_time: bool = s6.player.dodge_active
-			if early or not on_time:
+			var kept: bool = absf(eff - 1.1) < 1e-9 # 검의 값이 비교 설정에 덮이지 않았다
+			if early or not on_time or not kept:
 				all_cd_ok = false
-			cd_detail.append("%s/%.1f:%s" % [mode, float(cdv), ("ok" if (not early and on_time) else "FAIL")])
-	ok("D6 두 방식 × 재사용 0.9/1.2/1.5/1.8: 직전 단계 불가, 도달 단계 새 누름으로 가능", all_cd_ok, " ".join(cd_detail))
+			cd_detail.append("%s/%.1f→%.2f:%s" % [mode, float(cdv), eff, ("ok" if (not early and on_time and kept) else "FAIL")])
+	ok("D6 비교 설정 0.9/1.2/1.5/1.8이 주무기(검 1.1초) 값을 덮지 않는다 · 직전 단계 불가, 도달 단계 가능", all_cd_ok, " ".join(cd_detail))
 	# D7. 계속 누른 상태로는 대기 시간이 지나도 자동 재발동하지 않는다(새 누름 필요)
 	st = mk(); no_enemies(st)
 	st.step(PRESS, STEP)

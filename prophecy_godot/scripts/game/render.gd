@@ -958,7 +958,16 @@ static func draw_player_effects(ci: Node2D, st: CombatState) -> void:
 				if mtg > 0.0:
 					dashed_circle(ci, c.x, c.y, mtg, rgba(255, 235, 190, 0.75 * k), 1.5, 4.0, 4.0)
 			"strikewarn":
+				# 예고 원의 반지름은 규칙이 실제 판정에 쓰는 값 그대로다(PWeapons.fire_heavy). 여기서 다시 만들지 마라
 				dashed_circle(ci, float(f.x), float(f.y), float(f.r), rgba(255, 240, 150, 0.6 + 0.4 * (1.0 - k)), 2.0, 4.0, 4.0)
+			"strikecancel":
+				# 준비 중 회피로 취소한 내려찍기: 예고 원이 회색으로 사그라들고 ×가 남는다(피해 없음)
+				var cc := Vector2(float(f.x), float(f.y))
+				var cr: float = float(f.r) * (1.0 - 0.15 * k)
+				dashed_circle(ci, cc.x, cc.y, cr, rgba(170, 170, 175, 0.55 * (1.0 - k)), 2.0, 4.0, 6.0)
+				var cx2: float = 13.0 * (1.0 - k * 0.4)
+				ci.draw_line(cc + Vector2(-cx2, -cx2), cc + Vector2(cx2, cx2), rgba(200, 200, 205, 0.8 * (1.0 - k)), 3.0)
+				ci.draw_line(cc + Vector2(-cx2, cx2), cc + Vector2(cx2, -cx2), rgba(200, 200, 205, 0.8 * (1.0 - k)), 3.0)
 			"strike":
 				var fx: float = f.x
 				var fy: float = f.y
@@ -3635,9 +3644,16 @@ static func draw_projectiles(ci: Node2D, st: CombatState) -> void:
 				ci.draw_set_transform_matrix(IDENT)
 				continue
 			if kind == "arrow_h":
+				# 갈래 사격의 **양옆 화살**(mod=spread)은 추적하지 않고 직진한다. 화면에서도 갈라 그린다 —
+				# 가운데(추적·100%)는 밝고 굵게, 양옆(직진·60%)은 옅고 가늘게 + 직진 꼬리
+				var side_arrow: bool = String(pr.get("mod", "")) == "spread"
 				ci.draw_set_transform_matrix(xf(c, ang, Vector2.ONE))
-				ci.draw_line(Vector2(-12, 0), Vector2(8, 0), C("#e8f7ff"), 2.5)
-				ci.draw_colored_polygon(PackedVector2Array([Vector2(12, 0), Vector2(4, -4), Vector2(4, 4)]), C("#9fd8ff"))
+				if side_arrow:
+					ci.draw_line(Vector2(-22, 0), Vector2(6, 0), rgba(200, 226, 240, 0.55), 1.6)
+					ci.draw_colored_polygon(PackedVector2Array([Vector2(10, 0), Vector2(3, -3), Vector2(3, 3)]), rgba(159, 216, 255, 0.75))
+				else:
+					ci.draw_line(Vector2(-12, 0), Vector2(8, 0), C("#e8f7ff"), 2.5)
+					ci.draw_colored_polygon(PackedVector2Array([Vector2(12, 0), Vector2(4, -4), Vector2(4, 4)]), C("#9fd8ff"))
 				ci.draw_set_transform_matrix(IDENT)
 				continue
 			if kind == "bolt":

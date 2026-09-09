@@ -317,7 +317,7 @@ func s4_reflect() -> void:
 	var st2 := lab([["thorns", 1, []]])
 	var b := put(st2, "wolf", st2.player.x + 30.0, st2.player.y)
 	st2.player.hit_prot = 0.0
-	st2.player.dodge_active = 1.0 # 회피 무적
+	st2.player.invuln_t = 1.0 # 회피 무적(이동과 분리 — invuln_t가 정본)
 	var before := PSupport.metered(st2, "thorns", "reflects")
 	st2.damage_player(10.0, "wolf_bite", b)
 	PSupport.sync_meters(st2)

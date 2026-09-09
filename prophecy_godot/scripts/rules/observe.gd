@@ -164,7 +164,7 @@ static func rules_of(st: CombatState) -> Dictionary:
 			rng_ = rr
 		if k != "orbit" and k != "mine":
 			orbit_only = false
-	return { "dodge_mode": String(D.mode), "dodge_distance": float(D.distance), "dodge_min": float(D.get("min_distance", D.distance)), "dodge_duration": float(D.duration), "dodge_cooldown": float(D.cooldown) * float(st.build.dodge_cd_mult),
+	return { "dodge_mode": String(D.mode), "dodge_distance": float(D.distance), "dodge_min": float(D.get("min_distance", D.distance)), "dodge_duration": float(D.duration), "dodge_invuln": float(st.player.dodge_invuln_time), "dodge_cooldown": float(st.player.dodge_cd_time) * float(st.build.dodge_cd_mult),
 		"speed": float(P.speed) * float(st.build.speed_mult), "weapon_range": (rng_ if rng_ > 0.0 else 80.0), "orbit_only": orbit_only, "q_cooldown": float(P.slowfield.cooldown) }
 
 ## 바닥 지역에 글자로 표시되는 남은 시간(거미줄 진행 호·서리 순번·제단 예고 진행). 숫자 초가 표시되는 것은 없으므로 -1

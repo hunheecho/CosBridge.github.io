@@ -203,9 +203,13 @@ func _init(o: Dictionary) -> void:
 		"face": 0.0, "moving": false, "walk_t": 0.0,
 		"dodge_active": false, "dodge_t": 0.0, "dodge_dx": 0.0, "dodge_dy": 0.0, "dodge_cd": 0.0,
 		"dodge_dist": 0.0, "dodge_released": false, "dodge_end": "", "ember_idx": -1,
+		# 무적은 **이동과 따로** 센다. invuln_t는 회피 시작 순간부터 줄어드는 남은 무적 시간이고,
+		# dodge_active(이동 중)와 겹치지 않는다 — 이동이 먼저 끝나도 무적은 남는다(docs/RULES.md §회피)
+		"invuln_t": 0.0, "dodge_cd_time": 0.0, "dodge_invuln_time": 0.0, "dodge_weapon": "",
 		"hit_prot": 0.0, "zone_tick": 0.0, "swing_t": 9.0, "swing_form": "arc", "swing_angle": 0.0,
 		"special_cd": 0.0, "e_cd": 0.0, "dead": false, "flash": 0.0, "hurt_t": 9.0,
 	}
+	resolve_dodge()
 	var EQ0: Dictionary = build.get("equip", {})
 	if EQ0.has("fieldRegen"): # 월광 갑옷: 시작 보호막 중 이 장비 몫(재생 상한)
 		moon_shield = minf(float(EQ0.get("startShield", 0.0)), float(EQ0.fieldRegen.max))
@@ -1535,7 +1539,9 @@ func damage_player(amount: float, src: String, attacker = null) -> bool:
 		if recorder != null:
 			recorder.on_reject(self, amount, src, attacker, "boss_dead")
 		return false
-	if p.dodge_active:
+	# 무적 판정은 **이동(dodge_active)이 아니라 남은 무적 시간(invuln_t)**을 본다.
+	# 짧은 탭은 0.12초면 이동이 끝나지만 무적은 주무기 무적 시간까지 이어진다
+	if float(p.invuln_t) > 0.0:
 		stats.perfect_dodges += 1
 		text(p.x, p.y - 30.0, "회피!", "#7ef2ff")
 		ev("perfect")
@@ -1661,9 +1667,9 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 
 func zone_damage(amount: float) -> void:
 	var p := player
-	if p.dead or p.dodge_active or intro > 0.0 or (not boss.is_empty() and bool(boss.dead)):
+	if p.dead or float(p.invuln_t) > 0.0 or intro > 0.0 or (not boss.is_empty() and bool(boss.dead)):
 		if recorder != null:
-			recorder.on_reject(self, amount, "zone", null, "dodge_invuln" if (p.dodge_active and not p.dead) else "inactive")
+			recorder.on_reject(self, amount, "zone", null, "dodge_invuln" if (float(p.invuln_t) > 0.0 and not p.dead) else "inactive")
 		return
 	apply_player_damage(amount, "zone")
 
@@ -1933,6 +1939,34 @@ func add_fire_at(x: float, y: float) -> bool:
 	add_zone("fire", x, y, float(E.radius) * float(build.width_mult), float(E.ttl) * float(build.duration_mult) * float(build.get("trait_dot_dur", 1.0)), float(E.damage))
 	return true
 
+# ---------- 회피 설정(주무기별) ----------
+## 지금 든 **주무기**의 id. 없으면 빈 문자열(보조만 든 시연·시험 상태)
+func main_weapon_id() -> String:
+	for w in (build.get("weapons", []) as Array):
+		if PCatalog.is_main_weapon(String(w.id)):
+			return String(w.id)
+	return ""
+
+## 주무기별 회피 표(data/config.json PLAYER.dodge.byWeapon, 시험값)를 찾는다.
+## 전투 설정 사본(first_fight.json 같은 옛 사본)에 표가 없어도 **자료 원본**에서 읽는다 —
+## 그래야 기준 전투도 같은 규칙을 쓴다. 표에 있는 주무기는 이 값이 정본이고
+## 비교 설정(cooldown_options·PROPHECY_DODGE_CD·config_with_dodge)이 덮지 않는다.
+func dodge_by_weapon() -> Dictionary:
+	var D: Dictionary = cfg.player.dodge
+	if D.has("byWeapon"):
+		return D.byWeapon
+	return (PCatalog.config().PLAYER.dodge as Dictionary).get("byWeapon", {})
+
+## 재사용 대기·무적 시간을 지금 든 주무기로 확정해 player에 적어 둔다(HUD·시험이 같은 값을 읽는다).
+## 이동거리·이동시간은 여기서 건드리지 않는다 — 이동과 무적은 분리되어 있다.
+func resolve_dodge() -> void:
+	var D: Dictionary = cfg.player.dodge
+	var wid := main_weapon_id()
+	var row: Dictionary = dodge_by_weapon().get(wid, {})
+	player.dodge_weapon = wid if not row.is_empty() else ""
+	player.dodge_cd_time = float(row.get("cooldown", D.cooldown))
+	player.dodge_invuln_time = float(row.get("invuln", D.get("invuln", D.duration)))
+
 # ---------- 플레이어 ----------
 func update_player(input: Dictionary, dt: float) -> void:
 	var p := player
@@ -1950,7 +1984,9 @@ func update_player(input: Dictionary, dt: float) -> void:
 	if p.moving:
 		p.walk_t += dt
 		p.face = atan2(mv[1], mv[0])
-	# 회피(docs/RULES.md §회피): 누르는 순간 즉시 출발, 방향 고정, 재사용 대기는 시작 순간부터
+	# 회피(docs/RULES.md §회피): 누르는 순간 즉시 출발, 방향 고정, 재사용 대기는 시작 순간부터.
+	# 재사용 대기와 무적 시간은 **든 주무기**를 따른다(data/config.json PLAYER.dodge.byWeapon, 시험값).
+	# 이동(distance·duration)은 다섯 무기가 같다 — 무적을 늘렸다고 조작이 묶이는 시간이 늘지 않게.
 	var D: Dictionary = P.dodge
 	if not p.dodge_active and bool(input.get("dodge_press", false)) and p.dodge_cd <= 0.0:
 		var d := mv if p.moving else [cos(p.face), sin(p.face)]
@@ -1961,17 +1997,24 @@ func update_player(input: Dictionary, dt: float) -> void:
 		p.dodge_end = ""
 		p.dodge_dx = d[0]
 		p.dodge_dy = d[1]
-		p.dodge_cd = float(D.cooldown) * float(build.dodge_cd_mult)
+		p.dodge_cd = float(p.dodge_cd_time) * float(build.dodge_cd_mult)
+		# 무적은 **회피 시작 기준**이고 이동과 따로 흐른다. 이미 남아 있어도 더하지 않는다(무적 중복 금지)
+		p.invuln_t = maxf(float(p.invuln_t), float(p.dodge_invuln_time))
 		p.ember_idx = -1
 		if PBuild.has_common(build, "ember"):
 			p.ember_idx = 0
 			add_fire_at(p.x, p.y)
+		PWeapons.cancel_windup(self) # 전투망치 준비 중이면 내려찍기를 취소한다(§2). 공격 대기시간은 환급하지 않는다
 		stats.dodges += 1
 		ev("dodge")
 	if p.dodge_cd > 0.0:
 		p.dodge_cd = maxf(0.0, p.dodge_cd - dt)
 		if p.dodge_cd < 1e-6:
 			p.dodge_cd = 0.0
+	if p.invuln_t > 0.0:
+		p.invuln_t = maxf(0.0, float(p.invuln_t) - dt)
+		if p.invuln_t < 1e-6:
+			p.invuln_t = 0.0
 	if p.dodge_active:
 		if not bool(input.get("dodge_held", false)):
 			p.dodge_released = true
@@ -2615,7 +2658,7 @@ func summary() -> Dictionary:
 		en[k].ttk_avg = (snapped(ttk_avg / float(m.ttk.size()), 0.01) if m.ttk.size() > 0 else -1.0)
 	var out := { "status": status, "elapsed": snapped(t, 0.01), "hp": player.hp, "hp_max": player.hp_max, "kills": stats.kills, "damage_taken": stats.damage_taken, "damage_taken_nominal": stats.damage_taken_nominal, "absorbed": stats.absorbed,
 		"attacks": stats.attacks, "hits": stats.hits, "dodges": stats.dodges, "special_uses": stats.special_uses, "e_uses": stats.e_uses, "dmg": dmg, "dmg_total": snapped(total, 0.1), "taken": metrics.taken.duplicate(), "taken_hits": metrics.taken_hits.duplicate(), "enemies": en, "steps": step_n, "seed": seed_value,
-		"dodge_mode": String(cfg.player.dodge.mode), "dodge_cooldown": float(cfg.player.dodge.cooldown), "dodge_dists": stats.dodge_dists.duplicate(), "perfect_dodges": stats.perfect_dodges,
+		"dodge_mode": String(cfg.player.dodge.mode), "dodge_cooldown": float(player.dodge_cd_time), "dodge_invuln": float(player.dodge_invuln_time), "dodge_weapon": String(player.dodge_weapon), "dodge_dists": stats.dodge_dists.duplicate(), "perfect_dodges": stats.perfect_dodges,
 		"formation": String(cfg.formation_id) if cfg.has("formation_id") else String(opts.get("formation_name", "?")), "spawn_total": spawn_total, "spawned": spawn_count, "xp": snapped(stats.xp, 0.0001), "level_ups": stats.level_ups,
 		"max_alive": stats.max_alive, "support_only_sec": snapped(float(stats.support_only_sec), 0.1), "thin_tail_sec": snapped(float(stats.thin_tail_sec), 0.1), "no_target_sec": snapped(float(stats.no_target_sec), 0.1), "max_dash_states": stats.max_dash_states, "max_bite_states": stats.max_bite_states, "tier_spawned": stats.tier_spawned.duplicate(), "tier_kills": stats.tier_kills.duplicate(), "max_enemy_projectiles": stats.max_enemy_projectiles, "max_enemy_zones": stats.max_enemy_zones, "max_webs": stats.max_webs, "world_stage": int(opts.get("world_stage", 0)), "dash_max": int(cfg.enemies.wolf.dash.max_concurrent), "wolf_hp": float(cfg.enemies.wolf.hp),
 		"squad_pushes": stats.squad_pushes, "squad_overlaps": stats.squad_overlaps, "cap_blocked_sec": snapped(float(stats.cap_blocked_sec), 0.1), "danger_blocked_sec": snapped(float(stats.danger_blocked_sec), 0.1),

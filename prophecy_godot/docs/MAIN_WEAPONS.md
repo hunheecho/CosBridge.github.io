@@ -7,7 +7,10 @@
 - 겹쳐 읽기: `scripts/rules/catalog.gd`의 `weapons()` — `supports.json`과 같은 자리에서 한 줄로 더한다.
   단 주무기는 **통째로 바꾸지 않고 항목만** 덮는다(이름·태그·개조 목록은 생성 값 그대로).
 - 규칙 코드: `scripts/rules/weapons.gd`
-- 시험: `tests/main_weapon_tests.gd` (스위트 `main_weapon_tests`, 95개 단언)
+- 시험: `tests/main_weapon_tests.gd` (스위트 `main_weapon_tests`)
+- **4차 조정(2026-09-10)은 `docs/WEAPON_PASS_2026-09-10.md`에 따로 적었다** — 주무기별 회피(대기·무적 분리),
+  전투망치 반경 80과 준비 중 취소, 추적궁 초반 피해와 갈래 사격, 회전 칼날 기본 3, 불씨 정령 너프.
+  그 문서의 수치도 전부 **첫 시험값**이며 밸런스 승인이 아니다.
 - 측정 도구: `tools/dps_probe.gd` (스위트 `dps_probe`, 결과 `docs/sim/DPS_PROBE.md`) — 이론·실제 단일 대상 DPS와 손실 분해
 
 ---

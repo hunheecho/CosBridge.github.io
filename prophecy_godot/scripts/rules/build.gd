@@ -48,9 +48,24 @@ static func weapon_stats(b: Dictionary, w: Dictionary) -> Dictionary:
 	# 레벨 상한은 역할을 따른다: 옛 구조는 전부 5, 새 구조는 주무기 5 / 보조 3.
 	# 저장에 상한보다 높은 레벨이 남아 있어도 계산에서만 잘라 쓴다(저장값을 깎지 않는다)
 	var lv: int = mini(int(w.level), PGrowth.level_cap(g, String(w.id)))
+	# 레벨 강화표는 data/supports.json levelScale이 기본이고, **무기 정의 안에 levelScale이 있으면 그쪽이 이긴다**
+	# (data/main_weapons.json이 겹쳐 쓴 값). 한 무기의 레벨 곡선만 바꾸려고 공용 배율을 건드리지 않기 위한 자리다
 	var scale: Dictionary = PCatalog.level_scale().get(String(w.id), {})
+	var own_scale: Dictionary = d.get("levelScale", {})
+	if not own_scale.is_empty():
+		scale = scale.duplicate(true)
+		for k in own_scale:
+			scale[k] = own_scale[k]
 	var lv_mult: float = float(PGrowth.LEGACY_LEVEL_MULT[lv - 1]) if PGrowth.growth_legacy else float(G.LEVEL_MULT[lv - 1])
-	if scale.has("damage") and not PGrowth.growth_legacy:
+	var dmg_scale: Dictionary = scale.get("damage", {})
+	# set = 그 레벨의 기본 피해를 **절대값**으로 정한다(곱셈 오차 없이 표 그대로).
+	# 여기서 base 자체를 갈아 끼우므로 아래 damage_mult·대장간 강화는 예전과 똑같이 곱해진다
+	if dmg_scale.has("set") and not PGrowth.growth_legacy:
+		var arr: Array = dmg_scale["set"]
+		base = base.duplicate()
+		base.damage = float(arr[clampi(lv - 1, 0, arr.size() - 1)])
+		lv_mult = 1.0
+	elif scale.has("damage") and not PGrowth.growth_legacy:
 		lv_mult = level_scaled(1.0, scale.damage, lv)
 	var s := base.duplicate(true)
 	s.id = String(w.id)
