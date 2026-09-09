@@ -957,6 +957,27 @@ static func draw_player_effects(ci: Node2D, st: CombatState) -> void:
 				var mtg: float = float(f.get("trigger", 0.0))
 				if mtg > 0.0:
 					dashed_circle(ci, c.x, c.y, mtg, rgba(255, 235, 190, 0.75 * k), 1.5, 4.0, 4.0)
+			"crack": # 장비 '공성 망치머리'의 전방 균열. len·w는 규칙이 실제 판정에 쓴 값 그대로다(PWeapons.equip_hammer_crack)
+				# 개조 '전방 충격파'(beam, 푸른 띠)와 **다른 실루엣**이어야 한다 — 갈라진 땅이라 채우지 않고
+				# 지그재그 갈래 셋으로 그린다. 폭(w)은 바깥 갈래의 좌우 끝으로 그대로 드러난다
+				var L: float = f.len
+				var W: float = f.w
+				ci.draw_set_transform_matrix(xf(Vector2(float(f.x), float(f.y)), float(f.angle), Vector2.ONE))
+				for lane in [-1.0, 0.0, 1.0]:
+					var pts := PackedVector2Array()
+					var half_w: float = W / 2.0 * float(lane)
+					for i in 7:
+						var q: float = float(i) / 6.0
+						var jag: float = (6.0 if i % 2 == 0 else -6.0) * (1.0 - q)
+						pts.append(Vector2(L * q * (0.4 + 0.6 * (1.0 - k)), half_w * q + jag))
+					ci.draw_polyline(pts, rgba(214, 176, 122, (0.85 if is_zero_approx(lane) else 0.55) * k), 4.0 if is_zero_approx(lane) else 2.5)
+				ci.draw_set_transform_matrix(IDENT)
+			"afterimage_pop": # 장비 '잔영 허물': 잔영이 공격 한 번을 받고 흩어지는 순간(피해를 대신 받은 것이 아니다)
+				var pc := Vector2(float(f.x), float(f.y))
+				for i in 5:
+					var a5: float = float(i) * TAU / 5.0 + 0.3
+					ci.draw_line(pc + Vector2(cos(a5), sin(a5)) * float(f.r) * 0.6,
+						pc + Vector2(cos(a5), sin(a5)) * (float(f.r) + 16.0 * (1.0 - k)), rgba(150, 205, 255, 0.7 * k), 2.0)
 			"strikewarn":
 				# 예고 원의 반지름은 규칙이 실제 판정에 쓰는 값 그대로다(PWeapons.fire_heavy). 여기서 다시 만들지 마라
 				dashed_circle(ci, float(f.x), float(f.y), float(f.r), rgba(255, 240, 150, 0.6 + 0.4 * (1.0 - k)), 2.0, 4.0, 4.0)
@@ -1022,6 +1043,23 @@ static func draw_supports(ci: Node2D, st: CombatState) -> void:
 	draw_doll(ci, st, S.get("doll_obj", {}))
 	draw_bell_charges(ci, st, S.get("bell", {}))
 	draw_shock_charge(ci, st)
+
+## **장비 '잔영 허물'의 잔영.** 규칙이 들고 있는 st.afterimage(x·y·r·t·dur)만 읽는다 —
+## 여기서 수명·판정을 만들지 않으므로 규칙이 잔영을 소비하면 그 프레임에 화면에서도 사라진다(표시 = 판정).
+## **속이 빈 윤곽 + 눈금 없는 반투명 몸**으로 그린다: 플레이어 본체(채워진 몸)와 한눈에 갈려야
+## '어느 쪽이 나인지'를 헷갈리지 않는다. 위험 예고와 같은 색(붉은/노랑)은 쓰지 않는다.
+static func draw_afterimage(ci: Node2D, st: CombatState) -> void:
+	var a: Dictionary = st.afterimage
+	if a.is_empty():
+		return
+	var k: float = 1.0 - clampf(float(a.t) / maxf(0.001, float(a.dur)), 0.0, 1.0)
+	var c := Vector2(float(a.x), float(a.y))
+	var r: float = float(a.r)
+	ci.draw_circle(c, r, rgba(150, 205, 255, 0.16 * k))
+	dashed_circle(ci, c.x, c.y, r + 3.0, rgba(190, 230, 255, 0.75 * k), 2.0, 5.0, 4.0)
+	# 몸통 실루엣(세로 선 하나 + 어깨 선): '사람 모양의 잔상'이라는 것만 읽히면 된다
+	ci.draw_line(c + Vector2(0.0, -r * 0.9), c + Vector2(0.0, r * 0.9), rgba(210, 240, 255, 0.55 * k), 2.0)
+	ci.draw_line(c + Vector2(-r * 0.7, -r * 0.2), c + Vector2(r * 0.7, -r * 0.2), rgba(210, 240, 255, 0.4 * k), 2.0)
 
 ## 감전 누적(축전)의 진행. 누적은 **전투 전역 하나**라 어느 적에게도 붙일 수 없어서 플레이어 **발밑**에 그린다
 ## (머리 위는 수호 방울이 이미 쓰고, 적 공격 예고를 가리지 않는 자리다).
@@ -4243,6 +4281,7 @@ static func _draw_layers(ci: Node2D, st: CombatState, decor: Dictionary) -> void
 		else:
 			draw_enemy(ci, st, st.enemies[idx])
 	draw_supports(ci, st)      # 보조무기 개체(까마귀·분신·인형): 개체 위, 예고 아래
+	draw_afterimage(ci, st)    # 장비 '잔영 허물'의 잔영: 같은 층(개체 위·예고 아래)
 	draw_canopies(ci, st)
 	draw_impacts(ci, st)
 	draw_telegraphs(ci, st)

@@ -744,6 +744,38 @@
     "shape": "<path d='M26 6L32 12 38 6 50 14 44 26V58H20V26L14 14Z' fill='currentColor' fill-opacity='.18'/><path d='M32 12V58'/><path d='M45 52C31 42 30 30 38 26 44 22 45 31 45 31S47 22 53 26C61 30 59 42 45 52Z' fill='currentColor' fill-opacity='.5'/>"
   },
   {
+    "id": "equip_siege_hammerhead",
+    "name": "공성 망치머리",
+    "kind": "equip",
+    "key": "siege_hammerhead",
+    "color": "#D6B07A",
+    "shape": "<path d='M10 20H34V44H10Z' fill='currentColor' fill-opacity='.30'/><path d='M22 44V58'/><path d='M34 32H44M44 32L38 26M44 32L38 38'/><path d='M50 22L58 32 50 42'/>"
+  },
+  {
+    "id": "equip_stormwire",
+    "name": "겹번개 도선",
+    "kind": "equip",
+    "key": "stormwire",
+    "color": "#8EC7FF",
+    "shape": "<path d='M26 6L12 34H23L17 58 37 28H26L34 6Z' fill='currentColor' fill-opacity='.30'/><path d='M48 10L40 30H48L42 52'/>"
+  },
+  {
+    "id": "equip_frostcrest_armor",
+    "name": "서리 결정 흉갑",
+    "kind": "equip",
+    "key": "frostcrest_armor",
+    "color": "#BFEFFF",
+    "shape": "<path d='M26 6L32 12 38 6 50 14 44 26V58H20V26L14 14Z' fill='currentColor' fill-opacity='.18'/><path d='M32 20V50M22 27L42 43M42 27L22 43'/>"
+  },
+  {
+    "id": "equip_afterimage_cloak",
+    "name": "잔영 허물",
+    "kind": "equip",
+    "key": "afterimage_cloak",
+    "color": "#A9C4E8",
+    "shape": "<path d='M24 8C16 12 14 20 14 28V58H36V28C36 18 32 12 24 8Z' fill='currentColor' fill-opacity='.26'/><path d='M42 12C50 17 52 24 52 32V58H36' stroke-dasharray='4 4'/>"
+  },
+  {
     "id": "reward_clone",
     "name": "시간의 복제",
     "kind": "reward",
@@ -1006,5 +1038,29 @@
     "key": "wind:lingering",
     "color": "#8FE0C4",
     "shape": "<path d='M6 18H36M6 31H44M6 44H28' stroke-dasharray='4 5'/><circle cx='47' cy='45' r='10' stroke-dasharray='3 4'/><path d='M47 38V45L53 49'/>"
+  },
+  {
+    "id": "weapon_echo",
+    "name": "잔영 분신",
+    "kind": "weapon",
+    "key": "echo",
+    "color": "#AFA6E6",
+    "shape": "<circle cx='24' cy='17' r='6'/><path d='M16 52L20 28H29L33 52Z' fill='currentColor' fill-opacity='.35'/><circle cx='45' cy='22' r='5' stroke-dasharray='3 3'/><path d='M38 54L41 33H50L53 54Z' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "common_frost",
+    "name": "얼음 파편",
+    "kind": "common",
+    "key": "frost",
+    "color": "#8FD8F0",
+    "shape": "<path d='M24 6L34 26 20 34 12 20Z' fill='currentColor' fill-opacity='.25'/><path d='M44 28L54 44 40 52 34 38Z' fill='currentColor' fill-opacity='.25'/><path d='M8 44L16 52M52 10L58 16'/>"
+  },
+  {
+    "id": "common_ember",
+    "name": "잔불 걸음",
+    "kind": "common",
+    "key": "ember",
+    "color": "#FFB877",
+    "shape": "<path d='M18 14c3 6 8 7 7 13-1 5-6 7-10 5-7-3-5-11-1-14-1 6 2 5 3 1Z' fill='currentColor' fill-opacity='.35'/><path d='M36 34c3 6 8 7 7 13-1 5-6 7-10 5-7-3-5-11-1-14-1 6 2 5 3 1Z' fill='currentColor' fill-opacity='.35'/><circle cx='52' cy='52' r='4' fill='currentColor' fill-opacity='.35'/><path d='M10 56H30' stroke-dasharray='3 4'/>"
   }
 ]

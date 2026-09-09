@@ -4,8 +4,8 @@
 만드는 도구는 `tools/icon_gen.gd`(프로젝트 안에서 코드로 그린 벡터 → svg·png128·png64·data/icons.json). 최종 아트는 아니다.
 아이콘이 없는 항목은 다른 효과의 아이콘을 재사용하지 않고 중립 자리표시 기호 + 실제 이름으로 표시한다.
 
-- 표시 대상 ID: 129
-- 아이콘 있음: 129
+- 표시 대상 ID: 133
+- 아이콘 있음: 133
 - 누락: 0
 
 누락 없음. 표시 대상 ID가 늘어나면 이 문서에 다시 나타난다.
@@ -150,10 +150,11 @@
 | `passive:toughness` | 강인함 | `passive_toughness` |
 | `passive:vitality` | 건강 | `passive_vitality` |
 
-## 적용 · equip (18)
+## 적용 · equip (22)
 
 | ID | 이름 | 그림 파일 |
 | --- | --- | --- |
+| `equip:afterimage_cloak` | 잔영 허물 | `equip_afterimage_cloak` |
 | `equip:bloodmoon_sword` | 혈월검 | `equip_bloodmoon_sword` |
 | `equip:caster_shield` | 시전자의 방패 | `equip_caster_shield` |
 | `equip:chrono_staff` | 시간술사의 지팡이 | `equip_chrono_staff` |
@@ -161,6 +162,7 @@
 | `equip:ember_sword` | 잔불검 | `equip_ember_sword` |
 | `equip:emergency_shield` | 비상 방패 | `equip_emergency_shield` |
 | `equip:expedition_armor` | 원정대의 갑옷 | `equip_expedition_armor` |
+| `equip:frostcrest_armor` | 서리 결정 흉갑 | `equip_frostcrest_armor` |
 | `equip:guardian_armor` | 수호자의 갑옷 | `equip_guardian_armor` |
 | `equip:hunter_sword` | 사냥꾼의 검 | `equip_hunter_sword` |
 | `equip:iron_shield` | 철벽 방패 | `equip_iron_shield` |
@@ -169,6 +171,8 @@
 | `equip:relay_shield` | 연계 방패 | `equip_relay_shield` |
 | `equip:renewal_coat` | 재생의 여행복 | `equip_renewal_coat` |
 | `equip:reprisal_shield` | 반격 방패 | `equip_reprisal_shield` |
+| `equip:siege_hammerhead` | 공성 망치머리 | `equip_siege_hammerhead` |
+| `equip:stormwire` | 겹번개 도선 | `equip_stormwire` |
 | `equip:time_shield` | 시간의 방패 | `equip_time_shield` |
 | `equip:traveler_armor` | 여행자의 경갑 | `equip_traveler_armor` |
 | `equip:vitality_coat` | 생명력의 외투 | `equip_vitality_coat` |

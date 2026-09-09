@@ -456,7 +456,31 @@ static func land_heavy(st: CombatState, w: Dictionary, ix: float, iy: float, ang
 		later(st, 0.6, func():
 			st.fx({ "kind": "impact", "x": ix, "y": iy, "r": float(s.radius), "ttl": 0.3, "after": true })
 			hit_circle(st, w, ix, iy, float(s.radius), 0.5, { "direct": false, "ground": true }))
+	equip_hammer_crack(st, w, ix, iy, ang)
 	st.ev("boss_land")
+
+## **장비 '공성 망치머리'**(eff.hammerCrack, 시험값). 전투망치가 착탄한 **뒤** 전방으로 균열이 뻗어 추가 충격을 준다.
+##
+## 못박는 것
+##  ① **전투망치 전용.** 무기 id가 hammer가 아니면 아무 일도 하지 않는다(장비 설명·상점 문구에도 그렇게 적혀 있다).
+##  ② **피해 기준은 최초 타격의 공격 피해(명목값)다.** hit_beam은 `w.stats.damage × mult`를 쓰므로
+##     본타가 실제로 깎은 체력·보호막·과잉 피해와 무관하다. 적이 반쯤 죽어 있든 무적이든 균열 피해는 같다.
+##  ③ **최초 착탄에 맞은 적도 균열에 다시 맞는다.** 균열은 본타와 따로 대상을 고르며 제외 목록을 쓰지 않는다.
+##  ④ **한 번의 균열에 같은 적이 두 번 맞지 않는다.** hit_beam이 alive_targets를 한 번만 훑기 때문이다.
+##  ⑤ 준비 중 회피로 취소하면 land_heavy 자체가 불리지 않으므로 균열도 없다(§2 취소 규칙 그대로).
+##  ⑥ 연계 자격은 **개조 '전방 충격파'와 같은 main_extra**다 — direct:false로 넣으므로
+##     PSupport.cause_of가 '주무기가 낸 추가 타격'으로 분류한다. 자격표를 우회하는 새 통로를 만들지 않는다.
+static func equip_hammer_crack(st: CombatState, w: Dictionary, ix: float, iy: float, ang: float) -> void:
+	var EQ: Dictionary = st.build.get("equip", {})
+	if not EQ.has("hammerCrack") or String(w.id) != "hammer":
+		return
+	var HC: Dictionary = EQ.hammerCrack
+	var L := float(HC.get("len", 170.0))
+	var W := float(HC.get("w", 56.0))
+	var m := float(HC.get("mult", 0.5))
+	st.fx({ "kind": "crack", "x": ix, "y": iy, "angle": ang, "len": L, "w": W, "ttl": 0.3 })
+	hit_beam(st, w, ix, iy, ang, L, W, m, { "direct": false })
+	st.stats.equip_procs.siege_hammerhead = int(st.stats.equip_procs.get("siege_hammerhead", 0)) + 1
 
 ## 전투망치의 제압(밀어내기·경직). 등급별 세기는 **직접 쓰지 않고** data/supports.json의 저항표를 쓴다.
 ## 보스는 밀어내기·경직 저항이 0이라 위치도 행동도 강제로 바뀌지 않는다(무한 제압 금지).
@@ -859,6 +883,35 @@ static func steer_projectile(st: CombatState, pr: Dictionary, dt: float) -> void
 			else:
 				pr.dead = true
 
+## **장비 '겹번개 도선'**(eff.shockEcho, 시험값). 일반 감전 추가 피해(shock_bonus)를 **같은 적에게만** 한 번 복제한다.
+##
+## 못박는 것
+##  ① **복제 대상은 감전을 맞은 그 적 하나뿐이다.** 원본 감전 후속의 반경 안 다른 적에게는 복제가 가지 않는다.
+##  ② **큰 방전(shock_discharge)은 복제하지 않는다.** 여기는 감전 후속이 터진 자리에서만 불리고,
+##     방전 피해는 이 함수를 지나가지 않는다. 자격표의 shock_echo.allow도 shock_bonus 하나뿐이다.
+##  ③ **자기 자신을 다시 부르지 않는다.** 세 겹으로 막혀 있다:
+##     (가) 복제 피해의 출처 무기가 orb라 on_hit의 `String(sr.weapon_id) != "orb"` 관문에서 걸린다.
+##     (나) no_conduct:true라 감전 후속 관문을 다시 통과하지 못한다.
+##     (다) cause "shock_echo"가 자격표 shock_bonus.deny와 shock_echo.deny에 모두 적혀 있다.
+##  ④ **방전 충전(support_charge)에 포함되지 않는다.** 충전을 올리는 곳은 위 on_hit의 한 줄뿐이고
+##     그 줄은 감전 후속이 실제로 터진 순간에만 실행된다. 복제는 그 줄 **뒤**에서 피해만 넣으므로
+##     이 장비가 있든 없든 '감전 후속 1회 = 충전 1'이 그대로다. 자격표에도 shock_discharge.deny에 shock_echo가 있다.
+##  ⑤ 번개 구체의 기본 수치(bonusMult·bonusR·chargeNeed …)는 **하나도 건드리지 않는다**(§17).
+static func equip_shock_echo(st: CombatState, e: Dictionary, orb: Dictionary, bonus_mult: float) -> void:
+	var EQ: Dictionary = st.build.get("equip", {})
+	if not EQ.has("shockEcho") or e.dead:
+		return
+	if not PSupport.eligible("shock_echo", "shock_bonus"):
+		return
+	var copies := int((EQ.shockEcho as Dictionary).get("copies", 1))
+	for _i in copies:
+		if e.dead:
+			return
+		var before: float = float(e.hp)
+		st.damage_enemy(e, float(orb.stats.damage) * bonus_mult, { "cause": "shock_echo", "src": src(orb, { "direct": false }), "no_conduct": true })
+		PSupport.meter(st, "orb", "shock_dmg", maxf(0.0, before - float(e.hp)))
+		st.stats.equip_procs.stormwire = int(st.stats.equip_procs.get("stormwire", 0)) + 1
+
 # ---------- 적중·처치 훅(combat.damage_enemy / kill_enemy에서 호출) ----------
 static func on_hit(st: CombatState, e: Dictionary, opt: Dictionary, _dmg: float) -> void:
 	var sr: Dictionary = opt.get("src", {})
@@ -916,6 +969,7 @@ static func on_hit(st: CombatState, e: Dictionary, opt: Dictionary, _dmg: float)
 								# 평소 감전 추가 피해(shock_bonus)에는 경직이 없다 — 여기 방전 한 곳뿐이다
 								if float(o2.hp) < hp_b and not o2.dead:
 									st.apply_stagger(o2, "shock_discharge")
+				equip_shock_echo(st, e, orb, bm)
 		# 무기 공명(보스 보상): 서로 다른 무기 3종이 **직접** 4초 안에 같은 적 → 폭발(적당 6초 간격).
 		# 감전과 달리 여기서는 직접 타격만 센다 — 개조의 추가 타격까지 세면 무기 하나로 3종이 채워진다
 		if bool(sr.get("direct", true)) and (b.boss_rewards as Array).has("resonance"):

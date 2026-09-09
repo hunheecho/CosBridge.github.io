@@ -1,6 +1,6 @@
 {
   "schema": "prophecy.icons.v1",
-  "source": "assets/icons/manifest_source.json (프로젝트 안에서 코드로 그린 벡터 113종, 최종 아트 아님)",
+  "source": "assets/icons/manifest_source.json (프로젝트 안에서 코드로 그린 벡터 133종, 최종 아트 아님)",
   "note": "게임 ID -> 아이콘 파일. 여기에 없는 ID는 절대 다른 효과의 아이콘으로 대체하지 않고 중립 자리표시 기호 + 실제 한국어 이름으로 그린다.",
   "generator": "tools/icon_gen.gd — manifest_source.json을 고치고 이 도구를 다시 돌려 svg/png/매핑을 함께 만든다(손으로 고치지 않는다)",
   "dir64": "res://assets/icons/png64",
@@ -379,22 +379,10 @@
       "color": "#FF9A5A",
       "kind": "common"
     },
-    "common:ember": {
-      "file": "common_ember",
-      "name": "잔불 걸음",
-      "color": "#FFB877",
-      "kind": "common"
-    },
     "common:flare": {
       "file": "common_flare",
       "name": "불꽃 파열",
       "color": "#FFCF6B",
-      "kind": "common"
-    },
-    "common:frost": {
-      "file": "common_frost",
-      "name": "얼음 파편",
-      "color": "#8FD8F0",
       "kind": "common"
     },
     "common:reach": {
@@ -577,6 +565,30 @@
       "color": "#F2A8C0",
       "kind": "equip"
     },
+    "equip:siege_hammerhead": {
+      "file": "equip_siege_hammerhead",
+      "name": "공성 망치머리",
+      "color": "#D6B07A",
+      "kind": "equip"
+    },
+    "equip:stormwire": {
+      "file": "equip_stormwire",
+      "name": "겹번개 도선",
+      "color": "#8EC7FF",
+      "kind": "equip"
+    },
+    "equip:frostcrest_armor": {
+      "file": "equip_frostcrest_armor",
+      "name": "서리 결정 흉갑",
+      "color": "#BFEFFF",
+      "kind": "equip"
+    },
+    "equip:afterimage_cloak": {
+      "file": "equip_afterimage_cloak",
+      "name": "잔영 허물",
+      "color": "#A9C4E8",
+      "kind": "equip"
+    },
     "reward:clone": {
       "file": "reward_clone",
       "name": "시간의 복제",
@@ -733,12 +745,6 @@
       "color": "#FFD24D",
       "kind": "mod"
     },
-    "weapon:echo": {
-      "file": "weapon_echo",
-      "name": "잔영 분신",
-      "color": "#AFA6E6",
-      "kind": "weapon"
-    },
     "mod:echo:cross": {
       "file": "mod_echo_cross",
       "name": "교차 잔영",
@@ -780,6 +786,24 @@
       "name": "잔바람",
       "color": "#8FE0C4",
       "kind": "mod"
+    },
+    "weapon:echo": {
+      "file": "weapon_echo",
+      "name": "잔영 분신",
+      "color": "#AFA6E6",
+      "kind": "weapon"
+    },
+    "common:frost": {
+      "file": "common_frost",
+      "name": "얼음 파편",
+      "color": "#8FD8F0",
+      "kind": "common"
+    },
+    "common:ember": {
+      "file": "common_ember",
+      "name": "잔불 걸음",
+      "color": "#FFB877",
+      "kind": "common"
     }
   },
   "alias": {

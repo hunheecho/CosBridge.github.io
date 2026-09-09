@@ -77,6 +77,7 @@ var low_heal_used: bool = false   # 출격 준비물 '응급 약낭'을 이번 �
 var temp_buff: String = ""
 # 제작 전용 장비·영구 특성 상태(시험값 meta.json). 해당 장비/특성이 없으면 0·{}로 남아 기준 전투 경로에 영향이 없다
 var moon_shield: float = 0.0        # 월광 갑옷: 이 장비 몫의 보호막(감속장 안에서만 재생, 0이 되면 재생 없음)
+var afterimage: Dictionary = {}     # 장비 '잔영 허물': 회피 출발점의 잔영 {x, y, r, t, dur, aimed{적 id: 그때의 상태}}. 피해를 대신 받지 않는다
 var reprisal_cd: float = 0.0        # 반격 방패 내부 재사용
 var relay_window: float = 0.0       # 연계 방패: Q 뒤 E까지 허용 창
 var relay_cd: float = 0.0
@@ -463,6 +464,23 @@ func is_frozen(e: Dictionary) -> bool:
 func is_hard_frozen(e: Dictionary) -> bool:
 	return float(e.get("freeze", 0.0)) > 0.0 and String(e.get("freeze_kind", "")) == "hard"
 
+## 빙결에 필요한 냉기 중첩 수. 기본값은 data/supports.json tuning.frost.stackMax(시험값 5)이고,
+## **장비 '서리 결정 흉갑'**(eff.frostReq)이 그 수를 줄인다(시험값 5 → 4).
+##
+## 못박는 것
+##  ① **바닥값(min)이 있다.** 요구량이 그 아래로는 절대 내려가지 않으므로 '깎고 또 깎아 무한 빙결'에 접근하지 않는다.
+##     장비 강화(+1/+2)는 기본 능력치만 올리고 이 사전 값을 건드리지 않는다(4절) — 즉 강화로도 더 깎이지 않는다.
+##  ② 요구량만 바꾼다. **재빙결 제한(refreezeSec)·빙결 지속(freezeSec)·보스의 결빙(soft) 판정은 그대로다.**
+##     빙결이 풀리면 여전히 refreeze_t가 걸리므로 '빙결 1.0 + 제한 3.0'의 최소 주기가 유지된다.
+##  ③ 최소 1은 보장한다(0이면 아무 적중 없이 얼어붙는다).
+func frost_need() -> int:
+	var base := int(frost_cfg().get("stackMax", 5))
+	var EQ: Dictionary = build.get("equip", {})
+	if not EQ.has("frostReq"):
+		return base
+	var R: Dictionary = EQ.frostReq
+	return maxi(1, maxi(int(R.get("min", 4)), base - int(R.get("reduce", 1))))
+
 ## 이 적의 빙결 지속(초). 일반 → 정예 → 보스 순으로 짧아지거나 성격이 바뀐다
 func freeze_dur_for(e: Dictionary) -> float:
 	var F := frost_cfg()
@@ -495,7 +513,7 @@ func add_chill_stack(e: Dictionary, n: int, o: Dictionary = {}) -> void:
 	var F := frost_cfg()
 	if F.is_empty():
 		return
-	var mx := int(F.get("stackMax", 5))
+	var mx := frost_need() # 장비 '서리 결정 흉갑'이 요구량을 줄일 수 있다(바닥값 있음)
 	var before := int(e.get("chill_n", 0))
 	e["chill_n"] = mini(mx, before + n)
 	e["chill_n_t"] = float(F.get("stackTtl", 3.0))
@@ -971,6 +989,8 @@ func target_of(e: Dictionary) -> Dictionary:
 		return player
 	var lt := PSupport.lure_target(self, e)
 	if lt.is_empty():
+		lt = afterimage_target(e) # 장비 '잔영 허물'(인형이 없을 때만 — 두 유인이 같은 적을 두고 다투지 않는다)
+	if lt.is_empty():
 		return player
 	var proxy := player.duplicate()
 	proxy.x = float(lt.x)
@@ -978,6 +998,72 @@ func target_of(e: Dictionary) -> Dictionary:
 	proxy.r = float(lt.get("r", player.r))
 	proxy.lure = true   # 읽는 쪽이 '지금 본체가 아니다'를 알 수 있게(연출·판정 예외용)
 	return proxy
+
+# ---------- 장비 '잔영 허물'(eff.afterimage, 시험값) ----------
+## 회피 출발점에 짧게 남는 잔영. **회피 순간의 조준 교란**이며 도깨비 인형의 지속 유인과 다르다.
+##
+## 못박는 것(사용자 지시 3절 [10])
+##  ① **피해를 대신 받지 않는다.** 이 사전은 damage_player·apply_player_damage·zone_damage 어디에도 등장하지 않는다.
+##     광역 공격의 실제 피해 영역은 그대로이며, 잔영이 있어도 플레이어가 서 있는 자리에서 받는 피해는 1도 줄지 않는다.
+##  ② **이미 확정된 공격 방향·실행 중인 공격은 바꾸지 않는다.** 흔들 수 있는 것은 `..._aim`·`crouch`·`bite_track`처럼
+##     **매 프레임 다시 겨누는** 상태와 아직 공격을 시작하지 않은 `approach`뿐이다(허용 목록 방식이라
+##     모르는 상태는 자동으로 제외된다). `..._lock`·`dash`·`swell` 같은 확정·실행 상태는 목록에 없다.
+##  ③ **잔영은 공격 한 번을 받으면 사라진다.** 잔영을 겨누던 적이 그 조준을 끝내는 순간(= 공격을 확정한 순간)
+##     잔영이 그 한 번을 받은 것으로 보고 사라진다. 두 번째 적은 이미 없는 잔영을 겨눌 수 없다.
+##  ④ **보스에게는 통하지 않는다.** 기존 제압 저항표 resist.taunt(보스 0 · 정예 0.5)를 그대로 곱해 창을 줄인다 —
+##     새 저항 장치를 만들지 않았다. 어떤 적의 좌표도 여기서 쓰지 않으므로 강제 위치 이동은 원리적으로 불가능하다.
+##  ⑤ **회피 자체의 수치(무기별 재사용·거리·무적 시간)는 건드리지 않는다.** 잔영은 회피가 시작된 뒤에 얹힐 뿐이다.
+func afterimage_start(x0: float, y0: float) -> void:
+	var EQ: Dictionary = build.get("equip", {})
+	if not EQ.has("afterimage"):
+		return
+	var A: Dictionary = EQ.afterimage
+	afterimage = { "x": x0, "y": y0, "r": float(A.get("r", 16.0)), "t": 0.0,
+		"dur": float(A.get("dur", 0.9)), "hits": maxi(1, int(A.get("hits", 1))), "aimed": {} }
+	stats.equip_procs.afterimage_cloak = int(stats.equip_procs.get("afterimage_cloak", 0)) + 1
+
+## 지금 이 적이 **아직 겨누는 중**인가(= 잔영이 흔들 수 있는가). 상태 이름 허용 목록 하나로만 판단한다.
+func afterimage_aiming(e: Dictionary) -> bool:
+	var s := String(e.get("state", ""))
+	return s == "approach" or s == "aim" or s == "crouch" or s == "bite_track" or s.ends_with("_aim")
+
+## 이 적이 지금 노려야 할 잔영 자리. 없으면 {}
+func afterimage_target(e: Dictionary) -> Dictionary:
+	if afterimage.is_empty() or e.dead or bool(e.get("structure", false)):
+		return {}
+	if not afterimage_aiming(e):
+		return {} # 확정·실행 중인 공격은 건드리지 않는다
+	var hold := float(afterimage.dur) * PSupport.resist_mult("taunt", e) # 보스 0 · 정예 절반
+	if hold <= 0.0 or float(afterimage.t) >= hold:
+		return {}
+	var s := String(e.get("state", ""))
+	if s != "approach":
+		(afterimage.aimed as Dictionary)[int(e.id)] = s # 이 조준이 끝나면 잔영이 그 공격 한 번을 받은 것이다
+	return { "x": float(afterimage.x), "y": float(afterimage.y), "r": float(afterimage.r), "afterimage": true }
+
+## 잔영 진행. 수명이 다하거나 **겨누던 적이 공격을 확정하면** 사라진다.
+## update_enemies 뒤에 부른다 — 그래야 이번 프레임에 상태가 바뀐 것을 그대로 볼 수 있다.
+func update_afterimage(dt: float) -> void:
+	if afterimage.is_empty():
+		return
+	afterimage.t = float(afterimage.t) + dt
+	if float(afterimage.t) >= float(afterimage.dur):
+		afterimage = {}
+		return
+	var aimed: Dictionary = afterimage.aimed
+	for e in enemies:
+		var id := int(e.id)
+		if not aimed.has(id):
+			continue
+		if e.dead or String(e.get("state", "")) != String(aimed[id]):
+			# 겨누던 조준이 끝났다 = 그 공격은 잔영을 향해 나갔다. 잔영은 한 번을 받고 사라진다
+			afterimage.hits = int(afterimage.hits) - 1
+			fx({ "kind": "afterimage_pop", "x": float(afterimage.x), "y": float(afterimage.y), "r": float(afterimage.r), "ttl": 0.25 })
+			if int(afterimage.hits) <= 0:
+				afterimage = {}
+				return
+			aimed.erase(id)
+			return
 
 func approach(e: Dictionary, tx: float, ty: float, speed: float, dt: float) -> void:
 	# **도깨비 인형 유인.** 목표가 지금 플레이어가 선 자리일 때만 인형 자리로 바꾼다.
@@ -2042,6 +2128,8 @@ func update_player(input: Dictionary, dt: float) -> void:
 			p.ember_idx = 0
 			add_fire_at(p.x, p.y)
 		PWeapons.cancel_windup(self) # 전투망치 준비 중이면 내려찍기를 취소한다(§2). 공격 대기시간은 환급하지 않는다
+		# 장비 '잔영 허물': **출발점**에 잔영을 남긴다. 위 회피 수치(재사용·거리·무적)는 하나도 바뀌지 않았다
+		afterimage_start(float(p.x), float(p.y))
 		stats.dodges += 1
 		ev("dodge")
 	if p.dodge_cd > 0.0:
@@ -2647,6 +2735,7 @@ func step(input: Dictionary, dt: float) -> void:
 	update_player(input, dt)
 	PSkills.update(self, dt)
 	update_enemies(dt)
+	update_afterimage(dt) # 장비 '잔영 허물'(적 상태가 갱신된 뒤에 본다)
 	if not obj.is_empty():
 		PObjectives.update(self, dt)
 	update_projectiles(dt)
