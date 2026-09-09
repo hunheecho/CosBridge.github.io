@@ -224,6 +224,11 @@
       "timeout_sec": 600,
       "desc": "보조무기 공통 규칙(발동 자격·제압 저항)"
     },
+    "frost_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "냉기 기본 특성(중첩 → 빙결 → 주무기 파쇄)과 서리 개조 3종"
+    },
     "main_weapon_tests": {
       "env": {},
       "timeout_sec": 600,
@@ -477,6 +482,7 @@
       "spore_tests",
       "slots_tests",
       "support_tests",
+      "frost_tests",
       "main_weapon_tests",
       "support_b_tests",
       "terrain_tests",
@@ -516,6 +522,7 @@
       "spore_tests",
       "slots_tests",
       "support_tests",
+      "frost_tests",
       "main_weapon_tests",
       "support_b_tests",
       "terrain_tests",

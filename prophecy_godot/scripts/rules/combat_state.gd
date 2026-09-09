@@ -407,10 +407,187 @@ func time_factor(ox, oy = null, orad: float = 0.0) -> float:
 		return 0.7
 	return 1.0
 
-## 이동 속도: 냉기 0.6, 감속장 0.4, 둘 다면 더 강한 쪽(곱하지 않는다)
+## 이동 속도: 냉기 0.6, 감속장 0.4, 둘 다면 더 강한 쪽(곱하지 않는다).
+## **빙결(hard)이면 0** — update_enemies가 이미 그 적의 갱신을 건너뛰지만, 갱신 밖에서 스스로 움직이는
+## 경로가 생겨도 얼어 있는 동안에는 움직이지 않게 하는 이중 잠금이다(보스의 결빙 soft는 해당 없음)
 func enemy_speed_mult(e: Dictionary) -> float:
+	if is_hard_frozen(e):
+		return 0.0
 	var tf := time_factor(e)
 	return minf(tf, float(cfg.frost.slow) if float(e.get("chill", 0.0)) > 0.0 else 1.0) if cfg.has("frost") else tf
+
+# ---------- 냉기 중첩 · 빙결 · 파쇄 (docs/FROST_CONTRACT.md · docs/FROST.md) ----------
+## 사용자 확정(2026-09-09): **개조를 고르지 않아도** 냉기를 쌓아 얼리고 주무기로 깨뜨릴 수 있다.
+## 여기가 그 판정의 본체다. 숫자는 하나도 두지 않는다 — 전부 data/supports.json tuning.frost(시험값)에 있다.
+##
+## 지키는 것
+##  ① 중첩은 **실제 적중 이벤트**로만 오른다. 매 프레임 상태 검사로는 절대 오르지 않는다.
+##  ② 피해 이벤트 하나는 그 적에게 중첩을 **최대 1**만 준다(여러 냉기 공급원이 같은 타격에 겹쳐도 1).
+##     장판은 프레임이 아니라 **틱**마다 1을 준다(zoneStackTick).
+##  ③ 파쇄를 터뜨리는 것은 **주무기 공격뿐**이다(자격표 frost_shatter).
+##  ④ 한 번의 빙결에서 파쇄는 **한 번**뿐이다(freeze_broke). 같은 프레임 다중 적중에서도 중복 정산되지 않는다.
+##  ⑤ 파쇄 추가 피해와 파편은 다시 냉기를 쌓지 않고 다른 빙결을 파쇄하지 않는다(자격표 frost_stack·frost_shatter).
+##  ⑥ 파쇄·빙결 종료 뒤 중첩 0 + 재빙결 제한(refreeze_t) — 영구 행동 불능을 막는다.
+func frost_cfg() -> Dictionary:
+	return PCatalog.support_tuning("frost")
+
+## 지금 빙결·결빙 상태인가(둘 다 포함)
+func is_frozen(e: Dictionary) -> bool:
+	return float(e.get("freeze", 0.0)) > 0.0
+
+## 이동·공격이 멈추는 빙결인가(보스의 결빙 soft는 false)
+func is_hard_frozen(e: Dictionary) -> bool:
+	return float(e.get("freeze", 0.0)) > 0.0 and String(e.get("freeze_kind", "")) == "hard"
+
+## 이 적의 빙결 지속(초). 일반 → 정예 → 보스 순으로 짧아지거나 성격이 바뀐다
+func freeze_dur_for(e: Dictionary) -> float:
+	var F := frost_cfg()
+	var D: Dictionary = F.get("freeze_sec", F.get("freezeSec", {}))
+	return float(D.get(PSupport.tier_class(e), 1.0))
+
+## 이 피해가 냉기 중첩을 쌓을 자격이 있는 경로인가(파쇄 추가 피해·파편은 여기서 걸린다)
+func frost_can_stack(o: Dictionary) -> bool:
+	return PSupport.eligible("frost_stack", frost_cause_of(o))
+
+## 피해 opt를 자격표의 경로 어휘로 바꾼다.
+## PSupport.cause_of는 opt.cause가 있으면 그대로 돌려주는데, 규칙 코드가 적어 넣은 cause 중에는
+## 자격표 어휘가 아닌 것이 있다(지뢰의 "mine"). 어휘 밖이면 무기 id로 다시 물어 바로잡는다
+func frost_cause_of(o: Dictionary) -> String:
+	var sr: Dictionary = o.get("src", {})
+	var wid := String(sr.get("weapon_id", ""))
+	var c := PSupport.cause_of(self, { "cause": String(o.get("cause", "")), "weapon": wid, "hit": o })
+	if not PSupport.known_cause(c):
+		c = PSupport.cause_of(self, { "weapon": wid, "hit": o })
+	return c
+
+## 냉기 중첩 n을 쌓는다. **실제 적중·틱 이벤트에서만 부른다.**
+## 상한(stackMax)에 닿고 재빙결 제한이 풀려 있으면 그 자리에서 얼린다.
+## 이미 얼어 있는 적에게는 쌓지 않는다 — 얼어 있는 동안 계속 쌓아 두면 해제 직후 곧바로 다시 얼기 때문이다
+func add_chill_stack(e: Dictionary, n: int, o: Dictionary = {}) -> void:
+	if e.dead or n <= 0 or is_frozen(e):
+		return
+	if not o.is_empty() and not frost_can_stack(o):
+		return
+	var F := frost_cfg()
+	if F.is_empty():
+		return
+	var mx := int(F.get("stackMax", 5))
+	var before := int(e.get("chill_n", 0))
+	e["chill_n"] = mini(mx, before + n)
+	e["chill_n_t"] = float(F.get("stackTtl", 3.0))
+	var gained: int = int(e.chill_n) - before
+	if gained > 0:
+		PSupport.meter(self, "frost", "chill_stacks", float(gained))
+		# 서로 다른 적의 수(개조 '넓은 빙결'의 지표). **적 id로 한 번만 센다** —
+		# 중첩이 0으로 돌아갈 때마다 세면 같은 적이 여러 번 잡혀 '넓이'가 아니라 '반복'을 재게 된다
+		if not _frost_seen.has(int(e.id)):
+			_frost_seen[int(e.id)] = true
+			PSupport.meter(self, "frost", "chill_targets")
+	if int(e.chill_n) >= mx and float(e.get("refreeze_t", 0.0)) <= 0.0:
+		_freeze_enemy(e)
+
+## 빙결 시작. 보스는 이동·공격을 멈추지 않는 **결빙**(soft)이다
+func _freeze_enemy(e: Dictionary) -> void:
+	var hard: bool = not bool(e.get("boss", false))
+	e["freeze"] = freeze_dur_for(e)
+	e["freeze_kind"] = "hard" if hard else "soft"
+	e["freeze_broke"] = false
+	e["chill_n"] = 0
+	e["chill_n_t"] = 0.0
+	PSupport.meter(self, "frost", "freezes" if hard else "chills_boss")
+	fx({ "kind": "freeze_on", "x": e.x, "y": e.y, "r": float(e.r) + 6.0, "freeze_kind": String(e.freeze_kind), "ttl": float(e.freeze) })
+	text(e.x, e.y - float(e.r) - 20.0, "빙결!" if hard else "결빙!", "#bfefff")
+	ev("freeze")
+
+## 빙결 해제(시간 만료·파쇄 공통). 중첩을 0으로 되돌리고 재빙결 제한을 건다
+func _end_freeze(e: Dictionary) -> void:
+	e["freeze"] = 0.0
+	e["freeze_kind"] = ""
+	e["freeze_broke"] = false
+	e["chill_n"] = 0
+	e["chill_n_t"] = 0.0
+	e["refreeze_t"] = float(frost_cfg().get("refreezeSec", 3.0))
+
+## 매 프레임 냉기 상태 진행. **여기서는 중첩을 절대 올리지 않는다**(프레임 수에 따라 얼면 안 된다)
+func _tick_frost(e: Dictionary, dt: float) -> void:
+	if float(e.get("refreeze_t", 0.0)) > 0.0:
+		e["refreeze_t"] = maxf(0.0, float(e.refreeze_t) - dt)
+	if is_frozen(e):
+		PSupport.meter(self, "frost", "freeze_sec", dt) # 빙결·결빙 적·초(횟수 freezes와 단위가 다르다)
+		e["freeze"] = float(e.freeze) - dt
+		if float(e.freeze) <= 0.0:
+			_end_freeze(e)
+		return
+	if int(e.get("chill_n", 0)) > 0:
+		e["chill_n_t"] = float(e.get("chill_n_t", 0.0)) - dt
+		if float(e.chill_n_t) <= 0.0: # stackDecay "all": 공급이 끊기면 한 번에 0으로 돌아간다
+			e["chill_n"] = 0
+			e["chill_n_t"] = 0.0
+
+## 파쇄. 빙결·결빙 중인 적을 **주무기 공격**이 맞혔을 때만 일어난다.
+## 부르는 곳은 damage_enemy 한 곳뿐이며, 이미 피해가 들어간 뒤(= 빗나간 공격에서는 부르지 않는다) 부른다.
+## true면 실제로 파쇄가 났다
+func try_shatter(e: Dictionary, o: Dictionary) -> bool:
+	if e.dead or not is_frozen(e) or bool(e.get("freeze_broke", false)):
+		return false
+	if not PSupport.eligible("frost_shatter", frost_cause_of(o)):
+		return false
+	var F := frost_cfg()
+	if F.is_empty():
+		return false
+	# **먼저** 표시를 세운다. 아래 추가 피해가 다시 damage_enemy로 들어와도 두 번 정산되지 않는다
+	e["freeze_broke"] = true
+	var boosted: bool = PSupport.has_mod(self, "frost", "shatter") # 개조 '파쇄 강화'
+	var shards := int(F.get("modShatterShards", 6)) if boosted else int(F.get("shards", 3))
+	var srad := float(F.get("shardRadius", 80.0)) * (float(F.get("modShatterRadiusMult", 1.5)) if boosted else 1.0)
+	var sdmg := float(F.get("shardDamage", 6.0)) * (float(F.get("modShatterDamageMult", 1.5)) if boosted else 1.0)
+	var mm := float(build.get("mastery_mult", 1.0))
+	if boosted:
+		note_mod("shatter", "proc")
+	PSupport.meter(self, "frost", "shatters")
+	var ex: float = float(e.x)
+	var ey: float = float(e.y)
+	# 파편은 **즉시 반경 판정**이다(투사체가 아니다). 계약 3절이 "그린 파편 수 = 실제 판정에 쓰인 수"를
+	# 요구하므로, 날아가다 빗나갈 수 있는 투사체로 만들면 화면이 그릴 수 없는 수가 된다
+	var near: Array = []
+	for cand in alive_targets():
+		var c: Dictionary = cand
+		if c == e or bool(c.get("structure", false)):
+			continue
+		if PGeom.dist(ex, ey, float(c.x), float(c.y)) <= srad + float(c.r):
+			near.append(c)
+	# 가까운 순서(같으면 id 순서)로 파편을 배분한다. 난수를 쓰지 않으므로 같은 상황이면 늘 같은 적이 맞는다
+	var order: Array = []
+	while near.size() > 0 and order.size() < shards:
+		var bi := 0
+		for i in near.size():
+			var a: Dictionary = near[i]
+			var b: Dictionary = near[bi]
+			var da := PGeom.dist(ex, ey, float(a.x), float(a.y))
+			var db := PGeom.dist(ex, ey, float(b.x), float(b.y))
+			if da < db or (is_equal_approx(da, db) and int(a.id) < int(b.id)):
+				bi = i
+		order.append(near[bi])
+		near.remove_at(bi)
+	var hit_n := 0
+	for row in order:
+		var oth: Dictionary = row
+		var before: float = float(oth.hp)
+		# 파편은 냉기를 쌓지 않고 다른 빙결을 파쇄하지 않는다(자격표 frost_shard). 감전·표적 지정도 부르지 않는다
+		damage_enemy(oth, sdmg * mm, { "dir": PGeom.norm(float(oth.x) - ex, float(oth.y) - ey), "knock": 0.0, "no_conduct": true,
+			"cause": "frost_shard", "src": { "extra": true, "direct": false, "tag": "frost:shard", "mod": ("shatter" if boosted else "") } })
+		hit_n += 1
+		PSupport.meter(self, "frost", "shard_hits")
+		PSupport.meter(self, "frost", "shard_dmg", maxf(0.0, before - float(oth.hp)))
+	# 화면 신호: **실제 판정과 같은 프레임**에, 실제로 맞힌 수만 알린다(장식 파편을 그리지 않는다)
+	fx({ "kind": "shatter", "x": ex, "y": ey, "r": srad, "shards": hit_n, "ttl": 0.3 })
+	text(ex, ey - float(e.r) - 20.0, "파쇄!", "#bfefff")
+	ev("shatter")
+	# 얼어붙은 적 본인에게 주는 추가 피해. 이것도 냉기를 쌓지 않고 다시 파쇄하지 않는다
+	damage_enemy(e, float(F.get("shatterDamage", 16.0)) * mm, { "knock": 0.0, "no_conduct": true,
+		"cause": "frost_shatter", "src": { "extra": true, "direct": false, "tag": "frost:shatter" } })
+	_end_freeze(e) # 파쇄하면 빙결을 해제하고 중첩을 초기화하며 재빙결 제한을 건다
+	return true
 
 # ---------- 지형 ----------
 func los_blocked(ax: float, ay: float, bx: float, by: float) -> bool:
@@ -511,6 +688,10 @@ func break_obstacle(i: int, why: String) -> bool:
 ## PROPHECY_COLLISION_LEGACY=1이면 수정 전 동작으로 되돌린다(전후 비교 전용, 게임 기본값 아님).
 static var collision_legacy := OS.get_environment("PROPHECY_COLLISION_LEGACY") != ""
 var stuck_escapes := 0   # 이 예외가 실제로 이동을 살린 횟수(비교·설명용 계측, 규칙에 영향 없음)
+
+## 냉기 중첩을 한 번이라도 받은 적의 id(계측 전용, 규칙에 영향 없음).
+## 지표 chill_targets를 '서로 다른 적의 수'로 세기 위한 것이다 — 적 dict에 필드를 더하지 않는다(화면 계약 밖)
+var _frost_seen: Dictionary = {}
 
 func sweep_circle(x0: float, y0: float, x1: float, y1: float, r: float) -> Array:
 	var best_t := -1.0
@@ -1136,6 +1317,8 @@ func spawn_enemy(type: String, x: float, y: float, summoned: bool = false, tier:
 		"tier": tier, "tier_dmg": float(TD.get("dmg", 1.0)),
 		"spawn_t": t, "first_hit_t": -1.0, "acted": false, "prepared": false, "executed": 0, "state": "approach", "state_t": 0.0, "dir": 0.0, "aim_angle": 0.0,
 		"chill": 0.0, "burn": {}, "bleed": {}, "stasis": 0, "conduct": 0.0, "flash": 0.0, "dead": false, "death_t": 0.0,
+		# 냉기 중첩·빙결·파쇄(docs/FROST_CONTRACT.md 1절). 전투 상태이며 저장하지 않는다
+		"chill_n": 0, "chill_n_t": 0.0, "freeze": 0.0, "freeze_kind": "", "freeze_broke": false, "refreeze_t": 0.0,
 		"vx": 0.0, "vy": 0.0, "hit_by": false, "steer_side": 0, "steer_t": 0.0, "face_x": 1.0, "last_x": x, "last_y": y, "bite_t": 9.0, "move_t": 0.0, "anim_t": 0.0,
 		"elite": bool(d.get("elite", false)), "boss": bool(d.get("boss", false)), "structure": bool(d.get("structure", false)), "hidden": false, "airborne": false,
 		"summoned": summoned, "grace": 0.0, "ready_t": -1.0, "recover_dur": 0.0, "blocked_t": 0.0, "resonance": {}, "resonance_t": -999.0, "brand": 0, "leash": 0.0, "leash_boost": 1.0,
@@ -1470,6 +1653,14 @@ func damage_enemy(e: Dictionary, amount: float, opt = {}, knock_c: float = 0.0, 
 		if float(e.chill) <= 0.0:
 			PSupport.meter(self, "frost", "slows")   # 새로 둔화가 걸린 횟수(이미 걸린 적의 갱신은 세지 않는다)
 		e.chill = maxf(float(e.chill), float(o.chill) * dm * tdd)
+	# 냉기 중첩: **이 타격이 냉기를 실어 날랐는가**로 가른다(공용 증강 '얼음 파편'의 직접 타격 또는 opt.chill).
+	# 두 공급원이 같은 타격에 겹쳐도 **피해 이벤트 하나당 중첩은 1**이다 — 의도하지 않은 중복 적중을 막는다.
+	# 프레임 수와는 무관하다: 여기는 damage_enemy 안이라 실제 적중이 있어야만 지나간다
+	var froze_now := false
+	if o.has("chill") or (direct and PBuild.has_common(build, "frost")):
+		var was_frozen := is_frozen(e)
+		add_chill_stack(e, 1, o)
+		froze_now = not was_frozen and is_frozen(e)
 	if o.has("bleed") and sr.has("weapon"):
 		var dps := float(sr.weapon.damage) * 0.3
 		var dd2 := 1.0 + float(EQ.get("dotDur", 0.0))
@@ -1480,7 +1671,14 @@ func damage_enemy(e: Dictionary, amount: float, opt = {}, knock_c: float = 0.0, 
 	fx({ "kind": "spark", "x": e.x, "y": e.y, "ttl": 0.22, "crit": crit, "angle": (atan2(dir[1], dir[0]) if not dir.is_empty() else 0.0) })
 	fx({ "kind": "text", "x": e.x + rng.range_f(-8.0, 8.0), "y": e.y - e.r - 6.0, "ttl": 0.8, "text": str(int(round(dmg))), "color": "#ffd166" if crit else "#ffffff" })
 	ev("hit", { "crit": crit })
-	if e.hp <= 0.0:
+	# 파쇄. 빙결 중인 적을 **주무기 공격**이 실제로 맞힌 뒤에만(빗나간 공격에서는 여기까지 오지 않는다).
+	# **얼린 그 타격은 깨뜨리지 않는다**(froze_now): 냉기를 실은 주무기 한 방이 얼리자마자 같은 호출에서
+	# 깨 버리면 빙결이 한 프레임도 보이지 않고, '얼리고 → 내가 깬다'는 두 박자가 사라진다.
+	# 처치 판정보다 앞에 둔다 — 파쇄 추가 피해로 죽을 수 있고, 그때 kill_enemy는 안쪽에서 이미 한 번 돈다.
+	# 그래서 아래 처치 판정에 not e.dead를 걸어 같은 죽음이 두 번 정산되지 않게 한다
+	if not froze_now:
+		try_shatter(e, o)
+	if e.hp <= 0.0 and not e.dead:
 		kill_enemy(e, o)
 	return dmg
 
@@ -1778,6 +1976,7 @@ func update_enemies(dt: float) -> void:
 			e.flash -= dt
 		if float(e.chill) > 0.0:
 			e.chill = float(e.chill) - dt
+		_tick_frost(e, dt) # 냉기 중첩 유지 시간·빙결 남은 시간·재빙결 제한만 줄인다(중첩을 올리지 않는다)
 		if float(e.conduct) > 0.0:
 			e.conduct = float(e.conduct) - dt
 		if float(e.blocked_t) > 0.0:
@@ -1795,6 +1994,14 @@ func update_enemies(dt: float) -> void:
 			elif not d.is_empty():
 				e[key] = {}
 		if e.dead:
+			continue
+		# 빙결(hard): **이동도 공격도 멈춘다.** 행동 갱신을 통째로 건너뛰므로 상태·예고 타이머가 그대로 멈추고,
+		# 해제되면 멈춘 자리에서 이어 간다 — 예고와 실제 공격 판정이 어긋날 수 없다(사용자 지시).
+		# 보스의 **결빙(soft)**은 여기에 걸리지 않는다: 패턴 진행·예고·연계를 취소하거나 초기화하지 않는다.
+		if is_hard_frozen(e):
+			e.dash_granted = false
+			if not bool(e.get("hidden", false)):
+				push_out(e) # 지형 밖으로 밀려나 있으면 되돌린다(스스로 움직이는 것이 아니다)
 			continue
 		if e.boss:
 			PBoss.update(self, e, dt)
@@ -1997,12 +2204,20 @@ func update_zones(dt: float) -> void:
 						else:
 							damage_enemy(e, float(z.dmg) * float(build.mastery_mult) * tdm, { "src": { "extra": true, "direct": false, "tag": "common:ember" } })
 		if z.type == "coldground":
+			# 둔화 갱신(기존)과 냉기 중첩 공급(개조 '빠른 빙결')은 **틱이 다르다.**
+			# 중첩은 프레임 수가 아니라 stack_tick(시험값) 간격으로만 오른다 — 화면 주사율이 바뀌어도 같다
 			z.tick -= dt
 			if z.tick <= 0.0:
 				z.tick = 0.25
 				for e in enemies:
 					if not e.dead and PGeom.dist(z.x, z.y, e.x, e.y) <= z.r + e.r:
 						e.chill = maxf(float(e.chill), 1.0)
+			z["stack_tick"] = float(z.get("stack_tick", 0.0)) - dt
+			if float(z.stack_tick) <= 0.0:
+				z["stack_tick"] = float(frost_cfg().get("zoneStackTick", 0.5))
+				for e in enemies:
+					if not e.dead and not bool(e.get("hidden", false)) and PGeom.dist(z.x, z.y, e.x, e.y) <= z.r + e.r:
+						add_chill_stack(e, 1)
 		if z.type == "storm":
 			z.tick -= dt
 			if z.tick <= 0.0:

@@ -495,6 +495,10 @@ static func fire_chain(st: CombatState, w: Dictionary, target: Dictionary, _echo
 	st.fx({ "kind": "chain", "pts": pts, "ttl": 0.22 })
 	st.ev("shoot")
 
+## 서리 수정. **기본 상태에서 냉기 중첩을 공급한다**(개조를 고르지 않아도 얼린다 — 사용자 확정 2026-09-09).
+## 탄환 한 발이 한 적에게 주는 중첩은 1이며, 그 판정은 CombatState.add_chill_stack 한 곳에서만 한다.
+## 개조 세 가지의 역할(docs/FROST.md 3절): 넓은 빙결(fan) = 여러 적에게 공급 · 빠른 빙결(ground) = 한 대상에게 빨리 ·
+## 파쇄 강화(shatter) = 깨졌을 때의 파편·주변 피해. shatter는 여기서 아무것도 하지 않는다(파쇄 시점에 읽힌다).
 static func fire_bolt(st: CombatState, w: Dictionary, target: Dictionary, _echoed: bool) -> void:
 	var s: Dictionary = w.stats
 	var p := st.player
@@ -502,12 +506,12 @@ static func fire_bolt(st: CombatState, w: Dictionary, target: Dictionary, _echoe
 	var has_fan: bool = (s.mods as Array).has("fan")
 	var angles: Array = [ang - 0.44, ang, ang + 0.44] if has_fan else [ang]
 	if has_fan:
-		st.note_mod("fan", "proc") # 부채: 가운데는 기본 발사, 양옆 2발이 개조의 기여분
+		st.note_mod("fan", "proc") # 넓은 빙결: 가운데는 기본 발사, 양옆 2발이 개조의 기여분
 		st.fx({ "kind": "fan_origin", "x": p.x, "y": p.y, "angle": ang, "ttl": 0.18, "mod": "fan" }) # 세 방향 발사 표시(표시 전용, 판정 없음)
 	for a in angles:
 		var side: bool = has_fan and absf(a - ang) > 1e-6
 		PSupport.meter(st, "frost", "fires")
-		proj(st, w, { "kind": "bolt", "x": p.x, "y": p.y, "vx": cos(a) * float(s.speed), "vy": sin(a) * float(s.speed), "r": 5.0, "ttl": float(s.range) / float(s.speed), "chill": float(s.chill), "angle": a, "mod": ("fan" if side else ""), "shatter": (s.mods as Array).has("shatter"), "ground": (s.mods as Array).has("ground") })
+		proj(st, w, { "kind": "bolt", "x": p.x, "y": p.y, "vx": cos(a) * float(s.speed), "vy": sin(a) * float(s.speed), "r": 5.0, "ttl": float(s.range) / float(s.speed), "chill": float(s.chill), "angle": a, "mod": ("fan" if side else ""), "ground": (s.mods as Array).has("ground") })
 	st.ev("shoot")
 
 static func fire_ember(st: CombatState, w: Dictionary, target: Dictionary, _echoed: bool) -> void:
@@ -738,13 +742,13 @@ static func on_projectile_hit(st: CombatState, pr: Dictionary, e: Dictionary) ->
 		mult *= float(pr.get("close_mult", 1.0))
 	dmg_to(st, e, w, mult, opt)
 	if pr.kind == "bolt":
-		if bool(pr.get("shatter", false)):
-			st.note_mod("shatter", "proc")
-			st.fx({ "kind": "shatter_burst", "x": e.x, "y": e.y, "ttl": 0.25, "mod": "shatter" }) # 파열 순간(표시 전용, 판정은 파편)
-			for i in 3:
-				var a := atan2(pr.vy, pr.vx) + float(i - 1) * 0.7
-				proj(st, w, { "kind": "shard", "x": e.x, "y": e.y, "vx": cos(a) * 300.0, "vy": sin(a) * 300.0, "r": 3.0, "ttl": 0.4, "dmg_mult": 0.4, "mod": "shatter", "opt": { "direct": false, "mod": "shatter" }, "hits": { e.id: true } })
+		# 개조 '파쇄 강화'(id shatter)는 여기서 탄환을 쪼개지 않는다. 이제 그 개조는 **파쇄가 났을 때**의
+		# 파편 수·파편 피해·퍼지는 범위를 키운다(CombatState.try_shatter). 옛 '깨지는 수정'의 탄환 분열은 없앴다 —
+		# 매 적중마다 파편이 날아가면 '얼리고 내가 깬다'는 순간이 파편에 묻혀 보이지 않기 때문이다.
 		if bool(pr.get("ground", false)):
+			# 개조 '빠른 빙결'(id ground): 차가운 바닥이 그 안의 적에게 계속 냉기를 더한다(둔화는 예전 그대로).
+			# 중첩을 주는 간격은 CombatState.update_zones가 tuning.frost.zoneStackTick으로 잰다
+			st.note_mod("ground", "proc")
 			var z := st.add_zone("coldground", e.x, e.y, 40.0, 2.0 * float(st.build.duration_mult), 0.0)
 			z.weapon = w
 		return true

@@ -60,9 +60,9 @@
 | `mod:ember:reignite` | 재점화 | `mod_ember_reignite` |
 | `mod:ember:scatter` | 불씨 산개 | `mod_ember_scatter` |
 | `mod:ember:trail` | 화염 띠 | `mod_ember_trail` |
-| `mod:frost:fan` | 서리 부채 | `mod_frost_fan` |
-| `mod:frost:ground` | 차가운 바닥 | `mod_frost_ground` |
-| `mod:frost:shatter` | 깨지는 수정 | `mod_frost_shatter` |
+| `mod:frost:fan` | 넓은 빙결 | `mod_frost_fan` |
+| `mod:frost:ground` | 빠른 빙결 | `mod_frost_ground` |
+| `mod:frost:shatter` | 파쇄 강화 | `mod_frost_shatter` |
 | `mod:hammer:aftershock` | 여진 | `mod_hammer_aftershock` |
 | `mod:hammer:pull` | 끌어당기는 망치 | `mod_hammer_pull` |
 | `mod:hammer:shockwave` | 전방 충격파 | `mod_hammer_shockwave` |

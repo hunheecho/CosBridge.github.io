@@ -27,6 +27,14 @@ static func eligible(effect: String, cause: String) -> bool:
 		return true
 	return allow.has(cause)
 
+## 이 이름이 자격표가 아는 경로 어휘인가(data/supports.json eligibility.causes).
+## 규칙 코드가 피해 opt에 직접 적어 넣은 cause 중에는 자격표의 어휘가 아닌 것이 섞여 있다
+## (지뢰가 opt.cause="mine"을 쓰고 자격표에는 "mine_blast"만 있는 것이 그렇다).
+## cause_of는 opt.cause가 있으면 그대로 돌려주므로, **그 값이 어휘 밖이면 무기 id로 다시 물어야** 한다 —
+## 그러지 않으면 표에 없는 이름이 되어 eligible()이 "모르는 효과는 막지 않는다" 규칙에 걸려 조용히 통과한다.
+static func known_cause(cause: String) -> bool:
+	return (PCatalog.eligibility().get("causes", {}) as Dictionary).has(cause)
+
 ## 전염·모방처럼 세대가 있는 효과의 상한. 없으면 -1(제한 없음)
 static func gen_max(effect: String) -> int:
 	var E: Dictionary = PCatalog.eligibility().get("effects", {})
@@ -45,7 +53,10 @@ static func cause_of(st: CombatState, opt: Dictionary = {}) -> String:
 	var wid := String(opt.get("weapon", ""))
 	var hit: Dictionary = opt.get("hit", {})
 	var sr: Dictionary = hit.get("src", {})
-	if bool(hit.get("dot", false)):
+	# opt.dot에는 "burn"·"bleed" 같은 **문자열**이 들어온다. Godot 4에는 String → bool 변환이 없어
+	# 예전의 bool(hit.get("dot", false))는 진짜 지속 피해 opt를 넘기는 순간 그 자리에서 오류를 냈다
+	# (2026-09-09 발견 — 그때까지 아무도 dot opt를 hit으로 넘기지 않아 드러나지 않았다). 있는지만 본다
+	if hit.has("dot"):
 		return "dot"
 	if wid == "mine":
 		return "mine_blast" # 지뢰는 설치 → 폭발이라 직접 타격이 아니다(무엇이 터뜨렸든)
@@ -188,6 +199,10 @@ static func lure_target(st: CombatState, e: Dictionary) -> Dictionary:
 ##   slows **새로 둔화가 걸린 적의 수**(이미 걸린 적의 갱신은 세지 않는다)
 ##   slow_sec **둔화 적·초**(둔화 중인 적 하나가 1초를 보내면 1.0)      (서리 수정·잔바람)
 ##   ↑ 이 둘은 단위가 다르다. 서로 더하거나 한쪽 이름으로 다른 쪽 값을 넣지 마라(2026-09-09 BP-2)
+##   chill_stacks 부여한 냉기 중첩 누계 · chill_targets 중첩을 받은 **서로 다른 적의 수**
+##   freezes 빙결(hard) 횟수 · chills_boss 결빙(soft) 횟수 · freeze_sec **빙결·결빙 적·초**
+##   shatters 파쇄 횟수 · shard_hits 파편이 맞힌 수 · shard_dmg 파편 피해   (냉기 기본 특성, docs/FROST_CONTRACT.md 2절)
+##   ↑ freezes/shatters(횟수)와 freeze_sec(적·초)도 단위가 다르다. slows/slow_sec와 같은 실수를 반복하지 마라
 ##   push_dist 밀어낸 거리                                           (바람 정령)
 ##   spreads 전염 · bursts 파열 · dot_dmg 독 피해                    (역병 나비)
 ##   marks 표적 지정 · mark_keeps 표적 유지 프레임                   (추격 까마귀)
