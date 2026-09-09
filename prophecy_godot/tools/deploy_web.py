@@ -239,7 +239,7 @@ def main():
 // 캐시를 쓰지 않고 묻는다. 실패하면 아무 일도 하지 않는다 — 게임을 막지 않는다.
 (function () {
   try {
-    var here = %s;
+    var here = __BUILD_ID__;
     fetch('../../version.json?ts=' + Date.now(), { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (v) {
@@ -249,7 +249,7 @@ def main():
   } catch (e) {}
 })();
 </script>
-""" % json.dumps(short)
+""".replace("__BUILD_ID__", json.dumps(short))
         if "version.json?ts=" not in html:
             html = html.replace("</body>", guard + "</body>") if "</body>" in html else html + guard
             idx.write_text(html, encoding="utf-8")
