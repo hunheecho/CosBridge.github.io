@@ -129,6 +129,7 @@ func _init() -> void:
 	sec9_hammer_and_crit()
 	sec11_wind_slam()
 	sec12_plague_host()
+	sec13_overlap()
 	sec10_measure()
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
@@ -389,11 +390,11 @@ func sec4_crow() -> void:
 	var hp_near: float = float(near.hp)
 	for i in mx:
 		PWeapons.fire(st, cw, e, false)
-		marks.append(int((S.birds[0] as Dictionary).hunt))
+		marks.append(int((S.birds[0] as Dictionary).mark))
 	ok("쪼기 한 번에 표식이 정확히 한 칸 오른다", marks.slice(0, mx - 1) == range(1, mx), str(marks))
 	ok("최대 표식에 닿은 **그 쪼기에서** 폭발이 정확히 한 번 난다",
 		bursts(st, "crow_burst") == 1 and int(S.bursts) == 1, "폭발 %d회" % bursts(st, "crow_burst"))
-	ok("폭발 뒤 표식이 0으로 초기화된다", int((S.birds[0] as Dictionary).hunt) == 0)
+	ok("폭발 뒤 표식이 0으로 초기화된다", int((S.birds[0] as Dictionary).mark) == 0)
 	ok("표적 본체에 경직이 걸린다",
 		applied(st, "crow_burst") == 1 and float(e.stagger_t) > 0.0, "경직 %.3f초" % float(e.stagger_t))
 	ok("주변 적은 폭발 피해만 받고 경직은 받지 않는다(단일 대상 완성형)",
@@ -416,12 +417,12 @@ func sec4_crow() -> void:
 	var S2: Dictionary = (st2.support as Dictionary).crow
 	for i in 3:
 		PWeapons.fire(st2, cw2, a2, false)
-	ok("전제: 표식이 3칸 쌓였다", int((S2.birds[0] as Dictionary).hunt) == 3)
+	ok("전제: 표식이 3칸 쌓였다", int((S2.birds[0] as Dictionary).mark) == 3)
 	PSupport.update(st2, float(cw2.stats.hold) + 0.2)
 	st2.damage_enemy(b2, 1.0, main_direct())
 	PSupport.update(st2, 0.1)
 	ok("표적이 바뀌면 표식이 0으로 초기화된다(기존 규칙 그대로)",
-		int((S2.birds[0] as Dictionary).hunt) == 0 and int((S2.target as Dictionary).id) == int(b2.id))
+		int((S2.birds[0] as Dictionary).mark) == 0 and int((S2.target as Dictionary).id) == int(b2.id))
 
 # ---------- 5. 공통 재경직 제한 ----------
 func sec5_shared_cooldown() -> void:
@@ -797,6 +798,7 @@ func sec12_plague_host() -> void:
 		"남은 독 %.1f × %.2f → 기대 %.1f · 실제 %.1f (상한 %.0f)" % [remain, float(pg5.burst_frac), want, dealt, float(pg5.get("burst_cap", 0.0))])
 	ok("죽음이 독 칸을 지운 뒤에도 계산에 쓴 값은 보존된다(지역 변수 pg)",
 		not infected(h5) and int(PSupportB.plague_stat(st5).bursts) == 1)
+
 	# 12-6. 저프레임·큰 dt로 굴려도 파열·경직이 복제되지 않는다
 	var P5b: Dictionary = PSupportB.plague_stat(st5)
 	var ap5: int = applied(st5, "plague_burst")
@@ -805,6 +807,93 @@ func sec12_plague_host() -> void:
 	ok("큰 dt로 굴려도 숙주 파열·경직이 복제되지 않는다(파열은 죽음 이벤트 안에서만 난다)",
 		int(P5b.bursts) == 1 and applied(st5, "plague_burst") == ap5,
 		"파열 %d회 · 발동 %d회" % [int(P5b.bursts), applied(st5, "plague_burst")])
+
+# ---------- 13. 겹침: **실제 행동 재개 시각**을 잰다 ----------
+## 왜 재는가: "더해지지 않고 밀린다"는 말로는 아무것도 밝혀지지 않는다. **밀리면 실제 행동 불능 시간이 늘어난다.**
+## 그래서 말이 아니라 시각을 잰다 — 망치 빈틈만 / 신규 경직만 / 둘 다 / 빙결까지.
+##
+## 왜 밀리는가(코드 구조):
+##  · 망치 경직은 적 **상태 기계**를 쓴다(e.state="recover" + recover_dur). 남은 시간은 PEnemies.update 안에서만 준다.
+##  · 신규 경직(e.stagger_t)은 **행동 갱신을 통째로 건너뛴다.** 그동안 recover의 시계가 아예 돌지 않는다.
+##  · 빙결(hard)도 같은 이유로 recover의 시계를 멈춘다. 반대로 신규 경직은 빙결보다 **앞에서** 줄어들어 함께 흐른다.
+## **여기서 고치지 않는다**(사용자 지시: 제시까지). 지금 값을 못박아 두어 나중에 달라지면 드러나게 한다.
+const OVERLAP_LIMIT := 6.0
+
+## 그 적이 **행동을 재개하는 시각**(초). 빙결·신규 경직·망치 빈틈이 모두 풀린 첫 순간.
+## 재개하지 못하면 상한을 돌려준다
+func resume_time(st: CombatState, e: Dictionary) -> float:
+	var t := 0.0
+	while t < OVERLAP_LIMIT:
+		if not st.is_hard_frozen(e) and not st.is_staggered(e) and String(e.state) != "recover":
+			return t
+		st.step({}, STEP)
+		st.player.hp = st.player.hp_max
+		st.player.dead = false
+		if st.status == "lost":
+			st.status = "running"
+		t += STEP
+	return OVERLAP_LIMIT
+
+## 멧돼지 하나만 있는 시험실(빈틈 값이 정의에 있는 적 · 늑대가 아니라 grace 경로를 타지 않는다).
+## 주무기는 손으로만 쏘고, 적은 죽지 않을 만큼 두껍다
+func overlap_lab() -> Array:
+	var st := lab([["hammer", 1, []], ["frost", 1, []]])
+	var e := mob(st, "boar", 220.0, 0.0, 1.0e7)
+	return [st, e]
+
+func hammer_hit(st: CombatState, e: Dictionary) -> void:
+	PWeapons.heavy_control(st, e, (wep(st, "hammer").stats as Dictionary), float(e.x), float(e.y), 0.0)
+
+func sec13_overlap() -> void:
+	var S := PCatalog.link_stagger()
+	var stag_sec := float((S.sec as Dictionary).normal)
+	# ① 망치 빈틈만
+	var l1 := overlap_lab()
+	var st1: CombatState = l1[0]
+	var e1: Dictionary = l1[1]
+	hammer_hit(st1, e1)
+	var hammer_dur: float = float(e1.recover_dur)
+	var t_hammer := resume_time(st1, e1)
+	# ② 신규 연계 경직만
+	var l2 := overlap_lab()
+	var st2: CombatState = l2[0]
+	var e2: Dictionary = l2[1]
+	st2.apply_stagger(e2, "frost_shatter")
+	var t_link := resume_time(st2, e2)
+	# ③ 둘 다 같은 순간에
+	var l3 := overlap_lab()
+	var st3: CombatState = l3[0]
+	var e3: Dictionary = l3[1]
+	hammer_hit(st3, e3)
+	st3.apply_stagger(e3, "frost_shatter")
+	var t_both := resume_time(st3, e3)
+	# ④ 빙결까지 셋
+	var l4 := overlap_lab()
+	var st4: CombatState = l4[0]
+	var e4: Dictionary = l4[1]
+	var froze := freeze_by_hits(st4, e4)
+	var freeze_dur: float = st4.freeze_dur_for(e4)
+	hammer_hit(st4, e4)
+	st4.apply_stagger(e4, "frost_shatter")
+	var t_all := resume_time(st4, e4)
+	print("STAGGER_OVERLAP 겹침 | 행동 재개(초) | 각 효과의 길이(초)")
+	print("STAGGER_OVERLAP 망치 빈틈만 | %.3f | 망치 %.2f" % [t_hammer, hammer_dur])
+	print("STAGGER_OVERLAP 신규 경직만 | %.3f | 경직 %.2f" % [t_link, stag_sec])
+	print("STAGGER_OVERLAP 둘 다 | %.3f | 망치 %.2f + 경직 %.2f" % [t_both, hammer_dur, stag_sec])
+	print("STAGGER_OVERLAP 빙결까지 | %.3f | 빙결 %.2f + 망치 %.2f + 경직 %.2f" % [t_all, freeze_dur, hammer_dur, stag_sec])
+	ok("전제: 빙결까지 겹친 팔에서 실제로 얼었다", froze)
+	ok("① 망치 빈틈만: 행동 재개가 망치 빈틈 길이와 같다", absf(t_hammer - hammer_dur) < 0.05,
+		"%.3f초 (망치 %.2f)" % [t_hammer, hammer_dur])
+	ok("② 신규 경직만: 행동 재개가 경직 길이와 같다", absf(t_link - stag_sec) < 0.05,
+		"%.3f초 (경직 %.2f)" % [t_link, stag_sec])
+	ok("③ 둘 다: **겹치지 않고 직렬로 이어진다** — 재개 시각이 두 길이의 합이다(의도치 않은 연장)",
+		absf(t_both - (hammer_dur + stag_sec)) < 0.05 and t_both > t_hammer + 0.02,
+		"%.3f초 (망치 %.2f + 경직 %.2f = %.2f · 겹쳤다면 %.2f)" % [t_both, hammer_dur, stag_sec, hammer_dur + stag_sec, maxf(hammer_dur, stag_sec)])
+	ok("④ 빙결까지: 신규 경직만 빙결과 **함께 흐르고**, 망치 빈틈은 빙결 뒤로 밀린다",
+		absf(t_all - (freeze_dur + hammer_dur)) < 0.06,
+		"%.3f초 (빙결 %.2f + 망치 %.2f = %.2f · 셋을 다 더하면 %.2f)" %
+			[t_all, freeze_dur, hammer_dur, freeze_dur + hammer_dur, freeze_dur + hammer_dur + stag_sec])
+	ok("기존 망치 경직을 제거하지 않았다(빈틈 길이가 그대로 살아 있다)", hammer_dur > 0.0)
 
 # ---------- 10. 실전 비교(기록). 합격 판정이 아니라 수치를 남긴다 ----------
 ## 같은 성장 예산·편성·시드·봇을 유지하고 **신규 경직만** 켜고 끈 두 팔을 돌린다.

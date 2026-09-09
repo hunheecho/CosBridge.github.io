@@ -248,6 +248,110 @@ func sec2_crow() -> void:
 	var db: float = b0 - t2.hp
 	ok("쌍둥이: 한 주기에 두 적이 각각 맞는다", da > 0.0 and db > 0.0, "표적 %.1f · 두 번째 %.1f" % [da, db])
 	ok("쌍둥이: 개체당 피해가 기본 한 마리보다 낮다", da < first, "쌍둥이 %.1f < 기본 %.1f" % [da, first])
+	# 쌍둥이의 **둘째** 까마귀도 먹잇감이 바뀌면 두 값이 초기화된다(첫째와 같은 규칙).
+	# 예전에는 둘째만 빠져 있어 강화 단계와 표식이 새 먹잇감으로 그대로 넘어갔다
+	for i in 3:
+		PWeapons.fire(ts, tw, t1, false)
+	var alt_b: Dictionary = (TS.birds as Array)[1]
+	ok("전제: 둘째 까마귀에게 표식이 쌓였다", int(alt_b.get("mark", 0)) > 0, "표식 %d" % int(alt_b.get("mark", 0)))
+	ts.damage_enemy(t2, 9.0e8, { "src": { "weapon": wep(ts, "sword").stats, "weapon_id": "sword", "level": 1, "direct": true } })
+	var t3 := put(ts, "wolf", 470.0, 150.0)
+	t3.hp = 99999.0
+	tick(ts, 0.2)
+	var alt_b2: Dictionary = (TS.birds as Array)[1]
+	ok("쌍둥이: 둘째 까마귀의 먹잇감이 바뀌면 강화 단계·표식이 함께 0이 된다",
+		TS.alt != null and int((TS.alt as Dictionary).id) == int(t3.id)
+		and int(alt_b2.get("hunt", 0)) == 0 and int(alt_b2.get("mark", 0)) == 0,
+		"단계 %d · 표식 %d" % [int(alt_b2.get("hunt", 0)), int(alt_b2.get("mark", 0))])
+
+	sec2b_crow_split()
+
+## 집중 사냥의 **강화 단계**와 표식 폭발의 **중첩**이 서로 다른 값인가(2026-09-09 사용자 지시 ①).
+## 예전에는 한 값을 겸해서, 표식이 다 차 터질 때 강화 단계까지 0으로 되돌아갔다.
+## 같은 조건에서 **기본 쪼기 / 집중 사냥 증가분 / 폭발 피해**를 따로 읽어 표로 남긴다(전부 시험값).
+func sec2b_crow_split() -> void:
+	var ms := mk([{ "id": "sword", "level": 1, "mods": [] }, { "id": "crow", "level": 1, "mods": ["hunt"] }])
+	var mw := wep(ms, "crow")
+	var s: Dictionary = mw.stats
+	var mmax := int(s.get("markMax", 8))
+	var hmax := int(s.huntMax)
+	var step := float(s.huntStep)
+	var m1 := put(ms, "wolf", 680.0, 300.0)
+	m1.hp = 9.0e8
+	m1.hp_max = m1.hp
+	main_hit(ms, m1)
+	tick(ms, 1.0)
+	var MS := crow_state(ms)
+	var pecks := []      # 쪼기마다 실제로 들어간 **쪼기 피해**(support_direct)
+	var burst_dmg := 0.0 # 폭발 피해(crow_burst)만 따로
+	for i in mmax + 2:
+		var d0: float = float(ms.metrics.cause_dmg.get("support_direct", 0.0))
+		var b0: float = float(ms.metrics.cause_dmg.get("crow_burst", 0.0))
+		PWeapons.fire(ms, mw, m1, false)
+		pecks.append(float(ms.metrics.cause_dmg.get("support_direct", 0.0)) - d0)
+		var got: float = float(ms.metrics.cause_dmg.get("crow_burst", 0.0)) - b0
+		if got > 0.0 and burst_dmg <= 0.0:
+			burst_dmg = got
+	var base: float = pecks[0]                 # 단계 0 = 기본 쪼기
+	var capped: float = base * (1.0 + step * float(hmax)) # 상한 단계에서의 쪼기
+	var at_cap: float = pecks[hmax]
+	var after_burst: float = pecks[mmax]       # 폭발이 난 **다음** 쪼기
+	var lines := []
+	for i in pecks.size():
+		var pv: float = pecks[i]
+		lines.append("%d회:%.1f" % [i + 1, pv])
+	print("  [까마귀] 쪼기별 피해 — " + ", ".join(lines))
+	print("  [까마귀] 기본 쪼기 %.1f · 집중 사냥 상한 증가분 +%.1f(×%.2f) · 폭발 피해 %.1f" %
+		[base, capped - base, 1.0 + step * float(hmax), burst_dmg])
+	ok("기본 쪼기(단계 0) 피해가 잡힌다", base > 0.0, "%.1f" % base)
+	ok("집중 사냥이 단계 상한(huntMax)에서 정확히 +%d%%다(증가율·상한 불변)" % int(round(step * float(hmax) * 100.0)),
+		absf(at_cap - capped) < 0.15, "상한 쪼기 %.1f (기대 %.1f)" % [at_cap, capped])
+	ok("단계 상한을 넘겨도 더 오르지 않는다", absf(float(pecks[hmax + 1]) - capped) < 0.15,
+		"%.1f" % float(pecks[hmax + 1]))
+	ok("폭발 피해가 쪼기와 **따로** 집계된다(폭발 = 기본 피해 × burstMult)",
+		burst_dmg > 0.0 and absf(burst_dmg - base * float(s.get("burstMult", 2.5))) < 0.6,
+		"폭발 %.1f (기대 %.1f)" % [burst_dmg, base * float(s.get("burstMult", 2.5))])
+	ok("**표식 폭발이 집중 사냥의 강화 단계를 초기화하지 않는다**(폭발 뒤 쪼기가 기본으로 안 떨어진다)",
+		absf(after_burst - capped) < 0.15 and after_burst > base * 1.1,
+		"폭발 다음 쪼기 %.1f (기본 %.1f · 상한 %.1f)" % [after_burst, base, capped])
+	var mb: Dictionary = (MS.birds as Array)[0]
+	ok("폭발은 **표식만** 소비한다(표식 0 · 강화 단계는 상한 유지)",
+		int(mb.get("mark", 0)) < mmax and int(mb.get("hunt", 0)) == hmax,
+		"표식 %d · 단계 %d" % [int(mb.get("mark", 0)), int(mb.get("hunt", 0))])
+	ok("두 값이 서로 다른 이름으로 저장된다(한 값을 겸하지 않는다)", mb.has("hunt") and mb.has("mark"))
+	# 표적이 바뀌면 **둘 다** 0. 강화 단계만 남거나 표식만 남지 않는다
+	var m2 := put(ms, "wolf", 480.0, 140.0)
+	m2.hp = 99999.0
+	tick(ms, float(s.hold) + 0.2)
+	main_hit(ms, m2)
+	tick(ms, 0.1)
+	var mb2: Dictionary = (MS.birds as Array)[0]
+	ok("표적이 바뀌면 강화 단계·표식이 함께 0이 된다(한쪽만 남지 않는다)",
+		int(mb2.get("hunt", 0)) == 0 and int(mb2.get("mark", 0)) == 0,
+		"단계 %d · 표식 %d" % [int(mb2.get("hunt", 0)), int(mb2.get("mark", 0))])
+	tick(ms, 1.2) # 까마귀가 새 표적 위로 날아갈 시간(도착해야 실제로 쫀다)
+	var mb3_base: float = m2.hp
+	PWeapons.fire(ms, mw, m2, false)
+	ok("새 표적의 첫 쪼기는 기본 피해로 돌아간다", absf((mb3_base - m2.hp) - base) < 0.15,
+		"%.1f (기본 %.1f)" % [mb3_base - m2.hp, base])
+	# 표적 사망 → 자동 재지정에서도 두 값이 섞이지 않는다
+	var m3 := put(ms, "wolf", 660.0, 300.0)
+	m3.hp = 99999.0
+	tick(ms, float(s.hold) + 0.2)
+	main_hit(ms, m3)
+	tick(ms, 1.0)
+	for i in 3:
+		PWeapons.fire(ms, mw, m3, false)
+	ms.damage_enemy(m3, 9.0e8, { "src": { "weapon": wep(ms, "sword").stats, "weapon_id": "sword", "level": 1, "direct": true } })
+	tick(ms, 0.2)
+	var mb4: Dictionary = (MS.birds as Array)[0]
+	ok("표적이 죽어 자동 재지정될 때도 두 값이 함께 0이 된다",
+		int(mb4.get("hunt", 0)) == 0 and int(mb4.get("mark", 0)) == 0,
+		"단계 %d · 표식 %d" % [int(mb4.get("hunt", 0)), int(mb4.get("mark", 0))])
+	# 새 회차(전투 시작): st.support를 통째로 비우므로 두 값이 이전 전투에서 새어 오지 않는다
+	PSupport.init_state(ms)
+	ok("새 전투가 시작되면 두 값이 모두 사라진다(이전 회차·저장 복구에서 새어 오지 않는다)",
+		(ms.support as Dictionary).is_empty())
 
 # ---------- 3. ⑦ 수호 방울 ----------
 func sec3_bell() -> void:

@@ -709,7 +709,9 @@ static func explode_mine(st: CombatState, mn: Dictionary) -> void:
 	var w: Dictionary = mn.weapon
 	var s: Dictionary = w.stats
 	PSupport.meter(st, "mine", "blasts")
-	st.fx({ "kind": "mineburst", "x": mn.x, "y": mn.y, "r": float(s.radius), "ttl": 0.35 })
+	# 연출에 **두 반지름을 함께** 넘긴다: r = 실제 폭발 반지름, trigger = 밟은 반지름.
+	# 화면이 둘을 갈라 그려야 "밟은 자리보다 훨씬 넓게 터진다"가 읽힌다(수치는 바꾸지 않는다)
+	st.fx({ "kind": "mineburst", "x": mn.x, "y": mn.y, "r": float(s.radius), "trigger": float(mn.r), "ttl": 0.35 })
 	# 지뢰는 설치 → 폭발 구조라 fire()를 거치지 않는다. 폭발을 mine으로 센다
 	st.metrics.cause_fires["mine"] = int(st.metrics.cause_fires.get("mine", 0)) + 1
 	var o := { "ground": true, "knock": 30.0, "cause": "mine" }

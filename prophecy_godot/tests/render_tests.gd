@@ -182,11 +182,34 @@ func _run() -> void:
 	var sup_miss := _has_all(sup_body, ["st.support", "\"crow\"", "birds", "\"echo\"", "clones", "doll_obj", "lured", "hp_max"])
 	ok("보조무기 개체를 그리는 코드가 st.support의 birds·clones·doll_obj를 실제로 읽는다", sup_miss.is_empty(), "빠진 읽기=%s" % str(sup_miss))
 
+	# 1-2a. 까마귀의 **두 값**(집중 사냥 강화 단계 hunt · 표식 폭발 중첩 mark)을 서로 다른 자리에 한 번씩만 그리는가
+	var bird_body := _fn(src, "draw_crow_birds")
+	var mark_body2 := _fn(src, "draw_crow_marks")
+	ok("까마귀 꼬리 깃은 **강화 단계(hunt)**를, 표적 발밑 눈금은 **표식(mark)**을 그린다(같은 값을 두 번 그리지 않는다)",
+		bird_body.find("\"hunt\"") >= 0 and bird_body.find("\"mark\"") < 0
+		and mark_body2.find("\"mark\"") >= 0 and mark_body2.find("\"hunt\"") < 0,
+		"깃=hunt %s / 눈금=mark %s" % [bird_body.find("\"hunt\"") >= 0, mark_body2.find("\"mark\"") >= 0])
+	ok("두 눈금의 상한을 화면이 만들지 않고 규칙 값(huntMax·markMax)에서 읽는다",
+		bird_body.find("\"huntMax\"") >= 0 and mark_body2.find("\"markMax\"") >= 0)
+
 	# 1-2b. 수호 방울의 남은 충전(날아오는 투사체가 없을 때 "지금 막을 수 있나"를 알 길이 없었다)
 	var bell_body := _fn(src, "draw_bell_charges")
 	ok("수호 방울의 남은 충전을 규칙 값(PSupportA.bell_max·bell_recharge)으로 그리고, 남음/빈자리를 채움 여부로 가른다",
 		bell_body.find("PSupportA.bell_max") >= 0 and bell_body.find("PSupportA.bell_recharge") >= 0
 		and bell_body.find("draw_colored_polygon") >= 0 and bell_body.find("draw_polyline") >= 0)
+
+	# 1-2c. 룬 지뢰의 **밟는 반지름과 폭발 반지름을 구분해** 그리는가(둘은 두 배 넘게 차이 난다)
+	var mine_body := _fn(src, "draw_weapon_bodies")
+	var mine_miss := _has_all(mine_body, ["st.mines", "mn.r", "\"radius\"", "\"arm\"", "draw_arc"])
+	ok("지뢰 표시가 규칙 값에서 밟는 반지름(mn.r)과 폭발 반지름(무기 stats.radius)을 **따로** 읽는다",
+		mine_miss.is_empty(), "빠진 읽기=%s" % str(mine_miss))
+	ok("폭발 반지름을 상시 진한 원으로 덮지 않는다(무장 중 점선 · 평소 눈금 호로만 드러낸다)",
+		mine_body.find("draw_arc") >= 0 and mine_body.find("dashed_circle") >= 0,
+		"호=%s 점선=%s" % [mine_body.find("draw_arc") >= 0, mine_body.find("dashed_circle") >= 0])
+	var burst_body := _fn(src, "draw_player_effects")
+	ok("지뢰 폭발 연출이 밟은 반지름(trigger)을 함께 받아 안쪽에 한 겹 더 그린다",
+		burst_body.find("\"trigger\"") >= 0 and _read("res://scripts/rules/weapons.gd").find("\"trigger\": float(mn.r)") >= 0,
+		"연출=%s 규칙=%s" % [burst_body.find("\"trigger\"") >= 0, _read("res://scripts/rules/weapons.gd").find("\"trigger\": float(mn.r)") >= 0])
 
 	# 1-3. 새 투사체 종류
 	var proj_body := _fn(src, "draw_projectiles")
@@ -220,6 +243,19 @@ func _run() -> void:
 	var gusts := zone_count(sa, "windgust")
 	await _paint(sa, "supports_crow_wind")
 	ok("실제 전투가 만든 까마귀 %d마리 · 잔바람 장판 %d개를 그 순간에 오류 없이 그린다" % [birds, gusts], birds > 0 and got_gust and gusts > 0)
+
+	# 1-7b. 실제로 깔린 지뢰(무장 중 + 무장 완료)를 그 순간에 그린다 — 두 반지름을 갈라 그리는 코드가 실제로 돈다
+	var smn := mk([{ "id": "sword", "level": 1, "mods": [] }, { "id": "mine", "level": 1, "mods": [] }])
+	for i in 3:
+		tough(smn.spawn_enemy("boar", 320.0 + float(i) * 80.0, 460.0))
+	var got_mine := run_until(smn, func(s: CombatState) -> bool: return s.mines.size() >= 2, 20.0)
+	var arming := 0
+	for mn in smn.mines:
+		if float(mn.arm) > 0.0:
+			arming += 1
+	await _paint(smn, "mine_radii")
+	ok("실제 전투가 깔아 놓은 지뢰 %d개(무장 중 %d개)를 오류 없이 그린다" % [smn.mines.size(), arming],
+		got_mine and smn.mines.size() >= 2)
 
 	var sb := mk([{ "id": "sword", "level": 1, "mods": [] }, { "id": "echo", "level": 1, "mods": [] }, { "id": "bell", "level": 1, "mods": ["reflect"] }])
 	for i in 4:

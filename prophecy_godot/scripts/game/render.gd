@@ -755,16 +755,38 @@ static func draw_weapon_bodies(ci: Node2D, st: CombatState) -> void:
 			var oy: float = p.y - 28.0 + sin(st.t * 4.0) * 4.0
 			ci.draw_circle(Vector2(ox, oy), 9.0, rgba(255, 150, 60, 0.5))
 			ci.draw_circle(Vector2(ox, oy), 4.0, C("#ffd27a"))
+	# 룬 지뢰: **밟는 반지름(감지)**과 **폭발 반지름**은 두 배 넘게 차이 난다(예: 45 vs 105).
+	# 예전에는 감지 반지름 하나만 그려서, 플레이어가 보는 원보다 훨씬 넓은 자리가 터졌다.
+	# 둘을 구분해 보여 주되 **전장을 상시 진한 원으로 덮지 않는다**:
+	#  · 설치~무장 중: 폭발 반지름 점선이 남고, 그 위를 밝은 고리 하나가 감지 반지름까지 **좁혀 온다**(무장 진행).
+	#  · 무장 직후 짧은 순간: 폭발 반지름 한 겹이 밝게 지나간다(준비 완료 신호).
+	#  · 평소: 감지 반지름만 점선으로. 폭발 반지름은 **네 방향 짧은 호 눈금**으로만 남긴다.
+	#  · 폭발 순간: mineburst 연출이 두 반지름을 함께 그린다(draw_impacts).
+	# 숫자는 규칙 자료를 그대로 읽는다(감지 = mn.r · 폭발·무장 시간 = 그 지뢰를 놓은 무기의 stats). 화면이 값을 만들지 않는다
 	for mn in st.mines:
 		if bool(mn.get("dead", false)):
 			continue
 		var mx: float = mn.x
 		var my: float = mn.y
 		var armed: bool = float(mn.arm) <= 0.0
+		var ms: Dictionary = (mn.weapon as Dictionary).get("stats", {})
+		var trig: float = float(mn.r)
+		var blast: float = maxf(trig, float(ms.get("radius", trig)))
+		var arm0: float = maxf(0.001, float(ms.get("arm", 0.5)))
 		stroke_circle(ci, mx, my, 9.0, rgba(200, 140, 255, 0.9 if armed else 0.4), 2.0)
 		ci.draw_colored_polygon(PackedVector2Array([Vector2(mx, my - 6.0), Vector2(mx + 5.0, my + 3.0), Vector2(mx - 5.0, my + 3.0)]), C("#d9b3ff") if armed else C("#8a6bb0"))
-		if armed:
-			dashed_circle(ci, mx, my, float(mn.r), rgba(200, 140, 255, 0.25), 1.0, 3.0, 5.0)
+		if not armed:
+			var k: float = clampf(float(mn.t) / arm0, 0.0, 1.0)
+			dashed_circle(ci, mx, my, blast, rgba(200, 140, 255, 0.30), 1.0, 4.0, 7.0)
+			dashed_circle(ci, mx, my, blast + (trig - blast) * k, rgba(235, 200, 255, 0.55), 1.5, 5.0, 4.0)
+			continue
+		dashed_circle(ci, mx, my, trig, rgba(200, 140, 255, 0.3), 1.0, 3.0, 5.0)
+		for q in 4:                                   # 폭발 반지름은 네 방향 눈금만(전장을 덮지 않는다)
+			var a0: float = float(q) * PI * 0.5 + PI * 0.25 - 0.17
+			ci.draw_arc(Vector2(mx, my), blast, a0, a0 + 0.34, 8, rgba(200, 140, 255, 0.28), 1.5)
+		var age: float = float(mn.t) - arm0           # 무장이 끝난 뒤 지난 시간
+		if age >= 0.0 and age < 0.35:                 # 준비 완료: 폭발 반지름 한 겹이 잠깐 밝아진다
+			stroke_circle(ci, mx, my, blast, rgba(235, 200, 255, 0.5 * (1.0 - age / 0.35)), 2.0)
 	var S: Dictionary = st.skill_state
 	if S.is_empty():
 		return
@@ -931,6 +953,10 @@ static func draw_player_effects(ci: Node2D, st: CombatState) -> void:
 				var c := Vector2(float(f.x), float(f.y))
 				ci.draw_circle(c, float(f.r) * (0.5 + 0.5 * (1.0 - k)), rgba(190, 120, 255, 0.4 * k))
 				stroke_circle(ci, c.x, c.y, float(f.r), rgba(230, 200, 255, 0.9 * k), 4.0)
+				# 밟은 자리(감지 반지름)를 안쪽에 한 겹 더 남긴다 — '여기를 밟았고 저기까지 터졌다'가 한눈에 갈린다
+				var mtg: float = float(f.get("trigger", 0.0))
+				if mtg > 0.0:
+					dashed_circle(ci, c.x, c.y, mtg, rgba(255, 235, 190, 0.75 * k), 1.5, 4.0, 4.0)
 			"strikewarn":
 				dashed_circle(ci, float(f.x), float(f.y), float(f.r), rgba(255, 240, 150, 0.6 + 0.4 * (1.0 - k)), 2.0, 4.0, 4.0)
 			"strike":
@@ -1043,17 +1069,27 @@ static func draw_bell_charges(ci: Node2D, st: CombatState, S: Dictionary) -> voi
 
 ## 추격 까마귀: 날개를 젓는 새 실루엣(걸어 다니는 개체와 달리 그림자 없이 뜬 채로).
 ## 표적이 있으면 표적까지 가는 점선과 표적 위 고리를 함께 그린다(누구를 쫓는지 읽히게).
-## 표식(= 집중 사냥 단계와 같은 값 b.hunt)은 꼬리 깃 개수와 **표적 발밑 눈금**으로 드러낸다 — 색이 아니라 도형으로.
-## 완성(폭발)은 여기가 아니라 그 자리의 crow_burst 연출이 알리고, 눈금은 0칸으로 돌아간다.
+## **두 값을 서로 다른 자리에 한 번씩만 그린다**(눈금을 겹쳐 늘리지 않는다):
+##  · 집중 사냥의 강화 단계(b.hunt) = 까마귀 **꼬리 깃 개수**(상한 huntMax). 개조를 고르지 않으면 아예 없다.
+##  · 표식 폭발 중첩(b.mark) = **표적 발밑 눈금**(상한 markMax). 폭발이 이것만 0으로 되돌린다.
+## 완성(폭발)은 여기가 아니라 그 자리의 crow_burst 연출이 알리고, 발밑 눈금만 0칸으로 돌아간다.
 static func draw_crow_birds(ci: Node2D, st: CombatState, S: Dictionary) -> void:
 	if S.is_empty():
 		return
+	var cw := {}
+	for it in st.weapons:
+		if String(it.id) == "crow":
+			cw = it
+			break
 	var tgt = S.get("target")
 	if tgt != null and typeof(tgt) == TYPE_DICTIONARY and not bool(tgt.dead):
 		var t2: Dictionary = tgt
 		stroke_circle(ci, float(t2.x), float(t2.y), float(t2.r) + 7.0, rgba(190, 170, 230, 0.5), 1.5)
 		txt(ci, float(t2.x), float(t2.y) - float(t2.r) - 30.0, "까마귀 표적", 10, rgba(200, 185, 235, 0.85))
-		draw_crow_marks(ci, st, S, t2)
+		draw_crow_marks(ci, cw, S, t2)
+	var hunt_cap: int = 0
+	if not cw.is_empty():
+		hunt_cap = maxi(0, int((cw.stats as Dictionary).get("huntMax", 0)))
 	var birds: Array = S.get("birds", [])
 	for i in birds.size():
 		var b: Dictionary = birds[i]
@@ -1069,24 +1105,19 @@ static func draw_crow_birds(ci: Node2D, st: CombatState, S: Dictionary) -> void:
 		ci.draw_polyline(PackedVector2Array([Vector2(bx - 2.0, by + 1.0), Vector2(bx - 6.0, by + 6.0 + 6.0 * flap), Vector2(bx + 3.0, by + 4.0 + 4.0 * flap)]), C("#463a58"), 2.5)
 		ci.draw_colored_polygon(PackedVector2Array([Vector2(bx + 10.0, by), Vector2(bx + 16.0, by + 1.0), Vector2(bx + 10.0, by + 2.0)]), C("#d8b45a"))
 		ci.draw_circle(Vector2(bx + 7.0, by - 1.5), 1.3, C("#ffd166"))
-		for h in mini(4, int(b.get("hunt", 0))):     # 피해가 오르는 단계(min(표식, huntMax)) = 꼬리 깃 수
+		# 집중 사냥의 **강화 단계**(개조를 고르지 않으면 0이라 깃이 없다). 상한은 규칙 값 huntMax를 읽는다
+		for h in mini(hunt_cap, int(b.get("hunt", 0))):
 			ci.draw_line(Vector2(bx - 10.0, by), Vector2(bx - 17.0 - 3.0 * float(h), by - 4.0 + 3.0 * float(h)), C("#a88fd0"), 1.5)
 
 ## 표식 진행. 표적 **발밑**에 눈금으로 그린다(머리 위는 이름·체력·상태 아이콘과 적 공격 예고 자리다).
-## 채운 칸 = 쌓인 표식, 윤곽만 = 남은 칸. 상한(markMax)은 규칙 값을 그대로 읽는다 — 화면이 수치를 만들지 않는다
-static func draw_crow_marks(ci: Node2D, st: CombatState, S: Dictionary, tgt: Dictionary) -> void:
+## 채운 칸 = 쌓인 표식(b.mark), 윤곽만 = 남은 칸. 상한(markMax)은 규칙 값을 그대로 읽는다 — 화면이 수치를 만들지 않는다.
+## 여기는 **폭발용 중첩만** 그린다. 집중 사냥의 강화 단계는 까마귀 꼬리 깃이 맡는다(같은 정보를 두 번 그리지 않는다)
+static func draw_crow_marks(ci: Node2D, w: Dictionary, S: Dictionary, tgt: Dictionary) -> void:
 	var birds: Array = S.get("birds", [])
-	if birds.is_empty():
-		return
-	var w := {}
-	for it in st.weapons:
-		if String(it.id) == "crow":
-			w = it
-			break
-	if w.is_empty():
+	if birds.is_empty() or w.is_empty():
 		return
 	var cap: int = maxi(1, int((w.stats as Dictionary).get("markMax", 8)))
-	var have: int = clampi(int((birds[0] as Dictionary).get("hunt", 0)), 0, cap)
+	var have: int = clampi(int((birds[0] as Dictionary).get("mark", 0)), 0, cap)
 	if have <= 0:
 		return
 	var y: float = float(tgt.y) + float(tgt.r) + 6.0
