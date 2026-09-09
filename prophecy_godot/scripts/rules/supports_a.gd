@@ -172,6 +172,10 @@ static func _crow_update(st: CombatState, dt: float) -> void:
 		var tg: Dictionary = S.target
 		if bool(tg.dead) or PGeom.dist(p.x, p.y, tg.x, tg.y) > float(s.range) + float(tg.r):
 			_crow_retarget(st, S, s, int(tg.id))
+	# 둘째 까마귀(쌍둥이)의 표적이 **바뀌었는지** 본다. 바뀌었으면 그 까마귀의 두 값을 함께 초기화한다 —
+	# 첫째 까마귀가 _crow_retarget·_crow_on_hit로 받는 것과 같은 대접이다. 예전에는 둘째만 빠져 있어서
+	# 먹잇감이 바뀌어도 강화 단계와 표식이 그대로 넘어갔다(표적이 바뀌면 초기화한다는 기존 규칙 위반)
+	var alt_before := int((S.alt as Dictionary).id) if S.alt != null else -1
 	if S.alt != null:
 		var al: Dictionary = S.alt
 		if bool(al.dead) or PGeom.dist(p.x, p.y, al.x, al.y) > float(s.range) + float(al.r):
@@ -182,11 +186,14 @@ static func _crow_update(st: CombatState, dt: float) -> void:
 		S.alt = _crow_pick(st, s, int((S.target as Dictionary).id))
 	if n <= 1:
 		S.alt = null
+	var alt_after := int((S.alt as Dictionary).id) if S.alt != null else -1
 	var birds: Array = S.birds
 	while birds.size() < n:
-		birds.append({ "x": p.x, "y": p.y, "hunt": 0 })
+		birds.append({ "x": p.x, "y": p.y, "hunt": 0, "mark": 0 })
 	while birds.size() > n:
 		birds.pop_back()
+	if alt_after != alt_before:
+		_crow_reset_stacks(S, 1)
 	for i in birds.size():
 		var b: Dictionary = birds[i]
 		var goal := _crow_goal(st, S, s, i)
@@ -232,12 +239,20 @@ static func _crow_retarget(st: CombatState, S: Dictionary, s: Dictionary, lost_i
 	S.hold = float(s.hold) if nx != null else 0.0
 	if nx != null:
 		S.retargets = int(S.retargets) + 1
-	_crow_reset_hunt(S, 0)
+	_crow_reset_stacks(S, 0)
 
-static func _crow_reset_hunt(S: Dictionary, idx: int) -> void:
+## 까마귀 한 마리가 **지금 표적에게** 쌓아 둔 두 값을 함께 0으로 되돌린다.
+## 두 값은 서로 다른 것이다(자세한 규칙은 _crow_fire의 주석):
+##  · hunt = 개조 '집중 사냥'의 강화 단계(상한 huntMax). 피해 증가만 읽는다.
+##  · mark = 표식 폭발용 중첩(상한 markMax). 폭발이 소비한다.
+## **표적이 바뀌거나 죽었을 때만** 여기로 온다 — 둘 다 '그 표적에게 쌓은 것'이라 함께 사라진다.
+## 폭발은 여기를 부르지 않는다(폭발은 mark 하나만 소비한다)
+static func _crow_reset_stacks(S: Dictionary, idx: int) -> void:
 	var birds: Array = S.birds
 	if idx >= 0 and idx < birds.size():
-		(birds[idx] as Dictionary).hunt = 0
+		var b: Dictionary = birds[idx]
+		b.hunt = 0
+		b.mark = 0
 
 ## 주기마다의 쪼기. 표적 위에 도착한 까마귀만 실제로 쫀다(날아가는 동안은 빗나간 것과 같다)
 static func _crow_fire(st: CombatState, w: Dictionary) -> void:
@@ -264,17 +279,20 @@ static func _crow_fire(st: CombatState, w: Dictionary) -> void:
 			if i > 0:
 				mid = "twin"
 				st.note_mod("twin", "proc")
-		# **표식 = 집중 사냥 단계와 같은 값**(b.hunt). 새 중첩을 따로 만들지 않았다.
-		# 달라진 것 둘: ① 개조 '집중 사냥'이 없어도 표식은 쌓인다(피해 증가는 여전히 그 개조를 골라야 붙는다),
-		#              ② 상한이 huntMax(4)가 아니라 markMax(8)다. 피해 증가는 min(표식, huntMax)만 읽으므로
-		#                 개조의 수치(단계당 +15%, 상한 4단계 = +60%)는 하나도 바뀌지 않는다.
+		# **집중 사냥의 강화 단계(b.hunt)와 폭발용 표식(b.mark)은 서로 다른 값이다.**
+		# 예전에는 한 값을 둘로 겸했다가, 표식이 다 차서 터질 때 그 값을 0으로 되돌리면서
+		# **개조 '집중 사냥'의 피해 증가까지 함께 초기화**됐다(폭발할 때마다 화력이 처음으로 돌아갔다).
+		#  · hunt: 개조를 골랐을 때만 쌓이고 상한은 huntMax(4). 단계당 +huntStep(0.15) — 예전 그대로다.
+		#          쌓는 자리·상한·증가율을 하나도 바꾸지 않았다. 표적이 바뀌거나 죽을 때만 0이 된다.
+		#  · mark: 개조와 무관하게 까마귀의 쪼기로만 쌓이고 상한은 markMax(8). **폭발이 이것만 소비한다.**
 		if hunt:
-			var stage: int = mini(int(b.hunt), int(s.huntMax))
+			var stage: int = mini(int(b.get("hunt", 0)), int(s.huntMax))
 			if stage > 0:
 				mult *= 1.0 + float(s.huntStep) * float(stage)
 				if mid == "":
 					mid = "hunt"
 					st.note_mod("hunt", "proc")
+			b.hunt = mini(int(b.get("hunt", 0)) + 1, int(s.huntMax))
 		if swap and i == 0 and float(S.next_bonus) > 0.0:
 			mult *= float(S.next_bonus)
 			S.next_bonus = 0.0
@@ -293,10 +311,13 @@ static func _crow_fire(st: CombatState, w: Dictionary) -> void:
 		# 한 타격이 여러 표식을 만들 수 없다. 쌓는 자격은 자격표 crow_burst 한 곳이 정한다(까마귀의 쪼기뿐).
 		if e.dead or not PSupport.eligible("crow_burst", "support_direct"):
 			continue
-		b.hunt = mini(int(b.hunt) + 1, int(s.get("markMax", s.huntMax)))
-		if int(b.hunt) >= int(s.get("markMax", s.huntMax)):
+		var mx := int(s.get("markMax", s.huntMax))
+		b.mark = mini(int(b.get("mark", 0)) + 1, mx)
+		if int(b.mark) >= mx:
 			_crow_burst(st, w, e)
-			b.hunt = 0 # 폭발이 표식을 **전부 소비**한다. 표적을 유지하면 1부터 다시 쌓인다
+			# 폭발은 **표식만** 전부 소비한다. 집중 사냥의 강화 단계(b.hunt)는 건드리지 않는다 —
+			# 표적을 계속 물고 있는 보상을 폭발이 스스로 깎아 먹지 않게
+			b.mark = 0
 
 ## 표식 폭발(사용자 지시 ④, 2026-09-09). **표식이 최대(markMax)에 닿은 그 쪼기에서** 한 번 터진다.
 ## 다음 타격으로 미루지 않는다 — 미루면 "찼는데 왜 안 터지지"가 되고, 그사이 표적이 죽으면 사라진다.
@@ -923,7 +944,7 @@ static func _crow_on_hit(st: CombatState, e: Dictionary, opt: Dictionary) -> voi
 	S.target = e
 	S.hold = float(s.hold)
 	S.marks = int(S.marks) + 1
-	_crow_reset_hunt(S, 0)
+	_crow_reset_stacks(S, 0)
 
 static func on_enemy_death(st: CombatState, e: Dictionary, _opt: Dictionary) -> void:
 	var S := _peek(st, "crow")
@@ -933,7 +954,7 @@ static func on_enemy_death(st: CombatState, e: Dictionary, _opt: Dictionary) -> 
 			if not w.is_empty() and PSupport.has_mod(st, "crow", "switch"):
 				S.next_bonus = float(w.stats.switchMult) # 먹잇감 전환: 다음 표적 첫 공격이 강해진다
 			S.hold = 0.0
-			_crow_reset_hunt(S, 0)
+			_crow_reset_stacks(S, 0)
 			# 표적을 여기서 비우지 않는다. 죽은 표적을 그대로 두면 다음 갱신이 규칙 3)의
 			# 자동 재지정(사거리 안·가림 없는 가장 가까운 적)을 그대로 태운다 — 규칙이 한 곳에만 있게 한다
 		if S.alt != null and int((S.alt as Dictionary).id) == int(e.id):

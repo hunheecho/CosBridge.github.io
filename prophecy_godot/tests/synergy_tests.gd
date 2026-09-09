@@ -407,6 +407,94 @@ func sec5_chain_allowed() -> void:
 	var P: Dictionary = st2.support.get("plague", {})
 	ok("독 전염의 연쇄가 살아 있다(한 마리의 죽음이 다음 감염을 부른다)", int(P.get("spreads", 0)) >= 2,
 		"전염 %d · 세대 상한에 막힌 죽음 %d" % [int(P.get("spreads", 0)), int(P.get("spread_blocked", 0))])
+	sec5b_flare_source()
+
+## 불꽃 파열의 **출처 교정**(cause "flare_burst")이 막아야 할 것만 막았는가.
+## 예전에는 폭발 피해에 출처 이름이 없어 cause_of가 "main_extra"(주무기 개조 추가 타격)로 떨어뜨렸고,
+## 그 바람에 **주무기 전용** 효과(파쇄)가 불꽃 폭발로도 터졌다. 지금은 자격표가 그것을 막는다.
+## 여기서 못박는 것은 두 방향이다: **잘못된 연결은 닫혔는가**, 그리고 **원래 있어야 하는 연결은 살아 있는가.**
+func sec5b_flare_source() -> void:
+	ok("자격표: 불꽃 파열은 주무기 전용 파쇄·숙주 파열의 자격이 없다(주무기 타격이 아니다)",
+		not PSupport.eligible("frost_shatter", "flare_burst")
+		and not PSupport.eligible("plague_host_burst", "flare_burst"))
+	ok("자격표: 불꽃 파열은 감전 후속·까마귀 표적 지정·분신 모방을 부르지 못한다",
+		not PSupport.eligible("shock_bonus", "flare_burst")
+		and not PSupport.eligible("crow_mark", "flare_burst")
+		and not PSupport.eligible("echo_copy", "flare_burst"))
+	ok("자격표: **독 전염은 그대로 허용된다**(죽음은 경로를 가리지 않는다 · allow \"*\")",
+		PSupport.eligible("plague_spread", "flare_burst"))
+
+	# (가) 얼어 있는 적 옆에서 불꽃 폭발이 나도 **파쇄가 대신 터지지 않는다**(예전 오분류가 닫혔는지)
+	var sf: CombatState = lab([["sword", 3, []], ["frost", 3, []], ["ember", 3, []]], 1, { "ember": 1, "flare": 1 })
+	var ice: Dictionary = dummy(sf, 60.0, 0.0, 1.0e6)
+	var fuse: Dictionary = sf.spawn_enemy("wolf", sf.player.x + 100.0, sf.player.y)
+	fuse.hp = 1.0
+	fuse.hp_max = 1.0
+	var fz: Dictionary = sf.add_zone("fire", float(fuse.x), float(fuse.y), 30.0, 12.0, 0.0)
+	fz.weapon = wep(sf, "ember")
+	for i in int(sf.frost_cfg().get("stackMax", 5)):
+		sf.damage_enemy(ice, 0.0, { "chill": 2.0, "src": { "weapon_id": "frost", "direct": true } })
+	ok("전제: 옆 적이 얼어 있다", sf.is_frozen(ice))
+	var ice_hp: float = float(ice.hp)
+	sf.kill_enemy(fuse, {})
+	ok("불꽃 폭발이 얼어 있는 적을 실제로 때린다(피해는 정상)", float(ice.hp) < ice_hp,
+		"폭발 피해 %.1f" % (ice_hp - float(ice.hp)))
+	ok("불꽃 폭발이 **주무기 전용 파쇄를 대신 터뜨리지 않는다**(빙결이 그대로 남는다)", sf.is_frozen(ice))
+
+	# (나) 불꽃 폭발이 감염된 적을 죽여도 **숙주 파열은 안 열리고 전염은 그대로 일어난다**
+	var pl: CombatState = lab([["plague", 3, ["burst"]], ["ember", 3, []]], 1, { "ember": 1, "flare": 1 })
+	var host: Dictionary = pl.spawn_enemy("wolf", pl.player.x + 100.0, pl.player.y)
+	host.hp = 1.0
+	host.hp_max = 1.0
+	var heir: Dictionary = pl.spawn_enemy("wolf", pl.player.x + 160.0, pl.player.y)
+	heir.hp = 1.0e6
+	heir.hp_max = heir.hp
+	var fuse2: Dictionary = pl.spawn_enemy("wolf", pl.player.x + 40.0, pl.player.y)
+	fuse2.hp = 1.0
+	fuse2.hp_max = 1.0
+	var fz2: Dictionary = pl.add_zone("fire", float(fuse2.x), float(fuse2.y), 30.0, 12.0, 0.0)
+	fz2.weapon = wep(pl, "ember")
+	PSupportB._infect(pl, host, 0, -1.0)
+	run_for(pl, 0.2)
+	ok("전제: 감염된 적이 불꽃 폭발 범위 안에 있다", not (host.get("plague", {}) as Dictionary).is_empty())
+	pl.kill_enemy(fuse2, {})
+	var PB: Dictionary = pl.support.get("plague", {})
+	ok("불꽃 폭발 처치로는 **숙주 파열이 열리지 않는다**(주무기 처치 전용 · 시도는 거절로 남는다)",
+		bool(host.dead) and int(PB.get("bursts", 0)) == 0 and int(PB.get("burst_blocked", 0)) >= 1,
+		"파열 %d · 거절 %d" % [int(PB.get("bursts", 0)), int(PB.get("burst_blocked", 0))])
+	ok("**불꽃 폭발 처치로도 독 전염은 일어난다**(막지 않았다)",
+		int(PB.get("spreads", 0)) >= 1 and not (heir.get("plague", {}) as Dictionary).is_empty(),
+		"전염 %d" % int(PB.get("spreads", 0)))
+
+	# (다) 불꽃 폭발 처치가 **다음 불꽃 파열**을 부른다(재귀 차단이 연쇄를 통째로 없애지 않았다)
+	var ch: CombatState = lab([["ember", 3, []], ["sword", 3, []]], 1, { "ember": 1, "flare": 1 })
+	var row := []
+	for i in 6:
+		var e: Dictionary = ch.spawn_enemy("wolf", ch.player.x - 40.0 + float(i) * 44.0, ch.player.y)
+		e.hp = 8.0
+		e.hp_max = 8.0
+		row.append(e)
+	var cz: Dictionary = ch.add_zone("fire", float(ch.player.x + 80.0), float(ch.player.y), 200.0, 12.0, 0.0)
+	cz.weapon = wep(ch, "ember")
+	run_for(ch, 0.2)
+	ch.kill_enemy(row[0], {})
+	var fb: int = int((ch.stagger_stats.bursts as Dictionary).get("flare_burst", 0))
+	ok("불꽃 폭발이 낸 처치가 **다음 불꽃 파열**을 부른다(폭발이 2회 이상 이어진다)", fb >= 2,
+		"불꽃 파열 %d회 · 이어진 처치 %d" % [fb, int(ch.stats.kills) - 1])
+
+	# (라) **왜 출처 이름이 필요했는가**: 무기 id가 없는 파생 피해를 냉기 경로 판정이 main_extra로 떨어뜨린다.
+	#      이름이 없던 시절의 불꽃 폭발이 그래서 '주무기 개조 추가 타격'으로 읽혀 파쇄를 열었다.
+	#      반대로 까마귀 표적 경로는 이름이 없어도 zone_tick으로 읽혀 **원래부터** 막혀 있었다 —
+	#      그래서 이번 출처 교정으로 **실제로 닫힌 연결은 파쇄 하나**다(나머지는 이미 다른 관문이 막고 있었다).
+	var probe := { "src": { "extra": true, "direct": false, "tag": "common:flare" } }
+	ok("출처 이름이 없으면 파생 피해가 주무기 개조 타격(main_extra)으로 읽힌다 — 이름을 붙인 이유",
+		sf.frost_cause_of(probe) == "main_extra" and PSupport.eligible("frost_shatter", "main_extra"),
+		"이름 없는 경로 = %s" % sf.frost_cause_of(probe))
+	probe["cause"] = "flare_burst"
+	ok("출처 이름을 붙이면 그 경로로 읽히고 파쇄 자격이 사라진다",
+		sf.frost_cause_of(probe) == "flare_burst" and not PSupport.eligible("frost_shatter", "flare_burst"))
+	ok("까마귀 표적 지정은 이름이 없을 때도 zone_tick으로 읽혀 원래부터 막혀 있었다(이번 교정으로 달라지지 않는다)",
+		PSupportA._cause(sf, { "src": { "extra": true, "direct": false, "tag": "common:flare" } }) == "zone_tick")
 
 # ---------- 6. 무기 공명 자격 ----------
 func sec6_resonance() -> void:
