@@ -17,6 +17,9 @@ var offer: Dictionary = {}
 var _run: Dictionary = {}
 var _detail := ""             # 상세를 펼친 카드의 key("" = 없음)
 var _build_open := false      # '내 빌드 보기'를 펼쳤는가
+## 마지막으로 그렸을 때 **창을 닫거나 진행시키는** 조작이 하나라도 있었는가.
+## '내 빌드 보기'는 여기에 세지 않는다 — 눌러도 창이 안 닫히므로 탈출구가 아니다
+var _can_leave := false
 var _panel: PanelContainer
 var _box: VBoxContainer
 var _bg: ColorRect
@@ -54,6 +57,11 @@ func _notification(what: int) -> void:
 
 func is_open() -> bool:
 	return visible
+
+## 지금 화면에 **나갈 수 있는 조작**이 있는가(카드 고르기 또는 건너뛰기·받지 않음·계속).
+## 검사(overlay_tests)가 이것으로 "갇히는 화면이 없다"를 못박는다
+func has_exit() -> bool:
+	return _can_leave
 
 func open(run: Dictionary, off: Dictionary) -> void:
 	offer = off
@@ -106,6 +114,9 @@ func _render() -> void:
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_box.add_child(row)
 	var choices: Array = off.get("choices", [])
+	# **나갈 수 있는 길이 하나라도 있는가.** 카드를 고르면 창이 닫히므로 카드도 길이다.
+	# '내 빌드 보기'는 길이 아니다 — 눌러도 창이 안 닫힌다(펼쳤다 접을 뿐이다)
+	var can_leave := not choices.is_empty()
 	if choices.is_empty():
 		row.add_child(PUi.rich("[color=#9ea8b8]제시할 수 있는 후보가 없습니다.[/color]", 15))
 	for c in choices:
@@ -114,10 +125,27 @@ func _render() -> void:
 	_box.add_child(bottom)
 	if pool == "level":
 		bottom.add_child(PUi.button("건너뛰기 (금화 +%d)" % int(PCatalog.config().SKIP_AUGMENT_GOLD), func(): skipped.emit(), true, 14))
+		can_leave = true
 		if PRun.has_service(run, "reroll"):
 			bottom.add_child(PUi.button("제시 재선택권 사용 (남은 %d)" % int(run.services.reroll), func(): rerolled.emit(), true, 14))
 	elif pool == "deep" or pool == "mission":
 		bottom.add_child(PUi.button("받지 않음", func(): skipped.emit(), true, 14))
+		can_leave = true
+	# **마지막 안전장치: 나갈 길이 하나도 없으면 여기서 만든다.**
+	#
+	# 사람 플레이 보고(2026-09-09): "포로 구출했는데 또 봉인돼서 화면 아무것도 누를 수 없는 상태가 되냐고."
+	# 이 창이 떠 있으면 전투 입력이 통째로 막힌다(main.gd 의 choice.is_open() 관문).
+	# 그런데 나갈 길은 pool 별로 따로 달려 있었다 — "boss"에는 아무 버튼도 없고,
+	# 후보 목록이 비면(generate_offer 가 빈 목록을 낼 수 있다) 고를 카드도 없다.
+	# 그러면 '내 빌드 보기'만 눌리는, 진행이 불가능한 화면이 된다.
+	#
+	# 사용자 지시: "모바일에서 화면에 버튼을 감추지 마라. esc 같은 건 데스크탑에서나 할 수 있지
+	# 모바일에선 버튼 없으면 아예 안 된다." → **키보드 탈출구를 전제하지 않는다.**
+	# pool 을 새로 늘려도 이 줄이 있는 한 갇히지 않는다.
+	if not can_leave:
+		bottom.add_child(PUi.button("계속", func(): skipped.emit(), true, 15))
+		can_leave = true
+	_can_leave = can_leave
 
 ## 후보 카드 한 장: 아이콘 · 이름 · 핵심 효과 · 전/후 · [선택] · [상세]
 func _card(run: Dictionary, c: Variant) -> Control:

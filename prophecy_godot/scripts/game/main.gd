@@ -541,6 +541,9 @@ func _on_pick(key: String) -> void:
 func _on_skip() -> void:
 	var off := choice.offer
 	if off.is_empty():
+		# 제안 자체가 비어 있으면 정산할 것이 없다. 그래도 **창은 반드시 닫는다** —
+		# 예전에는 여기서 그냥 돌아가서, 창이 뜬 채 입력만 막힌 상태로 남았다
+		close_choice()
 		return
 	PFlow.resolve_offer(run, off, null)
 	_after_choice()
