@@ -127,6 +127,8 @@ func _init() -> void:
 	sec7_no_stagger()
 	sec8_frames()
 	sec9_hammer_and_crit()
+	sec11_wind_slam()
+	sec12_plague_host()
 	sec10_measure()
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
@@ -139,12 +141,16 @@ func sec0_contract() -> void:
 		not S.is_empty() and S.has("sources") and S.has("sec") and S.has("cooldownSec"), str(S.keys()))
 	ok("모든 시험값에 근거가 적혀 있다", String(S.get("why", "")) != "")
 	var srcs: Array = S.get("sources", [])
-	ok("경직을 일으킬 수 있는 것은 네 이름뿐이다(파쇄·불꽃 파열·감전 방전·표식 폭발)",
-		srcs.size() == 4 and srcs.has("frost_shatter") and srcs.has("flare_burst")
-		and srcs.has("shock_discharge") and srcs.has("crow_burst"), str(srcs))
+	ok("경직을 일으킬 수 있는 것은 여섯 이름뿐이다(파쇄·불꽃 파열·감전 방전·표식 폭발·돌풍 충돌·숙주 파열)",
+		srcs.size() == 6 and srcs.has("frost_shatter") and srcs.has("flare_burst")
+		and srcs.has("shock_discharge") and srcs.has("crow_burst")
+		and srcs.has("wind_slam") and srcs.has("plague_burst"), str(srcs))
 	ok("일반 공격·장판 틱·평소 감전 후속·파쇄 파편은 목록에 없다",
 		not srcs.has("main_direct") and not srcs.has("zone_tick")
 		and not srcs.has("shock_bonus") and not srcs.has("frost_shard"))
+	var scope: Dictionary = S.get("targetScope", {})
+	ok("여섯 출처 모두 경직 대상 범위가 표에 적혀 있다",
+		scope.size() == srcs.size() and scope.has("wind_slam") and scope.has("plague_burst"), str(scope.keys()))
 	ok("룬 지뢰 연계는 보류라 목록에 없다", not srcs.has("mine_blast"))
 	var sec: Dictionary = S.get("sec", {})
 	ok("일반 몬스터 경직이 사용자가 준 창(0.10~0.15초) 안이다",
@@ -157,8 +163,27 @@ func sec0_contract() -> void:
 	ok("재경직 제한이 약 0.8초다", is_equal_approx(float(S.get("cooldownSec", 0.0)), 0.8),
 		"%.2f초" % float(S.get("cooldownSec", 0.0)))
 	# 자격표에 새 경로 어휘가 등록되어 있는가(모르는 이름은 eligible이 조용히 통과시킨다)
-	for c in ["flare_burst", "shock_discharge", "crow_burst"]:
+	for c in ["flare_burst", "shock_discharge", "crow_burst", "wind_slam", "plague_burst"]:
 		ok("자격표 어휘에 %s가 등록되어 있다" % c, PSupport.known_cause(c))
+	# ⑤⑥의 재귀 차단은 **기존 자격표**만 쓴다(새 장치를 만들지 않았다)
+	var EF: Dictionary = PCatalog.eligibility().get("effects", {})
+	ok("자격표에 돌풍 충돌·숙주 파열 항목이 있다",
+		EF.has("wind_slam") and EF.has("plague_host_burst"), str(EF.keys()))
+	ok("돌풍 충돌은 돌풍의 직접 타격에서만 열리고 자기 자신을 막는다",
+		PSupport.eligible("wind_slam", "support_direct")
+		and not PSupport.eligible("wind_slam", "wind_slam")
+		and not PSupport.eligible("wind_slam", "zone_tick")
+		and not PSupport.eligible("wind_slam", "dot"))
+	ok("숙주 파열은 주무기 처치에서만 열리고 독 틱·자기 자신을 막는다",
+		PSupport.eligible("plague_host_burst", "main_direct")
+		and PSupport.eligible("plague_host_burst", "main_extra")
+		and not PSupport.eligible("plague_host_burst", "dot")
+		and not PSupport.eligible("plague_host_burst", "plague_burst")
+		and not PSupport.eligible("plague_host_burst", "support_direct")
+		and not PSupport.eligible("plague_host_burst", "zone_tick"))
+	ok("독 전염은 예전처럼 죽음의 경로를 가리지 않는다(기존 규칙을 좁히지 않았다)",
+		PSupport.eligible("plague_spread", "dot") and PSupport.eligible("plague_spread", "support_direct")
+		and PSupport.eligible("plague_spread", "plague_burst"))
 	# 목록 밖 이름으로는 아무 일도 일어나지 않는다
 	var st := lab([["sword", 1, []]])
 	var e := mob(st, "wolf", 200.0, 0.0)
@@ -403,12 +428,15 @@ func sec5_shared_cooldown() -> void:
 	var st := lab([["sword", 1, []]])
 	var e := mob(st, "wolf", 200.0, 0.0)
 	var S := PCatalog.link_stagger()
-	ok("서로 다른 연계도 첫 경직만 걸린다(효과별로 따로 제한을 두지 않는다)",
+	ok("서로 다른 연계도 첫 경직만 걸린다(효과별로 따로 제한을 두지 않는다 · 여섯이 하나를 함께 쓴다)",
 		st.apply_stagger(e, "frost_shatter") and not st.apply_stagger(e, "flare_burst")
-		and not st.apply_stagger(e, "shock_discharge") and not st.apply_stagger(e, "crow_burst"))
-	ok("막힌 세 번도 **시도**로는 세어 남는다(조건 충족과 실제 발동을 가른다)",
+		and not st.apply_stagger(e, "shock_discharge") and not st.apply_stagger(e, "crow_burst")
+		and not st.apply_stagger(e, "wind_slam") and not st.apply_stagger(e, "plague_burst"))
+	ok("막힌 다섯 번도 **시도**로는 세어 남는다(조건 충족과 실제 발동을 가른다)",
 		tries(st, "flare_burst") == 1 and tries(st, "shock_discharge") == 1 and tries(st, "crow_burst") == 1
-		and applied(st, "flare_burst") == 0)
+		and tries(st, "wind_slam") == 1 and tries(st, "plague_burst") == 1
+		and applied(st, "flare_burst") == 0 and applied(st, "wind_slam") == 0
+		and applied(st, "plague_burst") == 0)
 	play(st, float(S.sec.normal) + 0.02)
 	ok("경직이 끝나자마자 다른 연계가 곧바로 다시 걸지 못한다(재경직 제한)",
 		not st.apply_stagger(e, "flare_burst") and blocked(st, "cooldown") >= 1,
@@ -564,6 +592,220 @@ func sec9_hammer_and_crit() -> void:
 	ok("신규 경직은 적 상태 기계의 상태 이름을 바꾸지 않는다(빈틈 'stagger'와 다른 것)",
 		String(a2.state) == "idle" and float(a2.stagger_t) > 0.0)
 
+# ---------- 11. ⑤ 돌풍 → 장애물 충돌 ----------
+## 시험실: 플레이어(480,300) 오른쪽 640에 바위 하나. 늑대(반지름 14)를 540에 놓으면
+## 압축 돌풍이 240px 밀려 하지만 바위 표면(586)에서 멈춘다 — 밀려간 46, 막힌 194.
+func wind_lab(rock: bool = true) -> CombatState:
+	var st := lab([["sword", 1, []], ["wind", 1, ["focused"]]])
+	if rock:
+		st.obstacles = [{ "id": "rock_t", "type": "rock", "x": 640.0, "y": 300.0, "r": 40.0 }]
+	return st
+
+func wind_state(st: CombatState) -> Dictionary:
+	return (st.support as Dictionary).get("wind", {})
+
+func sec11_wind_slam() -> void:
+	# 11-1. 실제로 바위에 부딪히면 추가 피해 + 경직
+	var st := wind_lab()
+	var e := mob(st, "wolf", 60.0, 0.0, 400.0)
+	var x0: float = float(e.x)
+	var hp0: float = float(e.hp)
+	PWeapons.fire(st, wep(st, "wind"), e, false)
+	var S := wind_state(st)
+	ok("돌풍이 밀어 바위에 부딪히면 충돌 피해가 들어간다",
+		int(S.slams) == 1 and float(e.hp) < hp0 and float(e.x) > x0,
+		"충돌 %d회 · %.1f → %.1f · x %.0f → %.0f" % [int(S.slams), hp0, float(e.hp), x0, float(e.x)])
+	ok("충돌은 연계 폭발로 세어지고 경직이 실제로 걸린다",
+		bursts(st, "wind_slam") == 1 and applied(st, "wind_slam") == 1 and float(e.stagger_t) > 0.0,
+		"폭발 %d · 발동 %d · 남은 경직 %.3f초" % [bursts(st, "wind_slam"), applied(st, "wind_slam"), float(e.stagger_t)])
+	# 11-2. 벽에 이미 붙은 적에게는 다음 돌풍이 충돌을 만들지 않는다
+	var slam_dmg1: float = float(S.slam_dmg)
+	var flush0: int = int(S.slam_flush)
+	# 적을 걷게 두면 바위에서 떨어져 나가므로(그때의 두 번째 충돌은 정당하다) **자리를 그대로 두고**
+	# 경직·재경직 제한만 손으로 풀어 다시 분다. 즉 "바위에 붙은 채로 또 맞는" 상황만 남긴다
+	e["stagger_t"] = 0.0
+	e["stagger_cd"] = 0.0
+	PWeapons.fire(st, wep(st, "wind"), e, false)
+	ok("이미 벽·바위에 붙은 적에게는 다음 돌풍이 충돌 피해를 만들지 않는다(평소 돌풍 피해는 그대로)",
+		int(S.slams) == 1 and int(S.slam_flush) > flush0
+		and is_equal_approx(float(S.slam_dmg), slam_dmg1) and applied(st, "wind_slam") == 1,
+		"충돌 %d회(그대로) · 붙어서 거른 %d회 · 충돌 피해 합 %.1f" % [int(S.slams), int(S.slam_flush), float(S.slam_dmg)])
+	# 11-3. 장애물이 없는 쪽으로 밀면 기존 밀어내기만 남는다
+	var st2 := wind_lab(false)
+	var e2 := mob(st2, "wolf", 60.0, 0.0, 400.0)
+	var hp2: float = float(e2.hp)
+	var x2: float = float(e2.x)
+	PWeapons.fire(st2, wep(st2, "wind"), e2, false)
+	var S2 := wind_state(st2)
+	var pushed: float = float(e2.x) - x2
+	ok("장애물이 없는 곳으로 밀었을 때는 기존 밀어내기만 적용한다",
+		int(S2.slams) == 0 and int(S2.slam_open) == 1 and pushed > 100.0
+		and bursts(st2, "wind_slam") == 0 and is_zero_approx(float(e2.stagger_t)),
+		"밀어낸 거리 %.0f · 충돌 %d회" % [pushed, int(S2.slams)])
+	ok("충돌 피해만 빠지고 돌풍의 평소 피해는 그대로 들어간다", float(e2.hp) < hp2,
+		"%.1f → %.1f" % [hp2, float(e2.hp)])
+	# 11-4. 세 관문과 '한 번의 밀어내기당 1회'를 직접 확인한다
+	var st3 := wind_lab()
+	var w3 := wep(st3, "wind")
+	var s3: Dictionary = w3.stats
+	var S3 := PSupportA._state(st3, "wind")
+	S3.blasts = 7
+	var g1 := mob(st3, "wolf", 60.0, 0.0, 400.0)
+	PSupportA._wind_slam(st3, w3, S3, s3, g1, { "hit": "", "t": 1.0 }, 240.0, 240.0)
+	ok("막히지 않은 이동은 충돌이 아니다", int(S3.slams) == 0 and int(S3.slam_open) == 1)
+	var g2 := mob(st3, "wolf", 60.0, 40.0, 400.0)
+	PSupportA._wind_slam(st3, w3, S3, s3, g2, { "hit": "rock_t", "t": 0.02 }, 240.0, 5.0)
+	ok("밀려간 거리가 모자라면(이미 붙어 있으면) 충돌이 아니다",
+		int(S3.slams) == 0 and int(S3.slam_flush) == 1)
+	var g3 := mob(st3, "wolf", 60.0, 80.0, 400.0)
+	PSupportA._wind_slam(st3, w3, S3, s3, g3, { "hit": "rock_t", "t": 0.98 }, 240.0, 235.0)
+	ok("막힌 거리가 모자라면(스친 것) 충돌이 아니다",
+		int(S3.slams) == 0 and int(S3.slam_graze) == 1)
+	var g4 := mob(st3, "wolf", 60.0, 120.0, 400.0)
+	var hp4: float = float(g4.hp)
+	PSupportA._wind_slam(st3, w3, S3, s3, g4, { "hit": "rock_t", "t": 0.4 }, 240.0, 100.0)
+	var after4: float = float(g4.hp)
+	PSupportA._wind_slam(st3, w3, S3, s3, g4, { "hit": "rock_t", "t": 0.4 }, 240.0, 100.0)
+	ok("한 번의 밀어내기가 같은 적에게 충돌 피해를 두 번 만들지 않는다",
+		int(S3.slams) == 1 and after4 < hp4 and is_equal_approx(float(g4.hp), after4),
+		"충돌 %d회 · %.1f → %.1f" % [int(S3.slams), hp4, float(g4.hp)])
+	# 11-5. 밀치기 면역인 보스에게는 이동·충돌을 억지로 적용하지 않는다
+	var st4 := wind_lab()
+	var bz := mob(st4, "boss", 60.0, 0.0, 1.0e6)
+	var bx: float = float(bz.x)
+	var bhp: float = float(bz.hp)
+	PWeapons.fire(st4, wep(st4, "wind"), bz, false)
+	var S4 := wind_state(st4)
+	ok("밀치기 면역인 보스에게는 이동·충돌 효과를 억지로 적용하지 않는다",
+		is_equal_approx(float(bz.x), bx) and int(S4.slams) == 0 and int(S4.slam_checked) == 0
+		and is_zero_approx(float(bz.get("stagger_t", 0.0))),
+		"x %.1f → %.1f · 충돌 판정 %d회" % [bx, float(bz.x), int(S4.slam_checked)])
+	ok("보스도 돌풍의 정상 피해는 그대로 받는다", float(bz.hp) < bhp, "피해 %.1f" % (bhp - float(bz.hp)))
+	# 11-5b. 저프레임·큰 dt로 굴려도 충돌·경직이 복제되지 않는다(발사 자체를 막아 놓고 본다)
+	var st6 := wind_lab()
+	var e6 := mob(st6, "wolf", 60.0, 0.0, 400.0)
+	PWeapons.fire(st6, wep(st6, "wind"), e6, false)
+	var S6 := wind_state(st6)
+	var slams6: int = int(S6.slams)
+	var ap6: int = applied(st6, "wind_slam")
+	wep(st6, "wind").timer = 1.0e9 # 다음 돌풍이 불지 않게 막고 프레임만 굴린다
+	for i in 6:
+		st6.step({}, 0.5)
+	ok("큰 dt로 굴려도 충돌·경직이 복제되지 않는다(충돌은 밀어내기 이벤트 안에서만 난다)",
+		int(S6.slams) == slams6 and applied(st6, "wind_slam") == ap6 and slams6 == 1,
+		"충돌 %d회 · 발동 %d회" % [int(S6.slams), applied(st6, "wind_slam")])
+	# 11-6. 개조를 고르지 않으면 충돌 자체가 없다
+	var st5 := lab([["sword", 1, []], ["wind", 1, []]])
+	st5.obstacles = [{ "id": "rock_t", "type": "rock", "x": 640.0, "y": 300.0, "r": 40.0 }]
+	var e5 := mob(st5, "wolf", 60.0, 0.0, 400.0)
+	PWeapons.fire(st5, wep(st5, "wind"), e5, false)
+	var S5 := wind_state(st5)
+	ok("압축 돌풍을 고르지 않으면 충돌 판정 자체가 없다",
+		int(S5.get("slam_checked", 0)) == 0 and bursts(st5, "wind_slam") == 0
+		and is_zero_approx(float(e5.stagger_t)))
+
+# ---------- 12. ⑥ 역병 → 숙주 파열 ----------
+## 적을 움직이지 않고 보조 규칙만 굴린다(기하가 그대로 유지된다 — support_b_tests와 같은 방식)
+func quiet_tick(st: CombatState, sec: float) -> void:
+	for i in int(round(sec / STEP)):
+		var keep := []
+		for d in st.delayed:
+			d.t = float(d.t) - STEP
+			if float(d.t) <= 0.0:
+				(d.fn as Callable).call()
+			else:
+				keep.append(d)
+		st.delayed = keep
+		PSupport.update(st, STEP)
+
+func plague_lab() -> CombatState:
+	return lab([["sword", 1, []], ["plague", 1, ["burst"]]])
+
+func infected(e: Dictionary) -> bool:
+	return not (e.get("plague", {}) as Dictionary).is_empty()
+
+func sec12_plague_host() -> void:
+	# 12-1. 주무기 처치로 터진다 — 주변에 즉시 피해 + 경직
+	var st := plague_lab()
+	var host := mob(st, "wolf", 120.0, 0.0, 200.0)
+	var near1 := mob(st, "wolf", 150.0, 30.0, 400.0)
+	PSupport.fire(st, wep(st, "plague"), host, false)
+	quiet_tick(st, 1.2)
+	ok("전제: 숙주에게 독이 걸렸다", infected(host))
+	var P: Dictionary = PSupportB.plague_stat(st)
+	var hp_n: float = float(near1.hp)
+	st.damage_enemy(host, 1.0e6, main_direct())
+	ok("감염된 적을 주무기로 처치하면 숙주 파열이 터진다",
+		int(P.bursts) == 1 and float(near1.hp) < hp_n and bursts(st, "plague_burst") == 1,
+		"파열 %d회 · 이웃 %.1f → %.1f" % [int(P.bursts), hp_n, float(near1.hp)])
+	ok("파열 피해를 받은 살아 있는 적이 짧게 경직된다",
+		applied(st, "plague_burst") == 1 and float(near1.stagger_t) > 0.0,
+		"발동 %d · 남은 경직 %.3f초" % [applied(st, "plague_burst"), float(near1.stagger_t)])
+	# 12-2. 독 틱으로 죽으면 파열은 열리지 않지만 전염은 그대로 일어난다
+	var st2 := plague_lab()
+	var h2 := mob(st2, "wolf", 120.0, 0.0, 2.0)
+	var n2 := mob(st2, "wolf", 150.0, 30.0, 400.0)
+	PSupport.fire(st2, wep(st2, "plague"), h2, false)
+	quiet_tick(st2, 4.0) # 독 틱만으로 죽을 때까지
+	var P2: Dictionary = PSupportB.plague_stat(st2)
+	ok("전제: 숙주가 독 틱으로 죽었다", bool(h2.dead))
+	ok("독이 끝내 죽인 경우에는 숙주 파열이 열리지 않는다",
+		int(P2.bursts) == 0 and int(P2.burst_blocked) >= 1 and bursts(st2, "plague_burst") == 0
+		and is_zero_approx(float(n2.stagger_t)),
+		"파열 %d회 · 막힘 %d회" % [int(P2.bursts), int(P2.burst_blocked)])
+	ok("그때에도 독 전염은 예전처럼 일어난다(전염과 숙주 파열을 구분한다)",
+		int(P2.spreads) >= 1 and infected(n2), "전염 %d회" % int(P2.spreads))
+	# 12-3. 보조무기 처치에는 자격이 없다
+	var st3 := plague_lab()
+	var h3 := mob(st3, "wolf", 120.0, 0.0, 200.0)
+	var n3 := mob(st3, "wolf", 150.0, 30.0, 400.0)
+	PSupport.fire(st3, wep(st3, "plague"), h3, false)
+	quiet_tick(st3, 1.2)
+	var P3: Dictionary = PSupportB.plague_stat(st3)
+	var hp3: float = float(n3.hp)
+	st3.damage_enemy(h3, 1.0e6, { "cause": "support_direct", "src": { "weapon_id": "plague", "direct": true } })
+	ok("보조무기가 마지막 일격이면 숙주 파열이 열리지 않는다",
+		int(P3.bursts) == 0 and int(P3.burst_blocked) >= 1 and is_equal_approx(float(n3.hp), hp3))
+	# 12-4. 파열 피해가 다시 파열을 부르지 않는다(재귀 차단)
+	var st4 := plague_lab()
+	var h4 := mob(st4, "wolf", 120.0, 0.0, 200.0)
+	var n4 := mob(st4, "wolf", 150.0, 20.0, 4.0) # 파열 피해로 죽을 만큼 얇게
+	PSupport.fire(st4, wep(st4, "plague"), h4, false)
+	quiet_tick(st4, 1.2)
+	PSupport.fire(st4, wep(st4, "plague"), n4, false)
+	quiet_tick(st4, 1.2)
+	ok("전제: 두 마리 모두 감염됐다", infected(h4) and infected(n4))
+	var P4: Dictionary = PSupportB.plague_stat(st4)
+	st4.damage_enemy(h4, 1.0e6, main_direct())
+	ok("파열 피해로 죽은 감염된 적은 다시 파열하지 않는다(연쇄 금지)",
+		bool(n4.dead) and int(P4.bursts) == 1 and int(P4.burst_blocked) >= 1,
+		"파열 %d회 · 막힘 %d회" % [int(P4.bursts), int(P4.burst_blocked)])
+	# 12-5. 남은 독 피해의 비율·상한이 실제로 적용된다
+	var st5 := plague_lab()
+	var h5 := mob(st5, "wolf", 120.0, 0.0, 200.0)
+	var n5 := mob(st5, "wolf", 150.0, 20.0, 1.0e6)
+	PSupport.fire(st5, wep(st5, "plague"), h5, false)
+	quiet_tick(st5, 1.2)
+	var pg5: Dictionary = h5.get("plague", {})
+	var remain: float = maxf(0.0, float(pg5.t)) * float(pg5.dps)
+	var want: float = minf(remain * float(pg5.burst_frac), float(pg5.get("burst_cap", 0.0)))
+	var hp5: float = float(n5.hp)
+	st5.damage_enemy(h5, 1.0e6, main_direct())
+	var dealt: float = hp5 - float(n5.hp)
+	ok("숙주 파열 피해 = 남은 독 피해 × 비율(상한 적용)",
+		absf(dealt - want) < 0.6 and want > 0.0,
+		"남은 독 %.1f × %.2f → 기대 %.1f · 실제 %.1f (상한 %.0f)" % [remain, float(pg5.burst_frac), want, dealt, float(pg5.get("burst_cap", 0.0))])
+	ok("죽음이 독 칸을 지운 뒤에도 계산에 쓴 값은 보존된다(지역 변수 pg)",
+		not infected(h5) and int(PSupportB.plague_stat(st5).bursts) == 1)
+	# 12-6. 저프레임·큰 dt로 굴려도 파열·경직이 복제되지 않는다
+	var P5b: Dictionary = PSupportB.plague_stat(st5)
+	var ap5: int = applied(st5, "plague_burst")
+	for i in 6:
+		st5.step({}, 0.5)
+	ok("큰 dt로 굴려도 숙주 파열·경직이 복제되지 않는다(파열은 죽음 이벤트 안에서만 난다)",
+		int(P5b.bursts) == 1 and applied(st5, "plague_burst") == ap5,
+		"파열 %d회 · 발동 %d회" % [int(P5b.bursts), applied(st5, "plague_burst")])
+
 # ---------- 10. 실전 비교(기록). 합격 판정이 아니라 수치를 남긴다 ----------
 ## 같은 성장 예산·편성·시드·봇을 유지하고 **신규 경직만** 켜고 끈 두 팔을 돌린다.
 ## 끈 팔은 매 걸음 모든 적의 재경직 제한을 크게 세워 경직이 걸리지 못하게 한다 —
@@ -583,6 +825,14 @@ const MEASURE_ARMS := [
 		"commons": { "ember": 1, "flare": 1 },
 		"wave": [{ "type": "wolf", "n": 4 }, { "type": "archer", "n": 2 }, { "type": "shieldbearer", "n": 1 }],
 		"why": "감전 누적 방전 경직 + 불꽃 파열 경직" },
+	{ "id": "sword_wind_plague", "main": "sword",
+		"weapons": [["sword", 4, ["scar"]], ["wind", 3, ["focused"]], ["plague", 3, ["burst"]]], "commons": {},
+		"wave": [{ "type": "wolf", "n": 4 }, { "type": "archer", "n": 2 }, { "type": "shieldbearer", "n": 1 }],
+		"why": "⑤ 돌풍 충돌 경직 + ⑥ 숙주 파열 경직. 장애물은 전장이 만든 것을 그대로 쓴다(손으로 놓지 않았다)" },
+	{ "id": "spear_wind_plague", "main": "spear",
+		"weapons": [["spear", 4, []], ["wind", 3, ["focused"]], ["plague", 3, ["burst"]]], "commons": {},
+		"wave": [{ "type": "wolf_alpha", "n": 2 }, { "type": "shieldbearer", "n": 3 }, { "type": "wolf", "n": 3 }],
+		"why": "같은 둘을 **체력이 큰 편성**에서 본다 — 얇은 무리에서는 밀기 전에 죽어 충돌이 잘 나지 않는다" },
 	{ "id": "boss_frost_crow", "main": "hammer",
 		"weapons": [["hammer", 4, ["shockwave"]], ["frost", 3, []], ["crow", 3, ["hunt"]]], "commons": {},
 		"wave": [], "boss": true,
@@ -642,6 +892,15 @@ func measure_run(arm: Dictionary, seed_v: int, stagger_on: bool) -> Dictionary:
 		int(PSupport.metered(st, "crow", "hits")), int(PSupport.metered(st, "crow", "bursts")),
 		int(PSupport.metered(st, "orb", "shock_procs")), int(PSupport.metered(st, "orb", "discharges")),
 		int(PSupport.metered(st, "common", "flare_bursts"))]
+	# ⑤⑥은 표준 지표에 칸이 없어 상태 dict에서 바로 읽는다(조건 충족과 실제 발동을 가르는 칸까지 함께).
+	var W: Dictionary = (st.support as Dictionary).get("wind", {})
+	var PG: Dictionary = (st.support as Dictionary).get("plague", {})
+	if not W.is_empty() or not PG.is_empty():
+		link += " · 돌풍 %d(밀어냄 %d · 충돌 %d · 빈곳 %d · 붙어서거름 %d · 스침 %d)" % [
+			int(W.get("blasts", 0)), int(W.get("pushed", 0)), int(W.get("slams", 0)),
+			int(W.get("slam_open", 0)), int(W.get("slam_flush", 0)), int(W.get("slam_graze", 0))]
+		link += " · 숙주파열 %d(자격없어 막힘 %d) · 전염 %d" % [
+			int(PG.get("bursts", 0)), int(PG.get("burst_blocked", 0)), int(PG.get("spreads", 0))]
 	return { "status": String(st.status), "sec": snappedf(float(st.t), 0.01), "kills": int(st.stats.kills),
 		"taken": snappedf(float(st.stats.damage_taken), 0.1), "attacks": attacks_executed(st),
 		"tries": tr, "applied": ap, "bursts": bu, "sec_stag": snappedf(float(st.stagger_stats.sec), 0.001),

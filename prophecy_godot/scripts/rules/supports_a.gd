@@ -47,8 +47,16 @@ static func _new_state(id: String) -> Dictionary:
 			return { "clones": [], "trail": [], "last_count": {}, "busy": false,
 				"spawned": 0, "strikes": 0, "damage": 0.0, "fizzles": 0 }
 		"wind":
+			# slam_* = 압축 돌풍의 장애물 충돌(⑤). **조건 충족과 실제 발동을 나눠 센다**:
+			#  slam_checked = 개조를 달고 실제로 밀어낸 횟수(= 충돌 여부를 물어본 횟수)
+			#  slam_open    = 장애물·벽이 없어 그대로 밀려난 횟수(충돌 아님 — 기존 밀어내기만)
+			#  slam_flush   = 이미 벽에 붙어 있어 거른 횟수(매 프레임 충돌 금지가 실제로 일한 횟수)
+			#  slam_graze   = 닿았지만 막힌 거리가 모자라 거른 횟수
+			#  slams        = 실제로 충돌 피해가 들어간 횟수, slam_dmg = 그 피해 합
 			return { "blasts": 0, "pushed": 0, "push_total": 0.0, "push_max": 0.0,
-				"gusts": 0, "slowed": 0, "slow_sec": 0.0, "slow_min": 1.0 }
+				"gusts": 0, "slowed": 0, "slow_sec": 0.0, "slow_min": 1.0,
+				"slam_checked": 0, "slam_open": 0, "slam_flush": 0, "slam_graze": 0,
+				"slams": 0, "slam_dmg": 0.0 }
 	return {}
 
 ## 그 보조의 전투 중 상태(없으면 만든다). st.support는 전투 시작 때 PSupport.init_state가 비운다
@@ -714,6 +722,9 @@ static func _wind_fire(st: CombatState, w: Dictionary) -> void:
 	var half := arc * PI / 360.0
 	var rr := float(s.range)
 	var linger := PSupport.has_mod(st, "wind", "lingering")
+	# ⑤ 장애물 충돌은 **압축 돌풍 하나에만** 붙는다(신규 개조 칸을 만들지 않았다 — docs/STAGGER.md 13절).
+	# 넓은 돌풍은 밀어내기가 60%라 벽까지 밀지 못하고, 잔바람은 사용자가 최근에 승인한 개조라 건드리지 않았다
+	var slam := mid == "focused"
 	S.blasts = int(S.blasts) + 1
 	st.metrics.cause_fires["wind"] = int(st.metrics.cause_fires.get("wind", 0)) + 1
 	st.fx({ "kind": "wind_gust", "x": p.x, "y": p.y, "angle": ang, "r": rr, "half": half, "ttl": 0.2, "mod": mid })
@@ -750,14 +761,59 @@ static func _wind_fire(st: CombatState, w: Dictionary) -> void:
 			continue
 		var x0 := float(e2.x)
 		var y0 := float(e2.y)
-		st.move_swept(e2, float(n[0]) * want, float(n[1]) * want)
+		# move_swept의 반환값을 **버리지 않는다** — hit이 ""가 아니면 그 이동이 벽·바위에 실제로 막혔다는 뜻이고,
+		# 그것이 ⑤ 장애물 충돌의 유일한 판정 근거다. slide는 켜지 않는다(미끄러뜨리면 '부딪혔다'가 흐려진다)
+		var res := st.move_swept(e2, float(n[0]) * want, float(n[1]) * want)
 		var moved := PGeom.dist(x0, y0, float(e2.x), float(e2.y))
+		if slam:
+			_wind_slam(st, w, S, s, e2, res, want, moved)
 		if moved <= 0.0:
 			continue
 		S.pushed = int(S.pushed) + 1
 		S.push_total = float(S.push_total) + moved
 		S.push_max = maxf(float(S.push_max), moved)
 	st.ev("shoot")
+
+## ⑤ 돌풍 → 장애물 충돌(2026-09-09 사용자 지시 · docs/STAGGER.md). 개조 '압축 돌풍'을 골랐을 때만 판정한다.
+## **한 번의 밀어내기가 같은 적에게 충돌을 두 번 만들지 않는다.** 세 관문을 모두 지나야 충돌이다.
+##  ① move_swept가 벽·바위에 막혔다고 알렸다(res.hit != ""). 빈 곳으로 밀렸으면 기존 밀어내기만 남는다.
+##  ② 실제로 slamMinMove 이상 밀려갔다. **이미 벽에 붙어 있던 적은 0에 가깝게 움직이므로 여기서 걸린다** —
+##     그래서 벽에 붙은 적에게 돌풍이 몇 번을 불어도 충돌 피해가 반복되지 않는다(사용자 지시).
+##  ③ 막혀서 못 간 거리가 slamMinBlock 이상이다. 사거리 끝에서 살짝 스친 것을 충돌로 세지 않는다.
+## 중복 방지는 두 겹이다: 위 ②와, 이 돌풍 번호(S.blasts)를 적에게 찍어 두는 표시(wind_slam_seq).
+## 표시는 **피해보다 먼저** 찍는다 — 충돌 피해가 다시 이 경로로 들어와도 같은 돌풍에서 두 번 터질 수 없다.
+## 보스·밀치기 면역은 여기까지 오지 않는다(knock_dist가 0이라 부르는 쪽에서 이미 걸러진다).
+static func _wind_slam(st: CombatState, w: Dictionary, S: Dictionary, s: Dictionary,
+		e: Dictionary, res: Dictionary, want: float, moved: float) -> void:
+	S.slam_checked = int(S.slam_checked) + 1
+	if not PSupport.eligible("wind_slam", "support_direct"):
+		return
+	if String(res.get("hit", "")) == "":
+		S.slam_open = int(S.slam_open) + 1
+		return # 장애물이 없는 곳으로 밀었다 — 기존 밀어내기만 적용한다
+	if moved < float(s.get("slamMinMove", 12.0)):
+		S.slam_flush = int(S.slam_flush) + 1
+		return # 이미 벽에 붙어 있었다
+	if want - moved < float(s.get("slamMinBlock", 20.0)):
+		S.slam_graze = int(S.slam_graze) + 1
+		return # 닿기는 했지만 막힌 거리가 모자라다
+	if int(e.get("wind_slam_seq", -1)) == int(S.blasts):
+		return # 한 번의 밀어내기가 같은 적에게 두 번 충돌을 만들지 않는다
+	e["wind_slam_seq"] = int(S.blasts)
+	S.slams = int(S.slams) + 1
+	st.note_link_burst("wind_slam") # 충돌 자체의 횟수(경직이 걸렸는지와 따로 센다)
+	var hp_b: float = float(e.hp)
+	# 추가 밀어내기는 주지 않는다 — 벽 안으로 더 밀 수 없고, 두 번째 이동은 곧 두 번째 충돌 판정이 된다
+	var opt := { "cause": "wind_slam", "knock": 0.0, "dir": [0.0, 0.0], "mod": "focused",
+		"src_extra": { "extra": true, "direct": false } }
+	PWeapons.dmg_to(st, e, w, float(s.get("slamMult", 1.6)), opt)
+	S.slam_dmg = float(S.slam_dmg) + maxf(0.0, hp_b - float(e.hp))
+	st.fx({ "kind": "burst", "x": float(e.x), "y": float(e.y), "r": float(e.r) + 10.0, "ttl": 0.25, "color": "#cfd6dd" })
+	st.text(float(e.x), float(e.y) - float(e.r) - 24.0, "충돌!", "#cfd6dd")
+	# 경직: **부딪힌 그 적 본체에만.** 실제로 피해가 들어가고 살아 있을 때만 건다.
+	# 막혀도(재경직 제한·보스) 위의 피해는 그대로 끝나 있다
+	if float(e.hp) < hp_b and not bool(e.dead):
+		st.apply_stagger(e, "wind_slam")
 
 ## 돌풍이 지나간 자리(부채꼴의 축)에 잔바람을 남긴다.
 ## 놓는 곳: (x0,y0)에서 (x1,y1)까지를 n등분한 점들 — 지금 호출자는 플레이어 자리 → 조준 방향으로 range만큼.

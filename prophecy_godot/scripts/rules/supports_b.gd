@@ -47,7 +47,10 @@ static func _slot(st: CombatState, key: String, init: Dictionary) -> Dictionary:
 	return d
 
 static func plague_stat(st: CombatState) -> Dictionary:
+	# burst_blocked = 감염된 적이 죽었지만 **주무기 처치가 아니라** 숙주 파열이 열리지 않은 횟수
+	# (조건 충족과 실제 발동을 가르는 칸이다. 전염은 그때에도 그대로 일어난다)
 	return _slot(st, "plague", { "applied": 0, "spreads": 0, "bursts": 0, "max_gen": 0, "spread_blocked": 0,
+		"burst_blocked": 0,
 		"dmg": { "poison": 0.0, "spread": 0.0, "burst": 0.0, "venom": 0.0 } })
 
 static func thorns_stat(st: CombatState) -> Dictionary:
@@ -158,7 +161,18 @@ static func after_player_damage(st: CombatState, amount: float, src: String, att
 static func on_enemy_hit(_st: CombatState, _e: Dictionary, _opt: Dictionary, _dmg: float) -> void:
 	pass
 
-## 죽음이 방아쇠인 효과: 역병 파열 → 독 전염 순서로 정산한다(같은 죽음으로 두 번 터지지 않는다)
+## 죽음이 방아쇠인 효과: 숙주 파열 → 독 전염 순서로 정산한다(같은 죽음으로 두 번 터지지 않는다).
+##
+## **⑥ 숙주 파열**(2026-09-09 사용자 지시 · docs/STAGGER.md). 개조 이름이 '역병 파열'에서 바뀌었고
+## 동작이 하나 **좁아졌다**: 예전에는 어떤 죽음이든 터졌지만 이제 **주무기 처치일 때만** 터진다.
+## 자격 판정은 자격표 `plague_host_burst`(allow: main_direct·main_extra) 한 곳이 정본이다 —
+## 되돌리려면 그 allow를 ["*"]로 바꾸면 예전 동작이 그대로 돌아온다.
+##
+## **죽음이 독 정보를 지우기 전에 무엇을 쥐고 있는가**: 지역 변수 pg가 e.plague **그 dict를 가리킨다.**
+## 아래 e["plague"] = {}는 적의 칸만 비우고 pg가 든 값은 그대로 남으므로,
+## 남은 시간(pg.t) · 초당 독 피해(pg.dps) · 반영 비율(pg.burst_frac) · 범위(pg.burst_r) ·
+## 상한(pg.burst_cap) · 전염 세대(pg.gen)를 **죽은 뒤에도 그대로 읽는다.** 계산에 쓰는 것은
+## 그 순간 그 적에게 남아 있던 **역병 나비의 독 하나뿐**이다(화상·출혈은 포함하지 않는다).
 static func on_enemy_death(st: CombatState, e: Dictionary, opt: Dictionary) -> void:
 	var pg: Dictionary = e.get("plague", {})
 	if pg.is_empty() or bool(pg.get("done", false)):
@@ -166,31 +180,49 @@ static func on_enemy_death(st: CombatState, e: Dictionary, opt: Dictionary) -> v
 	pg.done = true      # 같은 죽음으로 두 번 정산하지 않는다
 	e["plague"] = {}    # 죽은 개체의 독은 여기서 끝난다
 	var P := plague_stat(st)
+	var cause := _death_cause(st, opt)
 	var burst_frac := 0.0
-	# (1) 역병 파열: 남은 독 피해의 일부를 즉시 방출
+	# (1) 숙주 파열: **주무기 처치일 때만** 남은 독 피해의 일부를 즉시 방출하고 짧게 경직시킨다
 	if bool(pg.get("burst", false)) and PSupport.equipped(st, "plague"):
-		var remain: float = maxf(0.0, float(pg.t)) * float(pg.dps)
-		var amount: float = remain * float(pg.get("burst_frac", 0.0))
-		if amount > 0.0:
-			burst_frac = float(pg.get("burst_frac", 0.0))
-			P.bursts = int(P.bursts) + 1
-			st.note_mod("burst", "proc")
-			st.fx({ "kind": "burst", "x": e.x, "y": e.y, "r": float(pg.burst_r), "ttl": 0.3, "color": "#8ee06a" })
-			for o in st.alive_targets():
-				if o == e or o.dead:
-					continue
-				if PGeom.dist(o.x, o.y, e.x, e.y) > float(pg.burst_r) + float(o.r):
-					continue
-				if st.los_blocked(e.x, e.y, o.x, o.y):
-					continue
-				_hit(st, o, amount, { "wid": "plague", "tag": "support:plague:burst", "cause": "plague_burst",
-					"row": "burst", "stat": P, "mod": "burst", "dir": PGeom.norm(o.x - e.x, o.y - e.y) })
-	# (2) 독 전염
+		if not PSupport.eligible("plague_host_burst", cause):
+			# 독이 스스로 끝나 죽었거나(dot) 보조·장판·다른 연계 폭발이 마지막 일격이었다.
+			# **전염은 아래에서 그대로 일어난다** — 파열만 열리지 않는다
+			P.burst_blocked = int(P.burst_blocked) + 1
+		else:
+			var remain: float = maxf(0.0, float(pg.t)) * float(pg.dps)
+			# 반영 비율 → 상한 순서로 자른다. 상한이 없으면 예전처럼 자르지 않는다
+			var amount: float = remain * float(pg.get("burst_frac", 0.0))
+			var cap: float = float(pg.get("burst_cap", 0.0))
+			if cap > 0.0:
+				amount = minf(amount, cap)
+			if amount > 0.0:
+				burst_frac = float(pg.get("burst_frac", 0.0))
+				P.bursts = int(P.bursts) + 1
+				st.note_mod("burst", "proc")
+				st.note_link_burst("plague_burst") # 파열 자체의 횟수(경직이 걸렸는지와 따로 센다)
+				st.fx({ "kind": "burst", "x": e.x, "y": e.y, "r": float(pg.burst_r), "ttl": 0.3, "color": "#8ee06a" })
+				st.text(float(e.x), float(e.y) - float(e.r) - 30.0, "숙주 파열!", "#8ee06a")
+				for o in st.alive_targets():
+					if o == e or o.dead:
+						continue
+					if PGeom.dist(o.x, o.y, e.x, e.y) > float(pg.burst_r) + float(o.r):
+						continue
+					if st.los_blocked(e.x, e.y, o.x, o.y):
+						continue
+					var hp_b: float = float(o.hp)
+					_hit(st, o, amount, { "wid": "plague", "tag": "support:plague:burst", "cause": "plague_burst",
+						"row": "burst", "stat": P, "mod": "burst", "dir": PGeom.norm(o.x - e.x, o.y - e.y) })
+					# 경직: **파열 피해를 실제로 받은 살아 있는 적 전부**(불꽃 파열·감전 방전과 같은 규칙).
+					# 막혀도 위의 피해와 아래 전염은 그대로 처리된다
+					if float(o.hp) < hp_b and not bool(o.dead):
+						st.apply_stagger(o, "plague_burst")
+	# (2) 독 전염 — **기존 규칙 그대로다.** 죽음의 경로를 가리지 않고(allow "*") 세대 상한 3만 본다.
+	#     숙주 파열이 열리지 않았어도 전염은 일어난다(둘의 발동을 구분한다는 사용자 지시)
 	if not bool(pg.get("spread", true)):
 		return # 독가시가 묻힌 독은 전염 자격이 없다(설계 확정)
 	if not PSupport.equipped(st, "plague"):
 		return
-	if not PSupport.eligible("plague_spread", _death_cause(st, opt)):
+	if not PSupport.eligible("plague_spread", cause):
 		P.spread_blocked = int(P.spread_blocked) + 1
 		return
 	var gmax := PSupport.gen_max("plague_spread")
@@ -290,6 +322,7 @@ static func _infect(st: CombatState, e: Dictionary, gen: int, inherit_t: float) 
 		"dps": dps, "t": (dur if inherit_t < 0.0 else inherit_t), "max": dur, "gap": float(s.get("tick", TICK_FALLBACK)),
 		"gen": gen, "reset_gen": gen == 0, "spread": true, "spread_r": r, "spread_n": targets,
 		"burst": mods.has("burst"), "burst_frac": float(s.get("burstFrac", 0.0)), "burst_r": float(s.get("burstR", 0.0)),
+		"burst_cap": float(s.get("burstCap", 0.0)),
 		"tag": ("support:plague:poison" if gen == 0 else "support:plague:spread"),
 		"row": ("poison" if gen == 0 else "spread"), "mod": mod_id,
 	})
@@ -623,12 +656,22 @@ static func _doll_end(st: CombatState, d: Dictionary, s: Dictionary, why: String
 				"row": "blast", "stat": D, "mod": "firework", "knock": 30.0, "dir": PGeom.norm(e.x - bx, e.y - by) }))
 
 # ---------- 도우미 ----------
-## 죽음을 만든 피해가 어느 경로였는가(전염 자격 판정용). 판단은 PSupport.cause_of 한 곳에서만 한다
+## 죽음을 만든 피해가 어느 경로였는가(전염·숙주 파열 자격 판정용). 판단은 PSupport.cause_of 한 곳에서만 한다.
+## **hit(피해 opt 자체)을 반드시 넘긴다** — cause_of가 그것 없이는 지속 피해(화상·출혈)와
+## 개조가 만든 추가 타격을 기본 타격과 구분하지 못한다(support_weapons.gd 47~49줄의 경고 그대로).
+## 넘기지 않으면 화상 틱으로 죽은 적이 "main_direct"로 분류돼 **주무기 처치로 잘못 읽힌다.**
+## 마지막 한 줄은 그 함수가 남긴 구멍 하나를 죽음 판정에서만 막는다: 공용 증강의 장판 틱·E 기술처럼
+## **무기 id가 없는 파생 피해**를 cause_of가 main_extra로 떨어뜨리는데, 주무기가 낸 타격이 아니므로
+## 여기서 zone_tick으로 바로잡는다(모든 주무기 타격은 PWeapons.src를 거쳐 weapon_id를 반드시 달고 온다).
+## 전염(plague_spread)은 allow "*"라 이 교정으로 동작이 달라지지 않는다 — 숙주 파열 자격에만 영향을 준다.
 static func _death_cause(st: CombatState, opt: Dictionary) -> String:
-	var o := {}
+	var o := { "hit": opt }
 	var sr: Dictionary = opt.get("src", {})
 	if opt.has("cause"):
 		o["cause"] = String(opt.cause)
 	if sr.has("weapon_id"):
 		o["weapon"] = String(sr.weapon_id)
-	return PSupport.cause_of(st, o)
+	var c := PSupport.cause_of(st, o)
+	if c == "main_extra" and not sr.has("weapon_id"):
+		c = "zone_tick"
+	return c
