@@ -830,21 +830,35 @@ static func on_hit(st: CombatState, e: Dictionary, opt: Dictionary, _dmg: float)
 						var before: float = float(o.hp)
 						st.damage_enemy(o, float(orb.stats.damage) * bm, { "src": src(orb, { "direct": false }), "no_conduct": true })
 						PSupport.meter(st, "orb", "shock_dmg", maxf(0.0, before - float(o.hp)))
-				# **축전(개조)**: 감전 후속을 몇 번 쌓으면 주변에 작은 방전.
-				# 방전 자체는 감전을 다시 걸지 않고(no_conduct) 감전 후속도 부르지 않는다(순환 금지).
-				if (orb.stats.mods as Array).has("conduct"):
+				# **축전(개조)**: 감전 후속을 몇 번 쌓으면 주변에 큰 방전 = '감전 누적 방전'(사용자 지시 ③).
+				# 누적 단위는 **전투 전역 하나**(st.support_charge)이며 적별이 아니다 — 연쇄가 여러 적에게
+				# 감전을 뿌리는 무기라, 적별로 두면 '연타를 이어간다'가 아니라 '한 마리를 계속 때린다'가 된다.
+				# 중첩을 올리는 것은 **감전 후속이 실제로 터진 이 자리 하나뿐**이고, 자격표가 그것을 못박는다.
+				# 방전 자체는 감전을 다시 걸지 않고(no_conduct) 감전 후속도 부르지 않는다(순환 금지 — 자격표
+				# shock_bonus.deny에 shock_discharge가 적혀 있다). 그래서 방전이 방전을 낳을 수 없다.
+				if (orb.stats.mods as Array).has("conduct") and PSupport.eligible("shock_discharge", "shock_bonus"):
 					st.support_charge = st.support_charge + 1
+					st.support_charge_t = float(T.get("chargeTtl", 3.0)) # 연타가 끊기면 한 번에 0이 된다
 					var need := int(T.get("chargeNeed", 3))
+					# **최대에 도달한 그 타격에서** 터진다(다음 타격이 아니다). 곧바로 0으로 소비하므로
+					# 같은 프레임에 두 번 터질 수 없다 — 저프레임에서도 복제되지 않는다
 					if st.support_charge >= need:
 						st.support_charge = 0
+						st.support_charge_t = 0.0
 						var dr := float(T.get("dischargeR", 96.0))
 						var dm := float(T.get("dischargeMult", 0.6))
-						st.fx({ "kind": "burst", "x": e.x, "y": e.y, "r": dr, "ttl": 0.35, "color": "#9fd8ff" })
+						st.fx({ "kind": "discharge", "x": e.x, "y": e.y, "r": dr, "ttl": 0.35 })
 						st.text(e.x, e.y - e.r - 30.0, "축전 방전!", "#9fd8ff")
 						PSupport.meter(st, "orb", "discharges")
+						st.note_link_burst("shock_discharge")
 						for o2 in st.alive_targets():
 							if PGeom.dist(o2.x, o2.y, e.x, e.y) <= dr + o2.r:
-								st.damage_enemy(o2, float(orb.stats.damage) * dm, { "src": src(orb, { "direct": false }), "no_conduct": true })
+								var hp_b: float = float(o2.hp)
+								st.damage_enemy(o2, float(orb.stats.damage) * dm, { "cause": "shock_discharge", "src": src(orb, { "direct": false }), "no_conduct": true })
+								# 연계 완성 경직: **방전 피해를 실제로 받은 살아 있는 적에게만.**
+								# 평소 감전 추가 피해(shock_bonus)에는 경직이 없다 — 여기 방전 한 곳뿐이다
+								if float(o2.hp) < hp_b and not o2.dead:
+									st.apply_stagger(o2, "shock_discharge")
 		# 무기 공명(보스 보상): 서로 다른 무기 3종이 **직접** 4초 안에 같은 적 → 폭발(적당 6초 간격).
 		# 감전과 달리 여기서는 직접 타격만 센다 — 개조의 추가 타격까지 세면 무기 하나로 3종이 채워진다
 		if bool(sr.get("direct", true)) and (b.boss_rewards as Array).has("resonance"):

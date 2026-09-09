@@ -237,6 +237,11 @@
       "timeout_sec": 600,
       "desc": "냉기 기본 특성(중첩 → 빙결 → 주무기 파쇄)과 서리 개조 3종"
     },
+    "stagger_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "'연계 완성' 경직(파쇄·불꽃 파열·감전 누적 방전·까마귀 표식 폭발 네 순간)과 공통 재경직 제한"
+    },
     "main_weapon_tests": {
       "env": {},
       "timeout_sec": 600,
@@ -491,6 +496,7 @@
       "slots_tests",
       "support_tests",
       "frost_tests",
+      "stagger_tests",
       "main_weapon_tests",
       "support_b_tests",
       "terrain_tests",
@@ -532,6 +538,7 @@
       "slots_tests",
       "support_tests",
       "frost_tests",
+      "stagger_tests",
       "main_weapon_tests",
       "support_b_tests",
       "terrain_tests",
