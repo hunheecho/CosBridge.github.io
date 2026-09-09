@@ -1804,6 +1804,14 @@ const CLIPS := {
 	# 결투: 일반 편성 증원이 없는 1대1. 특수 정예 자신의 소환·깃발·구조물은 그대로 나온다
 	"duel_special": { "desc": "특수 정예 결투 — 증원 없는 1대1(사냥 숲 · 송곳니 우두머리)",
 		"kind": "sortie", "region": "t1a_path", "day": 2, "build": "stage1", "duelType": "elite_fang", "warmup_until": "transition" },
+	# 1.3.0 확인용: 특수 정예 **회피**와 연계 완성 **경직**이 화면에서 구분되는지 본다.
+	# 결투(1대1)라 한 대상을 오래 붙잡으므로 냉기 중첩과 까마귀 표식이 실제로 완성된다 —
+	# 무리전에서는 표적이 먼저 죽어 파쇄·표식 폭발이 거의 완성되지 않는다(docs/STAGGER.md 계측)
+	# 주무기를 Lv1로 낮춘다 — 세게 잡으면 정예가 1~2초에 죽어 냉기 중첩(5)도 표식(8)도 차기 전에 끝난다.
+	# 확인하려는 것은 딜량이 아니라 **회피와 경직이 화면에서 구분되는가**이므로 오래 살아 있는 편이 낫다
+	"link_duel": { "desc": "회피·경직 확인 — 피의 송곳니와 오래 붙어 서리 파쇄·까마귀 표식 폭발을 본다",
+		"kind": "elites", "types": ["elite_fang"],
+		"weapons": [{ "id": "sword", "level": 1, "mods": [] }, { "id": "frost", "level": 3, "mods": ["shatter"] }, { "id": "crow", "level": 3, "mods": ["hunt"] }] },
 	"duel_standard": { "desc": "특수 정예 결투 — 군단 기수(부하 소환은 유지된다)",
 		"kind": "sortie", "region": "t1b_yard", "day": 2, "build": "stage1", "duelType": "elite_standard", "warmup_until": "transition" },
 

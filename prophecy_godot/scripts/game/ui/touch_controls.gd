@@ -201,6 +201,18 @@ func active() -> bool:
 		return false
 	return bool(view.running) and not bool(view.paused) and view.bot == null
 
+## **그리기만** 판단한다. 봇이 모는 영상 클립에서도 조작 오버레이를 그려 두고
+## "손가락 자리가 적의 공격 예고를 가리지 않는가"를 눈으로 확인하려고 나눴다(PROPHECY_TOUCH_DRAW=1).
+## 입력 처리는 active()가 그대로 막으므로 봇 입력과 손가락 입력이 섞이지 않는다
+func drawable() -> bool:
+	if active():
+		return true
+	if not enabled or view == null or router == null or not is_visible_in_tree():
+		return false
+	if OS.get_environment("PROPHECY_TOUCH_DRAW") != "1":
+		return false
+	return bool(view.running) and not bool(view.paused)
+
 func stick_held() -> bool:
 	return _stick_idx >= 0
 
@@ -422,7 +434,7 @@ func draw_geometry() -> Dictionary:
 	}
 
 func _draw() -> void:
-	if not active():
+	if not drawable():
 		return
 	var f: Font = ThemeDB.fallback_font
 	var g: Dictionary = draw_geometry()
