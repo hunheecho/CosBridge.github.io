@@ -87,6 +87,135 @@ func dur_of(st: CombatState, e: Dictionary, s: String, max_sec: float = 12.0) ->
 			return st.t - t0
 	return -1.0
 
+# ---------- 회피 시험 도구(작업 5) ----------
+## 그 자리를 덮는 바닥 예고. 전투망치 내려찍기·기술·지뢰가 내는 것과 **같은 모양**이며 그 자체는 피해가 없다
+func warn_at(st: CombatState, x: float, y: float, r: float = 55.0, ttl: float = 0.9) -> void:
+	st.fx({ "kind": "strikewarn", "x": x, "y": y, "r": r, "ttl": ttl })
+
+## 정예를 향해 날아오는 **플레이어 투사체**. dmg를 주면 실제 피해도 들어간다(무기 없는 단순 탄).
+## 걸어가는 적을 그냥 조준하면 시험 자체가 빗나가므로 **지금 속도로 앞을 노린다**(가만히 서 있으면 정조준과 같다).
+## 회피로 방향이 바뀌면 이 겨냥이 어긋나는데, 그것이 바로 회피가 실제로 하는 일이다
+func shot_at(st: CombatState, e: Dictionary, from_ang: float, dmg: float = 0.0, d: float = 230.0, speed: float = 360.0) -> void:
+	var vx: float = (float(e.x) - float(e.get("last_x", e.x))) / STEP
+	var vy: float = (float(e.y) - float(e.get("last_y", e.y))) / STEP
+	var tof: float = d / speed
+	var tx: float = float(e.x) + vx * tof
+	var ty: float = float(e.y) + vy * tof
+	var sx: float = float(e.x) + cos(from_ang) * d
+	var sy: float = float(e.y) + sin(from_ang) * d
+	var a: float = atan2(ty - sy, tx - sx)
+	st.projectiles.append({ "owner": "player", "kind": "test_arrow", "x": sx, "y": sy,
+		"vx": cos(a) * speed, "vy": sin(a) * speed, "r": 5.0, "dmg": dmg, "ttl": 2.5,
+		"angle": a, "dead": false, "hits": {}, "weapon": null, "target": null, "boomerang": {} })
+
+## 회피 시험실: 정예 하나만 두고 플레이어는 멀리 세운다. 한 프레임 굴려 회피 칸을 만든 뒤 재사용을 비운다
+## ('첫 회피까지의 여유 first'는 값 검사에서 따로 본다 — 여기서 보려는 것은 반응이다)
+func dodge_lab(seed_v: int, tp: String, ex: float = 480.0, ey: float = 300.0) -> Array:
+	var st := lab(seed_v)
+	st.player.x = 60.0
+	st.player.y = 560.0
+	var e := put(st, tp, ex, ey)
+	st.step({}, STEP)
+	e["dodge_cd"] = 0.0
+	e["dodge_wait"] = 0.0
+	return [st, e]
+
+func alive_step(st: CombatState) -> void:
+	st.step({}, STEP)
+	st.player.hp = st.player.hp_max
+	st.player.dead = false
+	if st.status == "lost":
+		st.status = "running"
+
+## 회피 관찰용 구동기. kind = "warn"(바닥 예고) | "shot"(투사체) | "none"
+##  pin: 0 = 첫 회피 전까지 자리를 붙잡는다(거리 조건을 일정하게 유지) · 1 = 붙잡지 않는다 ·
+##       2 = **회피 이동·추스름을 빼고 늘** 붙잡는다(움직이는 표적을 겨냥하는 실수를 빼고 명중만 세려는 것)
+##  hold_state: 매 프레임 approach로 되돌린다(자기 연계가 끼어들지 않게 — 회피 조건만 보려는 것)
+## 반환 = 실제로 낸 위협 수
+func drive(st: CombatState, e: Dictionary, kind: String, sec: float, gap: float = 0.4,
+		pin: int = 0, hold_state: bool = true, dmg: float = 0.0, sd: float = 230.0, sp: float = 360.0) -> int:
+	var ax: float = e.x
+	var ay: float = e.y
+	var n := int(round(sec / STEP))
+	var left := 0.0
+	var fired := 0
+	for i in n:
+		left -= STEP
+		if left <= 0.0:
+			left = gap
+			if kind == "warn":
+				warn_at(st, float(e.x) + 16.0, float(e.y) + 16.0)
+				fired += 1
+			elif kind == "shot":
+				shot_at(st, e, 2.2, dmg, sd, sp)
+				fired += 1
+		alive_step(st)
+		var ph := String(e.get("dodge_phase", ""))
+		if hold_state and ph != "move":
+			e.state = "approach"
+			e.state_t = 0.0
+		if pin == 0 and int(e.get("dodge_uses", 0)) == 0:
+			e.x = ax
+			e.y = ay
+		elif pin == 2 and ph != "move" and ph != "settle":
+			e.x = ax
+			e.y = ay
+	return fired
+
+## 첫 회피의 **이동**이 시작될 때까지 굴린다. 반환 = 시작했는가
+func until_dodge(st: CombatState, e: Dictionary, max_sec: float = 12.0) -> bool:
+	var n := int(round(max_sec / STEP))
+	var left := 0.0
+	var ax: float = e.x
+	var ay: float = e.y
+	for i in n:
+		if String(e.get("dodge_phase", "")) == "move":
+			return true
+		left -= STEP
+		if left <= 0.0:
+			left = 0.4
+			warn_at(st, float(e.x) + 16.0, float(e.y) + 16.0)
+		alive_step(st)
+		if String(e.get("dodge_phase", "")) != "move":
+			e.state = "approach"
+			e.state_t = 0.0
+			e.x = ax
+			e.y = ay
+	return String(e.get("dodge_phase", "")) == "move"
+
+## 회피가 시작된 시각들(재사용 간격을 재려는 것). 자기 연계는 매 프레임 approach로 눌러 둔다
+func dodge_times(st: CombatState, e: Dictionary, sec: float, gap: float = 0.4) -> Array:
+	var out := []
+	var n := int(round(sec / STEP))
+	var left := 0.0
+	var last := int(e.get("dodge_uses", 0))
+	for i in n:
+		left -= STEP
+		if left <= 0.0:
+			left = gap
+			warn_at(st, float(e.x) + 16.0, float(e.y) + 16.0)
+		alive_step(st)
+		if String(e.get("dodge_phase", "")) != "move":
+			e.state = "approach"
+			e.state_t = 0.0
+		var u := int(e.get("dodge_uses", 0))
+		if u > last:
+			last = u
+			out.append(st.t)
+	return out
+
+## 지형 안에 제대로 있는가(전장 밖·벽·바위 안으로 들어가지 않았는가). 밀어내기가 정확히 접점까지 놓으므로 여유 0.6px
+func in_terrain(st: CombatState, e: Dictionary) -> bool:
+	var r: float = float(e.r)
+	if float(e.x) < r - 0.6 or float(e.x) > st.arena_w - r + 0.6:
+		return false
+	if float(e.y) < r - 0.6 or float(e.y) > st.arena_h - r + 0.6:
+		return false
+	for ob in st.obstacles:
+		if PGeom.dist(float(e.x), float(e.y), float(ob.x), float(ob.y)) < float(ob.r) + r - 0.6:
+			return false
+	return true
+
 ## 100 피해를 그 방향에서 넣었을 때 실제로 깎인 체력
 func probe(st: CombatState, e: Dictionary, from_ang: float, opt: Dictionary = {}) -> float:
 	var o := { "src": { "direct": true }, "from": { "x": e.x + cos(from_ang) * 120.0, "y": e.y + sin(from_ang) * 120.0 } }
@@ -761,6 +890,8 @@ func _init() -> void:
 			no_threat.append(tp)
 	ok("정예 7종 모두 봇·화면이 읽는 예고 도형을 내보낸다(예고 없는 공격 없음)", no_threat.is_empty(), str(no_threat))
 
+	dodge_tests()
+	dodge_measure()
 	placement_tests()
 	encounter_count_tests()
 
@@ -1159,3 +1290,462 @@ func encounter_count_tests() -> void:
 				rd_bad.append("%s.%s" % [String(tp), String(f)])
 	ok("정예 7종 모두 **역할을 읽을 수 있게 하는 자료**가 있다(무엇을 들었는지·예고에서 어디가 커지는지·어느 거리를 잡아야 하는지)",
 		rd_bad.is_empty(), str(rd_bad))
+
+# =========================================================================
+# 작업 5(2026-09-09). 특수 정예 7종의 **회피**. 값은 data/elites.json(elites.<id>.dodge),
+# 규칙은 scripts/rules/enemies_new.gd의 elite_dodge 갈래, 설명은 docs/ELITE_DODGE.md.
+# 사용자 확정을 그대로 항목으로 옮겼다:
+#   짧고 빠른 자리 바꾸기 · 플레이어보다 훨씬 긴 재사용 · **무적 없음** · 이미 나타난 전투 상태에만 반응(반응 지연) ·
+#   자기 공격 준비·실행/경직/빙결 중 금지 · 회피 뒤 추스르는 틈 · 모든 공격을 자동으로 피하지 않음 · 고유 패턴 복귀.
+# 수치는 전부 **시험값**이다. 여기서 통과했다는 것은 규칙이 그렇게 돈다는 뜻이지 재미·균형을 승인한 것이 아니다.
+# =========================================================================
+const DSEED := 20260909
+## 회피를 갖지 않아야 하는 명단(일반 몬스터 · 일반 정예 확장 10종 · 정예가 만드는 구조물)
+const NOT_DODGERS := ["wolf", "archer", "spore", "boar", "shieldbearer", "shaman", "bomber", "burrower", "spider", "frostcaller", "rogue", "bat", "lizard", "toad",
+	"wolf_alpha", "boar_elite", "archer_elite", "shieldbearer_elite", "spider_elite", "spore_elite", "rogue_elite", "burrower_elite", "toad_elite", "frostcaller_elite",
+	"elite_banner", "elite_rubble"]
+## 지형 시험 자리(전장 960x600 · 바위 rockA(285,220,42) rockB(675,380,42) 나무 treeA(300,420,26) treeB(660,180,26))
+const DODGE_SPOTS := [[28.0, 300.0], [932.0, 300.0], [480.0, 26.0], [480.0, 574.0], [285.0, 290.0], [675.0, 310.0]]
+
+func dodge_tests() -> void:
+	# ---- ① 명단: 7종 전부 가지고, 그 밖에는 하나도 갖지 않는다 ----
+	var miss := []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		var c := PEnemiesNew.dodge_cfg(String(tp))
+		for f in ["style", "dist", "time", "cooldown", "react", "settle", "chance"]:
+			if not c.has(f):
+				miss.append("%s.%s" % [String(tp), String(f)])
+	ok("① 특수 정예 **7종 전부** 회피 값을 가진다(표현·거리·이동 시간·재사용·반응 지연·추스르는 틈·확률)",
+		miss.is_empty(), "빠진 값: %s" % (str(miss) if not miss.is_empty() else "없음"))
+
+	var leak := []
+	for tp in NOT_DODGERS:
+		if not PEnemiesNew.dodge_cfg(String(tp)).is_empty():
+			leak.append(String(tp))
+	for bid in PCatalog.bosses_new().bosses:
+		if not PEnemiesNew.dodge_cfg(String(bid)).is_empty():
+			leak.append(String(bid))
+	if not PEnemiesNew.dodge_cfg("boss").is_empty():
+		leak.append("boss")
+	ok("① 일반 몬스터 14종·일반 정예 확장 10종(늑대 우두머리 포함)·구조물 2종·보스 6종은 회피 값을 갖지 않는다",
+		leak.is_empty(), "샌 종류: %s" % (str(leak) if not leak.is_empty() else "없음"))
+
+	# 사용자 첫 시험값 범위(재사용 8~12초 · 이동 시간 0.2~0.3초)를 실제로 지키는가
+	var rng_bad := []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		var c := PEnemiesNew.dodge_cfg(String(tp))
+		if float(c.cooldown) < 8.0 or float(c.cooldown) > 12.0:
+			rng_bad.append("%s 재사용 %.1f" % [String(tp), float(c.cooldown)])
+		if float(c.time) < 0.2 or float(c.time) > 0.3:
+			rng_bad.append("%s 이동 시간 %.2f" % [String(tp), float(c.time)])
+	ok("① 사용자 첫 시험값 범위 그대로: 재사용 8~12초 · 이동 시간 0.20~0.30초", rng_bad.is_empty(), str(rng_bad))
+
+	# ---- ③ 플레이어 회피 재사용과 숫자로 대조 ----
+	var PD: Dictionary = PCatalog.config().PLAYER.dodge
+	var p_cd := float(PD.cooldown)
+	var p_spd := float(PD.distance) / float(PD.duration)
+	var cd_lo := 1e9
+	var cd_hi := 0.0
+	var spd_hi := 0.0
+	for tp in PEnemiesNew.ELITE_TYPES:
+		var c := PEnemiesNew.dodge_cfg(String(tp))
+		cd_lo = minf(cd_lo, float(c.cooldown))
+		cd_hi = maxf(cd_hi, float(c.cooldown))
+		spd_hi = maxf(spd_hi, float(c.dist) / float(c.time))
+	ok("③ 재사용이 플레이어보다 **훨씬 길다**: 가장 짧은 정예 %.1f초 = 플레이어 %.1f초의 %.1f배(4배 이상)" % [cd_lo, p_cd, cd_lo / p_cd],
+		cd_lo >= p_cd * 4.0, "정예 %.1f~%.1f초 · 플레이어 재사용 선택지 %s" % [cd_lo, cd_hi, str(PD.cooldown_options)])
+	ok("③ 이동 속도는 플레이어 회피를 넘지 않는다: 가장 빠른 정예 %.0f px/s ≤ 플레이어 %.0f px/s" % [spd_hi, p_spd], spd_hi <= p_spd)
+
+	# ---- ② 실제 위협에 반응해서 회피한다(종류마다 최소 1회, 두 가지 위협 각각) ----
+	print("")
+	print("[특수 정예 회피 — 값과 반응] 시드 %d · 위협을 0.4초마다 대고 14초 · 수치는 전부 시험값" % DSEED)
+	print("| 정예 | 표현 | 거리 | 이동 | 재사용 | 반응 지연 | 추스름 | 확률 | 바닥 예고(충족/발동) | 투사체(충족/발동) |")
+	print("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+	var react_bad := []
+	var seen_sum := 0
+	var use_sum := 0
+	for tp in PEnemiesNew.ELITE_TYPES:
+		var c := PEnemiesNew.dodge_cfg(String(tp))
+		var row := []
+		for kind in ["warn", "shot"]:
+			var lb := dodge_lab(DSEED, String(tp))
+			var stx: CombatState = lb[0]
+			var ex: Dictionary = lb[1]
+			drive(stx, ex, String(kind), 14.0)
+			var u := int(ex.get("dodge_uses", 0))
+			var s := int(ex.get("dodge_seen", 0))
+			var k := String(ex.get("dodge_kind", ""))
+			seen_sum += s
+			use_sum += u
+			row.append([u, s, k, String(ex.get("dodge_skip", ""))])
+			var want := "warn" if String(kind) == "warn" else "projectile"
+			if u < 1:
+				react_bad.append("%s/%s 발동 0회(이유 %s)" % [String(tp), String(kind), String(ex.get("dodge_skip", ""))])
+			elif k != want:
+				react_bad.append("%s/%s 위협 종류 %s" % [String(tp), String(kind), k])
+		print("| %s | %s | %d | %.2f | %.1f | %.2f | %.2f | %.2f | %d/%d | %d/%d |" % [
+			String(PCatalog.enemy(String(tp)).name), String(c.style_text), int(c.dist), float(c.time), float(c.cooldown),
+			float(c.react), float(c.settle), float(c.chance),
+			int((row[0] as Array)[1]), int((row[0] as Array)[0]), int((row[1] as Array)[1]), int((row[1] as Array)[0])])
+	print("")
+	ok("② 7종 전부 **실제 위협에 반응해서** 회피한다 — 바닥 예고·날아오는 투사체 각각 최소 1회",
+		react_bad.is_empty(), "실패: %s" % (str(react_bad) if not react_bad.is_empty() else "없음"))
+	ok("⑪ 조건 충족(위협을 보고 판단한 횟수) %d회 vs 실제 발동 %d회 — 충족이 발동보다 많다(재사용·확률이 걸러 낸다)" % [seen_sum, use_sum],
+		seen_sum > use_sum and use_sum > 0)
+
+	# ---- ③ 재사용 시간이 지나기 전에는 다시 회피하지 않는다 ----
+	var cd_bad := []
+	var gaps := []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		var c := PEnemiesNew.dodge_cfg(String(tp))
+		var lb := dodge_lab(DSEED, String(tp))
+		var stc: CombatState = lb[0]
+		var ec: Dictionary = lb[1]
+		var ts := dodge_times(stc, ec, 34.0)
+		if ts.size() < 2:
+			cd_bad.append("%s 회피 %d회(간격을 못 잼)" % [String(tp), ts.size()])
+			continue
+		for k in range(1, ts.size()):
+			var g: float = float(ts[k]) - float(ts[k - 1])
+			gaps.append(g)
+			if g < float(c.cooldown) - 0.05:
+				cd_bad.append("%s 간격 %.2f초 < 재사용 %.1f초" % [String(tp), g, float(c.cooldown)])
+	ok("③ 재사용 시간이 지나기 전에는 다시 회피하지 않는다(7종 · 34초 동안 위협을 계속 대고 잰 간격 %d개)" % gaps.size(),
+		cd_bad.is_empty(), str(cd_bad))
+
+	# ---- ④ 자기 공격 준비·실행 중에는 회피하지 않는다 ----
+	var busy_bad := []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		var hold := String((PEnemiesNew.COMMITTED[String(tp)] as Array)[0])
+		var lb := dodge_lab(DSEED, String(tp))
+		var stb: CombatState = lb[0]
+		var eb: Dictionary = lb[1]
+		var n := int(round(6.0 / STEP))
+		for i in n:
+			if i % 48 == 0:
+				warn_at(stb, float(eb.x) + 16.0, float(eb.y) + 16.0)
+			eb.state = hold # 매 프레임 자기 공격 준비로 되돌린다(연계가 끝나 버리지 않게)
+			eb.state_t = 0.0
+			alive_step(stb)
+		if int(eb.get("dodge_uses", 0)) != 0:
+			busy_bad.append("%s(%s) %d회" % [String(tp), hold, int(eb.dodge_uses)])
+		elif String(eb.get("dodge_skip", "")) != "committed":
+			busy_bad.append("%s(%s) 이유가 %s" % [String(tp), hold, String(eb.get("dodge_skip", ""))])
+	ok("④ 자기 공격 준비·실행 중에는 회피하지 않는다(7종의 첫 확정 상태에서 6초 동안 위협을 대도 0회)",
+		busy_bad.is_empty(), str(busy_bad))
+
+	# ---- ⑤ 빙결·경직 중에는 회피하지 않는다(상태 우선순위 빙결 > 경직 > 회피) ----
+	var fz_bad := []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		# ㉠ 빙결(hard): CombatState가 갱신을 통째로 건너뛴다 → 회피 단계도 흐르지 않는다
+		var lb1 := dodge_lab(DSEED, String(tp))
+		var s1: CombatState = lb1[0]
+		var e1: Dictionary = lb1[1]
+		for i in int(round(6.0 / STEP)):
+			e1["freeze"] = 3.0
+			e1["freeze_kind"] = "hard"
+			if i % 48 == 0:
+				warn_at(s1, float(e1.x) + 16.0, float(e1.y) + 16.0)
+			alive_step(s1)
+		if int(e1.get("dodge_uses", 0)) != 0:
+			fz_bad.append("%s 빙결(hard) 중 %d회" % [String(tp), int(e1.dodge_uses)])
+		# ㉡ freeze 필드가 살아 있는데 갱신이 도는 경우 — 규칙 안의 금지 조항이 직접 막아야 한다
+		var lb2 := dodge_lab(DSEED, String(tp))
+		var s2: CombatState = lb2[0]
+		var e2: Dictionary = lb2[1]
+		for i in int(round(6.0 / STEP)):
+			e2["freeze"] = 3.0
+			e2["freeze_kind"] = "soft"
+			if i % 48 == 0:
+				warn_at(s2, float(e2.x) + 16.0, float(e2.y) + 16.0)
+			alive_step(s2)
+			e2.state = "approach"
+			e2.state_t = 0.0
+		if int(e2.get("dodge_uses", 0)) != 0 or String(e2.get("dodge_skip", "")) != "freeze":
+			fz_bad.append("%s freeze>0인데 %d회(이유 %s)" % [String(tp), int(e2.dodge_uses), String(e2.get("dodge_skip", ""))])
+		# ㉢ 경직(stagger, 다른 담당이 만드는 필드. 없으면 0.0으로 안전하게 읽는다)
+		var lb3 := dodge_lab(DSEED, String(tp))
+		var s3: CombatState = lb3[0]
+		var e3: Dictionary = lb3[1]
+		for i in int(round(6.0 / STEP)):
+			e3["stagger"] = 3.0
+			if i % 48 == 0:
+				warn_at(s3, float(e3.x) + 16.0, float(e3.y) + 16.0)
+			alive_step(s3)
+			e3.state = "approach"
+			e3.state_t = 0.0
+		if int(e3.get("dodge_uses", 0)) != 0 or String(e3.get("dodge_skip", "")) != "stagger":
+			fz_bad.append("%s stagger>0인데 %d회(이유 %s)" % [String(tp), int(e3.dodge_uses), String(e3.get("dodge_skip", ""))])
+	ok("⑤ 빙결(freeze > 0)·경직(stagger > 0) 중에는 회피하지 않는다 — 7종 × 세 경우(갱신 정지·freeze 필드·stagger 필드)",
+		fz_bad.is_empty(), str(fz_bad))
+
+	# ---- ⑥⑦ 회피 뒤 추스르는 틈에는 공격을 시작하지 않고, 끝나면 고유 패턴으로 돌아온다 ----
+	var settle_bad := []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		var c := PEnemiesNew.dodge_cfg(String(tp))
+		var lb := dodge_lab(DSEED, String(tp))
+		var ss: CombatState = lb[0]
+		var es: Dictionary = lb[1]
+		if not until_dodge(ss, es, 14.0):
+			settle_bad.append("%s 회피가 시작되지 않음" % String(tp))
+			continue
+		var back := ""
+		var started := false
+		var s_from := -1.0 # 추스르는 틈이 시작된 시각
+		var s_to := -1.0   # 회피 단계가 완전히 끝난 시각
+		for i in int(round(4.0 / STEP)):
+			if String(es.get("dodge_phase", "")) == "": # 이동이 지형에 막혀 짧게 끝날 수도 있으므로 **단계로** 잰다
+				s_to = ss.t
+				break
+			ss.player.x = clampf(float(es.x) + 26.0, 20.0, ss.arena_w - 20.0) # 바로 옆에 붙인다(허락되면 곧장 때릴 자리)
+			ss.player.y = clampf(float(es.y), 20.0, ss.arena_h - 20.0)
+			alive_step(ss)
+			if back == "" and String(es.get("dodge_phase", "")) == "settle":
+				back = String(es.state) # 이동이 끝난 그 순간의 상태
+				s_from = ss.t
+			# 그 프레임을 아직 회피 단계로 끝냈는데 공격 상태라면 무예고 공격이다
+			if String(es.get("dodge_phase", "")) != "" and PEnemiesNew.is_committed(es):
+				started = true
+		if started:
+			settle_bad.append("%s 추스르는 틈에 공격을 시작함" % String(tp))
+		if back != "approach":
+			settle_bad.append("%s 회피 뒤 상태가 %s" % [String(tp), back])
+		if s_from < 0.0 or s_to < 0.0 or s_to - s_from < float(c.settle) - 0.03:
+			settle_bad.append("%s 추스르는 틈이 %.2f초(설정 %.2f초)" % [String(tp), s_to - s_from, float(c.settle)])
+		var after := false
+		for i in int(round(5.0 / STEP)):
+			ss.player.x = clampf(float(es.x) + 26.0, 20.0, ss.arena_w - 20.0)
+			ss.player.y = clampf(float(es.y), 20.0, ss.arena_h - 20.0)
+			alive_step(ss)
+			if PEnemiesNew.is_committed(es):
+				after = true
+				break
+		if not after:
+			settle_bad.append("%s 틈이 끝나도 고유 패턴이 안 나옴" % String(tp))
+	ok("⑥⑦ 회피 뒤 **추스르는 틈** 동안 공격을 시작하지 않고(무예고 공격 금지), 틈이 끝나면 approach로 돌아가 고유 패턴을 다시 낸다",
+		settle_bad.is_empty(), str(settle_bad))
+
+	# ---- ⑧ 지형: 전장 밖·벽·바위를 뚫지 않는다(여러 방향) ----
+	var terr_bad := []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		for sp in DODGE_SPOTS:
+			var lb := dodge_lab(DSEED, String(tp), float(sp[0]), float(sp[1]))
+			var stt: CombatState = lb[0]
+			var et: Dictionary = lb[1]
+			var ax: float = et.x
+			var ay: float = et.y
+			for i in int(round(9.0 / STEP)):
+				if i % 48 == 0:
+					warn_at(stt, 480.0, 300.0, 900.0) # 전장 한가운데를 덮는 예고 → 바깥(벽·바위) 쪽으로 피하게 만든다
+				alive_step(stt)
+				if not in_terrain(stt, et):
+					terr_bad.append("%s @(%.0f,%.0f) → (%.1f,%.1f)" % [String(tp), ax, ay, float(et.x), float(et.y)])
+					break
+				if String(et.get("dodge_phase", "")) != "move":
+					et.state = "approach"
+					et.state_t = 0.0
+					if int(et.get("dodge_uses", 0)) == 0:
+						et.x = ax
+						et.y = ay
+	ok("⑧ 회피가 전장 밖·벽·바위를 뚫지 않는다(7종 × 자리 %d개 · 매 프레임 확인)" % DODGE_SPOTS.size(),
+		terr_bad.is_empty(), str(terr_bad))
+
+	# ---- ⑨ 무적이 없다: 회피 중에도 맞으면 그대로 들어간다 ----
+	var inv_bad := []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		var lb := dodge_lab(DSEED, String(tp))
+		var si: CombatState = lb[0]
+		var ei: Dictionary = lb[1]
+		if not until_dodge(si, ei, 14.0):
+			inv_bad.append("%s 회피가 시작되지 않음" % String(tp))
+			continue
+		var hp0: float = ei.hp
+		si.damage_enemy(ei, 20.0, { "src": { "direct": true }, "from": { "x": float(ei.x) + 120.0, "y": float(ei.y) } })
+		var lost: float = hp0 - float(ei.hp)
+		if not is_equal_approx(lost, 20.0):
+			inv_bad.append("%s 이동 중 피해 %.1f(20이어야 한다)" % [String(tp), lost])
+		if String(ei.get("dodge_phase", "")) != "move":
+			inv_bad.append("%s 피해가 회피를 끊었다" % String(tp))
+	ok("⑨ **무적이 없다** — 회피 이동 중에 맞은 20 피해가 그대로 20 들어간다(감소·무효 없음)",
+		inv_bad.is_empty(), str(inv_bad))
+
+	# ---- ⑩ 모든 공격을 피하지는 않는다(실제 명중이 남는다) ----
+	var all_bad := []
+	var shots_sum := 0
+	var hits_sum := 0
+	for tp in PEnemiesNew.ELITE_TYPES:
+		var lb := dodge_lab(DSEED, String(tp))
+		var sa: CombatState = lb[0]
+		var ea: Dictionary = lb[1]
+		var hp0: float = ea.hp
+		# 피해 1짜리 화살을 0.5초마다. 가까이(110px)에서 빠르게(600px/s) 오므로 반응 지연 안에 이미 닿는 것이 많다.
+		# 자리는 회피 이동·추스름을 뺀 동안 붙잡는다 — 걷는 표적을 잘못 겨냥해 빗나가는 것을 명중률에서 걷어내려는 것이다
+		var fired := drive(sa, ea, "shot", 20.0, 0.5, 2, true, 1.0, 110.0, 600.0)
+		var hits := int(round(hp0 - float(ea.hp)))
+		shots_sum += fired
+		hits_sum += hits
+		if hits < 20:
+			all_bad.append("%s 명중 %d/%d" % [String(tp), hits, fired])
+		if int(ea.get("dodge_uses", 0)) < 1:
+			all_bad.append("%s 회피 0회" % String(tp))
+	ok("⑩ 모든 공격을 자동으로 피하지 않는다 — 7종 합계 화살 %d발 중 **%d발이 그대로 명중**(%.0f%%)" % [shots_sum, hits_sum, float(hits_sum) / float(maxi(1, shots_sum)) * 100.0],
+		all_bad.is_empty(), str(all_bad))
+
+	# ---- ⑫ 낮은 프레임(큰 dt)·일시정지 복귀에서 두 번 처리되지 않는다 ----
+	var dt_bad := []
+	for tp in PEnemiesNew.ELITE_TYPES:
+		var c := PEnemiesNew.dodge_cfg(String(tp))
+		var lb := dodge_lab(DSEED, String(tp))
+		var sd: CombatState = lb[0]
+		var ed: Dictionary = lb[1]
+		var big := 0.5
+		var span := 24.0
+		var far := 0.0
+		for i in int(round(span / big)):
+			warn_at(sd, float(ed.x) + 16.0, float(ed.y) + 16.0, 55.0, 1.2)
+			sd.step({}, big)
+			sd.player.hp = sd.player.hp_max
+			sd.player.dead = false
+			if sd.status == "lost":
+				sd.status = "running"
+			far = maxf(far, float(ed.get("dodge_dist", 0.0)))
+			if String(ed.get("dodge_phase", "")) != "move":
+				ed.state = "approach"
+				ed.state_t = 0.0
+		var cap := int(floor(span / float(c.cooldown))) + 1
+		if int(ed.get("dodge_uses", 0)) > cap:
+			dt_bad.append("%s dt=0.5에서 %d회(상한 %d)" % [String(tp), int(ed.dodge_uses), cap])
+		if far > float(c.dist) + 0.5:
+			dt_bad.append("%s 한 번에 %.1f px(거리 %d)" % [String(tp), far, int(c.dist)])
+		# 일시정지 복귀: 아주 큰 한 걸음에서도 한 번만 처리된다
+		var u0 := int(ed.get("dodge_uses", 0))
+		ed["dodge_cd"] = 0.0
+		ed["dodge_wait"] = 0.0
+		warn_at(sd, float(ed.x) + 16.0, float(ed.y) + 16.0, 55.0, 6.0)
+		sd.step({}, 2.0)
+		if int(ed.get("dodge_uses", 0)) - u0 > 1:
+			dt_bad.append("%s 한 걸음(2.0초)에 %d회" % [String(tp), int(ed.dodge_uses) - u0])
+	ok("⑫ 낮은 프레임(dt 0.5초)·일시정지 복귀(dt 2.0초)에서도 회피가 두 번 처리되지 않고 거리를 넘지 않는다",
+		dt_bad.is_empty(), str(dt_bad))
+
+# -------------------------------------------------------------------------
+# 측정(합격 판정이 아니다). 사용자 지시 두 가지를 값으로 남긴다:
+#  ㉠ 조건 충족 횟수 vs 실제 발동 횟수 — **실제 전투**에서(시험실이 아니라 봇이 싸우는 판에서)
+#  ㉡ 짧은 사거리 무기가 불리해지는 정도 — **재기만 한다. 보정 수치는 넣지 않았다.**
+# 봇 승패는 통과 조건이 아니다(docs/BOT_FRAMEWORK.md). 통과 조건은 '측정이 이루어졌는가'뿐이다.
+# -------------------------------------------------------------------------
+const DODGE_WEAPONS := ["daggers", "sword", "hammer", "spear", "bow"]
+const DODGE_FIGHT_SEC := 45.0
+
+## 정예 1마리 대 봇 1회(주무기 wid). 반환 [처치 시간(-1 = 못 잡음), 조건 충족, 실제 발동, 받은 피해, 마지막 이유]
+func dodge_fight(wid: String, tp: String, seed_v: int) -> Array:
+	var g := PGrowth.new_growth(wid)
+	var b := PBuild.derive(PBuild.empty_run_like(g))
+	var st := CombatState.new({ "build": b, "seed": seed_v, "waves": [], "arena": "clearing", "region_id": "lab", "act": 1, "fixed_build": true })
+	st.spawn_hold = true
+	var e := st.spawn_enemy(tp, st.player.x + 260.0, st.player.y)
+	var bot := PBot.new("regular")
+	var n := int(round(DODGE_FIGHT_SEC / STEP))
+	var ttk := -1.0
+	for i in n:
+		st.step(bot.step_input(st), STEP)
+		if bool(e.dead):
+			ttk = st.t
+			break
+		if bool(st.player.dead):
+			break
+	return [ttk, int(e.get("dodge_seen", 0)), int(e.get("dodge_uses", 0)), float(st.stats.damage_taken), String(e.get("dodge_skip", "없음"))]
+
+func dodge_measure() -> void:
+	var W := PCatalog.weapons()
+	print("")
+	print("[측정 ㉠] 실제 전투에서의 **조건 충족 vs 실제 발동** — 주무기 5종 × 정예 7종 · 봇 '보통' · 최대 %.0f초 · 시드 %d" % [DODGE_FIGHT_SEC, DSEED])
+	print("| 주무기 | 사거리 | 조건 충족 | 실제 발동 | 발동/충족 | 정예를 잡은 판 | 처치 시간 중앙값 |")
+	print("|---|---:|---:|---:|---:|---:|---:|")
+	var tot_seen := 0
+	var tot_use := 0
+	var zero_why := []
+	var by_w := {}
+	for wid in DODGE_WEAPONS:
+		var wr := float((W[String(wid)] as Dictionary).base.range)
+		var seen := 0
+		var used := 0
+		var kills := 0
+		var ttks := []
+		var taken := 0.0
+		for tp in PEnemiesNew.ELITE_TYPES:
+			var r := dodge_fight(String(wid), String(tp), DSEED)
+			seen += int(r[1])
+			used += int(r[2])
+			taken += float(r[3])
+			if float(r[0]) > 0.0:
+				kills += 1
+				ttks.append(float(r[0]))
+			if int(r[2]) == 0:
+				zero_why.append("%s/%s: %s" % [String(wid), String(tp), String(r[4])])
+		tot_seen += seen
+		tot_use += used
+		ttks.sort()
+		var mid: float = float(ttks[ttks.size() / 2]) if not ttks.is_empty() else -1.0
+		by_w[String(wid)] = [wr, mid, taken]
+		print("| %s | %.0f | %d | %d | %.0f%% | %d/7 | %s |" % [String((W[String(wid)] as Dictionary).name), wr, seen, used,
+			float(used) / float(maxi(1, seen)) * 100.0, kills, ("%.1f초" % mid) if mid > 0.0 else "—"])
+	print("")
+	if not zero_why.is_empty():
+		print("발동 0회였던 판과 그때 남은 이유: %s" % str(zero_why))
+		print("")
+	ok("⑪ 실제 전투에서도 조건 충족 %d회 vs 실제 발동 %d회를 따로 셌다(발동 0회인 판은 이유를 값으로 남긴다)" % [tot_seen, tot_use],
+		tot_seen > 0 and tot_use > 0 and tot_use <= tot_seen,
+		"발동/충족 %.0f%%" % (float(tot_use) / float(maxi(1, tot_seen)) * 100.0))
+
+	# ㉡ 회피 한 번이 각 무기의 사거리를 얼마나 벗어나게 하는가. **측정만 한다 — 보정 수치는 넣지 않았다.**
+	print("[측정 ㉡] 짧은 사거리 무기가 불리해지는 정도 — 회피 한 번이 사거리 밖으로 나가는가")
+	print("(플레이어를 사거리의 80% 거리에 세우고 정예 발밑에 바닥 예고를 띄운 뒤, 회피가 끝난 자리의 거리를 잰다. **보정은 넣지 않았다.**)")
+	print("| 주무기 | 사거리 | 회피 시작 거리 | 회피 뒤 평균 거리 | 사거리 밖으로 나간 종류 | 45초 전투에서 받은 피해(7종 합) |")
+	print("|---|---:|---:|---:|---:|---:|")
+	var esc_rows := 0
+	for wid in DODGE_WEAPONS:
+		var wr := float((W[String(wid)] as Dictionary).base.range)
+		var outn := 0
+		var gain := 0.0
+		var cnt := 0
+		for tp in PEnemiesNew.ELITE_TYPES:
+			var lb := dodge_lab(DSEED, String(tp))
+			var sm: CombatState = lb[0]
+			var em: Dictionary = lb[1]
+			var ax: float = em.x
+			var ay: float = em.y
+			var px: float = clampf(ax - wr * 0.8, 24.0, sm.arena_w - 24.0)
+			var py: float = ay
+			var d1 := -1.0
+			var moving := false
+			for i in int(round(18.0 / STEP)):
+				sm.player.x = px
+				sm.player.y = py
+				if i % 48 == 0:
+					warn_at(sm, float(em.x), float(em.y), 40.0, 0.9) # 정예 발밑에 떨어질 예고(전투망치 내려찍기와 같은 모양)
+				alive_step(sm)
+				var ph := String(em.get("dodge_phase", ""))
+				if ph == "move":
+					moving = true
+				elif moving and ph == "settle":
+					d1 = PGeom.dist(px, py, float(em.x), float(em.y))
+					break
+				if ph != "move":
+					em.state = "approach"
+					em.state_t = 0.0
+					if int(em.get("dodge_uses", 0)) == 0:
+						em.x = ax
+						em.y = ay
+			if d1 < 0.0:
+				continue
+			cnt += 1
+			esc_rows += 1
+			gain += d1
+			if d1 > wr:
+				outn += 1
+		var row: Array = by_w[String(wid)]
+		print("| %s | %.0f | %.0f px | %.0f px | %d/%d | %.0f |" % [String((W[String(wid)] as Dictionary).name), wr, wr * 0.8,
+			gain / float(maxi(1, cnt)), outn, cnt, float(row[2])])
+	print("")
+	ok("측정: 짧은 사거리 무기가 불리해지는 정도를 값으로 남겼다(회피 %d건 · **보정 수치는 넣지 않았다**)" % esc_rows, esc_rows > 0)

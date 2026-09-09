@@ -12,6 +12,8 @@ extends RefCounted
 ##   정예: shot_left, blocked_sec, leap_at, leap_from, pods, chain_len, chain_d, pull_from, slam_at, plant_left, order_left, order_t, banner_ref,
 ##   지휘받는 쪽: rally_t, ordered(leash_boost는 rally_t가 끝나면 PEnemies.update가 1.0으로 되돌린다). 구조물: banner_ttl, banner_r, ring_t, rubble_ttl, trail_t
 ##   신규 3종(2026-09-09): flame_t, flame_tick, leap_t. 일반 정예 확장: extra_recover, web2_at, residue_at, cast2_pts
+##   특수 정예 회피(2026-09-09): dodge_phase, dodge_t, dodge_cd, dodge_wait, dodge_dx, dodge_dy, dodge_dist, dodge_from,
+##     dodge_kind, dodge_hit_t + 계측용 dodge_seen · dodge_uses · dodge_skip (docs/ELITE_DODGE.md)
 ##
 ## + 신규 일반 몬스터 3종(2026-09-09, 시험값): 흡혈 박쥐(bat) · 불씨 도마뱀(lizard) · 도약 두꺼비(toad).
 ## + 일반 정예 확장 10종(2026-09-09, 시험값): 늑대 우두머리(기존) + 9종. **바탕 몬스터의 강화형**이며 행동 하나만 더한다.
@@ -42,6 +44,30 @@ const COMMITTED := {
 
 ## 특수 정예 7종의 type(구조물 2종 제외). data/enemies.json 정의 + data/elites.json 배치표
 const ELITE_TYPES := ["elite_archer", "elite_blademaster", "elite_fang", "elite_plaguecaller", "elite_chainbreaker", "elite_standard", "elite_miner"]
+
+## 회피(2026-09-09, 시험값)를 **시작해도 되는 상태**. 여기 없는 상태에서는 절대 시작하지 않는다.
+## 뺀 것과 그 이유:
+##  - 자기 공격 준비·실행(COMMITTED의 모든 상태) — 사용자 지시 "자신의 공격 준비·실행 중에는 회피하지 않는다"
+##  - **빈틈**(recover · 송곳니/채굴자의 stagger · 집행자의 retract · 채굴자의 erupt) — 되갚는 창이라 빠져나가면 안 된다
+##  - 지하(hidden)·공중(airborne) — 그 구간은 이미 고유 패턴이 자리를 정한다
+## 남은 것은 걷거나 자리를 잡는 구간뿐이다. 회피가 끝나면 전부 approach로 돌아간다.
+const DODGE_FROM := {
+	"elite_archer": ["approach", "reposition"],
+	"elite_blademaster": ["approach", "backoff"],
+	"elite_fang": ["approach"],
+	"elite_plaguecaller": ["approach"],
+	"elite_chainbreaker": ["approach"],
+	"elite_standard": ["approach"],
+	"elite_miner": ["approach"],
+}
+
+## 표현별 후보 각도(도). 0 = 위협의 반대쪽 정면. 앞의 것부터 좋은 자리로 치고, 지형이 막으면 뒤 후보로 넘어간다
+const DODGE_ANGLES := {
+	"backstep": [0.0, 40.0, -40.0, 80.0, -80.0],
+	"sidestep": [90.0, -90.0, 55.0, -55.0, 0.0],
+	"roll": [55.0, -55.0, 20.0, -20.0, 0.0],
+	"leap": [35.0, -35.0, 70.0, -70.0, 0.0],
+}
 ## 정예가 만드는 파괴 가능한 구조물(깃발·돌무더기). PEnemies.update가 구조물 중 이 둘만 갱신한다
 const ELITE_STRUCTURES := ["elite_banner", "elite_rubble"]
 
@@ -282,6 +308,10 @@ static func update_base(st: CombatState, e: Dictionary, dt: float) -> void:
 	update_as(st, e, dt, base_type(String(e.type)))
 
 static func update_as(st: CombatState, e: Dictionary, dt: float, type: String) -> void:
+	# 특수 정예 7종의 회피(docs/ELITE_DODGE.md). 이동 구간에는 고유 패턴 대신 회피가 이 프레임을 굴린다.
+	# is_elite(type)이라 일반 몬스터·일반 정예 확장의 바탕 갱신 경로(update_base)는 지나가지 않는다
+	if is_elite(type) and elite_dodge(st, e, dt):
+		return
 	match type:
 		"boar":
 			update_boar(st, e, dt)
@@ -728,6 +758,9 @@ static func note_block(st: CombatState, e: Dictionary, opt: Dictionary) -> void:
 ## 시전 방해: 12 이상 한 방 또는 넉백(20 이상)이면 끊긴다. 처치는 당연히 끊는다.
 static func on_damaged(st: CombatState, e: Dictionary, dmg: float, opt: Dictionary) -> void:
 	note_block(st, e, opt)
+	# 특수 정예 회피: **이미 맞은 뒤**의 반응 근거만 남긴다(피해를 되돌리거나 줄이지 않는다. docs/ELITE_DODGE.md)
+	if dmg > 0.0 and is_elite(String(e.type)):
+		e["dodge_hit_t"] = st.t
 	if String(e.type) == "shaman" and e.state == "cast" and (dmg >= float(e.def.interruptDamage) or float(opt.get("knock", 0.0)) >= 20.0):
 		e.cast_target = null
 		e.heal_t = float(e.def.healInterval) * 0.5
@@ -1309,8 +1342,11 @@ static func elite_busy(st: CombatState, e: Dictionary) -> bool:
 			return true
 	return false
 
-## 연계를 시작해도 되는가: 기존 동시 제한(may_attack) + 정예 동시 연계 1
+## 연계를 시작해도 되는가: 기존 동시 제한(may_attack) + 정예 동시 연계 1 + 회피 단계
 static func elite_may_start(st: CombatState, e: Dictionary, dt: float) -> bool:
+	if dodge_locked(e): # 반응 지연·이동·추스르는 틈: 회피 직후 무예고 공격으로 이어지지 않는다
+		e.ready_t = -1.0
+		return false
 	if elite_busy(st, e):
 		e.ready_t = -1.0
 		return false
@@ -1354,6 +1390,241 @@ static func strafe(st: CombatState, e: Dictionary, speed: float, dt: float) -> v
 		e.side = -1 if st.rng.next() < 0.5 else 1
 	var s: float = float(e.side)
 	st.approach(e, e.x + (-n[1]) * s * 120.0, e.y + n[0] * s * 120.0, speed, dt)
+
+# ---------- 특수 정예 공통: 회피 (2026-09-09, 전부 시험값. docs/ELITE_DODGE.md) ----------
+## 무엇인가: 플레이어의 Space 회피처럼 **짧고 빠르게 자리를 바꾸는** 행동이다. 종류에 따라
+##   옆걸음·구르기·도약·짧은 후퇴로 표현하며 수치는 data/elites.json의 elites.<id>.dodge에 있다.
+##   **특수 정예 7종만** 가진다 — 일반 몬스터·일반 정예 확장 10종·보스에는 없다(dodge_cfg가 빈 사전을 준다).
+##
+## 무엇이 아닌가
+##  - **무적이 아니다.** 이동 중에도 피해·넉백·바닥 효과가 그대로 들어간다. 공격 도약과 달리 airborne을
+##    쓰지 않는 것도 같은 이유다 — 밀어내기·지형 규칙을 하나도 비켜 가지 않는다.
+##  - 이미 맞은 피해를 되돌리지 않는다. 장판을 지우지 않고, 추적 탄도 무효로 만들지 않는다
+##    (투사체 판단에 **직선 예측만** 쓴다 — 휘어 오는 탄은 그대로 맞는다).
+##  - 플레이어 입력이나 아직 시작되지 않은 공격을 미리 읽지 않는다. **이미 나타난** 전투 상태만 본다.
+##
+## 상태 우선순위: **빙결 > 경직 > 회피 > 고유 패턴**
+##  - 빙결(freeze > 0): CombatState.update_enemies가 갱신을 통째로 건너뛰므로 회피 단계와 재사용도 함께 멈춘다.
+##    여기서도 한 번 더 막는다(soft 빙결·다른 경로로 들어와도 같게 동작하도록).
+##  - 경직(stagger > 0): **다른 담당이 만드는 필드**라 e.get으로 안전하게 읽는다. 있으면 시작하지 않고
+##    이미 반응 지연 중이면 취소한다. (송곳니·채굴자의 `state == "stagger"`는 이것과 다른 것이며, 그쪽은 DODGE_FROM이 막는다.)
+##  - 회피: 조건을 만족하면 그 프레임의 이동을 고유 패턴 대신 회피가 굴린다(이동 구간에만).
+##  - 고유 패턴: 이동이 끝나면 approach로 돌아가 원래대로 이어 간다.
+##
+## 단계: (없음) → react(반응 지연) → move(이동) → settle(추스르는 틈) → (없음)
+##  세 단계 모두 elite_may_start를 막는다 — 회피 직후 무예고 공격으로 이어지지 않는다.
+##  한 프레임에 단계 전이는 **최대 한 번**이라 큰 dt(낮은 프레임·일시정지 복귀)에서도 두 번 처리되지 않는다.
+##
+## 개체별 필드(지연 초기화): dodge_phase, dodge_t, dodge_cd, dodge_wait, dodge_dx, dodge_dy, dodge_dist,
+##   dodge_from, dodge_kind, dodge_hit_t, 그리고 계측용 dodge_seen(조건 충족) · dodge_uses(실제 발동) · dodge_skip(마지막으로 쓰지 않은 이유)
+
+## 그 종류의 회피 설정. 특수 정예가 아니면 빈 사전이다(여기가 '누가 회피를 가지는가'의 정본)
+static func dodge_cfg(type: String) -> Dictionary:
+	if not ELITE_TYPES.has(type):
+		return {}
+	var row: Dictionary = PCatalog.elite_def(type)
+	if not row.has("dodge"):
+		return {}
+	var c: Dictionary = row.dodge
+	return c
+
+static func dodge_num(c: Dictionary, key: String, fallback: float) -> float:
+	return float(c[key]) if c.has(key) else fallback
+
+## 지금 회피와 관련된 단계에 있는가(반응 지연·이동·추스르는 틈). 참이면 새 공격을 시작하지 않는다
+static func dodge_locked(e: Dictionary) -> bool:
+	return String(e.get("dodge_phase", "")) != ""
+
+static func _dodge_init(e: Dictionary, c: Dictionary) -> void:
+	e["dodge_phase"] = ""
+	e["dodge_t"] = 0.0
+	e["dodge_cd"] = dodge_num(c, "first", 2.5) # 전투 시작 직후에 바로 쓰지 않게 하는 여유
+	e["dodge_wait"] = 0.0
+	e["dodge_dx"] = 0.0
+	e["dodge_dy"] = 0.0
+	e["dodge_dist"] = 0.0
+	e["dodge_from"] = [0.0, 0.0]
+	e["dodge_kind"] = ""
+	e["dodge_hit_t"] = float(e.get("dodge_hit_t", -99.0)) # 첫 갱신 전에 맞았을 수도 있다
+	e["dodge_seen"] = 0
+	e["dodge_uses"] = 0
+	e["dodge_skip"] = "none"
+
+## 지금 회피하면 안 되는 이유. ""면 해도 된다. 우선순위 그대로 위에서부터 본다
+static func _dodge_deny(e: Dictionary) -> String:
+	if float(e.get("freeze", 0.0)) > 0.0:
+		return "freeze"
+	if float(e.get("stagger", 0.0)) > 0.0: # 큰 타격 경직(다른 담당의 필드. 없으면 0.0)
+		return "stagger"
+	if bool(e.get("hidden", false)) or bool(e.get("airborne", false)):
+		return "airborne"
+	if is_committed(e): # 자기 공격 준비·실행 중
+		return "committed"
+	var allow: Array = DODGE_FROM.get(String(e.type), [])
+	if not allow.has(String(e.state)):
+		return "state" # 빈틈(recover·stagger·retract)과 그 밖의 연계 구간
+	return ""
+
+## 회피 한 단계. true를 돌려주면 **이번 프레임의 이동을 회피가 대신 굴렸다**(고유 패턴을 건너뛴다)
+static func elite_dodge(st: CombatState, e: Dictionary, dt: float) -> bool:
+	var c := dodge_cfg(String(e.type))
+	if c.is_empty():
+		return false
+	if not e.has("dodge_phase"):
+		_dodge_init(e, c)
+	var ph := String(e.dodge_phase)
+	e.dodge_cd = maxf(0.0, float(e.dodge_cd) - dt) # 재사용은 단계와 무관하게 흐른다 — **시작 순간부터**(플레이어 회피와 같은 규칙)
+	if ph == "":
+		e.dodge_wait = maxf(0.0, float(e.dodge_wait) - dt)
+		_dodge_try(st, e, c)
+		return false
+	if ph == "react": # 반응 지연: 아직 움직이지 않는다. 이 사이에 맞으면 그대로 맞는다
+		var why := _dodge_deny(e)
+		if why != "": # 지연 중에 얼거나 경직되거나 스스로 공격을 시작하면 회피는 취소된다
+			e.dodge_phase = ""
+			e.dodge_t = 0.0
+			e.dodge_skip = why
+			return false
+		e.dodge_t = float(e.dodge_t) + dt
+		if float(e.dodge_t) >= dodge_num(c, "react", 0.3):
+			_dodge_launch(st, e, c)
+			return true # 이 프레임은 방향을 정하는 데 쓴다. **이동은 다음 프레임부터** — 큰 dt에서도 두 번 처리되지 않는다
+		return false
+	if ph == "move":
+		_dodge_step(st, e, c, dt)
+		return true
+	# settle: 자세를 추스른다. 고유 패턴의 이동은 그대로 굴리되 **새 공격은 시작하지 않는다**
+	e.dodge_t = float(e.dodge_t) + dt
+	if float(e.dodge_t) >= dodge_num(c, "settle", 0.45):
+		e.dodge_phase = ""
+		e.dodge_t = 0.0
+	return false
+
+## 시작 판단. 재사용이 돌아왔다고 반드시 회피하지는 않는다 — 실제 위협이 보일 때만, 그것도 확률로 고른다
+static func _dodge_try(st: CombatState, e: Dictionary, c: Dictionary) -> void:
+	if float(e.dodge_cd) > 0.0:
+		e.dodge_skip = "cooldown"
+		return
+	if float(e.dodge_wait) > 0.0: # 굴림에 실패한 뒤 다시 판단하지 않는 시간(매 프레임 다시 굴리면 확률이 사실상 1이 된다)
+		return
+	var why := _dodge_deny(e)
+	if why != "":
+		e.dodge_skip = why
+		return
+	var th := _dodge_threat(st, e, c)
+	if th.is_empty():
+		e.dodge_skip = "no_threat"
+		return
+	e.dodge_seen = int(e.dodge_seen) + 1 # 조건 충족(위협을 보고 판단한) 횟수
+	if st.rng.next() > dodge_num(c, "chance", 0.7):
+		e.dodge_wait = dodge_num(c, "retry", 1.2)
+		e.dodge_skip = "chance" # 모든 공격을 자동으로 완벽하게 피하지는 않는다
+		return
+	e.dodge_phase = "react"
+	e.dodge_t = 0.0
+	e.dodge_kind = String(th.kind)
+	e.dodge_from = [float(th.x), float(th.y)] # 위협이 닿을 자리 — 반응 지연이 끝나면 여기를 기준으로 방향을 고른다
+
+## 무엇을 위협으로 보는가. 셋 다 **이미 나타난** 전투 상태다(아직 시작되지 않은 공격은 보지 않는다)
+static func _dodge_threat(st: CombatState, e: Dictionary, c: Dictionary) -> Dictionary:
+	var look := dodge_num(c, "look", 0.7)
+	var rr: float = float(e.r) + dodge_num(c, "margin", 22.0)
+	# ① 이미 화면에 뜬 바닥 예고(전투망치 내려찍기·기술·지뢰)가 자기 자리를 덮을 때
+	for f in st.effects:
+		if String(f.get("kind", "")) != "strikewarn":
+			continue
+		if PGeom.dist(float(f.x), float(f.y), float(e.x), float(e.y)) <= float(f.get("r", 0.0)) + float(e.r):
+			return { "kind": "warn", "x": float(f.x), "y": float(f.y) }
+	# ② 날아오는 투사체(적의 것은 세지 않는다). 직선 예측만 쓴다 — 추적 탄을 임의로 무효화하지 않기 위해서다
+	for pr in st.projectiles:
+		if bool(pr.get("dead", false)) or String(pr.get("owner", "")) == "enemy":
+			continue
+		var vx: float = float(pr.get("vx", 0.0))
+		var vy: float = float(pr.get("vy", 0.0))
+		var vv: float = vx * vx + vy * vy
+		if vv < 1.0:
+			continue
+		var hr: float = rr + float(pr.get("r", 4.0))
+		var rx: float = float(pr.x) - float(e.x)
+		var ry: float = float(pr.y) - float(e.y)
+		if rx * rx + ry * ry <= hr * hr:
+			continue # 이미 코앞이다 — 늦었다(놓친 것으로 둔다)
+		var tc: float = -(rx * vx + ry * vy) / vv
+		if tc <= 0.0 or tc > look:
+			continue
+		var cx: float = float(pr.x) + vx * tc
+		var cy: float = float(pr.y) + vy * tc
+		if PGeom.dist(cx, cy, float(e.x), float(e.y)) > hr:
+			continue
+		return { "kind": "projectile", "x": cx, "y": cy }
+	# ③ **방금 맞은** 직접 타격. 예측이 아니라 이미 일어난 일에 대한 반응이고, 피해는 그대로 들어간 뒤에 물러선다.
+	#    근접 주무기(검·창·단검)에는 미리 보이는 예고가 없어서 이것이 없으면 회피가 전투 내내 한 번도 나오지 않는다
+	if bool(c.get("react_to_hit", true)) and st.t - float(e.get("dodge_hit_t", -99.0)) <= dodge_num(c, "hit_window", 0.5):
+		var p := st.target_of(e)
+		return { "kind": "hit", "x": float(p.x), "y": float(p.y) }
+	return {}
+
+## 방향을 고르고 이동을 시작한다. 재사용은 **시작 순간부터** 흐른다(플레이어 회피와 같은 규칙)
+static func _dodge_launch(st: CombatState, e: Dictionary, c: Dictionary) -> void:
+	var ref: Array = e.dodge_from
+	var ax: float = float(e.x) - float(ref[0])
+	var ay: float = float(e.y) - float(ref[1])
+	if ax * ax + ay * ay < 1.0: # 위협이 발밑이면 표적 반대쪽을 기준으로 삼는다
+		var p := st.target_of(e)
+		ax = float(e.x) - float(p.x)
+		ay = float(e.y) - float(p.y)
+	var n := PGeom.norm(ax, ay)
+	var base: float = atan2(n[1], n[0]) if not (n[0] == 0.0 and n[1] == 0.0) else float(e.get("face", 0.0))
+	var dist := dodge_num(c, "dist", 100.0)
+	var style := String(c.get("style", "backstep"))
+	var offs: Array = DODGE_ANGLES[style] if DODGE_ANGLES.has(style) else DODGE_ANGLES["backstep"]
+	var best := base
+	var best_score := -1.0e12
+	for o in offs:
+		var a: float = base + PGeom.deg(float(o))
+		var tx: float = float(e.x) + cos(a) * dist
+		var ty: float = float(e.y) + sin(a) * dist
+		var score: float = PGeom.dist(tx, ty, float(ref[0]), float(ref[1]))
+		# 벽·바위에 막히는 방향은 뒤로 민다. 골라도 뚫고 가지는 않는다(move_swept가 그 자리에서 멈춘다)
+		if not st.valid_pos(tx, ty, float(e.r)):
+			score -= 100000.0
+		if not st.valid_pos(float(e.x) + cos(a) * dist * 0.5, float(e.y) + sin(a) * dist * 0.5, float(e.r)):
+			score -= 100000.0
+		if score > best_score:
+			best_score = score
+			best = a
+	e.dodge_dx = cos(best)
+	e.dodge_dy = sin(best)
+	e.dodge_dist = 0.0
+	e.dodge_phase = "move"
+	e.dodge_t = 0.0
+	e.dodge_cd = dodge_num(c, "cooldown", 10.0)
+	e.dodge_uses = int(e.dodge_uses) + 1
+	e.state = "dodge" # 공격 상태가 아니다 — COMMITTED에 없으므로 '위험 공격 중'으로 세지 않는다
+	e.state_t = 0.0
+	st.text(float(e.x), float(e.y) - float(e.r) - 26.0, String(c.get("style_text", "회피")), "#cfe3ff")
+	st.ev("dodge")
+
+## 이동 한 단계. 벽·바위에 닿으면 거기서 끝난다(플레이어 회피와 같은 규칙)
+static func _dodge_step(st: CombatState, e: Dictionary, c: Dictionary, dt: float) -> void:
+	var dist := dodge_num(c, "dist", 100.0)
+	var tm := maxf(0.001, dodge_num(c, "time", 0.25))
+	var sm := st.enemy_speed_mult(e) # 냉기·감속장은 이동을 늦춘다(기존 규칙 그대로 — 그만큼 덜 간다)
+	var remain: float = maxf(0.0, dist - float(e.dodge_dist))
+	var want: float = minf(dist / tm * sm * dt, remain)
+	var x0: float = e.x
+	var y0: float = e.y
+	var blocked := false
+	if want > 0.0:
+		var res := st.move_swept(e, float(e.dodge_dx) * want, float(e.dodge_dy) * want)
+		blocked = String(res.hit) != ""
+	e.dodge_dist = float(e.dodge_dist) + PGeom.dist(x0, y0, float(e.x), float(e.y))
+	e.dodge_t = float(e.dodge_t) + dt
+	if blocked or float(e.dodge_dist) >= dist - 1e-6 or float(e.dodge_t) >= tm - 1e-9:
+		e.dodge_phase = "settle"
+		e.dodge_t = 0.0
+		e.state = "approach" # 고유 패턴으로 복귀
+		e.state_t = 0.0
 
 # ---------- A. 정예 궁수(추격 사수) ----------
 ## 첫 조준 0.70초(추적 0.58 + 방향 고정 0.12) → 단발 3회(간격 0.50초 = 재조준 0.38 + 고정 0.12)

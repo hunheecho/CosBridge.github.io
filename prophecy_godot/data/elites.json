@@ -23,6 +23,23 @@
     "elite_archer": {
       "name": "정예 궁수",
       "kind": "range_pressure",
+      "dodge": {
+        "style": "sidestep",
+        "style_text": "옆걸음",
+        "dist": 120,
+        "time": 0.22,
+        "cooldown": 9.0,
+        "react": 0.26,
+        "settle": 0.40,
+        "chance": 0.75,
+        "retry": 1.2,
+        "first": 2.5,
+        "look": 0.7,
+        "margin": 22,
+        "hit_window": 0.5,
+        "react_to_hit": true,
+        "why": "이미 사격 자리를 옆으로 옮기는 적이라 같은 몸짓(옆걸음)으로 이었다. 가볍고 마른 몸이라 7종 중 가장 짧은 재사용(9초)·가장 빠른 편의 반응(0.26초)"
+      },
       "hp_by_act": {
         "1": 200,
         "2": 1090,
@@ -53,6 +70,23 @@
     "elite_blademaster": {
       "name": "정예 검사",
       "kind": "charger_armored",
+      "dodge": {
+        "style": "backstep",
+        "style_text": "짧은 후퇴",
+        "dist": 95,
+        "time": 0.24,
+        "cooldown": 12.0,
+        "react": 0.34,
+        "settle": 0.55,
+        "chance": 0.60,
+        "retry": 1.2,
+        "first": 2.5,
+        "look": 0.7,
+        "margin": 22,
+        "hit_window": 0.5,
+        "react_to_hit": true,
+        "why": "두꺼운 중갑이라 가장 느리고 가장 드물게(12초) 움직인다. 이미 있는 backoff(물러나기)와 같은 몸짓이라 새 동작을 배우지 않아도 읽힌다. 발동 확률도 낮은 편(0.60)"
+      },
       "hp_by_act": {
         "1": 280,
         "2": 1530,
@@ -84,6 +118,23 @@
     "elite_fang": {
       "name": "피의 송곳니",
       "kind": "flanker_leap",
+      "dodge": {
+        "style": "leap",
+        "style_text": "도약",
+        "dist": 130,
+        "time": 0.24,
+        "cooldown": 8.0,
+        "react": 0.22,
+        "settle": 0.35,
+        "chance": 0.80,
+        "retry": 1.2,
+        "first": 2.5,
+        "look": 0.7,
+        "margin": 22,
+        "hit_window": 0.5,
+        "react_to_hit": true,
+        "why": "짐승이라 가장 자주(8초)·가장 빨리(0.22초) 반응하고 거리도 가장 길다. 고유 패턴이 도약이라 회피도 도약으로 읽힌다. 다만 공격 도약과 달리 airborne을 쓰지 않는다 — 무적처럼 보이면 안 되기 때문"
+      },
       "hp_by_act": {
         "1": 190,
         "2": 1040,
@@ -112,6 +163,23 @@
     "elite_plaguecaller": {
       "name": "역병 조율사",
       "kind": "zone_control",
+      "dodge": {
+        "style": "sidestep",
+        "style_text": "옆걸음",
+        "dist": 105,
+        "time": 0.26,
+        "cooldown": 11.0,
+        "react": 0.32,
+        "settle": 0.50,
+        "chance": 0.70,
+        "retry": 1.2,
+        "first": 2.5,
+        "look": 0.7,
+        "margin": 22,
+        "hit_window": 0.5,
+        "react_to_hit": true,
+        "why": "중거리를 지키며 원 사이로 빠지는 역할이라 옆걸음이 맞는다. 굽은 등이라 궁수보다 느리게(11초·0.32초) 잡았다"
+      },
       "hp_by_act": {
         "1": 205,
         "2": 1120,
@@ -149,6 +217,23 @@
     "elite_chainbreaker": {
       "name": "사슬 집행자",
       "kind": "grab_slam",
+      "dodge": {
+        "style": "backstep",
+        "style_text": "짧은 후퇴",
+        "dist": 90,
+        "time": 0.28,
+        "cooldown": 12.0,
+        "react": 0.36,
+        "settle": 0.60,
+        "chance": 0.55,
+        "retry": 1.2,
+        "first": 2.5,
+        "look": 0.7,
+        "margin": 22,
+        "hit_window": 0.5,
+        "react_to_hit": true,
+        "why": "한쪽 팔이 크고 사슬을 끄는 몸이라 7종에서 가장 둔하다 — 가장 짧은 거리(90)·가장 긴 재사용(12초)·가장 늦은 반응(0.36초)·가장 낮은 확률(0.55). 사슬을 회수하는 빈틈(retract)에서는 아예 못 쓴다"
+      },
       "hp_by_act": {
         "1": 220,
         "2": 1200,
@@ -179,6 +264,23 @@
     "elite_standard": {
       "name": "군단 기수",
       "kind": "commander",
+      "dodge": {
+        "style": "backstep",
+        "style_text": "짧은 후퇴",
+        "dist": 100,
+        "time": 0.25,
+        "cooldown": 11.0,
+        "react": 0.34,
+        "settle": 0.50,
+        "chance": 0.65,
+        "retry": 1.2,
+        "first": 2.5,
+        "look": 0.7,
+        "margin": 22,
+        "hit_window": 0.5,
+        "react_to_hit": true,
+        "why": "긴 깃발 장대를 들고 있어 옆걸음·구르기가 어울리지 않는다. 지휘 위치를 지키는 역할이라 뒤로 반보 빼는 정도(100)만 준다"
+      },
       "hp_by_act": {
         "1": 185,
         "2": 1010,
@@ -209,6 +311,23 @@
     "elite_miner": {
       "name": "균열 채굴자",
       "kind": "burrow_terrain",
+      "dodge": {
+        "style": "roll",
+        "style_text": "구르기",
+        "dist": 115,
+        "time": 0.30,
+        "cooldown": 10.0,
+        "react": 0.30,
+        "settle": 0.45,
+        "chance": 0.70,
+        "retry": 1.2,
+        "first": 2.5,
+        "look": 0.7,
+        "margin": 22,
+        "hit_window": 0.5,
+        "react_to_hit": true,
+        "why": "굵은 팔에 굴착 장비를 진 몸이라 서서 피하기보다 몸을 굴리는 쪽이 읽힌다. 이동 시간은 사용자 범위의 위쪽(0.30초)이라 가장 오래 굴러 되갚기 쉽다. 지하 구간(hidden)에서는 쓰지 않는다"
+      },
       "hp_by_act": {
         "1": 215,
         "2": 1170,
@@ -242,6 +361,40 @@
       },
       "acts_extra_why": "사용자 배정(2026-09-09): 1막 포자 정원의 특수 정예는 역병 조율사·균열 채굴자다. acts는 2·3막이지만 **그 테마 하나에서만** 1막을 허용한다. 다른 1막 테마(사냥 숲·버려진 요새)로는 넓히지 않는다."
     }
+  },
+  "dodge_note": {
+    "note": "**특수 정예 7종의 회피**(2026-09-09, 전부 시험값). 실제 수치는 각 정예 항목의 dodge 블록에 있다 — 새 접근자를 만들지 않으려고 일부러 elites 안에 뒀다(read 블록과 같은 방식). 규칙 코드는 scripts/rules/enemies_new.gd의 elite_dodge 갈래, 설명은 docs/ELITE_DODGE.md, 검사는 tests/elites_tests.gd.",
+    "who": "ELITE_TYPES 7종만이다. 일반 몬스터·일반 정예 확장 10종(wolf_alpha 포함)·보스에는 없다 — PEnemiesNew.dodge_cfg가 그 셋에는 빈 사전을 준다.",
+    "fields": {
+      "style": "방향을 고르는 방식. sidestep(옆걸음, 위협 반대선의 ±90°) · backstep(짧은 후퇴, 위협 반대쪽 그대로) · roll(구르기, ±55°) · leap(도약, ±35°)",
+      "style_text": "회피가 시작될 때 띄우는 한 줄(무엇을 하는지 글로도 읽히게)",
+      "dist": "이동 거리(px). 벽·바위에 닿으면 거기서 멈춘다 — 뚫지 않는다",
+      "time": "이동 시간(초). 사용자 첫 시험값 0.2~0.3초 안에 둔다",
+      "cooldown": "재사용 시간(초). 사용자 첫 시험값 8~12초 안에 둔다. **시작 순간부터** 흐른다(플레이어와 같은 규칙)",
+      "react": "반응 지연(초). 위협을 보고 실제로 움직이기까지의 틈 — 이 사이에 이미 맞으면 그대로 맞는다",
+      "settle": "추스르는 틈(초). 이동이 끝난 뒤 **새 공격을 시작하지 않는** 시간(회피 직후 무예고 공격 금지)",
+      "chance": "위협을 봤을 때 실제로 회피할 확률. 1.0이 아니라서 모든 공격을 자동으로 완벽하게 피하지 않는다",
+      "retry": "확률 굴림에 실패한 뒤 다시 판단하지 않는 시간(초). 매 프레임 다시 굴려 사실상 확률이 1이 되는 것을 막는다",
+      "first": "전투가 시작되고 첫 회피가 열리기까지의 여유(초)",
+      "look": "투사체가 몇 초 뒤에 닿을 때까지를 위협으로 보는가(초)",
+      "margin": "위협 반경에 더하는 여유(px)",
+      "hit_window": "방금 맞은 직접 타격을 위협으로 보는 시간(초)",
+      "react_to_hit": "방금 맞은 타격에도 반응하는가. 근접 주무기(검·창·단검)에는 미리 보이는 예고가 없어서 이것이 없으면 전투 내내 한 번도 쓰지 않는다"
+    },
+    "what_it_reacts_to": [
+      "① 이미 화면에 뜬 바닥 예고(strikewarn — 전투망치 내려찍기·기술·지뢰)가 자기 자리를 덮을 때",
+      "② 날아오는 투사체(적의 것 제외)가 look 안에 자기에게 닿을 때. **직선 예측만** 쓴다 — 추적 탄을 임의로 무효화하지 않기 위해서다",
+      "③ **방금 맞은** 직접 타격(예측이 아니라 이미 일어난 일). 피해는 그대로 들어간 뒤에 물러선다"
+    ],
+    "what_it_never_does": [
+      "플레이어 입력이나 아직 시작되지 않은 공격을 미리 읽지 않는다",
+      "무적을 주지 않는다(회피 중에도 피해·넉백·바닥 효과가 그대로 들어간다). airborne을 쓰지 않는 것도 같은 이유다",
+      "이미 맞은 피해를 되돌리지 않는다",
+      "자기 빈틈(recover·stagger·retract)에서 빠져나가지 않는다 — 빈틈은 플레이어가 되갚는 창이다",
+      "빙결(freeze > 0)·경직(stagger > 0)·자기 공격 준비·실행 중에는 쓰지 않는다"
+    ],
+    "priority": "빙결 > 경직 > 회피 > 고유 패턴. 자세한 근거는 docs/ELITE_DODGE.md §상태 우선순위",
+    "vs_player": "플레이어 회피 재사용은 data/config.json config.PLAYER.dodge.cooldown = 1.5초(선택지 0.9~1.8)다. 정예의 8~12초는 그 5.3~8.0배이며, 가장 짧은 선택지 0.9초와 견줘도 8.9~13.3배다. 이동 속도도 플레이어(150/0.26 = 577px/s)를 넘지 않게 잡았다 — 가장 빠른 정예 궁수가 545px/s다."
   },
   "readability": {
     "note": "**역할을 읽을 수 있게 하는 자료**(2026-09-09). 외형(실루엣)을 그리는 것은 scripts/game/render.gd 담당이고, 여기 있는 것은 '무엇을 들고 있어야 역할이 읽히는가'라는 규칙 쪽 자료다. 화면이 이 표를 읽어 실루엣을 정하면 플레이어가 붙기 전에 대응을 고를 수 있다. 설명은 docs/ELITES.md §역할 읽기.",
