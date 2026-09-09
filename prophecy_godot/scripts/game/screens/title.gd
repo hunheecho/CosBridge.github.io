@@ -3,6 +3,8 @@ extends PScreen
 ## 제목 화면: 새 회차 / 계속하기 / 검증 메뉴 / 조작법 / 설정 / 종료. 기본 화면에는 개발용 설명을 두지 않는다(PROJECT_CONTEXT §4, D11).
 ## 검증 메뉴(접힘): 기준 전투(첫 전투, 0.3.1 D33) · 시작 기술 첫 전투 비교 · 관문 빌드 보스전 · 봇 회차 데모.
 
+const FULLSCREEN_TEXT := "전체화면으로 시작"
+
 var _verify_open := false
 var _confirm_new := false
 var _seed_spin: SpinBox
@@ -30,6 +32,7 @@ func refresh() -> void:
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_menu.add_child(sub)
 	_menu.add_child(PUi.spacer(8))
+	_add_fullscreen_button()
 	if _confirm_new:
 		var c := PUi.card("새 회차를 시작할까요?", PUi.CARD_BOSS)
 		(c.box as VBoxContainer).add_child(PUi.rich("기존 저장(진행 중인 회차)이 덮어씌워집니다.", 13))
@@ -75,6 +78,21 @@ func refresh() -> void:
 	var font_foot := PUi.label(PUi.font_notice_short(), 10, PUi.DIM)
 	font_foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_menu.add_child(font_foot)
+
+## '전체화면으로 시작': 폰에서 주소창을 감추고 가로 고정을 요청한다.
+## 버튼 콜백에서 바로 요청해야 브라우저가 허락한다(사용자 제스처). 지원하지 않거나 거부하면 조용히 지나간다 —
+## 회차를 시작하지도, 화면을 바꾸지도 않으므로 PC 동작은 이 버튼 하나가 늘어난 것 말고 그대로다.
+func _add_fullscreen_button() -> void:
+	var b := PUi.button(FULLSCREEN_TEXT, _on_fullscreen, true, 18)
+	b.custom_minimum_size = Vector2(0, PLayout.primary_button_height())
+	_menu.add_child(b)
+	var note := PUi.label("폰에서 주소창을 감추고 가로로 고정합니다. 되지 않는 기기에서는 그대로 진행합니다.", 11, PUi.DIM)
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_menu.add_child(note)
+	_menu.add_child(PUi.spacer(6))
+
+func _on_fullscreen() -> void:
+	main.request_fullscreen_landscape()
 
 func _on_new() -> void:
 	if PSave.exists():

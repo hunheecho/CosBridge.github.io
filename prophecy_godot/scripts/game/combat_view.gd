@@ -58,6 +58,13 @@ func set_paused(v: bool) -> void:
 	router.reset() # 가상 스틱·유지 상태도 폐기(손가락이 그대로여도 다시 눌러야 한다)
 	_mv_note("일시정지 " + ("켬" if v else "끔"))
 
+## 대기 입력·가상 스틱을 지금 즉시 버린다(화면이 세로로 바뀌는 등, 손가락이 화면에서 사라진 것과 같게 만들 때).
+## set_paused와 같은 폐기 경로를 쓰지만 일시정지 여부는 건드리지 않는다
+func release_inputs(reason: String = "") -> void:
+	driver.reset()
+	router.reset()
+	_mv_note("입력 해제" + ((" · " + reason) if reason != "" else ""))
+
 func steps_this_frame() -> int:
 	return driver.steps_last_frame
 

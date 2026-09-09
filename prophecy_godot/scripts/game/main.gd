@@ -46,6 +46,23 @@ var build_hud: PCombatHud               # 하단 빌드 HUD(자동기술 3칸+�
 var build_detail: PBuildDetail          # 빌드 상세(전투 중에는 공통 일시정지 경로로 연다)
 var _detail_paused := false             # 빌드 상세 때문에 우리가 멈춘 상태인지
 
+# ---------- 화면 방향·전체화면(docs/ORIENTATION.md) ----------
+## 화면 크기가 바뀌었다는 신호. 주소창이 뜨고 지는 것 · 전체화면 전환 · 회전 · PC 창 크기 조절이 모두 여기로 온다.
+## 조작 버튼 자리·터치 판정은 이 신호를 받는 쪽(PLayout·PTouchControls 담당)이 정한다 — 여기서는 알리기만 한다.
+signal screen_metrics_changed(metrics: Dictionary)
+
+var orient: POrientGate                 # 세로 안내 · '계속' · 전체화면 다시 들어가기(표시 전용)
+var orient_paused := false              # 세로로 바뀌어서 우리가 멈춘 상태인지. 가로로 돌아와도 '계속'을 눌러야 풀린다
+var _orient_layer: CanvasLayer          # 안내막 층(HUD·툴팁보다 위)
+var _portrait := false                  # 마지막으로 판정한 세로 여부
+var _fs_wanted := false                 # 사용자가 전체화면을 한 번이라도 요청했는가(다시 들어가는 버튼의 조건)
+var _fs_active := false                 # 지금 전체화면인가(웹은 document.fullscreenElement, PC는 창 모드)
+var _fs_poll_t := 0.0                   # 전체화면 상태를 다시 읽기까지 남은 시간(초)
+var last_fullscreen_result: Dictionary = {} # 마지막 전체화면 요청이 실제로 무엇을 했는지(검사·보고용)
+var _pause_fs_btn: Button               # 일시정지 화면의 '전체화면' 버튼(전체화면에서 빠져나왔을 때만 보인다)
+
+const FS_POLL_SEC := 0.5                # 전체화면 상태 확인 간격(초)
+
 func _ready() -> void:
 	if OS.get_environment("PROPHECY_UI_SMOKE") != "":
 		PProfile.use_path(TEST_PROFILE_PATH)
@@ -75,12 +92,18 @@ func _ready() -> void:
 	touch = PTouchControls.new()
 	hud.add_child(touch) # HUD와 같이 전투 중에만 보인다
 	touch.bind(view, view.router)
-	get_viewport().size_changed.connect(_layout_hud)
-	_layout_hud()
+	_make_orient_gate()
+	get_viewport().size_changed.connect(_on_viewport_resized)
+	_on_viewport_resized() # 배치 + 첫 세로/가로 판정
 	# 일시정지 화면에서도 같은 빌드 상세를 연다(마우스만 쓰는 경우·터치)
 	var detail_btn := PUi.button("빌드 상세 (Tab)", func(): open_build_detail(), true, 14)
 	$UI/Pause/VBox.add_child(detail_btn)
 	$UI/Pause/VBox.move_child(detail_btn, 2)
+	# 전투 중에 전체화면이 풀렸을 때 되돌아가는 길(전체화면을 쓴 적이 있을 때만 보인다)
+	_pause_fs_btn = PUi.button("전체화면으로 다시 들어가기", func(): request_fullscreen_landscape(), true, 14)
+	_pause_fs_btn.visible = false
+	$UI/Pause/VBox.add_child(_pause_fs_btn)
+	$UI/Pause/VBox.move_child(_pause_fs_btn, 3)
 	$UI/Pause/VBox/ResumeBtn.pressed.connect(func(): set_pause(false))
 	$UI/Pause/VBox/ControlsBtn.pressed.connect(func(): show_controls(true))
 	$UI/Pause/VBox/SettingsBtn.pressed.connect(func(): open_settings())
@@ -161,6 +184,8 @@ func show(name: String) -> void:
 	if not combat:
 		pause_panel.visible = false
 		controls_panel.visible = false
+		orient_paused = false # 전투를 벗어나면 '계속' 대기는 끝난다(세로 안내는 세로인 동안 그대로)
+	_sync_orient_gate()
 	result_panel.visible = name == "result"
 	if screens.has(name):
 		(screens[name] as PScreen).on_enter()
@@ -171,6 +196,8 @@ func go_title() -> void:
 	fight_kind = "first"
 	view.running = false
 	view.driver.recorder = null # 끝나지 않은 입력 기록은 버린다(저장은 전투 종료 시에만)
+	orient_paused = false       # 전투를 떠나면 '계속' 대기도 끝난다(세로 안내 자체는 세로면 그대로 남는다)
+	_sync_orient_gate()
 	view.set_paused(false)
 	choice.close()
 	tips.close_all()
@@ -445,7 +472,7 @@ func open_choice(off: Variant) -> void:
 
 func close_choice() -> void:
 	choice.close()
-	if screen == "combat" and not pause_panel.visible and not glossary_paused:
+	if screen == "combat" and not pause_panel.visible and not glossary_paused and not orient_paused:
 		view.set_paused(false)
 
 ## 전투 중 레벨업: 미처리 선택이 있으면 하나씩 제시
@@ -834,7 +861,7 @@ func _show_lab_result(summary: Dictionary) -> void:
 func set_pause(v: bool) -> void:
 	if v:
 		$UI/Pause/VBox/TitleBtn.text = "포기하고 거점으로 (패배 처리)" if fight_kind == "run" else "제목으로 (전투 포기)"
-	view.set_paused(v or choice.is_open() or glossary_paused)
+	view.set_paused(v or choice.is_open() or glossary_paused or orient_paused) # 세로 때문에 멈춘 것은 '계속'으로만 풀린다
 	pause_panel.visible = v
 	if not v:
 		controls_panel.visible = false
@@ -881,8 +908,190 @@ func _on_tip_pins(n: int) -> void:
 		view.set_paused(true)
 	elif n == 0 and glossary_paused:
 		glossary_paused = false
-		if not pause_panel.visible and not choice.is_open():
+		if not pause_panel.visible and not choice.is_open() and not orient_paused:
 			view.set_paused(false)
+
+# ---------- 화면 방향·전체화면 ----------
+## 웹에서 부르는 스크립트. 전체화면을 요청하고, 그 결과와 상관없이 가로 고정을 시도한다.
+## 거절은 두 가지 길로 온다: 동기 예외(try가 삼킨다)와 Promise 거부(then의 두 번째 인자가 삼킨다).
+## 둘 다 잡으므로 지원하지 않는 브라우저에서도 콘솔에 오류가 남지 않는다.
+const FS_ENTER_JS := """
+(function(){
+  try {
+    var el = document.documentElement;
+    var lock = function(){
+      try {
+        var so = window.screen ? window.screen.orientation : null;
+        if (so && so.lock) {
+          var q = so.lock('landscape');
+          if (q && q.then) { q.then(function(){}, function(){}); }
+        }
+      } catch (e) {}
+    };
+    var req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    var p = req ? req.call(el) : null;
+    if (p && p.then) { p.then(lock, function(){ lock(); }); } else { lock(); }
+    return 1;
+  } catch (e) { return 0; }
+})()
+"""
+
+## 지금 전체화면인가를 읽는다. 처음 한 번 fullscreenchange 감시자를 걸어 두고 그 값을 읽는다(폴링 간격 사이의 이탈도 잡힌다)
+const FS_STATE_JS := """
+(function(){
+  try {
+    if (!window.__prophecyFsHook) {
+      window.__prophecyFsHook = 1;
+      var f = function(){
+        try { window.__prophecyFs = !!(document.fullscreenElement || document.webkitFullscreenElement); }
+        catch (e) { window.__prophecyFs = false; }
+      };
+      document.addEventListener('fullscreenchange', f, false);
+      document.addEventListener('webkitfullscreenchange', f, false);
+      f();
+    }
+    return window.__prophecyFs ? 1 : 0;
+  } catch (e) { return 0; }
+})()
+"""
+
+func _make_orient_gate() -> void:
+	_orient_layer = CanvasLayer.new()
+	_orient_layer.name = "OrientLayer"
+	_orient_layer.layer = 64 # HUD(UI)·툴팁(Tips)보다 위. 세로 안내는 무엇보다 먼저 보여야 한다
+	add_child(_orient_layer)
+	orient = POrientGate.new()
+	orient.name = "OrientGate"
+	_orient_layer.add_child(orient)
+	orient.resume_pressed.connect(orient_resume)
+	orient.fullscreen_pressed.connect(request_fullscreen_landscape)
+
+## 창·화면 크기가 바뀌었다: 배치를 다시 맞추고, 세로/가로를 다시 판정하고, 바뀐 크기를 알린다.
+## 주소창이 뜨고 지는 것도 폰에서는 이 경로로 온다(크기 변화).
+func _on_viewport_resized() -> void:
+	_layout_hud()
+	refresh_orientation()
+
+## 지금 세로인가(화면 크기 비율만 본다)
+func is_portrait() -> bool:
+	return _portrait
+
+func fullscreen_active() -> bool:
+	return _fs_active
+
+func fullscreen_wanted() -> bool:
+	return _fs_wanted
+
+## 화면 크기 창구: 조작 크기·자리를 정하는 쪽이 읽는 값. screen_metrics_changed와 같은 내용이다
+func screen_metrics() -> Dictionary:
+	var vp := get_viewport()
+	var vis: Rect2 = vp.get_visible_rect() if vp != null else Rect2(0.0, 0.0, PLayout.BASE_W, PLayout.BASE_H)
+	return {
+		"visible": vis,                       # 보이는 canvas 영역
+		"safe": PLayout.safe_rect(vp),        # 안전 영역(노치·둥근 모서리 제외)
+		"portrait": _portrait,                # 세로인가
+		"bucket": PLayout.aspect_bucket(vis.size),
+		"fullscreen": _fs_active,             # 지금 전체화면인가
+		"touch": PLayout.is_touch(),
+	}
+
+## 세로/가로를 다시 판정한다. 세로로 바뀌는 순간 전투를 멈추고 입력을 놓는다(가로로 돌아와도 저절로 재개하지 않는다)
+func refresh_orientation() -> void:
+	var vp := get_viewport()
+	var size: Vector2 = vp.get_visible_rect().size if vp != null else Vector2.ZERO
+	_portrait = POrientGate.is_portrait(size)
+	if _portrait:
+		_pause_for_portrait()
+	_sync_orient_gate()
+	screen_metrics_changed.emit(screen_metrics())
+
+## 세로인데 전투가 돌고 있으면 멈춘다. 이미 있는 일시정지 경로를 그대로 쓴다(전투 시간·재사용 시간이 함께 멈춘다)
+func _pause_for_portrait() -> void:
+	if screen != "combat" or view == null or not view.running or view.st == null:
+		return
+	orient_paused = true             # 가로로 돌아와도 '계속'을 누를 때까지 유지된다
+	if not view.paused:
+		view.set_paused(true)        # 이미 있는 일시정지 경로(전투 시간·재사용 시간이 멈춘다)
+	view.release_inputs("세로 전환")    # 누르고 있던 이동·회피를 놓는다
+	if touch != null and touch.has_method("release_all"):
+		touch.call("release_all")        # 잡고 있던 가상 스틱·버튼도 즉시 해제(조작 담당의 공개 경로)
+
+## 매 프레임 확인: 세로 상태에서 전투가 새로 시작됐다면 그때도 멈춘다
+func _orient_guard() -> void:
+	if _portrait and screen == "combat" and view.running and (not view.paused or not orient_paused):
+		_pause_for_portrait()
+		_sync_orient_gate()
+
+## '계속': 사용자가 눌렀을 때만 재개한다. 세로에서는 재개하지 않는다
+func orient_resume() -> void:
+	if not orient_paused or _portrait:
+		return
+	orient_paused = false
+	_sync_orient_gate()
+	if screen == "combat" and not pause_panel.visible and not choice.is_open() and not glossary_paused and not _detail_paused:
+		view.set_paused(false)
+
+func _sync_orient_gate() -> void:
+	if orient == null:
+		return
+	var offer: bool = _fs_wanted and not _fs_active
+	orient.apply(_portrait, orient_paused, offer)
+	if _pause_fs_btn != null:
+		_pause_fs_btn.visible = offer
+
+## 전체화면 + 가로 고정 요청. 반드시 버튼 콜백에서 바로 불러야 한다(브라우저는 사용자 제스처 안에서만 허용한다).
+## 지원하지 않거나 거부해도 아무것도 막지 않는다 — 조용히 넘어가고 게임은 그대로 돈다.
+func request_fullscreen_landscape() -> void:
+	var res := { "web": false, "fullscreen": "건너뜀", "orientation": "건너뜀" }
+	_fs_wanted = true
+	if OS.has_feature("web"):
+		res.web = true
+		var r: Variant = JavaScriptBridge.eval(FS_ENTER_JS, true)
+		var called: bool = _js_truthy(r)
+		res.fullscreen = "요청함" if called else "브라우저가 거절"
+		res.orientation = "요청함(가로)" if called else "건너뜀"
+	elif DisplayServer.get_name() != "headless":
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN) # PC 창: 방향 개념이 없다
+		res.fullscreen = "창 모드 전환"
+	last_fullscreen_result = res
+	_fs_poll_t = 0.0 # 다음 프레임에 실제 상태를 다시 읽는다
+	_sync_orient_gate()
+
+## 전체화면 여부가 바뀌었다(웹의 fullscreenchange · PC의 창 모드 · 검사의 흉내). 안내막·버튼만 다시 맞춘다
+func note_fullscreen_state(active: bool) -> void:
+	if _fs_active == active:
+		return
+	_fs_active = active
+	_sync_orient_gate()
+	screen_metrics_changed.emit(screen_metrics())
+
+## 전체화면 상태를 읽을 수 있는 곳인가(헤드리스 검사는 읽을 수 없다 → 흉내 낸 값을 그대로 둔다)
+func _fs_detectable() -> bool:
+	return OS.has_feature("web") or DisplayServer.get_name() != "headless"
+
+func _poll_fullscreen(dt: float) -> void:
+	if not _fs_detectable():
+		return
+	_fs_poll_t -= dt
+	if _fs_poll_t > 0.0:
+		return
+	_fs_poll_t = FS_POLL_SEC
+	var now := false
+	if OS.has_feature("web"):
+		now = _js_truthy(JavaScriptBridge.eval(FS_STATE_JS, true))
+	else:
+		var m := DisplayServer.window_get_mode()
+		now = m == DisplayServer.WINDOW_MODE_FULLSCREEN or m == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
+	note_fullscreen_state(now)
+
+## JavaScriptBridge.eval의 반환값(웹이 아니면 null)을 안전하게 참/거짓으로 읽는다
+static func _js_truthy(v: Variant) -> bool:
+	match typeof(v):
+		TYPE_BOOL: return bool(v)
+		TYPE_INT: return int(v) != 0
+		TYPE_FLOAT: return float(v) != 0.0
+		TYPE_STRING: return String(v) != "" and String(v) != "0"
+	return false
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Tab: 빌드 상세 열기·닫기(전투 중이면 공통 일시정지 경로). 3택·설정이 열려 있으면 받지 않는다
@@ -959,7 +1168,7 @@ func open_build_detail() -> void:
 func _on_detail_closed() -> void:
 	if _detail_paused:
 		_detail_paused = false
-		if screen == "combat" and not pause_panel.visible and not choice.is_open() and not glossary_paused:
+		if screen == "combat" and not pause_panel.visible and not choice.is_open() and not glossary_paused and not orient_paused:
 			view.set_paused(false)
 	if build_hud != null and view.st != null:
 		build_hud.sync_ready_silent(view.st) # 화면을 닫고 돌아올 때 이미 준비된 기술에 알림이 다시 터지지 않게
@@ -1146,6 +1355,8 @@ func _layout_hud() -> void:
 	if touch != null:
 		touch.reserve_top = reserve # 손가락 끌기 영역이 빌드 아이콘과 겹치지 않게 내린다
 		touch.layout(safe)
+	if orient != null:
+		orient.layout(safe) # 전체화면 다시 들어가기 버튼도 안전 영역 안에
 
 func _cfg_text(st: CombatState) -> String:
 	if st.cfg.has("weapon"):
@@ -1153,6 +1364,8 @@ func _cfg_text(st: CombatState) -> String:
 	return _settings_line(st) + " · 원본 " + Game.HTML_SOURCE
 
 func _process(_dt: float) -> void:
+	_poll_fullscreen(_dt) # 전체화면에서 빠져나왔으면 다시 들어가는 버튼을 띄운다
+	_orient_guard()       # 세로 상태에서 전투가 돌기 시작하면 그 자리에서 멈춘다
 	_duel_gate_tick()
 	if _demo_mode:
 		_demo_tick(_dt)
