@@ -327,7 +327,13 @@ static func build_panel(run: Dictionary) -> Control:
 		var mods := []
 		for mid in wd.mods:
 			mods.append(String(wd.def.mods[String(mid)].name))
-		box.add_child(rich("  [b]%s[/b] Lv%d/%d [color=#9ea8b8]%s[/color] · %s %d/%d: %s" % [PGlossaryTip.term("w:" + String(wd.id), String(wd.name)), int(wd.level), int(S.weaponMax), weapon_stats_text(wd), PGlossaryTip.term("mod", "개조"), mods.size(), int(S.weaponMods), (", ".join(mods) if mods.size() > 0 else "없음")], 14))
+		# 상한은 그 무기의 규칙값이다(주무기 Lv5·개조 2 / 보조 Lv3·개조 1). 화면이 숫자를 지어내지 않는다
+		var cap_lv := PGrowth.level_cap(run.growth, String(wd.id))
+		var cap_md := PGrowth.mod_cap(run.growth, String(wd.id))
+		var kind_tag := ""
+		if PGrowth.is_v2(run.growth):
+			kind_tag = "[color=#8a93a6]%s[/color] " % ("주무기" if PCatalog.is_main_weapon(String(wd.id)) else "보조")
+		box.add_child(rich("  %s[b]%s[/b] Lv%d/%d [color=#9ea8b8]%s[/color] · %s %d/%d: %s" % [kind_tag, PGlossaryTip.term("w:" + String(wd.id), String(wd.name)), int(wd.level), cap_lv, weapon_stats_text(wd), PGlossaryTip.term("mod", "개조"), mods.size(), cap_md, (", ".join(mods) if mods.size() > 0 else "없음")], 14))
 	for i in int(S.weapons) - (b.weapons as Array).size():
 		box.add_child(rich("  [color=#6a7078]빈 자동기술 슬롯[/color]", 14))
 	box.add_child(rich("[b]수동 기술[/b]", 15))
@@ -395,60 +401,140 @@ static func stats_table(a: Dictionary, title: String) -> Control:
 ## 자동기술 3칸 + 각 칸 아래 개조 2칸. 소속은 위치로만 나타낸다(공용 증강 아이콘을 기술마다 복제하지 않는다).
 ## highlight = 방금 바뀐 칸("w<i>" 또는 "w<i>:m<j>")을 잠깐 강조한다(선택 직후 어떤 칸이 바뀌었는지 보이게).
 ## on_pick(kind, id)가 valid면 각 칸이 눌리는 버튼이 된다(kind = "weapon"|"mod", id = 무기 id 또는 "무기:개조").
+## 현재 빌드 아이콘. **주무기 영역과 보조무기 영역을 제목과 배치로 갈라서** 그린다.
+##
+## 왜 다시 썼나(2026-09-09 사람 플레이 지적): 예전에는 growth().SLOTS의 옛 평면 구조
+## (무기 3칸 · 전부 최대 Lv5 · 전부 개조 2칸)를 읽어서, 주무기 전투망치와 보조 회전 칼날·
+## 서리 수정이 **같은 위계로 나열**되고 보조가 Lv1/5로 표시되며 보조 아래 **없는 개조 칸이
+## 2개씩** 그려졌다. 확정 구조는 주무기 1(Lv5·개조 2) + 보조 2(각 Lv3·개조 1)다.
+##
+## 표시값은 전부 **규칙 자료**(PCatalog.slot_rules = data/supports.json slots)에서 읽는다.
+## 문구만 5→3으로 바꾸지 않는다 — 자료가 바뀌면 화면도 따라 바뀐다.
+## 개조 칸은 세 가지를 구분한다: 가진 것 · 자격은 열렸지만 아직 안 고른 것(미획득) ·
+## 아직 자격이 없는 것(Lv? 필요). **자격이 열린 것이 자동으로 들어온 것처럼 보이면 안 된다.**
 static func build_icon_row(run: Dictionary, icon_px: float = 44.0, mod_px: float = 26.0, highlight: String = "", on_pick: Callable = Callable()) -> Control:
 	var b := PBuild.derive(run)
-	var S: Dictionary = PCatalog.growth().SLOTS
-	var weapons: Array = b.weapons
-	var h := hbox(10)
-	h.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	h.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	for i in int(S.weapons):
-		var col := vbox(3)
-		col.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var R := PCatalog.slot_rules()
+	var mains := []
+	var sups := []
+	for w in (b.weapons as Array):
+		if PCatalog.is_main_weapon(String((w as Dictionary).id)):
+			mains.append(w)
+		else:
+			sups.append(w)
+	var root := vbox(8)
+	root.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var row := hbox(16)
+	row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	# **옛 저장(v1)은 주무기·보조 구분이 없다.** 그런 회차에 새 제목을 붙이면 거짓말이 되므로
+	# 예전처럼 한 덩어리로 그린다(상한도 그 회차의 규칙을 따른다)
+	if not PGrowth.is_v2(run.growth):
+		var S: Dictionary = PCatalog.growth().SLOTS
+		row.add_child(_slot_group(run, "자동기술", b.weapons as Array, int(S.weapons),
+			int(S.weaponMax), int(S.weaponMods), PCatalog.growth().get("MOD_UNLOCK_LEVEL", [2, 4]),
+			icon_px, mod_px, highlight, on_pick))
+		root.add_child(row)
+		return root
+	row.add_child(_slot_group(run, "주무기", mains, int(R.get("main", 1)), int(R.get("mainMax", 5)),
+		int(R.get("mainMods", 2)), R.get("modUnlockMain", [2, 4]), icon_px + 10.0, mod_px, highlight, on_pick))
+	row.add_child(_group_sep())
+	row.add_child(_slot_group(run, "보조무기", sups, int(R.get("supports", 2)), int(R.get("supportMax", 3)),
+		int(R.get("supportMods", 1)), R.get("modUnlockSupport", [2]), icon_px, mod_px, highlight, on_pick))
+	root.add_child(row)
+	return root
+
+## 두 영역 사이의 세로 줄. 색만이 아니라 **선과 간격**으로도 갈라 보이게 한다
+static func _group_sep() -> Control:
+	var sep := VSeparator.new()
+	sep.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sep.add_theme_constant_override("separation", 2)
+	return sep
+
+## 한 영역(주무기 또는 보조무기). 제목 한 줄 + 칸들
+static func _slot_group(run: Dictionary, title: String, ws: Array, slots: int, lv_max: int, mod_slots: int,
+		unlock: Variant, icon_px: float, mod_px: float, highlight: String, on_pick: Callable) -> Control:
+	var col := vbox(4)
+	col.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var cap := "%d칸 · 최대 Lv%d · 개조 %d" % [slots, lv_max, mod_slots]
+	if slots > 1:
+		cap = "%d칸 · 각 최대 Lv%d · 개조 %d" % [slots, lv_max, mod_slots]
+	col.add_child(rich("[b]%s[/b] [color=#8a93a6]%s[/color]" % [title, cap], 13))
+	var row := hbox(10)
+	row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var g_ws: Array = run.growth.weapons
+	for i in slots:
+		var wd: Dictionary = ws[i] if i < ws.size() else {}
+		var wid := String(wd.get("id", ""))
+		# 강조 열쇠는 growth.weapons 의 자리번호를 쓴다(main.gd가 그 번호로 만든다)
+		var gi := -1
+		for k in g_ws.size():
+			if String((g_ws[k] as Dictionary).id) == wid:
+				gi = k
+				break
+		var one := vbox(3)
+		one.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		var tile := PIconTile.new("", PIconTile.STYLE_AUTO)
 		tile.set_icon_px(icon_px, icon_px + 46.0, 2)
-		var mods: Array = []
-		if i < weapons.size():
-			var wd: Dictionary = weapons[i]
-			tile.key = PIcons.weapon_key(String(wd.id))
-			tile.title = String(wd.name)
-			tile.sub = "Lv%d/%d" % [int(wd.level), int(S.weaponMax)]
-			mods = wd.get("mods", [])
+		if wid != "":
+			tile.key = PIcons.weapon_key(wid)
+			tile.title = String(wd.get("name", wid))
+			# 상한은 **그 회차의 규칙**이 정한다(PGrowth가 v1/v2와 주무기/보조를 함께 본다)
+			tile.sub = "Lv%d/%d" % [int(wd.get("level", 1)), PGrowth.level_cap(run.growth, wid)]
 		else:
 			tile.empty = true
 			tile.title = "빈 슬롯"
-		if highlight == "w%d" % i:
+		if gi >= 0 and highlight == "w%d" % gi:
 			tile.now_t = 0.0
 			tile.flash_t = 0.0
-		var wid_here := String(weapons[i].id) if i < weapons.size() else ""
-		if on_pick.is_valid() and wid_here != "":
-			col.add_child(icon_pick(tile, func(): on_pick.call("weapon", wid_here), tile.title))
+		if on_pick.is_valid() and wid != "":
+			one.add_child(icon_pick(tile, func(): on_pick.call("weapon", wid), tile.title))
 		else:
-			col.add_child(tile)
+			one.add_child(tile)
+		var mods: Array = wd.get("mods", [])
+		var lv := int(wd.get("level", 1))
+		# 개조 칸 수와 자격 레벨도 규칙에서 읽는다. 빈 자리는 영역 기본값을 쓴다
+		var slots_here: int = PGrowth.mod_cap(run.growth, wid) if wid != "" else mod_slots
+		var unlock_here: Variant = PGrowth.mod_unlock_levels(run.growth, wid) if wid != "" else unlock
 		var mrow := hbox(4)
 		mrow.alignment = BoxContainer.ALIGNMENT_CENTER
 		mrow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		for j in int(S.weaponMods):
+		for j in slots_here:                                  # **없는 칸은 아예 그리지 않는다**
 			var mt := PIconTile.new("", PIconTile.STYLE_MOD)
-			mt.set_icon_px(mod_px, mod_px + 34.0, 2) # 개조 이름이 …로 뭉개지지 않게 두 줄까지
+			mt.set_icon_px(mod_px, mod_px + 34.0, 2)
 			mt.wrap_title = true
 			var mid_here := ""
-			if i < weapons.size() and j < mods.size():
+			if j < mods.size():
 				mid_here = String(mods[j])
-				mt.key = PIcons.mod_key(wid_here, mid_here)
+				mt.key = PIcons.mod_key(wid, mid_here)
 			else:
 				mt.empty = true
-			if highlight == "w%d:m%d" % [i, j]:
+				var need := _mod_unlock_lv(unlock_here, j)
+				if wid == "":
+					mt.title = ""
+				elif lv >= need:
+					mt.title = "미획득"                        # 자격은 열렸다. **자동으로 들어오지 않는다**
+				else:
+					mt.title = "Lv%d 필요" % need              # 아직 자격이 없다
+					mt.dimmed = true
+			if gi >= 0 and highlight == "w%d:m%d" % [gi, j]:
 				mt.now_t = 0.0
 				mt.flash_t = 0.0
 			if on_pick.is_valid() and mid_here != "":
-				var pair := "%s:%s" % [wid_here, mid_here]
+				var pair := "%s:%s" % [wid, mid_here]
 				mrow.add_child(icon_pick(mt, func(): on_pick.call("mod", pair), PIcons.name_of(mt.key)))
 			else:
 				mrow.add_child(mt)
-		col.add_child(mrow)
-		h.add_child(col)
-	return h
+		one.add_child(mrow)
+		row.add_child(one)
+	col.add_child(row)
+	return col
+
+## j번째 개조 칸이 열리는 레벨. 목록이 짧으면 마지막 값을 쓴다(자료가 늘어도 화면이 안 깨지게)
+static func _mod_unlock_lv(unlock: Variant, j: int) -> int:
+	var arr: Array = unlock if typeof(unlock) == TYPE_ARRAY else []
+	if arr.is_empty():
+		return 2
+	return int(arr[j]) if j < arr.size() else int(arr[arr.size() - 1])
 
 ## 수동 기술 3칸(Space · Q · E) 아이콘. 전투 HUD와 같은 순서·같은 아이콘을 거점에서도 쓴다.
 ## on_pick(kind, id)가 valid면 눌리는 버튼이 된다(kind = "manual", id = "dodge"|"q"|"e").
