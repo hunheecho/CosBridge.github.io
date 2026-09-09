@@ -405,9 +405,22 @@ static func assign_duel(run: Dictionary, day: int, cards: Array) -> void:
 	var pick := -1
 	for k in cards.size():
 		var i: int = (pref + k) % cards.size()
-		if cards[i].get("risk", null) == null and is_theme_place(String(cards[i].regionId)):
-			pick = i
-			break
+		if cards[i].get("risk", null) != null or not is_theme_place(String(cards[i].regionId)):
+			continue
+		# **임무 목표 카드에는 결투를 붙이지 않는다**(2026-09-09, KD-11).
+		# 결투는 "일반 편성을 전부 정리한 뒤에 시작"한다(CombatState.update_duel의 normal 단계).
+		# 그런데 임무 전투는 목표를 이루는 순간 끝난다 — 포로를 다 풀고 출구에 들어가면
+		# 남은 적이 있어도 그 자리에서 승리다. 그래서 결투가 **시작도 못 한 채** 전투가 끝났고,
+		# PFlow.settle_victory 가 "특수 정예전 미완료 상태의 승리 정산"으로 거부해 보상이 빈 사전이 되고,
+		# 보상 화면이 버튼 하나 없이 그려져 **아무것도 누를 수 없었다**(사용자 재현: 포로 구출 뒤 검은 화면).
+		#
+		# 승리를 막아 결투를 기다리게 하는 길도 있지만, 그러면 목표를 이룬 뒤에도 남은 적과
+		# 지원병을 전부 잡아야 끝나서 **끝낼 수 없는 전투**가 될 위험이 있다. 두 규칙이 같은 카드에서
+		# 양립하지 않으므로 배정 단계에서 겹치지 않게 한다. 다른 카드가 있으면 거기에 붙는다.
+		if PObjectives.is_objective(String(cards[i].get("objective", "clear"))):
+			continue
+		pick = i
+		break
 	if pick < 0:
 		return
 	var cands := duel_types_for(PCatalog.theme_of_place(String(cards[pick].regionId)))
