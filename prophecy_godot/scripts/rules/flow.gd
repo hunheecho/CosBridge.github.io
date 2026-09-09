@@ -15,6 +15,29 @@ static var clear_done_on := OS.get_environment("PROPHECY_CLEAR_DONE") != "0"
 static func encounter_seed(sortie: Dictionary) -> int:
 	return int(sortie.seed) + int(sortie.get("encounters", 0)) * 1000 + (7 if bool(sortie.get("deep", false)) else 0)
 
+## 이 전투에 넘길 웨이브. **임무 목표 전투에서는 결투 상대를 뺀다**(§13 · KD-11).
+##
+## 왜 필요한가: CombatState는 어떤 전투에서든 먼저 opts.waves 로 편성을 만들고(그때 결투 상대를 읽는다),
+## 임무 전투는 그 뒤에 PObjectives 가 **정예를 뺀** 웨이브로 편성을 다시 만든다.
+## 그런데 두 번째 set_formation 은 이미 정해진 결투를 **지우지 않는다**(전투 규칙은 다른 담당 파일이다).
+## 그래서 임무 전투에 결투가 남으면 목표를 이루는 순간 승리가 나고, PFlow.settle_victory 가
+## "특수 정예전 미완료"로 정산을 거부해 **보상 화면에 버튼이 하나도 없는** 상태가 된다(KD-11과 같은 고장).
+## PRun.assign_duel 이 임무 카드에 결투를 붙이지 않지만, 편성 템플릿이 배정한 특수 정예는 그 경로를 지나지 않으므로
+## 여기서 한 번 더 막는다. 임무 편성은 어차피 정예를 빼고 다시 만들므로 총 등장 수·예산은 달라지지 않는다.
+static func _waves_for(run: Dictionary, sortie: Dictionary, region: String, deep: bool, mission: bool) -> Array:
+	var waves := PRun.encounter_waves(region, deep, run, sortie)
+	if not mission:
+		return waves
+	var out := []
+	for w in waves:
+		var keep := []
+		for g in w:
+			if bool(g.get("duel", false)) and PRun.is_special_elite(String(g.type)):
+				continue
+			keep.append(g)
+		out.append(keep)
+	return out
+
 ## 조우 생성 옵션(일반 조우, CombatState opts snake_case). 보스는 make_boss_encounter
 static func encounter_opts(run: Dictionary, sortie: Dictionary, extra: Dictionary = {}) -> Dictionary:
 	var region := String(sortie.regionId)
@@ -27,7 +50,7 @@ static func encounter_opts(run: Dictionary, sortie: Dictionary, extra: Dictionar
 			pool.append(String(t))
 	var o := {
 		"build": PRun.build(run), "hp": float(run.hp), "seed": encounter_seed(sortie),
-		"waves": PRun.encounter_waves(region, deep, run, sortie),
+		"waves": _waves_for(run, sortie, region, deep, mission),
 		"objective": (String(sortie.objective) if mission else PRun.encounter_objective(region, deep, run)),
 		"arena": (String(sortie.arena) if sortie.has("arena") else PRun.region_arena(region, run)),
 		"hp_mult": PRun.hp_mult_for(run, region, deep), "region_id": region, "risk": risk,

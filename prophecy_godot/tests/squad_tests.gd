@@ -274,6 +274,10 @@ func _init() -> void:
 					if dt2 != "":
 						seen[dt2] = true
 						seen_duel[dt2] = true
+					# §13: 편성 템플릿이 배정한 특수 정예도 **결투**로 나온다(카드의 duelType 만 세면 안 된다).
+					# 그 카드에는 결투가 이미 있으므로 assign_duel 이 결투를 겹쳐 붙이지 않는다(1대1).
+					for tp4 in PRun.scheduled_special_elites(String(c.regionId), String(c.get("formationId", "base"))):
+						seen_duel[String(tp4)] = true
 					for tp in (PSortie.elite_notice(run6, c).get("types", []) as Array):
 						seen[String(tp)] = true
 			if seen.size() < 2:
@@ -401,9 +405,193 @@ func _init() -> void:
 	else:
 		ok("결투 승리 정산은 정확히 1회다(보상·물약·성장 중복 없음) — 이번 시드는 결투까지 가지 못해 건너뜀", true, String(st_s.status))
 
+	special_elite_tests()
+
 	var pass_n := 0
 	for r in results:
 		if r[0]:
 			pass_n += 1
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
+
+# ================= 7. 특수 정예는 언제나 결투다(§13, 2026-09-09 사용자 확정) =================
+## 사용자 재현: 시드 71618(전투 시드) · 7일차 · 의식 중심부에서 **사슬 집행자와 일반 도마뱀이 동시에 살아 있었다.**
+## 원인은 하나가 아니라 배정 경로가 여럿이었다는 것이다:
+##   ① template_waves 가 elite_types_for(...)로 고른 특수 정예를 **표시 없이** 일반 웨이브에 넣었다
+##   ② 더 깊이 탐험이 정예 없는 편성에 강한 정예를 **표시 없이** 덧붙였다
+##   ③ ①·②와 카드 결투가 서로를 몰라 같은 종류를 **두 번** 배정하기도 했다
+## 그래서 판정을 한 곳(PRun.is_special_elite)으로 모으고, 웨이브를 만드는 쪽과 편성으로 바꾸는 쪽
+## **양쪽에서** 걸러 낸다. 일반 정예·늑대 우두머리는 규칙상 일반 전투에 함께 나와도 되므로 건드리지 않는다.
+func special_elite_tests() -> void:
+	var T := PCatalog.themes()
+	var leaked := []        # 일반 등장 목록에 섞인 특수 정예
+	var two_duels := []     # 한 전투에 결투가 둘 이상(1대1 위반)
+	var dup := []           # 같은 종류를 두 번 배정(중복 배정)
+	var count_bad := []     # 총 등장 수가 규칙과 다르다
+	var seen_duel := {}     # 7종 전수 표: 결투로 실제 배정된 종류
+	var checked := 0
+	for tid in T:
+		var t: Dictionary = T[tid]
+		var act := int(t.act)
+		var run := make_run(1234, act, String(tid))
+		for pi in 2:
+			var rid := String((t.places as Array)[pi].id)
+			var pk := "p1" if pi == 0 else "p2"
+			for f in ((t.formations.normal as Array) + (t.formations.risk as Array)):
+				for deep in [false, true]:
+					for dt in ["", String(PRun.duel_types_for(String(tid))[0])]:
+						checked += 1
+						var srt := sortie_of(rid, String(f.id), 71, dt)
+						srt.deep = bool(deep)
+						var waves := PRun.encounter_waves(rid, bool(deep), run, srt)
+						var types := {}
+						var duel_n := 0
+						for w in waves:
+							for g in w:
+								var tp := String(g.type)
+								if not PRun.is_special_elite(tp) or int(g.n) <= 0:
+									continue
+								types[tp] = int(types.get(tp, 0)) + int(g.n)
+								if not bool(g.get("duel", false)):
+									leaked.append("%s/%s/%s%s → %s" % [rid, String(f.id), pk, ("+더깊이" if deep else ""), tp])
+								else:
+									duel_n += int(g.n)
+									seen_duel[tp] = true
+						for tp2 in types:
+							if int(types[tp2]) > 1:
+								dup.append("%s/%s%s → %s ×%d" % [rid, String(f.id), ("+더깊이" if deep else ""), String(tp2), int(types[tp2])])
+						# 결투 수는 **배정 표가 정한 특수 정예 수**를 넘지 않는다(카드 결투가 겹쳐 늘지 않는다).
+						# 3막 위험 편성처럼 배정 표가 2종을 지정한 곳만 2가 되고, 그때는 순서대로 1대1로 상대한다.
+						var planned_n: int = PRun.scheduled_special_elites(rid, String(f.id), bool(deep)).size()
+						if duel_n > maxi(1, planned_n):
+							two_duels.append("%s/%s%s → 결투 %d(배정 %d)" % [rid, String(f.id), ("+더깊이" if deep else ""), duel_n, planned_n])
+						# 총 등장 수: 일반 전투는 '날짜 예산표 + 정예 자리'다(결투 상대는 일반 적 1마리를 대신하므로 늘지 않는다)
+						if not deep:
+							var want := PPacing.day_total(int(run.day), PRun.place_cost(rid))
+							if want <= 0:
+								want = int(f.sizes[pk].total)
+							want += int(f.get("elites", 0))
+							if wave_count(waves) != want:
+								count_bad.append("%s/%s%s %d != %d" % [rid, String(f.id), (" 결투" if dt != "" else ""), wave_count(waves), want])
+	ok("특수 정예가 **일반 등장 목록에 섞이지 않는다** — 모든 테마·편성·장소·더 깊이·결투 조합 %d가지" % checked,
+		leaked.is_empty(), str(leaked.slice(0, 6)))
+	ok("결투 수가 배정 표를 넘지 않는다 — 카드 결투가 편성의 특수 정예 위에 겹치지 않는다(1대1)",
+		two_duels.is_empty(), str(two_duels.slice(0, 6)))
+
+	# 배정 표가 특수 정예 2종을 지정한 편성(3막 위험)은 **순서대로** 대기열에 선다.
+	# 전투 규칙(CombatState, 다른 담당)은 지금 대기열의 첫 상대만 처리한다 — docs/KNOWN_DEFECTS.md KD-12.
+	var order_bad := []
+	var pair_seen := 0
+	for tid2 in T:
+		var t2: Dictionary = T[tid2]
+		var run_p := make_run(77, int(t2.act), String(tid2))
+		for f2 in (t2.formations.risk as Array):
+			var want_order: Array = PRun.scheduled_special_elites(String((t2.places as Array)[1].id), String(f2.id))
+			if want_order.size() < 2:
+				continue
+			pair_seen += 1
+			var st_p := encounter(run_p, String((t2.places as Array)[1].id), String(f2.id), 81)
+			var got_order := []
+			for d in (st_p.formation.get("duels", []) as Array):
+				got_order.append(String(d.type))
+			if str(got_order) != str(want_order) or String(st_p.duel_type) != String(want_order[0]):
+				order_bad.append("%s/%s %s != %s (첫 상대 %s)" % [String(tid2), String(f2.id), str(got_order), str(want_order), String(st_p.duel_type)])
+	ok("특수 정예가 둘 예정된 편성은 **배정 표 순서대로** 결투 대기열에 서고 첫 상대부터 1대1로 붙는다(%d개 편성)" % pair_seen,
+		order_bad.is_empty() and pair_seen > 0, str(order_bad))
+	ok("같은 특수 정예를 한 전투에 두 번 배정하지 않는다(중복 배정 금지)", dup.is_empty(), str(dup.slice(0, 6)))
+	ok("결투가 붙어도 총 등장 수가 '날짜 예산 + 정예 자리' 그대로다(적을 지우거나 늘리지 않는다)",
+		count_bad.is_empty(), str(count_bad.slice(0, 6)))
+	var missing := []
+	for tp3 in PCatalog.elites():
+		if not seen_duel.has(String(tp3)):
+			missing.append(String(tp3))
+	ok("특수 정예 **7종 전부**가 실제로 결투로 배정된다", missing.is_empty() and seen_duel.size() >= 7,
+		"결투로 나온 종류 %d종 · 빠진 종류 %s" % [seen_duel.size(), str(missing)])
+
+	# --- 옛 저장·도구가 넘긴 duel_type 이 편성의 특수 정예와 겹쳐도 결투는 하나다 ---
+	# (§13 이전에 저장된 회차의 카드에는 편성이 이미 특수 정예를 내보내는데도 duelType 이 붙어 있을 수 있다)
+	var run_o := make_run(3, 2, "act2_crimson_ritual")
+	var conflict := PRun.scheduled_special_elites("t2a_altar", "t2a_risk")
+	var w_o := PRun.encounter_waves("t2a_altar", false, run_o, sortie_of("t2a_altar", "t2a_risk", 64, "elite_plaguecaller"))
+	var w_o_plain := PRun.encounter_waves("t2a_altar", false, run_o, sortie_of("t2a_altar", "t2a_risk", 64, ""))
+	var duel_o := 0
+	for w in w_o:
+		for g in w:
+			if bool(g.get("duel", false)) and int(g.n) > 0:
+				duel_o += int(g.n)
+	ok("편성이 이미 특수 정예를 내보내면 옛 duel_type 이 와도 결투는 하나다(총 수·예산도 그대로)",
+		duel_o == 1 and wave_count(w_o) == wave_count(w_o_plain) and is_equal_approx(wave_budget(w_o), wave_budget(w_o_plain)),
+		"편성 배정=%s · 결투 %d · 수 %d/%d · 예산 %.1f/%.1f" % [str(conflict), duel_o, wave_count(w_o), wave_count(w_o_plain), wave_budget(w_o), wave_budget(w_o_plain)])
+
+	# --- 일반 정예·늑대 우두머리는 일반 전투에 그대로 나온다(특수 정예와 구분) ---
+	var run_w := make_run(5, 1, "act1_hunt_forest")
+	var f_w := PFormation.from_waves([[{ "type": "wolf", "n": 3 }, { "type": "wolf_alpha", "n": 1 }]], {}, "forest", encounter(run_w, "t1a_path", "t1a_wolves", 51))
+	ok("늑대 우두머리(옛 정예)는 일반 등장 목록에 남는다 — 특수 정예만 결투로 뺀다",
+		(f_w.units as Array).has("wolf_alpha") and (f_w.duels as Array).is_empty(), str(f_w.duels))
+
+	# --- 안전망: 표시가 빠진 채 들어와도 편성이 걸러 낸다(어떤 배정 경로에서도) ---
+	var f_x := PFormation.from_waves([[{ "type": "wolf", "n": 3 }, { "type": "elite_chainbreaker", "n": 1 }]], {}, "t2a_altar", encounter(run_w, "t1a_path", "t1a_wolves", 52))
+	var mixed_x := (f_x.units as Array).has("elite_chainbreaker")
+	ok("결투 표시가 빠진 특수 정예도 편성이 결투로 돌린다(마지막 안전망)",
+		not mixed_x and (f_x.duels as Array).size() == 1 and String((f_x.duel as Dictionary).get("type", "")) == "elite_chainbreaker",
+		"units에 섞임=%s · 대기열=%s" % [str(mixed_x), str(f_x.duels)])
+
+	# --- 임무 전투: 결투가 붙지 않고 특수 정예도 들어오지 않는다(KD-11과 §13이 함께 지켜진다) ---
+	var run_m := make_run(9, 2, "act2_crimson_ritual")
+	var mission_bad := []
+	for obj in (PCatalog.missions().objective_ids as Array):
+		var srt_m := sortie_of("t2a_altar", "t2a_risk", 61, "")
+		srt_m.mission = true
+		srt_m.objective = String(obj)
+		srt_m.risk = null
+		var st_m := CombatState.new(PFlow.encounter_opts(run_m, srt_m))
+		for u in (st_m.formation.get("units", []) as Array):
+			if PRun.is_special_elite(String(u)):
+				mission_bad.append("%s → %s" % [String(obj), String(u)])
+		if String(st_m.duel_type) != "":
+			mission_bad.append("%s 에 결투 %s" % [String(obj), String(st_m.duel_type)])
+	ok("임무 전투에는 특수 정예도 결투도 들어오지 않는다", mission_bad.is_empty(), str(mission_bad))
+
+	# --- 사건 추가 전투(강적의 흔적·상인)도 같은 규칙을 지킨다 ---
+	var event_bad := []
+	for ev_id in ["challenge", "trace"]:
+		var srt_e := sortie_of("t2a_altar", "t2a_red_wolves", 62, "")
+		srt_e.eventFight = String(ev_id)
+		var st_e2 := CombatState.new(PFlow.encounter_opts(run_m, srt_e))
+		for u2 in (st_e2.formation.get("units", []) as Array):
+			if PRun.is_special_elite(String(u2)):
+				event_bad.append("%s → %s" % [String(ev_id), String(u2)])
+	ok("사건 추가 전투(강적의 흔적·상인)에서도 특수 정예는 결투로만 나온다", event_bad.is_empty(), str(event_bad))
+
+	# --- 저장 복구: 저장했다 불러와도 같은 결투·같은 편성이다(난수를 쓰지 않는다) ---
+	# 실제로 결투가 붙은 날을 찾아서 검사한다(관문일·임무 카드만 있는 날에는 결투가 붙지 않는다)
+	var run_s2 := make_run(544, 2, "act2_crimson_ritual")
+	var duel_assigned := false
+	for sd in [544, 3, 11, 21]:
+		for dd in [4, 5, 6]:
+			if duel_assigned:
+				continue
+			var r_try := make_run(int(sd), 2, "act2_crimson_ritual")
+			r_try.day = int(dd)
+			r_try.cards = null
+			for c0 in PSortie.cards_for(r_try):
+				if String(c0.get("duelType", "")) != "":
+					duel_assigned = true
+			if duel_assigned:
+				run_s2 = r_try
+	var cards_before := PSortie.cards_for(run_s2)
+	var before := []
+	for c in cards_before:
+		before.append("%s:%s" % [String(c.regionId), String(c.get("duelType", ""))])
+	var json_txt := JSON.stringify(PSave.normalize(run_s2.duplicate(true)))
+	var loaded: Dictionary = JSON.parse_string(json_txt)
+	PSave.normalize(loaded)
+	var after := []
+	for c2 in PSortie.cards_for(loaded):
+		after.append("%s:%s" % [String(c2.regionId), String(c2.get("duelType", ""))])
+	var srt_b := sortie_of(String(cards_before[0].regionId), String(cards_before[0].get("formationId", "base")), 63, String(cards_before[0].get("duelType", "")))
+	var w_b := PRun.encounter_waves(String(cards_before[0].regionId), false, run_s2, srt_b)
+	var w_a := PRun.encounter_waves(String(cards_before[0].regionId), false, loaded, srt_b)
+	ok("저장·복구해도 결투 배정과 편성이 그대로다(실제로 결투가 붙은 날로 검사)",
+		duel_assigned and str(before) == str(after) and wave_count(w_b) == wave_count(w_a) and is_equal_approx(wave_budget(w_b), wave_budget(w_a)),
+		"%s → %s · 수 %d/%d · 예산 %.1f/%.1f" % [str(before), str(after), wave_count(w_b), wave_count(w_a), wave_budget(w_b), wave_budget(w_a)])
