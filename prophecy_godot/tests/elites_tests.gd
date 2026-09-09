@@ -1463,20 +1463,61 @@ func dodge_tests() -> void:
 			e2.state_t = 0.0
 		if int(e2.get("dodge_uses", 0)) != 0 or String(e2.get("dodge_skip", "")) != "freeze":
 			fz_bad.append("%s freeze>0인데 %d회(이유 %s)" % [String(tp), int(e2.dodge_uses), String(e2.get("dodge_skip", ""))])
-		# ㉢ 경직(stagger, 다른 담당이 만드는 필드. 없으면 0.0으로 안전하게 읽는다)
+		# ㉢ 경직(stagger_t = 연계 완성 경직. combat_state.gd 가 만든다. 없으면 0.0으로 안전하게 읽는다)
 		var lb3 := dodge_lab(DSEED, String(tp))
 		var s3: CombatState = lb3[0]
 		var e3: Dictionary = lb3[1]
 		for i in int(round(6.0 / STEP)):
-			e3["stagger"] = 3.0
+			e3["stagger_t"] = 3.0
 			if i % 48 == 0:
 				warn_at(s3, float(e3.x) + 16.0, float(e3.y) + 16.0)
 			alive_step(s3)
 			e3.state = "approach"
 			e3.state_t = 0.0
-		if int(e3.get("dodge_uses", 0)) != 0 or String(e3.get("dodge_skip", "")) != "stagger":
-			fz_bad.append("%s stagger>0인데 %d회(이유 %s)" % [String(tp), int(e3.dodge_uses), String(e3.get("dodge_skip", ""))])
-	ok("⑤ 빙결(freeze > 0)·경직(stagger > 0) 중에는 회피하지 않는다 — 7종 × 세 경우(갱신 정지·freeze 필드·stagger 필드)",
+		if int(e3.get("dodge_uses", 0)) != 0:
+			fz_bad.append("%s stagger_t>0인데 회피 %d회" % [String(tp), int(e3.dodge_uses)])
+		# 위 고리에서는 CombatState가 경직 중 갱신 자체를 건너뛰므로 규칙 안의 금지 조항까지는 가지 않는다
+		# (그래서 dodge_skip 이 이전 값 그대로 남는다). 그 조항이 살아 있는지는 갱신을 **직접** 불러서 본다 —
+		# 합칠 때 필드 이름이 어긋나 이 방어가 죽어 있던 적이 있어 두 겹으로 확인한다
+		e3["stagger_t"] = 3.0
+		e3.state = "approach"
+		e3.state_t = 0.0
+		e3["dodge_skip"] = "none"
+		var direct0 := int(e3.get("dodge_uses", 0))
+		for i in 24:
+			warn_at(s3, float(e3.x) + 16.0, float(e3.y) + 16.0)
+			PEnemiesNew.update(s3, e3, STEP)
+		if int(e3.get("dodge_uses", 0)) != direct0 or String(e3.get("dodge_skip", "")) != "stagger":
+			fz_bad.append("%s 갱신 직접 호출에서 stagger_t 금지가 안 걸린다(%d회, 이유 %s)" % [
+				String(tp), int(e3.dodge_uses) - direct0, String(e3.get("dodge_skip", ""))])
+		# ㉣ **실제** 연계 완성 경직(CombatState.apply_stagger)으로 확인한다.
+		# ㉢은 필드를 손으로 넣은 것이라 "규칙이 그 필드를 읽는가"만 본다. 여기서는 회피와 경직
+		# 두 체계가 실제로 맞물리는지 본다 — 합칠 때 필드 이름이 어긋나 방어가 죽어 있던 적이 있다
+		var lb4 := dodge_lab(DSEED, String(tp))
+		var s4: CombatState = lb4[0]
+		var e4: Dictionary = lb4[1]
+		e4.state = "approach"
+		e4.state_t = 0.0
+		if not s4.apply_stagger(e4, "frost_shatter"):
+			fz_bad.append("%s 실제 경직(파쇄)이 걸리지 않았다" % String(tp))
+		else:
+			var uses0 := int(e4.get("dodge_uses", 0))
+			var state0 := String(e4.state)
+			var t0 := float(e4.state_t)
+			var guard := 0
+			while s4.is_staggered(e4) and guard < 600:
+				warn_at(s4, float(e4.x) + 16.0, float(e4.y) + 16.0)
+				alive_step(s4)
+				guard += 1
+			if guard >= 600:
+				fz_bad.append("%s 경직이 끝나지 않았다(무한 경직)" % String(tp))
+			if int(e4.get("dodge_uses", 0)) != uses0:
+				fz_bad.append("%s 실제 경직 중 회피 %d회" % [String(tp), int(e4.dodge_uses) - uses0])
+			# 멈췄다가 이어 가는 것이므로 경직 동안 상태·진행도가 흐르면 안 된다
+			if String(e4.state) != state0 or not is_equal_approx(float(e4.state_t), t0):
+				fz_bad.append("%s 실제 경직 중 진행도가 흘렀다(%s %.3f → %s %.3f)" % [
+					String(tp), state0, t0, String(e4.state), float(e4.state_t)])
+	ok("⑤ 빙결(freeze > 0)·경직(stagger_t > 0) 중에는 회피하지 않는다 — 7종 × 네 경우(갱신 정지·freeze 필드·stagger_t 필드·실제 apply_stagger)",
 		fz_bad.is_empty(), str(fz_bad))
 
 	# ---- ⑥⑦ 회피 뒤 추스르는 틈에는 공격을 시작하지 않고, 끝나면 고유 패턴으로 돌아온다 ----
