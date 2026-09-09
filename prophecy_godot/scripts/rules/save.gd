@@ -19,9 +19,11 @@ const INT_KEYS := {
 	"fromSlot": true, "servicePrice": true, "price": true, "index": true, "modCount": true, "lv": true, "cost": true, "afterBoss": true,
 	"retries": true, "specialUses": true, "extraTime": true, "heal": true, "hpCost": true,
 	"profileLevel": true, # 영구 성장(run.unlocks.level은 "level"로 이미 정수)
+	"equipSeq": true, "plus": true, "next": true, # 장비 개체 일련번호·강화 단계(§4)
 }
 ## 값 전체가 정수인 사전
-const INT_MAPS := { "mats": true, "picks": true, "commons": true, "passives": true, "services": true, "visited": true, "missionsDone": true }
+const INT_MAPS := { "mats": true, "picks": true, "commons": true, "passives": true, "services": true, "visited": true, "missionsDone": true,
+	"equipPlus": true } # 장비 개체 id → 강화 단계(§4). 개체 id를 키로 쓰므로 값만 정수로 되돌린다
 ## 정수 배열로 두는 키(없음 — 예비)
 const FLOAT_KEYS := { "hp": true, "xp": true, "elapsed": true, "total": true, "taken": true, "takenNominal": true, "bossDamage": true, "time": true }
 

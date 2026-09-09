@@ -277,6 +277,40 @@ static func equipment_def(id: String) -> Dictionary:
 static func is_crafted(id: String) -> bool:
 	return crafted_equipment().has(id)
 
+## 폐기 장비(§1, 2026-09-10): 반격 방패·연계 방패. 자료 정의는 **지우지 않는다** —
+## 기존 저장에 든 것을 아무 보상 없이 삭제하지 않기 위해서다(이전 처리는 미확정, 사용자 결정 대기).
+## 여기서 true면 **신규 유입**(상점 진열·제작 후보·보상 후보)에서만 뺀다.
+static func equipment_retired(id: String) -> bool:
+	return bool(equipment_def(id).get("retired", false))
+
+## 강화 단계(+0~+2)를 반영한 장비 효과 사전. upgrade 표에 적힌 항목만 값을 바꾸고,
+## 표에 없는 것은 +0 값 그대로다(횟수·단계·지속·재사용·무적 시간은 표에 넣지 않는다 — §4).
+## 경로 표기: "reduce"는 eff.reduce, "bigHit.reduce"는 eff.bigHit.reduce를 뜻한다(사전은 복제해서 고친다)
+static func equipment_eff(id: String, plus: int) -> Dictionary:
+	var d := equipment_def(id)
+	var eff: Dictionary = d.get("eff", {})
+	var up: Dictionary = d.get("upgrade", {})
+	if plus <= 0 or up.is_empty():
+		return eff
+	var out: Dictionary = eff.duplicate(true)
+	for path in up:
+		var arr: Array = up[path]
+		if arr.is_empty():
+			continue
+		var v: float = float(arr[clampi(plus - 1, 0, arr.size() - 1)])
+		var parts := String(path).split(".", false)
+		var node := out
+		var okp := true
+		for i in parts.size() - 1:
+			var k := String(parts[i])
+			if typeof(node.get(k, null)) != TYPE_DICTIONARY:
+				okp = false
+				break
+			node = node[k]
+		if okp:
+			node[String(parts[parts.size() - 1])] = v
+	return out
+
 static func enemy(type: String) -> Dictionary:
 	var E := enemies()
 	if E.has(type):

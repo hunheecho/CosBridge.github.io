@@ -1,673 +1,681 @@
 {
-  "schema": "prophecy_suites/1",
-  "note": "테스트 스위트 실행 명세(손으로 작성). tools/run_suites.py가 읽는 유일한 정본이다. 스위트마다 '필수 환경 설정'과 '제한 시간'을 여기서 관리하고, 실행기는 빠진 설정이 있으면 실행하지 않고 즉시 실패로 끝낸다(2026-09-08 고아 루프 재발 방지). 사망 규칙(2026-09-09): 사람 플레이는 쓰러지면 회차가 끝난다. 자동 진행·화면 스위트만 PROPHECY_TEST_RETRY=1로 옛 재시도 경로를 쓰고, death_tests는 그 환경 없이 사람 플레이 규칙을 검증한다.",
-  "defaults": {
-    "timeout_sec": 900,
-    "isolate_userdata": true,
-    "isolate_note": "모든 실행은 APPDATA/LOCALAPPDATA를 실행 전용 폴더로 격리한다. 사용자 실제 저장·프로필을 건드리지 않고, 이전 실행이 남긴 프로필 때문에 결과가 달라지는 것도 막는다."
+ "schema": "prophecy_suites/1",
+ "note": "테스트 스위트 실행 명세(손으로 작성). tools/run_suites.py가 읽는 유일한 정본이다. 스위트마다 '필수 환경 설정'과 '제한 시간'을 여기서 관리하고, 실행기는 빠진 설정이 있으면 실행하지 않고 즉시 실패로 끝낸다(2026-09-08 고아 루프 재발 방지). 사망 규칙(2026-09-09): 사람 플레이는 쓰러지면 회차가 끝난다. 자동 진행·화면 스위트만 PROPHECY_TEST_RETRY=1로 옛 재시도 경로를 쓰고, death_tests는 그 환경 없이 사람 플레이 규칙을 검증한다.",
+ "defaults": {
+  "timeout_sec": 900,
+  "isolate_userdata": true,
+  "isolate_note": "모든 실행은 APPDATA/LOCALAPPDATA를 실행 전용 폴더로 격리한다. 사용자 실제 저장·프로필을 건드리지 않고, 이전 실행이 남긴 프로필 때문에 결과가 달라지는 것도 막는다."
+ },
+ "verdict_rules": {
+  "note": "종료 코드 0만으로 통과로 보지 않는다. 아래를 모두 만족해야 pass다.",
+  "require_exit_zero": true,
+  "require_summary_line": true,
+  "summary_patterns": [
+   "(?P<pass>\\d+)/(?P<total>\\d+) PASS",
+   "(?P<pass>\\d+)/(?P<total>\\d+) 통과"
+  ],
+  "require_zero_fail_lines": true,
+  "fail_line_pattern": "^FAIL ",
+  "forbid_patterns": [
+   "SCRIPT ERROR",
+   "Parse Error",
+   "Compile Error"
+  ],
+  "forbid_note": "GDScript 오류가 있으면 요약이 남아 있어도 실패다. 오류로 _init이 중단되면 quit()에 도달하지 못해 프로세스가 영원히 남는 사례가 있었다."
+ },
+ "suites": {
+  "run_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "전투 규칙 회귀(기준 전투 포함)"
   },
-  "verdict_rules": {
-    "note": "종료 코드 0만으로 통과로 보지 않는다. 아래를 모두 만족해야 pass다.",
-    "require_exit_zero": true,
-    "require_summary_line": true,
-    "summary_patterns": [
-      "(?P<pass>\\d+)/(?P<total>\\d+) PASS",
-      "(?P<pass>\\d+)/(?P<total>\\d+) 통과"
-    ],
-    "require_zero_fail_lines": true,
-    "fail_line_pattern": "^FAIL ",
+  "qe_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "수동 기술 Q/E 구조(§7)·보유 조건과 보상(§8)·감속장 투사체 감속(§9)·결투 연속 처리(KD-12)"
+  },
+  "port_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "HTML 이식 대조"
+  },
+  "boss_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "보스 3종 패턴·목표 규칙"
+  },
+  "boss3_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "신규 관문 보스 6종"
+  },
+  "boss_pace_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "보스 공격 개시 빈도·연계 회귀"
+  },
+  "boss_break_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "보스 9종 지형 파괴 규칙(파괴 가능/외곽 경계·충돌 제거·갇힘 없음·예고 순서)"
+  },
+  "bot_tests": {
+   "env": {
+    "PROPHECY_TEST_RETRY": "1"
+   },
+   "timeout_sec": 900,
+   "desc": "실력 봇·관측 경계·캐시 키",
+   "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
+  },
+  "balance_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "밸런스·편성·경제 개편 회귀"
+  },
+  "hud_tests": {
+   "env": {
+    "PROPHECY_TEST_RETRY": "1"
+   },
+   "timeout_sec": 900,
+   "desc": "아이콘 매핑·전투 HUD·준비 신호",
+   "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
+  },
+  "acts_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "10일·3막 구조"
+  },
+  "theme_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "테마 경로·편성 템플릿"
+  },
+  "endless_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "무한 모드·정복자"
+  },
+  "meta_tests": {
+   "env": {
+    "PROPHECY_TEST_RETRY": "1"
+   },
+   "timeout_sec": 900,
+   "desc": "영구 성장·해금·제작",
+   "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
+  },
+  "meta_ui_tests": {
+   "env": {
+    "PROPHECY_TEST_RETRY": "1"
+   },
+   "timeout_sec": 600,
+   "desc": "영구 성장 화면",
+   "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
+  },
+  "font_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "한글 글꼴 연결(파일·가져오기 표식·기본 테마 세 곳·두 내보내기 포함·OFL 고지). 눈으로 보는 검사가 아니라 '붙었는가'만 본다"
+  },
+  "input_tests": {
+   "env": {
+    "PROPHECY_TEST_RETRY": "1"
+   },
+   "timeout_sec": 900,
+   "desc": "입력 라우터·터치(H절: 모바일 조작 확대 배율·그림=판정·겹침/잘림·입력 벡터 불변 — docs/TOUCH_CONTROLS.md)",
+   "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
+  },
+  "orient_tests": {
+   "env": {
+    "PROPHECY_TOUCH": "1"
+   },
+   "timeout_sec": 900,
+   "desc": "화면 방향(세로/가로)·전체화면: 제목의 '전체화면으로 시작', 실패해도 막지 않음, 세로 안내, 전투 중 세로 → 일시정지·입력 해제·무변화, '계속' 재개, 전체화면 복귀 버튼, 화면 크기 신호",
+   "env_reason": "PROPHECY_TOUCH=1: 세로 전환 순간 '눌려 있던 터치 입력이 해제되는가'를 보려면 터치 오버레이가 켜져 있어야 한다. 헤드리스에는 터치 화면이 없으므로 이 값으로 켠다(PC 시험용 경로, 규칙과 무관)."
+  },
+  "scroll_tests": {
+   "env": {
+    "PROPHECY_TOUCH": "1"
+   },
+   "timeout_sec": 600,
+   "desc": "손가락 스크롤(PTouchScroll): 되돌아온 취소 사건이 끌기를 죽이지 않는다·소수점 누적·12px 문턱·버튼 취소·관성·경계·여러 손가락·화면 전환·보던 자리 유지(docs/TOUCH_SCROLL.md)",
+   "env_reason": "PROPHECY_TOUCH=1: 헤드리스에는 터치 화면이 없다. 이 값으로 PLayout.is_touch()를 켜야 손가락 경로가 돌아간다(PC 시험용 경로, 규칙과 무관)."
+  },
+  "run_layer_tests": {
+   "env": {
+    "PROPHECY_LEGACY_PLACES": "1"
+   },
+   "timeout_sec": 900,
+   "desc": "회차 계층(옛 지역 일정 전용)",
+   "env_reason": "테마 장소가 아니라 기존 지역(forest·ridge…) 일정으로 검사한다. 이 값이 없으면 편성·카드 검사가 어긋나고 GDScript 오류로 중단된다."
+  },
+  "world_tests": {
+   "env": {
+    "PROPHECY_LEGACY_PLACES": "1"
+   },
+   "timeout_sec": 900,
+   "desc": "세계 변화·등급(옛 지역 일정 전용)",
+   "env_reason": "위와 같음. 2026-09-08 고아 루프는 이 값을 빼고 돌려 29/31로 실패했고, 값을 넣으면 33/33이다."
+  },
+  "content_tests": {
+   "env": {
+    "PROPHECY_LEGACY_PLACES": "1"
+   },
+   "timeout_sec": 900,
+   "desc": "반복 콘텐츠·회차 특징(옛 지역 일정 전용)",
+   "env_reason": "위와 같음. 값이 없으면 109행에서 `Invalid access to property or key 'id'`로 중단되고 프로세스가 스스로 끝나지 못한다."
+  },
+  "ui_flow_tests": {
+   "env": {
+    "PROPHECY_LEGACY_PLACES": "1",
+    "PROPHECY_TEST_RETRY": "1"
+   },
+   "timeout_sec": 900,
+   "desc": "실제 장면 화면 흐름(옛 지역 일정 전용)",
+   "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
+  },
+  "ui_smoke_short": {
+   "kind": "scene",
+   "args": [],
+   "out_dir_env": "PROPHECY_UI_SMOKE",
+   "env": {
+    "PROPHECY_UI_SPEED": "5",
+    "PROPHECY_UI_MAXMIN": "25",
+    "PROPHECY_UI_STALL": "180",
+    "PROPHECY_TEST_RETRY": "1"
+   },
+   "timeout_sec": 1800,
+   "desc": "화면 순회 자동 진행(거점·전투·저장/계속하기까지). 완주 검증이 아니다",
+   "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다.",
+   "verdict": {
+    "success_pattern": "UI_SMOKE result=done ",
+    "summary_patterns": [],
     "forbid_patterns": [
-      "SCRIPT ERROR",
-      "Parse Error",
-      "Compile Error"
+     "SCRIPT ERROR",
+     "Parse Error",
+     "Compile Error",
+     "UI_SMOKE result=(timeout|stalled|incomplete)"
     ],
-    "forbid_note": "GDScript 오류가 있으면 요약이 남아 있어도 실패다. 오류로 _init이 중단되면 quit()에 도달하지 못해 프로세스가 영원히 남는 사례가 있었다."
+    "note": "자동 진행은 'N/N PASS' 요약이 없다. 요구한 마지막 단계까지 도달했을 때만 나오는 'UI_SMOKE result=done'과 종료 코드 0을 함께 본다. 시간 초과(2)·정체(3)·미도달(4)은 실패다."
+   }
   },
-  "suites": {
-    "run_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "전투 규칙 회귀(기준 전투 포함)"
-    },
-    "qe_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "수동 기술 Q/E 구조(§7)·보유 조건과 보상(§8)·감속장 투사체 감속(§9)·결투 연속 처리(KD-12)"
-    },
-    "port_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "HTML 이식 대조"
-    },
-    "boss_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "보스 3종 패턴·목표 규칙"
-    },
-    "boss3_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "신규 관문 보스 6종"
-    },
-    "boss_pace_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "보스 공격 개시 빈도·연계 회귀"
-    },
-    "boss_break_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "보스 9종 지형 파괴 규칙(파괴 가능/외곽 경계·충돌 제거·갇힘 없음·예고 순서)"
-    },
-    "bot_tests": {
-      "env": {
-        "PROPHECY_TEST_RETRY": "1"
-      },
-      "timeout_sec": 900,
-      "desc": "실력 봇·관측 경계·캐시 키",
-      "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
-    },
-    "balance_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "밸런스·편성·경제 개편 회귀"
-    },
-    "hud_tests": {
-      "env": {
-        "PROPHECY_TEST_RETRY": "1"
-      },
-      "timeout_sec": 900,
-      "desc": "아이콘 매핑·전투 HUD·준비 신호",
-      "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
-    },
-    "acts_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "10일·3막 구조"
-    },
-    "theme_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "테마 경로·편성 템플릿"
-    },
-    "endless_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "무한 모드·정복자"
-    },
-    "meta_tests": {
-      "env": {
-        "PROPHECY_TEST_RETRY": "1"
-      },
-      "timeout_sec": 900,
-      "desc": "영구 성장·해금·제작",
-      "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
-    },
-    "meta_ui_tests": {
-      "env": {
-        "PROPHECY_TEST_RETRY": "1"
-      },
-      "timeout_sec": 600,
-      "desc": "영구 성장 화면",
-      "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
-    },
-    "font_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "한글 글꼴 연결(파일·가져오기 표식·기본 테마 세 곳·두 내보내기 포함·OFL 고지). 눈으로 보는 검사가 아니라 '붙었는가'만 본다"
-    },
-    "input_tests": {
-      "env": {
-        "PROPHECY_TEST_RETRY": "1"
-      },
-      "timeout_sec": 900,
-      "desc": "입력 라우터·터치(H절: 모바일 조작 확대 배율·그림=판정·겹침/잘림·입력 벡터 불변 — docs/TOUCH_CONTROLS.md)",
-      "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
-    },
-    "orient_tests": {
-      "env": {
-        "PROPHECY_TOUCH": "1"
-      },
-      "timeout_sec": 900,
-      "desc": "화면 방향(세로/가로)·전체화면: 제목의 '전체화면으로 시작', 실패해도 막지 않음, 세로 안내, 전투 중 세로 → 일시정지·입력 해제·무변화, '계속' 재개, 전체화면 복귀 버튼, 화면 크기 신호",
-      "env_reason": "PROPHECY_TOUCH=1: 세로 전환 순간 '눌려 있던 터치 입력이 해제되는가'를 보려면 터치 오버레이가 켜져 있어야 한다. 헤드리스에는 터치 화면이 없으므로 이 값으로 켠다(PC 시험용 경로, 규칙과 무관)."
-    },
-    "scroll_tests": {
-      "env": {
-        "PROPHECY_TOUCH": "1"
-      },
-      "timeout_sec": 600,
-      "desc": "손가락 스크롤(PTouchScroll): 되돌아온 취소 사건이 끌기를 죽이지 않는다·소수점 누적·12px 문턱·버튼 취소·관성·경계·여러 손가락·화면 전환·보던 자리 유지(docs/TOUCH_SCROLL.md)",
-      "env_reason": "PROPHECY_TOUCH=1: 헤드리스에는 터치 화면이 없다. 이 값으로 PLayout.is_touch()를 켜야 손가락 경로가 돌아간다(PC 시험용 경로, 규칙과 무관)."
-    },
-    "run_layer_tests": {
-      "env": {
-        "PROPHECY_LEGACY_PLACES": "1"
-      },
-      "timeout_sec": 900,
-      "desc": "회차 계층(옛 지역 일정 전용)",
-      "env_reason": "테마 장소가 아니라 기존 지역(forest·ridge…) 일정으로 검사한다. 이 값이 없으면 편성·카드 검사가 어긋나고 GDScript 오류로 중단된다."
-    },
-    "world_tests": {
-      "env": {
-        "PROPHECY_LEGACY_PLACES": "1"
-      },
-      "timeout_sec": 900,
-      "desc": "세계 변화·등급(옛 지역 일정 전용)",
-      "env_reason": "위와 같음. 2026-09-08 고아 루프는 이 값을 빼고 돌려 29/31로 실패했고, 값을 넣으면 33/33이다."
-    },
-    "content_tests": {
-      "env": {
-        "PROPHECY_LEGACY_PLACES": "1"
-      },
-      "timeout_sec": 900,
-      "desc": "반복 콘텐츠·회차 특징(옛 지역 일정 전용)",
-      "env_reason": "위와 같음. 값이 없으면 109행에서 `Invalid access to property or key 'id'`로 중단되고 프로세스가 스스로 끝나지 못한다."
-    },
-    "ui_flow_tests": {
-      "env": {
-        "PROPHECY_LEGACY_PLACES": "1",
-        "PROPHECY_TEST_RETRY": "1"
-      },
-      "timeout_sec": 900,
-      "desc": "실제 장면 화면 흐름(옛 지역 일정 전용)",
-      "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다."
-    },
-    "ui_smoke_short": {
-      "kind": "scene",
-      "args": [],
-      "out_dir_env": "PROPHECY_UI_SMOKE",
-      "env": {
-        "PROPHECY_UI_SPEED": "5",
-        "PROPHECY_UI_MAXMIN": "25",
-        "PROPHECY_UI_STALL": "180",
-        "PROPHECY_TEST_RETRY": "1"
-      },
-      "timeout_sec": 1800,
-      "desc": "화면 순회 자동 진행(거점·전투·저장/계속하기까지). 완주 검증이 아니다",
-      "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다.",
-      "verdict": {
-        "success_pattern": "UI_SMOKE result=done ",
-        "summary_patterns": [],
-        "forbid_patterns": [
-          "SCRIPT ERROR",
-          "Parse Error",
-          "Compile Error",
-          "UI_SMOKE result=(timeout|stalled|incomplete)"
-        ],
-        "note": "자동 진행은 'N/N PASS' 요약이 없다. 요구한 마지막 단계까지 도달했을 때만 나오는 'UI_SMOKE result=done'과 종료 코드 0을 함께 본다. 시간 초과(2)·정체(3)·미도달(4)은 실패다."
-      }
-    },
-    "ui_smoke_full": {
-      "kind": "scene",
-      "args": [],
-      "out_dir_env": "PROPHECY_UI_SMOKE",
-      "env": {
-        "PROPHECY_UI_FULL": "1",
-        "PROPHECY_UI_SPEED": "6",
-        "PROPHECY_UI_ROUTE": "act1_hunt_forest,act2_crimson_ritual,act3_temporal_abyss",
-        "PROPHECY_UI_MAXMIN": "90",
-        "PROPHECY_UI_STALL": "300",
-        "PROPHECY_TEST_RETRY": "1"
-      },
-      "timeout_sec": 5700,
-      "desc": "전체 회차 자동 진행(관문 3 → 10일차 회차 결과 → 저장/계속하기)",
-      "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다.",
-      "verdict": {
-        "success_pattern": "UI_SMOKE result=done ",
-        "summary_patterns": [],
-        "forbid_patterns": [
-          "SCRIPT ERROR",
-          "Parse Error",
-          "Compile Error",
-          "UI_SMOKE result=(timeout|stalled|incomplete)"
-        ],
-        "note": "자동 진행은 'N/N PASS' 요약이 없다. 요구한 마지막 단계까지 도달했을 때만 나오는 'UI_SMOKE result=done'과 종료 코드 0을 함께 본다. 시간 초과(2)·정체(3)·미도달(4)은 실패다."
-      }
-    },
-    "collision_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "장애물 충돌·접촉 탈출 규칙"
-    },
-    "spore_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "포자 괴물 접근·정지 예고·개체별 접촉 피해·피격 보호 처리 순서(docs/SPORE_FIX.md)"
-    },
-    "slots_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "주무기·보조 슬롯 구조와 저장 호환(§14: 저장 복구·개조 변경·보상 경로의 상한과 개조 자격)"
-    },
-    "support_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "보조무기 공통 규칙(발동 자격·제압 저항)"
-    },
-    "frost_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "냉기 기본 특성(중첩 → 빙결 → 주무기 파쇄)과 서리 개조 3종"
-    },
-    "stagger_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "'연계 완성' 경직(파쇄·불꽃 파열·감전 누적 방전·까마귀 표식 폭발 네 순간)과 공통 재경직 제한"
-    },
-    "main_weapon_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "주무기 5종의 구분(창의 좁은 폭·쌍검 단일 대상 화력·망치 착탄점과 제압 저항·궁 근접 약화)"
-    },
-    "gust_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "수동 기술 E '돌풍'의 자동 조준(유효한 가까운 적·이동 중 덮어쓰기 없음·후퇴 중·적 없음·벽 뒤·사거리 밖·구조물·공중·표시=판정·거리 170/폭 120/피해/재사용 불변·PC와 모바일 동일)"
-    },
-    "support_b_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "보조무기 B조(역병 나비·가시 갑각·도깨비 인형)와 개조 9개. 마지막 절은 인형이 대신 받아낸 공격 측정(DOLL_MEASURE 한 줄)"
-    },
-    "terrain_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "랜덤 지형 추첨(상한·하한·통로 폭·고립·목표 도달·재현성)과 시작 위치(KD-3)",
-      "env_reason": "환경 변수 없이 전체 축(전장 17 × 시드 12)으로 돈다. PSubset(tools/subset.gd)의 PROPHECY_QUICK·PROPHECY_ONLY·PROPHECY_SKIP으로 축(arena·seed)을 줄이면 부분 실행이 되고, 그 사실이 첫 줄에 남는다."
-    },
-    "elites_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "방패병 정면 방어 확정값·특수 정예 7종 규칙"
-    },
-    "overlay_tests": {
-      "env": {
-        "PROPHECY_TEST_RETRY": "1"
-      },
-      "timeout_sec": 1200,
-      "desc": "화면을 막는 창은 언제나 나갈 수 있다: ① 창 단독에서 탈출구를 실제로 눌러 신호 확인 ② 실제 main.tscn에서 눌러 창이 닫히고 전투 입력 관문이 풀리는지 ③ 포로 구출·봉인 임무를 실제로 태워 증상 재현 여부 기록(REPRO 줄) ④ 빈 후보의 정상 소진/생성 오류/미정의 pool 구분",
-      "env_reason": "PROPHECY_TEST_RETRY=1: ③에서 실제 게임 화면과 전투 봇을 굴린다. 사람 플레이의 패배를 재현하는 스위트가 아니므로 hud_tests·ui_flow_tests와 같은 시험 재시도 경로를 쓴다(사망 규칙 자체는 death_tests가 이 환경 없이 검증한다)."
-    },
-    "duel_card_tests": {
-      "env": {},
-      "timeout_sec": 300,
-      "desc": "특수 정예 결투는 임무 목표 카드에 붙지 않는다(KD-11). 일반 카드에는 그대로 붙는다"
-    },
-    "screen_keep_tests": {
-      "env": {},
-      "timeout_sec": 300,
-      "desc": "같은 화면을 다시 그릴 때 보던 스크롤 자리를 지킨다(판매·재료 판매). 다른 화면에서 오면 맨 위"
-    },
-    "tail_probe": {
-      "env": {},
-      "script": "tools/tail_probe.gd",
-      "timeout_sec": 3600,
-      "desc": "전투 말미 계측(적 1~2마리 남은 시간 · 자리가 비었는데 기다린 시간 · 종류별 상한에 막힌 시간). 통과 판정이 아니라 기록. 부분 실행은 PROPHECY_SUBSET=\"act=2;formation=t2c_boar_archer;seed=1\", 수정 전후 비교는 PROPHECY_TAIL_TAG=before|after",
-      "verdict": {
-        "success_pattern": "TAIL_PROBE_JSON ",
-        "note": "측정 도구다. 결과 JSON 한 줄과 종료 코드 0으로 '측정이 실제로 이루어졌는지'만 본다(봇 승패는 판정하지 않는다)."
-      }
-    },
-    "enemy_pace_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "전투 말미 편성 규칙(종류 섞기·동시 위험 공격 상한·빈자리 대기) 회귀"
-    },
-    "elites_bot_measure": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "특수 정예 7종 봇 계측(승패는 통과 조건이 아니다)"
-    },
-    "elite_placement_measure": {
-      "env": {},
-      "timeout_sec": 3600,
-      "desc": "특수 정예 7종을 실제 출격 편성 안에서 2·3막으로 계측(승패는 통과 조건이 아니다). 부분 실행은 PROPHECY_SUBSET=\"act=2;elite=elite_fang\" 같은 식으로 축을 줄인다(tools/subset.gd)"
-    },
-    "mission_probe": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "봉인·제단 임무 계측(지원 예산·간격·상한·진행률). 통과 판정이 아니라 기록"
-    },
-    "boss_cover_probe": {
-      "env": {},
-      "timeout_sec": 2400,
-      "desc": "보스 9종 엄폐 해소·지형 파괴·보스전 시간 계측(돌 뒤 정지 + 불씨 정령만). 통과 판정이 아니라 기록"
-    },
-    "prep_shop_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "상점 새로고침·출격 준비물·회복약"
-    },
-    "death_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "사망 = 회차 종료·부활 물약·판매(구매액 절반)·휴식 확인 단계 · 부활 25% 체력이 저장·복구와 관문 재입장을 지나 실제 전투 시작 체력까지 유지되는지(§13)"
-    },
-    "economy_probe": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "막별 경제·회복 경제 측정(통과 조건은 장부 항등식이며 봇 승패가 아니다)"
-    },
-    "palette_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "막별 색감 정본·3막 예고 대비"
-    },
-    "hit_feel_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "타격감 연출(규칙 불변 확인 포함)"
-    },
-    "frame_path_audit": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "실제 프레임 경로의 중복 발사·중복 소비"
-    },
-    "heal_audit": {
-      "env": {
-        "PROPHECY_LEGACY_PLACES": "1"
-      },
-      "timeout_sec": 900,
-      "desc": "회복 경제 실측(하루 실제 손실 대비 회복약·휴식). 통과 판정이 아니라 기록",
-      "env_reason": "옛 지역 일정으로 회차를 돌린다(회차 봇 기준선과 같은 조건).",
-      "script": "tools/heal_audit.gd",
-      "verdict": {
-        "success_pattern": "HEAL_AUDIT_JSON ",
-        "summary_patterns": [],
-        "forbid_patterns": [
-          "SCRIPT ERROR",
-          "Parse Error",
-          "Compile Error"
-        ],
-        "note": "측정 도구라 'N/N PASS' 요약이 없다. 결과 JSON 한 줄과 종료 코드 0으로 판정한다(통과 판정이 아니라 기록이 남았는지 확인)."
-      }
-    },
-    "combo_probe": {
-      "env": {},
-      "script": "tools/combo_probe.gd",
-      "timeout_sec": 3600,
-      "desc": "대표 조합 측정(주무기+보조 2). 모든 조합이 아니라 사용자가 지정한 7개만. 부분 실행은 PROPHECY_SUBSET=\"combo=bow_blades_bell;bot=novice;seed=1\"",
-      "verdict": {
-        "success_pattern": "COMBO_PROBE_JSON"
-      }
-    },
-    "support_a_tests": {
-      "env": {},
-      "timeout_sec": 600,
-      "desc": "보조무기 A조 4종(추격 까마귀·수호 방울·잔영 분신·바람 정령)과 개조 12개"
-    },
-    "blades_ember_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "회전 칼날(기본 3 · 개조 4 · 중복 가산 없음)과 불씨 정령(착탄 확정·느린 비행). 마지막 줄은 고정/이동/둔화 표적 적중률 측정(EMBER_HIT_MEASURE)"
-    },
-    "support_scene_probe": {
-      "env": {},
-      "script": "tools/support_scene_probe.gd",
-      "timeout_sec": 1800,
-      "verdict": {
-        "success_pattern": "SUPPORT_SCENE_JSON"
-      },
-      "desc": "보조 12종이 대표 장면에서 실제로 발동하는가(코드 반영과 동작 검증을 구분). 부분 실행 PROPHECY_SUBSET=\"support=doll;seed=1\""
-    },
-    "dps_probe": {
-      "env": {},
-      "script": "tools/dps_probe.gd",
-      "timeout_sec": 3600,
-      "desc": "주무기 5종의 단일 대상 화력 측정(이론 DPS · 실제 DPS · 접근 손실 · 이탈 손실 · 무리 참고). 통과 판정이 아니라 기록. 부분 실행은 PROPHECY_SUBSET=\"weapon=sword,daggers;level=1;mods=0;seed=1\"",
-      "verdict": {
-        "success_pattern": "DPS_PROBE_JSON",
-        "summary_patterns": [],
-        "forbid_patterns": [
-          "SCRIPT ERROR",
-          "Parse Error",
-          "Compile Error"
-        ],
-        "note": "측정 도구라 'N/N PASS' 요약이 없다. 결과 JSON 한 줄과 종료 코드 0으로 판정한다(통과 판정이 아니라 기록이 남았는지 확인)."
-      }
-    },
-    "synergy_probe": {
-      "env": {},
-      "script": "tools/synergy_probe.gd",
-      "timeout_sec": 1800,
-      "desc": "지금 있는 시너지 검수(감전 경로·축전·분신 모방·독 전염 세대 상한·불꽃 파열 기준점·인형 유인·가시 반격·무기 공명). 전수 시뮬레이션이 아니다. 부분 실행 PROPHECY_SUBSET=\"sec=1,4\"",
-      "verdict": {
-        "success_pattern": "SYNERGY_PROBE_JSON",
-        "forbid_patterns": [
-          "SCRIPT ERROR",
-          "Parse Error",
-          "Compile Error"
-        ],
-        "note": "통과 판정 스위트가 아니라 기록 도구. 결과 JSON 한 줄과 종료 코드 0으로 확인한다."
-      }
-    },
-    "spread_probe": {
-      "env": {},
-      "script": "tools/spread_probe.gd",
-      "timeout_sec": 3600,
-      "desc": "독 전염 세대 상한 2·3·4 비교(무제한은 참고용). 밀집한 약한 적과 폭발 후에도 살아남는 튼튼한 적을 나눠 재고, 격리 시험실(사슬 크기)과 실전 장면(처리 비용 = 전투 시간·받은 피해)을 따로 잰다. data/supports.json은 읽기만 하고 메모리의 gen_max만 잠시 바꾼다. 부분 실행 PROPHECY_SUBSET=\"gen=2,3;mob=dense;scene=lab;seed=1\"",
-      "verdict": {
-        "success_pattern": "SPREAD_PROBE_JSON",
-        "forbid_patterns": [
-          "SCRIPT ERROR",
-          "Parse Error",
-          "Compile Error"
-        ],
-        "note": "통과 판정 스위트가 아니라 기록 도구. 결과 JSON 한 줄과 종료 코드 0으로 확인한다."
-      }
-    },
-    "repeat_income_probe": {
-      "env": {},
-      "script": "tools/repeat_income_probe.gd",
-      "timeout_sec": 3600,
-      "desc": "일반 탐험 수정(KD-7) 전후의 하루 금화 수입·경험치·사건 수·이용권 수·출격 횟수 비교. 대조군 스위치 PFlow.clear_done_on(환경 변수 PROPHECY_CLEAR_DONE=0 = 옛 규칙)을 한 프로세스 안에서 번갈아 켜고 같은 시드·같은 전략·같은 전투 봇으로 3일을 돌린다. data/**와 저장 파일은 건드리지 않는다. 부분 실행 PROPHECY_SUBSET=\"rule=now;seed=1\"",
-      "verdict": {
-        "success_pattern": "REPEAT_INCOME_JSON",
-        "forbid_patterns": [
-          "SCRIPT ERROR",
-          "Parse Error",
-          "Compile Error"
-        ],
-        "note": "통과 판정 스위트가 아니라 **기록 도구**(단언 0/0). 결과 JSON 한 줄과 종료 코드 0으로 확인한다. 재미·균형을 판정하지 않는다."
-      }
-    },
-    "build_probe": {
-      "env": {},
-      "script": "tools/build_probe.gd",
-      "timeout_sec": 5400,
-      "desc": "대표 빌드 10개(주무기 5종 × 2)를 단일 대상·밀집 무리·이동 전투에서 완성 전후로 비교. 전수 시뮬레이션이 아니다. 부분 실행 PROPHECY_SUBSET=\"build=sword_a;scene=single;seed=1\"",
-      "verdict": {
-        "success_pattern": "BUILD_PROBE_JSON",
-        "forbid_patterns": [
-          "SCRIPT ERROR",
-          "Parse Error",
-          "Compile Error"
-        ],
-        "note": "통과 판정 스위트가 아니라 기록 도구."
-      }
-    },
-    "build_pair_probe": {
-      "env": {},
-      "script": "tools/build_pair_probe.gd",
-      "timeout_sec": 10800,
-      "desc": "대표 조합 10개(주무기 5종 × 장점 강화형·약점 보완형)를 일반 무리·튼튼한 정예·보스에서 **핵심 개조 하나** 전후로 비교. build_probe와 출력 파일이 다르다(BUILD_PAIR_PROBE.md). 전수 시뮬레이션이 아니다. 부분 실행 PROPHECY_SUBSET=\"combo=sword_swarm;scene=pack;state=after;seed=1\"",
-      "verdict": {
-        "success_pattern": "BUILD_PAIR_PROBE_JSON",
-        "forbid_patterns": [
-          "SCRIPT ERROR",
-          "Parse Error",
-          "Compile Error"
-        ],
-        "note": "통과 판정 스위트가 아니라 기록 도구."
-      }
-    },
-    "synergy_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "시너지 연결 검사(감전 경로별 발동·분신 모방이 감전을 부른다·독 전염 세대 상한과 파열 중복 금지·반사 자기 호출 금지·무기 공명 자격·정상 연쇄를 막지 않는다)"
-    },
-    "render_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "화면 표시(보조무기 개체·특수 정예 실루엣·주술사 예고·보스 파괴 예고)가 규칙 자료를 실제로 읽는가"
-    },
-    "new_monster_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "신규 일반 3종(흡혈 박쥐·불씨 도마뱀·도약 두꺼비)과 일반 정예 확장 10종 규칙(예고·확정·빈틈·회복 없음·잔류 장판 없음·착지 안전·확장 행동 실행)"
-    },
-    "squad_tests": {
-      "env": {},
-      "timeout_sec": 900,
-      "desc": "분대 편성·협공 3종·특수 정예 결투 규칙(§7: 특수 정예는 어떤 배정 경로로도 일반 등장 목록에 섞이지 않는다 — 288조합 전수)"
-    },
-    "formation_probe": {
-      "env": {},
-      "script": "tools/formation_probe.gd",
-      "timeout_sec": 1800,
-      "desc": "편성 계측(테마별 협공 3종·분대 투입 순서·한 전투의 등장 종류 수·총 등장 수와 경험치 예산·특수 정예 결투). 합격 판정이 아니라 수치를 남기는 도구다. 부분 실행: PROPHECY_SUBSET=\"act=1;seed=1\" → docs/sim/FORMATION_PROBE_PARTIAL.md"
-    },
-    "probe_patterns": {
-      "env": {},
-      "script": "tools/probe_patterns.gd",
-      "timeout_sec": 1800,
-      "desc": "§11-B 특수 정예 신규 공격 패턴 14개가 **실제 전투에서 쓰이는가** 계측(주무기별 발동 횟수 · 시작 조건이 서 있던 시간 · 거리 분포). 통과 판정이 아니라 기록.",
-      "verdict": {
-        "success_pattern": "[§11-B 신규 패턴 계측]",
-        "note": "계측 도구다. 표가 실제로 찍혔는지와 종료 코드 0만 본다(발동 횟수 자체는 판정하지 않는다)."
-      }
-    },
-    "probe_lizard_tail": {
-      "env": {},
-      "script": "tools/probe_lizard_tail.gd",
-      "timeout_sec": 3600,
-      "desc": "§12 '2막에서 도마뱀만 한두 마리씩 늦게 나온다'를 같은 시드로 전후 비교하는 계측(도마뱀 상한 · 1~2마리만 남은 시간 · 도마뱀만 남은 시간 · 동시 위험 수). 통과 판정이 아니라 기록.",
-      "verdict": {
-        "success_pattern": "[§12 도마뱀 말미 등장]",
-        "note": "계측 도구다. 표가 실제로 찍혔는지와 종료 코드 0만 본다(총 등장 수가 전후 같은지는 표에서 읽는다)."
-      }
-    }
+  "ui_smoke_full": {
+   "kind": "scene",
+   "args": [],
+   "out_dir_env": "PROPHECY_UI_SMOKE",
+   "env": {
+    "PROPHECY_UI_FULL": "1",
+    "PROPHECY_UI_SPEED": "6",
+    "PROPHECY_UI_ROUTE": "act1_hunt_forest,act2_crimson_ritual,act3_temporal_abyss",
+    "PROPHECY_UI_MAXMIN": "90",
+    "PROPHECY_UI_STALL": "300",
+    "PROPHECY_TEST_RETRY": "1"
+   },
+   "timeout_sec": 5700,
+   "desc": "전체 회차 자동 진행(관문 3 → 10일차 회차 결과 → 저장/계속하기)",
+   "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 **시험 재시도 경로**. 이 스위트들은 실제 게임 화면·봇을 자동으로 굴리며 사람 플레이의 패배를 재현하지 않는다. 사람 플레이 사망 규칙 자체는 death_tests가 이 환경 없이 검증한다.",
+   "verdict": {
+    "success_pattern": "UI_SMOKE result=done ",
+    "summary_patterns": [],
+    "forbid_patterns": [
+     "SCRIPT ERROR",
+     "Parse Error",
+     "Compile Error",
+     "UI_SMOKE result=(timeout|stalled|incomplete)"
+    ],
+    "note": "자동 진행은 'N/N PASS' 요약이 없다. 요구한 마지막 단계까지 도달했을 때만 나오는 'UI_SMOKE result=done'과 종료 코드 0을 함께 본다. 시간 초과(2)·정체(3)·미도달(4)은 실패다."
+   }
   },
-  "groups": {
-    "all": [
-      "run_tests",
-      "qe_tests",
-      "collision_tests",
-      "spore_tests",
-      "slots_tests",
-      "support_tests",
-      "frost_tests",
-      "stagger_tests",
-      "main_weapon_tests",
-      "gust_tests",
-      "support_b_tests",
-      "terrain_tests",
-      "port_tests",
-      "boss_tests",
-      "boss3_tests",
-      "boss_pace_tests",
-      "boss_break_tests",
-      "bot_tests",
-      "balance_tests",
-      "hud_tests",
-      "acts_tests",
-      "theme_tests",
-      "endless_tests",
-      "meta_tests",
-      "meta_ui_tests",
-      "font_tests",
-      "input_tests",
-      "orient_tests",
-      "scroll_tests",
-      "run_layer_tests",
-      "world_tests",
-      "content_tests",
-      "ui_flow_tests",
-      "elites_tests",
-      "overlay_tests",
-      "screen_keep_tests",
-      "duel_card_tests",
-      "prep_shop_tests",
-      "death_tests",
-      "palette_tests",
-      "hit_feel_tests",
-      "support_a_tests",
-      "blades_ember_tests",
-      "synergy_tests",
-      "render_tests",
-      "new_monster_tests",
-      "squad_tests",
-      "duel_card_tests"
-    ],
-    "rules": [
-      "run_tests",
-      "collision_tests",
-      "spore_tests",
-      "slots_tests",
-      "support_tests",
-      "frost_tests",
-      "stagger_tests",
-      "main_weapon_tests",
-      "gust_tests",
-      "support_b_tests",
-      "terrain_tests",
-      "port_tests",
-      "balance_tests",
-      "acts_tests",
-      "theme_tests",
-      "endless_tests",
-      "meta_tests",
-      "elites_tests",
-      "support_a_tests",
-      "blades_ember_tests",
-      "synergy_tests",
-      "new_monster_tests",
-      "squad_tests"
-    ],
-    "boss": [
-      "boss_tests",
-      "boss3_tests",
-      "boss_pace_tests",
-      "boss_break_tests"
-    ],
-    "ui": [
-      "hud_tests",
-      "meta_ui_tests",
-      "font_tests",
-      "input_tests",
-      "orient_tests",
-      "scroll_tests",
-      "ui_flow_tests",
-      "render_tests",
-      "overlay_tests",
-      "screen_keep_tests"
-    ],
-    "legacy": [
-      "run_layer_tests",
-      "world_tests",
-      "content_tests",
-      "ui_flow_tests"
-    ],
-    "smoke": [
-      "ui_smoke_short",
-      "ui_smoke_full"
-    ]
+  "collision_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "장애물 충돌·접촉 탈출 규칙"
   },
-  "runner": {
-    "note": "tools/run_suites.py 사용법 요약(정본은 그 파일의 머리말).",
-    "commands": [
-      "python tools/run_suites.py --group all --jobs 2",
-      "python tools/run_suites.py --suites balance_tests,hud_tests",
-      "python tools/run_suites.py --self-test"
+  "spore_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "포자 괴물 접근·정지 예고·개체별 접촉 피해·피격 보호 처리 순서(docs/SPORE_FIX.md)"
+  },
+  "slots_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "주무기·보조 슬롯 구조와 저장 호환(§14: 저장 복구·개조 변경·보상 경로의 상한과 개조 자격)"
+  },
+  "support_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "보조무기 공통 규칙(발동 자격·제압 저항)"
+  },
+  "frost_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "냉기 기본 특성(중첩 → 빙결 → 주무기 파쇄)과 서리 개조 3종"
+  },
+  "stagger_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "'연계 완성' 경직(파쇄·불꽃 파열·감전 누적 방전·까마귀 표식 폭발 네 순간)과 공통 재경직 제한"
+  },
+  "main_weapon_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "주무기 5종의 구분(창의 좁은 폭·쌍검 단일 대상 화력·망치 착탄점과 제압 저항·궁 근접 약화)"
+  },
+  "gust_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "수동 기술 E '돌풍'의 자동 조준(유효한 가까운 적·이동 중 덮어쓰기 없음·후퇴 중·적 없음·벽 뒤·사거리 밖·구조물·공중·표시=판정·거리 170/폭 120/피해/재사용 불변·PC와 모바일 동일)"
+  },
+  "support_b_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "보조무기 B조(역병 나비·가시 갑각·도깨비 인형)와 개조 9개. 마지막 절은 인형이 대신 받아낸 공격 측정(DOLL_MEASURE 한 줄)"
+  },
+  "terrain_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "랜덤 지형 추첨(상한·하한·통로 폭·고립·목표 도달·재현성)과 시작 위치(KD-3)",
+   "env_reason": "환경 변수 없이 전체 축(전장 17 × 시드 12)으로 돈다. PSubset(tools/subset.gd)의 PROPHECY_QUICK·PROPHECY_ONLY·PROPHECY_SKIP으로 축(arena·seed)을 줄이면 부분 실행이 되고, 그 사실이 첫 줄에 남는다."
+  },
+  "elites_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "방패병 정면 방어 확정값·특수 정예 7종 규칙"
+  },
+  "overlay_tests": {
+   "env": {
+    "PROPHECY_TEST_RETRY": "1"
+   },
+   "timeout_sec": 1200,
+   "desc": "화면을 막는 창은 언제나 나갈 수 있다: ① 창 단독에서 탈출구를 실제로 눌러 신호 확인 ② 실제 main.tscn에서 눌러 창이 닫히고 전투 입력 관문이 풀리는지 ③ 포로 구출·봉인 임무를 실제로 태워 증상 재현 여부 기록(REPRO 줄) ④ 빈 후보의 정상 소진/생성 오류/미정의 pool 구분",
+   "env_reason": "PROPHECY_TEST_RETRY=1: ③에서 실제 게임 화면과 전투 봇을 굴린다. 사람 플레이의 패배를 재현하는 스위트가 아니므로 hud_tests·ui_flow_tests와 같은 시험 재시도 경로를 쓴다(사망 규칙 자체는 death_tests가 이 환경 없이 검증한다)."
+  },
+  "duel_card_tests": {
+   "env": {},
+   "timeout_sec": 300,
+   "desc": "특수 정예 결투는 임무 목표 카드에 붙지 않는다(KD-11). 일반 카드에는 그대로 붙는다"
+  },
+  "screen_keep_tests": {
+   "env": {},
+   "timeout_sec": 300,
+   "desc": "같은 화면을 다시 그릴 때 보던 스크롤 자리를 지킨다(판매·재료 판매). 다른 화면에서 오면 맨 위"
+  },
+  "tail_probe": {
+   "env": {},
+   "script": "tools/tail_probe.gd",
+   "timeout_sec": 3600,
+   "desc": "전투 말미 계측(적 1~2마리 남은 시간 · 자리가 비었는데 기다린 시간 · 종류별 상한에 막힌 시간). 통과 판정이 아니라 기록. 부분 실행은 PROPHECY_SUBSET=\"act=2;formation=t2c_boar_archer;seed=1\", 수정 전후 비교는 PROPHECY_TAIL_TAG=before|after",
+   "verdict": {
+    "success_pattern": "TAIL_PROBE_JSON ",
+    "note": "측정 도구다. 결과 JSON 한 줄과 종료 코드 0으로 '측정이 실제로 이루어졌는지'만 본다(봇 승패는 판정하지 않는다)."
+   }
+  },
+  "enemy_pace_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "전투 말미 편성 규칙(종류 섞기·동시 위험 공격 상한·빈자리 대기) 회귀"
+  },
+  "elites_bot_measure": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "특수 정예 7종 봇 계측(승패는 통과 조건이 아니다)"
+  },
+  "elite_placement_measure": {
+   "env": {},
+   "timeout_sec": 3600,
+   "desc": "특수 정예 7종을 실제 출격 편성 안에서 2·3막으로 계측(승패는 통과 조건이 아니다). 부분 실행은 PROPHECY_SUBSET=\"act=2;elite=elite_fang\" 같은 식으로 축을 줄인다(tools/subset.gd)"
+  },
+  "mission_probe": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "봉인·제단 임무 계측(지원 예산·간격·상한·진행률). 통과 판정이 아니라 기록"
+  },
+  "boss_cover_probe": {
+   "env": {},
+   "timeout_sec": 2400,
+   "desc": "보스 9종 엄폐 해소·지형 파괴·보스전 시간 계측(돌 뒤 정지 + 불씨 정령만). 통과 판정이 아니라 기록"
+  },
+  "prep_shop_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "상점 새로고침·출격 준비물·회복약"
+  },
+  "death_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "사망 = 회차 종료·부활 물약·판매(구매액 절반)·휴식 확인 단계 · 부활 25% 체력이 저장·복구와 관문 재입장을 지나 실제 전투 시작 체력까지 유지되는지(§13)"
+  },
+  "economy_probe": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "막별 경제·회복 경제 측정(통과 조건은 장부 항등식이며 봇 승패가 아니다)"
+  },
+  "palette_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "막별 색감 정본·3막 예고 대비"
+  },
+  "hit_feel_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "타격감 연출(규칙 불변 확인 포함)"
+  },
+  "frame_path_audit": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "실제 프레임 경로의 중복 발사·중복 소비"
+  },
+  "heal_audit": {
+   "env": {
+    "PROPHECY_LEGACY_PLACES": "1"
+   },
+   "timeout_sec": 900,
+   "desc": "회복 경제 실측(하루 실제 손실 대비 회복약·휴식). 통과 판정이 아니라 기록",
+   "env_reason": "옛 지역 일정으로 회차를 돌린다(회차 봇 기준선과 같은 조건).",
+   "script": "tools/heal_audit.gd",
+   "verdict": {
+    "success_pattern": "HEAL_AUDIT_JSON ",
+    "summary_patterns": [],
+    "forbid_patterns": [
+     "SCRIPT ERROR",
+     "Parse Error",
+     "Compile Error"
     ],
-    "exit_codes": {
-      "0": "전부 pass",
-      "1": "실패(FAIL·스크립트 오류·요약 없음)",
-      "2": "시간초과(자동 진행의 정체·미도달은 스위트 실패로 집계)",
-      "3": "설정 오류(환경 충돌·중복 실행·명세 밖 스위트)",
-      "130": "사용자 중단(aborted)"
-    },
-    "records": "실행마다 <run_dir>/summary.md·summary.json, 스위트마다 고유 로그, 취소 시 ABORTED.md, 인계 시 HANDOVER.txt"
+    "note": "측정 도구라 'N/N PASS' 요약이 없다. 결과 JSON 한 줄과 종료 코드 0으로 판정한다(통과 판정이 아니라 기록이 남았는지 확인)."
+   }
+  },
+  "combo_probe": {
+   "env": {},
+   "script": "tools/combo_probe.gd",
+   "timeout_sec": 3600,
+   "desc": "대표 조합 측정(주무기+보조 2). 모든 조합이 아니라 사용자가 지정한 7개만. 부분 실행은 PROPHECY_SUBSET=\"combo=bow_blades_bell;bot=novice;seed=1\"",
+   "verdict": {
+    "success_pattern": "COMBO_PROBE_JSON"
+   }
+  },
+  "support_a_tests": {
+   "env": {},
+   "timeout_sec": 600,
+   "desc": "보조무기 A조 4종(추격 까마귀·수호 방울·잔영 분신·바람 정령)과 개조 12개"
+  },
+  "blades_ember_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "회전 칼날(기본 3 · 개조 4 · 중복 가산 없음)과 불씨 정령(착탄 확정·느린 비행). 마지막 줄은 고정/이동/둔화 표적 적중률 측정(EMBER_HIT_MEASURE)"
+  },
+  "support_scene_probe": {
+   "env": {},
+   "script": "tools/support_scene_probe.gd",
+   "timeout_sec": 1800,
+   "verdict": {
+    "success_pattern": "SUPPORT_SCENE_JSON"
+   },
+   "desc": "보조 12종이 대표 장면에서 실제로 발동하는가(코드 반영과 동작 검증을 구분). 부분 실행 PROPHECY_SUBSET=\"support=doll;seed=1\""
+  },
+  "dps_probe": {
+   "env": {},
+   "script": "tools/dps_probe.gd",
+   "timeout_sec": 3600,
+   "desc": "주무기 5종의 단일 대상 화력 측정(이론 DPS · 실제 DPS · 접근 손실 · 이탈 손실 · 무리 참고). 통과 판정이 아니라 기록. 부분 실행은 PROPHECY_SUBSET=\"weapon=sword,daggers;level=1;mods=0;seed=1\"",
+   "verdict": {
+    "success_pattern": "DPS_PROBE_JSON",
+    "summary_patterns": [],
+    "forbid_patterns": [
+     "SCRIPT ERROR",
+     "Parse Error",
+     "Compile Error"
+    ],
+    "note": "측정 도구라 'N/N PASS' 요약이 없다. 결과 JSON 한 줄과 종료 코드 0으로 판정한다(통과 판정이 아니라 기록이 남았는지 확인)."
+   }
+  },
+  "synergy_probe": {
+   "env": {},
+   "script": "tools/synergy_probe.gd",
+   "timeout_sec": 1800,
+   "desc": "지금 있는 시너지 검수(감전 경로·축전·분신 모방·독 전염 세대 상한·불꽃 파열 기준점·인형 유인·가시 반격·무기 공명). 전수 시뮬레이션이 아니다. 부분 실행 PROPHECY_SUBSET=\"sec=1,4\"",
+   "verdict": {
+    "success_pattern": "SYNERGY_PROBE_JSON",
+    "forbid_patterns": [
+     "SCRIPT ERROR",
+     "Parse Error",
+     "Compile Error"
+    ],
+    "note": "통과 판정 스위트가 아니라 기록 도구. 결과 JSON 한 줄과 종료 코드 0으로 확인한다."
+   }
+  },
+  "spread_probe": {
+   "env": {},
+   "script": "tools/spread_probe.gd",
+   "timeout_sec": 3600,
+   "desc": "독 전염 세대 상한 2·3·4 비교(무제한은 참고용). 밀집한 약한 적과 폭발 후에도 살아남는 튼튼한 적을 나눠 재고, 격리 시험실(사슬 크기)과 실전 장면(처리 비용 = 전투 시간·받은 피해)을 따로 잰다. data/supports.json은 읽기만 하고 메모리의 gen_max만 잠시 바꾼다. 부분 실행 PROPHECY_SUBSET=\"gen=2,3;mob=dense;scene=lab;seed=1\"",
+   "verdict": {
+    "success_pattern": "SPREAD_PROBE_JSON",
+    "forbid_patterns": [
+     "SCRIPT ERROR",
+     "Parse Error",
+     "Compile Error"
+    ],
+    "note": "통과 판정 스위트가 아니라 기록 도구. 결과 JSON 한 줄과 종료 코드 0으로 확인한다."
+   }
+  },
+  "repeat_income_probe": {
+   "env": {},
+   "script": "tools/repeat_income_probe.gd",
+   "timeout_sec": 3600,
+   "desc": "일반 탐험 수정(KD-7) 전후의 하루 금화 수입·경험치·사건 수·이용권 수·출격 횟수 비교. 대조군 스위치 PFlow.clear_done_on(환경 변수 PROPHECY_CLEAR_DONE=0 = 옛 규칙)을 한 프로세스 안에서 번갈아 켜고 같은 시드·같은 전략·같은 전투 봇으로 3일을 돌린다. data/**와 저장 파일은 건드리지 않는다. 부분 실행 PROPHECY_SUBSET=\"rule=now;seed=1\"",
+   "verdict": {
+    "success_pattern": "REPEAT_INCOME_JSON",
+    "forbid_patterns": [
+     "SCRIPT ERROR",
+     "Parse Error",
+     "Compile Error"
+    ],
+    "note": "통과 판정 스위트가 아니라 **기록 도구**(단언 0/0). 결과 JSON 한 줄과 종료 코드 0으로 확인한다. 재미·균형을 판정하지 않는다."
+   }
+  },
+  "build_probe": {
+   "env": {},
+   "script": "tools/build_probe.gd",
+   "timeout_sec": 5400,
+   "desc": "대표 빌드 10개(주무기 5종 × 2)를 단일 대상·밀집 무리·이동 전투에서 완성 전후로 비교. 전수 시뮬레이션이 아니다. 부분 실행 PROPHECY_SUBSET=\"build=sword_a;scene=single;seed=1\"",
+   "verdict": {
+    "success_pattern": "BUILD_PROBE_JSON",
+    "forbid_patterns": [
+     "SCRIPT ERROR",
+     "Parse Error",
+     "Compile Error"
+    ],
+    "note": "통과 판정 스위트가 아니라 기록 도구."
+   }
+  },
+  "build_pair_probe": {
+   "env": {},
+   "script": "tools/build_pair_probe.gd",
+   "timeout_sec": 10800,
+   "desc": "대표 조합 10개(주무기 5종 × 장점 강화형·약점 보완형)를 일반 무리·튼튼한 정예·보스에서 **핵심 개조 하나** 전후로 비교. build_probe와 출력 파일이 다르다(BUILD_PAIR_PROBE.md). 전수 시뮬레이션이 아니다. 부분 실행 PROPHECY_SUBSET=\"combo=sword_swarm;scene=pack;state=after;seed=1\"",
+   "verdict": {
+    "success_pattern": "BUILD_PAIR_PROBE_JSON",
+    "forbid_patterns": [
+     "SCRIPT ERROR",
+     "Parse Error",
+     "Compile Error"
+    ],
+    "note": "통과 판정 스위트가 아니라 기록 도구."
+   }
+  },
+  "synergy_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "시너지 연결 검사(감전 경로별 발동·분신 모방이 감전을 부른다·독 전염 세대 상한과 파열 중복 금지·반사 자기 호출 금지·무기 공명 자격·정상 연쇄를 막지 않는다)"
+  },
+  "render_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "화면 표시(보조무기 개체·특수 정예 실루엣·주술사 예고·보스 파괴 예고)가 규칙 자료를 실제로 읽는가"
+  },
+  "new_monster_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "신규 일반 3종(흡혈 박쥐·불씨 도마뱀·도약 두꺼비)과 일반 정예 확장 10종 규칙(예고·확정·빈틈·회복 없음·잔류 장판 없음·착지 안전·확장 행동 실행)"
+  },
+  "squad_tests": {
+   "env": {},
+   "timeout_sec": 900,
+   "desc": "분대 편성·협공 3종·특수 정예 결투 규칙(§7: 특수 정예는 어떤 배정 경로로도 일반 등장 목록에 섞이지 않는다 — 288조합 전수)"
+  },
+  "formation_probe": {
+   "env": {},
+   "script": "tools/formation_probe.gd",
+   "timeout_sec": 1800,
+   "desc": "편성 계측(테마별 협공 3종·분대 투입 순서·한 전투의 등장 종류 수·총 등장 수와 경험치 예산·특수 정예 결투). 합격 판정이 아니라 수치를 남기는 도구다. 부분 실행: PROPHECY_SUBSET=\"act=1;seed=1\" → docs/sim/FORMATION_PROBE_PARTIAL.md"
+  },
+  "probe_patterns": {
+   "env": {},
+   "script": "tools/probe_patterns.gd",
+   "timeout_sec": 1800,
+   "desc": "§11-B 특수 정예 신규 공격 패턴 14개가 **실제 전투에서 쓰이는가** 계측(주무기별 발동 횟수 · 시작 조건이 서 있던 시간 · 거리 분포). 통과 판정이 아니라 기록.",
+   "verdict": {
+    "success_pattern": "[§11-B 신규 패턴 계측]",
+    "note": "계측 도구다. 표가 실제로 찍혔는지와 종료 코드 0만 본다(발동 횟수 자체는 판정하지 않는다)."
+   }
+  },
+  "probe_lizard_tail": {
+   "env": {},
+   "script": "tools/probe_lizard_tail.gd",
+   "timeout_sec": 3600,
+   "desc": "§12 '2막에서 도마뱀만 한두 마리씩 늦게 나온다'를 같은 시드로 전후 비교하는 계측(도마뱀 상한 · 1~2마리만 남은 시간 · 도마뱀만 남은 시간 · 동시 위험 수). 통과 판정이 아니라 기록.",
+   "verdict": {
+    "success_pattern": "[§12 도마뱀 말미 등장]",
+    "note": "계측 도구다. 표가 실제로 찍혔는지와 종료 코드 0만 본다(총 등장 수가 전후 같은지는 표에서 읽는다)."
+   }
+  },
+  "equip_ui_tests": {
+   "env": {
+    "PROPHECY_TEST_RETRY": "1"
+   },
+   "timeout_sec": 600,
+   "desc": "장비 개체·장비 강화·상점 4칸·대장간 세 대상 구분의 실제 화면 검사(§4·§8·§10). 진짜 버튼을 눌러 확인한다",
+   "env_reason": "PROPHECY_TEST_RETRY=1: 사망 = 회차 종료 규칙(2026-09-09)의 시험 재시도 경로. 실제 게임 화면을 띄우는 스위트라 사람 플레이의 패배를 재현하지 않는다. PROPHECY_SHOT=<폴더>를 주고 창 모드로 돌리면 단계별 PNG도 남는다(헤드리스는 그리지 않는다)"
   }
+ },
+ "groups": {
+  "all": [
+   "run_tests",
+   "qe_tests",
+   "collision_tests",
+   "spore_tests",
+   "slots_tests",
+   "support_tests",
+   "frost_tests",
+   "stagger_tests",
+   "main_weapon_tests",
+   "gust_tests",
+   "support_b_tests",
+   "terrain_tests",
+   "port_tests",
+   "boss_tests",
+   "boss3_tests",
+   "boss_pace_tests",
+   "boss_break_tests",
+   "bot_tests",
+   "balance_tests",
+   "hud_tests",
+   "acts_tests",
+   "theme_tests",
+   "endless_tests",
+   "meta_tests",
+   "meta_ui_tests",
+   "font_tests",
+   "input_tests",
+   "orient_tests",
+   "scroll_tests",
+   "run_layer_tests",
+   "world_tests",
+   "content_tests",
+   "ui_flow_tests",
+   "elites_tests",
+   "overlay_tests",
+   "screen_keep_tests",
+   "duel_card_tests",
+   "prep_shop_tests",
+   "death_tests",
+   "palette_tests",
+   "hit_feel_tests",
+   "support_a_tests",
+   "blades_ember_tests",
+   "synergy_tests",
+   "render_tests",
+   "new_monster_tests",
+   "squad_tests",
+   "duel_card_tests"
+  ],
+  "rules": [
+   "run_tests",
+   "collision_tests",
+   "spore_tests",
+   "slots_tests",
+   "support_tests",
+   "frost_tests",
+   "stagger_tests",
+   "main_weapon_tests",
+   "gust_tests",
+   "support_b_tests",
+   "terrain_tests",
+   "port_tests",
+   "balance_tests",
+   "acts_tests",
+   "theme_tests",
+   "endless_tests",
+   "meta_tests",
+   "elites_tests",
+   "support_a_tests",
+   "blades_ember_tests",
+   "synergy_tests",
+   "new_monster_tests",
+   "squad_tests"
+  ],
+  "boss": [
+   "boss_tests",
+   "boss3_tests",
+   "boss_pace_tests",
+   "boss_break_tests"
+  ],
+  "ui": [
+   "hud_tests",
+   "meta_ui_tests",
+   "font_tests",
+   "input_tests",
+   "orient_tests",
+   "scroll_tests",
+   "ui_flow_tests",
+   "render_tests",
+   "overlay_tests",
+   "screen_keep_tests"
+  ],
+  "legacy": [
+   "run_layer_tests",
+   "world_tests",
+   "content_tests",
+   "ui_flow_tests"
+  ],
+  "smoke": [
+   "ui_smoke_short",
+   "ui_smoke_full"
+  ]
+ },
+ "runner": {
+  "note": "tools/run_suites.py 사용법 요약(정본은 그 파일의 머리말).",
+  "commands": [
+   "python tools/run_suites.py --group all --jobs 2",
+   "python tools/run_suites.py --suites balance_tests,hud_tests",
+   "python tools/run_suites.py --self-test"
+  ],
+  "exit_codes": {
+   "0": "전부 pass",
+   "1": "실패(FAIL·스크립트 오류·요약 없음)",
+   "2": "시간초과(자동 진행의 정체·미도달은 스위트 실패로 집계)",
+   "3": "설정 오류(환경 충돌·중복 실행·명세 밖 스위트)",
+   "130": "사용자 중단(aborted)"
+  },
+  "records": "실행마다 <run_dir>/summary.md·summary.json, 스위트마다 고유 로그, 취소 시 ABORTED.md, 인계 시 HANDOVER.txt"
+ }
 }

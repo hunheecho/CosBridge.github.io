@@ -314,10 +314,78 @@ static func header(run: Dictionary) -> Control:
 		h.add_child(rich_nowrap("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(settings_short(run)), 11))
 	return h
 
-## 장비 한 줄(이름은 용어 링크)
-static func equip_line(id: String) -> String:
-	var d: Dictionary = PCatalog.equipment_def(id)
-	return "[b]%s[/b] [color=#9ea8b8]%s[/color]" % [PGlossaryTip.term("eq:" + id, String(d.name)), PGlossaryTip.esc(String(d.short))]
+## 장비 한 줄(이름은 용어 링크). id는 장비 **개체 id**("타입#번호")도 종류도 받는다 — 정의는 타입으로 찾는다.
+## run을 주면 강화 단계를 이름 뒤에 붙인다("사냥꾼의 검 [color=..]+1[/color]")
+static func equip_line(id: String, run: Dictionary = {}) -> String:
+	var tid := PRun.equip_type_of(id)
+	var d: Dictionary = PCatalog.equipment_def(tid)
+	var plus: int = PRun.equip_plus_of(run, id) if not run.is_empty() else 0
+	var ptxt := " [color=#ffd966][b]+%d[/b][/color]" % plus if plus > 0 else ""
+	# short 문구는 +0 기준 값이다. 강화한 개체는 **지금 값**을 뒤에 덧붙인다(20이라 적어 놓고 26이 나오는 일이 없게)
+	var now := equip_plus_now_text(tid, plus)
+	return "[b]%s[/b]%s [color=#9ea8b8]%s[/color]%s" % [PGlossaryTip.term("eq:" + tid, String(d.name)), ptxt, PGlossaryTip.esc(String(d.short)),
+		(" [color=#ffd966]→ 지금 %s[/color]" % now) if now != "" else ""]
+
+## 지금 강화 단계에서의 실제 값("비상 보호막 26"). +0이거나 강화표가 없으면 ""
+static func equip_plus_now_text(type_id: String, plus: int) -> String:
+	var d: Dictionary = PCatalog.equipment_def(type_id)
+	var up: Dictionary = d.get("upgrade", {})
+	if plus <= 0 or up.is_empty():
+		return ""
+	var eff := PCatalog.equipment_eff(type_id, plus)
+	var parts := []
+	for path in up:
+		var nm := String(d.get("upgradeName", {}).get(path, String(path)))
+		var v := get_eff_at(String(path), { "eff": eff })
+		var ratio: bool = _all_below_one(up[path]) and _all_below_one([get_eff_at(String(path), d)])
+		parts.append("%s %s" % [nm, ("%d%%" % int(round(v * 100.0))) if ratio else fmt(v)])
+	return " · ".join(parts)
+
+## 장비 기본 능력치 / 고유 효과를 갈라 적은 두 줄(§8 상점 표시). 자료의 basic·unique 문구가 정본이다.
+## 강화가 있으면 그 값이 어떻게 바뀌는지도 한 줄에 붙인다
+static func equip_effect_lines(type_id: String, plus: int = 0) -> String:
+	var d: Dictionary = PCatalog.equipment_def(type_id)
+	var basic := String(d.get("basic", ""))
+	var uniq := String(d.get("unique", ""))
+	var up_txt := equip_upgrade_text(type_id, plus)
+	var l1 := "[color=#7fd6a0]기본 능력치[/color] %s" % (PGlossaryTip.esc(basic) if basic != "" else "[color=#6a7078]없음[/color]")
+	var l2 := "[color=#c9a0ff]고유 효과[/color] %s" % (PGlossaryTip.esc(uniq) if uniq != "" else "[color=#6a7078]없음[/color]")
+	return "%s\n%s%s" % [l1, l2, ("\n" + up_txt) if up_txt != "" else ""]
+
+## 배열의 값이 전부 1 미만인가(비율 항목 판정)
+static func _all_below_one(a: Array) -> bool:
+	for x in a:
+		if absf(float(x)) >= 1.0:
+			return false
+	return true
+
+## upgrade 경로("bigHit.reduce")가 가리키는 +0 값. 없으면 0
+static func get_eff_at(path: String, d: Dictionary) -> float:
+	var node: Variant = d.get("eff", {})
+	for k in path.split(".", false):
+		if typeof(node) != TYPE_DICTIONARY or not (node as Dictionary).has(String(k)):
+			return 0.0
+		node = (node as Dictionary)[String(k)]
+	return float(node) if typeof(node) == TYPE_FLOAT or typeof(node) == TYPE_INT else 0.0
+
+## 강화 단계별 값 한 줄("강화 +1 → 최대 체력 27 · +2 → 34"). 강화표가 없으면 ""
+static func equip_upgrade_text(type_id: String, plus: int = 0) -> String:
+	var d: Dictionary = PCatalog.equipment_def(type_id)
+	var up: Dictionary = d.get("upgrade", {})
+	if up.is_empty():
+		return "[color=#6a7078]강화 없음(이 장비는 단계로 오르는 기본 능력치가 없습니다)[/color]"
+	var parts := []
+	for path in up:
+		var arr: Array = up[path]
+		var nm := String(d.get("upgradeName", {}).get(path, String(path)))
+		# 비율 항목(0.12 같은 값)은 소수점 한 자리로 적으면 +1과 +2가 같은 숫자로 보인다 — 백분율로 적는다.
+		# 절대값 항목(최대 체력 27 같은 값)은 그대로 둔다
+		var ratio: bool = _all_below_one(arr) and _all_below_one([float(get_eff_at(String(path), d))])
+		var vals := []
+		for i in arr.size():
+			vals.append("+%d [b]%s[/b]" % [i + 1, ("%d%%" % int(round(float(arr[i]) * 100.0))) if ratio else fmt(float(arr[i]))])
+		parts.append("%s %s" % [nm, " · ".join(vals)])
+	return "[color=#ffd966]강화[/color] [color=#9ea8b8]%s%s[/color]" % [" / ".join(parts), (" · 지금 +%d" % plus) if plus > 0 else ""]
 
 static func slot_name(slot: String) -> String:
 	return String(PCatalog.world().equip_slot_names.get(slot, slot))
@@ -330,7 +398,7 @@ static func equip_panel(run: Dictionary) -> Control:
 	for sl in PCatalog.world().equip_slots:
 		var slot := String(sl)
 		var id = run.equipment.get(slot, null)
-		box.add_child(rich("[color=#9ea8b8]%s[/color]  %s" % [slot_name(slot), (equip_line(String(id)) if id != null else "[color=#6a7078]비어 있음[/color]")], 15))
+		box.add_child(rich("[color=#9ea8b8]%s[/color]  %s" % [slot_name(slot), (equip_line(String(id), run) if id != null else "[color=#6a7078]비어 있음[/color]")], 15))
 	# §16: 대장간 강화는 이제 **기술마다 따로**다. 예전에는 산 횟수(b.forge)를 "공용 공격 강화 N단계 · 피해 ×1.0"으로
 	# 적어서, 무기 레벨과 같은 것처럼 보이면서 배율까지 틀렸다(새 구조에서 b.forge_mult는 늘 1.0이다).
 	var forge_txt := ""
@@ -652,9 +720,10 @@ static func equip_icon_row(run: Dictionary, icon_px: float = 32.0, on_pick: Call
 	for sl in PCatalog.world().equip_slots:
 		var slot := String(sl)
 		var id = run.equipment.get(slot, null)
-		var t := PIconTile.new(("equip:" + String(id)) if id != null else "", PIconTile.STYLE_EQUIP)
+		# 아이콘 키·정의는 **타입**으로 찾고, 이름에는 그 개체의 강화 단계를 붙인다(§4)
+		var t := PIconTile.new(("equip:" + PRun.equip_type_of(String(id))) if id != null else "", PIconTile.STYLE_EQUIP)
 		t.empty = id == null
-		t.title = String(PCatalog.equipment_def(String(id)).name) if id != null else slot_name(slot)
+		t.title = PRun.equip_display_name(run, String(id)) if id != null else slot_name(slot)
 		t.sub = "" # 슬롯 이름은 카드 제목(무기 · 방어구 · 방패)이 말한다 — 이름 줄을 두 줄로 쓴다
 		t.set_icon_px(icon_px, icon_px + 46.0, 2)
 		t.wrap_title = true

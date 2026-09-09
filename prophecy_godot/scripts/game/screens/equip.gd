@@ -24,7 +24,7 @@ func refresh() -> void:
 		var slot := String(sl)
 		var id = r.equipment.get(slot, null)
 		var row := PUi.hbox(8)
-		row.add_child(PUi.rich("[color=#9ea8b8]%s[/color]  %s" % [PUi.slot_name(slot), (PUi.equip_line(String(id)) if id != null else "[color=#6a7078]비어 있음[/color]")], 15))
+		row.add_child(PUi.rich("[color=#9ea8b8]%s[/color]  %s" % [PUi.slot_name(slot), (PUi.equip_line(String(id), r) if id != null else "[color=#6a7078]비어 있음[/color]")], 15))
 		if id != null:
 			var eid := String(id)
 			var pick := PUi.button("선택", func(): _open_item(eid), true, 13)
@@ -38,10 +38,10 @@ func refresh() -> void:
 		bbox.add_child(PUi.rich("[color=#6a7078]가방 비어 있음[/color]", 14))
 	for id in r.bag:
 		var bid := String(id)
-		var d: Dictionary = PCatalog.equipment_def(bid)
+		var d: Dictionary = PCatalog.equipment_def(PRun.equip_type_of(bid))
 		var row := PUi.hbox(8)
-		row.add_child(PUi.icon_of("equip:" + bid, 30.0, "", "", 0.0, 0))
-		row.add_child(PUi.rich("%s [color=#9ea8b8](%s)[/color]" % [PUi.equip_line(bid), PUi.slot_name(String(d.slot))], 15))
+		row.add_child(PUi.icon_of("equip:" + PRun.equip_type_of(bid), 30.0, "", "", 0.0, 0))
+		row.add_child(PUi.rich("%s [color=#9ea8b8](%s)[/color]" % [PUi.equip_line(bid, r), PUi.slot_name(String(d.slot))], 15))
 		var pick := PUi.button("선택", func(): _open_item(bid), true, 13)
 		pick.custom_minimum_size = Vector2(0, PLayout.button_min_height())
 		row.add_child(pick)
@@ -74,7 +74,7 @@ func _pick_slot(_kind: String, slot: String) -> void:
 ## 장비 하나를 고른 창: 장착(또는 해제) · 상세 · 판매를 여기에 모은다. 상세는 눌러야 열린다
 func _open_item(id: String, detail: bool = false) -> void:
 	var r := run()
-	var d: Dictionary = PCatalog.equipment_def(id)
+	var d: Dictionary = PCatalog.equipment_def(PRun.equip_type_of(id))
 	var slot := String(d.slot)
 	var worn: bool = r.equipment.get(slot, null) != null and String(r.equipment[slot]) == id
 	var acts := []
@@ -82,19 +82,24 @@ func _open_item(id: String, detail: bool = false) -> void:
 		acts.append({ "text": "해제 (가방으로)", "cb": func(): main.unequip_item(slot) })
 	else:
 		acts.append({ "text": "지금 장착", "cb": func(): main.equip_item(id) })
+	# 장비 강화(§4)는 대장간에서 한다 — 여기서는 지금 단계만 보여 주고 어디서 올리는지 알려 준다
 	if not detail:
 		acts.append({ "text": "상세 설명", "cb": func(): _open_item(id, true) })
 	acts.append({ "text": "판매 (+%d금)" % int(PRun.sell_quote(main.run, id).gold), "cb": func(): open_sell_confirm(id) })
-	open_confirm(String(d.name), _item_body.bind(r, id, worn, detail), acts, "닫기 (Esc)")
+	open_confirm(PRun.equip_display_name(r, id), _item_body.bind(r, id, worn, detail), acts, "닫기 (Esc)")
 
 func _item_body(box: VBoxContainer, r: Dictionary, id: String, worn: bool, detail: bool) -> void:
-	var d: Dictionary = PCatalog.equipment_def(id)
+	var tid := PRun.equip_type_of(id)
+	var d: Dictionary = PCatalog.equipment_def(tid)
 	var slot := String(d.slot)
+	var plus := PRun.equip_plus_of(r, id)
 	PUi.kv(box, "부위", "[b]%s[/b] [color=#9ea8b8]%s[/color]" % [PUi.slot_name(slot), "장착 중" if worn else "가방"], 15)
-	box.add_child(PUi.rich(PGlossaryTip.esc(String(d.short)), 14))
+	# §4: 강화는 **이 개체**에 붙어 있다. 가방에 넣어도 유지되고 다른 장비로 옮겨가지 않는다는 것을 여기서 말한다
+	PUi.kv(box, "장비 강화", ("[color=#ffd966][b]+%d[/b][/color] [color=#9ea8b8]· 이 장비에만 붙어 있습니다(가방에 넣어도 유지, 다른 장비로 옮기지 못함)[/color]" % plus) if plus > 0 else "[color=#9ea8b8]+0 · 대장간의 [b]장비 강화[/b]에서 올립니다(자동기술 강화와 다릅니다)[/color]", 14)
+	box.add_child(PUi.rich(PUi.equip_effect_lines(tid, plus), 14))
 	# 수동 기술 보유 조건(§8): 조건을 못 채우면 **지우지 않고** 지금 발동하지 않는 이유를 적는다.
 	# 감속장을 E로 교환해 잃어도 장비는 그대로 남고, 다시 얻으면 아무 조작 없이 되살아난다.
-	var why := PGrowth.equip_inactive_reason(r.growth, id)
+	var why := PGrowth.equip_inactive_reason(r.growth, PRun.equip_type_of(id))
 	if why != "":
 		box.add_child(PUi.rich("[color=#ff8c73]지금은 효과 없음 — %s[/color]" % PGlossaryTip.esc(why), 13))
 	var dup: Dictionary = r.duplicate(true)
@@ -106,7 +111,7 @@ func _item_body(box: VBoxContainer, r: Dictionary, id: String, worn: bool, detai
 		PUi.kv(box, "장착하면", PUi.diff_text(PBuild.derive(r), PBuild.derive(dup)), 13)
 		var cur = r.equipment.get(slot, null)
 		if cur != null:
-			box.add_child(PUi.rich("[color=#9ea8b8]지금 낀 %s은(는) 가방으로 갑니다.[/color]" % PGlossaryTip.esc(PRun.equip_name(String(cur))), 13))
+			box.add_child(PUi.rich("[color=#9ea8b8]지금 낀 %s은(는) 가방으로 갑니다(그 장비의 강화도 함께 따라갑니다).[/color]" % PGlossaryTip.esc(PRun.equip_display_name(r, String(cur))), 13))
 	if not detail:
 		return
 	box.add_child(PUi.rich("[b]자세한 효과[/b]", 14))

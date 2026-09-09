@@ -425,40 +425,171 @@ func _init() -> void:
 	var kinds_old := {}
 	for c in PGrowth.candidates(old2, { "pool": "level" }):
 		kinds_old[c.kind] = int(kinds_old.get(c.kind, 0)) + 1
-	ok("옛 저장(키 없음): 해금 제한 없이 후보 전부 열림, 빌드 계산·상점 정상, 기록 대상 아님", int(kinds_old.get("weapon_new", 0)) == expect_weapon_new(old2) and int(kinds_old.get("weapon_new", 0)) > 0 and not PBuild.derive(old2).has("traits") and not PProfile.eligible(old2) and (PRun.stock(old2).equipment as Array).size() == 2, "기대 %d 실제 %d" % [expect_weapon_new(old2), int(kinds_old.get("weapon_new", 0))])
+	ok("옛 저장(키 없음): 해금 제한 없이 후보 전부 열림, 빌드 계산·상점 정상, 기록 대상 아님", int(kinds_old.get("weapon_new", 0)) == expect_weapon_new(old2) and int(kinds_old.get("weapon_new", 0)) > 0 and not PBuild.derive(old2).has("traits") and not PProfile.eligible(old2) and (PRun.stock(old2).equipment as Array).size() == 4, "기대 %d 실제 %d" % [expect_weapon_new(old2), int(kinds_old.get("weapon_new", 0))])
 	PSave.clear()
 	# ---------- 제작 ----------
 	var rc := PRun.new_run(51, "sword") # 프로필 없음 = 제작법 전부 열림(도구·테스트)
 	rc.gold = 100
-	rc.bag = ["hunter_sword"]
+	# §8 명세 변경(2026-09-10): 제작은 **기본 장비 하나** + 재료 + 금화다(혈월검 = 잔불검 + 송곳니 1 + 무쇠 1 + 90금).
+	# 사냥꾼의 검은 계보에서 빠졌으므로 재료가 아니다 — 아래 기대값은 그 지시에 맞춘 것이다
 	rc.equipment.weapon = "ember_sword"
 	rc.mats.fang = 1
+	rc.mats.iron = 1
 	var json_before := JSON.stringify(PSave.normalize(rc.duplicate(true)))
 	var opts := PRun.craft_options(rc)
 	var bm_opt := {}
 	for o in opts:
 		if String(o.id) == "bloodmoon_sword":
 			bm_opt = o
-	ok("제작 후보 6개, 혈월검: 재료 사냥꾼의 검(가방)·잔불검(장착)·송곳니 1/1·수수료 60 → 가능, 미리보기 있음", opts.size() == 6 and bool(bm_opt.can) and (bm_opt.ingredients as Array).size() == 3 and String(bm_opt.ingredients[1].where) == "equipped" and int(bm_opt.fee) == 60 and not (bm_opt.preview as Dictionary).is_empty(), str(bm_opt.get("missing", [])))
+	# 폐기 2종(§1)은 제작 후보에서 빠져 4개다
+	ok("제작 후보 4개(폐기 2종 제외), 혈월검: 재료 잔불검(장착)·송곳니 1/1·무쇠 1/1·수수료 90 → 가능, 미리보기 있음", opts.size() == 4 and bool(bm_opt.can) and (bm_opt.ingredients as Array).size() == 3 and String(bm_opt.ingredients[0].where) == "equipped" and int(bm_opt.fee) == 90 and not (bm_opt.preview as Dictionary).is_empty(), str(bm_opt.get("missing", [])))
+	ok("폐기 장비는 제작 후보에 없고 확정도 거부된다(§1)", not opts.any(func(o): return String(o.id) == "reprisal_shield" or String(o.id) == "relay_shield") and not PRun.can_craft(rc, "reprisal_shield") and not PRun.craft(rc, "relay_shield", true, false))
 	ok("미리보기·후보 계산은 회차를 바꾸지 않는다(취소 = 소비 없음)", JSON.stringify(PSave.normalize(rc.duplicate(true))) == json_before)
 	ok("장착 중 재료를 쓰지 않는 제작은 실패·불변", not PRun.craft(rc, "bloodmoon_sword", false, true) and int(rc.gold) == 100 and rc.equipment.weapon == "ember_sword")
 	var trial_rc := PRun.new_run(51, "sword", "", { "profile": prof("trial", 0) })
 	ok("trial Lv1 회차는 제작법이 없어 후보 0·제작 거부", PRun.craft_options(trial_rc).is_empty() and not PRun.can_craft(trial_rc, "bloodmoon_sword"))
 	var crafted_ok := PRun.craft(rc, "bloodmoon_sword", true, true)
-	ok("확정(장착): 두 장비·송곳니·60금 소비, 완성품 장착, 가방 비움, crafted 기록, 강화 단계 무관", crafted_ok and rc.equipment.weapon == "bloodmoon_sword" and (rc.bag as Array).is_empty() and int(rc.mats.fang) == 0 and int(rc.gold) == 40 and (rc.crafted as Array) == ["bloodmoon_sword"] and int(rc.forge) == 0, "eq %s bag %s gold %d" % [str(rc.equipment), str(rc.bag), int(rc.gold)])
-	ok("중복 확정 불가(재료 없음·이미 보유)", not PRun.craft(rc, "bloodmoon_sword", true, true) and int(rc.gold) == 40)
+	# 완성품은 **장비 개체**다(§4): 슬롯에는 "bloodmoon_sword#N"이 들어간다. 종류로 비교할 때는 equip_type_of를 쓴다
+	var made_uid := String(rc.equipment.weapon)
+	ok("확정(장착): 재료 장비·송곳니·무쇠·90금 소비, 완성품 장착, 가방 비움, crafted 기록, 강화 단계 무관", crafted_ok and PRun.equip_type_of(made_uid) == "bloodmoon_sword" and (rc.bag as Array).is_empty() and int(rc.mats.fang) == 0 and int(rc.gold) == 10 and (rc.crafted as Array) == ["bloodmoon_sword"] and int(rc.forge) == 0, "eq %s bag %s gold %d" % [str(rc.equipment), str(rc.bag), int(rc.gold)])
+	ok("완성품은 +0에서 시작한다(재료 강화 자동 계승 없음 — §4 미승인)", PRun.equip_plus_of(rc, made_uid) == 0)
+	ok("중복 확정 불가(재료 없음·이미 보유)", not PRun.craft(rc, "bloodmoon_sword", true, true) and int(rc.gold) == 10)
 	var gold_s := int(rc.gold)
-	PRun.sell_equipment(rc, "bloodmoon_sword")
+	PRun.sell_equipment(rc, made_uid)
 	# 판매가 변경(사용자 확정): 구매액의 절반. 제작품은 구매액이 없으므로 정상 구매가의 절반을 기준으로 쓴다.
 	# 혈월검 정상가 140 → 70. 옛 값 35는 '정상가의 1/4'이던 시절의 수다
 	ok("완성품 판매 = 정상 구매가의 절반(혈월검 140 → 70), 재료 환급 없음", int(rc.gold) == gold_s + 70 and rc.equipment.weapon == null and int(rc.mats.fang) == 0, "금화 %d (기대 %d)" % [int(rc.gold), gold_s + 70])
 	rc.gold = 200
-	rc.bag = ["guardian_armor"]
+	rc.bag = ["guardian_armor"]   # '#'이 없는 옛 형식 문자열도 그대로 쓸 수 있다(§0 호환)
 	rc.mats.iron = 2
 	rc.mats.pelt = 1
-	ok("가방 재료로 제작(보관): 월광 갑옷 가방에, 슬롯 비어 있음", PRun.craft(rc, "moon_armor", false, false) and (rc.bag as Array) == ["moon_armor"] and rc.equipment.armor == null and int(rc.mats.iron) == 0 and int(rc.gold) == 120)
+	var moon_ok := PRun.craft(rc, "moon_armor", false, false)
+	var moon_uid := String((rc.bag as Array)[0]) if (rc.bag as Array).size() > 0 else ""
+	ok("가방 재료로 제작(보관): 월광 갑옷 가방에, 슬롯 비어 있음", moon_ok and (rc.bag as Array).size() == 1 and PRun.equip_type_of(moon_uid) == "moon_armor" and rc.equipment.armor == null and int(rc.mats.iron) == 0 and int(rc.gold) == 120)
 	var acts := PFlow.actions(rc)
-	ok("행동 목록·장비 이름이 제작품도 처리(equip/sell 항목)", acts.any(func(a): return String(a.id) == "equip:moon_armor") and acts.any(func(a): return String(a.id) == "sell:moon_armor" and int(a.data.price) == 60)) # 월광 갑옷 정상가 120의 절반
+	ok("행동 목록·장비 이름이 제작품도 처리(equip/sell 항목 — 항목 id는 개체 id다)", acts.any(func(a): return String(a.id) == "equip:" + moon_uid) and acts.any(func(a): return String(a.id) == "sell:" + moon_uid and int(a.data.price) == 60)) # 월광 갑옷 정상가 120의 절반
+	# ---------- 장비 개체·장비 강화(§0·§4, 2026-09-10) ----------
+	# 여기의 검사는 **규칙 계층**이다. 실제 버튼 경로는 meta_ui_tests·수동 확인이 따로 본다.
+	var eqr := PRun.new_run(77, "sword")
+	eqr.gold = 2000
+	eqr.bossesDone = ["b1", "b2"] # 관문 2돌파 = +1·+2 둘 다 열린 상태
+	# 같은 종류 2개를 손으로 넣는다. 상점은 같은 종류를 두 번 팔지 않으므로 **정상 경로로는 생기지 않는 상태**이며,
+	# 개체 구분이 실제로 되는지 보기 위한 주입 검사다(보조 근거로 구분해 보고한다)
+	var eu_a := PRun.equip_new_uid(eqr, "vitality_coat")
+	var eu_b := PRun.equip_new_uid(eqr, "vitality_coat")
+	(eqr.bag as Array).append(eu_a)
+	(eqr.bag as Array).append(eu_b)
+	ok("개체 id: 같은 종류라도 서로 다른 id를 받고, 타입은 둘 다 같게 읽힌다",
+		eu_a != eu_b and PRun.equip_type_of(eu_a) == "vitality_coat" and PRun.equip_type_of(eu_b) == "vitality_coat", "%s / %s" % [eu_a, eu_b])
+	var eq_gup := int(eqr.gold)
+	ok("강화 +1: 금화가 표대로 줄고 그 개체만 +1이 된다", PRun.upgrade_equip(eqr, eu_a) and PRun.equip_plus_of(eqr, eu_a) == 1 and PRun.equip_plus_of(eqr, eu_b) == 0 and int(eqr.gold) == eq_gup - 70, "gold %d" % int(eqr.gold))
+	ok("강화 +2도 같은 개체에 쌓인다", PRun.upgrade_equip(eqr, eu_a) and PRun.equip_plus_of(eqr, eu_a) == 2 and int(eqr.gold) == eq_gup - 200)
+	ok("+2가 최대다(더는 견적이 없다)", PRun.equip_upgrade_next(eqr, eu_a).is_empty() and not PRun.upgrade_equip(eqr, eu_a))
+	ok("같은 종류 2개를 서로 다르게 강화해도 각각 구분된다(+2 / +0)", PRun.equip_plus_of(eqr, eu_a) == 2 and PRun.equip_plus_of(eqr, eu_b) == 0)
+	# §4 값: 강화는 **기본 능력치만** 올린다. 생명력의 외투 hpMax 20 → 27 → 34(시험값)
+	var eq_eff2 := PCatalog.equipment_eff("vitality_coat", 2)
+	ok("강화표가 기본 능력치만 바꾼다(hpMax 20 → 34), 원본 정의는 그대로", int(eq_eff2.hpMax) == 34 and int(PCatalog.equipment_def("vitality_coat").eff.hpMax) == 20)
+	var eq_effsh := PCatalog.equipment_eff("caster_shield", 2)
+	ok("강화표는 지속·재사용을 건드리지 않는다(시전자의 방패: 보호막만 8 → 14, dur 3·cd 10 그대로)",
+		int(eq_effsh.eShield.shield) == 14 and int(eq_effsh.eShield.dur) == 3 and int(eq_effsh.eShield.cd) == 10)
+	# ② 강화 → 가방 보관 → 재착용해 같은 강화 유지
+	PRun.equip_item(eqr, eu_a)
+	var hp_plus2 := float(PBuild.derive(eqr).hp_max)
+	PRun.unequip_item(eqr, "armor")
+	ok("가방에 넣어도 강화가 유지된다", (eqr.bag as Array).has(eu_a) and PRun.equip_plus_of(eqr, eu_a) == 2)
+	PRun.equip_item(eqr, eu_a)
+	ok("재착용해도 같은 강화(+2)와 같은 최대 체력", PRun.equip_plus_of(eqr, eu_a) == 2 and is_equal_approx(float(PBuild.derive(eqr).hp_max), hp_plus2))
+	# ③ 다른 장비를 착용해도 강화가 따라가지 않는다
+	PRun.equip_item(eqr, eu_b)
+	ok("다른 장비를 껴도 강화가 따라가지 않는다(+0 그대로, 최대 체력도 +0 값)",
+		String(eqr.equipment.armor) == eu_b and PRun.equip_plus_of(eqr, eu_b) == 0 and float(PBuild.derive(eqr).hp_max) < hp_plus2)
+	ok("벗어 둔 개체의 강화는 그대로 남아 있다", (eqr.bag as Array).has(eu_a) and PRun.equip_plus_of(eqr, eu_a) == 2)
+	# ⑦ 저장/이어하기 보존
+	PSave.save(eqr)
+	var eqr2 := PSave.load()
+	ok("저장·이어하기 뒤에도 장비 개체·강화·일련번호가 그대로다",
+		PRun.equip_plus_of(eqr2, eu_a) == 2 and PRun.equip_plus_of(eqr2, eu_b) == 0 and String(eqr2.equipment.armor) == eu_b and int(eqr2.equipSeq) == int(eqr.equipSeq)
+			and JSON.stringify(PSave.normalize(eqr)) == JSON.stringify(eqr2))
+	PSave.clear()
+	# 판매하면 개체와 함께 강화도 사라진다(다른 장비로 옮겨가지 않는다)
+	var gold_b4 := int(eqr.gold)
+	var eq_qup := PRun.sell_quote(eqr, eu_a)
+	ok("강화한 장비의 판매 견적에 '강화가 사라진다'가 적혀 있다", String(eq_qup.text).find("강화 +2") >= 0, String(eq_qup.text))
+	ok("판매하면 그 개체가 가방에서 사라지고 강화 기록도 지워진다",
+		PRun.sell_equipment(eqr, eu_a, int(eq_qup.gold)) and not (eqr.bag as Array).has(eu_a) and PRun.equip_plus_of(eqr, eu_a) == 0 and int(eqr.gold) == gold_b4 + int(eq_qup.gold)
+			and not (eqr.get("equipPlus", {}) as Dictionary).has(eu_a))
+	# 강화 잠금: 관문을 덜 돌파했으면 열리지 않고 금화도 빠지지 않는다
+	var eqrl := PRun.new_run(78, "sword")
+	eqrl.gold = 2000
+	var eu_c := PRun.equip_new_uid(eqrl, "iron_shield")
+	(eqrl.bag as Array).append(eu_c)
+	var eq_gl := int(eqrl.gold)
+	ok("관문 0돌파: +1도 아직 잠겨 있고, 시도해도 금화가 그대로다",
+		PRun.equip_upgrade_open_max(eqrl) == 0 and not PRun.can_upgrade_equip(eqrl, eu_c) and not PRun.upgrade_equip(eqrl, eu_c) and int(eqrl.gold) == eq_gl)
+	eqrl.bossesDone = ["b1"]
+	ok("관문 1돌파: +1만 열리고 +2는 아직 잠긴다", PRun.equip_upgrade_open_max(eqrl) == 1 and PRun.can_upgrade_equip(eqrl, eu_c) and PRun.upgrade_equip(eqrl, eu_c) and PRun.equip_upgrade_next(eqrl, eu_c).open == false)
+	var eq_gl2 := int(eqrl.gold)
+	ok("견적과 다른 금액으로 확정하면 실행되지 않는다(금화 불변)", not PRun.upgrade_equip(eqrl, eu_c, 999) and int(eqrl.gold) == eq_gl2 and PRun.equip_plus_of(eqrl, eu_c) == 1)
+	# ⑩·§0 옛 저장 호환: '#'이 없는 **옛 형식 그대로**를 읽어 동작하는지
+	var eqro := PRun.new_run(79, "sword")
+	eqro.equipment = { "weapon": "hunter_sword", "armor": "vitality_coat", "shield": "reprisal_shield" } # 폐기 장비를 낀 옛 저장
+	eqro.bag = ["relay_shield", "iron_shield"]
+	eqro.erase("equipPlus")
+	eqro.erase("equipSeq")
+	PSave.save(eqro)
+	var eqro2 := PSave.load()
+	var eq_bo := PBuild.derive(eqro2)
+	ok("옛 형식 저장(개체 id 없음·equipPlus 없음)이 변환 없이 그대로 동작한다: 타입 해석·강화 +0·빌드 계산",
+		PRun.equip_type_of("hunter_sword") == "hunter_sword" and PRun.equip_plus_of(eqro2, "vitality_coat") == 0
+			and int(float(eq_bo.hp_max)) == int(float(PCatalog.config().PLAYER.hp)) + 20 and (eq_bo.equip as Dictionary).has("eliteDirect") and (eq_bo.equip as Dictionary).has("bigHit"),
+		"hp_max %.0f" % float(eq_bo.hp_max))
+	ok("옛 저장의 폐기 장비는 지워지지 않고 보유·장착 상태 그대로 남는다(이전 처리 미확정)",
+		String(eqro2.equipment.shield) == "reprisal_shield" and (eqro2.bag as Array).has("relay_shield") and (eq_bo.equip as Dictionary).has("reprisal"))
+	ok("옛 저장의 폐기 장비도 팔 수는 있다(값이 사라지지 않는다)", bool(PRun.sell_quote(eqro2, "relay_shield").can) and int(PRun.sell_quote(eqro2, "relay_shield").gold) == 60)
+	ok("옛 저장에 새로 사면 개체 id가 붙고, 옛 문자열과 섞여도 서로 구분된다",
+		PRun.equip_new_uid(eqro2, "iron_shield") == "iron_shield#1" and PRun.owns_equip_type(eqro2, "iron_shield") and PRun.has_equip_uid(eqro2, "iron_shield") and not PRun.has_equip_uid(eqro2, "iron_shield#1"))
+	PSave.clear()
+	# ⑩ 폐기 장비의 신규 유입 차단(상점·심층 보상·제작)
+	var eqrr := PRun.new_run(80, "sword")
+	var seen_retired := false
+	for d in range(1, 8):
+		eqrr.day = d
+		PRun.refresh_stock(eqrr)
+		for id in PRun.stock(eqrr).equipment:
+			if PCatalog.equipment_retired(String(id)):
+				seen_retired = true
+	ok("폐기 장비는 상점 재고에 절대 나오지 않는다(7일치 재고 확인)", not seen_retired)
+	ok("폐기 판정 자체", PCatalog.equipment_retired("reprisal_shield") and PCatalog.equipment_retired("relay_shield") and not PCatalog.equipment_retired("moon_armor") and not PCatalog.equipment_retired("iron_shield"))
+
+	# 제작 × 강화(§4 미결정 항목의 **현재 동작**을 못 박아 둔다 — 처리안이 정해지면 여기부터 고친다)
+	var rcp := PRun.new_run(81, "sword")
+	rcp.gold = 2000
+	rcp.bossesDone = ["b1", "b2"]
+	rcp.mats.iron = 2
+	rcp.mats.pelt = 1
+	var g_low := PRun.equip_new_uid(rcp, "guardian_armor")
+	var g_high := PRun.equip_new_uid(rcp, "guardian_armor")
+	(rcp.bag as Array).append(g_low)
+	(rcp.bag as Array).append(g_high)
+	PRun.upgrade_equip(rcp, g_high)
+	PRun.upgrade_equip(rcp, g_high)
+	var pick_o := PRun.craft_pick_uid(rcp, "guardian_armor")
+	ok("재료가 여럿이면 **강화가 가장 낮은 개체**를 쓴다(비싸게 강화한 장비를 조용히 태우지 않는다)",
+		String(pick_o.uid) == g_low and int(pick_o.plus) == 0, str(pick_o))
+	var opt_moon := PRun.craft_option(rcp, "moon_armor", false)
+	var ing_plus := -1
+	for ing in opt_moon.ingredients:
+		if String(ing.kind) == "equipment":
+			ing_plus = int(ing.get("plus", -1))
+	ok("제작 후보가 소비할 개체의 강화 단계를 함께 알려 준다(화면이 미리 경고할 수 있게)", ing_plus == 0, "plus %d" % ing_plus)
+	ok("제작 확정: 낮은 쪽만 사라지고 강화한 개체는 그대로 남는다",
+		PRun.craft(rcp, "moon_armor", false, false) and not (rcp.bag as Array).has(g_low) and (rcp.bag as Array).has(g_high) and PRun.equip_plus_of(rcp, g_high) == 2)
+	var made_moon := ""
+	for id in rcp.bag:
+		if PRun.equip_type_of(String(id)) == "moon_armor":
+			made_moon = String(id)
+	ok("완성품은 +0이고 재료의 강화를 물려받지 않는다(§4: 자동 계승 미승인)", made_moon != "" and PRun.equip_plus_of(rcp, made_moon) == 0)
+
 	# ---------- 제작 6종 효과(전투) ----------
 	st = mk({ "equipment": { "weapon": "bloodmoon_sword" } })
 	var e1 := dummy(st, st.player.x + 50.0, st.player.y)

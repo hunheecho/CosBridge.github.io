@@ -508,12 +508,17 @@ func _info_equip(r: Dictionary, slot: String, detail: bool) -> void:
 	acts.append({ "text": "해제 (가방으로)", "cb": func(): main.unequip_item(slot) })
 	acts.append({ "text": "판매 (+%d금)" % int(PRun.sell_quote(main.run, eid).gold), "cb": func(): open_sell_confirm(eid) })
 	acts.append({ "text": "장비 화면", "cb": func(): main.show("equip") })
-	open_confirm(String(PCatalog.equipment_def(eid).name), _equip_body.bind(r, slot, eid, detail), acts, "닫기 (Esc)")
+	open_confirm(PRun.equip_display_name(r, eid), _equip_body.bind(r, slot, eid, detail), acts, "닫기 (Esc)")
 
 func _equip_body(box: VBoxContainer, r: Dictionary, slot: String, eid: String, detail: bool) -> void:
-	var d: Dictionary = PCatalog.equipment_def(eid)
+	# eid는 장비 **개체 id**다(§4). 정의는 타입으로 찾고, 강화 단계는 개체에서 읽는다
+	var tid := PRun.equip_type_of(eid)
+	var d: Dictionary = PCatalog.equipment_def(tid)
+	var plus := PRun.equip_plus_of(r, eid)
 	PUi.kv(box, "부위", "[b]%s[/b]" % PUi.slot_name(slot), 15)
-	box.add_child(PUi.rich(PGlossaryTip.esc(String(d.short)), 14))
+	if plus > 0:
+		PUi.kv(box, "장비 강화", "[color=#ffd966][b]+%d[/b][/color] [color=#9ea8b8]이 장비에만 붙어 있습니다[/color]" % plus, 14)
+	box.add_child(PUi.rich(PUi.equip_effect_lines(tid, plus), 14))
 	var dup: Dictionary = r.duplicate(true)
 	PRun.unequip_item(dup, slot)
 	PUi.kv(box, "해제하면", PUi.diff_text(PBuild.derive(r), PBuild.derive(dup)), 13)

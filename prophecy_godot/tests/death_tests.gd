@@ -197,9 +197,13 @@ func _init() -> void:
 	# ---------- 8. 판매: 구매액의 절반·정수 내림 ----------
 	var r8 := human_run(201)
 	r8.gold = 2000
-	var buy_id := String(PRun.stock(r8).equipment[0])
-	var list8 := PRun.equip_price(buy_id)
-	PRun.buy_equipment(r8, buy_id, false, "stock")
+	# §4 명세 변경(2026-09-10): 재고 id는 **종류**이고, 사면 그 자리에서 **개체 id**("종류#번호")가 발급된다.
+	# 지불 기록·판매 견적·강화는 전부 그 개체 id를 키로 쓴다(같은 종류를 여럿 가져도 서로 섞이지 않게)
+	var buy_type := String(PRun.stock(r8).equipment[0])
+	var list8 := PRun.equip_price(buy_type)
+	PRun.buy_equipment(r8, buy_type, false, "stock")
+	var buy_id := String((r8.bag as Array)[(r8.bag as Array).size() - 1])
+	ok("구매하면 개체 id가 발급된다(종류#번호), 종류는 그대로 읽힌다", buy_id.find("#") > 0 and PRun.equip_type_of(buy_id) == buy_type and PRun.equip_plus_of(r8, buy_id) == 0, buy_id)
 	var q8 := PRun.sell_quote(r8, buy_id)
 	ok("정가 구매 → 판매 견적 = 지불액의 절반(정수 내림), 받을 금액이 견적에 있다",
 		int(q8.gold) == int(floor(float(list8) * 0.5)) and int(q8.paid) == list8 and String(q8.basis) == "paid" and String(q8.text).find(str(int(q8.gold))) >= 0,
@@ -217,8 +221,9 @@ func _init() -> void:
 		not PRun.owns_equip(back8, buy_id) and int(back8.gold) == int(r8.gold) and _json(back8) == _json(r8))
 	var r8p := human_run(207)
 	r8p.gold = 2000
-	var keep8 := String(PRun.stock(r8p).equipment[0])
-	PRun.buy_equipment(r8p, keep8, false, "stock")
+	var keep_type := String(PRun.stock(r8p).equipment[0])
+	PRun.buy_equipment(r8p, keep_type, false, "stock")
+	var keep8 := String((r8p.bag as Array)[(r8p.bag as Array).size() - 1])
 	var back8p := _roundtrip(r8p)
 	ok("지불 기록(run.paidFor)이 저장·복구를 그대로 견딘다(정규화 뒤 JSON 일치, 판매 금액 불변)",
 		PRun.paid_for(back8p, keep8) == PRun.paid_for(r8p, keep8) and PRun.sell_value(back8p, keep8) == PRun.sell_value(r8p, keep8)
@@ -233,10 +238,11 @@ func _init() -> void:
 	if m9 != null and m9.get("equipment", null) != null:
 		r9.gold = 2000
 		r9.hours = int(PCatalog.config().HOURS_PER_DAY) - int(m9.fromSlot)
-		var mid := String(m9.equipment)
-		var full9 := PRun.equip_price(mid)
-		var paid9 := PRun.equip_price_for(r9, mid, "merchant")
-		PRun.buy_equipment(r9, mid, false, "merchant")
+		var mtype := String(m9.equipment)
+		var full9 := PRun.equip_price(mtype)
+		var paid9 := PRun.equip_price_for(r9, mtype, "merchant")
+		PRun.buy_equipment(r9, mtype, false, "merchant")
+		var mid := String((r9.bag as Array)[(r9.bag as Array).size() - 1])
 		var q9 := PRun.sell_quote(r9, mid)
 		ok("상인 할인가로 산 장비는 **할인가**의 절반으로 팔린다(정상가 기준보다 적다 = 판매 차익 없음)",
 			paid9 < full9 and int(q9.gold) == int(floor(float(paid9) * 0.5)) and int(q9.gold) < int(floor(float(full9) * 0.5)) and int(q9.paid) == paid9,
@@ -275,8 +281,8 @@ func _init() -> void:
 		"hp %.0f" % float(r11.hp))
 	var r12 := human_run(206)
 	r12.gold = 2000
-	var eid12 := String(PRun.stock(r12).equipment[0])
-	PRun.buy_equipment(r12, eid12, false, "stock")
+	PRun.buy_equipment(r12, String(PRun.stock(r12).equipment[0]), false, "stock")
+	var eid12 := String((r12.bag as Array)[(r12.bag as Array).size() - 1]) # 행동 목록 항목 id도 개체 id다
 	var q12 := PRun.sell_quote(r12, eid12)
 	ok("견적과 다른 금액으로 확정하면 실행되지 않는다(확인 창을 띄운 사이 값이 바뀌면 취소)",
 		not PRun.sell_equipment(r12, eid12, int(q12.gold) + 1) and PRun.owns_equip(r12, eid12))

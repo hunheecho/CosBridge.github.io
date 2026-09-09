@@ -514,17 +514,25 @@ static func actions(run: Dictionary) -> Array:
 		var sk: Dictionary = st.skill
 		var nm := String(PCatalog.weapons()[String(sk.id)].name) if String(sk.kind) == "weapon" else String(PCatalog.skills()[String(sk.id)].name)
 		out.append(_act("buy_skill", "buy_skill", "%s 획득 (%d)" % [nm, int(sk.price)], PRun.can_buy_skill(run), "" if PRun.can_buy_skill(run) else "판매됨/슬롯 없음/금화 부족", { "kind": String(sk.kind), "id": String(sk.id), "price": int(sk.price) }))
+	# 아래 항목의 id는 장비 **개체 id**다(같은 종류를 여럿 가져도 항목이 서로 구분된다).
+	# 옛 저장은 '#'이 없어 예전과 같은 항목 id가 나온다
 	for slot in run.equipment:
 		if run.equipment[slot] != null:
 			var eid := String(run.equipment[slot])
-			out.append(_act("unequip:" + String(slot), "unequip", "%s 해제" % PRun.equip_name(eid), true, "", { "slot": String(slot), "id": eid }))
+			out.append(_act("unequip:" + String(slot), "unequip", "%s 해제" % PRun.equip_display_name(run, eid), true, "", { "slot": String(slot), "id": eid }))
 			var sq := PRun.sell_quote(run, eid)
-			out.append(_act("sell:" + eid, "sell", "%s 판매 (+%d)" % [PRun.equip_name(eid), int(sq.gold)], bool(sq.can), String(sq.get("reason", "")), sq))
+			out.append(_act("sell:" + eid, "sell", "%s 판매 (+%d)" % [PRun.equip_display_name(run, eid), int(sq.gold)], bool(sq.can), String(sq.get("reason", "")), sq))
+			var uq := PRun.equip_upgrade_next(run, eid)
+			if not uq.is_empty():
+				out.append(_act("upgrade_equip:" + eid, "upgrade_equip", "%s 강화 +%d → +%d (%d)" % [PRun.equip_name(eid), int(uq.plus), int(uq.next), int(uq.cost)], bool(uq.can), String(uq.reason), uq))
 	for id in run.bag:
 		var eid := String(id)
-		out.append(_act("equip:" + eid, "equip", "%s 장착" % PRun.equip_name(eid), true, "", { "id": eid, "slot": String(PCatalog.equipment_def(eid).slot) }))
+		out.append(_act("equip:" + eid, "equip", "%s 장착" % PRun.equip_display_name(run, eid), true, "", { "id": eid, "slot": String(PCatalog.equipment_def(PRun.equip_type_of(eid)).slot) }))
 		var sqb := PRun.sell_quote(run, eid)
-		out.append(_act("sell:" + eid, "sell", "%s 판매 (+%d)" % [PRun.equip_name(eid), int(sqb.gold)], bool(sqb.can), String(sqb.get("reason", "")), sqb))
+		out.append(_act("sell:" + eid, "sell", "%s 판매 (+%d)" % [PRun.equip_display_name(run, eid), int(sqb.gold)], bool(sqb.can), String(sqb.get("reason", "")), sqb))
+		var uqb := PRun.equip_upgrade_next(run, eid)
+		if not uqb.is_empty():
+			out.append(_act("upgrade_equip:" + eid, "upgrade_equip", "%s 강화 +%d → +%d (%d)" % [PRun.equip_name(eid), int(uqb.plus), int(uqb.next), int(uqb.cost)], bool(uqb.can), String(uqb.reason), uqb))
 	for mid in run.mats:
 		if int(run.mats[mid]) > 0:
 			out.append(_act("sell_mat:" + String(mid), "sell_mat", "%s 판매 (+%d)" % [String(PCatalog.materials()[String(mid)].name), int(PCatalog.materials()[String(mid)].sell)], true, "", { "mat_id": String(mid), "n": int(run.mats[mid]) }))
