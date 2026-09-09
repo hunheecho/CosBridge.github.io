@@ -98,6 +98,11 @@ static func in_field2(st: CombatState, ox: float, oy: float, orad: float) -> boo
 	return not f.is_empty() and PGeom.dist(f.x, f.y, ox, oy) <= f.r + orad
 
 # ---------- E ----------
+## 돌풍(E)의 부채꼴 기하. 조준·판정·표시가 모두 이 두 값만 쓴다(한 곳에서만 정한다).
+## 값은 예전과 같다 — 이번 조준 수정은 거리·폭을 바꾸지 않는다.
+const GUST_LEN := 170.0
+const GUST_W := 120.0
+
 static func auto_target(st: CombatState, range_v: float) -> Dictionary:
 	var p := st.player
 	var mk = st.mark_target
@@ -140,6 +145,48 @@ static func push_enemy(st: CombatState, e: Dictionary, dir: Array, amount: float
 		e.state = "recover"
 		e.state_t = 0.0
 
+## 돌풍(E) 전용 조준 ①: 사용 순간의 '유효한 가까운 적'을 고른다.
+##
+## 왜 p.face를 쓰지 않는가 — face는 이동하면 매 프레임 이동 방향으로(combat_state.gd:1952),
+## 자동공격이 나가면 그 대상 방향으로(weapons.gd:176·212·323·363·377) 덮인다.
+## 한 단계 순서가 이동 → cast_e → 자동공격이라 **이동 중에는 언제나 이동 방향으로 나갔다**
+## (발사 267회의 조준 오차 중앙값 90~150도, 발당 유효 적중 1.22 → 자동 조준 뒤 1.70 — docs/sim/PROBE_GUST.md).
+##
+## '유효한 적' = 이 돌풍이 실제로 때릴 수 있는 적. 아래 판정과 **같은 조건**만 쓴다:
+##  ① 살아 있고 숨지 않았다(alive_targets)
+##  ② 구조물·공중이 아니다(밀어낼 수 없는 것에 조준을 뺏기지 않는다)
+##  ③ 부채꼴 사거리 안이다 — 중심 거리 ≤ GUST_LEN + 적 반지름(in_beam의 사거리 조건과 같다)
+##  ④ 장애물에 가리지 않았다 — st.los_blocked, 아래 적중 판정에 쓰는 그 검사 그대로
+## 그래서 여기서 고른 적은 **반드시 맞는다**(그 방향으로 쏘면 ③④가 그대로 성립한다).
+##
+## 고르는 규칙: 조건을 만족하는 적 중 **중심 거리가 가장 짧은 하나**.
+## 동점이면 st.enemies에 먼저 들어온 적(등장 순서)을 고른다 — 난수를 쓰지 않아 언제나 같은 답이다.
+static func gust_target(st: CombatState) -> Dictionary:
+	var p := st.player
+	var best := {}
+	var bd := INF
+	for e in st.alive_targets():
+		if bool(e.get("structure", false)) or bool(e.get("airborne", false)):
+			continue
+		var d: float = PGeom.dist(p.x, p.y, e.x, e.y)
+		if d > GUST_LEN + float(e.r) or d >= bd:
+			continue
+		if st.los_blocked(p.x, p.y, e.x, e.y):
+			continue
+		bd = d
+		best = e
+	return best
+
+## 돌풍(E) 전용 조준 ②: 실제로 나갈 각.
+## 유효한 적이 없으면(사거리 밖·벽 뒤·구조물뿐·적 없음) **마지막으로 바라보던 방향**(p.face)으로 그대로 나간다.
+## p.face의 뜻은 건드리지 않는다 — 여기서 읽기만 하고, 돌풍이 face에 쓰는 일은 없다.
+static func gust_angle(st: CombatState) -> float:
+	var p := st.player
+	var tg := gust_target(st)
+	if tg.is_empty():
+		return float(p.face)
+	return atan2(float(tg.y) - float(p.y), float(tg.x) - float(p.x))
+
 static func cast_e(st: CombatState) -> bool:
 	var p := st.player
 	var b := st.build
@@ -153,7 +200,10 @@ static func cast_e(st: CombatState) -> bool:
 	var lv := mini(3, int(sk.level))
 	match String(sk.id):
 		"gust":
-			var ang: float = p.face
+			# 조준각은 **사용 순간에 한 번** 정한다. 아래의 적중 판정·밀어내기·바람길 자리·
+			# 표시(fx.angle = 화면에 그리는 부채꼴)가 전부 이 하나의 값을 쓰므로 표시와 판정이 어긋날 수 없다.
+			# 이동 방향은 이 계산에 들어오지 않는다 — 그래서 이동 중에도 조준이 덮이지 않는다.
+			var ang: float = gust_angle(st)
 			if v == "whirl":
 				st.fx({ "kind": "gust", "x": p.x, "y": p.y, "r": 130.0, "whirl": true, "ttl": 0.3 })
 				for e in st.alive_targets():
@@ -161,9 +211,9 @@ static func cast_e(st: CombatState) -> bool:
 						hit(st, e, dmg)
 						push_enemy(st, e, PGeom.norm(e.x - p.x, e.y - p.y), 140.0 + 30.0 * float(lv - 1))
 			else:
-				st.fx({ "kind": "gust", "x": p.x, "y": p.y, "angle": ang, "len": 170.0, "w": 120.0, "ttl": 0.3 })
+				st.fx({ "kind": "gust", "x": p.x, "y": p.y, "angle": ang, "len": GUST_LEN, "w": GUST_W, "ttl": 0.3 })
 				for e in st.alive_targets():
-					if PGeom.in_beam(p.x, p.y, ang, 170.0, 120.0, e.x, e.y, e.r) and not st.los_blocked(p.x, p.y, e.x, e.y):
+					if PGeom.in_beam(p.x, p.y, ang, GUST_LEN, GUST_W, e.x, e.y, e.r) and not st.los_blocked(p.x, p.y, e.x, e.y):
 						hit(st, e, dmg)
 						push_enemy(st, e, [cos(ang), sin(ang)], 140.0 + 30.0 * float(lv - 1))
 			if v == "windpath":

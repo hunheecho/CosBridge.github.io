@@ -938,7 +938,9 @@ static func draw_player_effects(ci: Node2D, st: CombatState) -> void:
 				var fy: float = f.y
 				ci.draw_circle(Vector2(fx, fy), float(f.r), rgba(255, 250, 200, 0.4 * k))
 				ci.draw_polyline(PackedVector2Array([Vector2(fx + 10.0, fy - 160.0), Vector2(fx - 8.0, fy - 70.0), Vector2(fx + 8.0, fy - 60.0), Vector2(fx, fy)]), Color(1, 1, 1, k), 4.0)
-			"gust":
+			"gust": # 수동 기술 E. f.angle·f.len·f.w는 규칙이 실제 판정에 쓴 값 그대로다(PSkills.cast_e).
+				# 2026-09-09부터 그 각은 '바라보는 방향'이 아니라 **사용 순간에 고른 가까운 적**의 방향이다.
+				# 여기서 각을 다시 만들거나 p.face로 대신하지 마라 — 그리는 순간 표시와 판정이 갈라진다.
 				var gc := rgba(200, 255, 220, 0.8 * k)
 				if bool(f.get("whirl", false)):
 					for i in 3:

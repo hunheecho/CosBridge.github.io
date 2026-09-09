@@ -247,6 +247,11 @@
       "timeout_sec": 600,
       "desc": "주무기 5종의 구분(창의 좁은 폭·쌍검 단일 대상 화력·망치 착탄점과 제압 저항·궁 근접 약화)"
     },
+    "gust_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "수동 기술 E '돌풍'의 자동 조준(유효한 가까운 적·이동 중 덮어쓰기 없음·후퇴 중·적 없음·벽 뒤·사거리 밖·구조물·공중·표시=판정·거리 170/폭 120/피해/재사용 불변·PC와 모바일 동일)"
+    },
     "support_b_tests": {
       "env": {},
       "timeout_sec": 900,
@@ -498,6 +503,7 @@
       "frost_tests",
       "stagger_tests",
       "main_weapon_tests",
+      "gust_tests",
       "support_b_tests",
       "terrain_tests",
       "port_tests",
@@ -540,6 +546,7 @@
       "frost_tests",
       "stagger_tests",
       "main_weapon_tests",
+      "gust_tests",
       "support_b_tests",
       "terrain_tests",
       "port_tests",

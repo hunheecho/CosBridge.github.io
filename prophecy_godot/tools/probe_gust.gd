@@ -10,13 +10,41 @@ extends SceneTree
 ##  - 발사 수, 유효 적중(부채꼴 판정 안 + 가림 없음) 수
 ##  - '적이 없는 방향으로 나갔다' = 사거리 안에 적이 있었는데 0마리를 맞힌 발사
 ##  - 조준각과 가장 가까운 적 방향 사이의 각도 차이
-##  - 반사실: 같은 순간에 auto_target(표식>정예>가장 가까운) 쪽으로 쐈다면 몇 마리를 맞혔을까
-## 검출 지연: 효과는 단계 끝에 읽으므로 적 위치가 1/120초(최대 1.6px)만큼 움직인 뒤 값이다.
+##  - 반사실: 같은 순간에 ① 단순 최근접 ② 지금 규칙(유효한 가까운 적) ③ 최선의 방향으로 쐈다면 몇 마리를 맞혔을까
+## 자리 기준: 단계가 **시작하기 전에** 찍어 둔 적 자리를 쓴다. 그것이 cast_e가 실제로 본 자리다
+## (단계가 끝난 뒤 자리는 돌풍이 이미 140~200px 밀어낸 뒤라 맞힌 적이 사거리 밖으로 나가 있다).
 
 const STEP := 1.0 / 120.0
 const MAX_SEC := 90.0
-const RANGE := 170.0
-const WIDTH := 120.0
+
+## 판정 기하는 규칙에서 직접 읽는다(예전에는 170·120을 여기 베껴 적었다).
+## 규칙이 바뀌면 이 도구도 같이 바뀌므로 '측정한 기하'와 '실제 기하'가 갈라질 수 없다.
+var RANGE: float = PSkills.GUST_LEN
+var WIDTH: float = PSkills.GUST_W
+
+## 수정 전 기준선(커밋 7150134, `var ang: float = p.face`).
+## **같은 도구·같은 조건으로 다시 읽은 값이다**(2026-09-09). 전투를 새로 설계해 잰 것이 아니라
+## 옛 조준 한 줄만 되돌려 같은 편성·봇·시드로 한 번 돌린 것이고, 발사 수가 267회로 그대로 나와
+## 되돌림이 옛 동작을 정확히 재현했음을 확인했다.
+##
+## **왜 다시 읽었나 — 처음 공개한 수치는 측정 결함이었다.**
+## 예전 판은 단계가 끝난 뒤의 적 자리로 적중을 다시 계산했는데, 그 자리는 돌풍이 방금 140~200px
+## 밀어낸 뒤라 **정작 맞힌 적이 사거리 밖으로 나가 '안 맞은 것'으로** 세어졌다.
+## 그래서 발당 0.21 · 0적중 86%로 나왔지만, 같은 실행을 사용 순간의 자리로 읽으면 1.22 · 33%다.
+## 조준이 적을 등지고 나간다는 사실 자체는 그대로다(조준 오차 중앙값 90~150도).
+##
+## 열: 발사 · 발당 유효 적중 · 0적중 · 0적중% · 사거리 안에 적이 있었는데 0적중 · 그 % · 단순 최근접 쪽이었다면
+const BEFORE := {
+	"balanced":   { "n": 65, "hit": 1.38, "zero": 12, "zero_p": 18.0, "zwe": 12, "zwe_p": 18.0, "alt": 1.88 },
+	"aggressive": { "n": 69, "hit": 1.13, "zero": 25, "zero_p": 36.0, "zwe": 5, "zwe_p": 7.0, "alt": 1.20 },
+	"survival":   { "n": 77, "hit": 1.17, "zero": 24, "zero_p": 31.0, "zwe": 24, "zwe_p": 31.0, "alt": 2.25 },
+	"still":      { "n": 56, "hit": 1.23, "zero": 28, "zero_p": 50.0, "zwe": 4, "zwe_p": 7.0, "alt": 1.41 },
+	"__total__":  { "n": 267, "hit": 1.22, "zero": 89, "zero_p": 33.0, "zwe": 45, "zwe_p": 17.0, "alt": 1.71 },
+}
+
+## 수정 전 실행에서 '유효한 가까운 적 쪽이었다면'이 낸 값(= 지금 규칙이 낼 것으로 예측된 값).
+## 수정 후 실측이 이 값 언저리에 오면 규칙과 도구가 서로 맞는다는 뜻이다.
+const BEFORE_PREDICT := { "balanced": 1.88, "aggressive": 1.20, "survival": 2.26, "still": 1.41, "__total__": 1.72 }
 
 var rows := []
 
@@ -63,6 +91,12 @@ func one(run: Dictionary, waves: Array, seed_v: int, pol: String, act: int) -> D
 	for i in n:
 		if st.status != "running":
 			break
+		# **단계가 시작하기 전에** 적 자리를 찍어 둔다. 한 단계의 순서는
+		# update_player(이동 → cast_e) → PSkills.update → update_enemies라서
+		# cast_e가 본 적 자리 = 여기서 찍은 자리다.
+		# 단계가 끝난 뒤에 읽으면 **돌풍이 방금 140~200px 밀어낸 뒤의 자리**라
+		# 정작 맞힌 적이 사거리 밖으로 나가 '안 맞은 것'으로 세어진다(2026-09-09 수정).
+		var snap := snapshot(st)
 		st.step(bot.step_input(st), STEP)
 		# 이번 단계에 생긴 효과만 센다: fx는 t=0으로 들어오고 update_effects가 그 단계에서 t += dt를 한 번 한다.
 		# 다음 단계에는 2*dt가 되므로 t <= 1.5*dt면 방금 생긴 것 하나뿐이다(중복 계수 없음).
@@ -73,52 +107,63 @@ func one(run: Dictionary, waves: Array, seed_v: int, pol: String, act: int) -> D
 				continue
 			if bool(f.get("whirl", false)):
 				continue     # 회오리 변형은 방향이 없다
-			fires.append(measure_fire(st, float(f.x), float(f.y), float(f.get("angle", 0.0))))
+			fires.append(measure_fire(st, snap, float(f.x), float(f.y), float(f.get("angle", 0.0))))
 	return { "fires": fires, "sec": float(st.t), "status": String(st.status), "kills": int(st.stats.kills),
 		"e_uses": int(st.stats.e_uses), "gust_dmg": float((st.metrics.dmg as Dictionary).get("skill:gust", 0.0)) }
 
-## 한 발의 조준 품질. 실제 판정과 같은 기하(PGeom.in_beam + los_blocked)를 그대로 쓴다
-func measure_fire(st: CombatState, px: float, py: float, ang: float) -> Dictionary:
-	var alive := st.alive_targets()
-	var hit := 0
+## 단계 시작 시점의 적 자리·크기·성질. 규칙을 건드리지 않고 읽기만 한다
+func snapshot(st: CombatState) -> Array:
+	var out := []
+	for e in st.alive_targets():
+		out.append({ "x": float(e.x), "y": float(e.y), "r": float(e.r),
+			"skip": bool(e.get("structure", false)) or bool(e.get("airborne", false)) })
+	return out
+
+## 그 각으로 쐈다면 몇 마리가 맞나(실제 판정과 같은 기하: PGeom.in_beam + los_blocked)
+func count_hits(st: CombatState, snap: Array, px: float, py: float, ang: float) -> int:
+	var c := 0
+	for e in snap:
+		if PGeom.in_beam(px, py, ang, RANGE, WIDTH, float(e.x), float(e.y), float(e.r)) and not st.los_blocked(px, py, float(e.x), float(e.y)):
+			c += 1
+	return c
+
+## 한 발의 조준 품질. 자리는 전부 snap(사용 순간)에서 읽고, 발사 자리는 효과가 남긴 px·py다
+func measure_fire(st: CombatState, snap: Array, px: float, py: float, ang: float) -> Dictionary:
 	var in_range := 0
 	var nearest := {}
 	var nd := INF
-	for e in alive:
+	var valid := {}          # 지금 규칙이 고르는 대상: 사거리 안 + 가림 없음 + 구조물·공중 아님
+	var vd := INF
+	for e in snap:
 		var d: float = PGeom.dist(px, py, float(e.x), float(e.y))
-		if d <= RANGE + float(e.r):
-			in_range += 1
-			if d < nd:
-				nd = d
-				nearest = e
-		if PGeom.in_beam(px, py, ang, RANGE, WIDTH, float(e.x), float(e.y), float(e.r)) and not st.los_blocked(px, py, float(e.x), float(e.y)):
-			hit += 1
-	# 반사실 ①: 가장 가까운 적 쪽으로 쐈다면
+		if d > RANGE + float(e.r):
+			continue
+		in_range += 1
+		if d < nd:
+			nd = d
+			nearest = e
+		if bool(e.skip) or d >= vd or st.los_blocked(px, py, float(e.x), float(e.y)):
+			continue
+		vd = d
+		valid = e
+	var hit := count_hits(st, snap, px, py, ang)
+	# 반사실 ①: 가장 가까운 적 쪽으로 쐈다면(가림·구조물·공중을 가리지 않은 단순 최근접)
 	var alt_near := 0
 	var err := -1.0
 	if not nearest.is_empty():
 		var a2: float = atan2(float(nearest.y) - py, float(nearest.x) - px)
-		err = absf(PGeom.ang_diff(ang, a2))
-		for e in alive:
-			if PGeom.in_beam(px, py, a2, RANGE, WIDTH, float(e.x), float(e.y), float(e.r)) and not st.los_blocked(px, py, float(e.x), float(e.y)):
-				alt_near += 1
-	# 반사실 ②: PSkills.auto_target(표식 > 정예 > 가장 가까운) 쪽으로 쐈다면
+		alt_near = count_hits(st, snap, px, py, a2)
+	# 반사실 ②: **지금 규칙**(유효한 가까운 적 = PSkills.gust_target과 같은 조건) 쪽으로 쐈다면.
+	# 수정 뒤에는 이 값이 실제 적중과 같아야 한다 — 도구가 규칙을 제대로 재고 있는지 스스로 확인하는 열이다.
 	var alt_auto := 0
-	var tg := PSkills.auto_target(st, RANGE)
-	if not tg.is_empty():
-		var a3: float = atan2(float(tg.y) - py, float(tg.x) - px)
-		for e in alive:
-			if PGeom.in_beam(px, py, a3, RANGE, WIDTH, float(e.x), float(e.y), float(e.r)) and not st.los_blocked(px, py, float(e.x), float(e.y)):
-				alt_auto += 1
+	if not valid.is_empty():
+		var a3: float = atan2(float(valid.y) - py, float(valid.x) - px)
+		err = absf(PGeom.ang_diff(ang, a3))
+		alt_auto = count_hits(st, snap, px, py, a3)
 	# 반사실 ③: 적이 가장 많이 걸리는 방향(상한 — 사람이 완벽히 조준했을 때)
 	var best := 0
 	for k in 72:
-		var a4: float = float(k) / 72.0 * TAU
-		var c := 0
-		for e in alive:
-			if PGeom.in_beam(px, py, a4, RANGE, WIDTH, float(e.x), float(e.y), float(e.r)) and not st.los_blocked(px, py, float(e.x), float(e.y)):
-				c += 1
-		best = maxi(best, c)
+		best = maxi(best, count_hits(st, snap, px, py, float(k) / 72.0 * TAU))
 	return { "hit": hit, "in_range": in_range, "alt_near": alt_near, "alt_auto": alt_auto, "best": best,
 		"err": err, "moving": bool(st.player.moving) }
 
@@ -134,11 +179,13 @@ func _init() -> void:
 	var md := []
 	md.append("# 조사: 돌풍(E) 조준 측정")
 	md.append("")
-	md.append("생성 `tools/probe_gust.gd` · 단계 %0.4f초 · 상한 %d초. **규칙·수치를 바꾸지 않았다.**" % [STEP, int(MAX_SEC)])
+	md.append("생성 `tools/probe_gust.gd` · 단계 %0.4f초 · 상한 %d초. **이 도구는 규칙·수치를 바꾸지 않는다(읽기만 한다).**" % [STEP, int(MAX_SEC)])
 	md.append("")
-	md.append("판정 기하는 `scripts/rules/skills.gd:163-167`과 같다(길이 170 · 폭 120 · 가림 검사).")
+	md.append("판정 기하는 규칙에서 직접 읽는다 — 길이 %.0f · 폭 %.0f(`PSkills.GUST_LEN`·`GUST_W`) · 가림 검사(`los_blocked`)." % [RANGE, WIDTH])
 	md.append("")
-	md.append("| 편성 | 봇 | 돌풍 | 발사 | 유효 적중(발당) | 0적중 | **사거리 안에 적이 있었는데 0적중** | 조준 오차(도, 중앙) | 가장 가까운 적 쪽이었다면 | auto_target 쪽이었다면 | 최선의 방향이었다면 | 발사 중 이동 중 |")
+	md.append("아래 표는 **지금 규칙**(2026-09-09 자동 조준)으로 잰 값이다. 수정 전 기준선과의 비교는 맨 아래 절에 있다.")
+	md.append("")
+	md.append("| 편성 | 봇 | 돌풍 | 발사 | 유효 적중(발당) | 0적중 | **사거리 안에 적이 있었는데 0적중** | 조준 오차(도, 중앙) | 단순 최근접 쪽이었다면 | 유효한 가까운 적 쪽이었다면 | 최선의 방향이었다면 | 발사 중 이동 중 |")
 	md.append("|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
 
 	var scenes := [
@@ -208,7 +255,7 @@ func _init() -> void:
 	md.append("")
 	md.append("`still`은 **제자리 정책**이라 이동 방향이 p.face를 덮지 않는다. 나머지 셋은 거의 늘 움직인다.")
 	md.append("")
-	md.append("| 봇 | 발사 | 발당 유효 적중 | 0적중 | 사거리 안에 적이 있었는데 0적중 | 가장 가까운 적 쪽이었다면 | auto_target 쪽이었다면 | 최선의 방향이었다면 |")
+	md.append("| 봇 | 발사 | 발당 유효 적중 | 0적중 | 사거리 안에 적이 있었는데 0적중 | 단순 최근접 쪽이었다면 | 유효한 가까운 적 쪽이었다면 | 최선의 방향이었다면 |")
 	md.append("|---|---:|---:|---:|---:|---:|---:|---:|")
 	var tot := { "n": 0, "hit": 0.0, "zero": 0, "zwe": 0, "alt": 0.0, "auto": 0.0, "best": 0.0 }
 	for pol in roll:
@@ -226,7 +273,53 @@ func _init() -> void:
 		int(tot.zwe), 100.0 * float(tot.zwe) / maxf(1.0, float(tot.n)),
 		float(tot.alt) / maxf(1.0, float(tot.n)), float(tot.auto) / maxf(1.0, float(tot.n)), float(tot.best) / maxf(1.0, float(tot.n))])
 	md.append("")
-	md.append("총 발사 %d회. '조준 오차'는 발사 각과 **가장 가까운 적 방향** 사이의 각도 차이다(0도면 정면으로 겨눈 것)." % total_fires)
+	md.append("총 발사 %d회. '조준 오차'는 발사 각과 **유효한 가까운 적 방향** 사이의 각도 차이다(0도면 정면으로 겨눈 것)." % total_fires)
+	md.append("")
+	md.append("'유효한 가까운 적 쪽이었다면' 열은 **지금 규칙이 고르는 대상**(사거리 안 + 가림 없음 + 구조물·공중 제외)이다.")
+	md.append("자동 조준을 넣은 뒤에는 이 열이 실제 적중과 같아야 한다 — 도구가 규칙을 제대로 재고 있는지 스스로 확인하는 자리다.")
+	md.append("")
+	md.append("")
+	md.append("## 수정 전(커밋 7150134, `ang = p.face`) 대비")
+	md.append("")
+	md.append("같은 도구·같은 조건(편성 3 × 돌풍 2 × 봇 4 × 시드 3 · 단계 %0.4f초 · 상한 %d초)이다." % [STEP, int(MAX_SEC)])
+	md.append("수정 전 값은 **옛 조준 한 줄만 되돌려 같은 편성·봇·시드로 한 번 돌린 것**이다(발사 267회가 그대로 나와 재현을 확인했다).")
+	md.append("")
+	md.append("**처음 공개했던 수정 전 수치(발당 0.21 · 0적중 86%)는 측정 결함이었다.** 단계가 끝난 뒤의 적 자리로 다시 계산했는데,")
+	md.append("그 자리는 돌풍이 방금 140~200px 밀어낸 뒤라 **정작 맞힌 적이 사거리 밖으로 나가 '안 맞은 것'으로** 세어졌다.")
+	md.append("같은 실행을 사용 순간의 자리로 읽으면 **1.22 · 33%**다. 아래 표는 전후 모두 고친 읽기로 잰 값이다.")
+	md.append("")
+	md.append("주의 — 조준이 바뀌면 적이 다르게 죽고 전투가 갈라지므로 **발사 횟수 자체는 같지 않다.**")
+	md.append("견줄 수 있는 것은 **발당 비율**이다.")
+	md.append("")
+	md.append("| 봇 | 발사(전 → 후) | 발당 유효 적중(전 → 후) | 배수 | 0적중(전 → 후) | 사거리 안에 적이 있었는데 0적중(전 → 후) |")
+	md.append("|---|---|---|---:|---|---|")
+	var order := _pol_ids()
+	order.append("__total__")
+	for pol in order:
+		var B: Dictionary = BEFORE[String(pol)]
+		var A: Dictionary = tot if String(pol) == "__total__" else (roll[String(pol)] as Dictionary)
+		var an := maxf(1.0, float(A.n))
+		var a_hit := float(A.hit) / an
+		var b_hit := float(B.hit)
+		md.append("| %s | %d → %d | %.2f → **%.2f** | **×%.1f** | %d(%.0f%%) → %d(%.0f%%) | **%d(%.0f%%) → %d(%.0f%%)** |" % [
+			("**전체**" if String(pol) == "__total__" else String(pol)),
+			int(B.n), int(A.n), b_hit, a_hit, a_hit / maxf(0.01, b_hit),
+			int(B.zero), float(B.zero_p), int(A.zero), 100.0 * float(A.zero) / an,
+			int(B.zwe), float(B.zwe_p), int(A.zwe), 100.0 * float(A.zwe) / an])
+	md.append("")
+	md.append("")
+	md.append("### 예측과 실측")
+	md.append("")
+	md.append("수정 전 실행의 '유효한 가까운 적 쪽이었다면' 열은 **지금 규칙이 낼 값의 예측**이었다. 실제로 얼마가 나왔나:")
+	md.append("")
+	md.append("| 봇 | 수정 전 예측 | 수정 후 실측 |")
+	md.append("|---|---:|---:|")
+	for pol in order:
+		var A2: Dictionary = tot if String(pol) == "__total__" else (roll[String(pol)] as Dictionary)
+		md.append("| %s | %.2f | **%.2f** |" % [("**전체**" if String(pol) == "__total__" else String(pol)), float(BEFORE_PREDICT[String(pol)]), float(A2.hit) / maxf(1.0, float(A2.n))])
+	md.append("")
+	md.append("전투가 갈라지므로 정확히 같은 값이 나오지는 않는다. 크게 어긋나면 규칙이나 도구 중 하나가 잘못된 것이다.")
+	md.append("상한('최선의 방향이었다면')과의 차이는 **조준한 뒤에도 나머지 적이 부채꼴 밖에 흩어져 있는 몫**이다 — 자동 조준으로는 메울 수 없다.")
 	md.append("")
 	var fa := FileAccess.open("res://docs/sim/PROBE_GUST.md", FileAccess.WRITE)
 	fa.store_string("\n".join(md) + "\n")
