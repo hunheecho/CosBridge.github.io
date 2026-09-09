@@ -392,6 +392,11 @@
       "timeout_sec": 600,
       "desc": "보조무기 A조 4종(추격 까마귀·수호 방울·잔영 분신·바람 정령)과 개조 12개"
     },
+    "blades_ember_tests": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "회전 칼날(기본 3 · 개조 4 · 중복 가산 없음)과 불씨 정령(착탄 확정·느린 비행). 마지막 줄은 고정/이동/둔화 표적 적중률 측정(EMBER_HIT_MEASURE)"
+    },
     "support_scene_probe": {
       "env": {},
       "script": "tools/support_scene_probe.gd",
@@ -562,6 +567,7 @@
       "palette_tests",
       "hit_feel_tests",
       "support_a_tests",
+      "blades_ember_tests",
       "synergy_tests",
       "render_tests",
       "new_monster_tests",
@@ -588,6 +594,7 @@
       "meta_tests",
       "elites_tests",
       "support_a_tests",
+      "blades_ember_tests",
       "synergy_tests",
       "new_monster_tests",
       "squad_tests"

@@ -161,6 +161,71 @@ func dagger_cycle(st: CombatState, target: Dictionary) -> float:
 	fire_once(st, "daggers", target, 0.3)
 	return dmg_of(st, "daggers") - before
 
+# ---------- 회피 실측 도우미(§1) ----------
+## 그 주무기를 들고 회피 1회를 실제로 재생해 **재 본다**(설정을 그대로 베끼지 않는다).
+## 이동 시간 = dodge_active가 켜져 있던 시간, 무적 시간 = invuln_t가 남아 있던 시간,
+## 재사용 대기 = dodge_cd가 0이 될 때까지의 시간. 셋을 따로 센다.
+func dodge_probe(weapon_id: String, hold: bool = true) -> Dictionary:
+	var st := mk(weapon_id)
+	var press := { "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": hold }
+	var keep := { "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": hold }
+	var x0: float = st.player.x
+	var y0: float = st.player.y
+	st.step(press, STEP)
+	var move_n := 1 if st.player.dodge_active else 0
+	var inv_n := 1 if float(st.player.invuln_t) > 0.0 else 0
+	var cd_n := -1
+	var n := 1
+	while n < 2000:
+		st.step(keep, STEP)
+		n += 1
+		if st.player.dodge_active:
+			move_n = n
+		if float(st.player.invuln_t) > 0.0:
+			inv_n = n
+		if cd_n < 0 and float(st.player.dodge_cd) <= 0.0:
+			cd_n = n
+		if cd_n >= 0 and not st.player.dodge_active and float(st.player.invuln_t) <= 0.0:
+			break
+	return { "move": float(move_n) * STEP, "invuln": float(inv_n) * STEP, "cd": float(cd_n) * STEP,
+		"dist": PGeom.dist(x0, y0, st.player.x, st.player.y),
+		"set_cd": float(st.player.dodge_cd_time), "set_inv": float(st.player.dodge_invuln_time) }
+
+## 회피를 시작하고 wait초 뒤에 피해를 넣어 본다. 막혔으면 true
+func dodge_blocks_at(weapon_id: String, wait: float, hold: bool = false) -> Dictionary:
+	var st := mk(weapon_id)
+	st.step({ "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": hold }, STEP)
+	var n := int(round(wait / STEP)) - 1
+	for i in maxi(0, n):
+		st.step({ "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": hold }, STEP)
+	var moving: bool = bool(st.player.dodge_active)
+	var hp0: float = st.player.hp
+	st.damage_player(10.0, "test")
+	return { "blocked": is_equal_approx(float(st.player.hp), hp0), "moving": moving }
+
+# ---------- 전투 1회(§3 '개조 없는 Lv1 활로 전투가 성립하는가') ----------
+## 기준 전투(D33)의 지형·편성·시드를 그대로 두고 **주무기만 바꿔** 봇에게 맡긴다.
+## 두 무기를 같은 잣대로 비교하기 위한 것이며, 승률을 못 박는 시험이 아니라 측정이다.
+func fight_with(weapon_id: String, level: int, mods: Array, seed_v: int) -> Dictionary:
+	var G := preload("res://scripts/game/game.gd")
+	var st := CombatState.first_fight(G.load_config(), seed_v)
+	var g := PGrowth.new_growth(weapon_id)
+	g.weapons = [{ "id": weapon_id, "level": level, "mods": mods.duplicate() }]
+	st.build = PBuild.derive(PBuild.empty_run_like(g))
+	PWeapons.refresh(st)
+	st.resolve_dodge()
+	var bot := PBot.new("balanced")
+	var n := 0
+	while String(st.status) == "running" and n < 120 * 200:
+		st.step(bot.step_input(st), STEP)
+		n += 1
+	return { "status": String(st.status), "sec": float(n) * STEP, "kills": int(st.stats.kills),
+		"hp": float(st.player.hp), "taken": float(st.stats.damage_taken) }
+
+## 레벨만 다른 파생 수치
+func stats_lv(weapon_id: String, level: int, mods: Array = []) -> Dictionary:
+	return mk(weapon_id, mods, level).build.weapons[0]
+
 # ---------- 설명 문구 대조 도우미 ----------
 ## 자료의 수를 설명에 적히는 모양으로 만든다. 소수점 뒤의 0은 뗀다("0.70초"가 아니라 "0.7초")
 func numtext(v: float) -> String:
@@ -754,6 +819,320 @@ func _init() -> void:
 	var sw_cres: Dictionary = PWeapons.mod_tune(sw, "crescent", {})
 	ok("날아가는 검광 설명의 계수 %s%%가 modTuning 값과 같다" % numtext(float(sw_cres.dmgMult) * 100.0),
 		says(mod_desc("sword", "crescent"), "피해 " + numtext(float(sw_cres.dmgMult) * 100.0) + "%"))
+
+	# ==================================================================
+	# 10. 주무기별 Space 회피(§1) — 재사용 대기·무적을 **실측**한다
+	# ==================================================================
+	# 이동(거리 70~150 · 최대 0.26초)은 다섯 무기가 같고, 재사용 대기와 무적만 무기마다 다르다.
+	# 무적은 회피 **시작 순간**부터 재므로 이동이 먼저 끝나도 잘리지 않는다.
+	var dodge_want := { "daggers": [0.9, 0.36], "sword": [1.1, 0.32], "spear": [1.3, 0.28], "hammer": [1.6, 0.32], "bow": [2.2, 0.26] }
+	var dodge_rows := []
+	var dodge_ok := true
+	var split_ok := true
+	var always_ok := true
+	for wid in ["daggers", "sword", "spear", "hammer", "bow"]:
+		var want: Array = dodge_want[wid]
+		var pr := dodge_probe(String(wid))
+		dodge_rows.append("%s cd %.3f/%.2f 무적 %.3f/%.2f 이동 %.3f 거리 %.1f" % [wid, pr.cd, float(want[0]), pr.invuln, float(want[1]), pr.move, pr.dist])
+		if absf(float(pr.cd) - float(want[0])) > STEP + 1e-9 or absf(float(pr.invuln) - float(want[1])) > STEP + 1e-9:
+			dodge_ok = false
+		if absf(float(pr.set_cd) - float(want[0])) > 1e-9 or absf(float(pr.set_inv) - float(want[1])) > 1e-9:
+			dodge_ok = false
+		if absf(float(pr.dist) - 150.0) > 0.05 or float(pr.move) > 0.26 + STEP:
+			split_ok = false
+		if float(pr.invuln) >= float(pr.cd):
+			always_ok = false
+	ok("§1 주무기 5종의 재사용 대기·무적이 표(쌍검 0.9/0.36 · 검 1.1/0.32 · 창 1.3/0.28 · 망치 1.6/0.32 · 활 2.2/0.26)와 같다",
+		dodge_ok, " · ".join(dodge_rows))
+	ok("§1 이동은 다섯 무기가 같다(거리 150 · 이동 시간 <= 0.26초) — 무적을 늘려도 조작이 묶이는 시간은 그대로",
+		split_ok, " · ".join(dodge_rows))
+	ok("§1 무적 시간 < 재사용 대기 — 상시 무적이 되지 않는다(가장 빠듯한 쌍검도 0.36 < 0.9)", always_ok)
+
+	# 이동과 무적의 분리: 짧은 탭은 이동이 0.13초에 끝나지만 무적은 무기 값까지 남는다
+	var split_rows := []
+	var split2_ok := true
+	for wid2 in ["daggers", "sword", "spear", "hammer", "bow"]:
+		var inv_w: float = float((dodge_want[String(wid2)] as Array)[1])
+		var tap := dodge_probe(String(wid2), false)   # 짧은 탭(누르자마자 뗀다 → 70만 이동)
+		var mid := dodge_blocks_at(String(wid2), float(tap.move) + 0.03, false)  # 이동이 끝난 뒤
+		var after := dodge_blocks_at(String(wid2), inv_w + 0.03, false)          # 무적이 끝난 뒤
+		split_rows.append("%s 탭이동 %.3f초/%.0f · 무적 %.2f초" % [wid2, tap.move, tap.dist, inv_w])
+		if not (bool(mid.blocked) and not bool(mid.moving) and not bool(after.blocked) and absf(float(tap.dist) - 70.0) < 0.05):
+			split2_ok = false
+	ok("§1 '이동 중에만 무적'이 새 값을 자르지 않는다: 짧은 탭으로 이동이 끝난 뒤에도 피해가 막히고, 무기 무적 시간이 지나면 들어온다",
+		split2_ok, " · ".join(split_rows))
+
+	# 성장·장비를 다 얹어도 무적이 겹치거나 상시가 되지 않는다
+	var st_gr := mk("sword")
+	ok("§1 회피 재사용 배율은 성장·장비가 건드리지 않는다(dodge_cd_mult = 1.0) — 무적 비율이 조용히 커지지 않는다",
+		is_equal_approx(float(st_gr.build.dodge_cd_mult), 1.0), "%.3f" % float(st_gr.build.dodge_cd_mult))
+	var st_dup := mk("sword")
+	st_dup.step({ "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": false }, STEP)
+	var inv_after_first: float = float(st_dup.player.invuln_t)
+	for i in 10:
+		st_dup.step({ "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": false }, STEP) # 대기 중 연타
+	ok("§1 무적 중복 없음: 재사용 대기 중에 계속 눌러도 무적이 늘어나지 않는다(회피 1회)",
+		int(st_dup.stats.dodges) == 1 and float(st_dup.player.invuln_t) <= inv_after_first - 10.0 * STEP + 1e-9,
+		"회피 %d회 · 남은 무적 %.3f초" % [int(st_dup.stats.dodges), float(st_dup.player.invuln_t)])
+
+	# ==================================================================
+	# 11. 전투망치(§2) — 반경 80 · 준비 중 회피로 취소 · 환급 없음
+	# ==================================================================
+	ok("§2 망치 착탄 반경이 80이다(사거리 %.0f · 피해 %.0f · 주기 %.2f초 · 준비 %.2f초는 그대로)" % [
+			float(hm.range), float(hm.damage), float(hm.interval), float(hm.windup)],
+		is_equal_approx(float(hm.radius), 80.0) and is_equal_approx(float(hm.range), 110.0)
+			and is_equal_approx(float(hm.damage), 30.0) and is_equal_approx(float(hm.interval), 1.4)
+			and is_equal_approx(float(hm.windup), 0.45), "반지름 %.1f" % float(hm.radius))
+	# 표시 = 판정: 예고 원의 반지름과 실제로 맞는 경계가 같다
+	var st_edge := mk_manual("hammer")
+	var ep2 := at(st_edge, float(hm.range), 0.0)
+	var e_mid := dummy(st_edge, ep2[0], ep2[1])
+	var e_in := dummy(st_edge, float(ep2[0]) + float(hm.radius) + ENEMY_R - 2.0, ep2[1])
+	var e_out := dummy(st_edge, float(ep2[0]) + float(hm.radius) + ENEMY_R + 2.0, ep2[1])
+	var warn2 := {}
+	PWeapons.fire(st_edge, wep(st_edge, "hammer"), e_mid, false)
+	for f in st_edge.effects:
+		if String(f.kind) == "strikewarn":
+			warn2 = f
+	advance_delayed(st_edge, float(hm.windup) + 0.05)
+	ok("§2 표시 = 판정: 예고 원 반지름 %.0f 안(경계 -2)은 맞고 밖(경계 +2)은 안 맞는다" % float(warn2.get("r", -1.0)),
+		is_equal_approx(float(warn2.get("r", -1.0)), float(hm.radius))
+			and float(e_in.hp) < float(e_in.hp_max) and is_equal_approx(float(e_out.hp), float(e_out.hp_max)))
+
+	# 취소 3경우: ① 준비 중 ② 착탄 직전 ③ 착탄 뒤
+	var cancel_rows := []
+	var cancel_ok := true
+	for case_i in [0, 1, 2]:
+		var st_x := mk_manual("hammer", ["aftershock", "shockwave"])
+		var xp := at(st_x, float(hm.range), 0.0)
+		var x_t := dummy(st_x, xp[0], xp[1])
+		PWeapons.fire(st_x, wep(st_x, "hammer"), x_t, false)
+		var wait_sec: float = 0.2 if case_i == 0 else (float(hm.windup) - 2.0 * STEP if case_i == 1 else float(hm.windup) + 3.0 * STEP)
+		for i in int(round(wait_sec / STEP)):
+			st_x.step({}, STEP)
+		var dmg_before := dmg_of(st_x, "hammer")
+		st_x.step({ "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": false }, STEP) # Space
+		for i in 180: # 여진(0.6초)까지 충분히 지나가게
+			st_x.step({}, STEP)
+		var dmg_after := dmg_of(st_x, "hammer")
+		var canceled := int(st_x.metrics.cause_fires.get("hammer_cancel", 0))
+		cancel_rows.append("%s: 취소 %d회 · 회피 직전 %.1f · 최종 %.1f" % [
+			["준비 중(0.2초)", "착탄 직전(준비-2단계)", "착탄 뒤(준비+3단계)"][case_i], canceled, dmg_before, dmg_after])
+		if case_i <= 1:
+			# 준비 중·착탄 직전 취소: 본타도 개조 후속(충격파·여진)도 하나도 나지 않는다
+			if not (canceled == 1 and is_zero_approx(dmg_after) and is_equal_approx(float(x_t.hp), float(x_t.hp_max))):
+				cancel_ok = false
+		else:
+			# 착탄 뒤 회피: 취소할 것이 없고, 이미 난 피해와 여진은 그대로다
+			if not (canceled == 0 and dmg_before > 0.0 and dmg_after > dmg_before):
+				cancel_ok = false
+	ok("§2 취소 3경우: 준비 중·착탄 직전은 본타와 개조 후속까지 전부 취소, 착탄 뒤 회피는 취소가 아니다", cancel_ok, " | ".join(cancel_rows))
+
+	# 취소해도 공격 대기시간은 환급되지 않는다: 취소한 판과 안 한 판의 w.timer가 매 단계 같다
+	var st_n := mk("hammer")
+	var st_cx := mk("hammer")
+	var np := at(st_n, 80.0, 0.0)
+	var n_t := dummy(st_n, np[0], np[1])
+	var c_t := dummy(st_cx, np[0], np[1])
+	var timer_same := true
+	var pressed := false
+	var cancel_seen := 0
+	for i in 480: # 4초 = 주기 1.4초로 두 번 넘게 쏜다
+		var input_c := {}
+		if not pressed and not (wep(st_cx, "hammer").windup as Array).is_empty():
+			input_c = { "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": false }
+			pressed = true
+		st_n.step({}, STEP)
+		st_cx.step(input_c, STEP)
+		n_t.x = np[0]; n_t.y = np[1]; c_t.x = np[0]; c_t.y = np[1]
+		if absf(float(wep(st_n, "hammer").timer) - float(wep(st_cx, "hammer").timer)) > 1e-9:
+			timer_same = false
+		cancel_seen = int(st_cx.metrics.cause_fires.get("hammer_cancel", 0))
+	ok("§2 취소는 환급이 아니다: 취소한 판의 공격 대기시간이 취소하지 않은 판과 매 단계 똑같다(다음 공격이 빨라지지 않는다)",
+		timer_same and cancel_seen == 1 and int(wep(st_n, "hammer").count) == int(wep(st_cx, "hammer").count),
+		"취소 %d회 · 발사 수 %d = %d · 피해 %.1f 대 %.1f" % [cancel_seen, int(wep(st_n, "hammer").count), int(wep(st_cx, "hammer").count), dmg_of(st_n, "hammer"), dmg_of(st_cx, "hammer")])
+
+	# ==================================================================
+	# 12. 추적궁(§3·§4) — 레벨별 발당 피해 · 갈래 사격의 역할
+	# ==================================================================
+	var bow_want := [15.0, 18.0, 22.0, 27.5, 33.0]
+	var bow_rows := []
+	var bow_ok := true
+	for lv in [1, 2, 3, 4, 5]:
+		var dmg_lv: float = float(stats_lv("bow", int(lv)).damage)
+		bow_rows.append("Lv%d %.2f" % [lv, dmg_lv])
+		if absf(dmg_lv - float(bow_want[int(lv) - 1])) > 1e-6:
+			bow_ok = false
+	ok("§3 추적궁 레벨별 발당 피해가 15 · 18 · 22 · 27.5 · 33이다(강화·장비·공용 적용 전)", bow_ok, " · ".join(bow_rows))
+	# 다른 무기의 공용 레벨 배율은 건드리지 않았다
+	var lm: Array = PCatalog.growth().LEVEL_MULT
+	var others_ok := true
+	var other_rows := []
+	for wid3 in ["sword", "spear", "daggers", "hammer"]:
+		var b0: float = float(PCatalog.weapon(String(wid3)).base.damage)
+		for lv2 in [1, 2, 3, 4, 5]:
+			var got: float = float(stats_lv(String(wid3), int(lv2)).damage)
+			if absf(got - b0 * float(lm[int(lv2) - 1])) > 1e-6:
+				others_ok = false
+		other_rows.append("%s %.0f" % [wid3, b0])
+	ok("§3 다른 무기의 공용 레벨 배율은 그대로다(검·창·쌍검·망치 모두 기본 피해 × LEVEL_MULT %s)" % str(lm), others_ok, " · ".join(other_rows))
+	ok("§3 활의 공격 주기·근접 약화는 그대로다(주기 %.2f초 · %.0f 안쪽 ×%.2f)" % [float(bw.interval), float(bw.closeFrom), float(bw.closeMult)],
+		is_equal_approx(float(bw.interval), 0.8) and is_equal_approx(float(bw.closeFrom), 130.0) and is_equal_approx(float(bw.closeMult), 0.45))
+
+	# 갈래 사격: 양옆은 추적하지 않는다(대상 없음·회두름 0)
+	var st_sp := mk_manual("bow", ["spread"])
+	var sp_p := at(st_sp, 200.0, 0.0)
+	var sp_t := dummy(st_sp, sp_p[0], sp_p[1])
+	PWeapons.fire(st_sp, wep(st_sp, "bow"), sp_t, false)
+	var arrows: Array = st_sp.projectiles.duplicate()
+	var sides := []
+	var center := {}
+	for pr in arrows:
+		if String(pr.get("mod", "")) == "spread":
+			sides.append(pr)
+		else:
+			center = pr
+	ok("§4 갈래 사격은 화살 3발(가운데 1 + 양옆 2)이다", arrows.size() == 3 and sides.size() == 2 and not center.is_empty(),
+		"화살 %d발 · 옆 %d발" % [arrows.size(), sides.size()])
+	var side_a0 := []
+	for pr2 in sides:
+		side_a0.append(atan2(float(pr2.vy), float(pr2.vx)))
+	var center_a0: float = atan2(float(center.vy), float(center.vx))
+	sp_t.y = float(sp_p[1]) - 220.0 # 표적이 옆으로 크게 이동
+	for i in 12:
+		st_sp.step({}, STEP)
+	var side_turned := 0.0
+	for i in sides.size():
+		side_turned = maxf(side_turned, absf(PGeom.ang_diff(float(side_a0[i]), atan2(float((sides[i] as Dictionary).vy), float((sides[i] as Dictionary).vx)))))
+	var center_turned: float = absf(PGeom.ang_diff(center_a0, atan2(float(center.vy), float(center.vx))))
+	ok("§4 양옆 화살은 표적을 따라가지 않는다(표적이 220 옆으로 가도 진행 방향 그대로) — 가운데만 휜다",
+		side_turned < 1e-6 and center_turned > 0.05 and center.get("target") != null and (sides[0] as Dictionary).get("target") == null,
+		"옆 %.6f rad · 가운데 %.4f rad" % [side_turned, center_turned])
+	ok("§4 양옆 화살은 회두름(turn)이 0이고 발당 피해가 60%%이다(가운데는 turn %.0f · 100%%)" % float(bw.turn),
+		is_zero_approx(float((sides[0] as Dictionary).turn)) and absf(float((sides[0] as Dictionary).dmg_mult) - 0.6) < 1e-9
+			and is_equal_approx(float(center.turn), float(bw.turn)) and is_equal_approx(float(center.dmg_mult), 1.0))
+
+	# 단일 대상: 멀리 있는 작은 적 하나에는 가운데 화살만 맞는다
+	var st_one := mk_manual("bow", ["spread"])
+	var one_p := at(st_one, 200.0, 0.0)
+	var one_t := dummy(st_one, one_p[0], one_p[1])
+	PWeapons.fire(st_one, wep(st_one, "bow"), one_t, false)
+	steps_pinned(st_one, 1.2, [[one_t, one_p[0], one_p[1]]])
+	var one_dmg := dmg_of(st_one, "bow")
+	var st_plain := mk_manual("bow")
+	var pl_t := dummy(st_plain, one_p[0], one_p[1])
+	PWeapons.fire(st_plain, wep(st_plain, "bow"), pl_t, false)
+	steps_pinned(st_plain, 1.2, [[pl_t, one_p[0], one_p[1]]])
+	var plain_dmg := dmg_of(st_plain, "bow")
+	ok("§4 단일 대상(거리 200, 늑대 1기): 갈래 사격이어도 가운데 1발만 맞아 피해가 개조 없을 때와 같다",
+		absf(one_dmg - plain_dmg) < 0.01 and one_dmg > 0.0, "갈래 %.1f · 기본 %.1f" % [one_dmg, plain_dmg])
+
+	# 다수: ±0.35rad 위에 놓인 적 3기를 한 번에 맞힌다(폭 = 이 개조의 값어치)
+	var st_many := mk_manual("bow", ["spread"])
+	var many := []
+	for dv in [-0.35, 0.0, 0.35]:
+		var mx2: float = st_many.player.x + cos(float(dv)) * 200.0
+		var my2: float = st_many.player.y + sin(float(dv)) * 200.0
+		many.append(dummy(st_many, mx2, my2))
+	PWeapons.fire(st_many, wep(st_many, "bow"), many[1], false)
+	var pins := []
+	for e in many:
+		pins.append([e, float((e as Dictionary).x), float((e as Dictionary).y)])
+	steps_pinned(st_many, 1.2, pins)
+	var many_hit := 0
+	var many_rows := []
+	for e2 in many:
+		var ee: Dictionary = e2
+		if float(ee.hp) < float(ee.hp_max):
+			many_hit += 1
+		many_rows.append("%.1f" % (float(ee.hp_max) - float(ee.hp)))
+	ok("§4 다수(±0.35rad에 늑대 3기): 세 발이 각각 다른 적을 맞힌다 — 폭과 다수 처리가 이 개조의 역할이다",
+		many_hit == 3, "적별 피해 %s (가운데 100%% · 양옆 60%%)" % " / ".join(many_rows))
+
+	# 큰 적·근접: 세 발이 다 맞을 수 있다 — 단일 대상 피해가 반드시 100%는 아니다.
+	# 정예 늑대 우두머리(반지름 22)를 거리 75에 둔다. 옆 화살의 옆거리는 75×sin(0.35)=25.7로 22+5 안이라 셋 다 닿는다.
+	# 근접 약화(130 안쪽 ×0.45)는 세 발에 똑같이 걸리므로 비율에는 영향이 없다.
+	var big_dmgs := []
+	for mods_b in [["spread"], []]:
+		var st_big := mk_manual("bow", mods_b)
+		var big_p := at(st_big, 75.0, 0.0)
+		var big := dummy(st_big, big_p[0], big_p[1], 999999.0, "wolf_alpha")
+		PWeapons.fire(st_big, wep(st_big, "bow"), big, false)
+		steps_pinned(st_big, 1.0, [[big, big_p[0], big_p[1]]])
+		big_dmgs.append(dmg_of(st_big, "bow"))
+	var big_ratio: float = float(big_dmgs[0]) / maxf(0.01, float(big_dmgs[1]))
+	ok("§4 큰 적·근접(정예 반지름 22, 거리 75)에서는 세 발이 다 맞아 한 번의 피해가 %.0f%%가 된다 — 단일 대상 100%%가 아니다" % (big_ratio * 100.0),
+		absf(big_ratio - 2.2) < 0.02, "갈래 %.2f · 기본 %.2f (%.2f배 = 100%%+60%%+60%%)" % [float(big_dmgs[0]), float(big_dmgs[1]), big_ratio])
+
+	# 관통과 함께: 옆 화살의 궤적 위에 일렬로 세운 3기를 뚫는다(같은 적을 두 번 세지 않는다).
+	# 겨눈 방향은 0rad이므로 옆 화살은 +0.35rad 직선을 간다 — 그 선 위에 세운다
+	var st_pi := mk_manual("bow", ["spread", "pierce"])
+	var aim_far := dummy(st_pi, st_pi.player.x + 400.0, st_pi.player.y) # 겨눔 전용(가운데 화살의 방향을 0으로)
+	var pi_line := []
+	for k in 3:
+		var dd: float = 160.0 + 60.0 * float(k)
+		pi_line.append(dummy(st_pi, st_pi.player.x + cos(0.35) * dd, st_pi.player.y + sin(0.35) * dd))
+	PWeapons.fire(st_pi, wep(st_pi, "bow"), aim_far, false)
+	var pins2 := []
+	pins2.append([aim_far, float(aim_far.x), float(aim_far.y)])
+	for e3 in pi_line:
+		pins2.append([e3, float((e3 as Dictionary).x), float((e3 as Dictionary).y)])
+	steps_pinned(st_pi, 1.5, pins2)
+	var pi_hit := 0
+	var pi_dmg := 0.0
+	for e4 in pi_line:
+		var ee2: Dictionary = e4
+		if float(ee2.hp) < float(ee2.hp_max):
+			pi_hit += 1
+		pi_dmg += float(ee2.hp_max) - float(ee2.hp)
+	ok("§4 관통 화살과 함께: 옆 화살 1발이 제 궤적의 3기를 뚫고, 발당 피해는 60%%(%.1f = 3 × %.1f)로 유지된다" % [pi_dmg, float(bw.damage) * 0.6],
+		pi_hit == 3 and absf(pi_dmg - 3.0 * float(bw.damage) * 0.6) < 0.05,
+		"맞은 적 %d기 · 합계 %.2f" % [pi_hit, pi_dmg])
+
+	# 도탄과 함께: 옆 화살도 한 번 튕기고, 튕긴 뒤 피해는 60%% × 70%%다
+	var st_ri := mk_manual("bow", ["spread", "ricochet"])
+	var ri_aim := dummy(st_ri, st_ri.player.x + 400.0, st_ri.player.y) # 겨눔 전용(가운데 방향 0rad)
+	var ri_d := 200.0
+	var ri_first := dummy(st_ri, st_ri.player.x + cos(0.35) * ri_d, st_ri.player.y + sin(0.35) * ri_d)
+	var ri_second := dummy(st_ri, float(ri_first.x) + 60.0, float(ri_first.y) + 40.0)
+	PWeapons.fire(st_ri, wep(st_ri, "bow"), ri_aim, false)
+	steps_pinned(st_ri, 1.5, [[ri_aim, float(ri_aim.x), float(ri_aim.y)], [ri_first, float(ri_first.x), float(ri_first.y)], [ri_second, float(ri_second.x), float(ri_second.y)]])
+	var ri_d1: float = float(ri_first.hp_max) - float(ri_first.hp)
+	var ri_d2: float = float(ri_second.hp_max) - float(ri_second.hp)
+	ok("§4 도탄과 함께: 옆 화살이 첫 적(60%)을 맞히고 한 번 튕겨 다음 적(60% × 70%)을 맞힌다 — 같은 적을 다시 세지 않는다",
+		absf(ri_d1 - float(bw.damage) * 0.6) < 0.05 and absf(ri_d2 - float(bw.damage) * 0.6 * 0.7) < 0.05,
+		"첫 %.2f(기대 %.2f) · 튕김 %.2f(기대 %.2f)" % [ri_d1, float(bw.damage) * 0.6, ri_d2, float(bw.damage) * 0.6 * 0.7])
+
+	# 개조 없는 Lv1 활로 전투가 성립하는 최소 조건: 원거리에서 늑대를 몇 발에 잡는가.
+	# 늑대 체력은 전장에 따라 다르므로(기준 전투 30 · 일반 전장 48) 실제로 만난 체력에서 발수를 센다
+	var st_kill := mk("bow")
+	var kp2 := at(st_kill, 250.0, 0.0)
+	var kill_e := st_kill.spawn_enemy("wolf", kp2[0], kp2[1])
+	kill_e.bite_cd = 1.0e9
+	kill_e.dash_ready_at = 1.0e9
+	var wolf_hp: float = float(kill_e.hp_max)
+	var shots_new: int = int(ceil(wolf_hp / float(bw.damage)))
+	var shots_old: int = int(ceil(wolf_hp / 11.0))
+	var kn := 0
+	while not bool(kill_e.dead) and kn < 1200:
+		st_kill.step({}, STEP)
+		kill_e.x = kp2[0]
+		kill_e.y = kp2[1]
+		kn += 1
+	ok("§3 개조 없는 Lv1 활이 원거리(250) 늑대(체력 %.0f)를 %d발 · %.2f초에 잡는다 — 예전 11이면 %d발(한 발 더, 약 %.1f초 느리다)" % [
+			wolf_hp, shots_new, float(kn) * STEP, shots_old, float(shots_old - shots_new) * float(bw.interval)],
+		bool(kill_e.dead) and int(st_kill.stats.hits) == shots_new and shots_new < shots_old,
+		"적중 %d회(기대 %d) · %.2f초 · 발당 %.1f" % [int(st_kill.stats.hits), shots_new, float(kn) * STEP, float(bw.damage)])
+
+	# ---------- 측정(통과 판정 아님): 기준 전투(D33 지형·편성)를 봇에게 맡겼을 때 ----------
+	# 이 전장은 늑대 25기가 달라붙는 근접형이고 봇 'balanced'는 거리를 벌리지 않는다.
+	# 활과 창은 여기서 진다 — **창은 이번에 손대지 않은 무기**이므로 이 결과는 무기 수치가 아니라
+	# 전장·봇 성향의 몫이 크다. 사람이 실제로 조작해 판단할 몫이라 단언하지 않고 숫자만 남긴다.
+	var fight_rows := []
+	for wid4 in ["sword", "bow", "daggers", "spear", "hammer"]:
+		var fr := fight_with(String(wid4), 1, [], 7)
+		fight_rows.append("%s %s %.1f초 처치%d 체력%.0f" % [wid4, fr.status, fr.sec, int(fr.kills), fr.hp])
+	print("BOW_FIGHT_MEASURE 기준 전투(시드 7 · Lv1 · 개조 없음 · 봇 balanced): " + " | ".join(fight_rows))
 
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])

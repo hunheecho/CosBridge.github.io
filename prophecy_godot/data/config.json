@@ -35,6 +35,7 @@
     "min_distance": 70,
     "distance": 150,
     "duration": 0.26,
+    "invuln": 0.26,
     "cooldown": 1.5,
     "modes": [
      "fixed",
@@ -46,7 +47,16 @@
      1.5,
      1.8
     ],
-    "note": "mode hold=누르는 시간에 따라 70~150(기본), fixed=항상 150(기존 HTML). 속도 150/0.26 일정, 무적은 회피 이동 중에만(최대 duration). cooldown은 시작 순간부터. 0.9는 과거 비교용, 1.2·1.8은 후보. 시험값(2026-09-07), 최종 아님"
+    "byWeapon": {
+     "daggers": { "cooldown": 0.9, "invuln": 0.36 },
+     "sword": { "cooldown": 1.1, "invuln": 0.32 },
+     "spear": { "cooldown": 1.3, "invuln": 0.28 },
+     "hammer": { "cooldown": 1.6, "invuln": 0.32 },
+     "bow": { "cooldown": 2.2, "invuln": 0.26 }
+    },
+    "note": "mode hold=누르는 시간에 따라 70~150(기본), fixed=항상 150(기존 HTML). 이동 속도 150/0.26 일정. cooldown은 회피 **시작 순간**부터. 시험값, 최종 아님",
+    "invulnNote": "**이동(duration)과 무적(invuln)은 따로 센다**(2026-09-09 시험값). duration은 이동이 최대 몇 초까지 이어지는가이고, invuln은 회피 **시작 순간**부터 몇 초 동안 피해를 받지 않는가다. 이동이 먼저 끝나도(짧은 탭은 70을 0.12초에 간다) 무적은 invuln까지 그대로 남는다 — 예전처럼 '이동 중에만 무적'이면 주무기별 무적 값이 이동 시간에 잘려 나간다.",
+    "byWeaponNote": "**주무기별 회피(시험값, 최종 아님).** 든 주무기에 따라 재사용 대기와 무적 시간이 달라진다. 여기 항목이 있는 주무기는 이 값이 정본이고, 비교 설정(cooldown_options·PROPHECY_DODGE_CD·config_with_dodge)이 **덮지 않는다** — 그 설정은 표에 없는 주무기(또는 주무기가 없는 상태)에만 위 cooldown으로 적용된다. 이동거리(70~150)·이동시간(duration)은 다섯 무기가 모두 같다."
    },
    "special": {
     "radius": 150,

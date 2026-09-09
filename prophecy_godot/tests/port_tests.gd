@@ -129,7 +129,12 @@ func _init() -> void:
 	ok("회전 칼날: 궤도 안쪽(40)에 붙은 적을 살 판정으로 치고 2초 동안 ≤ 6회(주기 0.35)", blade_hits >= 3 and blade_hits <= 6, "hits %d" % blade_hits)
 	st = mk({ "weapons": [{ "id": "blades", "mods": ["dual"] }] })
 	steps(st, 0.1)
-	ok("세 번째 칼날 개조 = 같은 궤도에 칼날 +1", (st.weapons[0].blade_pos as Array).size() == 3)
+	# 2026-09-10: 기본 칼날이 2 → 3이 되어 이 개조는 3 → 4가 된다(§5, data/supports.json weapons.blades).
+	# 기대값을 베끼지 않고 자료의 기본 개수 + 1로 잰다 — 자료가 또 바뀌어도 이 시험이 거짓말하지 않게
+	var blades_base: int = int(PCatalog.weapon("blades").base.count)
+	ok("칼날 추가 개조 = 같은 궤도에 칼날 +1(기본 %d → %d)" % [blades_base, blades_base + 1],
+		(st.weapons[0].blade_pos as Array).size() == blades_base + 1,
+		"칼날 %d개" % (st.weapons[0].blade_pos as Array).size())
 	# 메아리(HTML 53·66): 4번째 공격 0.2초 뒤 반복, 메아리는 메아리를 만들지 않음
 	st = mk({ "weapons": [{ "id": "sword" }], "commons": { "echo": 1 } })
 	dummy(st, st.player.x + 50.0, st.player.y)

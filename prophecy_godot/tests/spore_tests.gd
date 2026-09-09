@@ -59,7 +59,8 @@ func play_overlapped(st: CombatState, spores: Array, seconds: float, dodge: bool
 		for e in spores:
 			e.x = st.player.x
 			e.y = st.player.y
-		if dodge: # 회피 무적을 제자리에서 유지(이동 0)
+		if dodge: # 회피 무적을 제자리에서 유지(이동 0). 무적은 이동과 분리돼 invuln_t가 정본이다
+			st.player.invuln_t = 1.0
 			st.player.dodge_active = true
 			st.player.dodge_dx = 0.0
 			st.player.dodge_dy = 0.0
@@ -189,6 +190,7 @@ func _init() -> void:
 	var dodged := hits_of(st5, PEnemies.SPORE_CONTACT_SRC)
 	var pd := int(st5.stats.perfect_dodges)
 	st5.player.dodge_active = false
+	st5.player.invuln_t = 0.0
 	play_overlapped(st5, [sp5], 0.7) # 합계 1.2초 — 재타격 간격 1.0초가 지난 뒤
 	ok("회피 무적 중에는 접촉 피해를 안 맞고, 재타격 간격이 지난 뒤 다시 맞는다(무적 0.5초 %d회 → 1.2초 시점 %d회)" % [dodged, hits_of(st5, PEnemies.SPORE_CONTACT_SRC)],
 		dodged == 0 and hits_of(st5, PEnemies.SPORE_CONTACT_SRC) == 1)

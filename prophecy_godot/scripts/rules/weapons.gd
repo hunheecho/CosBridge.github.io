@@ -7,7 +7,7 @@ static func init(st: CombatState) -> Array:
 	var list := []
 	var i := 0
 	for s in st.build.weapons:
-		list.append({ "stats": s, "id": String(s.id), "timer": 0.25 + float(i) * 0.2, "count": 0, "orbit": 0.0, "launch_t": 0.0, "last_hit": {}, "echo": {}, "blade_pos": [], "focus": new_focus() })
+		list.append({ "stats": s, "id": String(s.id), "timer": 0.25 + float(i) * 0.2, "count": 0, "orbit": 0.0, "launch_t": 0.0, "last_hit": {}, "echo": {}, "blade_pos": [], "focus": new_focus(), "windup": [] })
 		i += 1
 	return list
 
@@ -24,7 +24,7 @@ static func refresh(st: CombatState) -> void:
 			prev.stats = s
 			out.append(prev)
 		else:
-			out.append({ "stats": s, "id": String(s.id), "timer": 0.3, "count": 0, "orbit": 0.0, "launch_t": 0.0, "last_hit": {}, "echo": {}, "blade_pos": [], "focus": new_focus() })
+			out.append({ "stats": s, "id": String(s.id), "timer": 0.3, "count": 0, "orbit": 0.0, "launch_t": 0.0, "last_hit": {}, "echo": {}, "blade_pos": [], "focus": new_focus(), "windup": [] })
 	st.weapons = out
 
 ## 쌍검 '출혈 칼날'의 집중 중첩 상태(대상 id · 중첩 수 · 마지막으로 그 적을 벤 시각)
@@ -356,9 +356,22 @@ static func fire_homing(st: CombatState, w: Dictionary, target: Dictionary, _ech
 	var s: Dictionary = w.stats
 	var p := st.player
 	var ang := atan2(target.y - p.y, target.x - p.x)
-	var angles: Array = [ang - 0.35, ang, ang + 0.35] if (s.mods as Array).has("spread") else [ang]
+	# 개조 '갈래 사격'(§4): 가운데 화살만 예전처럼 추적하고 피해 100%,
+	# **양옆 2발은 벌어진 각으로 직진**하며 각각 피해 60%다. 옆 화살은 대상을 갖지 않으므로
+	# steer_projectile이 손대지 않는다 — 다시 중앙 표적으로 휘어 들어오지 않는다.
+	# 역할은 단일 대상 3배가 아니라 **공격 폭과 다수 처리**다.
+	var has_spread: bool = (s.mods as Array).has("spread")
+	var sp := mod_tune(s, "spread", { "angle": 0.35, "sideMult": 0.6 })
+	var side_a := float(sp.angle)
+	var angles: Array = [ang - side_a, ang, ang + side_a] if has_spread else [ang]
+	if has_spread:
+		st.note_mod("spread", "proc")
 	for a in angles:
-		proj(st, w, { "kind": "arrow_h", "x": p.x, "y": p.y, "vx": cos(a) * float(s.speed), "vy": sin(a) * float(s.speed), "r": 5.0, "ttl": (float(s.range) / float(s.speed)) * 1.4, "target": target, "turn": float(s.turn), "speed": float(s.speed), "pierce": (s.mods as Array).has("pierce"), "ricochet": 1 if (s.mods as Array).has("ricochet") else 0, "angle": a,
+		var side: bool = has_spread and absf(a - ang) > 1e-6
+		proj(st, w, { "kind": "arrow_h", "x": p.x, "y": p.y, "vx": cos(a) * float(s.speed), "vy": sin(a) * float(s.speed), "r": 5.0, "ttl": (float(s.range) / float(s.speed)) * 1.4,
+			"target": null if side else target, "turn": 0.0 if side else float(s.turn), "speed": float(s.speed),
+			"dmg_mult": float(sp.sideMult) if side else 1.0, "mod": ("spread" if side else ""),
+			"pierce": (s.mods as Array).has("pierce"), "ricochet": 1 if (s.mods as Array).has("ricochet") else 0, "angle": a,
 			"shot_x": p.x, "shot_y": p.y, "close_from": float(s.get("closeFrom", 0.0)), "close_mult": float(s.get("closeMult", 1.0)) })
 	p.face = ang
 	st.ev("shoot")
@@ -379,9 +392,40 @@ static func fire_heavy(st: CombatState, w: Dictionary, target: Dictionary, _echo
 	if wind <= 0.0:
 		land_heavy(st, w, ix, iy, ang)
 		return
-	st.fx({ "kind": "strikewarn", "x": ix, "y": iy, "r": float(s.radius), "ttl": wind }) # 예고: 내려찍을 자리(판정 범위와 같은 반지름)
+	# 예고: 내려찍을 자리. 반지름은 **판정에 쓰는 값 그대로**다(표시 = 판정)
+	var warn := { "kind": "strikewarn", "x": ix, "y": iy, "r": float(s.radius), "ttl": wind }
+	st.fx(warn)
+	# 준비 중 Space(회피)로 취소할 수 있다(§2). 표(token)를 무기에 걸어 두고, 내려찍는 람다가 그 표를 확인한다 —
+	# 취소하면 본타도 개조 후속(전방 충격파·여진·끌어당김)도 **전부** 일어나지 않는다. 공격 대기시간은 환급하지 않는다
+	var token := { "alive": true, "warn": warn, "x": ix, "y": iy, "r": float(s.radius) }
+	(w.windup as Array).append(token) # 메아리로 준비가 겹칠 수 있어 목록으로 들고 있는다
 	st.ev("lock")
-	later(st, wind, func(): land_heavy(st, w, ix, iy, ang))
+	var land := func() -> void:
+		(w.windup as Array).erase(token)
+		if not bool(token.alive):
+			return # 취소된 공격이다. 본타도 개조 후속도 일어나지 않는다
+		land_heavy(st, w, ix, iy, ang)
+	later(st, wind, land)
+
+## 준비 중인 내려찍기를 모두 취소한다(회피가 부른다). 취소한 수를 돌려준다.
+## **공격 대기시간(w.timer)은 건드리지 않는다** — 취소는 환급이 아니라 포기다.
+## 이미 착탄한 공격에는 손대지 않는다(여진 같은 착탄 뒤 후속은 그대로 진행된다).
+static func cancel_windup(st: CombatState) -> int:
+	var n := 0
+	for w in st.weapons:
+		var tokens: Array = w.get("windup", [])
+		for token in tokens:
+			if not bool(token.get("alive", false)):
+				continue
+			token.alive = false
+			var warn: Dictionary = token.get("warn", {})
+			if not warn.is_empty():
+				warn.ttl = 0.0 # 예고 원을 즉시 지운다(다음 update_effects에서 목록에서 빠진다)
+			st.fx({ "kind": "strikecancel", "x": float(token.x), "y": float(token.y), "r": float(token.r), "ttl": 0.25 })
+			st.metrics.cause_fires["hammer_cancel"] = int(st.metrics.cause_fires.get("hammer_cancel", 0)) + 1
+			st.ev("cancel")
+			n += 1
+	return n
 
 ## 내려찍는 순간: 확정된 자리에 원형 피해 + 밀어내기·경직. 예고한 자리와 판정 자리가 같다
 static func land_heavy(st: CombatState, w: Dictionary, ix: float, iy: float, ang: float) -> void:
@@ -528,9 +572,19 @@ static func fire_ember(st: CombatState, w: Dictionary, target: Dictionary, _echo
 		var ang := atan2(ty - st.player.y, tx - st.player.x)
 		for i in [1, 2]:
 			zones_l.append([tx - cos(ang) * 40.0 * float(i), ty - sin(ang) * 40.0 * float(i), float(s.radius) * 0.8])
-	st.fx({ "kind": "emberthrow", "x0": st.player.x, "y0": st.player.y, "x": tx, "y": ty, "ttl": 0.3 })
+	# 비행(§6 너프): 착탄 위치는 **발사 순간에 확정**되고(tx·ty는 위에서 이미 정해졌다) 비행 중에는
+	# 적을 따라가지도, 자리를 다시 잡지도 않는다. 예전에는 거리와 무관하게 늘 0.3초 뒤에 떨어졌다 —
+	# 그때의 기준 비행 속도는 '사거리(range)를 baseSec에 간다'이고, 지금은 그 40%(speedMult)로 난다.
+	# 그만큼 오래 나는 동안 표시가 먼저 사라지면 안 되므로 던지는 연출의 수명도 같은 시간으로 맞춘다.
+	var fl: Dictionary = PCatalog.support_tuning("ember").get("flight", {})
+	var base_sec: float = float(fl.get("baseSec", 0.3))
+	var speed_mult: float = float(fl.get("speedMult", 1.0))
+	var base_speed: float = float(s.range) / maxf(0.01, base_sec)
+	var speed: float = maxf(1.0, base_speed * speed_mult)
+	var flight: float = PGeom.dist(st.player.x, st.player.y, tx, ty) / speed
+	st.fx({ "kind": "emberthrow", "x0": st.player.x, "y0": st.player.y, "x": tx, "y": ty, "ttl": flight, "flight": flight })
 	var dm: float = float(st.build.duration_mult) * float(st.build.get("trait_dot_dur", 1.0)) # 특성 '지속 전문화': 불길 지속시간(없으면 ×1.0)
-	later(st, 0.3, func():
+	var land := func() -> void:
 		for zz in zones_l:
 			var pos := st.nearest_valid_pos(zz[0], zz[1], 0.0, 60.0)
 			if pos.is_empty():
@@ -538,7 +592,8 @@ static func fire_ember(st: CombatState, w: Dictionary, target: Dictionary, _echo
 			PSupport.meter(st, "ember", "fires")
 			var z := st.add_zone("fire", pos[0], pos[1], zz[2], float(s.ttl) * dm, float(s.damage))
 			z.weapon = w
-			z.extended = 0.0)
+			z.extended = 0.0
+	later(st, flight, land)
 	st.ev("shoot")
 
 ## 지뢰는 설치 → 폭발 구조라 fire()를 거치지 않는다. 설치·폭발을 각각 센다
