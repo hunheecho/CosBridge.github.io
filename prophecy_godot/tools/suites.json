@@ -127,6 +127,14 @@
       "desc": "화면 방향(세로/가로)·전체화면: 제목의 '전체화면으로 시작', 실패해도 막지 않음, 세로 안내, 전투 중 세로 → 일시정지·입력 해제·무변화, '계속' 재개, 전체화면 복귀 버튼, 화면 크기 신호",
       "env_reason": "PROPHECY_TOUCH=1: 세로 전환 순간 '눌려 있던 터치 입력이 해제되는가'를 보려면 터치 오버레이가 켜져 있어야 한다. 헤드리스에는 터치 화면이 없으므로 이 값으로 켠다(PC 시험용 경로, 규칙과 무관)."
     },
+    "scroll_tests": {
+      "env": {
+        "PROPHECY_TOUCH": "1"
+      },
+      "timeout_sec": 600,
+      "desc": "손가락 스크롤(PTouchScroll): 되돌아온 취소 사건이 끌기를 죽이지 않는다·소수점 누적·12px 문턱·버튼 취소·관성·경계·여러 손가락·화면 전환·보던 자리 유지(docs/TOUCH_SCROLL.md)",
+      "env_reason": "PROPHECY_TOUCH=1: 헤드리스에는 터치 화면이 없다. 이 값으로 PLayout.is_touch()를 켜야 손가락 경로가 돌아간다(PC 시험용 경로, 규칙과 무관)."
+    },
     "run_layer_tests": {
       "env": {
         "PROPHECY_LEGACY_PLACES": "1"
@@ -527,6 +535,7 @@
       "font_tests",
       "input_tests",
       "orient_tests",
+      "scroll_tests",
       "run_layer_tests",
       "world_tests",
       "content_tests",
@@ -579,6 +588,7 @@
       "font_tests",
       "input_tests",
       "orient_tests",
+      "scroll_tests",
       "ui_flow_tests",
       "render_tests",
       "overlay_tests"
