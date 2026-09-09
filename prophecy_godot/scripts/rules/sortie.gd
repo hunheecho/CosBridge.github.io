@@ -156,8 +156,18 @@ static func elite_notice(run: Dictionary, c: Dictionary) -> Dictionary:
 ## 이미 정예 조건부 재료를 주는 장소는 그 재료를 말하고, 그렇지 않은 장소만 추가 금화를 말한다.
 ## 출격 **전에** 보여 줄 결투 예고("마지막에 강적이 나타난다"). 카드에 저장된 duelType 을 그대로 읽으므로
 ## 표시와 실제가 어긋날 수 없다. 표시는 다른 담당이 그리고 여기서는 자료만 내보낸다.
+##
+## §13(2026-09-09): 결투 상대는 카드가 붙인 것만이 아니다 — **편성 템플릿이 배정한 특수 정예도 결투로 나온다**
+## (그런 카드에는 assign_duel 이 결투를 겹쳐 붙이지 않는다). 카드의 duelType 만 읽으면 실제로는 결투가 있는데
+## 예고가 비어 있었다. 실제 편성이 내보내는 것을 그대로 읽어 표시와 실제가 어긋나지 않게 한다.
 static func duel_notice(run: Dictionary, c: Dictionary) -> Dictionary:
-	return PRun.duel_notice(run, String(c.get("regionId", "")), String(c.get("duelType", "")))
+	var rid := String(c.get("regionId", ""))
+	var dt := String(c.get("duelType", ""))
+	if dt == "":
+		var sched := PRun.scheduled_special_elites(rid, String(c.get("formationId", "base")))
+		if not sched.is_empty():
+			dt = String(sched[0])
+	return PRun.duel_notice(run, rid, dt)
 
 static func elite_reward_text(run: Dictionary, region_id: String) -> String:
 	var cfg: Dictionary = PCatalog.pacing().get("elite_reward", {})

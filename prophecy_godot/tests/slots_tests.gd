@@ -344,6 +344,110 @@ func _init() -> void:
 		v1_opts.any(func(x): return PCatalog.is_main_weapon(String(x))) and v1_opts.any(func(x): return not PCatalog.is_main_weapon(String(x))),
 		"%d개" % v1_opts.size())
 
+	# ---------- 14. 상한·자격이 **저장 복구 · 개조 변경 · 보상** 경로에서도 지켜진다 ----------
+	# §13은 후보 생성과 확정(교환)만 봤다. 여기서는 §13이 보지 않던 세 경로를 본다.
+	# 사용자 의심("Lv1 번개 구체에서 전도 표식을 얻었다")에 대한 답도 여기 있다: 자격 판정은
+	# **레벨업 3택·임무 보상·개조 변경** 세 경로가 모두 PGrowth.mod_quota_of 하나를 쓰므로
+	# 어느 경로로도 Lv1 무기에 개조가 붙지 않는다. (그 저장의 실제 기록은 획득 → 레벨업 → 개조 순서였다.)
+
+	# ⑥ 저장 복구: 저장했다 불러와도 자리 구분·상한·자격이 그대로다
+	var run_sv := mk_v2()
+	var g_sv: Dictionary = run_sv.growth
+	g_sv.weapons = [{ "id": "sword", "level": 4, "mods": ["cross"] }, { "id": "orb", "level": 2, "mods": [] }]
+	run_sv.gold = 2000
+	var before_caps := []
+	for w3 in (g_sv.weapons as Array):
+		before_caps.append("%s:%d/%d/%d" % [String(w3.id), PGrowth.level_cap(g_sv, String(w3.id)), PGrowth.mod_cap(g_sv, String(w3.id)), PGrowth.mod_quota_of(g_sv, w3)])
+	var q_before: Array = PRun.swap_quote(run_sv, "weapon", 1).options
+	var loaded_sv: Dictionary = JSON.parse_string(JSON.stringify(PSave.normalize(run_sv.duplicate(true))))
+	PSave.normalize(loaded_sv)
+	var g_ld: Dictionary = loaded_sv.growth
+	var after_caps := []
+	for w4 in (g_ld.weapons as Array):
+		after_caps.append("%s:%d/%d/%d" % [String(w4.id), PGrowth.level_cap(g_ld, String(w4.id)), PGrowth.mod_cap(g_ld, String(w4.id)), PGrowth.mod_quota_of(g_ld, w4)])
+	var q_after: Array = PRun.swap_quote(loaded_sv, "weapon", 1).options
+	ok("⑥ 저장·복구해도 상한·개조 자격이 같다(구조 표시가 사라지지 않는다)",
+		str(before_caps) == str(after_caps) and PGrowth.is_v2(g_ld), "%s → %s" % [str(before_caps), str(after_caps)])
+	ok("⑥ 저장·복구해도 교환 후보가 자리를 넘지 않는다(보조 자리 = 보조뿐)",
+		str(q_before) == str(q_after) and q_after.size() > 0 and q_after.all(func(x): return not PCatalog.is_main_weapon(String(x))),
+		"%d개" % q_after.size())
+	var runv1s := mk_v1()
+	var loaded_v1: Dictionary = JSON.parse_string(JSON.stringify(PSave.normalize(runv1s.duplicate(true))))
+	PSave.normalize(loaded_v1)
+	ok("⑥ 옛 저장(v1)은 복구해도 옛 구조 그대로다(새 상한을 소급하지 않는다)",
+		not PGrowth.is_v2(loaded_v1.growth) and (loaded_v1.growth.weapons as Array).size() == 3,
+		"구조 %s · 무기 %d개" % [PGrowth.structure_of(loaded_v1.growth), (loaded_v1.growth.weapons as Array).size()])
+
+	# ⑥-3 상한을 넘긴 상태를 불러와도 **더 늘리지 않는다**(옛 결함이 남긴 저장의 방어선)
+	var run_over := mk_v2()
+	var g_over: Dictionary = run_over.growth
+	g_over.weapons = [{ "id": "sword", "level": 5, "mods": ["cross", "scar"] }, { "id": "orb", "level": 5, "mods": ["conduct", "fork"] }]
+	var grow_more := []
+	for c3 in PGrowth.candidates(run_over, { "pool": "level" }):
+		if String(c3.get("id", "")) == "orb" and (String(c3.kind) == "weapon_level" or String(c3.kind) == "weapon_mod"):
+			grow_more.append(String(c3.kind))
+	var forced_lv := PGrowth.apply_choice(run_over, { "kind": "weapon_level", "id": "orb" }, true)
+	var forced_md := PGrowth.apply_choice(run_over, { "kind": "weapon_mod", "id": "orb", "mod": "loop" }, true)
+	ok("⑥ 상한을 넘긴 옛 상태를 불러와도 그 무기를 **더 올리거나 개조를 더 주지 않는다**",
+		grow_more.is_empty() and not forced_lv and not forced_md, str(grow_more))
+
+	# ⑦ 개조 변경(대장간·개조 변경권): 개수를 늘리지 않고 자격 안에서만 바뀐다
+	var run_mc := mk_v2()
+	var g_mc: Dictionary = run_mc.growth
+	g_mc.weapons = [{ "id": "sword", "level": 4, "mods": ["cross"] }, { "id": "orb", "level": 2, "mods": [] }]
+	run_mc.gold = 2000
+	var gold_mc := int(run_mc.gold)
+	var off_mc := PFlow.mod_change(run_mc, "sword", "cross")
+	var w_mc: Dictionary = g_mc.weapons[0]
+	var mc_ok := true
+	if (off_mc as Dictionary).is_empty():
+		mc_ok = int(run_mc.gold) == gold_mc # 후보가 없으면 아무것도 차감하지 않는다
+	else:
+		var pick_mc: Dictionary = (off_mc.choices as Array)[0]
+		PGrowth.apply_choice(run_mc, pick_mc)
+		g_mc.pendingOffer = null
+		mc_ok = (w_mc.mods as Array).size() == 1 and int(run_mc.gold) < gold_mc
+	ok("⑦ 개조 변경은 개조 **수를 늘리지 않는다**(1개 → 1개)",
+		mc_ok and (w_mc.mods as Array).size() <= PGrowth.mod_quota_of(g_mc, w_mc),
+		"개조 %d · 자격 %d · 금화 %d → %d" % [(w_mc.mods as Array).size(), PGrowth.mod_quota_of(g_mc, w_mc), gold_mc, int(run_mc.gold)])
+	var gold_mc2 := int(run_mc.gold)
+	var bad_mc := PFlow.mod_change(run_mc, "orb", "conduct") # 갖고 있지 않은 개조를 바꾸려 한다
+	ok("⑦ 갖고 있지 않은 개조는 변경할 수 없고 금화도 나가지 않는다",
+		(bad_mc as Dictionary).is_empty() and int(run_mc.gold) == gold_mc2, "금화 %d → %d" % [gold_mc2, int(run_mc.gold)])
+
+	# ⑧ 보상 경로: Lv1 무기에는 **어떤 경로로도** 개조가 붙지 않는다(자격 Lv2)
+	var run_new1 := mk_v2()
+	var g_new1: Dictionary = run_new1.growth
+	g_new1.weapons = [{ "id": "sword", "level": 1, "mods": [] }, { "id": "orb", "level": 1, "mods": [] }]
+	var new1_mod := []
+	for c4 in PGrowth.candidates(run_new1, { "pool": "level" }):
+		if String(c4.kind) == "weapon_mod":
+			new1_mod.append("%s:%s" % [String(c4.id), String(c4.get("mod", ""))])
+	var off_new1 := PGrowth.generate_offer(run_new1, { "pool": "mission", "kinds": ["weapon_mod"], "missionKind": "weapon_mod", "region_id": "" })
+	var new1_offer := []
+	for c5 in (off_new1.choices as Array):
+		if String(c5.kind) == "weapon_mod":
+			new1_offer.append("%s:%s" % [String(c5.id), String(c5.get("mod", ""))])
+	g_new1.pendingOffer = null
+	var forced_new1 := PGrowth.apply_choice(run_new1, { "kind": "weapon_mod", "id": "orb", "mod": "conduct" }, true)
+	ok("⑧ Lv1 무기에는 레벨업 3택에도 임무 보상에도 개조 후보가 없다(자격 Lv2 · 번개 구체는 보조)",
+		new1_mod.is_empty() and new1_offer.is_empty(), "3택 %s · 보상 %s" % [str(new1_mod), str(new1_offer)])
+	ok("⑧ 후보를 지나 들어와도 Lv1 무기의 개조는 거부된다(확정 단계 방어)", not forced_new1)
+	# 자격이 열리는 지점: 보조는 Lv2에서 1개까지, 주무기는 Lv2에 1개 · Lv4에 2개
+	var quota_line := []
+	for lv in [1, 2, 3, 4, 5]:
+		var wm := { "id": "sword", "level": lv, "mods": [] }
+		var ws := { "id": "orb", "level": mini(lv, 3), "mods": [] }
+		quota_line.append("Lv%d 주%d/보%d" % [lv, PGrowth.mod_quota_of(g_new1, wm), PGrowth.mod_quota_of(g_new1, ws)])
+	ok("⑧ 개조 자격이 주무기 Lv2·Lv4 / 보조 Lv2 그대로다",
+		PGrowth.mod_quota_of(g_new1, { "id": "sword", "level": 1, "mods": [] }) == 0
+		and PGrowth.mod_quota_of(g_new1, { "id": "sword", "level": 2, "mods": [] }) == 1
+		and PGrowth.mod_quota_of(g_new1, { "id": "sword", "level": 4, "mods": [] }) == 2
+		and PGrowth.mod_quota_of(g_new1, { "id": "orb", "level": 1, "mods": [] }) == 0
+		and PGrowth.mod_quota_of(g_new1, { "id": "orb", "level": 2, "mods": [] }) == 1
+		and PGrowth.mod_quota_of(g_new1, { "id": "orb", "level": 3, "mods": [] }) == 1,
+		", ".join(quota_line))
+
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)

@@ -16,7 +16,7 @@ static func from_waves(waves: Array, override: Dictionary, region_id: String, st
 	var kill_mult: float = float(st.opts.get("xp_kill_mult", 0.3)) # 처치 경험치 배율(사용자 채택 ×0.3, D08). 회차가 run.balance로 넘긴다
 	var counts_order := []   # 분대 편성용: comp 순서를 지킨 종류 목록(정예·구조물 제외)
 	var counts := {}
-	var duel := {}
+	var duels := []          # 결투 상대(순서 보존). 대기열에 넣지 않고 일반 전투가 끝난 뒤 하나씩 나온다
 	for wave in waves:
 		for g in wave:
 			var type := String(g.type)
@@ -35,8 +35,15 @@ static func from_waves(waves: Array, override: Dictionary, region_id: String, st
 					ref_v = ref_v * u_from / u_this
 			html_counts[type] = float(html_counts.get(type, 0.0)) + ref_v # ref = 경험치 예산의 HTML 상당 수
 			godot_counts[type] = int(godot_counts.get(type, 0)) + total
-			if bool(g.get("duel", false)): # 결투 상대: 대기열에 넣지 않고 일반 전투가 끝난 뒤 따로 등장한다
-				duel = { "type": type, "n": total }
+			# **특수 정예는 언제나 결투다**(§13, 2026-09-09 사용자 확정).
+			# 표시(duel)가 붙어 오는 것이 정상 경로지만, 어떤 배정 경로에서 표시가 빠지더라도
+			# 여기서 걸러 낸다 — 특수 정예가 일반 적과 **동시에** 살아 있는 일이 없어야 한다.
+			# (사용자 재현: 사슬 집행자와 일반 도마뱀이 같은 화면에 있었다.)
+			# 늑대 우두머리·일반 정예는 이 판정에 걸리지 않는다: 일반 전투에 함께 나와도 된다.
+			if bool(g.get("duel", false)) or PCatalog.elites().has(type):
+				if total > 0:
+					for _i in total: # 결투는 1대1이라 한 마리씩 순서대로 줄을 세운다
+						duels.append({ "type": type, "n": 1 })
 				continue
 			if not counts.has(type):
 				counts[type] = 0
@@ -60,7 +67,10 @@ static func from_waves(waves: Array, override: Dictionary, region_id: String, st
 		xp_map[type] = round(unit * float(html_counts[type]) / float(maxi(1, int(godot_counts[type]))) * 10000.0) / 10000.0
 	if not (override.get("alive_cap", null) == null): # 템플릿이 준 동시 상한·종류별 상한
 		D.alive_cap = int(override.alive_cap)
-	return { "units": units, "tiers": tiers, "squads": squads, "duel": duel, "alive_cap": int(D.alive_cap), "tail_boost": bool(D.get("tail_boost", false)), "group": int(D.group), "interval": float(D.interval), "type_caps": D.get("type_alive_cap", {}).duplicate(), "xp_map": xp_map, "html_counts": html_counts, "godot_counts": godot_counts, "multiplier": mult, "xp_default_scale": 1.0 / mult, "tier_counts": tier_counts(tiers) }
+	# duel = 이번 전투에서 **먼저** 싸울 결투 상대(전투 규칙이 읽는 값, 형식은 그대로).
+	# duels = 예정된 결투 전체(순서 보존). 둘 이상이면 1대1로 차례차례 상대해야 한다.
+	var duel: Dictionary = duels[0] if not duels.is_empty() else {}
+	return { "units": units, "tiers": tiers, "squads": squads, "duel": duel, "duels": duels, "alive_cap": int(D.alive_cap), "tail_boost": bool(D.get("tail_boost", false)), "group": int(D.group), "interval": float(D.interval), "type_caps": D.get("type_alive_cap", {}).duplicate(), "xp_map": xp_map, "html_counts": html_counts, "godot_counts": godot_counts, "multiplier": mult, "xp_default_scale": 1.0 / mult, "tier_counts": tier_counts(tiers) }
 
 ## 분대 편성(지시 3). **종류별 총 수는 그대로 두고 등장 순서와 묶음만 만든다.**
 ##
@@ -339,4 +349,11 @@ static func describe(f: Dictionary) -> String:
 	var tier_txt := ""
 	if int(tc.get("red", 0)) > 0 or int(tc.get("apex", 0)) > 0:
 		tier_txt = " · 붉은 %d · 변이 %d" % [int(tc.get("red", 0)), int(tc.get("apex", 0))]
-	return "%s · 전체 %d · 동시 %d · 묶음 %d · 간격 %.1f초%s" % [", ".join(parts), (f.units as Array).size(), int(f.alive_cap), int(f.group), float(f.interval), tier_txt]
+	var duel_txt := ""
+	var dl: Array = f.get("duels", [])
+	if not dl.is_empty(): # 결투 상대는 일반 등장 목록 밖이라 '전체'에 들어 있지 않다 — 따로 적는다
+		var dn := []
+		for d in dl:
+			dn.append(String(PCatalog.enemy(String(d.type)).name))
+		duel_txt = " · 결투 %s" % " → ".join(dn)
+	return "%s · 전체 %d · 동시 %d · 묶음 %d · 간격 %.1f초%s%s" % [", ".join(parts), (f.units as Array).size(), int(f.alive_cap), int(f.group), float(f.interval), tier_txt, duel_txt]

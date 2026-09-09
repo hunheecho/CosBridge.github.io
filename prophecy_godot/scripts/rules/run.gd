@@ -190,17 +190,28 @@ static func elite_types_for(tpl: Dictionary, place_key: String, deep: bool = fal
 	out.resize(n)
 	return out
 
-## 정예 목록을 웨이브 항목으로(같은 종류끼리 묶는다). 마리당 경험치 기준(ref)은 1.0이므로 합계는 항상 마리 수와 같다
-static func _elite_groups(types: Array) -> Array:
+## 정예 목록을 웨이브 항목으로. 마리당 경험치 기준(ref)은 1.0이므로 합계는 항상 마리 수와 같다.
+##
+## **특수 정예(7종)는 언제나 결투 표시(duel)를 달고 나온다**(2026-09-09 사용자 확정 규칙, §13).
+## 예전에는 여기서 만든 항목이 표시 없이 일반 웨이브에 들어가 일반 적과 **동시에** 살아 있었다
+## (사용자 재현: 사슬 집행자와 일반 도마뱀이 같은 화면에). 결투는 "일반 적과 예정된 일반 증원을
+## 모두 정리한 뒤"에 시작해야 하므로, 배정 경로가 무엇이든 여기서 표시를 붙인다.
+## 결투는 **1대1**이라 특수 정예는 같은 종류라도 묶지 않고 한 마리씩 따로 낸다(순서 = 표 순서).
+## 일반 정예·옛 정예(늑대 우두머리)는 규칙상 일반 전투에 함께 나와도 되므로 예전 그대로 묶는다.
+## 종류·마리 수·경험치 기준(ref)은 어느 쪽도 바뀌지 않는다 — 총 등장 수·예산 불변.
+static func _elite_entries(types: Array) -> Array:
 	var order := []
 	var cnt := {}
+	var out := []
 	for t in types:
 		var tp := String(t)
+		if is_special_elite(tp): # 결투 상대: 한 마리씩 따로(1대1), 순서 보존
+			out.append({ "type": tp, "n": 1, "ref": 1.0, "duel": true })
+			continue
 		if not cnt.has(tp):
 			cnt[tp] = 0
 			order.append(tp)
 		cnt[tp] = int(cnt[tp]) + 1
-	var out := []
 	for tp in order:
 		out.append({ "type": String(tp), "n": int(cnt[tp]), "ref": float(cnt[tp]) })
 	return out
@@ -227,10 +238,20 @@ static func template_waves(tpl: Dictionary, place_key: String, day: int = 0, pla
 	if not wave.is_empty():
 		wave[0].n = int(wave[0].n) + (total - assigned)
 	_pin_budget(wave, tpl, place_key) # 구성이 바뀌어도 전투 경험치 예산은 개편 전 값 그대로
+	var planned := elite_types_for(tpl, place_key, deep)
+	var has_special := false
+	for t in planned:
+		if is_special_elite(String(t)):
+			has_special = true
 	_swap_one(wave, common_elite_id(tpl), "common_elite") # 일반 정예 1마리(있을 때만): 일반 적 1마리를 대신한다
-	_swap_one(wave, duel_type, "duel")                    # 결투 상대 1마리: 일반 적 1마리를 대신한다
-	for g in _elite_groups(elite_types_for(tpl, place_key, deep)): # 정예는 마지막. 종류만 템플릿이 정하고 마리 수는 elites 그대로다
-		wave.append(g)
+	# **1대1**(§13): 편성이 이미 특수 정예를 내보내면 카드가 붙인 결투를 겹치지 않는다.
+	# 배정 단계(assign_duel·duel_type_deep)에서도 막지만, 옛 저장·도구·검증 메뉴처럼
+	# 다른 곳에서 온 duel_type 도 여기서 걸러야 "어떤 경로로 배정돼도" 규칙이 깨지지 않는다.
+	# 붙이지 않아도 총 등장 수·예산은 그대로다(결투 상대는 일반 적 1마리를 대신하는 것이므로 그 적이 남는다).
+	if not has_special:
+		_swap_one(wave, duel_type, "duel")                # 카드가 붙인 결투 상대 1마리: 일반 적 1마리를 대신한다
+	for g in _elite_entries(planned): # 정예는 마지막. 종류만 템플릿이 정하고 마리 수는 elites 그대로다
+		wave.append(g)                 # 특수 정예면 _elite_entries 가 이미 결투 표시를 달았다
 	return [wave]
 
 ## **전투 경험치 예산 고정**(총 등장 수·보상 예산 불변 규칙).
@@ -261,6 +282,12 @@ static func enemy_ready(type: String) -> bool:
 ## 아직 만들어지지 않은 예정 종류인가(data/themes.json planned_types). 보고·검사용
 static func planned_type(type: String) -> bool:
 	return (themes_root().get("planned_types", {}).get("types", []) as Array).has(type)
+
+## **특수 정예**(결투 상대)인가. data/elites.json 의 7종만 참이다.
+## 늑대 우두머리(wolf_alpha)와 `<종류>_elite`(일반 정예)는 거짓이다 — 그 둘은 일반 전투에 함께 나와도 된다.
+## 이 판정이 "일반 등장 목록 / 결투"를 가르는 **하나의 기준**이다(§13 통합 규칙).
+static func is_special_elite(type: String) -> bool:
+	return type != "" and PCatalog.elites().has(type)
 
 ## **일반 정예**인가(특수 정예와 구분). 특수 정예는 data/elites.json 에 있는 7종이고,
 ## 늑대 우두머리(wolf_alpha)는 옛 정예다. 그 밖에 elite 로 표시된 종류가 일반 몬스터의 정예판이다.
@@ -374,6 +401,27 @@ static func duel_types_for(theme_id: String) -> Array:
 			out.append(String(t))
 	return out
 
+## 이 편성이 **카드 결투와 상관없이** 이미 내보내는 특수 정예 종류.
+## PRun.encounter_waves 가 실제로 넣는 것과 같은 순서·같은 판단이다(템플릿의 정예 자리 →
+## 더 깊이에서 정예가 하나도 없을 때 붙는 강한 정예). 결투를 새로 붙일지 판단하는 근거이며,
+## 같은 종류를 두 번 넣지 않고(중복 배정 금지) 한 전투에 결투가 둘이 되지 않게 한다(1대1).
+## 난수를 쓰지 않는다 — 시드·저장이 같으면 같은 답이다.
+static func scheduled_special_elites(region_id: String, formation_id: String, deep: bool = false) -> Array:
+	if not is_theme_place(region_id):
+		return []
+	var tpl := theme_template(region_id, formation_id)
+	if tpl.is_empty():
+		return []
+	var out := []
+	for t in elite_types_for(tpl, theme_place_key(region_id), deep):
+		if is_special_elite(String(t)) and not out.has(String(t)):
+			out.append(String(t))
+	if deep and int(tpl.get("elites", 0)) <= 0: # 더 깊이: 정예가 없는 편성에는 강한 정예가 하나 붙는다
+		var dt := deep_elite_type(region_id, formation_id)
+		if is_special_elite(dt) and not out.has(dt):
+			out.append(dt)
+	return out
+
 ## 막 안에서 몇 번째 날인가(1~3). 막 정의가 없으면 0
 static func day_in_act(run: Dictionary, day: int) -> int:
 	var a := act_of(run, day)
@@ -392,6 +440,11 @@ static func day_in_act(run: Dictionary, day: int) -> int:
 ## 그 자리가 위험 카드면 같은 날의 다른 카드로 옮긴다(위험 카드는 이미 편성 안에 특수 정예가 있다).
 ## 후보는 **막 안 날짜**로 고르므로 서로 다른 두 날에서는 반드시 다른 종류가 나온다 —
 ## 한 막(3일)에서 하루가 통째로 위험 카드여도 **서로 다른 두 종류**를 만날 기회가 남는다.
+##
+## §13(2026-09-09): **1대1 결투 원칙**. 그 카드의 편성이 이미 특수 정예를 배정하고 있으면
+## 결투를 겹쳐 붙이지 않는다 — 붙이면 한 전투에 결투가 둘이 되기 때문이다.
+## 붙이지 않아도 총 등장 수·경험치 예산은 그대로다(결투 상대는 일반 적 1마리를 대신하는 것이라
+## 붙지 않으면 그 자리에 원래의 일반 적이 남는다).
 static func assign_duel(run: Dictionary, day: int, cards: Array) -> void:
 	for c in cards:
 		c.duelType = ""
@@ -419,6 +472,9 @@ static func assign_duel(run: Dictionary, day: int, cards: Array) -> void:
 		# 양립하지 않으므로 배정 단계에서 겹치지 않게 한다. 다른 카드가 있으면 거기에 붙는다.
 		if PObjectives.is_objective(String(cards[i].get("objective", "clear"))):
 			continue
+		# 1대1: 편성이 이미 특수 정예를 내보내는 카드에는 결투를 겹치지 않는다(§13)
+		if not scheduled_special_elites(String(cards[i].regionId), String(cards[i].get("formationId", "base"))).is_empty():
+			continue
 		pick = i
 		break
 	if pick < 0:
@@ -430,7 +486,10 @@ static func assign_duel(run: Dictionary, day: int, cards: Array) -> void:
 	cards[pick].duelType = dt
 	cards[pick].duelName = String(PCatalog.enemies()[dt].name)
 
-## 더 깊이 탐험에서 붙는 추가 결투 상대(자리와 겹치지 않게 다음 후보). 이미 결투가 있으면 그대로 둔다
+## 더 깊이 탐험에서 붙는 추가 결투 상대(자리와 겹치지 않게 다음 후보). 이미 결투가 있으면 그대로 둔다.
+##
+## §13(2026-09-09): 그 편성이 **더 깊이에서** 내보내는 특수 정예와 같은 종류는 고르지 않는다(중복 배정 금지).
+## 남는 후보가 없으면 붙이지 않는다 — 결투 상대는 일반 적 1마리를 대신하므로 총 등장 수·예산은 그대로다.
 static func duel_type_deep(run: Dictionary, sortie: Dictionary) -> String:
 	if not duel_enabled() or not bool(duel_cfg().get("deep_extra", false)):
 		return ""
@@ -439,6 +498,10 @@ static func duel_type_deep(run: Dictionary, sortie: Dictionary) -> String:
 		return String(sortie.get("duelType", ""))
 	var cands := duel_types_for(PCatalog.theme_of_place(rid))
 	if cands.is_empty():
+		return ""
+	# 1대1: 더 깊이 편성이 이미 특수 정예를 내보내면 결투를 겹치지 않는다.
+	# (더 깊이는 정예가 없는 편성에도 강한 정예를 하나 붙이므로 그것까지 함께 본다)
+	if not scheduled_special_elites(rid, String(sortie.get("formationId", "base")), true).is_empty():
 		return ""
 	return String(cands[(int(run.get("day", 1)) + int(sortie.get("encounters", 0))) % cands.size()])
 
@@ -927,6 +990,14 @@ static func _copy_waves(src: Array) -> Array:
 		out.append(wave)
 	return out
 
+## 이 웨이브들에 이미 특수 정예 결투가 들어 있는가(§13 1대1 판단)
+static func _has_duel(waves: Array) -> bool:
+	for w in waves:
+		for g in w:
+			if bool(g.get("duel", false)) and is_special_elite(String(g.type)) and int(g.n) > 0:
+				return true
+	return false
+
 static func encounter_waves(region_id: String, deep: bool, run: Dictionary, sortie: Dictionary = {}) -> Array:
 	var waves := _copy_waves(formation_waves(region_id, int(run.get("day", 1)), String(sortie.get("formationId", "base")), deep, String(sortie.get("duelType", ""))))
 	var v = sortie.get("variant", null)
@@ -966,22 +1037,35 @@ static func encounter_waves(region_id: String, deep: bool, run: Dictionary, sort
 	var elites_n := 0
 	for w in waves:
 		for g in w:
-			if bool(g.get("duel", false)):
-				continue # 결투 상대는 일반 전투 편성 밖이다: 호위 +1도 정예 상한 계산도 대상이 아니다
+			# **정예 자리**만 센다. 카드가 붙인 결투 상대는 일반 적 1마리를 대신한 것(budget_from)이라
+			# 정예 자리가 아니다 — 호위 +1도 정예 상한 계산도 대상이 아니다.
+			# 템플릿이 배정한 특수 정예는 이제 결투 표시를 달고 있지만 **정예 자리는 맞으므로 센다**
+			# (§13 이전과 같은 수가 나온다 — 여기서 정예를 더 붙이거나 빼지 않는다).
+			if bool(g.get("duel", false)) and g.has("budget_from"):
+				continue
 			if bool(PCatalog.enemy(String(g.type)).get("elite", false)):
 				elites_n += int(g.n)
 			else:
 				g.n = int(g.n) + 1
 	var last: Array = waves[waves.size() - 1]
 	if elites_n <= 0: # 정예가 없는 편성이면 그 테마의 강한 정예를 하나 붙인다
-		last.append({ "type": deep_elite_type(region_id, String(sortie.get("formationId", "base"))), "n": 1, "ref": 1.0 })
+		var dt := deep_elite_type(region_id, String(sortie.get("formationId", "base")))
+		# **1대1**(§13): 카드가 이미 결투 상대를 붙였다면 여기에 특수 정예를 또 붙이지 않는다.
+		# 그렇다고 자리를 비우지도 않는다 — 옛 정예(늑대 우두머리)가 그 자리를 채운다.
+		# 경험치 단위값이 특수 정예와 **같은 30**이라 총 등장 수도 전투 경험치 예산도 그대로다.
+		if is_special_elite(dt) and _has_duel(waves):
+			dt = "wolf_alpha"
+		var e := { "type": dt, "n": 1, "ref": 1.0 }
+		if is_special_elite(dt): # 특수 정예면 일반 목록이 아니라 **결투**로 붙는다(§13)
+			e["duel"] = true
+		last.append(e)
 	elif elites_n > cap: # 상한을 넘으면 뒤에서부터 줄인다(경험치 예산도 함께 줄어 늘지 않는다)
 		var over := elites_n - cap
 		for i in range(last.size() - 1, -1, -1):
 			var g: Dictionary = last[i]
 			if over <= 0:
 				break
-			if bool(g.get("duel", false)) or not bool(PCatalog.enemy(String(g.type)).get("elite", false)):
+			if (bool(g.get("duel", false)) and g.has("budget_from")) or not bool(PCatalog.enemy(String(g.type)).get("elite", false)):
 				continue
 			var cut: int = mini(over, int(g.n))
 			g.n = int(g.n) - cut
