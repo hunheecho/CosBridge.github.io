@@ -997,9 +997,25 @@ func _make_orient_gate() -> void:
 ## 창·화면 크기가 바뀌었다: 배치를 다시 맞추고, 세로/가로를 다시 판정하고, 바뀐 크기를 알린다.
 ## 주소창이 뜨고 지는 것도 폰에서는 이 경로로 온다(크기 변화).
 ## 화면 크기가 바뀌면 글자·버튼 배율을 다시 정한다(주소창 등장·전체화면·회전 전부 여기로 온다)
+## 전투 상단 띠의 글자(목표·체력)는 장면 파일에 크기가 박혀 있어 PUi를 지나지 않는다.
+## 폰에서 이 줄이 안 읽혔다("위에 글자도 넘 작아서 뭔지 한참 있다 알았네" — 친구 보고).
+## 장면 값은 그대로 두고 **터치일 때만** 배율을 덮어쓴다(PC는 예전 그대로).
+const HUD_LABEL_BASE := { "Objective": 12, "HPText": 13 }
+func _scale_hud_labels() -> void:
+	for name_key in HUD_LABEL_BASE:
+		var n: Node = get_node_or_null("UI/HUD/" + String(name_key))
+		if n == null or not (n is Label):
+			continue
+		var lb: Label = n
+		if PLayout.is_touch():
+			lb.add_theme_font_size_override("font_size", PLayout.fs(int(HUD_LABEL_BASE[name_key])))
+		else:
+			lb.remove_theme_font_size_override("font_size")
+
 func _sync_ui_scale() -> void:
 	var before := PLayout.cur_ui_scale()
 	PLayout.set_ui_scale(PLayout.ui_scale(get_viewport()))
+	_scale_hud_labels()
 	if not is_equal_approx(before, PLayout.cur_ui_scale()):
 		var scr: Node = screens.get(screen, null)
 		if scr != null and scr.has_method("refresh"):
@@ -1072,7 +1088,11 @@ func orient_resume() -> void:
 func _sync_orient_gate() -> void:
 	if orient == null:
 		return
-	var offer: bool = _fs_wanted and not _fs_active
+	# **터치 기기에서는 항상 내어 준다.** 예전에는 `_fs_wanted`(제목에서 한 번 눌러 본 적)가 있어야만
+	# 구석 버튼이 나왔다. 그래서 제목 화면의 버튼을 놓치면(세로로 열어 안내막에 가렸거나, 글자가 커져
+	# 메뉴가 잘렸거나) **다시 들어갈 길이 아예 없었다** — 친구 보고 "주소창 없애는 거 또 없어졌네".
+	# 이제 터치 기기이면서 전체화면이 아니면 언제나 보인다. PC에서는 예전 그대로(눌러 본 적이 있을 때만).
+	var offer: bool = (PLayout.is_touch() or _fs_wanted) and not _fs_active
 	orient.apply(_portrait, orient_paused, offer)
 	if _pause_fs_btn != null:
 		_pause_fs_btn.visible = offer

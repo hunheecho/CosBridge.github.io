@@ -492,7 +492,9 @@ static func update_shieldbearer(st: CombatState, e: Dictionary, dt: float) -> vo
 		"bash":
 			e.state_t += adv
 			if float(e.state_t) >= 0.12:
-				to_recover(st, e, float(d.recover))
+				# 빈틈 길이는 **겹침 파일이 정본**이다(dv). 예전에는 정의 사전만 봐서
+				# pacing.json 으로 조절할 수 없었다
+				to_recover(st, e, dv(e, "recover", 1.3))
 		"recover":
 			_recover_tick(e, adv)
 

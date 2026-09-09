@@ -16,7 +16,9 @@ func _build() -> void:
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_child(center)
-	_menu = PUi.vbox(8)
+	# 터치에서는 글자가 1.6배까지 커진다. 간격까지 그대로면 메뉴가 캔버스(640)를 넘어
+	# 아래 항목(설정·종료·글꼴 고지)이 잘린다 — 폰 가로 854x400에서 메뉴 높이 851로 실측했다.
+	_menu = PUi.vbox(4 if PLayout.is_touch() else 8)
 	_menu.custom_minimum_size = Vector2(520, 0)
 	_menu.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	center.add_child(_menu)
@@ -58,12 +60,24 @@ func refresh() -> void:
 		var PK := PCatalog.meta_profiles()
 		meta_txt = "영구 성장  (%s · Lv %d · 특성 %d개)" % [String(PK[String(p.kind)].name), PProfile.level(p), PProfile.selected_traits(p).size()]
 	_menu.add_child(PUi.button(meta_txt, func(): main.show_meta(), true, 15))
-	_menu.add_child(PUi.button("검증 메뉴 " + ("▼" if _verify_open else "▶"), _toggle_verify, true, 15))
-	if _verify_open:
-		_menu.add_child(_verify_panel())
-	_menu.add_child(PUi.button("조작법", func(): main.show_controls(true), true, 15))
-	_menu.add_child(PUi.button("설정", func(): main.open_settings(), true, 15))
-	_menu.add_child(PUi.button("종료", func(): get_tree().quit(), true, 15))
+	# 터치에서는 글자가 1.6배까지 커져 세로 버튼 여섯 줄이 캔버스(640)를 넘는다.
+	# 자주 쓰지 않는 넷은 한 줄에 나란히 둔다 — 항목을 지우지 않고 자리만 줄인다
+	if PLayout.is_touch():
+		var srow := PUi.hbox(6)
+		srow.add_child(PUi.button("검증 " + ("▼" if _verify_open else "▶"), _toggle_verify, true, 14))
+		srow.add_child(PUi.button("조작법", func(): main.show_controls(true), true, 14))
+		srow.add_child(PUi.button("설정", func(): main.open_settings(), true, 14))
+		srow.add_child(PUi.button("종료", func(): get_tree().quit(), true, 14))
+		_menu.add_child(srow)
+		if _verify_open:
+			_menu.add_child(_verify_panel())
+	else:
+		_menu.add_child(PUi.button("검증 메뉴 " + ("▼" if _verify_open else "▶"), _toggle_verify, true, 15))
+		if _verify_open:
+			_menu.add_child(_verify_panel())
+		_menu.add_child(PUi.button("조작법", func(): main.show_controls(true), true, 15))
+		_menu.add_child(PUi.button("설정", func(): main.open_settings(), true, 15))
+		_menu.add_child(PUi.button("종료", func(): get_tree().quit(), true, 15))
 	_menu.add_child(PUi.spacer(6))
 	var bal := String(PCatalog.balance().balance_default)
 	var BS := PCatalog.balance_sets()
@@ -86,10 +100,13 @@ func _add_fullscreen_button() -> void:
 	var b := PUi.button(FULLSCREEN_TEXT, _on_fullscreen, true, 18)
 	b.custom_minimum_size = Vector2(0, PLayout.primary_button_height())
 	_menu.add_child(b)
-	var note := PUi.label("폰에서 주소창을 감추고 가로로 고정합니다. 되지 않는 기기에서는 그대로 진행합니다.", 11, PUi.DIM)
-	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_menu.add_child(note)
-	_menu.add_child(PUi.spacer(6))
+	# 설명 줄은 폰에서 생략한다. 글자가 커진 상태에서 이 한 줄이 메뉴를 넘치게 만들고,
+	# 정작 버튼 이름("전체화면으로 시작")만으로 뜻이 통한다
+	if not PLayout.is_touch():
+		var note := PUi.label("폰에서 주소창을 감추고 가로로 고정합니다. 되지 않는 기기에서는 그대로 진행합니다.", 11, PUi.DIM)
+		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_menu.add_child(note)
+		_menu.add_child(PUi.spacer(6))
 
 func _on_fullscreen() -> void:
 	main.request_fullscreen_landscape()

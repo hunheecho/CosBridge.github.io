@@ -336,10 +336,10 @@ static func build_panel(run: Dictionary) -> Control:
 		for mid in wd.mods:
 			mods.append(String(wd.def.mods[String(mid)].name))
 		# 상한은 그 무기의 규칙값이다(주무기 Lv5·개조 2 / 보조 Lv3·개조 1). 화면이 숫자를 지어내지 않는다
-		var cap_lv := PGrowth.level_cap(run.growth, String(wd.id))
-		var cap_md := PGrowth.mod_cap(run.growth, String(wd.id))
+		var cap_lv := PGrowth.level_cap(g, String(wd.id))
+		var cap_md := PGrowth.mod_cap(g, String(wd.id))
 		var kind_tag := ""
-		if PGrowth.is_v2(run.growth):
+		if PGrowth.is_v2(g):
 			kind_tag = "[color=#8a93a6]%s[/color] " % ("주무기" if PCatalog.is_main_weapon(String(wd.id)) else "보조")
 		box.add_child(rich("  %s[b]%s[/b] Lv%d/%d [color=#9ea8b8]%s[/color] · %s %d/%d: %s" % [kind_tag, PGlossaryTip.term("w:" + String(wd.id), String(wd.name)), int(wd.level), cap_lv, weapon_stats_text(wd), PGlossaryTip.term("mod", "개조"), mods.size(), cap_md, (", ".join(mods) if mods.size() > 0 else "없음")], 14))
 	for i in int(S.weapons) - (b.weapons as Array).size():
@@ -421,6 +421,12 @@ static func stats_table(a: Dictionary, title: String) -> Control:
 ## 개조 칸은 세 가지를 구분한다: 가진 것 · 자격은 열렸지만 아직 안 고른 것(미획득) ·
 ## 아직 자격이 없는 것(Lv? 필요). **자격이 열린 것이 자동으로 들어온 것처럼 보이면 안 된다.**
 static func build_icon_row(run: Dictionary, icon_px: float = 44.0, mod_px: float = 26.0, highlight: String = "", on_pick: Callable = Callable()) -> Control:
+	# **growth가 없는 사전이 들어올 수 있다.** 3택 창은 `run.get("growth", {})`로 방어하고 있었는데
+	# 내가 여기서 `run.growth`를 바로 읽어 그 경로가 죽었다 — 임무 승리 뒤 3택이 뜨는 순간
+	# 화면이 통째로 검게 나갔다(2026-09-09 친구 보고: "봉인 100% 채웠더니 화면 날라감").
+	var g_all: Dictionary = run.get("growth", {})
+	if g_all.is_empty():
+		return vbox(0)
 	var b := PBuild.derive(run)
 	var R := PCatalog.slot_rules()
 	var mains := []
@@ -436,7 +442,7 @@ static func build_icon_row(run: Dictionary, icon_px: float = 44.0, mod_px: float
 	row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	# **옛 저장(v1)은 주무기·보조 구분이 없다.** 그런 회차에 새 제목을 붙이면 거짓말이 되므로
 	# 예전처럼 한 덩어리로 그린다(상한도 그 회차의 규칙을 따른다)
-	if not PGrowth.is_v2(run.growth):
+	if not PGrowth.is_v2(g_all):
 		var S: Dictionary = PCatalog.growth().SLOTS
 		row.add_child(_slot_group(run, "자동기술", b.weapons as Array, int(S.weapons),
 			int(S.weaponMax), int(S.weaponMods), PCatalog.growth().get("MOD_UNLOCK_LEVEL", [2, 4]),
@@ -474,7 +480,7 @@ static func _slot_group(run: Dictionary, title: String, ws: Array, slots: int, l
 	col.add_child(rich("[b]%s[/b] [color=#8a93a6]%s[/color]" % [title, cap], 13))
 	var row := hbox(10)
 	row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var g_ws: Array = run.growth.weapons
+	var g_ws: Array = (run.get("growth", {}) as Dictionary).get("weapons", [])
 	for i in slots:
 		var wd: Dictionary = ws[i] if i < ws.size() else {}
 		var wid := String(wd.get("id", ""))
@@ -492,7 +498,7 @@ static func _slot_group(run: Dictionary, title: String, ws: Array, slots: int, l
 			tile.key = PIcons.weapon_key(wid)
 			tile.title = String(wd.get("name", wid))
 			# 상한은 **그 회차의 규칙**이 정한다(PGrowth가 v1/v2와 주무기/보조를 함께 본다)
-			tile.sub = "Lv%d/%d" % [int(wd.get("level", 1)), PGrowth.level_cap(run.growth, wid)]
+			tile.sub = "Lv%d/%d" % [int(wd.get("level", 1)), PGrowth.level_cap(run.get("growth", {}), wid)]
 		else:
 			tile.empty = true
 			tile.title = "빈 슬롯"
@@ -506,8 +512,8 @@ static func _slot_group(run: Dictionary, title: String, ws: Array, slots: int, l
 		var mods: Array = wd.get("mods", [])
 		var lv := int(wd.get("level", 1))
 		# 개조 칸 수와 자격 레벨도 규칙에서 읽는다. 빈 자리는 영역 기본값을 쓴다
-		var slots_here: int = PGrowth.mod_cap(run.growth, wid) if wid != "" else mod_slots
-		var unlock_here: Variant = PGrowth.mod_unlock_levels(run.growth, wid) if wid != "" else unlock
+		var slots_here: int = PGrowth.mod_cap(run.get("growth", {}), wid) if wid != "" else mod_slots
+		var unlock_here: Variant = PGrowth.mod_unlock_levels(run.get("growth", {}), wid) if wid != "" else unlock
 		var mrow := hbox(4)
 		mrow.alignment = BoxContainer.ALIGNMENT_CENTER
 		mrow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

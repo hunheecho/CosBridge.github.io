@@ -521,6 +521,20 @@ func _run() -> void:
 	ok("미리보기 뒤 회차 상태 불변(경험치·성장·금화)", JSON.stringify(main.run) == before_run)
 	ok("미리보기 뒤 저장 파일 불변", JSON.stringify(PSave.load()) == before_save)
 
+	# ---------- 빌드 아이콘 줄: growth가 없는 사전에도 죽지 않는다 ----------
+	# 2026-09-09 친구 보고 "봉인 100% 채웠더니 화면 날라감": 임무 승리 뒤 3택 창이 열릴 때
+	# 그 창의 '지금 내 빌드'가 growth 없는 사전을 넘길 수 있는데(choice_overlay는 get으로 방어한다)
+	# build_icon_row가 run.growth를 바로 읽어 화면이 통째로 검게 나갔다.
+	var empty_row := PUi.build_icon_row({}, 40.0, 24.0)
+	ok("빌드 아이콘 줄: 빈 사전에도 죽지 않는다(3택 창 검은 화면 회귀)", empty_row != null)
+	var no_g := PUi.build_icon_row({ "seed": 1 }, 40.0, 24.0)
+	ok("빌드 아이콘 줄: growth가 없는 사전에도 죽지 않는다", no_g != null)
+	var real_run := PRun.new_run(4021, "hammer")
+	PGrowth.apply_choice(real_run, { "kind": "weapon_new", "id": "frost" })
+	var real_row := PUi.build_icon_row(real_run, 40.0, 24.0)
+	ok("빌드 아이콘 줄: 정상 회차는 주무기·보조 두 영역으로 그린다",
+		real_row != null and real_row.get_child_count() > 0)
+
 	main.view.running = false
 	main.queue_free()
 	await process_frame

@@ -107,6 +107,19 @@ static func enemies() -> Dictionary:
 	for k in PEnemiesNew.extra_defs(out):
 		if not out.has(k):
 			out[k] = PEnemiesNew.extra_defs(out)[k]
+	# **화면에 보이는 설명도 겹침 파일이 덮는다.**
+	# 값(frontMult 등)은 PEnemiesNew.dv가 pacing.json enemy_tuning을 먼저 보는데,
+	# readme·role은 화면이 정의 사전을 직접 읽어서 겹침이 닿지 않았다.
+	# 그래서 방패병 정면 감소를 85%→70%로 바꾼 뒤에도 설명만 "15%만 들어간다"로 남아 있었다
+	# (2026-09-09 사람 지적). 값과 설명이 어긋나지 않게 여기서 함께 덮는다.
+	var tune: Dictionary = pacing().get("enemy_tuning", {})
+	for k in tune:
+		if not out.has(String(k)):
+			continue
+		var t: Dictionary = tune[k]
+		for disp in ["readme", "role", "name"]:
+			if t.has(disp):
+				(out[String(k)] as Dictionary)[disp] = t[disp]
 	_cache["enemies_merged"] = out
 	return out
 ## 신규 보스 6종(bosses_new.json, 손으로 작성 — 시험값). enemies.json의 기존 3종 정의는 그대로 두고 아래 boss_defs/boss_hp_sets가 합친다
