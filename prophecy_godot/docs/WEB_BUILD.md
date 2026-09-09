@@ -17,38 +17,52 @@
 | SharedArrayBuffer / COOP·COEP | **필요 없다** (`GODOT_THREADS_ENABLED = false`) — §3 |
 | 파일 접근 | `res://`(읽기)·`user://`(JSON) 뿐. 절대 경로·`OS.execute` 없음 |
 | 터치 | 이미 있는 오버레이가 브라우저에서 **환경 변수 없이** 켜진다 — §4 |
-| 첫 화면 | 로컬 정적 서버로 띄워 제목 화면까지 확인함 |
+| 한글 글꼴 | **들어 있다** (Noto Sans KR 부분집합, OFL 1.1) — §2 · `docs/FONT_LICENSE.md` |
+| 첫 화면 | 로컬 정적 서버로 띄워 제목·마을·전투 화면까지 눌러 가며 확인함 — §10 |
 
 내보내기는 **첫 시도에 성공**했다. 다만 그대로 두면 브라우저에서 못 쓸 결함이 세 가지 있었고, 모두 고쳤다(§2·§3).
 
 ---
 
-## 2. 글꼴 — 이것부터 넣어야 한다 (가장 중요)
+## 2. 글꼴 — 넣었다 (2026-09-09 해결)
 
 **증상.** 넣지 않으면 브라우저에서 **한글이 전부 네모(□)로 나온다.** 제목·메뉴·전투 HUD·예고 글자까지 전부.
 
 **원인.** 프로젝트에 글꼴 파일이 하나도 없고 화면 전부가 엔진 기본 글꼴(`ThemeDB.fallback_font`)을 쓴다.
 PC에서는 엔진이 **운영체제 글꼴**로 대신 그려 주기 때문에 문제가 드러나지 않는다. 브라우저에는 그 운영체제 글꼴이 없다.
 
-**넣는 법.** OFL 같은 재배포 가능한 한글 글꼴을 `assets/fonts/ui.ttf` 로 둔다. 그 한 곳이면 된다.
+> **2026-09-09에 해결했다.** 아래는 이제 "넣어야 한다"가 아니라 **"이렇게 넣어 두었다"** 는 기록이다.
+> 자세한 것(고른 글꼴·라이선스 전문·부분집합 범위·OFL 조항별 대응)은 **`docs/FONT_LICENSE.md`** 에 있다.
 
-```
-# 예: 이 PC에 이미 있는 Noto Sans KR(OFL 1.1). 배포하려면 라이선스 파일도 같이 둔다.
-cp "C:/Windows/Fonts/NotoSansKR-Regular.ttf" prophecy_godot/assets/fonts/ui.ttf
-```
+**넣은 것.** **Noto Sans KR Regular 2.004-H2**(SIL Open Font License 1.1)의 **부분집합**이다.
+한자 8,138자를 버리고 **현대 한글 음절 11,172자는 하나도 버리지 않았다.** 6,192,764 → 2,550,812바이트.
 
-`Game._apply_ui_font()`가 시작할 때 **파일이 있을 때만** 깔고, 없으면 아무것도 하지 않는다(PC 동작은 그대로).
+| 자리 | 무엇 | 저장소에 |
+| --- | --- | --- |
+| `assets/fonts/ui.ttf` | 글꼴(부분집합) | **넣는다** |
+| `assets/fonts/ui.ttf.import` | Godot 가져오기 표식 — 없으면 내보내기에 안 담긴다 | **넣는다** |
+| `assets/fonts/OFL.txt` | 라이선스 전문 | **넣는다** |
 
-> 두 군데를 모두 바꿔야 한다. `ThemeDB.fallback_font`만 바꾸면 **화면이 하나도 안 바뀐다** —
+**연결.** `project.godot`의 `[gui] theme/custom_font="res://assets/fonts/ui.ttf"` 하나로 엔진이
+기본 테마의 글꼴과 `ThemeDB.fallback_font`를 함께 채운다. `Game._apply_ui_font()`도 같은 값을 한 번 더 넣어 둔다.
+
+> 두 군데를 모두 채워야 한다. `ThemeDB.fallback_font`만 바꾸면 **화면이 하나도 안 바뀐다** —
 > Label·Button·RichTextLabel은 기본 테마의 `default_font`를 먼저 읽기 때문이다(4.7에서 확인).
-> 그래서 `ThemeDB.get_default_theme().default_font`와 `ThemeDB.fallback_font`를 함께 넣는다.
+> 반대로 `default_font`만 바꾸면 직접 그리는 쪽(`PRender.font()`·`PTouchControls._draw()`)이 네모로 남는다.
 
-**글꼴에 없는 기호는 미리 바꿔 두었다.** 프로젝트가 쓰는 비-한글 기호 30종을 Noto Sans KR에 대조한 결과
-`▸`·`▾`·`☠` 세 개만 없었다. 각각 `▶`·`▼`·`독`으로 바꿨다(11곳의 펼치기/접기 버튼 + 포자 지역 표시).
-나머지 27종(`·` `—` `→` `×` `≥` `①` `★` `●` …)은 모두 들어 있다.
+**내보내기 포함.** `.ttf`는 `export_filter="all_resources"`가 알아서 담지만 **`.txt`는 담지 않는다**
+(내보낸 `index.pck`를 실제로 뜯어 확인했다). 그래서 두 프리셋에 `include_filter="assets/fonts/*.txt"` 를 넣어
+라이선스 전문이 웹·윈도우 빌드에 함께 나가게 했다.
 
-**저장소에는 글꼴 파일을 넣지 않았다.** 6.2 MB 짜리 제3자 파일이고, 어떤 글꼴을 쓸지·라이선스 파일을
-어떻게 같이 둘지는 사람이 정할 일이다. `.gitignore`에 `prophecy_godot/assets/fonts/` 를 넣어 두었다.
+**게임 안 고지.** 제목 화면 맨 아래 `글꼴 Noto Sans KR · OFL 1.1`, 설정 화면에
+`글꼴 Noto Sans KR (c) 2014-2021 Adobe · SIL Open Font License 1.1` 과 전문 경로.
+
+**글꼴에 없는 기호는 미리 바꿔 두었다.** 프로젝트가 쓰는 비-한글 기호를 Noto Sans KR에 대조한 결과
+`▸`·`▾`·`☠`가 없었다(원본에 없다. 부분집합 때문이 아니다). 각각 `▶`·`▼`·`독`으로 바꿨다.
+나머지(`·` `—` `→` `×` `≥` `①` `★` `●` …)는 모두 들어 있다. `tests/font_tests.gd`가 이것을 회귀로 막는다.
+
+**회귀 시험.** `python tools/run_suites.py --suites font_tests --jobs 1` —
+파일·가져오기 표식·한글 11,172자·기본 테마 세 곳·두 내보내기 포함 목록·게임 안 고지를 단언한다.
 
 ---
 
@@ -69,25 +83,35 @@ godot --headless --path prophecy_godot --export-release "Web" prophecy_godot_bui
 - `variant/thread_support=false` — **스레드 없는 빌드.** COOP/COEP 헤더가 필요 없어진다.
 - `html/experimental_virtual_keyboard=true` — 모바일에서 글자 입력 칸을 누를 때 자판이 뜬다.
 - `exclude_filter="tests/*,tools/*,docs/*"` — 윈도우 프리셋과 같은 기준.
+- `include_filter="assets/fonts/*.txt"` — 글꼴 라이선스 전문(§2). `all_resources`는 `.txt`를 담지 않는다.
 - `progressive_web_app/enabled=false` — 서비스 워커를 쓰지 않는다(캐시가 옛 빌드를 붙잡는 것을 피하려고. §6).
 
-### 산출물 (글꼴 포함)
+### 산출물 (2026-09-09 · 커밋 9bd00bd 작업본 · 글꼴 부분집합 포함)
 
 | 파일 | 그대로 | gzip |
 | --- | ---: | ---: |
-| `index.wasm` | 39,514,754 | 10,084,297 |
-| `index.pck` | 5,447,012 | 5,113,610 |
-| `index.js` | 279,815 | 68,400 |
-| `index.html` | 5,471 | 2,263 |
-| `index.audio.worklet.js` | 7,298 | 2,217 |
-| `index.audio.position.worklet.js` | 2,973 | 1,193 |
-| `index.png` (splash) | 21,443 | 19,270 |
+| `index.wasm` | 39,514,754 | 10,054,758 |
+| `index.pck` | 4,274,136 | 3,643,699 |
+| `index.js` | 279,815 | 68,471 |
+| `index.html` | 5,471 | 2,252 |
+| `index.audio.worklet.js` | 7,298 | 2,194 |
+| `index.audio.position.worklet.js` | 2,973 | 1,161 |
+| `index.png` (splash) | 21,443 | 19,328 |
 | `index.icon.png` / `index.apple-touch-icon.png` | 4,796 / 11,023 | — |
-| `version.json` (빌드 표식) | 425 | 256 |
-| **합계** | **45,295,010 (43.2 MB)** | **15,307,335 (14.6 MB)** |
+| `version.json` (빌드 표식) | 425 | 245 |
+| **합계** | **44,122,134 (42.1 MB)** | **13,807,895 (13.2 MB)** |
 
-글꼴을 빼면 `index.pck`가 1,601,368(gzip 1,274,863)이라 합계가 약 41.4 MB(gzip 11.5 MB)다.
-즉 **글꼴 값이 gzip 기준 약 3.8 MB**다. 줄이고 싶으면 글꼴 부분집합(subset)을 만들어 넣는 것이 가장 크게 준다.
+**글꼴이 차지하는 몫**(`index.pck` 안을 뜯어 센 값):
+
+| 항목 | 바이트 |
+| --- | ---: |
+| `.godot/imported/ui.ttf-….fontdata` (엔진이 압축해 담은 글꼴) | 1,363,207 |
+| `assets/fonts/ui.ttf.import` | 159 |
+| `assets/fonts/OFL.txt` | 4,802 |
+| **글꼴 때문에 늘어난 값** | **약 1,368,168 (1.30 MB)** |
+
+원본 Noto Sans KR(6.2 MB)을 그대로 넣었다면 이 자리가 약 3.85 MB였다.
+**부분집합으로 약 2.5 MB를 아꼈다**(범위는 `docs/FONT_LICENSE.md` §3).
 
 ### 서버에 필요한 것
 
@@ -255,7 +279,7 @@ Godot 웹 내보내기는 파일 이름에 해시를 붙이지 않는다(`index.
 
 - **배포하지 않았다.** 공개 호스팅에 올리지 않았고, 도메인·서비스 가입·자격 증명도 건드리지 않았다.
   기존 CosBridge 사이트도 그대로 두었다. 확인은 전부 `127.0.0.1`에서만 했다.
-- **글꼴 파일을 저장소에 넣지 않았다** (§2). 넣어야 브라우저에서 한글이 나온다.
+- ~~**글꼴 파일을 저장소에 넣지 않았다**~~ → **2026-09-09에 넣었다**(§2·§10·`docs/FONT_LICENSE.md`).
 - **갱신 알림 구현 안 함** (§6의 1·2·3). 빌드 표식(`version.json`)만 만들어 두었다.
 - **저장 내보내기/가져오기 없음** (§5 끝).
 - **브라우저에서 실제 조작 확인은 못 했다.** 자동화 도구의 미리보기 창이 숨겨져 있으면
@@ -274,5 +298,44 @@ Godot 웹 내보내기는 파일 이름에 해시를 붙이지 않는다(`index.
 
 **한글 글꼴이 없어 글자가 네모(□)로 보인다.** 이것은 알려진 상태다 — 제3자 글꼴 파일은
 저장소에 넣지 않기로 했고(§2), 글꼴을 넣는 절차도 §2에 있다. 게임 동작과는 무관하다.
+→ **§10에서 해결됐다.**
 
 **배포하지 않았다.** 서버는 `127.0.0.1`에만 묶여 있었고 확인 뒤 껐다.
+
+---
+
+## 10. 한글 글꼴 확인 (2026-09-09, 커밋 9bd00bd 작업본)
+
+§9에서 "네모로 보인다"고 적은 것이 **이 판에서 해결됐다.** 글꼴은 §2, 라이선스는 `docs/FONT_LICENSE.md`.
+
+**세 가지를 구분해서 적는다.**
+
+| 단계 | 상태 | 근거 |
+|---|---|---|
+| 웹 내보내기 성공 | **확인함** | `python tools/export_web.py --out ../prophecy_godot_build/web_font_9bd00bd` 종료 0. `index.wasm` 39.5 MB, `index.pck` 4,274,136. `index.pck` 안을 뜯어 `.godot/imported/ui.ttf-….fontdata`(1,363,207)와 `assets/fonts/OFL.txt`(4,802)가 실제로 담긴 것까지 확인했다 |
+| 윈도우 내보내기 성공 | **확인함** | `--export-release "Windows Desktop"` 종료 0, 113,440,232바이트. 묻어 들어간 pck 안에 `assets/fonts/OFL.txt`·`.godot/imported/ui.ttf-`·`assets/fonts/ui.ttf.import` 모두 있다 |
+| PC 브라우저 실행 | **확인함** | `python tools/serve_web.py --dir ../prophecy_godot_build/web_font_9bd00bd --port 8792` 로 띄우고 크롬으로 열어 **제목 → 설정 → 성장 선택 → 마을 → 전투 HUD → 회차 결과**까지 눌러 가며 봤다. **네모(□) 하나도 없다.** 콘솔 오류 0건. 폰 가로 크기(854×400)에서 터치 흉내를 켜고 **가상 스틱·회피·Q·E·빌드**가 뜨는 것과 **왼손 이동 + 오른손 회피 동시 입력**이 먹는 것까지 확인했다. 그림은 `docs/captures/web_font_9bd00bd/` |
+| **실제 안드로이드 기기 실행** | **아직 안 함(미검증)** | 기기가 없다. 아래 절차대로 **사용자가 직접** 확인해야 한다 |
+
+**서버는 확인 뒤 껐다**(포트가 닫힌 것까지 확인). 외부 공개 배포는 하지 않았다.
+
+### 폰으로 직접 확인하는 절차 (사용자가 실행)
+
+같은 공유기(같은 Wi-Fi)에 PC와 폰이 붙어 있어야 한다.
+
+```
+# 1) 빌드 만들기 (이미 있으면 건너뛴다)
+cd prophecy_godot
+python tools/export_web.py --out ../prophecy_godot_build/web_font_9bd00bd
+
+# 2) 폰에서 보이게 띄우기 — 이 명령은 사용자가 직접 실행한다
+python tools/serve_web.py --dir ../prophecy_godot_build/web_font_9bd00bd --host 0.0.0.0 --port 8792
+```
+
+- 화면에 `폰(같은 공유기): http://<PC 주소>:8792/` 가 뜬다. 그 주소를 폰 크롬 주소창에 그대로 친다.
+- **볼 것은 §7 점검표.** 그중 글꼴에 해당하는 것은 **2번(글자)** 이다 — 네모(□)가 **하나라도** 보이면 실패다.
+  터치 조작은 **3·4번**(가로로 돌리기, 왼손 이동 + 오른손 회피 동시).
+- **끝나면 Ctrl+C로 반드시 끈다.** 이 서버는 같은 공유기 안에서만 열리지만 켜 둔 채로 두지 않는다.
+- 방화벽이 물어보면 **개인 네트워크**만 허용한다. 공용 네트워크에서는 하지 않는다.
+- 잘 안 되면: PC 방화벽이 8792를 막았거나(인바운드 규칙), 공유기가 기기 간 통신을 막는 설정(AP isolation)일 수 있다.
+- **외부 공개 배포는 별도 요청 전까지 하지 않는다.**

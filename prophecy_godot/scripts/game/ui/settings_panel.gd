@@ -8,6 +8,7 @@ var _vol: HSlider
 var _mute: CheckBox
 var _shake: CheckBox   # 강한 타격 시 화면 흔들림(끄기 가능, user://render_prefs.json에 저장)
 var _note: RichTextLabel
+var _font_note: RichTextLabel   # 글꼴 라이선스 고지(OFL 1.1). 값이 바뀌지 않아 만들 때 한 번만 채운다.
 
 func _audio() -> Node:
 	return get_node_or_null("/root/Audio")
@@ -57,6 +58,10 @@ func _ready() -> void:
 	v.add_child(_shake)
 	_note = PUi.rich("", 11, PUi.DIM)
 	v.add_child(_note)
+	# 글꼴 고지: SIL OFL 1.1이 저작권 표시와 라이선스를 함께 배포하라고 요구한다.
+	# 전문은 내보내기에 함께 담기는 assets/fonts/OFL.txt에 있고, 여기서는 그 경로까지 알려 준다.
+	_font_note = PUi.rich("%s\n전문: %s" % [PUi.font_notice(), PUi.font_license_path()], 11, PUi.DIM)
+	v.add_child(_font_note)
 	v.add_child(PUi.button("닫기 (Esc)", func(): close(), true, 14))
 	visible = false
 

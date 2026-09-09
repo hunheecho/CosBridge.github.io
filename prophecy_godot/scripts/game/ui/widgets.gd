@@ -211,6 +211,21 @@ static func version() -> String:
 static func settings_short(run: Dictionary) -> String:
 	return "%s · %s · 시드 %d" % [version(), balance_name(run), int(run.get("seed", 0))]
 
+## 글꼴 고지. SIL OFL 1.1은 저작권 표시와 라이선스를 함께 배포하라고 요구하므로 화면에서도 보이게 둔다.
+## 정본 문자열은 game.gd의 상수이고(자동 로드 없이도 읽는다), 전문은 assets/fonts/OFL.txt에 함께 담긴다.
+static func font_notice() -> String:
+	var gs: GDScript = load("res://scripts/game/game.gd")
+	return String(gs.get_script_constant_map().get("UI_FONT_NOTICE", ""))
+
+static func font_notice_short() -> String:
+	var gs: GDScript = load("res://scripts/game/game.gd")
+	return String(gs.get_script_constant_map().get("UI_FONT_NOTICE_SHORT", ""))
+
+## 라이선스 전문이 담긴 경로(내보내기에 함께 들어간다)
+static func font_license_path() -> String:
+	var gs: GDScript = load("res://scripts/game/game.gd")
+	return String(gs.get_script_constant_map().get("UI_FONT_LICENSE_PATH", ""))
+
 ## 거점·상점 공용 상단 줄(HTML header): 날짜 · 시간대 · 보스 · 체력 · 금화 · 설정
 static func header(run: Dictionary) -> Control:
 	var b := PBuild.derive(run)
