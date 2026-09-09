@@ -276,11 +276,42 @@ func _run() -> void:
 	st2.player.dodge_cd = 0.75
 	st2.player.special_cd = float(st2.cfg.player.slowfield.cooldown)
 	var fill := PTouchControls.cooldown_fill(st2)
-	ok("E20 재사용 채움: 회피 0.75/1.5 → 0.5, Q 방금 씀 → 0, E 없음 → has_e false", is_equal_approx(float(fill.dodge), 0.5) and is_equal_approx(float(fill.special), 0.0) and not bool(fill.has_e) and float(fill.e) == 0.0, str(fill))
+	# **기대값을 명세 변경에 맞춰 고쳤다**(2026-09-10). 예전에는 회피 재사용이 자료 고정값 1.5초라
+	# 0.75/1.5 = 0.5 를 박아 두었다. 지금은 주무기별이라(사용자 확정) 이 시험의 기준 전투 주무기인
+	# 검이 1.1초다 → 0.75/1.1. 구현 결함이 아니라 규칙이 바뀐 것이므로 숫자를 박지 않고
+	# 실제 값(dodge_cd_time)에서 계산해 비교한다 — 표가 바뀌어도 이 시험은 따라간다
+	var e20_cd: float = float(st2.player.get("dodge_cd_time", 0.0))
+	if e20_cd <= 0.0:
+		e20_cd = float(st2.cfg.player.dodge.cooldown)
+	var e20_want: float = 1.0 - 0.75 / e20_cd
+	ok("E20 재사용 채움: 회피 0.75/%.1f초(주무기별) → %.3f, Q 방금 씀 → 0, E 없음 → has_e false" % [e20_cd, e20_want],
+		is_equal_approx(float(fill.dodge), e20_want) and is_equal_approx(float(fill.special), 0.0) and not bool(fill.has_e) and float(fill.e) == 0.0, str(fill))
 	st2.player.dodge_cd = 0.0
 	st2.player.special_cd = 0.0
 	fill = PTouchControls.cooldown_fill(st2)
 	ok("E21 대기 0 → 채움 1", is_equal_approx(float(fill.dodge), 1.0) and is_equal_approx(float(fill.special), 1.0))
+	# E22 **주무기별 회피 재사용**(2026-09-10). 자료의 P.dodge.cooldown(1.5)이 아니라
+	# CombatState 가 회피할 때 정한 실제 값(player.dodge_cd_time)으로 눈금을 계산해야 한다.
+	# 옛 코드는 늘 1.5 로 나눠서, 검(1.1초)이면 회피하자마자 눈금이 26.7% 차 있는 것처럼 보였다
+	st2.player.dodge_cd_time = 1.1        # 검
+	st2.player.dodge_cd = 1.1             # 방금 회피한 순간
+	fill = PTouchControls.cooldown_fill(st2)
+	ok("E22 검(1.1초)으로 회피한 직후 눈금은 0이다(옛 코드는 0.267)",
+		is_equal_approx(float(fill.dodge), 0.0), "채움 %.3f" % float(fill.dodge))
+	st2.player.dodge_cd = 0.55            # 절반 지남
+	fill = PTouchControls.cooldown_fill(st2)
+	ok("E22b 검 회피 절반 지나면 0.5(옛 코드는 0.633)",
+		is_equal_approx(float(fill.dodge), 0.5), "채움 %.3f" % float(fill.dodge))
+	st2.player.dodge_cd_time = 2.2        # 추적궁
+	st2.player.dodge_cd = 1.1
+	fill = PTouchControls.cooldown_fill(st2)
+	ok("E22c 추적궁(2.2초)도 자기 값으로 잰다 — 절반이면 0.5",
+		is_equal_approx(float(fill.dodge), 0.5), "채움 %.3f" % float(fill.dodge))
+	st2.player.dodge_cd_time = 0.0        # 아직 한 번도 회피 안 함 → 자료 기본값으로 돌아간다
+	st2.player.dodge_cd = 0.75
+	fill = PTouchControls.cooldown_fill(st2)
+	ok("E22d 회피 전에는 자료 기본값(1.5)으로 돌아간다 — 0.75/1.5 = 0.5",
+		is_equal_approx(float(fill.dodge), 0.5), "채움 %.3f" % float(fill.dodge))
 	tc.queue_free()
 	fake.queue_free()
 	# ---------- F. 배치 헬퍼 ----------

@@ -91,7 +91,18 @@ static func dodge_mode_name(mode: String) -> String:
 static func dodge_text(c: Dictionary) -> String:
 	var D: Dictionary = c.player.dodge
 	var dist := ("%d~%d" % [int(D.min_distance), int(D.distance)]) if String(D.mode) == "hold" else str(int(D.distance))
-	return "회피 %s %s · 재사용 %.1f초" % [dodge_mode_name(String(D.mode)), dist, float(D.cooldown)]
+	# **주무기별 회피**(2026-09-10). byWeapon 표가 있으면 재사용·무적이 주무기마다 다르므로
+	# 한 숫자로 적으면 거짓말이 된다. 표가 있으면 범위로 적고, 없으면 예전처럼 한 값을 적는다
+	var by: Dictionary = D.get("byWeapon", {})
+	if by.is_empty():
+		return "회피 %s %s · 재사용 %.1f초" % [dodge_mode_name(String(D.mode)), dist, float(D.cooldown)]
+	var lo := 1.0e9
+	var hi := -1.0e9
+	for k in by:
+		var cd := float((by[k] as Dictionary).get("cooldown", D.cooldown))
+		lo = minf(lo, cd)
+		hi = maxf(hi, cd)
+	return "회피 %s %s · 재사용 %.1f~%.1f초(주무기별)" % [dodge_mode_name(String(D.mode)), dist, lo, hi]
 
 static func formation_text(c: Dictionary) -> String:
 	var F: Dictionary = c.formation

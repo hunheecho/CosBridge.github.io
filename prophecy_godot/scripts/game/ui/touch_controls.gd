@@ -437,7 +437,12 @@ func _cd_left(kind: String) -> float:
 static func cooldown_fill(st: CombatState) -> Dictionary:
 	var p: Dictionary = st.player
 	var P: Dictionary = st.cfg.player
-	var dcd: float = float(P.dodge.cooldown)
+	# **주무기별 회피 재사용**(2026-09-10). 자료의 P.dodge.cooldown 은 표가 없는 경우의 기본값일
+	# 뿐이라 그것으로 나누면 눈금이 어긋난다(검이면 시작부터 26.7% 차 있는 것처럼 보였다).
+	# CombatState 가 회피할 때 정한 실제 값(player.dodge_cd_time)을 쓴다
+	var dcd: float = float(p.get("dodge_cd_time", 0.0))
+	if dcd <= 0.0:
+		dcd = float(P.dodge.cooldown)
 	var qcd: float = float(st.build.special_cd) if st.build.has("special_cd") else float(P.slowfield.cooldown)
 	var out := {
 		"dodge": 1.0 - clampf(float(p.dodge_cd) / maxf(0.01, dcd), 0.0, 1.0),

@@ -39,7 +39,7 @@
 | `mod:bell:guard` | 근접 수호 | `mod_bell_guard` |
 | `mod:bell:layered` | 겹울림 | `mod_bell_layered` |
 | `mod:bell:reflect` | 되돌림 | `mod_bell_reflect` |
-| `mod:blades:dual` | 세 번째 칼날 | `mod_blades_dual` |
+| `mod:blades:dual` | 네 번째 칼날 | `mod_blades_dual` |
 | `mod:blades:launch` | 사출 칼날 | `mod_blades_launch` |
 | `mod:blades:serrated` | 톱날 | `mod_blades_serrated` |
 | `mod:bow:pierce` | 관통 화살 | `mod_bow_pierce` |
