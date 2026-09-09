@@ -397,8 +397,9 @@ func _town_ui_tests(main: Node) -> void:
 	ss = main.screens["shop"]
 	_vis_button(ss, "지금 장착").pressed.emit()
 	await process_frame
+	# §4 명세 변경(2026-09-10): 슬롯에는 장비 **개체 id**("종류#번호")가 들어간다. 종류로 비교한다
 	ok("'지금 장착'을 누르면 그 부위에 실제로 장착되고 금화가 준다",
-		main.run.equipment.get(slot0, null) != null and String(main.run.equipment[slot0]) == e0 and int(main.run.gold) < g1,
+		main.run.equipment.get(slot0, null) != null and PRun.equip_type_of(String(main.run.equipment[slot0])) == e0 and int(main.run.gold) < g1,
 		"%s=%s gold=%d" % [slot0, str(main.run.equipment.get(slot0, null)), int(main.run.gold)])
 	ss = main.screens["shop"]
 	var g2: int = int(main.run.gold)
@@ -411,7 +412,7 @@ func _town_ui_tests(main: Node) -> void:
 		_vis_button(ss, "가방에 넣기").pressed.emit()
 		await process_frame
 		ok("'가방에 넣기'를 누르면 가방에 들어가고 장착은 그대로다",
-			(main.run.bag as Array).size() == bag_n + 1 and String(main.run.equipment[slot0]) == e0 and int(main.run.gold) < g2,
+			(main.run.bag as Array).size() == bag_n + 1 and PRun.equip_type_of(String(main.run.equipment[slot0])) == e0 and int(main.run.gold) < g2,
 			"가방 %d → %d" % [bag_n, (main.run.bag as Array).size()])
 	else:
 		ok("'가방에 넣기'를 누르면 가방에 들어가고 장착은 그대로다", false, "살 수 있는 재고가 없음")

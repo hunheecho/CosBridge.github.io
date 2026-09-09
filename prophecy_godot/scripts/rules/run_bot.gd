@@ -152,6 +152,7 @@ func _perform(act: Dictionary, sortie: Dictionary = {}) -> Variant:
 			PRun.unequip_item(run, String(d.slot))
 			return true
 		"sell": return PRun.sell_equipment(run, String(d.id), int(d.get("gold", -1))) # 견적(행동 목록 data)과 같을 때만 확정 — 확인 단계를 봇도 그대로 지난다
+		"upgrade_equip": return PRun.upgrade_equip(run, String(d.uid), int(d.get("cost", -1))) # 장비 강화(§4). 견적과 같을 때만 확정
 		"sell_mat": return PRun.sell(run, String(d.mat_id), int(d.n))
 		"continue_offer": return PFlow.resolve_all(run, {}, _pick_cb(), _on_pick_cb("screen"))
 	push_error("지원하지 않는 행동: " + String(act.id))

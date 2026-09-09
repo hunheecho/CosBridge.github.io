@@ -40,6 +40,7 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 		"day": 1, "hours": int(cfg.HOURS_PER_DAY), # hours = 남은 시간대 칸 수. 현재 칸 = HOURS_PER_DAY - hours
 		"gold": int(cfg.START_GOLD), "mats": { "pelt": 0, "iron": 0, "spore": 0, "fang": 0 },
 		"equipment": { "weapon": null, "armor": null, "shield": null }, "bag": [], "forge": 0, "forgeBySkill": {},
+		"equipPlus": {}, "equipSeq": 0, # 장비 개체별 강화 단계(개체 id → 0~2)와 개체 일련번호(회차 안에서만 유일). §4
 		"visited": {}, "schedule": {}, "stock": null, "merchant": null,
 		"hp": float(cfg.PLAYER.hp),
 		"log": [],
@@ -1144,7 +1145,7 @@ static func deep_preview(run: Dictionary, sortie: Dictionary) -> Dictionary:
 	var pool := []
 	var items: Array = sortie.loot.get("items", [])
 	for id in PCatalog.equipment(): # 일반 장비만(제작 전용은 후보 아님) + 해금 스냅샷
-		if not owns_equip(run, String(id)) and not items.has(id) and PProfile.run_unlock_ok(run, "equipment", String(id)):
+		if not owns_equip(run, String(id)) and not items.has(id) and PProfile.run_unlock_ok(run, "equipment", String(id)) and not PCatalog.equipment_retired(String(id)):
 			pool.append(String(id))
 	if kind == "equipment" and pool.is_empty():
 		kind = "gold_big"
@@ -1280,13 +1281,13 @@ static func return_to_base(run: Dictionary, sortie: Dictionary) -> void:
 		run.mats[k] = int(run.mats.get(k, 0)) + int(loot.mats[k])
 	var extras := []
 	for id in loot.get("items", []):
-		var iid := String(id)
-		if owns_equip(run, iid):
+		var iid := equip_type_of(String(id)) # 전리품 목록은 **종류**다. 가방에 들어갈 때 개체 id를 발급한다
+		if owns_equip_type(run, iid):
 			var dup_gold := sell_value(run, iid) # 중복 드롭도 판매와 같은 기준(구매액 없으면 정상가의 절반)
 			run.gold = int(run.gold) + dup_gold
 			extras.append("%s(중복→금화 +%d)" % [equip_name(iid), dup_gold])
 		else:
-			(run.bag as Array).append(iid)
+			(run.bag as Array).append(equip_new_uid(run, iid))
 			extras.append(equip_name(iid))
 	for sv in loot.get("services", []):
 		run.services[String(sv)] = int(run.services.get(sv, 0)) + 1
@@ -1635,7 +1636,8 @@ static func start_boss(run: Dictionary) -> Dictionary:
 	else:
 		run.hp = float(build(run).hp_max)
 	# 준비물·회복약도 금화·장비와 같은 규칙으로 스냅샷에 담는다(재도전이 소모를 되돌린다 — 재도전마다 다시 사지 않아도 되고, 무한 회복도 아니다)
-	var snap := { "growth": run.growth, "hp": run.hp, "stage": int(run.get("stage", 0)), "gold": int(run.gold), "services": run.services, "equipment": run.equipment, "bag": run.bag, "forge": int(run.forge), "forgeBySkill": run.get("forgeBySkill", {}) }
+	var snap := { "growth": run.growth, "hp": run.hp, "stage": int(run.get("stage", 0)), "gold": int(run.gold), "services": run.services, "equipment": run.equipment, "bag": run.bag, "forge": int(run.forge), "forgeBySkill": run.get("forgeBySkill", {}),
+		"equipPlus": equip_plus_map(run), "equipSeq": int(run.get("equipSeq", 0)) } # 장비 개체·강화도 금화·가방과 같은 규칙으로 스냅샷에 담는다
 	snap["prep"] = PConsumables.snapshot(run)
 	run.bossEntry = snap.duplicate(true)
 	run.bossEntries = { "count": boss_entries(run) + 1 } # 사망 정산 중복 방지 키(입장마다 1 증가 — 같은 입장의 패배는 한 번만 정산된다). dict 안의 "count"는 PSave가 정수로 정규화하는 키다
@@ -1680,6 +1682,8 @@ static func boss_defeat_retry(run: Dictionary) -> void:
 		if E.has("services"): run.services = E.services
 		if E.has("equipment"): run.equipment = E.equipment
 		if E.has("bag"): run.bag = E.bag
+		if E.has("equipPlus"): run.equipPlus = (E.equipPlus as Dictionary).duplicate(true) # 장비 강화도 입장 시점으로 돌아간다(재도전이 강화를 복제하지 않는다)
+		if E.has("equipSeq"): run.equipSeq = int(E.equipSeq)
 		if E.has("forge"): run.forge = int(E.forge)
 		if E.has("forgeBySkill"): run.forgeBySkill = (E.forgeBySkill as Dictionary).duplicate(true)
 		if E.has("prep"): PConsumables.restore(run, E.prep)
@@ -1731,14 +1735,88 @@ static func boss_victory(run: Dictionary, stats: Dictionary) -> Dictionary:
 		PSortie.cards_for(run)
 	return rec
 
-# ---------- 상점(하루 시드 재고)·장비·대장간 ----------
-static func owns_equip(run: Dictionary, id: String) -> bool:
-	if (run.bag as Array).has(id):
+# ---------- 장비 개체(§0·§4, 2026-09-10 사용자 확정 방식) ----------
+## 장비는 더 이상 종류 문자열이 아니라 **개체**다. 개체 id = "<타입>#<일련번호>"(예 "hunter_sword#2").
+## - 타입은 '#' 앞을 읽는다. **'#'가 없으면 그 문자열 자체가 타입이고 강화 +0이다.**
+##   → 옛 저장(종류 문자열만 든 run.equipment·run.bag)이 **변환 없이 그대로** 동작한다. 이 성질을 깨지 말 것.
+## - 강화 단계는 run.equipPlus[개체 id]에만 있다. 개체가 사라지면 그 기록도 사라진다(이전·복제 없음).
+## - 일련번호(run.equipSeq)는 회차 안에서만 유일하면 된다.
+## PCatalog.equipment_def()는 **타입**만 받는다. 개체 id를 넘기기 전에 반드시 equip_type_of를 거칠 것.
+const EQUIP_UID_SEP := "#"
+
+## 개체 id → 장비 종류(자료 id). '#'가 없으면 그대로 돌려준다(옛 저장 호환)
+static func equip_type_of(uid: String) -> String:
+	var i := uid.find(EQUIP_UID_SEP)
+	return uid.substr(0, i) if i > 0 else uid
+
+## 이 개체의 강화 단계(0~2). 기록이 없으면 0 — 옛 저장의 장비는 전부 +0이다
+static func equip_plus_of(run: Dictionary, uid: String) -> int:
+	var m = run.get("equipPlus", null)
+	if typeof(m) != TYPE_DICTIONARY:
+		return 0
+	return int((m as Dictionary).get(uid, 0))
+
+static func equip_plus_map(run: Dictionary) -> Dictionary:
+	if typeof(run.get("equipPlus", null)) != TYPE_DICTIONARY:
+		run.equipPlus = {}
+	return run.equipPlus
+
+## 새 개체 id 발급(구매·제작·드롭에서만 부른다). 일련번호는 회차 안에서만 증가한다
+static func equip_new_uid(run: Dictionary, type_id: String) -> String:
+	var n := int(run.get("equipSeq", 0)) + 1
+	run.equipSeq = n
+	return "%s%s%d" % [type_id, EQUIP_UID_SEP, n]
+
+## 화면에 그대로 쓰는 이름("사냥꾼의 검 +1"). 강화가 없으면 이름만
+static func equip_display_name(run: Dictionary, uid: String) -> String:
+	var nm := equip_name(equip_type_of(uid))
+	var p := equip_plus_of(run, uid)
+	return "%s +%d" % [nm, p] if p > 0 else nm
+
+## 보유한 장비 개체 전부(장착 + 가방): [{ uid, type, slot, plus, where("equipped"|"bag"), slotName }]
+static func equip_instances(run: Dictionary) -> Array:
+	var out := []
+	for sl in W().equip_slots:
+		var slot := String(sl)
+		var cur = run.equipment.get(slot, null)
+		if cur != null:
+			out.append(_equip_inst(run, String(cur), "equipped"))
+	for id in run.bag:
+		out.append(_equip_inst(run, String(id), "bag"))
+	return out
+
+static func _equip_inst(run: Dictionary, uid: String, where: String) -> Dictionary:
+	var t := equip_type_of(uid)
+	var d := PCatalog.equipment_def(t)
+	return { "uid": uid, "type": t, "slot": String(d.get("slot", "")), "plus": equip_plus_of(run, uid),
+		"where": where, "name": equip_display_name(run, uid), "def": d }
+
+## 이 **개체**를 정확히 가지고 있는가(장착 또는 가방)
+static func has_equip_uid(run: Dictionary, uid: String) -> bool:
+	if (run.bag as Array).has(uid):
 		return true
 	for slot in run.equipment:
-		if run.equipment[slot] != null and String(run.equipment[slot]) == id:
+		if run.equipment[slot] != null and String(run.equipment[slot]) == uid:
 			return true
 	return false
+
+## 이 **종류**의 개체를 하나라도 가지고 있는가(상점 중복 진열·중복 구매 차단이 보는 값)
+static func owns_equip_type(run: Dictionary, type_id: String) -> bool:
+	for id in run.bag:
+		if equip_type_of(String(id)) == type_id:
+			return true
+	for slot in run.equipment:
+		if run.equipment[slot] != null and equip_type_of(String(run.equipment[slot])) == type_id:
+			return true
+	return false
+
+# ---------- 상점(하루 시드 재고)·장비·대장간 ----------
+## 옛 이름 유지: 개체 id('#' 포함)를 주면 그 개체를, 종류를 주면 그 종류를 본다.
+## 옛 저장은 '#'이 없어 예전과 완전히 같은 판정이 된다
+static func owns_equip(run: Dictionary, id: String) -> bool:
+	if id.find(EQUIP_UID_SEP) > 0:
+		return has_equip_uid(run, id)
+	return owns_equip_type(run, id)
 
 static func stock_seed(run: Dictionary, day: int = 0) -> int:
 	var d: int = day if day > 0 else int(run.day)
@@ -1751,7 +1829,7 @@ static func stock_seed_for(run: Dictionary, refreshes: int) -> int:
 ## 장비 후보가 지금 막에서 팔리는가(막이 오르면 새 후보가 열린다). minAct가 없는 장비는 항상 열림.
 ## acts가 아닌 회차(trio·시험실)나 막을 알 수 없으면 제한하지 않는다 — 기존 동작 그대로
 static func equip_act_ok(run: Dictionary, id: String) -> bool:
-	var d := PCatalog.equipment_def(id)
+	var d := PCatalog.equipment_def(equip_type_of(id))
 	if d.is_empty() or not d.has("minAct"):
 		return true
 	var a := act_of(run)
@@ -1782,7 +1860,7 @@ static func refresh_stock(run: Dictionary, paid: bool = false) -> Dictionary:
 	var EQ := PCatalog.equipment()
 	var pool := []
 	for id in EQ:
-		if not owns_equip(run, String(id)) and PProfile.run_unlock_ok(run, "equipment", String(id)) and equip_act_ok(run, String(id)) and not keep_eq.has(String(id)):
+		if not owns_equip(run, String(id)) and PProfile.run_unlock_ok(run, "equipment", String(id)) and equip_act_ok(run, String(id)) and not keep_eq.has(String(id)) and not PCatalog.equipment_retired(String(id)):
 			pool.append(String(id))
 	var eq := keep_eq.duplicate()
 	while eq.size() < int(SH().stock.equipment) and pool.size() > 0:
@@ -1816,7 +1894,7 @@ static func refresh_stock(run: Dictionary, paid: bool = false) -> Dictionary:
 	if visit:
 		var p2 := []
 		for id in EQ:
-			if not owns_equip(run, String(id)) and not eq.has(String(id)) and PProfile.run_unlock_ok(run, "equipment", String(id)) and equip_act_ok(run, String(id)):
+			if not owns_equip(run, String(id)) and not eq.has(String(id)) and PProfile.run_unlock_ok(run, "equipment", String(id)) and equip_act_ok(run, String(id)) and not PCatalog.equipment_retired(String(id)):
 				p2.append(String(id))
 		# 무료 휴식권 값은 data/world.json shop.merchantService가 정본이다(사용자 결정: 100). 코드에 숫자를 두지 않는다
 		run.merchant = { "day": int(run.day), "fromSlot": int(MV.slot), "equipment": (p2[rng.int_range(0, p2.size() - 1)] if p2.size() > 0 else null), "service": "free_rest", "servicePrice": merchant_service_price("free_rest"), "sold": [] }
@@ -1907,10 +1985,11 @@ static func merchant_open(run: Dictionary) -> bool:
 	var m = run.get("merchant", null)
 	return m != null and int(m.day) == int(run.day) and slot_index(run) >= int(m.fromSlot)
 
-static func equip_price(id: String) -> int: return int(SH().price[String(PCatalog.equipment_def(id).slot)])
+## 아래 세 함수는 개체 id도 종류도 받는다(안에서 타입으로 바꾼다)
+static func equip_price(id: String) -> int: return int(SH().price[String(PCatalog.equipment_def(equip_type_of(id)).slot)])
 ## 옛 고정 판매가표(35/30/30). 지금 판매 규칙은 sell_value가 정본이며 이 함수는 옛 표를 읽는 자리(도구·대조)에만 남아 있다
-static func sell_price(id: String) -> int: return int(SH().sellPrice[String(PCatalog.equipment_def(id).slot)])
-static func equip_name(id: String) -> String: return String(PCatalog.equipment_def(id).get("name", id))
+static func sell_price(id: String) -> int: return int(SH().sellPrice[String(PCatalog.equipment_def(equip_type_of(id)).slot)])
+static func equip_name(id: String) -> String: return String(PCatalog.equipment_def(equip_type_of(id)).get("name", equip_type_of(id)))
 
 # ---------- 판매(2026-09-09 사용자 확정: 구매액의 절반) ----------
 ## 장비 개체별 실제 지불 금액표. 구매할 때만 적는다(할인가로 샀으면 할인가가 남아 싸게 사서 비싸게 파는 일이 없다).
@@ -1945,7 +2024,7 @@ static func sell_basis(run: Dictionary, id: String) -> String:
 ## 확인 창에 그대로 쓰는 견적(회차를 전혀 바꾸지 않는다). 화면은 이 값만 보여 주고 확정은 sell_equipment가 한다.
 ## { id, name, slot, gold(받을 금액), paid(-1 = 구매액 없음), basis, equipped, unequips, hpMax, hpMaxAfter, hp, hpAfter, goldAfter, can, reason }
 static func sell_quote(run: Dictionary, id: String) -> Dictionary:
-	var d := PCatalog.equipment_def(id)
+	var d := PCatalog.equipment_def(equip_type_of(id))
 	if d.is_empty():
 		return { "id": id, "can": false, "reason": "없는 장비", "gold": 0 }
 	var slot := String(d.slot)
@@ -1960,14 +2039,15 @@ static func sell_quote(run: Dictionary, id: String) -> Dictionary:
 		hp_max_after = float(PBuild.derive(dup).hp_max)
 	var owned := owns_equip(run, id)
 	return {
-		"id": id, "name": equip_name(id), "slot": slot,
+		"id": id, "name": equip_display_name(run, id), "slot": slot, "type": equip_type_of(id), "plus": equip_plus_of(run, id),
 		"gold": gold, "price": gold, # price는 옛 행동 목록 항목(data.price)을 읽던 자리를 위한 같은 값의 별칭이다
 		"paid": paid_for(run, id), "basis": sell_basis(run, id),
 		"equipped": equipped, "unequips": equipped,
 		"hp": float(run.hp), "hpAfter": minf(float(run.hp), hp_max_after), "hpMax": hp_max, "hpMaxAfter": hp_max_after,
 		"goldAfter": int(run.gold) + gold,
 		"can": owned, "reason": "" if owned else "보유하지 않은 장비",
-		"text": "%s을(를) %d금에 판매할까요?%s" % [equip_name(id), gold, " (장착 중이라 해제됩니다)" if equipped else ""],
+		"text": "%s을(를) %d금에 판매할까요?%s%s" % [equip_display_name(run, id), gold, " (장착 중이라 해제됩니다)" if equipped else "",
+			" · 강화 +%d도 함께 사라집니다(되돌릴 수 없습니다)" % equip_plus_of(run, id) if equip_plus_of(run, id) > 0 else ""],
 	}
 
 static func can_sell_equipment(run: Dictionary, id: String) -> bool:
@@ -1998,21 +2078,23 @@ static func can_buy_equipment(run: Dictionary, id: String, from: String = "stock
 		sold = st.sold
 	return listed and not sold.has(id) and not owns_equip(run, id) and int(run.gold) >= equip_price_for(run, id, from)
 
-## 구매: 즉시 장착(equip=true) 또는 보관. 같은 장비 중복 구매 불가
+## 구매: 즉시 장착(equip=true) 또는 보관. 같은 종류 중복 구매 불가.
+## 재고 id는 **종류**이고, 사면 그 자리에서 **새 개체 id**를 발급한다(§4의 개체 귀속 강화가 붙을 자리)
 static func buy_equipment(run: Dictionary, id: String, equip: bool, from: String = "stock") -> bool:
 	if not can_buy_equipment(run, id, from):
 		push_error("구매 불가: " + id)
 		return false
 	var paid := equip_price_for(run, id, from)
 	run.gold = int(run.gold) - paid
-	note_paid(run, id, paid, from) # 할인 구매도 실제 지불액을 남긴다(판매 차익 방지)
+	var uid := equip_new_uid(run, equip_type_of(id))
+	note_paid(run, uid, paid, from) # 할인 구매도 실제 지불액을 남긴다(판매 차익 방지). 기록은 개체별이다
 	if has_service(run, "shop_discount"):
 		use_service(run, "shop_discount")
 	var target: Dictionary = run.merchant if from == "merchant" else stock(run)
-	(target.sold as Array).append(id)
-	(run.bag as Array).append(id)
+	(target.sold as Array).append(id) # 재고의 '판매됨'은 종류로 남긴다(재고 목록이 종류이므로)
+	(run.bag as Array).append(uid)
 	if equip:
-		equip_item(run, id)
+		equip_item(run, uid)
 	add_log(run, "%s 구매%s" % [equip_name(id), "·장착" if equip else "·보관"])
 	return true
 
@@ -2032,8 +2114,9 @@ static func buy_merchant_service(run: Dictionary) -> bool:
 	add_log(run, "방문 상인: %s 구매 (-%d)" % [String(PCatalog.services()[String(m.service)].name), int(m.servicePrice)])
 	return true
 
+## 장착: id는 **가방에 있는 개체 id**다. 슬롯에 있던 개체는 가방으로 간다(강화는 개체를 따라 그대로 남는다)
 static func equip_item(run: Dictionary, id: String) -> bool:
-	var d: Dictionary = PCatalog.equipment_def(id)
+	var d: Dictionary = PCatalog.equipment_def(equip_type_of(id))
 	if d.is_empty() or not (run.bag as Array).has(id):
 		push_error("가방에 없음: " + id)
 		return false
@@ -2069,14 +2152,17 @@ static func sell_equipment(run: Dictionary, id: String, expect_gold: int = -1) -
 	if expect_gold >= 0 and expect_gold != int(q.gold):
 		push_error("견적이 바뀌었다(%d → %d): 판매 취소" % [expect_gold, int(q.gold)])
 		return false
+	var plus_sold := equip_plus_of(run, id)
 	for s in W().equip_slots:
 		if run.equipment[s] != null and String(run.equipment[s]) == id:
 			run.equipment[s] = null
 	(run.bag as Array).erase(id)
 	paid_map(run).erase(id) # 개체가 사라졌으니 지불 기록도 사라진다(다시 사면 그때 값이 다시 적힌다)
+	equip_plus_map(run).erase(id) # 강화도 개체와 함께 사라진다(다른 장비로 옮겨가지 않는다)
 	clamp_hp(run)
 	run.gold = int(run.gold) + int(q.gold)
-	add_log(run, "%s 판매 +%d%s" % [equip_name(id), int(q.gold), " (장착 해제)" if bool(q.equipped) else ""])
+	add_log(run, "%s 판매 +%d%s%s" % [equip_name(id), int(q.gold), " (장착 해제)" if bool(q.equipped) else "",
+		" (강화 +%d 소멸)" % plus_sold if plus_sold > 0 else ""])
 	return true
 
 ## 빈 슬롯 획득: 새 자동기술 / 새 E (Lv1, 개조·변형 없음)
@@ -2284,6 +2370,79 @@ static func forge_upgrade(run: Dictionary, weapon_id: String = "") -> bool:
 	add_log(run, "%s 강화 %d단계 (-%d)" % [String(PCatalog.weapon(wid).name), int((run.forgeBySkill as Dictionary)[wid]), int(F.cost)])
 	return true
 
+# ---------- 장비 강화(§4, 2026-09-10). 자동기술 강화(forge_*)와 **다른 기능**이다 ----------
+## 규칙(사용자 확정): +0 → +1 → +2 두 단계. +1은 첫 관문 돌파 후, +2는 두 번째 관문 돌파 후.
+## 금화 소비 · 확정 성공 · **시간 소모 없음.** 비용·상승량은 data/world.json shop.equipUpgrade의 **시험값**이다.
+## 강화는 **그 개체**(run.equipPlus[개체 id])에만 붙는다: 가방에 넣어도 유지, 다른 장비로 옮겨가지 않는다.
+## 무엇이 오르는지는 장비 자료의 upgrade 표가 정한다 — **횟수·단계·지속·재사용·무적 시간은 넣지 않는다**(§4 금지 목록).
+static func equip_upgrade_rules() -> Dictionary:
+	return SH().get("equipUpgrade", { "steps": [] })
+
+## 이 회차에서 지금 살 수 있는 최대 강화 단계(돌파한 관문 수로 열린다)
+static func equip_upgrade_open_max(run: Dictionary) -> int:
+	var steps: Array = equip_upgrade_rules().get("steps", [])
+	var done: int = (run.get("bossesDone", []) as Array).size()
+	var n := 0
+	for s in steps:
+		if done >= int((s as Dictionary).afterBoss):
+			n = int((s as Dictionary).plus)
+	return n
+
+## 다음 강화 견적. 최대이거나 정의가 없으면 {}
+## { uid, type, name, plus, next, cost, afterBoss, open, affordable, can, reason }
+static func equip_upgrade_next(run: Dictionary, uid: String) -> Dictionary:
+	var steps: Array = equip_upgrade_rules().get("steps", [])
+	var cur := equip_plus_of(run, uid)
+	var tid := equip_type_of(uid)
+	var d := PCatalog.equipment_def(tid)
+	if d.is_empty() or steps.is_empty() or cur >= steps.size():
+		return {}
+	var s: Dictionary = steps[cur]
+	var done: int = (run.get("bossesDone", []) as Array).size()
+	var open: bool = done >= int(s.afterBoss)
+	var cost := int(s.cost)
+	var owned := has_equip_uid(run, uid)
+	var reason := ""
+	if not owned:
+		reason = "보유하지 않은 장비"
+	elif not open:
+		reason = "관문 %d개를 돌파해야 열립니다(지금 %d개)" % [int(s.afterBoss), done]
+	elif int(run.gold) < cost:
+		reason = "금화 %d 부족" % (cost - int(run.gold))
+	return { "uid": uid, "type": tid, "name": equip_display_name(run, uid), "plus": cur, "next": int(s.plus),
+		"cost": cost, "afterBoss": int(s.afterBoss), "open": open, "affordable": int(run.gold) >= cost,
+		"can": owned and open and int(run.gold) >= cost, "reason": reason }
+
+static func can_upgrade_equip(run: Dictionary, uid: String) -> bool:
+	var q := equip_upgrade_next(run, uid)
+	return not q.is_empty() and bool(q.can)
+
+## 강화 확정(확인 창의 '예'). expect_cost >= 0이면 견적과 같을 때만 실행한다(두 번 눌러도 두 번 차감되지 않는다).
+## 시간은 쓰지 않는다. 실패하면 아무것도 바꾸지 않는다
+static func upgrade_equip(run: Dictionary, uid: String, expect_cost: int = -1) -> bool:
+	var q := equip_upgrade_next(run, uid)
+	if q.is_empty() or not bool(q.can):
+		push_error("장비 강화 불가(%s): %s" % [uid, String(q.get("reason", "최대 단계"))])
+		return false
+	if expect_cost >= 0 and expect_cost != int(q.cost):
+		push_error("견적이 바뀌었다(%d → %d): 강화 취소" % [expect_cost, int(q.cost)])
+		return false
+	run.gold = int(run.gold) - int(q.cost)
+	equip_plus_map(run)[uid] = int(q.next)
+	clamp_hp(run) # 최대 체력이 오르는 장비도 있다. 늘어난 만큼 회복하지는 않는다(기존 규칙 그대로)
+	add_log(run, "%s 강화 +%d → +%d (-%d금)" % [equip_name(uid), int(q.plus), int(q.next), int(q.cost)])
+	return true
+
+## 지금 강화할 수 있는 장비 개체 목록(장착 + 가방). 화면이 그대로 그린다
+static func equip_upgrade_options(run: Dictionary) -> Array:
+	var out := []
+	for inst in equip_instances(run):
+		var e: Dictionary = inst
+		var q := equip_upgrade_next(run, String(e.uid))
+		e["next"] = q
+		out.append(e)
+	return out
+
 static func mod_change_cost(run: Dictionary) -> Dictionary:
 	return { "voucher": true, "gold": 0 } if has_service(run, "mod_swap") else { "voucher": false, "gold": int(SH().modChange) }
 static func variant_change_cost(run: Dictionary) -> Dictionary:
@@ -2320,10 +2479,39 @@ static func craft_options(run: Dictionary) -> Array:
 	var CE := PCatalog.crafted_equipment()
 	for id in CE:
 		var cid := String(id)
+		if PCatalog.equipment_retired(cid):
+			continue # 폐기 장비(§1): 제작 후보에서 뺀다. 이미 가진 개체는 건드리지 않는다
 		if not PProfile.run_unlock_ok(run, "recipes", cid):
 			continue
 		out.append(craft_option(run, cid))
 	return out
+
+## 제작에 쓸 재료 장비 **개체**를 고른다: 같은 종류가 여럿이면 **강화가 가장 낮은 것**부터,
+## 같은 강화면 가방을 장착보다 먼저 쓴다(비싸게 강화한 장비를 조용히 태우지 않기 위해서다).
+## 강화 계승은 **승인되지 않았다** — 여기서는 어느 개체를 쓸지만 정하고, 완성품은 +0으로 나온다(§4, 처리안 보고).
+## 없으면 { where: "" }
+static func craft_pick_uid(run: Dictionary, type_id: String) -> Dictionary:
+	var best := { "where": "", "uid": "", "plus": 0 }
+	var found := false
+	for id in run.bag:
+		var uid := String(id)
+		if equip_type_of(uid) != type_id:
+			continue
+		var p := equip_plus_of(run, uid)
+		if not found or p < int(best.plus):
+			best = { "where": "bag", "uid": uid, "plus": p }
+			found = true
+	for slot in run.equipment:
+		if run.equipment[slot] == null:
+			continue
+		var uid2 := String(run.equipment[slot])
+		if equip_type_of(uid2) != type_id:
+			continue
+		var p2 := equip_plus_of(run, uid2)
+		if not found or p2 < int(best.plus):
+			best = { "where": "equipped", "uid": uid2, "plus": p2, "slot": String(slot) }
+			found = true
+	return best
 
 static func craft_option(run: Dictionary, id: String, with_preview: bool = true) -> Dictionary:
 	var d: Dictionary = PCatalog.crafted_equipment()[id]
@@ -2331,16 +2519,12 @@ static func craft_option(run: Dictionary, id: String, with_preview: bool = true)
 	var ings := []
 	var missing := []
 	for eid in rc.get("equipment", []):
-		var e := String(eid)
-		var where := ""
-		if (run.bag as Array).has(e):
-			where = "bag"
-		else:
-			for slot in run.equipment:
-				if run.equipment[slot] != null and String(run.equipment[slot]) == e:
-					where = "equipped"
+		var e := String(eid) # 제작법은 **종류**로 적는다. 실제로 소비할 개체는 craft_pick_uid가 고른다
+		var pick := craft_pick_uid(run, e)
+		var where := String(pick.get("where", ""))
 		var nm := equip_name(e)
-		ings.append({ "kind": "equipment", "id": e, "name": nm, "n": 1, "have": 1 if where != "" else 0, "where": where })
+		ings.append({ "kind": "equipment", "id": e, "name": nm, "n": 1, "have": 1 if where != "" else 0, "where": where,
+			"uid": String(pick.get("uid", "")), "plus": int(pick.get("plus", 0)) })
 		if where == "":
 			missing.append(nm)
 	var M := PCatalog.materials()
@@ -2369,6 +2553,8 @@ static func craft_option(run: Dictionary, id: String, with_preview: bool = true)
 static func can_craft(run: Dictionary, id: String, use_equipped: bool = true) -> bool:
 	if not PCatalog.crafted_equipment().has(id) or not PProfile.run_unlock_ok(run, "recipes", id):
 		return false
+	if PCatalog.equipment_retired(id):
+		return false # 후보 목록을 지나 들어와도(옛 화면·저장된 조작·도구) 폐기 장비는 새로 만들지 못한다
 	var o := craft_option(run, id, false)
 	if not bool(o.can):
 		return false
@@ -2387,22 +2573,28 @@ static func craft(run: Dictionary, id: String, use_equipped: bool = true, equip_
 	var rc := PCatalog.recipe(id)
 	for eid in rc.get("equipment", []):
 		var e := String(eid)
-		if (run.bag as Array).has(e):
-			(run.bag as Array).erase(e)
+		var pick := craft_pick_uid(run, e)
+		var uid := String(pick.get("uid", ""))
+		if uid == "":
+			continue
+		if String(pick.where) == "bag":
+			(run.bag as Array).erase(uid)
 		else:
 			for slot in run.equipment:
-				if run.equipment[slot] != null and String(run.equipment[slot]) == e:
+				if run.equipment[slot] != null and String(run.equipment[slot]) == uid:
 					run.equipment[slot] = null
-		paid_map(run).erase(e) # 재료로 사라진 개체의 지불 기록도 사라진다(완성품은 '구매액 없는 장비'다)
+		paid_map(run).erase(uid) # 재료로 사라진 개체의 지불 기록도 사라진다(완성품은 '구매액 없는 장비'다)
+		equip_plus_map(run).erase(uid) # 재료의 강화도 함께 사라진다 — **완성품에 계승하지 않는다**(§4 미승인)
 	for mid in rc.get("mats", {}):
 		run.mats[String(mid)] = int(run.mats.get(String(mid), 0)) - int(rc.mats[mid])
 	run.gold = int(run.gold) - int(rc.get("fee", 0))
-	(run.bag as Array).append(id)
+	var out_uid := equip_new_uid(run, id) # 완성품도 개체다(+0에서 시작)
+	(run.bag as Array).append(out_uid)
 	if not run.has("crafted"):
 		run.crafted = []
 	(run.crafted as Array).append(id)
 	clamp_hp(run)
 	if equip_after:
-		equip_item(run, id)
+		equip_item(run, out_uid)
 	add_log(run, "%s 제작 (-%d금)%s" % [equip_name(id), int(rc.get("fee", 0)), "·장착" if equip_after else "·보관"])
 	return true

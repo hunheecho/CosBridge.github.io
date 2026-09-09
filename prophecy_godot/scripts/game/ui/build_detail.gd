@@ -270,13 +270,13 @@ func _equip_card(build: Dictionary) -> Control:
 	var eq_ids: Array = build.get("equip_ids", [])
 	for sl in PCatalog.world().equip_slots:
 		var slot := String(sl)
-		var found := ""
+		var found := ""   # 장비 **개체 id**(아이콘·이름은 타입으로 찾는다)
 		for id in eq_ids:
-			var d := PCatalog.equipment_def(String(id))
+			var d := PCatalog.equipment_def(PRun.equip_type_of(String(id)))
 			if not d.is_empty() and String(d.get("slot", "")) == slot:
 				found = String(id)
 		var row := PUi.hbox(8)
-		var t := PIconTile.new(("equip:" + found) if found != "" else "", PIconTile.STYLE_EQUIP)
+		var t := PIconTile.new(("equip:" + PRun.equip_type_of(found)) if found != "" else "", PIconTile.STYLE_EQUIP)
 		t.empty = found == ""
 		t.set_icon_px(32.0, 32.0, 0)
 		row.add_child(t)

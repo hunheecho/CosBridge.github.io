@@ -35,11 +35,26 @@ func refresh() -> void:
 	var SH := PCatalog.shop()
 	body.add_child(PUi.rich("[b]오늘의 재고[/b]%s" % ("  [color=#ffe066]할인권 보유[/color]" if PRun.has_service(r, "shop_discount") else ""), 17))
 	_refresh_row(r, st)
+	# §8: 진열 2 → 4. **한 줄에 네 칸을 밀어 넣으면 마지막 칸이 화면 밖으로 잘린다** —
+	# 카드 폭은 글자 배율·긴 설명에 따라 커지므로 줄당 2칸으로 접는다(2줄 × 2칸). 기술 칸은 그 아래 자기 줄에 둔다
+	var per_row := 2
 	var row := PUi.hbox(10)
+	var n_eq := 0
 	for id in st.equipment:
 		row.add_child(_equip_card(r, String(id), "stock"))
-	row.add_child(_skill_card(r, st))
-	body.add_child(row)
+		n_eq += 1
+		if n_eq % per_row == 0:
+			body.add_child(row)
+			row = PUi.hbox(10)
+	if n_eq % per_row != 0:
+		while n_eq % per_row != 0: # 마지막 줄이 한 칸이면 빈 자리를 채워 카드가 가로로 늘어나지 않게 한다
+			row.add_child(PUi.spacer())
+			n_eq += 1
+		body.add_child(row)
+	var skrow := PUi.hbox(10)
+	skrow.add_child(_skill_card(r, st))
+	skrow.add_child(PUi.spacer())
+	body.add_child(skrow)
 	_prep_section(r, st)
 	# 방문 상인
 	var m = r.get("merchant", null)
@@ -72,7 +87,7 @@ func refresh() -> void:
 			continue
 		any = true
 		var srow := PUi.hbox(8)
-		srow.add_child(PUi.rich("[color=#9ea8b8]%s(장착)[/color] %s" % [PUi.slot_name(slot), PUi.equip_line(String(eid))], 14))
+		srow.add_child(PUi.rich("[color=#9ea8b8]%s(장착)[/color] %s" % [PUi.slot_name(slot), PUi.equip_line(String(eid), r)], 14))
 		var sid := String(eid)
 		srow.add_child(PUi.button("판매 +%d" % int(PRun.sell_quote(main.run, sid).gold), func(): open_sell_confirm(sid), true, 12))
 		sbox.add_child(srow)
@@ -80,7 +95,7 @@ func refresh() -> void:
 		any = true
 		var bid := String(id)
 		var brow := PUi.hbox(8)
-		brow.add_child(PUi.rich("[color=#9ea8b8]가방 · %s[/color] %s" % [PUi.slot_name(String(PCatalog.equipment_def(bid).slot)), PUi.equip_line(bid)], 14))
+		brow.add_child(PUi.rich("[color=#9ea8b8]가방 · %s[/color] %s" % [PUi.slot_name(String(PCatalog.equipment_def(PRun.equip_type_of(bid)).slot)), PUi.equip_line(bid, r)], 14))
 		brow.add_child(PUi.button("판매 +%d" % int(PRun.sell_quote(main.run, bid).gold), func(): open_sell_confirm(bid), true, 12))
 		sbox.add_child(brow)
 	if not any:
@@ -230,13 +245,15 @@ func _equip_card(r: Dictionary, id: String, from: String) -> Control:
 	var box: VBoxContainer = c.box
 	var head := PUi.hbox(8)
 	head.add_child(PUi.icon_of("equip:" + id, 34.0, "", "", 0.0, 0)) # 장비 아이콘(임시 아이콘 없음 → 중립 자리표시 + 아래 실제 이름)
-	head.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s[/color]
-금화 [color=%s][b]%d[/b][/color]" % [PGlossaryTip.term("eq:" + id, String(d.name)), PUi.slot_name(String(d.slot)), "#ff8c73" if int(r.gold) < price else "#ffd966", price], 15))
+	head.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s[/color]" % [PGlossaryTip.term("eq:" + id, String(d.name)), PUi.slot_name(String(d.slot))], 15))
 	box.add_child(head)
 	if d.has("roleName"): # 역할(다수 처리·정예 상대·접근·보호막·연계) — 같은 부위 후보를 무엇으로 고를지 먼저 보이게
 		box.add_child(PUi.rich("[color=#7fd6a0]역할 · %s[/color]" % PGlossaryTip.esc(String(d.roleName)), 13))
-	box.add_child(PUi.rich(PGlossaryTip.esc(String(d.short)), 15))
+	# §8: **기본 능력치와 고유 효과를 갈라서** 보여 준다(한 줄 요약만으로는 둘이 섞여 읽힌다). 강화로 무엇이 오르는지도 여기서.
+	box.add_child(PUi.rich(PUi.equip_effect_lines(id), 14))
+	box.add_child(_needs_row(r, id, d))
 	box.add_child(PUi.rich("[color=#9ea8b8]장착하면[/color]  %s" % _change_text(r, id), 14))
+	box.add_child(_current_row(r, String(d.slot)))
 	var note := _compare_note(r, d)
 	if note != "":
 		box.add_child(PUi.rich(note, 13))
@@ -259,7 +276,7 @@ func _equip_card(r: Dictionary, id: String, from: String) -> Control:
 	if open_now:
 		box.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(d.desc)), 13))
 		var cur = r.equipment.get(String(d.slot), null)
-		PUi.kv(box, "현재 %s" % PUi.slot_name(String(d.slot)), PUi.equip_line(String(cur)) if cur != null else "[color=#6a7078]없음[/color]", 13)
+		PUi.kv(box, "현재 %s" % PUi.slot_name(String(d.slot)), PUi.equip_line(String(cur), r) if cur != null else "[color=#6a7078]없음[/color]", 13)
 		var SH2 := PCatalog.shop()
 		PUi.kv(box, "되팔 때", "무기 %d · 방어구 %d · 방패 %d" % [int(SH2.sellPrice.weapon), int(SH2.sellPrice.armor), int(SH2.sellPrice.shield)], 12)
 		PUi.kv(box, "규칙", "재고는 날마다 정해지고 다시 열어도 같습니다. 같은 장비는 두 번 살 수 없습니다.", 12)
@@ -283,7 +300,7 @@ func _buy_body(box: VBoxContainer, r: Dictionary, id: String, price: int) -> voi
 	PUi.kv(box, "지금 장착하면", _change_text(r, id), 13)
 	var cur = r.equipment.get(slot, null)
 	if cur != null:
-		box.add_child(PUi.rich("[color=#9ea8b8]지금 낀 %s은(는) 가방으로 갑니다.[/color]" % PGlossaryTip.esc(PRun.equip_name(String(cur))), 13))
+		box.add_child(PUi.rich("[color=#9ea8b8]지금 낀 %s은(는) 가방으로 갑니다(그 장비의 강화도 함께 따라갑니다).[/color]" % PGlossaryTip.esc(PRun.equip_display_name(r, String(cur))), 13))
 	var note := _compare_note(r, d)
 	if note != "":
 		box.add_child(PUi.rich(note, 13))
@@ -309,6 +326,41 @@ func _change_text(r: Dictionary, id: String) -> String:
 	if parts.is_empty():
 		return "[color=#9ea8b8]기본 수치 변화 없음(효과는 조건부)[/color]"
 	return " · ".join(parts)
+
+## 요구 조건 한 줄(§8): 특정 주무기·상태이상·수동 기술이 있어야 하는 장비는 **그 조건을 항상 적는다**(못 채웠을 때만이 아니라).
+##
+## 판정 기준은 **지금 Q/E 칸에 실제로 든 기술**(PGrowth.has_skill = 슬롯 조회)과 지금 든 자동기술이다.
+## 보유만 하고 편성하지 않은 기술을 "있다"고 세지 않는다 — 그렇게 세면 지금 발동하지도 않는 장비를 추천하게 된다(§8).
+func _needs_row(r: Dictionary, id: String, d: Dictionary) -> Control:
+	var g: Dictionary = r.growth
+	var eff: Dictionary = d.get("eff", {})
+	var parts := []
+	if String(d.get("needs", "")) == "dot":
+		var okd := PGrowth.has_dot_source(g)
+		parts.append("%s지속 피해 원천[/color]" % ("[color=#9fe89f]" if okd else "[color=#ff8c73]"))
+	for k in ["fieldDirect", "fieldTaken", "fieldMark", "fieldRegen"]:
+		if eff.has(k):
+			var okf := PGrowth.has_skill(g, "slowfield")
+			parts.append("%s감속장을 Q나 E에 편성[/color]" % ("[color=#9fe89f]" if okf else "[color=#ff8c73]"))
+			break
+	if eff.has("eShield"):
+		var oke: bool = g.get("skills", {}).get("e", null) != null
+		parts.append("%sE 칸에 수동 기술[/color]" % ("[color=#9fe89f]" if oke else "[color=#ff8c73]"))
+	if eff.has("relay"):
+		var okr: bool = g.get("skills", {}).get("e", null) != null and g.get("skills", {}).get("q", null) != null
+		parts.append("%sQ·E 두 칸 모두 사용[/color]" % ("[color=#9fe89f]" if okr else "[color=#ff8c73]"))
+	if eff.has("eliteDirect"):
+		parts.append("[color=#9ea8b8]정예가 나오는 전투[/color]")
+	if parts.is_empty():
+		return PUi.rich("[color=#6a7078]요구 조건 없음 · 끼면 바로 동작[/color]", 12)
+	return PUi.rich("[color=#9ea8b8]요구 조건[/color] %s" % " · ".join(parts), 12)
+
+## 같은 부위에 지금 낀 장비(§8 '현재 장비와 비교'). 비어 있으면 그렇게 적는다
+func _current_row(r: Dictionary, slot: String) -> Control:
+	var cur = r.equipment.get(slot, null)
+	if cur == null:
+		return PUi.rich("[color=#9ea8b8]지금 %s[/color] [color=#6a7078]비어 있음(교체 없이 그대로 낍니다)[/color]" % PUi.slot_name(slot), 12)
+	return PUi.rich("[color=#9ea8b8]지금 %s[/color] %s [color=#6a7078]→ 사면 가방으로[/color]" % [PUi.slot_name(slot), PUi.equip_line(String(cur), r)], 12)
 
 ## 장비 비교 주의(HTML equipCompare): 지금 빌드에서 효과가 없는 조건
 func _compare_note(r: Dictionary, d: Dictionary) -> String:

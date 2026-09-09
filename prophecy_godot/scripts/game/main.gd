@@ -432,6 +432,16 @@ func forge_upgrade(weapon_id: String = "") -> void:
 	save_run()
 	show("forge")
 
+## 장비 강화(§4) — 자동기술 강화(forge_upgrade)와 **다른 기능**이다. uid는 장비 개체 id.
+## 견적(expect_cost)과 값이 다르면 규칙 쪽에서 거부한다(두 번 눌러도 두 번 차감되지 않는다)
+func upgrade_equip(uid: String, expect_cost: int = -1) -> void:
+	if PRun.upgrade_equip(run, uid, expect_cost):
+		save_run()
+	else:
+		var q := PRun.equip_upgrade_next(run, uid)
+		message("강화할 수 없습니다" if q.is_empty() else "강화할 수 없습니다: %s" % String(q.get("reason", "")))
+	show(screen)
+
 func mod_change(weapon_id: String, mod_id: String) -> void:
 	var off := PFlow.mod_change(run, weapon_id, mod_id)
 	save_run()

@@ -181,7 +181,9 @@ func _run() -> void:
 	main.show("forge")
 	await process_frame
 	var forge: Node = main.screens["forge"]
-	ok("대장간 제작 칸: 월광 갑옷 미리보기 버튼, 잠긴 제작법 5개 조건 표시", _count_text(forge, "월광 갑옷") >= 1 and _count_text(forge, "미리보기") == 1 and _count_text(forge, "잠김:") == 1)
+	# §1(2026-09-10): 폐기 2종은 '잠김' 목록에도 넣지 않으므로 잠긴 제작법은 3개다. 화면에는 여전히 한 줄로 나온다
+	ok("대장간 제작 칸: 월광 갑옷 미리보기 버튼, 잠긴 제작법 조건 표시(폐기 2종 제외)", _count_text(forge, "월광 갑옷") >= 1 and _count_text(forge, "미리보기") == 1 and _count_text(forge, "잠김:") == 1 and _count_text(forge, "반격 방패") == 0 and _count_text(forge, "연계 방패") == 0)
+	ok("대장간에서 세 대상이 이름으로 갈라져 있다(§8): 장비 강화 · 장비 제작 · 자동기술 강화·개조", _count_text(forge, "장비 강화") >= 1 and _count_text(forge, "장비 제작") >= 1 and _count_text(forge, "자동기술 강화·개조") >= 1)
 	# 가독성(사람 플레이 뒤 요구 2026-09-08): 계산식·반복 안내는 기본 화면이 아니라 '설명·계산식'에 둔다
 	var fbtn := _find_button(forge, "설명·계산식")
 	ok("대장간 기본 화면에 가격 계산식이 없고, 펼치는 버튼이 따로 있다", fbtn != null and _count_text(forge, "가격 계산식") == 0)
@@ -200,7 +202,9 @@ func _run() -> void:
 	ok("미리보기: 소비 목록·확정/취소 버튼, 아직 소비 없음", _count_text(forge, "확정 후 장착") == 1 and _count_text(forge, "취소 (Esc)") == 1 and int(main.run.gold) == 100 and (main.run.bag as Array) == ["guardian_armor"])
 	main.craft("moon_armor", true, true)
 	await process_frame
-	ok("확정 후 장착: 갑옷 슬롯 월광 갑옷, 금화 20, 재료 0, 저장 반영", main.run.equipment.armor == "moon_armor" and int(main.run.gold) == 20 and int(main.run.mats.iron) == 0 and PSave.load().equipment.armor == "moon_armor" and main.screen == "forge")
+	# §4 명세 변경(2026-09-10): 장비는 개체다. 슬롯에는 "moon_armor#N"이 들어가므로 종류로 비교한다
+	var made := String(main.run.equipment.armor)
+	ok("확정 후 장착: 갑옷 슬롯 월광 갑옷(개체), 금화 20, 재료 0, 저장 반영", PRun.equip_type_of(made) == "moon_armor" and int(main.run.gold) == 20 and int(main.run.mats.iron) == 0 and String(PSave.load().equipment.armor) == made and main.screen == "forge")
 	await _forge_damage_share(main)
 	main.show("equip")
 	await process_frame

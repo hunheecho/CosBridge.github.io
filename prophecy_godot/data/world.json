@@ -2130,6 +2130,17 @@
    "desc": "자동기술의 직접 피해가 정예·보스에게 +15%. 화상·출혈·장판에는 적용되지 않는다.",
    "eff": {
     "eliteDirect": 0.15
+   },
+   "basic": "없음(이 장비는 조건부 고유 효과만 준다)",
+   "unique": "정예에게 자동기술 직접 피해 +15%",
+   "upgrade": {
+    "eliteDirect": [
+     0.19,
+     0.23
+    ]
+   },
+   "upgradeName": {
+    "eliteDirect": "정예 직접 피해"
    }
   },
   "pioneer_spear": {
@@ -2142,6 +2153,17 @@
    "desc": "자동기술의 사거리·폭·반지름 +12%(기술 형태에 맞게). 회전 칼날은 칼날이 중심까지 이어져 안쪽 적도 맞는다.",
    "eff": {
     "reach": 0.12
+   },
+   "basic": "자동기술 사거리·범위 +12%",
+   "unique": "없음(순수 능력치 장비)",
+   "upgrade": {
+    "reach": [
+     0.16,
+     0.2
+    ]
+   },
+   "upgradeName": {
+    "reach": "사거리·범위"
    }
   },
   "ember_sword": {
@@ -2155,7 +2177,18 @@
    "eff": {
     "dotDur": 0.25
    },
-   "needs": "dot"
+   "needs": "dot",
+   "basic": "없음",
+   "unique": "내가 준 화상의 지속시간 +25%",
+   "upgrade": {
+    "dotDur": [
+     0.32,
+     0.39
+    ]
+   },
+   "upgradeName": {
+    "dotDur": "화상 지속"
+   }
   },
   "chrono_staff": {
    "name": "시간술사의 지팡이",
@@ -2167,6 +2200,17 @@
    "desc": "감속장 안에 있는 적에게 자동기술 직접 피해 +20%. 화상·출혈·장판 제외. 감속장이 겹쳐도 1회만.",
    "eff": {
     "fieldDirect": 0.2
+   },
+   "basic": "없음",
+   "unique": "감속장 안의 적에게 자동기술 직접 피해 +20%",
+   "upgrade": {
+    "fieldDirect": [
+     0.25,
+     0.3
+    ]
+   },
+   "upgradeName": {
+    "fieldDirect": "감속장 안 직접 피해"
    }
   },
   "traveler_armor": {
@@ -2179,6 +2223,17 @@
    "desc": "이동속도 +8%. 회피 거리·무적 시간은 그대로.",
    "eff": {
     "speed": 0.08
+   },
+   "basic": "이동속도 +8%",
+   "unique": "없음(순수 능력치 장비)",
+   "upgrade": {
+    "speed": [
+     0.11,
+     0.14
+    ]
+   },
+   "upgradeName": {
+    "speed": "이동속도"
    }
   },
   "guardian_armor": {
@@ -2191,6 +2246,17 @@
    "desc": "전투 시작 시 보호막 15(체력과 별도, 회복되지 않음).",
    "eff": {
     "startShield": 15
+   },
+   "basic": "전투 시작 보호막 15",
+   "unique": "없음(순수 능력치 장비)",
+   "upgrade": {
+    "startShield": [
+     20,
+     25
+    ]
+   },
+   "upgradeName": {
+    "startShield": "시작 보호막"
    }
   },
   "vitality_coat": {
@@ -2203,6 +2269,17 @@
    "desc": "최대 체력 +20. 장착만으로 현재 체력은 회복되지 않고, 해제하면 현재 체력이 최대를 넘지 않게 줄어든다.",
    "eff": {
     "hpMax": 20
+   },
+   "basic": "최대 체력 +20",
+   "unique": "없음(순수 능력치 장비)",
+   "upgrade": {
+    "hpMax": [
+     27,
+     34
+    ]
+   },
+   "upgradeName": {
+    "hpMax": "최대 체력"
    }
   },
   "expedition_armor": {
@@ -2215,6 +2292,17 @@
    "desc": "전투 승리 정산마다 한 번 체력 8 회복(보스 포함).",
    "eff": {
     "winHeal": 8
+   },
+   "basic": "없음",
+   "unique": "전투 승리마다 체력 8 회복",
+   "upgrade": {
+    "winHeal": [
+     11,
+     14
+    ]
+   },
+   "upgradeName": {
+    "winHeal": "승리 회복량"
    }
   },
   "iron_shield": {
@@ -2230,6 +2318,17 @@
      "frac": 0.2,
      "reduce": 0.25
     }
+   },
+   "basic": "없음",
+   "unique": "최대 체력 20% 이상의 큰 직접 타격 -25%",
+   "upgrade": {
+    "bigHit.reduce": [
+     0.3,
+     0.35
+    ]
+   },
+   "upgradeName": {
+    "bigHit.reduce": "큰 타격 감소"
    }
   },
   "emergency_shield": {
@@ -2245,6 +2344,17 @@
      "frac": 0.3,
      "shield": 20
     }
+   },
+   "basic": "없음",
+   "unique": "체력 30% 이하가 되면 보호막 20(전투당 1회)",
+   "upgrade": {
+    "lowShield.shield": [
+     26,
+     32
+    ]
+   },
+   "upgradeName": {
+    "lowShield.shield": "비상 보호막"
    }
   },
   "caster_shield": {
@@ -2261,6 +2371,17 @@
      "dur": 3,
      "cd": 10
     }
+   },
+   "basic": "없음",
+   "unique": "E 사용 뒤 3초 보호막 8(재사용 10초)",
+   "upgrade": {
+    "eShield.shield": [
+     11,
+     14
+    ]
+   },
+   "upgradeName": {
+    "eShield.shield": "E 보호막"
    }
   },
   "time_shield": {
@@ -2273,6 +2394,17 @@
    "desc": "감속장 안에 있는 공격자가 준 직접 피해 -20%. 잔류 바닥 피해처럼 공격자가 없는 피해에는 적용되지 않는다.",
    "eff": {
     "fieldTaken": 0.2
+   },
+   "basic": "없음",
+   "unique": "감속장 안에 있으면 받는 피해 -20%",
+   "upgrade": {
+    "fieldTaken": [
+     0.25,
+     0.3
+    ]
+   },
+   "upgradeName": {
+    "fieldTaken": "감속장 안 피해 감소"
    }
   },
   "siege_hammerhead": {
@@ -2378,7 +2510,7 @@
    0.3
   ],
   "stock": {
-   "equipment": 2,
+   "equipment": 4,
    "skill": 1
   },
   "merchantDiscount": 0.15,
@@ -2396,6 +2528,21 @@
   "consumableStock": {
    "prep": 3,
    "note": "상점의 출격 준비물 진열 수(하루 시드). 회복약은 항상 진열한다."
+  },
+  "equipUpgrade": {
+   "note": "장비 강화(§4, 2026-09-10). **자동기술 강화(shop.forge)와 다른 기능이다.** +0→+1→+2 두 단계, 확정 성공, 시간 소모 없음. afterBoss = 돌파해야 하는 관문 수. 비용은 시험값(사용자 확정 아님): 장비값 120~140의 절반 수준으로 두어 '장비 하나 더 사기'와 견줄 수 있게 했다. 무엇이 오르는지는 장비마다 equipment[].upgrade가 정한다 — 횟수·단계·지속·재사용·무적 시간은 넣지 않는다.",
+   "steps": [
+    {
+     "plus": 1,
+     "cost": 70,
+     "afterBoss": 1
+    },
+    {
+     "plus": 2,
+     "cost": 130,
+     "afterBoss": 2
+    }
+   ]
   }
  },
  "regions": [

@@ -118,15 +118,26 @@ static func derive(run: Dictionary) -> Dictionary:
 	var eq: Dictionary = run.get("equipment", { "weapon": null, "armor": null, "shield": null })
 	var equip := {}
 	var equip_ids := []
+	var equip_types := []
+	var equip_plus := {}
 	for slot in ["weapon", "armor", "shield"]:
 		var id = eq.get(slot, null)
 		if id == null:
 			continue
-		var ed := PCatalog.equipment_def(String(id)) # 일반 12 + 제작 6(제작품은 재료 장비 효과를 이어받지 않고 자기 eff만)
+		# run.equipment에 든 것은 **장비 개체 id**("타입#번호")다. 정의를 찾기 전에 반드시 타입으로 바꾼다.
+		# '#'이 없는 옛 저장은 문자열 자체가 타입이고 강화 +0이라 아래 계산이 예전과 완전히 같다(§0)
+		var uid := String(id)
+		var tid := PRun.equip_type_of(uid)
+		var plus := PRun.equip_plus_of(run, uid)
+		var ed := PCatalog.equipment_def(tid) # 일반 12 + 제작 6(제작품은 재료 장비 효과를 이어받지 않고 자기 eff만)
 		if not ed.is_empty():
-			equip_ids.append(String(id))
-			for k in ed.eff:
-				equip[k] = ed.eff[k]
+			equip_ids.append(uid)
+			equip_types.append(tid)
+			if plus > 0:
+				equip_plus[uid] = plus
+			var eff_now := PCatalog.equipment_eff(tid, plus) # 장비 강화(§4)는 여기서 한 번만 반영한다
+			for k in eff_now:
+				equip[k] = eff_now[k]
 	var forge: int = mini(3, int(run.get("forge", 0)))
 	var forge_mults: Array = PCatalog.shop().forgeMult
 	# 무기별 대장간 강화 표. 새 회차는 run.forgeBySkill을 쓰고, 옛 저장(run.forge만 있는 회차)은
@@ -146,7 +157,7 @@ static func derive(run: Dictionary) -> Dictionary:
 		"skill_cd_mult": 1.0, "dodge_cd_mult": 1.0,
 		"forge": forge, "forge_mult": (1.0 + float(forge_mults[forge])) if PGrowth.growth_legacy else 1.0, # 전체 강화 자리는 비운다(무기별로 옮겼다). 옛 구조 재현에서만 쓴다
 		"forge_by_skill": forge_by_skill, "forge_legacy": typeof(run.get("forgeBySkill", null)) != TYPE_DICTIONARY and forge > 0,
-		"equip": equip, "equip_ids": equip_ids,
+		"equip": equip, "equip_ids": equip_ids, "equip_types": equip_types, "equip_plus": equip_plus,
 		"growth": g, "level": int(g.level),
 	}
 	var BS := PCatalog.balance_sets()

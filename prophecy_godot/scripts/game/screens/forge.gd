@@ -7,6 +7,11 @@ extends PScreen
 ## 두 이름을 한 곳에서만 정해 두어, 같은 화면 안에서 '단계'와 'Lv'가 뒤섞여 같은 것으로 읽히지 않게 한다.
 const FORGE_STAGE_NAME := "대장간 강화 단계"
 const WEAPON_LEVEL_NAME := "무기 레벨"
+## §8 이름 통일 2단계(2026-09-10): 대장간에서 하는 일은 **세 가지**이고 대상이 서로 다르다.
+## 이 세 이름은 여기서만 정하고 화면 어디서나 그대로 쓴다 — 같은 화면에 '강화'가 두 개 있어 섞이지 않게 한다.
+const EQUIP_UP_NAME := "장비 강화"        # 대상: 내가 가진 장비 개체(무기·방어구·방패). +0 → +1 → +2
+const EQUIP_CRAFT_NAME := "장비 제작"     # 대상: 기본 장비 + 재료 → 새 장비
+const SKILL_FORGE_NAME := "자동기술 강화·개조" # 대상: 자동으로 나가는 기술(무기 아님)
 
 var _swap: Dictionary = {}   # {slot, index, new_id, mods[]} — 비어 있으면 교체 중 아님
 var _craft := ""             # 미리보기 중인 제작법 id("" = 없음)
@@ -38,14 +43,18 @@ func refresh() -> void:
 		_swap_view(r)
 		return
 	top.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]시간 소모 없음[/color]" % PGlossaryTip.term("forge", "대장간"), 22))
+	# §8: 여기서 하는 일이 무엇을 대상으로 하는지 맨 위에서 한 번에 갈라 적는다
+	top.add_child(PUi.rich("[color=#9ea8b8]대장간에서 하는 일은 셋입니다 — [color=#ffd966][b]%s[/b][/color](내가 낀 장비 +0→+2) · [color=#7fd6a0][b]%s[/b][/color](기본 장비+재료 → 새 장비) · [color=#9fd6ff][b]%s[/b][/color](자동으로 나가는 기술). [b]서로 다른 것입니다.[/b][/color]" % [EQUIP_UP_NAME, EQUIP_CRAFT_NAME, SKILL_FORGE_NAME], 13))
 	var g: Dictionary = r.growth
 	var b := PBuild.derive(r)
 	var SH := PCatalog.shop()
 	var cols := two_cols(0.5)
 	var left: VBoxContainer = cols.left
 	var right: VBoxContainer = cols.right
+	left.add_child(_equip_upgrade_card(r))
+	left.add_child(_craft_card(r))
 	# 자동기술 강화(2026-09-08 시험값): 전체가 아니라 **고른 자동기술 하나**에 투자한다
-	var fc := PUi.card("%s [color=#9ea8b8]자동기술 하나를 골라 강화한다[/color]" % PGlossaryTip.term("forge", "자동기술 강화"), PUi.CARD)
+	var fc := PUi.card("[color=#9fd6ff]%s[/color] [color=#9ea8b8]자동기술 하나를 골라 강화한다 · [b]장비 강화가 아닙니다[/b][/color]" % PGlossaryTip.term("forge", SKILL_FORGE_NAME), PUi.CARD)
 	var fbox: VBoxContainer = fc.box
 	# §16 UI: **대장간 강화 단계**와 **무기 레벨**은 서로 다른 값이다. 한 줄에 섞어 적지 않고 두 줄로 갈라 이름·출처·상한을 모두 밝힌다.
 	fbox.add_child(PUi.rich("[color=#9ea8b8]%s는 금화로 산다. %s은 레벨업 3택으로만 오른다 — 여기서는 못 올린다. 둘은 곱해진다.[/color]" % [FORGE_STAGE_NAME, WEAPON_LEVEL_NAME], 12))
@@ -81,7 +90,7 @@ func refresh() -> void:
 		for f in SH.forge:
 			costs.append(str(int(f.cost)))
 		fbox.add_child(PUi.rich("[color=#9ea8b8]비용은 회차 전체에서 이어진다: %s · 2번째는 1보스, 3번째는 2보스 처치 후[/color]" % " / ".join(costs), 12))
-	left.add_child(fc.panel)
+	right.add_child(fc.panel)
 	# 개조·변형 변경
 	var mc := PRun.mod_change_cost(r)
 	var vc := PRun.variant_change_cost(r)
@@ -127,7 +136,7 @@ func refresh() -> void:
 		cbox.add_child(PUi.rich("[color=#6a7078]E 변형 없음[/color]", 12))
 	if _formula_open:
 		cbox.add_child(PUi.rich("[color=#9ea8b8]바꿀 후보가 없으면 아무것도 차감되지 않습니다. 3택에서 '받지 않음'을 고르면 원래 개조가 그대로 남고 %s(또는 금화)이 그대로 돌아옵니다.[/color]" % vname, 12))
-	left.add_child(cc.panel)
+	right.add_child(cc.panel)
 	# 기술 교체
 	var SW: Dictionary = SH.swap
 	var sc := PUi.card("보유 %s [color=#9ea8b8]기술 자체를 다른 기술로 바꿉니다[/color]" % PGlossaryTip.term("swap", "기술 교체"))
@@ -157,7 +166,6 @@ func refresh() -> void:
 		sbox.add_child(PUi.rich("[color=#9ea8b8]교체하면 옛 기술은 남지 않습니다. 확정 전까지 금화는 차감되지 않습니다.[/color]", 12))
 		sbox.add_child(PUi.rich("[color=#9ea8b8]가격 계산식: %d + (레벨−1)×%d + 개조 수×%d[/color]" % [int(SW.base), int(SW.perLevel), int(SW.perMod)], 12))
 	right.add_child(sc.panel)
-	right.add_child(_craft_card(r))
 	right.add_child(PUi.build_panel(r))
 	var back := PUi.button("거점으로 (Esc)", func(): main.go_base(), true, 15)
 	bottom.add_child(back)
@@ -166,12 +174,86 @@ func refresh() -> void:
 	bottom.add_child(PUi.button("설명·계산식 닫기 ▼" if _formula_open else "설명·계산식 ▶", func(): _formula_open = not _formula_open; refresh(), true, 13))
 	default_button = back
 
+# ---------- 장비 강화(§4, 2026-09-10). **자동기술 강화와 다른 대상**이라 카드를 따로 둔다 ----------
+## 보여 주는 것: 개체마다 지금 단계(+N) · 다음 단계의 값과 비용 · 왜 아직 못 하는지(관문 수·금화).
+## 강화는 그 개체에만 붙는다는 문장을 카드 머리에 둔다 — 자동기술 강화와 헷갈리지 않게.
+func _equip_upgrade_card(r: Dictionary) -> Control:
+	var opts := PRun.equip_upgrade_options(r)
+	var open_max := PRun.equip_upgrade_open_max(r)
+	var done: int = (r.get("bossesDone", []) as Array).size()
+	var c := PUi.card("[color=#ffd966]%s[/color] [color=#9ea8b8]내가 가진 장비를 +0 → +1 → +2로 · 확정 성공 · 시간 소모 없음 · 지금 열린 단계 [b]+%d[/b](관문 %d돌파)[/color]" % [
+		PGlossaryTip.term("equip_upgrade", EQUIP_UP_NAME), open_max, done], PUi.CARD)
+	var box: VBoxContainer = c.box
+	box.add_child(PUi.rich("[color=#9ea8b8]강화는 [b]강화한 그 장비[/b]에만 붙습니다. 가방에 넣어도 유지되고, 다른 장비를 껴도 따라가지 않으며, 팔거나 재료로 쓰면 함께 사라집니다. [b]기본 능력치만[/b] 오릅니다(횟수·지속·재사용 시간은 오르지 않습니다).[/color]", 12))
+	if opts.is_empty():
+		box.add_child(PUi.rich("[color=#6a7078]강화할 장비가 없습니다(상점에서 장비를 먼저 사세요)[/color]", 13))
+		return c.panel
+	for o in opts:
+		var e: Dictionary = o
+		var uid := String(e.uid)
+		var q: Dictionary = e.next
+		var row := PUi.hbox(8)
+		row.add_child(PUi.icon_of("equip:" + String(e.type), 28.0, "", "", 0.0, 0))
+		row.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s · %s[/color] %s" % [
+			PGlossaryTip.esc(PRun.equip_name(String(e.type))), PUi.slot_name(String(e.slot)), "장착 중" if String(e.where) == "equipped" else "가방",
+			("[color=#ffd966][b]+%d[/b][/color]" % int(e.plus)) if int(e.plus) > 0 else "[color=#6a7078]+0[/color]"], 14))
+		row.add_child(PUi.spacer())
+		if q.is_empty():
+			row.add_child(PUi.rich("[color=#9ea8b8]최대 단계[/color]", 12))
+		else:
+			var lbl := "+%d로 강화 (%d금)" % [int(q.next), int(q.cost)]
+			if not bool(q.can):
+				lbl = String(q.reason)
+			row.add_child(PUi.button(lbl, func(): _open_equip_upgrade(uid), bool(q.can), 13))
+		box.add_child(row)
+		if not q.is_empty():
+			box.add_child(PUi.rich("[color=#6a7078]%s[/color]" % PUi.equip_upgrade_text(String(e.type), int(e.plus)), 11))
+	if _formula_open:
+		var steps: Array = PRun.equip_upgrade_rules().get("steps", [])
+		var parts := []
+		for st in steps:
+			parts.append("+%d %d금(관문 %d돌파 후)" % [int((st as Dictionary).plus), int((st as Dictionary).cost), int((st as Dictionary).afterBoss)])
+		box.add_child(PUi.rich("[color=#9ea8b8]%s · 값은 시험값입니다[/color]" % " / ".join(parts), 12))
+	return c.panel
+
+## 강화 확인 창: 값·전후 수치·차감 후 잔액을 보여 주고, 취소하면 아무것도 바뀌지 않는다.
+## 확정은 견적 금액을 함께 넘겨 두 번 눌려도 두 번 차감되지 않게 한다
+func _open_equip_upgrade(uid: String) -> void:
+	var r := run()
+	var q := PRun.equip_upgrade_next(r, uid)
+	if q.is_empty():
+		return
+	var cost := int(q.cost)
+	var qname := PRun.equip_name(String(q.type))
+	open_confirm("%s%s +%d로 강화할까요?" % [PGlossaryTip.esc(qname), PUi.josa(qname, "을", "를"), int(q.next)], _equip_upgrade_body.bind(r, uid, q),
+		[{ "text": "강화한다 (%d금)" % cost, "cb": func(): main.upgrade_equip(uid, cost) }])
+
+func _equip_upgrade_body(box: VBoxContainer, r: Dictionary, uid: String, q: Dictionary) -> void:
+	var tid := String(q.type)
+	PUi.kv(box, "값", "[color=#ffd966][b]%d금[/b][/color] [color=#9ea8b8](금화 %d → %d)[/color]" % [int(q.cost), int(r.gold), int(r.gold) - int(q.cost)], 15)
+	PUi.kv(box, "단계", "[b]+%d → +%d[/b] [color=#9ea8b8]시간 소모 없음 · 반드시 성공[/color]" % [int(q.plus), int(q.next)], 14)
+	box.add_child(PUi.rich(PUi.equip_upgrade_text(tid, int(q.plus)), 13))
+	# 전후 수치: 복제 회차에서 실제로 강화해 PBuild.derive를 비교한다(규칙은 건드리지 않는다)
+	var dup: Dictionary = r.duplicate(true)
+	PRun.equip_plus_map(dup)[uid] = int(q.next)
+	var b0 := PBuild.derive(r)
+	var b1 := PBuild.derive(dup)
+	# 조건부 효과(비상 보호막·큰 타격 감소 등)는 파생 수치에 안 나온다 — 그때는 '변화 없음'이 아니라 무엇이 커지는지 말한다
+	var same: bool = is_equal_approx(float(b0.hp_max), float(b1.hp_max)) and is_equal_approx(float(b0.speed_mult), float(b1.speed_mult)) 		and is_equal_approx(float(b0.shield), float(b1.shield)) and is_equal_approx(float(b0.range_mult), float(b1.range_mult))
+	PUi.kv(box, "바뀌는 수치", "[color=#9ea8b8]기본 파생 수치는 그대로(조건이 맞을 때 발동하는 값이 커집니다)[/color]" if same else PUi.diff_text(b0, b1), 13)
+	box.add_child(PUi.rich("[color=#9ea8b8]이 강화는 [b]이 장비 하나[/b]에만 붙습니다. 다른 장비로 옮기거나 제작 완성품에 물려줄 수 없습니다.[/color]", 12))
+	box.add_child(PUi.rich("[color=#9ea8b8]취소하면 금화·장비가 그대로입니다.[/color]", 12))
+
 # ---------- 제작(시험값 meta.json): 해금된 제작법 목록 → 미리보기(소비 장비·재료·금화, 효과 차이) → 확정/취소. 확정 전에는 아무것도 소비하지 않는다 ----------
 func _craft_card(r: Dictionary) -> Control:
 	var opts := PRun.craft_options(r)
 	var CE := PCatalog.crafted_equipment()
+	var live := 0   # 폐기(§1)한 제작법은 세지도 보이지도 않는다
+	for id0 in CE:
+		if not PCatalog.equipment_retired(String(id0)):
+			live += 1
 	var known := opts.size()
-	var c := PUi.card("%s [color=#9ea8b8]제작법 %d/%d 해금 · 재료·완성품은 이번 회차 한정 · 시간 소모 없음 · 분해 없음[/color]" % [PGlossaryTip.term("craft", "제작"), known, CE.size()])
+	var c := PUi.card("[color=#7fd6a0]%s[/color] [color=#9ea8b8]제작법 %d/%d 해금 · 기본 장비 하나 + 재료 + 금화 · 이번 회차 한정 · 시간 소모 없음 · 분해 없음 · [b]자동기술 강화가 아닙니다[/b][/color]" % [PGlossaryTip.term("craft", EQUIP_CRAFT_NAME), known, live])
 	var box: VBoxContainer = c.box
 	if opts.is_empty():
 		box.add_child(PUi.rich("[color=#6a7078]해금된 제작법 없음 (영구 성장 화면의 도감에서 조건 확인)[/color]", 12))
@@ -201,6 +283,8 @@ func _craft_card(r: Dictionary) -> Control:
 	# 잠긴 제작법: 이름·짧은 효과·조건(발견 경로 안내 없음)
 	var locked := []
 	for id in CE:
+		if PCatalog.equipment_retired(String(id)):
+			continue # 폐기 장비는 '잠김'으로도 보여 주지 않는다(다시 열릴 것처럼 읽히지 않게)
 		if not PProfile.run_unlock_ok(r, "recipes", String(id)):
 			locked.append("[b]%s[/b](%s) — %s" % [PGlossaryTip.esc(String(CE[id].name)), PGlossaryTip.esc(String(CE[id].short)), PGlossaryTip.esc(PProfile.unlock_text("recipes", String(id)))])
 	if locked.size() > 0:
@@ -215,9 +299,12 @@ func _craft_preview(r: Dictionary, opt: Dictionary) -> Control:
 	var box: VBoxContainer = c.box
 	var consume := []
 	var uses_equipped := false
+	var burn_plus := 0   # 재료로 사라지는 강화 단계의 합(§4: 완성품에 계승하지 않는다 — 처리 미확정)
 	for ing in opt.ingredients:
 		if String(ing.kind) == "equipment":
-			consume.append("%s(%s)" % [String(ing.name), "장착 중" if String(ing.where) == "equipped" else "가방"])
+			var pl := int(ing.get("plus", 0))
+			consume.append("%s%s(%s)" % [String(ing.name), (" +%d" % pl) if pl > 0 else "", "장착 중" if String(ing.where) == "equipped" else "가방"])
+			burn_plus += pl
 			if String(ing.where) == "equipped":
 				uses_equipped = true
 		else:
@@ -233,6 +320,11 @@ func _craft_preview(r: Dictionary, opt: Dictionary) -> Control:
 		PUi.kv(box, "제작·장착 시 수치", "최대 체력 %d → %d · 이동 ×%s → ×%s · 시작 보호막 %d → %d · 사거리 ×%s → ×%s" % [int(float(b0.hp_max)), int(float(b1.hp_max)), PUi.fmt(float(b0.speed_mult)), PUi.fmt(float(b1.speed_mult)), int(float(b0.shield)), int(float(b1.shield)), PUi.fmt(float(b0.range_mult)), PUi.fmt(float(b1.range_mult))], 12)
 	if uses_equipped:
 		box.add_child(PUi.rich("[color=#ff8c73]장착 중인 장비가 재료로 소비됩니다(그 슬롯은 비거나 완성품으로 교체).[/color]", 11))
+	# §4: 강화 자동 계승은 승인되지 않았다. 몰래 물려주지도, 조용히 태우지도 않고 **미리 말한다**
+	if burn_plus > 0:
+		box.add_child(PUi.rich("[color=#ff8c73]재료 장비의 [b]강화 +%d가 사라집니다[/b] — 완성품은 +0에서 시작하고 환급도 없습니다(처리 방식 미확정).[/color]" % burn_plus, 11))
+	else:
+		box.add_child(PUi.rich("[color=#9ea8b8]완성품은 +0에서 시작합니다(재료 장비의 강화를 물려받지 않습니다).[/color]", 11))
 	var row := PUi.hbox(8)
 	var confirm := PUi.button("확정 후 장착", func(): _craft = ""; main.craft(id, true, true), true, 13)
 	row.add_child(confirm)
