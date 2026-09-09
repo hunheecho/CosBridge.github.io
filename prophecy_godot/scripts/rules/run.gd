@@ -56,6 +56,7 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 		"endless": null, "mainCleared": false, # 무한 모드 상태(PEndless)·본편 완주 확정(무한에서 죽어도 유지)
 		"consumables": [], "prepItem": null, "prepUsed": null, "potionBuy": { "day": 1, "count": 0 }, # 출격 준비물 가방·장착 1개·이번 전투 소모분·하루 회복약 구매 수(PConsumables)
 		"paidFor": {}, "death": {}, # 장비 개체별 실제 지불 금액(판매가 기준) · 사망 정산 기록(중복 방지 키 포함)
+		"revivePending": { "count": 0 }, # 부활로 들어가는 관문 재입장 표식(1 = 다음 입장 한 번은 자동 완전 회복을 건너뛴다). revive_pending 주석 참고
 		"testRetry": bool(opts.get("test_retry", OS.get_environment("PROPHECY_TEST_RETRY") != "")), # 사람 플레이가 아닌 재시도 경로(아래 retry_mode 주석). opts가 있으면 opts가 이긴다
 	}
 	var profile = opts.get("profile", null)
@@ -1243,6 +1244,19 @@ static func revive_uses(run: Dictionary) -> int:
 	var u = run.get("reviveUses", null)
 	return int((u as Dictionary).get("count", 0)) if typeof(u) == TYPE_DICTIONARY else 0
 
+## 부활로 들어가는 관문 재입장 표식(2026-09-09 사용자 확정: 부활 체력 25%가 실제 재도전까지 간다).
+## true면 **다음 start_boss 한 번**이 자동 완전 회복을 건너뛴다 — 그 한 번에서 소비되고(clear_revive_pending) 다시 서지 않는다.
+## 표식은 settle_death가 부활로 관문 앞(phase "boss_prep")에 세울 때만 붙는다. 보통 날 아침으로 부활하면 붙이지 않는다
+## (그 사이 end_day가 정상 회복을 하므로 표식이 남아 나중의 정상 입장까지 따라가면 안 된다 — end_day도 표식을 지운다).
+## dict 안의 "count"는 PSave가 정수로 정규화하는 키다(bossEntries·reviveUses와 같은 방식 — 저장 정규화 표를 건드리지 않으려고 이 형태를 쓴다).
+static func revive_pending(run: Dictionary) -> bool:
+	var p = run.get("revivePending", null)
+	return int((p as Dictionary).get("count", 0)) > 0 if typeof(p) == TYPE_DICTIONARY else false
+
+## 표식을 지운다(관문 입장에서 소비되거나, 하루가 정상으로 넘어가거나, 관문을 넘었을 때)
+static func clear_revive_pending(run: Dictionary) -> void:
+	run.revivePending = { "count": 0 }
+
 ## 마지막 사망이 **같은 날 관문 앞 부활**이었는가(마지막 날 부활). 화면이 안내 문구를 고르는 데 쓴다
 static func revived_same_day(run: Dictionary) -> bool:
 	var d = run.get("death", null)
@@ -1286,6 +1300,7 @@ static func settle_death(run: Dictionary, ctx: Dictionary) -> Dictionary:
 		run.hp = 0.0
 		run.phase = "dead"
 		run.ended = true
+		clear_revive_pending(run) # 끝난 회차에는 재입장 표식이 남지 않는다
 		add_log(run, "부활 수단이 없다: 회차 종료(%d일차)" % int(run.day))
 		run.death = rec
 		return rec
@@ -1303,6 +1318,12 @@ static func settle_death(run: Dictionary, ctx: Dictionary) -> Dictionary:
 	# 순서는 end_day와 같다 — 오늘의 장소·카드·재고는 phase가 정해진 뒤에 뽑는다.
 	# 마지막 날에는 날짜가 그대로이므로 장소·카드·재고를 다시 뽑지 않는다(같은 날의 재고가 새로 열리면 안 된다)
 	run.phase = "boss_prep" if is_boss_day(run) else "prep"
+	# 부활로 **관문 앞**에 섰다면 다음 관문 입장 한 번은 자동 완전 회복을 건너뛴다(부활 체력 25%가 실제 전투 시작까지 간다).
+	# 관문 앞이 아니면(보통 날 아침) 표식을 두지 않는다 — 그 사이 end_day가 정상 회복을 하므로 남겨 둘 이유가 없다.
+	if String(run.phase) == "boss_prep":
+		run.revivePending = { "count": 1 }
+	else:
+		clear_revive_pending(run)
 	if next_day:
 		places_for(run)
 		PSortie.cards_for(run)
@@ -1405,6 +1426,7 @@ static func end_day(run: Dictionary) -> bool:
 	run.day = int(run.day) + 1
 	run.hours = int(C().HOURS_PER_DAY)
 	run.hp = float(build(run).hp_max)
+	clear_revive_pending(run) # 하루가 정상으로 넘어가면 부활 표식은 남지 않는다(다음 날 정상 입장은 예전대로 완전 회복)
 	if not run.has("buffs") or run.buffs == null:
 		run.buffs = {}
 	add_log(run, "새로운 아침")
@@ -1445,11 +1467,24 @@ static func can_start_boss(run: Dictionary) -> bool:
 	return String(run.phase) == "boss_prep" or String(run.phase) == "cleared"
 
 ## 입장: 체력 완전 회복, 재도전 복구 스냅샷(run.bossEntry). 돌려주는 값 = 보스 출격 dict
+##
+## 예외 하나(2026-09-09 사용자 확정): **부활로 들어온 재입장**(run.revivePending)은 자동 완전 회복을 건너뛴다.
+## 그래야 부활 체력 25%가 실제 재도전에서 값을 한다 — 예전에는 여기서 100%로 되돌아가 25%가 아무 비용도 아니었다.
+## 그 사이 휴식·회복약 같은 정상 회복 수단으로 오른 체력은 **그대로** 들어간다(다시 25%로 깎지 않는다).
+## 표식은 이 입장 한 번에만 쓰이고 여기서 소비된다 — 다음 정상 입장은 예전대로 완전 회복이다.
+## 시험 재시도 경로(run.testRetry)는 사망 정산 자체를 하지 않아 표식이 붙지 않는다(경로가 섞이지 않는다).
 static func start_boss(run: Dictionary) -> Dictionary:
 	if not can_start_boss(run):
 		push_error("보스 준비 상태가 아님")
 		return {}
-	run.hp = float(build(run).hp_max)
+	var revive_entry := revive_pending(run)
+	clear_revive_pending(run) # 표식 소비: 성공한 입장 한 번에만 쓰인다
+	if revive_entry:
+		clamp_hp(run) # 장비를 팔아 최대 체력이 줄었으면 거기에 맞춘다(올리지는 않는다)
+		run.hp = maxf(1.0, float(run.hp))
+		add_log(run, "부활 뒤 재입장: 체력 %d/%d 그대로 관문에 들어간다 (입장 회복 없음)" % [int(float(run.hp)), int(float(build(run).hp_max))])
+	else:
+		run.hp = float(build(run).hp_max)
 	# 준비물·회복약도 금화·장비와 같은 규칙으로 스냅샷에 담는다(재도전이 소모를 되돌린다 — 재도전마다 다시 사지 않아도 되고, 무한 회복도 아니다)
 	var snap := { "growth": run.growth, "hp": run.hp, "stage": int(run.get("stage", 0)), "gold": int(run.gold), "services": run.services, "equipment": run.equipment, "bag": run.bag, "forge": int(run.forge), "forgeBySkill": run.get("forgeBySkill", {}) }
 	snap["prep"] = PConsumables.snapshot(run)
@@ -1457,6 +1492,17 @@ static func start_boss(run: Dictionary) -> Dictionary:
 	run.bossEntries = { "count": boss_entries(run) + 1 } # 사망 정산 중복 방지 키(입장마다 1 증가 — 같은 입장의 패배는 한 번만 정산된다). dict 안의 "count"는 PSave가 정수로 정규화하는 키다
 	var nb := next_boss(run)
 	return { "regionId": "boss", "bossId": String(nb.id) if not nb.is_empty() else "boss", "stage": int(run.get("stage", 0)), "seed": boss_seed(run), "loot": { "gold": 0, "mats": {} }, "encounters": 0 }
+
+## 관문 전투가 **실제로 시작될 때**의 플레이어 체력(PFlow.make_boss_encounter가 이 값을 CombatState에 넣는다).
+## 입장 규칙(start_boss)이 정한 run.hp를 그대로 쓴다: 보통 입장은 그 값이 이미 최대 체력이고,
+## 부활로 들어온 재입장에서만 25%(또는 그 사이 회복 수단으로 오른 만큼)가 그대로 전투 시작 체력이 된다.
+## 예전에는 여기서 무조건 최대 체력으로 다시 채워, start_boss만 고쳐서는 25%가 전투까지 가지 않았다.
+## b는 이미 계산해 둔 빌드(PRun.build)를 넘겨 두 번 계산하지 않게 하는 선택 인자다.
+static func boss_start_hp(run: Dictionary, b: Dictionary = {}) -> float:
+	var hp_max: float = float(b.get("hp_max", 0.0))
+	if hp_max <= 0.0:
+		hp_max = float(build(run).hp_max)
+	return clampf(float(run.get("hp", hp_max)), 1.0, hp_max)
 
 ## 관문 패배. 사람 플레이: 사망 정산(부활 물약이 있으면 다시 관문 앞에 서고, 없으면 회차 종료).
 ## 다음 날이 있으면 하루를 잃고 다음 날 관문 앞, 마지막 날이면 날짜를 늘리지 않고 같은 날 관문 앞이다(둘 다 물약 1개).
@@ -1477,6 +1523,7 @@ static func boss_entries(run: Dictionary) -> int:
 ## 시험·자동 진행 전용: 입장 시 준비 상태로 복구(레벨·경험치·선택·금화 — 전투 중 건너뛰기 금화 반복 악용 방지)
 static func boss_defeat_retry(run: Dictionary) -> void:
 	run.bossRetries = int(run.get("bossRetries", 0)) + 1
+	clear_revive_pending(run) # 재도전 경로는 부활과 섞이지 않는다(옛 규칙대로 완전 회복으로 다시 들어간다)
 	if run.get("bossEntry", null) != null:
 		var E: Dictionary = (run.bossEntry as Dictionary).duplicate(true)
 		run.growth = E.growth
@@ -1516,6 +1563,7 @@ static func boss_victory(run: Dictionary, stats: Dictionary) -> Dictionary:
 		rec.worldStage = world_stage(run)
 		rec.worldStageName = String(world_stage_def(run).name)
 		add_log(run, "세계 변화: %s" % rec.worldStageName)
+	clear_revive_pending(run) # 관문을 넘었으면 부활 표식은 어느 쪽이든 남지 않는다
 	var last: bool = int(run.get("stage", 0)) >= stage_count(run) - 1
 	if last: # 마지막 보스: 회차 종료, 다음 보스 없음, 추가 성장 없음
 		run.phase = "cleared"

@@ -128,10 +128,12 @@ static func settle_defeat(run: Dictionary, sortie: Dictionary, st: CombatState) 
 	run.pendingSortie = null
 
 ## 보스전(회차 관문): 단계별 보스·체력 후보. 입장 스냅샷은 PRun.start_boss가 만든다
+## 전투 시작 체력은 여기서 정하지 않고 규칙 계층(PRun.boss_start_hp)이 준다 — 보통 입장은 예전과 같은 최대 체력이고,
+## **부활로 들어온 재입장**만 그때의 run.hp(25% 또는 그 사이 회복한 만큼)로 시작한다(2026-09-09 사용자 확정).
 static func make_boss_encounter(run: Dictionary, sortie: Dictionary) -> CombatState:
 	var b := PRun.build(run)
 	var boss_id := String(sortie.get("bossId", "boss"))
-	var st := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": int(sortie.seed), "boss": true, "boss_id": boss_id, "boss_hp": PRun.boss_hp(run, boss_id),
+	var st := CombatState.new({ "build": b, "hp": PRun.boss_start_hp(run, b), "seed": int(sortie.seed), "boss": true, "boss_id": boss_id, "boss_hp": PRun.boss_hp(run, boss_id),
 		"arena": "clearing", "region_id": "boss", "xp_kill_mult": PRun.kill_xp_mult(run), "run": run, "act": int(PRun.act_of(run).get("id", 1)) })
 	if (run.get("buffs", {}) as Dictionary).has("skillCd"):
 		st.temp_buff = "skillCd"

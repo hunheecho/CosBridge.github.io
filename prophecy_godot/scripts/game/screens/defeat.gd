@@ -11,6 +11,12 @@ static func spot_text(r: Dictionary) -> String:
 		return "%d일차 보스 관문" % int(r.get("day", 1))
 	return "%d일차 %s" % [int(r.get("day", 1)), String(PRun.time_slots()[0])]
 
+## 부활로 관문 앞에 섰을 때의 한 줄(PRun.revive_pending가 true인 동안만). 재입장에 자동 회복이 없다는 것을 사람이 미리 알아야 한다
+static func no_heal_line(r: Dictionary) -> String:
+	if not PRun.revive_pending(r):
+		return ""
+	return "[color=#ffd479]관문에 다시 들어가도 체력은 자동으로 차지 않습니다 — 지금 체력 그대로 시작합니다. 회복약을 쓰면 그만큼 오른 체력으로 들어갑니다.[/color]"
+
 ## 사망 결과 안내(2026-09-09 사용자 확정). 회차 상태만 보고 만들므로 시험이 화면을 띄우지 않고 그대로 확인한다.
 ## 세 갈래가 서로 **다른 문구**다: 회차 종료 / 마지막 날 부활(같은 날 관문 앞) / 보통 날 부활(다음 날).
 static func death_lines(r: Dictionary) -> Array:
@@ -22,16 +28,22 @@ static func death_lines(r: Dictionary) -> Array:
 			"[color=#9ea8b8]부활 물약을 가지고 있었다면 하루를 잃고 다음 날 최대 체력 25%로 이어갈 수 있었습니다.[/color]",
 		]
 	if PRun.revived_same_day(r): # 마지막 날: 다음 날이 아니라 **같은 날 관문 앞**이다
-		return [
+		var last_lines := [
 			"[b]부활 물약 1개를 썼습니다.[/b] 마지막 날이라 [b]날짜는 넘어가지 않습니다[/b] — [b]같은 %s[/b] 앞에서 [b]최대 체력의 25%%[/b]로 다시 섭니다." % now,
 			"[color=#9ea8b8]대신 오늘 남은 시간은 전부 사라집니다(휴식·상점·출격 없이 관문만 남습니다). 다시 쓰러지면 부활 물약이 또 한 개 듭니다.[/color]",
-			"[color=#9ea8b8]남은 부활 물약 %d개 · 이미 정산한 금화·장비와 레벨·성장은 그대로입니다.[/color]" % PConsumables.revive_count(r),
 		]
+		var nh_last := no_heal_line(r)
+		if nh_last != "":
+			last_lines.append(nh_last)
+		last_lines.append("[color=#9ea8b8]남은 부활 물약 %d개 · 이미 정산한 금화·장비와 레벨·성장은 그대로입니다.[/color]" % PConsumables.revive_count(r))
+		return last_lines
 	if bool(death.get("revived", false)):
-		return [
-			"[b]부활 물약 1개를 썼습니다.[/b] 남은 하루를 잃고 [b]%s[/b]에 [b]최대 체력의 25%%[/b]로 이어갑니다." % now,
-			"[color=#9ea8b8]남은 부활 물약 %d개 · 이미 정산한 금화·장비와 레벨·성장은 그대로입니다.[/color]" % PConsumables.revive_count(r),
-		]
+		var lines := ["[b]부활 물약 1개를 썼습니다.[/b] 남은 하루를 잃고 [b]%s[/b]에 [b]최대 체력의 25%%[/b]로 이어갑니다." % now]
+		var nh := no_heal_line(r)
+		if nh != "":
+			lines.append(nh)
+		lines.append("[color=#9ea8b8]남은 부활 물약 %d개 · 이미 정산한 금화·장비와 레벨·성장은 그대로입니다.[/color]" % PConsumables.revive_count(r))
+		return lines
 	return ["[b]%s[/b]에 이어갑니다. 이미 정산한 금화·장비와 레벨·성장은 그대로입니다." % now]
 
 ## 주 버튼 문구(Enter). 마지막 날 부활은 "다음 날"이 아니라는 것을 버튼에서도 드러낸다

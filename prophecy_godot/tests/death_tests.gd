@@ -8,6 +8,9 @@ extends SceneTree
 ##     죽은 출격의 미정산 전리품은 잃고, 이미 정산한 재산·성장은 남는다.
 ##  2-1) **마지막 날(다음 날이 없는 날)**: 물약 1개를 쓰고 **날짜를 늘리지 않은 채 같은 날 관문 앞**에서 최대 체력 25%로 복귀하며
 ##     그날 남은 시간은 전부 소진한다. 물약이 없으면 회차 종료. 반복 부활은 매번 한 개씩 든다(§11).
+##  2-2) 그 25%는 **실제 전투 시작 체력까지** 간다(§13). 부활 표식(run.revivePending)이 붙은 재입장 한 번만
+##     자동 완전 회복을 건너뛴다 — 저장·복구를 견디고, 그 사이 회복 수단으로 오른 체력은 그대로 들어가며,
+##     표식은 그 입장에서 소비되어 다음 정상 입장에는 남지 않는다.
 ##  3) 사망 정산은 정확히 1회다. 저장 복구·입장 스냅샷으로 소모한 물약이 되살아나지 않는다(개수와 사용 횟수 둘 다).
 ##  4) 부활해도 미완료 관문은 건너뛰어지지 않고, 넘기 전까지 출격이 잠긴다.
 ##  5) 판매 = 실제 지불 금액의 절반(정수 내림). 할인가로 샀으면 할인가 기준, 구매액이 없으면 정상가의 절반.
@@ -471,6 +474,169 @@ func _init() -> void:
 	ok("상점용 한 줄 안내가 날짜에 따라 달라진다(마지막 날에는 같은 날 관문 앞이라고 적는다)",
 		line_mid != line_last and line_last.find("마지막 날") >= 0 and line_last.find("같은 날 관문 앞") >= 0 and line_mid.find("다음 날") >= 0,
 		"%s // %s" % [line_mid, line_last])
+
+	# ---------- 13. 부활 체력 25%가 **실제 전투 시작 체력**까지 간다(2026-09-09 사용자 승인) ----------
+	# 예전에는 PRun.start_boss가 입장에서 완전 회복을 하고 PFlow.make_boss_encounter가 한 번 더 최대 체력으로 채워,
+	# 관문 사망의 25%가 아무 비용도 아니었다(물약 1개 + 그날 남은 시간만 들었다).
+	# 이제 부활 표식(run.revivePending)이 **그 재입장 한 번**만 자동 회복을 건너뛴다.
+	# 여기서는 사망 → 부활 → 저장·복구 → 재입장 → CombatState.player.hp → 두 번째 사망까지 끊지 않고 본다.
+	var last_day_kit := func(seed_v: int, revives: int, potions: int) -> Dictionary:
+		var rr := human_run(seed_v)
+		rr.gold = 4000
+		for _i in revives:
+			PConsumables.buy(rr, REV)
+		for _i in potions:
+			PConsumables.buy(rr, "potion")
+		rr.day = int(PRun.mode_def(rr).days)
+		rr.stage = PRun.stage_count(rr) - 1
+		rr.phase = "boss_prep"
+		return rr
+
+	var d1: Dictionary = last_day_kit.call(601, 2, 1)
+	var hpmax1 := float(PRun.build(d1).hp_max)
+	var revhp1: float = round(hpmax1 * float(RD.hpFrac))
+	var day1 := int(d1.day)
+	# (1) 마지막 날 사망 → 물약 1개 소비 · 같은 날 · 관문 앞 · 체력 25% · 시간 0
+	die_at_gate.call(d1)
+	ok("(1) 마지막 날 사망 → 부활: 물약 1개 소비 · 같은 날 · 관문 앞 · 체력 25% · 남은 시간 0 · 재입장 표식이 선다",
+		PConsumables.revive_count(d1) == 1 and int(d1.day) == day1 and String(d1.phase) == "boss_prep"
+			and is_equal_approx(float(d1.hp), revhp1) and int(d1.hours) == 0 and PRun.revive_pending(d1),
+		"hp %.0f/%.0f hours %d 표식 %s" % [float(d1.hp), hpmax1, int(d1.hours), str(PRun.revive_pending(d1))])
+	# (2) PSave 저장 → 복구: 표식·체력·개수가 그대로
+	var d1b := _roundtrip(d1)
+	ok("(2) 저장·복구를 견딘다: 부활 표식·체력·물약 수가 그대로(정규화한 JSON이 같다)",
+		PRun.revive_pending(d1b) and is_equal_approx(float(d1b.hp), revhp1) and PConsumables.revive_count(d1b) == 1
+			and PRun.revive_uses(d1b) == 1 and _json(d1b) == _json(d1),
+		"hp %.0f 표식 %s" % [float(d1b.hp), str(PRun.revive_pending(d1b))])
+	# (3) 관문 재입장: 완전 회복이 일어나지 않는다 + 표식은 이 한 번에 소비된다
+	var bs_r1 := PRun.start_boss(d1b)
+	ok("(3) 부활 뒤 관문 재입장: 자동 완전 회복이 없다(체력 25% 그대로) · 표식은 이 입장에서 소비된다",
+		is_equal_approx(float(d1b.hp), revhp1) and not is_equal_approx(float(d1b.hp), hpmax1)
+			and not PRun.revive_pending(d1b) and not bs_r1.is_empty(),
+		"입장 체력 %.0f/%.0f 표식 %s" % [float(d1b.hp), hpmax1, str(PRun.revive_pending(d1b))])
+	# (4) 실제로 만들어진 CombatState의 전투 시작 체력이 25%다(최대 체력은 깎지 않는다)
+	var stg1 := PFlow.make_boss_encounter(d1b, bs_r1)
+	ok("(4) 실제 전투 시작 체력이 25%다(CombatState.player.hp) · 최대 체력은 그대로",
+		is_equal_approx(float(stg1.player.hp), revhp1) and is_equal_approx(float(stg1.player.hp_max), hpmax1)
+			and float(stg1.player.hp) < float(stg1.player.hp_max),
+		"전투 시작 %.0f/%.0f" % [float(stg1.player.hp), float(stg1.player.hp_max)])
+	# (5) 그 전투에서 두 번째 사망 → 물약이 또 한 개 든다
+	stg1.status = "lost"
+	PFlow.settle_boss_defeat(d1b, stg1)
+	ok("(5) 이어진 두 번째 사망: 물약이 또 한 개(1 → 0) · 사용 2회 · 같은 날 관문 앞 25% · 표식이 다시 선다",
+		PConsumables.revive_count(d1b) == 0 and PRun.revive_uses(d1b) == 2 and int(d1b.day) == day1
+			and is_equal_approx(float(d1b.hp), revhp1) and PRun.revive_pending(d1b) and not PRun.is_run_over(d1b)
+			and PRun.revived_same_day(d1b),
+		"물약 %d 사용 %d hp %.0f day %d" % [PConsumables.revive_count(d1b), PRun.revive_uses(d1b), float(d1b.hp), int(d1b.day)])
+	# (7) 부활 뒤 회복 수단을 쓰면 그 체력으로 입장한다(다시 25%로 깎지 않고, 완전 회복도 하지 않는다)
+	ok("(7-a) 마지막 날은 남은 시간이 0이라 휴식이 막히지만, 시간이 들지 않는 회복약은 관문 앞에서 쓸 수 있다",
+		PConsumables.can_use_potion(d1b) and not PRun.can_rest(d1b) and int(d1b.hours) == 0 and not bool(PRun.rest_quote(d1b).can),
+		String(PRun.rest_quote(d1b).reason))
+	var healed1 := PConsumables.use_potion(d1b)
+	var after_heal1 := float(d1b.hp)
+	var bs_r2 := PRun.start_boss(d1b)
+	var stg2 := PFlow.make_boss_encounter(d1b, bs_r2)
+	ok("(7-b) 부활 뒤 회복약을 쓰면 그만큼 오른 체력으로 입장한다(25%로 다시 깎지 않고 100%로 채우지도 않는다)",
+		healed1 > 0.0 and is_equal_approx(after_heal1, revhp1 + healed1) and is_equal_approx(float(d1b.hp), after_heal1)
+			and is_equal_approx(float(stg2.player.hp), after_heal1) and after_heal1 < hpmax1,
+		"25%% %.0f → 회복 +%.0f → 전투 시작 %.0f (최대 %.0f)" % [revhp1, healed1, float(stg2.player.hp), hpmax1])
+	# (5-b) 물약이 0이면 그다음 죽음이 회차 종료다
+	stg2.status = "lost"
+	PFlow.settle_boss_defeat(d1b, stg2)
+	ok("(5-b) 물약이 없으면 그다음 죽음이 회차 종료다(마지막 날에도 무한 재도전은 없다) · 표식도 남지 않는다",
+		PRun.is_run_over(d1b) and bool(d1b.ended) and PRun.revive_uses(d1b) == 2 and not PRun.revive_pending(d1b)
+			and PFlow.actions(d1b).is_empty() and int(d1b.day) == day1,
+		"phase %s 표식 %s" % [String(d1b.phase), str(PRun.revive_pending(d1b))])
+
+	# (6) 회귀: 정상적인 **첫** 관문 입장은 예전대로 완전 회복이다(입장 값·전투 시작 체력 둘 다)
+	var norm13 := human_run(602)
+	norm13.day = 4
+	norm13.phase = "boss_prep"
+	var hpmax_n := float(PRun.build(norm13).hp_max)
+	norm13.hp = 12.0
+	var bs_n := PRun.start_boss(norm13)
+	var st_n := PFlow.make_boss_encounter(norm13, bs_n)
+	ok("(6) 회귀: 부활이 아닌 정상 관문 입장은 예전대로 완전 회복이다(입장 체력·전투 시작 체력 모두 최대)",
+		is_equal_approx(float(norm13.hp), hpmax_n) and is_equal_approx(float(st_n.player.hp), hpmax_n)
+			and not PRun.revive_pending(norm13),
+		"입장 %.0f · 전투 시작 %.0f / 최대 %.0f" % [float(norm13.hp), float(st_n.player.hp), hpmax_n])
+
+	# (8) 표식은 한 번만 쓰인다: 소비된 뒤 관문을 넘기고 다음 관문에 정상 입장하면 다시 완전 회복이다
+	var once13 := human_run(603)
+	once13.gold = 3000
+	PConsumables.buy(once13, REV)
+	once13.day = 4
+	once13.phase = "boss_prep"
+	var hpmax_o := float(PRun.build(once13).hp_max)
+	var revhp_o: float = round(hpmax_o * float(RD.hpFrac))
+	die_at_gate.call(once13) # 4일차 관문 사망 → 하루를 잃고 5일차 관문 앞 25%
+	ok("(8-a) 마지막 날이 아닌 부활도 관문 앞이면 표식이 선다(다음 날 관문 재입장에도 자동 회복이 없다)",
+		PRun.revive_pending(once13) and String(once13.phase) == "boss_prep" and int(once13.day) == 5
+			and is_equal_approx(float(once13.hp), revhp_o) and not PRun.revived_same_day(once13),
+		"day %d hp %.0f 표식 %s" % [int(once13.day), float(once13.hp), str(PRun.revive_pending(once13))])
+	var bs_o := PRun.start_boss(once13)
+	var st_o := PFlow.make_boss_encounter(once13, bs_o)
+	ok("(8-b) 그 재입장의 전투 시작 체력도 25%다 · 표식은 여기서 소비된다",
+		is_equal_approx(float(st_o.player.hp), revhp_o) and not PRun.revive_pending(once13),
+		"전투 시작 %.0f/%.0f" % [float(st_o.player.hp), hpmax_o])
+	st_o.status = "won"
+	st_o.boss.dead = true
+	st_o.stats.boss_damage = 3000.0
+	st_o.player.hp = 9.0
+	PFlow.settle_boss_victory(once13, st_o)
+	var guard13 := 0
+	while String(once13.phase) == "prep" and guard13 < 12:
+		guard13 += 1
+		PRun.end_day(once13)
+	once13.hp = 11.0 # 다음 관문 앞에서 다친 상태를 만들어 둔다(정상 입장이 회복하는지 보려고)
+	ok("(8-c) 관문을 넘기고 하루가 정상으로 넘어가면 부활 표식이 남지 않는다",
+		String(once13.phase) == "boss_prep" and not PRun.revive_pending(once13) and int(once13.stage) == 1,
+		"day %d phase %s stage %d" % [int(once13.day), String(once13.phase), int(once13.stage)])
+	var hpmax_o2 := float(PRun.build(once13).hp_max)
+	var st_o2 := PFlow.make_boss_encounter(once13, PRun.start_boss(once13))
+	ok("(8-d) 다음 정상 입장은 예전대로 완전 회복이다(표식이 되살아나지 않는다)",
+		is_equal_approx(float(once13.hp), hpmax_o2) and is_equal_approx(float(st_o2.player.hp), hpmax_o2),
+		"입장 %.0f · 전투 시작 %.0f / 최대 %.0f" % [float(once13.hp), float(st_o2.player.hp), hpmax_o2])
+
+	# 보통 날 아침으로 부활하면(관문 앞이 아니면) 표식을 두지 않는다 — 나중의 정상 입장까지 따라가지 않는다
+	var sr13 := human_run(605)
+	sr13.gold = 2000
+	PConsumables.buy(sr13, REV)
+	var s_sr13 := PSortie.start(sr13, String(PSortie.cards_for(sr13)[0].id))
+	PFlow.settle_defeat(sr13, s_sr13, fake_fight(sr13, s_sr13, false))
+	ok("일반 출격 사망으로 보통 날 아침에 부활하면 표식을 두지 않는다(관문 앞이 아니다)",
+		String(sr13.phase) == "prep" and bool(sr13.death.revived) and not PRun.revive_pending(sr13)
+			and is_equal_approx(float(sr13.hp), round(float(PRun.build(sr13).hp_max) * float(RD.hpFrac))),
+		"phase %s 표식 %s" % [String(sr13.phase), str(PRun.revive_pending(sr13))])
+
+	# 시험 재시도 경로와 섞이지 않는다(사망 정산이 없으므로 표식이 서지 않고, 재도전 입장은 예전대로 완전 회복)
+	var rt13 := PRun.new_run(604, "sword", "", { "test_retry": true, "legacy_places": true })
+	rt13.day = 4
+	rt13.phase = "boss_prep"
+	var st_rt := PFlow.make_boss_encounter(rt13, PRun.start_boss(rt13))
+	st_rt.status = "lost"
+	PFlow.settle_boss_defeat(rt13, st_rt)
+	var hpmax_rt := float(PRun.build(rt13).hp_max)
+	var st_rt2 := PFlow.make_boss_encounter(rt13, PRun.start_boss(rt13))
+	ok("시험 재시도 경로에는 부활 표식이 서지 않는다(재도전 입장·전투 시작 체력 모두 예전대로 최대)",
+		not PRun.revive_pending(rt13) and is_equal_approx(float(rt13.hp), hpmax_rt)
+			and is_equal_approx(float(st_rt2.player.hp), hpmax_rt) and int(rt13.bossRetries) == 1
+			and (rt13.get("death", {}) as Dictionary).is_empty(),
+		"재도전 %d 전투 시작 %.0f/%.0f" % [int(rt13.bossRetries), float(st_rt2.player.hp), hpmax_rt])
+
+	# 화면 문구: 부활 재입장에 자동 회복이 없다는 것을 사람이 미리 본다(화면이 쓰는 static 함수를 그대로 부른다)
+	var scr_pending: Dictionary = last_day_kit.call(606, 1, 0)
+	die_at_gate.call(scr_pending)
+	var nh_defeat := PDefeatScreen.no_heal_line(scr_pending)
+	var nh_boss := PBossResultScreen.no_heal_line(scr_pending)
+	ok("화면 문구가 '재입장에 자동 회복 없음'을 안내한다(표식이 선 동안만)",
+		PRun.revive_pending(scr_pending) and nh_defeat.find("자동으로 차지 않습니다") >= 0 and nh_boss.find("자동으로 차지 않습니다") >= 0
+			and " ".join(PDefeatScreen.death_lines(scr_pending)).find("자동으로 차지 않습니다") >= 0
+			and " ".join(PBossResultScreen.defeat_lines(scr_pending)).find("자동으로 차지 않습니다") >= 0,
+		nh_boss)
+	PRun.start_boss(scr_pending)
+	ok("표식이 소비된 뒤에는 그 안내가 사라진다(정상 입장 안내와 섞이지 않는다)",
+		PDefeatScreen.no_heal_line(scr_pending) == "" and PBossResultScreen.no_heal_line(scr_pending) == "" and not PRun.revive_pending(scr_pending))
 
 	var pass_n := 0
 	for x in results:
