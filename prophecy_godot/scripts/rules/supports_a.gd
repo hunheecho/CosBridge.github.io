@@ -12,7 +12,9 @@ extends RefCounted
 ##  - 분신은 주무기 **기본** 공격만 따라 하고(PSupport.eligible("echo_copy", ...)), 자기 위치에서 사거리·모양·적중을 다시 판정한다.
 ##    분신의 타격 경로 이름은 "echo_direct"라 자격표가 분신의 분신을 막는다.
 ##  - 바람의 밀어내기 거리는 반드시 PSupport.knock_dist를 거치고 st.move_swept로 민다(벽·바위 안으로 안 들어간다).
-##    잔바람의 둔화는 PSupport.stack_slow로 겹쳐 최저 속도 아래로 내려가지 않는다.
+##    잔바람은 **밀어낸 경로가 아니라 돌풍이 지나간 자리**(부채꼴의 축)에 남으므로, 밀어내기 저항이 0인
+##    보스에게도 장판이 생긴다. 둔화는 겹친 조각 중 가장 센 하나만 PSupport.stack_slow에 넣어
+##    최저 속도 아래로 내려가지 않게 하고, 조각이 겹쳤다는 이유로 무제한 중첩되지도 않게 한다.
 ##
 ## 수명 규칙(공통): 까마귀·분신·잔바람 장판은 (1) 제 수명이 다하거나 (2) 그 보조가 장착 목록에서 빠지거나
 ## (3) 전투가 끝나면 즉시 사라진다. 레벨업(st.rebuild → PWeapons.refresh)은 무기 항목을 유지하므로 개체도 유지되고,
@@ -666,6 +668,14 @@ static func _wind_fire(st: CombatState, w: Dictionary) -> void:
 	st.fx({ "kind": "wind_gust", "x": p.x, "y": p.y, "angle": ang, "r": rr, "half": half, "ttl": 0.2, "mod": mid })
 	if mid != "":
 		st.note_mod(mid, "proc")
+	# 잔바람은 **돌풍이 지나간 자리**에 남는다(2026-09-09 BP-1, 사용자 승인).
+	# 예전에는 '밀어낸 경로'에만 남겨서, 밀어내기 저항이 0인 보스에게는 한 조각도 안 생겼다.
+	# 이제는 적이 밀리든 아니든 **부채꼴의 축**(플레이어 → 조준 방향 × range) 위에 놓는다.
+	# 축을 고른 이유: 조각 수가 **적 수와 무관**하게 한 번의 돌풍당 gustPerBlast로 고정된다.
+	# 맞은 적의 자리마다 놓으면 밀집 전투에서 조각이 적 수만큼 늘어(상한 gustMax에 더 자주 닿아)
+	# 보스전을 고치려던 변경이 무리전 강화로 새어 나간다 — 사거리·조각 수를 보상 삼아 늘리지 않는다.
+	if linger:
+		_wind_trail(st, S, s, p.x, p.y, p.x + cos(ang) * rr, p.y + sin(ang) * rr)
 	# 부채꼴 판정은 공용 기하를 그대로 쓰되 피해와 밀어내기를 **따로** 준다.
 	# PWeapons.hit_arc은 무기의 knock을 속도 넉백으로 넣어 버려서 등급 저항을 건너뛰기 때문이다
 	var targets := []
@@ -696,11 +706,12 @@ static func _wind_fire(st: CombatState, w: Dictionary) -> void:
 		S.pushed = int(S.pushed) + 1
 		S.push_total = float(S.push_total) + moved
 		S.push_max = maxf(float(S.push_max), moved)
-		if linger:
-			_wind_trail(st, S, s, x0, y0, float(e2.x), float(e2.y))
 	st.ev("shoot")
 
-## 밀어낸 경로에 잔바람을 남긴다(한 번에 gustPerBlast까지, 전장 전체로 gustMax까지)
+## 돌풍이 지나간 자리(부채꼴의 축)에 잔바람을 남긴다.
+## 놓는 곳: (x0,y0)에서 (x1,y1)까지를 n등분한 점들 — 지금 호출자는 플레이어 자리 → 조준 방향으로 range만큼.
+## 간격: seg/n. n = clamp(seg/gustStep + 1, 1, gustPerBlast)이므로 실제 간격은 언제나 gustStep 이하다.
+## 최대 수: 한 번의 돌풍당 gustPerBlast개, 전장 전체로 gustMax개(넘으면 오래된 것부터 지운다).
 static func _wind_trail(st: CombatState, S: Dictionary, s: Dictionary, x0: float, y0: float, x1: float, y1: float) -> void:
 	var seg := PGeom.dist(x0, y0, x1, y1)
 	var n := clampi(int(seg / maxf(1.0, float(s.gustStep))) + 1, 1, maxi(1, int(s.gustPerBlast)))
@@ -729,7 +740,12 @@ static func _wind_cap_gusts(st: CombatState, cap: int) -> void:
 			keep.append(st.zones[i])
 	st.zones = keep
 
-## 잔바람 둔화. 겹쳐도 PSupport.slow_floor 아래로 내려가지 않는다.
+## 잔바람 둔화. **한 적에게는 겹친 조각 중 가장 센 것 하나만 적용한다**(2026-09-09 BP-1).
+## 조각을 돌풍의 축에 놓으면서 연달아 분 돌풍이 같은 줄에 겹쳐 쌓이게 됐다 —
+## 겹친 수만큼 곱해 겹치면 서 있기만 해도 곧바로 바닥(slow_floor)에 닿아, 조각이 겹쳤다는 이유만으로
+## 둔화가 무제한 중첩된다. 그래서 겹침은 세지 않고 가장 센 조각 하나를 PSupport.stack_slow에 통과시킨다
+## (등급 저항과 최저 이동 속도 바닥은 그 함수가 그대로 적용한다).
+## 겹쳐도 PSupport.slow_floor 아래로 내려가지 않는다.
 ## 이동 속도 배율을 읽는 공용 훅이 없어(enemy_speed_mult는 냉기·감속장만 본다)
 ## **직전 프레임에 실제로 움직인 거리**의 (1 - 배율)만큼을 되돌리는 방식으로 늦춘다.
 ## st.move_swept로 되돌리므로 벽·바위를 뚫지 않고, 서 있는 적은 아무 영향이 없다.
@@ -750,11 +766,14 @@ static func _wind_update(st: CombatState, dt: float) -> void:
 	for e in st.alive_targets():
 		if bool(e.get("structure", false)) or bool(e.get("airborne", false)):
 			continue
-		var mult := 1.0
+		var top := 0.0 # 겹친 조각 중 가장 센 둔화 비율 하나만 고른다(조각 수를 세지 않는다)
 		for g in gusts:
 			var z2: Dictionary = g
 			if PGeom.dist(float(z2.x), float(z2.y), e.x, e.y) <= float(z2.r) + float(e.r):
-				mult = PSupport.stack_slow(mult, float(z2.get("slow", 0.0)), e)
+				top = maxf(top, float(z2.get("slow", 0.0)))
+		var mult := 1.0
+		if top > 0.0:
+			mult = PSupport.stack_slow(1.0, top, e)
 		if mult >= 0.999:
 			e["wind_slow_on"] = false
 			continue

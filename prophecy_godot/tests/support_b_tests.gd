@@ -124,25 +124,31 @@ func section_plague() -> void:
 	ok("전염은 남은 시간을 물려받고 최대치로 초기화되지 않는다",
 		got > 0.0 and got <= left + 0.01 and got < full - 0.5, "물려받음 %.2f · 원래 남은 %.2f · 최대 %.2f" % [got, left, full])
 
-	# 1-4. 전염 세대가 2를 넘지 않는다(무한 증식 금지)
+	# 1-4. 전염 세대가 상한을 넘지 않는다(무한 증식 금지).
+	# 2026-09-09: 상한이 시험값 2 → 3으로 바뀌었다. 사슬 길이를 숫자로 박아 두면 값이 바뀔 때마다 이 검사가
+	# 값을 따라다니게 되므로 **상한에서 줄 길이를 만든다** — 상한+2마리를 세우면 마지막 한 마리가 '더 안 옮는다'를 본다
+	var gmax := PSupport.gen_max("plague_spread")
 	var st4 := lab([["plague", 1, []]])
 	var line := []
-	for i in 4:
+	for i in gmax + 2:
 		line.append(put(st4, "wolf", 300.0 + 100.0 * float(i), 300.0))
 	PSupport.fire(st4, wep(st4, "plague"), line[0], false)
 	run_for(st4, 1.6)
 	var gens := [_gen_of(line[0])]
-	slay(st4, line[0])
-	gens.append(_gen_of(line[1]))
-	slay(st4, line[1])
-	gens.append(_gen_of(line[2]))
-	slay(st4, line[2])
-	gens.append(_gen_of(line[3]))
+	for i in gmax + 1:
+		slay(st4, line[i])
+		gens.append(_gen_of(line[i + 1]))
 	var P4 := PSupportB.plague_stat(st4)
-	ok("전염 세대가 상한(%d)을 넘지 않는다" % PSupport.gen_max("plague_spread"),
-		gens[0] == 0 and gens[1] == 1 and gens[2] == 2 and int(P4.max_gen) == PSupport.gen_max("plague_spread"),
+	var chain_ok := true
+	for i in gmax + 1:
+		if int(gens[i]) != i: # 0세대부터 상한 세대까지 한 칸씩 정상으로 이어져야 한다
+			chain_ok = false
+	ok("전염 세대가 상한(%d)을 넘지 않는다" % gmax,
+		chain_ok and int(P4.max_gen) == gmax,
 		"세대 기록 %s · 최대 %d" % [str(gens), int(P4.max_gen)])
-	ok("세대 상한에 닿은 독은 더 이상 옮지 않는다", int(gens[3]) < 0 and (line[3].get("plague", {}) as Dictionary).is_empty(), str(gens))
+	var last: Dictionary = line[gmax + 1]
+	ok("세대 상한에 닿은 독은 더 이상 옮지 않는다",
+		int(gens[gmax + 1]) < 0 and (last.get("plague", {}) as Dictionary).is_empty(), str(gens))
 
 	# 1-5. 역병 파열: 같은 죽음으로 두 번 정산되지 않는다
 	var st5 := lab([["plague", 1, ["burst"]]])

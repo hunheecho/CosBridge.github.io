@@ -398,6 +398,21 @@
         "note": "통과 판정 스위트가 아니라 기록 도구. 결과 JSON 한 줄과 종료 코드 0으로 확인한다."
       }
     },
+    "repeat_income_probe": {
+      "env": {},
+      "script": "tools/repeat_income_probe.gd",
+      "timeout_sec": 3600,
+      "desc": "일반 탐험 수정(KD-7) 전후의 하루 금화 수입·경험치·사건 수·이용권 수·출격 횟수 비교. 대조군 스위치 PFlow.clear_done_on(환경 변수 PROPHECY_CLEAR_DONE=0 = 옛 규칙)을 한 프로세스 안에서 번갈아 켜고 같은 시드·같은 전략·같은 전투 봇으로 3일을 돌린다. data/**와 저장 파일은 건드리지 않는다. 부분 실행 PROPHECY_SUBSET=\"rule=now;seed=1\"",
+      "verdict": {
+        "success_pattern": "REPEAT_INCOME_JSON",
+        "forbid_patterns": [
+          "SCRIPT ERROR",
+          "Parse Error",
+          "Compile Error"
+        ],
+        "note": "통과 판정 스위트가 아니라 **기록 도구**(단언 0/0). 결과 JSON 한 줄과 종료 코드 0으로 확인한다. 재미·균형을 판정하지 않는다."
+      }
+    },
     "build_probe": {
       "env": {},
       "script": "tools/build_probe.gd",

@@ -546,7 +546,7 @@ func sec5_wind() -> void:
 	var le := put(ls, "wolf", 540.0, 300.0)
 	le.hp = 99999.0
 	PWeapons.fire(ls, lw, le, false)
-	ok("잔바람: 밀어낸 경로에 둔화 바람이 남는다", zone_count(ls, "windgust") > 0, "%d개" % zone_count(ls, "windgust"))
+	ok("잔바람: 돌풍이 지나간 자리에 둔화 바람이 남는다", zone_count(ls, "windgust") > 0, "%d개" % zone_count(ls, "windgust"))
 	# 같은 자리에 겹쳐 쌓아도 바닥 아래로 못 내려간다
 	for i in 20:
 		var z := ls.add_zone("windgust", le.x, le.y, float(lw.stats.gustR), 5.0, 0.0)
@@ -570,6 +570,66 @@ func sec5_wind() -> void:
 		PWeapons.fire(cs, cw, ce, false)
 	ok("잔바람 장판은 상한을 넘겨 쌓이지 않는다(화면을 덮지 않게)",
 		zone_count(cs, "windgust") <= int(cw.stats.gustMax), "%d개(상한 %d)" % [zone_count(cs, "windgust"), int(cw.stats.gustMax)])
+	sec5_wind_lingering_place()
+
+## 잔바람 회귀(2026-09-09 BP-1): '밀어낸 경로' → '돌풍이 지나간 자리'.
+## 여기서 못박는 것 — (1) 밀리지 않는 상대에게도 장판이 남고 실제로 둔화가 걸린다,
+## (2) 조각이 몇 겹이든 최저 이동 속도 바닥 아래로 못 내려간다, (3) 조각 수가 적 수에 비례하지 않는다.
+func sec5_wind_lingering_place() -> void:
+	# (1) 보스: PSupport.knock_dist가 0이라 한 걸음도 안 밀리지만 돌풍은 지나갔다
+	var bs := mk([{ "id": "sword", "level": 1, "mods": [] }, { "id": "wind", "level": 1, "mods": ["lingering"] }])
+	var bw := wep(bs, "wind")
+	var boss := put(bs, "boss", 560.0, 300.0)
+	boss.hp = 9.0e6
+	var bx0: float = boss.x
+	PWeapons.fire(bs, bw, boss, false)
+	var BS := wind_state(bs)
+	ok("잔바람: 밀리지 않는 상대(보스)에게도 장판이 남는다",
+		zone_count(bs, "windgust") > 0 and is_equal_approx(boss.x, bx0) and float(BS.push_total) == 0.0,
+		"장판 %d개 · 밀어낸 거리 %.1f" % [zone_count(bs, "windgust"), float(BS.push_total)])
+	for i in 60: # 1초 동안 보스가 장판 안에서 걷는다
+		boss.last_x = float(boss.x) - 2.0
+		boss.last_y = float(boss.y)
+		PSupport.update(bs, STEP)
+	PSupport.sync_meters(bs)
+	var b_sec := PSupport.metered(bs, "wind", "slow_sec")
+	var b_slows := PSupport.metered(bs, "wind", "slows")
+	var b_expect := PSupport.stack_slow(1.0, float(bw.stats.gustSlow), boss)
+	ok("잔바람: 보스에게 실제로 둔화가 걸린다(등급 저항을 적용한 값)",
+		b_sec > 0.9 and b_slows >= 1.0 and absf(float(BS.slow_min) - b_expect) < 1e-6 and float(BS.slow_min) < 1.0,
+		"slows=%.0f · slow_sec=%.2f · 이동 배율 %.4f(저항 적용 기대 %.4f)" % [b_slows, b_sec, float(BS.slow_min), b_expect])
+	# (2) 몇 겹을 깔아도 바닥 아래로 못 내려간다. 한 조각의 둔화 비율을 바닥보다 세게 만들어 바닥 자체를 본다
+	var fs := mk([{ "id": "sword", "level": 1, "mods": [] }, { "id": "wind", "level": 1, "mods": ["lingering"] }])
+	var fw := wep(fs, "wind")
+	var fe := put(fs, "wolf", 540.0, 300.0)
+	fe.hp = 99999.0
+	PWeapons.fire(fs, fw, fe, false)
+	for i in 12:
+		var z := fs.add_zone("windgust", fe.x, fe.y, float(fw.stats.gustR), 5.0, 0.0)
+		z["slow"] = 0.95 # 바닥(0.35)보다 센 한 조각
+	fe.last_x = float(fe.x) - 10.0
+	fe.last_y = float(fe.y)
+	PSupport.update(fs, STEP)
+	var FS := wind_state(fs)
+	ok("잔바람: 조각을 몇 겹 깔아도 최저 이동 속도 바닥 아래로 내려가지 않는다",
+		absf(float(FS.slow_min) - PSupport.slow_floor()) < 1e-6,
+		"이동 배율 %.3f (바닥 %.2f · 조각 %d개)" % [float(FS.slow_min), PSupport.slow_floor(), zone_count(fs, "windgust")])
+	# (3) 조각 수는 한 번의 돌풍당 고정이다 — 적이 몇이든 gustPerBlast를 넘지 않는다
+	var one := mk([{ "id": "sword", "level": 1, "mods": [] }, { "id": "wind", "level": 1, "mods": ["lingering"] }])
+	var ow := wep(one, "wind")
+	var oe := put(one, "wolf", 540.0, 300.0)
+	oe.hp = 99999.0
+	PWeapons.fire(one, ow, oe, false)
+	var many := mk([{ "id": "sword", "level": 1, "mods": [] }, { "id": "wind", "level": 1, "mods": ["lingering"] }])
+	var mw := wep(many, "wind")
+	for i in 6:
+		var me := put(many, "wolf", 530.0 + float(i) * 12.0, 290.0 + float(i) * 4.0)
+		me.hp = 99999.0
+	PWeapons.fire(many, mw, many.enemies[0], false)
+	ok("잔바람: 한 번의 돌풍이 남기는 조각 수는 적 수에 비례하지 않는다",
+		zone_count(one, "windgust") == zone_count(many, "windgust")
+		and zone_count(one, "windgust") <= int(ow.stats.gustPerBlast) and zone_count(one, "windgust") > 0,
+		"적 1기 %d개 · 적 6기 %d개(한 번 상한 %d)" % [zone_count(one, "windgust"), zone_count(many, "windgust"), int(ow.stats.gustPerBlast)])
 	# 지표 두 개가 **다른 것을 센다**(2026-09-09 BP-2 회귀).
 	# slows = 새로 둔화가 걸린 적의 수 · slow_sec = 둔화 적·초. 예전에는 하나가 둘을 겸해
 	# 서리 수정의 slows(새로 걸린 횟수)와 같은 이름으로 세 자릿수 차이가 났다
