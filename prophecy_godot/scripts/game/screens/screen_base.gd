@@ -168,6 +168,11 @@ func _apply_safe_margins() -> void:
 		return
 	PLayout.apply_margins(_margin, get_viewport(), 14, 10)
 
+## 오른쪽 위 '전체화면' 버튼 자리가 바뀌었다(전체화면 진입·이탈): 여백만 다시 준다.
+## 화면을 다시 만들지 않으므로 스크롤 위치·펼침 상태가 그대로 남는다
+func relayout_margins() -> void:
+	_apply_safe_margins()
+
 ## 창 크기 변경: 여백 갱신, 비율 묶음이 바뀐 보이는 화면은 다시 만든다
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_inside_tree() and _margin != null:

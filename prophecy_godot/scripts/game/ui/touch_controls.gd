@@ -13,6 +13,11 @@ extends Control
 ##   CombatState는 그 벡터를 PGeom.norm으로 다시 정규화해 **방향만** 쓴다. 규칙(scripts/rules/**)은 한 줄도 건드리지 않는다.
 ##
 ## 배치는 layout()이 안전 영역(노치 제외)에서 시스템 제스처 여백까지 더 들인 뒤 계산한다. docs/TOUCH_CONTROLS.md에 근거와 검사 목록을 적었다.
+##
+## 자리(2026-09-09, 폰 가로 녹화 뒤의 지시): "Q·E 버튼이 전장 오른쪽의 적과 공격 예고를 덮는다".
+##   회피·Q·E를 **오른쪽 가장자리 세로 한 열**로 쌓아 조작 묶음의 가로 차지를 272 → 144px로 줄였다.
+##   그러면 폰 가로(캔버스 1366×640)에서 조작 묶음이 통째로 전장 밖 여백에 들어간다(검사 K1).
+##   **크기는 위의 승인 배율 그대로다**(스틱 ×2 · 회피/Q/E ×1.5, 그림과 터치 판정 둘 다). 전장도 그대로다.
 
 # ---------- 크기: 확대 전 값(BASE_*)과 배율을 함께 남긴다. 시험이 배율을 그대로 못 박는다 ----------
 const BASE_STICK_R := 64.0        # 확대 전 스틱 바깥 반지름
@@ -42,7 +47,11 @@ const HUD_H := 44.0               # 상단 띠 높이(그 아래부터 조작을
 const EDGE_PAD := 20.0            # 조작 버튼과 안전 영역 가장자리 사이
 const BTN_GAP := 14.0             # 버튼 사이 최소 빈 틈(손가락 하나가 두 버튼에 걸치지 않게)
 const GUIDE_PAD := 16.0           # 안내 원과 끌기 영역 가장자리 사이
-const BUILD_PAD := 14.0           # 빌드 버튼과 안전 영역 오른쪽·위 사이
+const BUILD_PAD := 14.0           # 빌드 버튼과 안전 영역 왼쪽 사이
+const BUILD_TOP := 20.0           # 빌드 버튼과 상단 띠(체력 막대) 사이
+
+## 회피·Q·E를 **세로 한 열**로 쌓았을 때의 높이. 이 높이가 들어가면 열로, 아니면 옛 두 열로 놓는다
+const COL_H := BTN_DODGE_R * 2.0 + BTN_GAP + BTN_SMALL_R * 2.0 + BTN_GAP + BTN_SMALL_R * 2.0   # 400
 
 const LABELS := { "dodge": "회피", "special": "Q", "e": "E" }
 const RING_READY := Color(0.9, 0.85, 0.5, 0.9)   # 준비됨: 컬러(금색) 꽉 찬 고리
@@ -106,6 +115,8 @@ var _zone := Rect2()
 var _guide := Vector2.ZERO      # 손을 떼고 있을 때 그리는 안내 원의 중심(끌기 영역 안에 통째로 들어간다)
 var _build_pos := Vector2.ZERO  # '내 빌드' 버튼 중심(모바일에서 전체 빌드를 여는 유일한 길)
 var reserve_top := 0.0          # 상단에 빌드 HUD가 놓인 높이(px). 스틱 끌기 영역이 빌드 아이콘과 겹치지 않게 그만큼 내린다
+var reserve_top_right := 0.0    # 오른쪽 위 '전체화면' 버튼의 아래끝(canvas y). 조작 열을 그 아래에서 시작한다
+var _column := false            # 지금 회피·Q·E가 세로 한 열인가(보고·시험용)
 var _full := Rect2(0.0, 0.0, PLayout.BASE_W, PLayout.BASE_H)   # 받은 안전 영역 그대로(화면 밖 판정에 쓴다)
 var _safe := Rect2(0.0, 0.0, PLayout.BASE_W, PLayout.BASE_H)   # 제스처 여백까지 들인 것(조작을 놓는 영역)
 
@@ -124,34 +135,61 @@ func bind(v: Node, r: PInputRouter) -> void:
 	router = r
 
 ## 안전 영역 기준 배치(주소창 등장·전체화면·회전으로 크기가 바뀔 때마다 다시 부른다 → 그림과 터치 좌표가 같이 옮겨간다).
-## 오른손 엄지는 오른쪽 아래 모서리를 축으로 움직이므로 회피(가장 크고 가장 자주 쓴다)를 모서리에 두고,
-## Q는 그 왼쪽, E는 Q 위에 쌓는다. E를 회피 위에 두면 낮은 가로 화면에서 위쪽 '빌드' 버튼과 부딪힌다.
-## 작은 버튼(Q·E)은 회피와 **아래를 맞춘다**: 그만큼 E 위쪽 여유가 생겨 상단 띠 밑으로 들어가지 않는다.
+##
+## **2026-09-09 사용자 보고로 바뀐 것**: 폰 가로(캔버스 1366×640)에서 Q·E가 전장 오른쪽의 적과 공격 예고를 덮었다.
+## 두 열(회피 | Q·E)로 놓으면 조작 묶음이 가로로 272px을 차지해 전장 오른쪽 끝(x≈1163)까지 파고든다.
+## 그래서 **세로 여유가 있으면 회피·Q·E를 오른쪽 가장자리 한 열로 쌓는다**(가로 차지 = 회피 지름 144뿐).
+## 그러면 조작 묶음이 화면 오른쪽 여백(전장 밖)에만 들어가고, 전장을 한 픽셀도 줄이지 않는다.
+## 낮은 화면(열이 안 들어가는 경우)에는 검증된 옛 두 열로 되돌아간다.
+##
+## 오른손 엄지는 오른쪽 아래 모서리를 축으로 움직이므로 **회피가 언제나 모서리**다(가장 크고 가장 자주 쓴다).
+## 열에서는 그 위에 Q, 그 위에 E를 쌓는다(E는 셋 중 가장 덜 쓰고 없을 때도 많다).
+##
+## '빌드'는 **왼쪽 위**로 옮겼다: 오른쪽 위는 이제 '전체화면' 버튼과 조작 열이 함께 쓴다.
 func layout(safe: Rect2) -> void:
 	_full = safe
 	_safe = PLayout.inset_rect(safe, gesture_pad)
 	var top: float = maxf(_safe.position.y, safe.position.y + HUD_H + reserve_top)
+	# '빌드': 왼쪽 위(체력 막대 아래). 누르면 전투를 안전하게 일시정지하고 '내 빌드'를 연다
+	_build_pos = Vector2(_safe.position.x + BUILD_PAD + BTN_BUILD_R, top + BUILD_TOP + BTN_BUILD_R)
+	# 조작 열은 오른쪽 위 '전체화면' 버튼 아래에서 시작한다(버튼이 보이든 안 보이든 자리는 늘 비워 둔다 —
+	# 전체화면을 오갈 때 버튼이 튀어 움직이면 손가락이 헛짚는다)
+	var top_r: float = maxf(top, reserve_top_right + BTN_GAP)
 	var bx: float = _safe.end.x - EDGE_PAD - BTN_DODGE_R
 	var by: float = _safe.end.y - EDGE_PAD - BTN_DODGE_R
-	var qx: float = bx - (BTN_DODGE_R + BTN_SMALL_R + BTN_GAP)
-	var qy: float = _safe.end.y - EDGE_PAD - BTN_SMALL_R
-	_btn_pos = {
-		"dodge": Vector2(bx, by),
-		"special": Vector2(qx, qy),
-		"e": Vector2(qx, qy - (BTN_SMALL_R * 2.0 + BTN_GAP)),
-	}
-	# '빌드': 오른쪽 위(조작 버튼 묶음에서 가장 먼 구석). 누르면 전투를 안전하게 일시정지하고 '내 빌드'를 연다
-	_build_pos = Vector2(_safe.end.x - BUILD_PAD - BTN_BUILD_R, top + 10.0 + BTN_BUILD_R)
-	# 끌기 영역: 왼쪽 비율만큼 쓰되 안내 원이 통째로 들어갈 만큼은 확보하고, 가장 왼쪽 버튼 앞에서 끊는다(영역과 버튼이 겹치지 않게)
+	_column = (by + BTN_DODGE_R) - COL_H >= top_r - 0.001
+	if _column:
+		var qy_col: float = by - (BTN_DODGE_R + BTN_GAP + BTN_SMALL_R)
+		_btn_pos = {
+			"dodge": Vector2(bx, by),
+			"special": Vector2(bx, qy_col),
+			"e": Vector2(bx, qy_col - (BTN_SMALL_R * 2.0 + BTN_GAP)),
+		}
+	else:
+		var qx: float = bx - (BTN_DODGE_R + BTN_SMALL_R + BTN_GAP)
+		var qy: float = _safe.end.y - EDGE_PAD - BTN_SMALL_R
+		_btn_pos = {
+			"dodge": Vector2(bx, by),
+			"special": Vector2(qx, qy),
+			"e": Vector2(qx, qy - (BTN_SMALL_R * 2.0 + BTN_GAP)),
+		}
+	# 끌기 영역: 왼쪽 비율만큼 쓰되 안내 원이 통째로 들어갈 만큼은 확보하고, 조작 열 앞에서 끊는다(영역과 버튼이 겹치지 않게).
+	# 위쪽은 '빌드' 버튼 아래에서 시작한다(빌드가 왼쪽으로 왔으므로 끌기 영역과 부딪히지 않게).
+	# 다만 그렇게 하면 안내 원이 안 들어갈 만큼 낮은 화면에서는 옛 위치(상단 띠 바로 아래)를 그대로 쓴다 —
+	# 그때는 빌드 원이 영역 안에 들어오지만 pick_at()이 **빌드를 먼저** 고르므로 한 터치로 스틱을 잡는 일은 없다.
+	var zone_top: float = top
+	var below_build: float = _build_pos.y + BTN_BUILD_R + BTN_GAP
+	if _safe.end.y - below_build >= STICK_R * 2.0 + GUIDE_PAD * 2.0:
+		zone_top = maxf(top, below_build)
 	var want: float = maxf(_safe.size.x * STICK_ZONE_W, STICK_R * 2.0 + GUIDE_PAD * 2.0)
-	var limit: float = (qx - BTN_SMALL_R - BTN_GAP) - _safe.position.x
-	_zone = Rect2(_safe.position.x, top, maxf(0.0, minf(want, limit)), maxf(0.0, _safe.end.y - top))
+	var limit: float = (action_band_left() - BTN_GAP) - _safe.position.x
+	_zone = Rect2(_safe.position.x, zone_top, maxf(0.0, minf(want, limit)), maxf(0.0, _safe.end.y - zone_top))
 	_guide = _guide_center()
 	# 방향 버튼 십자: 안내 원이 있던 자리를 그대로 쓴다(왼손 엄지가 닿던 곳).
 	# 칸 사이 간격은 버튼 지름 + 최소 틈이라 손가락 하나가 두 칸에 걸치지 않는다.
 	var step: float = BTN_SMALL_R * 2.0 + BTN_GAP
 	var cx: float = clampf(_guide.x, _zone.position.x + step + BTN_SMALL_R, maxf(_zone.position.x + step + BTN_SMALL_R, _zone.end.x - step - BTN_SMALL_R))
-	var cy: float = clampf(_guide.y, top + step + BTN_SMALL_R, maxf(top + step + BTN_SMALL_R, _safe.end.y - EDGE_PAD - step - BTN_SMALL_R))
+	var cy: float = clampf(_guide.y, zone_top + step + BTN_SMALL_R, maxf(zone_top + step + BTN_SMALL_R, _safe.end.y - EDGE_PAD - step - BTN_SMALL_R))
 	_dpad_pos = {
 		"up": Vector2(cx, cy - step),
 		"down": Vector2(cx, cy + step),
@@ -168,6 +206,19 @@ func _guide_center() -> Vector2:
 
 func zone_rect() -> Rect2:
 	return _zone
+
+## 오른쪽 조작 묶음(회피·Q·E)이 차지한 띠의 왼쪽 끝(canvas x).
+## **전장을 이 오른쪽으로 밀어 넣지 않는다** — main이 경기장 자리를 정할 때 읽는 값이다(PLayout.arena_origin).
+func action_band_left() -> float:
+	var x: float = _safe.end.x
+	for k in _btn_pos:
+		var kind := String(k)
+		x = minf(x, float((_btn_pos[kind] as Vector2).x) - button_radius(kind))
+	return x
+
+## 지금 회피·Q·E가 오른쪽 세로 한 열인가(전장을 덜 덮는 배치). 낮은 화면에서는 false = 옛 두 열
+func column_layout() -> bool:
+	return _column
 
 ## 조작을 놓는 영역(안전 영역 − 제스처 여백)과 받은 안전 영역 그대로. 시험·다른 화면이 읽는다
 func safe_area() -> Rect2:
