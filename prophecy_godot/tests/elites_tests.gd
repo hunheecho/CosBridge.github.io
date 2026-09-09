@@ -2392,6 +2392,24 @@ func curse_tests() -> void:
 	ok("§10 가: 화면에 적을 한 줄을 규칙이 내준다(체력바 옆에 그대로 쓴다)",
 		PEnemiesNew.curse_label(st) == "저주 · 받는 피해 +50%", PEnemiesNew.curse_label(st))
 
+	# 가-2) **실제 피해가 정말 1.5배가 되는가.** 배율 함수만 보면 "상태는 걸렸는데 피해는 그대로"인
+	# 상태를 못 잡는다(실제로 통합 전까지 곱하는 한 줄이 빠져 있었다). 그래서 체력이 얼마나
+	# 줄었는지로 직접 잰다. 저주 없는 같은 피해와 나란히 비교한다
+	var hp_c0: float = float(st.player.hp)
+	st.player.hit_prot = 0.0
+	st.player.invuln_t = 0.0
+	st.apply_player_damage(20.0, "test")
+	var cursed_loss: float = hp_c0 - float(st.player.hp)
+	play(st, float(T.curseDur) + 0.1)   # 저주가 풀릴 때까지 기다린다
+	var hp_n0: float = float(st.player.hp)
+	st.player.hit_prot = 0.0
+	st.player.invuln_t = 0.0
+	st.apply_player_damage(20.0, "test")
+	var plain_loss: float = hp_n0 - float(st.player.hp)
+	ok("§10 가-2: **실제 체력 감소가 1.5배다** — 저주 %.1f vs 평소 %.1f" % [cursed_loss, plain_loss],
+		plain_loss > 0.0 and is_equal_approx(cursed_loss, plain_loss * 1.5),
+		"저주 %.2f / 평소 %.2f = %.3f배" % [cursed_loss, plain_loss, cursed_loss / maxf(0.01, plain_loss)])
+
 	# 나) 저주는 시간이 지나면 저절로 풀린다
 	play(st, float(T.curseDur) + 0.1)
 	ok("§10 나: %.0f초가 지나면 저주가 저절로 풀린다(배율 ×1.0)" % float(T.curseDur),

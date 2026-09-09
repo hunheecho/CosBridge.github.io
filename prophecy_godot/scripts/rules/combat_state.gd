@@ -1615,6 +1615,14 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 	if attacker != null and float(attacker.get("tier_dmg", 1.0)) != 1.0: # 등급 피해 배율(세계 변화, 시험값). 자격 판정용 명목값에도 포함
 		amount = round(amount * float(attacker.tier_dmg) * 10.0) / 10.0
 		nominal = amount
+	# **주술사의 저주**(2026-09-10 §10 · docs/CURSE.md). 받는 피해 ×1.5(시험값).
+	# 자리를 여기로 잡은 이유: 경감보다 **앞**이라 늘어난 값에 방패·강인함·장비 경감이 그대로 작용한다.
+	# 경감 뒤에 곱하면 방패가 무의미해진다. 곱하는 곳은 이 한 줄뿐이고, 모든 피해
+	# (근접·투사체·장판 틱까지)가 이 함수를 지나므로 **두 번 적용될 자리가 없다.**
+	# 무적·피격 보호는 이 함수에 오기 전 damage_player 가 이미 걸러낸다 — 막힌 피해는 여기 오지 않는다.
+	if PEnemiesNew.curse_on(self):
+		amount = round(amount * PEnemiesNew.curse_mult(self) * 10.0) / 10.0
+		nominal = amount
 	# **경감 계산 순서**(사용자 지시 4절 7·11번: 방패·방울·기타 경감의 순서와 상한을 정리한다):
 	#   등급 배율 → 보조무기(수호 방울 차단 · 가시 갑각 근접 경감) → 강인함 → 장비(큰 타격·감속장 안)
 	#   → 흡수 방패 → 체력. 보조가 0을 돌려주면 완전히 막힌 것이다.
