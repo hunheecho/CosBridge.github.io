@@ -29,6 +29,11 @@ const HP_EDGE := Color(0.55, 0.24, 0.24, 0.9)
 const SHIELD_FILL := Color(0.42, 0.72, 1.0, 0.95)
 const SHIELD_BACK := Color(0.08, 0.12, 0.20, 0.9)
 
+## 주술사의 피해 증폭 저주(§10, 2026-09-10). 체력 막대 **바로 아래**에 한 줄로 적는다:
+## "저주 · 받는 피해 +50%"와 남은 시간. 체력·보호막과 색을 섞지 않는다(자주색 계열 — 주술사 문양과 같은 색).
+const CURSE_FILL := Color(0.72, 0.42, 0.94, 0.92)
+const CURSE_BACK := Color(0.16, 0.08, 0.20, 0.9)
+
 var st: CombatState = null
 var touch_mode := false                 # 터치일 때 키 라벨을 숨긴다(터치 버튼은 PTouchControls가 그린다)
 
@@ -62,6 +67,9 @@ class PHealth extends Control:
 	var hp_max := 100.0
 	var shield := 0.0
 	var shield_max := 0.0
+	var curse_left := 0.0               # 남은 저주 시간(초). 0이면 걸려 있지 않다
+	var curse_dur := 0.0                # 저주 한 번의 길이(막대 비율용)
+	var curse_text := ""                # "저주 · 받는 피해 +50%"(규칙이 만든 글. 화면이 숫자를 새로 짓지 않는다)
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -73,8 +81,30 @@ class PHealth extends Control:
 		shield_max = p_shield_max
 		queue_redraw()
 
+	func set_curse(p_left: float, p_dur: float, p_text: String) -> void:
+		if is_equal_approx(curse_left, p_left) and curse_text == p_text:
+			return
+		curse_left = p_left
+		curse_dur = p_dur
+		curse_text = p_text
+		queue_redraw()
+
 	func has_shield() -> bool:
 		return shield > 0.0
+
+	func has_curse() -> bool:
+		return curse_left > 0.0
+
+	## 저주 줄(체력·보호막 아래). 보호막이 있으면 그 아래로 한 칸 더 내려간다
+	func _draw_curse(bar_h: float, w: float) -> void:
+		if curse_left <= 0.0:
+			return
+		var cy: float = bar_h + (2.0 + 7.0 + 14.0 if shield > 0.0 else 4.0)
+		var ch: float = 7.0
+		PRender.rrect(self, 0.0, cy, w, ch, 3.0, PCombatHud.CURSE_BACK)
+		var ck: float = clampf(curse_left / maxf(0.001, curse_dur), 0.0, 1.0)
+		PRender.rrect(self, 0.0, cy, maxf(3.0, w * ck), ch, 3.0, PCombatHud.CURSE_FILL)
+		PRender.txt(self, 0.0, cy + ch + 11.0, "%s %.1f초" % [curse_text, curse_left], mini(PLayout.fs(12), 17), Color(0.90, 0.72, 1.0, 0.99), -1, true)
 
 	func _draw() -> void:
 		var w: float = size.x
@@ -90,6 +120,7 @@ class PHealth extends Control:
 		PRender.txt(self, 8.0, bar_h - 6.0, "%d" % int(ceil(hp)), mini(PLayout.fs(22), 26), Color(1, 1, 1, 0.98), -1, true)
 		PRender.txt(self, w - 8.0, bar_h - 9.0, "/ %d" % int(hp_max), mini(PLayout.fs(13), 18), Color(0.94, 0.86, 0.86, 0.97), 1, true)
 		if shield <= 0.0:
+			_draw_curse(bar_h, w)
 			return
 		# 보호막: 체력 막대와 색·위치·글자를 모두 분리한다
 		var sy: float = bar_h + 2.0
@@ -98,6 +129,7 @@ class PHealth extends Control:
 		var sk: float = clampf(shield / maxf(1.0, shield_max), 0.0, 1.0)
 		PRender.rrect(self, 0.0, sy, maxf(3.0, w * sk), sh, 3.0, PCombatHud.SHIELD_FILL)
 		PRender.txt(self, w - 2.0, sy + sh + 10.0, "보호막 %d" % int(ceil(shield)), mini(PLayout.fs(12), 17), Color(0.66, 0.84, 1.0, 0.98), 1, true)
+		_draw_curse(bar_h, w)
 
 # ---------- 구성 ----------
 func _clear_children() -> void:
@@ -226,6 +258,8 @@ func _update_health() -> void:
 	var p: Dictionary = st.player
 	var shield: float = float(p.shield) # ward_shield는 shield 총량의 구성분이라 다시 더하지 않는다(F2)
 	_health.set_values(float(p.hp), float(p.hp_max), shield, maxf(float(p.shield_max), shield))
+	# §10 저주 표시: 남은 시간·글자 모두 **규칙이 내주는 값**만 읽는다(화면이 배율을 새로 짓지 않는다)
+	_health.set_curse(PEnemiesNew.curse_left(st), PEnemiesNew.curse_dur(), PEnemiesNew.curse_label(st))
 
 ## 레벨·경험치(§14): **실제 성장 상태**(st.build.growth = run.growth 참조)만 읽는다.
 ## 전투 중 처치로 오르는 값도, 3택으로 pendingLevelUps가 줄어드는 것도 같은 사전이라 화면이 늘 실제 값과 같다.

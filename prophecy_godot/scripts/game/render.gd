@@ -3001,7 +3001,8 @@ static func draw_telegraphs(ci: Node2D, st: CombatState) -> void:
 				var ra: float = float(i) * TAU / 6.0 + 0.26
 				ci.draw_line(Vector2(rx + cos(ra) * R * 0.35, ry + sin(ra) * R * 0.35), Vector2(rx + cos(ra) * R * 0.8, ry + sin(ra) * R * 0.8), tel_edge(0.8), 2.0)
 			ci.draw_line(Vector2(ex, ey), Vector2(rx, ry), tel_soft(0.35), 1.0)
-			txt(ci, rx, ry - R - 8.0, "저주 문양 %.1fs · 자리 고정" % maxf(0.0, need - st_t), 11, tel_label(1.0), 0, true)
+			# §10 개편(2026-09-10): 직접 피해가 아니라 **받는 피해 +50%**가 걸린다. 무엇이 오는지 글로도 읽히게 적는다
+			txt(ci, rx, ry - R - 8.0, "저주 문양 %.1fs · 받는 피해 +%d%%" % [maxf(0.0, need - st_t), int(round(PEnemiesNew.curse_add() * 100.0))], 11, tel_label(1.0), 0, true)
 		elif type == "shaman" and stt == "hex_aim":
 			var k: float = st_t / maxf(0.001, float(d.get("hexAim", 0.9)))
 			var aa: float = float(e.aim_angle)
@@ -3279,6 +3280,168 @@ static func draw_elite_telegraph(ci: Node2D, st: CombatState, e: Dictionary, fla
 				txt(ci, float(mat[0]), float(mat[1]) - float(d.eruptR) - 8.0, "출현! — 원 밖으로", 12, tel_label(1.0))
 			elif stt == "bite_aim":
 				_tel_sector(ci, ex, ey, float(d.biteRange) + er, float(e.aim_angle), PGeom.deg(float(d.biteDeg)) / 2.0, clampf(st_t / maxf(0.001, float(d.biteAim)), 0.0, 1.0), flash_t)
+	draw_elite_new_telegraph(ci, st, e, flash_t, diag)
+
+## §11-B 신규 공격 패턴 14개의 예고(2026-09-10). 위와 같은 규칙으로 그린다:
+## **예고 도형 = 실제 판정 기하**이고, 확정(locked) 뒤에는 도형이 더 이상 움직이지 않는다.
+## 규칙 쪽 정본은 PEnemiesNew.elite_threats이며 여기서 새 자료를 만들지 않는다
+static func draw_elite_new_telegraph(ci: Node2D, st: CombatState, e: Dictionary, flash_t: float, diag: float) -> void:
+	var stt := String(e.state)
+	var ex: float = e.x
+	var ey: float = e.y
+	var er: float = e.r
+	var st_t: float = float(e.state_t)
+	var p: Dictionary = st.player
+	var dvv := func(k: String, f: float) -> float: return PEnemiesNew.dv(e, k, f)
+	match String(e.type):
+		"elite_archer":
+			if stt == "chase_run":
+				txt(ci, ex, ey - er - 30.0, "달려온다 — 멈추면 쏜다", 12, tel_label(1.0))
+			elif stt == "chase_aim" or stt == "chase_lock":
+				var lk: bool = stt == "chase_lock"
+				_lane(ci, ex, ey, float(e.dir) if lk else float(e.aim_angle), diag, lk, clampf(st_t / maxf(0.001, dvv.call("chaseAim", 0.3)), 0.0, 1.0), flash_t)
+				txt(ci, ex, ey - er - 30.0, "추격 사격 %d발 남음" % int(e.get("chase_left", 0)), 11, tel_label(1.0))
+			elif stt == "snipe1_aim" or stt == "snipe1_lock":
+				var lk1: bool = stt == "snipe1_lock"
+				_lane(ci, ex, ey, float(e.dir) if lk1 else float(e.aim_angle), diag, lk1, clampf(st_t / maxf(0.001, dvv.call("snipe1Aim", 0.45)), 0.0, 1.0), flash_t)
+				txt(ci, ex, ey - er - 30.0, "엇박 저격 1/2", 11, tel_label(1.0))
+			elif stt == "snipe_gap":
+				txt(ci, ex, ey - er - 30.0, "엇박 — 두 번째는 앞을 노린다", 12, tel_label(1.0))
+			elif stt == "snipe2_aim" or stt == "snipe2_lock":
+				# 두 번째 발은 **굵고 긴** 예고선으로 첫 발과 구분한다(같은 선을 두 번 그리지 않는다)
+				var lk2: bool = stt == "snipe2_lock"
+				var a2: float = float(e.dir) if lk2 else float(e.aim_angle)
+				var to2 := Vector2(ex + cos(a2) * diag, ey + sin(a2) * diag)
+				if lk2:
+					ci.draw_line(Vector2(ex, ey), to2, tel_dark(0.85), 9.0)
+					ci.draw_line(Vector2(ex, ey), to2, tel_edge(flash_t), 5.0)
+					tel_bang(ci, ex, ey - er - 26.0, 16)
+				else:
+					dashed_line(ci, Vector2(ex, ey), to2, tel_soft(0.4 + 0.4 * clampf(st_t / maxf(0.001, dvv.call("snipe2Aim", 0.7)), 0.0, 1.0)), 4.0, 12.0, 7.0)
+				txt(ci, ex, ey - er - 30.0, "엇박 저격 2/2 — 강한 발", 12, tel_label(1.0))
+		"elite_blademaster":
+			if stt.begins_with("step") and stt.ends_with("_aim"):
+				var sn: String = stt.substr(4, 1)
+				_beam(ci, ex, ey, float(e.aim_angle), dvv.call("stepDist", 78.0) + float(p.r), (er + float(p.r)) * 2.0, false,
+					clampf(st_t / maxf(0.001, dvv.call("stepAim" + sn, 0.3)), 0.0, 1.0), flash_t)
+				txt(ci, ex, ey - er - 32.0, "전진 연속 베기 %s/3" % sn, 12, tel_label(1.0))
+			elif stt == "step1" or stt == "step2" or stt == "step3":
+				_beam(ci, ex, ey, float(e.dir), maxf(0.0, float(e.get("charge_len", 0.0)) - float(e.get("charge_dist", 0.0))) + float(p.r), (er + float(p.r)) * 2.0, true, 1.0, flash_t)
+			elif stt == "wave_aim" or stt == "wave_lock":
+				var wlk: bool = stt == "wave_lock"
+				_beam(ci, ex, ey, float(e.dir) if wlk else float(e.aim_angle), 900.0, dvv.call("waveR", 22.0) * 2.0, wlk,
+					clampf(st_t / maxf(0.001, dvv.call("waveAim", 0.5)), 0.0, 1.0), flash_t)
+				txt(ci, ex, ey - er - 32.0, "추격 검기 — 걷는 앞을 노린다", 12, tel_label(1.0))
+		"elite_fang":
+			if stt == "runbite_run":
+				txt(ci, ex, ey - er - 30.0, "달려든다 (%d)" % int(e.get("runbite_left", 0)), 12, tel_label(1.0))
+			elif stt == "runbite_aim":
+				_tel_sector(ci, ex, ey, dvv.call("runbiteRange", float((e.def as Dictionary).biteRange)) + er, float(e.aim_angle), PGeom.deg(dvv.call("runbiteDeg", 60.0)) / 2.0,
+					clampf(st_t / maxf(0.001, dvv.call("runbiteAim", 0.3)), 0.0, 1.0), flash_t)
+			elif (stt == "cut_aim" or stt == "cut_lock" or stt == "cut_leap") and e.has("leap_at"):
+				var cat: Array = e.leap_at
+				var cR: float = dvv.call("cutLandR", 62.0)
+				var ck: float = clampf(st_t / maxf(0.001, dvv.call("cutAim", 0.5)), 0.0, 1.0) if stt == "cut_aim" else 1.0
+				ci.draw_circle(Vector2(float(cat[0]), float(cat[1])), cR, tel_fill(0.12 + 0.3 * ck))
+				tel_stroke_circle(ci, float(cat[0]), float(cat[1]), cR, flash_t if stt != "cut_aim" else 0.7, 3.0)
+				dashed_line(ci, Vector2(ex, ey), Vector2(float(cat[0]), float(cat[1])), tel_soft(0.3 + 0.4 * ck), 2.0, 9.0, 7.0)
+				txt(ci, float(cat[0]), float(cat[1]) - cR - 8.0, "앞질러 착지", 12, tel_label(1.0))
+			elif stt == "cut_turn":
+				txt(ci, ex, ey - er - 30.0, "돌아선다 — 다음은 할퀴기", 12, tel_label(1.0))
+			elif stt == "cut_claw_aim":
+				_tel_sector(ci, ex, ey, dvv.call("cutClawRange", 62.0) + er, float(e.aim_angle), PGeom.deg(dvv.call("cutClawDeg", 100.0)) / 2.0,
+					clampf(st_t / maxf(0.001, dvv.call("cutClawAim", 0.3)), 0.0, 1.0), flash_t)
+		"elite_plaguecaller":
+			if (stt == "seek_fly" or stt == "seek_swell") and e.has("seek"):
+				var sk: Dictionary = e.seek
+				var sR: float = dvv.call("seekR", 80.0)
+				var sk2: float = clampf(st_t / maxf(0.001, dvv.call("seekSwell", 0.6)), 0.0, 1.0) if stt == "seek_swell" else 0.0
+				ci.draw_circle(Vector2(float(sk.x), float(sk.y)), sR * (0.35 + 0.65 * sk2), rgba(150, 220, 130, 0.14 + 0.24 * sk2))
+				if stt == "seek_swell":
+					tel_stroke_circle(ci, float(sk.x), float(sk.y), sR, flash_t, 3.0)
+					txt(ci, float(sk.x), float(sk.y) - sR - 8.0, "멈췄다 — 원 밖으로", 12, tel_label(1.0))
+				else:
+					stroke_circle(ci, float(sk.x), float(sk.y), sR, rgba(160, 230, 140, 0.5), 2.0)
+					ci.draw_circle(Vector2(float(sk.x), float(sk.y)), 7.0, C("#9cff9c"))
+			elif stt == "wall_aim" or stt == "wall_burst":
+				for wp in e.get("wall", []):
+					var wpd: Dictionary = wp
+					if bool(wpd.done):
+						continue
+					var wleft: float = maxf(0.0, float(wpd.land_at) - st.t)
+					var wk: float = clampf(1.0 - wleft / maxf(0.001, float(wpd.warn)), 0.0, 1.0)
+					ci.draw_circle(Vector2(float(wpd.x), float(wpd.y)), float(wpd.r), tel_fill(0.10 + 0.26 * wk))
+					tel_stroke_circle(ci, float(wpd.x), float(wpd.y), float(wpd.r), flash_t if wleft < 0.35 else 0.7, 2.5)
+					txt(ci, float(wpd.x), float(wpd.y) + 5.0, str(int(wpd.order)), 14, tel_label(1.0), 0, true)
+				if stt == "wall_aim":
+					txt(ci, ex, ey - er - 32.0, "역병 가로막기 — 늦게 터지는 쪽으로", 12, tel_label(1.0))
+		"elite_chainbreaker":
+			if (stt == "anchor_aim" or stt == "anchor_lock" or stt == "anchor_fly") and e.has("slam_at"):
+				var aat: Array = e.slam_at
+				var aR: float = dvv.call("anchorR", 88.0)
+				var ak: float = clampf(st_t / maxf(0.001, dvv.call("anchorAim", 0.55)), 0.0, 1.0) if stt == "anchor_aim" else 1.0
+				ci.draw_circle(Vector2(float(aat[0]), float(aat[1])), aR, tel_fill(0.12 + 0.3 * ak))
+				tel_stroke_circle(ci, float(aat[0]), float(aat[1]), aR, flash_t if stt != "anchor_aim" else 0.7, 3.0)
+				dashed_line(ci, Vector2(ex, ey), Vector2(float(aat[0]), float(aat[1])), tel_soft(0.35 + 0.4 * ak), 3.0, 10.0, 6.0)
+				txt(ci, float(aat[0]), float(aat[1]) - aR - 8.0, "닻 도약 — 원 밖으로", 12, tel_label(1.0))
+			elif (stt == "drag_aim" or stt == "drag_lock" or stt == "drag_toss") and e.has("drag_at"):
+				var dat: Array = e.drag_at
+				var dR: float = dvv.call("dragR", 34.0)
+				var dk: float = clampf(st_t / maxf(0.001, dvv.call("dragAim", 0.5)), 0.0, 1.0) if stt == "drag_aim" else 1.0
+				ci.draw_circle(Vector2(float(dat[0]), float(dat[1])), dR, tel_fill(0.12 + 0.3 * dk))
+				tel_stroke_circle(ci, float(dat[0]), float(dat[1]), dR, flash_t if stt != "drag_aim" else 0.7, 2.5)
+				# 어느 쪽으로 쓸어 올지 호로 미리 보인다(실제 쓸기 각과 같은 값)
+				var a0: float = atan2(float(dat[1]) - ey, float(dat[0]) - ex)
+				var sd: float = 1.0 if int(e.id) % 2 == 0 else -1.0
+				tel_stroke_arc(ci, Vector2(ex, ey), PGeom.dist(ex, ey, float(dat[0]), float(dat[1])), minf(a0, a0 + PGeom.deg(dvv.call("dragArcDeg", 150.0)) * sd), maxf(a0, a0 + PGeom.deg(dvv.call("dragArcDeg", 150.0)) * sd), 0.5 + 0.4 * dk, 2.0)
+				txt(ci, ex, ey - er - 32.0, "사슬 끌어쓸기 — 옆으로 감아 온다", 12, tel_label(1.0))
+			elif stt == "drag_sweep" and e.has("drag_now"):
+				var dnw: Array = e.drag_now
+				ci.draw_line(Vector2(ex, ey), Vector2(float(dnw[0]), float(dnw[1])), tel_edge(flash_t), 3.0)
+				ci.draw_circle(Vector2(float(dnw[0]), float(dnw[1])), dvv.call("dragR", 34.0), tel_fill(0.42))
+				tel_stroke_circle(ci, float(dnw[0]), float(dnw[1]), dvv.call("dragR", 34.0), flash_t, 2.5)
+		"elite_standard":
+			if stt == "rush_aim" or stt == "rush_lock" or stt == "rush":
+				var rlk: bool = stt != "rush_aim"
+				_beam(ci, ex, ey, float(e.dir) if rlk else float(e.aim_angle),
+					maxf(60.0, dvv.call("rushDist", 220.0) - float(e.get("charge_dist", 0.0))), (er + float(p.r)) * 2.0, rlk,
+					clampf(st_t / maxf(0.001, dvv.call("rushAim", 0.5)), 0.0, 1.0), flash_t)
+				txt(ci, ex, ey - er - 32.0, "깃발 돌격", 12, tel_label(1.0))
+			elif stt == "thrust_aim":
+				_tel_sector(ci, ex, ey, dvv.call("thrustRange", 84.0) + er, float(e.aim_angle), PGeom.deg(dvv.call("thrustDeg", 46.0)) / 2.0,
+					clampf(st_t / maxf(0.001, dvv.call("thrustAim", 0.28)), 0.0, 1.0), flash_t)
+				txt(ci, ex, ey - er - 32.0, "찌르기(좁다)", 11, tel_label(1.0))
+			elif stt == "cross_aim":
+				_tel_sector(ci, ex, ey, dvv.call("crossRange", 78.0) + er, float(e.aim_angle), PGeom.deg(dvv.call("crossDeg", 170.0)) / 2.0,
+					clampf(st_t / maxf(0.001, dvv.call("crossAim", 0.3)), 0.0, 1.0), flash_t)
+				txt(ci, ex, ey - er - 32.0, "횡베기(넓다)", 11, tel_label(1.0))
+			elif stt == "pincer_aim" or stt == "pincer_move":
+				var ally = e.get("pincer_ally")
+				if ally != null and not bool((ally as Dictionary).dead):
+					dashed_line(ci, Vector2(float((ally as Dictionary).x), float((ally as Dictionary).y)), Vector2(float(p.x), float(p.y)), C("#e0c060", 0.6), 2.0, 8.0, 6.0)
+				dashed_line(ci, Vector2(ex, ey), Vector2(float(p.x), float(p.y)), C("#e0c060", 0.45), 2.0, 8.0, 6.0)
+				txt(ci, ex, ey - er - 32.0, "양면 협공 — 반대편에서 온다", 12, C("#e0c060"), 0, true)
+			elif stt == "pincer_slash_aim" or stt == "solo_aim1" or stt == "solo_aim2":
+				var pk: String = "pincerSlashAim" if stt == "pincer_slash_aim" else ("soloAim1" if stt == "solo_aim1" else "soloAim2")
+				_tel_sector(ci, ex, ey, float((e.def as Dictionary).slashRange) + er, float(e.aim_angle), PGeom.deg(float((e.def as Dictionary).slashDeg)) / 2.0,
+					clampf(st_t / maxf(0.001, dvv.call(pk, 0.32)), 0.0, 1.0), flash_t)
+			elif stt == "solo_gap":
+				txt(ci, ex, ey - er - 32.0, "각을 바꾼다 — 지금이 반격", 12, C("#e0c060"), 0, true)
+		"elite_miner":
+			if stt == "surface_run":
+				txt(ci, ex, ey - er - 30.0, "지상 추격 — 지금은 때릴 수 있다", 12, tel_label(1.0))
+			elif stt == "pick_aim":
+				_tel_sector(ci, ex, ey, dvv.call("pickRange", 66.0) + er, float(e.aim_angle), PGeom.deg(dvv.call("pickDeg", 90.0)) / 2.0,
+					clampf(st_t / maxf(0.001, dvv.call("pickAim", 0.4)), 0.0, 1.0), flash_t)
+			elif stt == "rift_aim" or stt == "rift":
+				var rlen: float = dvv.call("riftLen", 260.0)
+				var rw: float = dvv.call("riftW", 46.0)
+				var rk: float = clampf(st_t / maxf(0.001, dvv.call("riftAim", 0.65)), 0.0, 1.0) if stt == "rift_aim" else 1.0
+				var rbase: float = float(e.aim_angle) if stt == "rift_aim" else float(e.dir)
+				for rs in [1.0, -1.0]:
+					var ra: float = rbase + PGeom.deg(dvv.call("riftDeg", 26.0)) * float(rs)
+					_beam(ci, ex, ey, ra, st.beam_length(ex, ey, ra, rlen), rw, stt == "rift", rk, flash_t)
+				txt(ci, ex, ey - er - 32.0, "쐐기 균열 — 사이가 비었다", 12, tel_label(1.0))
 
 ## 조준선 하나(굵기는 표시용, 실제 탄은 선을 따라간다). 확정되면 굵어지고 '!'가 뜬다
 static func _lane(ci: Node2D, ex: float, ey: float, ang: float, diag: float, locked: bool, k: float, flash_t: float) -> void:
@@ -3688,6 +3851,13 @@ static func draw_projectiles(ci: Node2D, st: CombatState) -> void:
 			ci.draw_set_transform_matrix(xf(c, float(pr.get("angle", atan2(vy, vx))), Vector2.ONE))
 			ci.draw_line(Vector2(-14, 0), Vector2(8, 0), C("#ffd9a0"), 3.0)
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(12, 0), Vector2(4, -4), Vector2(4, 4)]), C("#ff6b6b"))
+			ci.draw_set_transform_matrix(IDENT)
+		elif kind == "blade_wave": # 정예 검사의 추격 검기(§11-B). 진행 방향과 폭이 그대로 판정이다
+			var wa: float = float(pr.get("angle", atan2(vy, vx)))
+			var wr: float = float(pr.r)
+			ci.draw_set_transform_matrix(xf(c, wa, Vector2.ONE))
+			ci.draw_arc(Vector2(-wr * 0.5, 0), wr, -1.15, 1.15, 14, rgba(210, 226, 250, 0.9), 5.0)
+			ci.draw_arc(Vector2(-wr * 0.9, 0), wr * 0.8, -0.95, 0.95, 12, rgba(154, 168, 200, 0.5), 3.0)
 			ci.draw_set_transform_matrix(IDENT)
 		elif kind == "boss_bolt": # 파수장 석궁 볼트(굵은 화살)
 			ci.draw_set_transform_matrix(xf(c, float(pr.get("angle", atan2(vy, vx))), Vector2.ONE))

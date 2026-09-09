@@ -7,6 +7,9 @@ extends RefCounted
 ## 상호작용: 감속장은 준비·실행·빈틈 진행(tf)을 늦추고, 냉기는 이동만 늦춘다. 넉백은 돌진·잠복·도약 중에는 무시(combat_state.knock_enemy), 방패병은 50%(def.knockMult).
 ## 면역(최소 범위): 잠복충·균열 채굴자의 지하 구간(hidden)은 직접 공격·투사체 대상이 되지 않는다(바닥 효과는 적용). 그 외 면역 없음.
 ## 피해 감소(방패·깃발)는 shield_mult 한 곳에서만 계산하고, 여러 효과가 겹쳐도 곱하지 않는다(가장 강한 하나만).
+## 2026-09-10 추가 필드: obs_t·obs_x·obs_y·obs_vx·obs_vy(관측 이동) · chase_t·snipe_t·step_t·wave_t·runbite_t·cut_t·seek_t·wall_t·anchor_t·drag_t·rush_t·pincer_t·surface_t·rift_t(신규 패턴 재사용)
+##   · chase_left·runbite_left·last_pattern·pattern_uses · seek·wall·drag_at·drag_now·drag_r·drag_a0·drag_side · pod_done · pincer_ang·pincer_ally·pincer_solo
+##   플레이어 쪽: curse_until(§10 저주가 풀리는 시각)
 ## 개체별 추가 필드(snake_case, 지연 초기화): face, preview, charge_len, charge_end, charge_blocked, charge_dist, hit_done, heal_t, hex_t, rune_t, act_t, rune_at, cast_target, cast_pts, cast_t, cast_ang,
 ##   burrow_cd, emerge_at, web_t, web_at, side, base_dir, exploded, block_fx_t,
 ##   정예: shot_left, blocked_sec, leap_at, leap_from, pods, chain_len, chain_d, pull_from, slam_at, plant_left, order_left, order_t, banner_ref,
@@ -14,6 +17,12 @@ extends RefCounted
 ##   신규 3종(2026-09-09): flame_t, flame_tick, leap_t. 일반 정예 확장: extra_recover, web2_at, residue_at, cast2_pts
 ##   특수 정예 회피(2026-09-09): dodge_phase, dodge_t, dodge_cd, dodge_wait, dodge_dx, dodge_dy, dodge_dist, dodge_from,
 ##     dodge_kind, dodge_hit_t + 계측용 dodge_seen · dodge_uses · dodge_skip (docs/ELITE_DODGE.md)
+##
+## + 2026-09-10(전부 첫 시험값):
+##   §10 일반 주술사의 **피해 증폭 저주** — 기존 저주 문양 개편(직접 피해 0 · 받는 피해 +50% · 4초). docs/CURSE.md
+##       **곱하는 자리는 combat_state.gd라 여기서는 상태만 건다**(붙일 자리는 docs/CURSE.md §붙일 자리).
+##   §11-B 특수 정예 7종 × **신규 공격 패턴 2개**(표 = NEW_PATTERNS). docs/ELITE_PATTERNS.md
+##   §12 기존 몬스터 수정 — 역병 조율사 포자 재조준 · 사슬 발사 속도 · 도마뱀 준비시간 · 도마뱀 말미 등장. docs/MONSTER_FIX_2026-09-10.md
 ##
 ## + 신규 일반 몬스터 3종(2026-09-09, 시험값): 흡혈 박쥐(bat) · 불씨 도마뱀(lizard) · 도약 두꺼비(toad).
 ## + 일반 정예 확장 10종(2026-09-09, 시험값): 늑대 우두머리(기존) + 9종. **바탕 몬스터의 강화형**이며 행동 하나만 더한다.
@@ -33,17 +42,70 @@ const COMMITTED := {
 	"lizard": ["flame_aim", "flame_lock", "flame"],
 	"toad": ["crouch", "leap_warn", "leap", "land"],
 	# 특수 정예 7종(2026-09-08, 시험값). 연계 전체를 '위험 공격 중'으로 센다 — 다른 적이 그 위에 겹쳐 쌓지 않게
-	"elite_archer": ["aim", "shot_lock", "fan_aim", "fan_lock"],
-	"elite_blademaster": ["dash1_aim", "dash1_lock", "dash1", "dash2_aim", "dash2_lock", "dash2", "guard", "slam_aim", "slam"],
-	"elite_fang": ["bite_aim", "backoff", "leap_aim", "leap_lock", "leap"], # backoff는 연계 중간 이동이라 '연계 중'으로 센다
-	"elite_plaguecaller": ["throw_aim", "swell", "burst_aim"],
-	"elite_chainbreaker": ["chain_aim", "chain_lock", "chain_fly", "pull", "slam_aim", "slam_lock", "sweep_aim"],
-	"elite_standard": ["plant_aim", "slash_aim"],
-	"elite_miner": ["dive", "under", "warn", "erupt", "bite_aim"],
+	# 2026-09-10 §11-B: 종류마다 **신규 공격 패턴 2개**를 더했다(NEW_PATTERNS 표). 그 연계 상태도 전부 여기 센다.
+	"elite_archer": ["aim", "shot_lock", "fan_aim", "fan_lock",
+		"chase_run", "chase_aim", "chase_lock", "snipe1_aim", "snipe1_lock", "snipe_gap", "snipe2_aim", "snipe2_lock"],
+	"elite_blademaster": ["dash1_aim", "dash1_lock", "dash1", "dash2_aim", "dash2_lock", "dash2", "guard", "slam_aim", "slam",
+		"step1_aim", "step1", "step2_aim", "step2", "step3_aim", "step3", "wave_aim", "wave_lock", "wave"],
+	"elite_fang": ["bite_aim", "backoff", "leap_aim", "leap_lock", "leap", # backoff는 연계 중간 이동이라 '연계 중'으로 센다
+		"runbite_run", "runbite_aim", "cut_aim", "cut_lock", "cut_leap", "cut_turn", "cut_claw_aim"],
+	"elite_plaguecaller": ["throw_aim", "swell", "burst_aim",
+		"seek_aim", "seek_fly", "seek_swell", "wall_aim", "wall_burst"],
+	"elite_chainbreaker": ["chain_aim", "chain_lock", "chain_fly", "pull", "slam_aim", "slam_lock", "sweep_aim",
+		"anchor_aim", "anchor_lock", "anchor_fly", "drag_aim", "drag_lock", "drag_toss", "drag_sweep"],
+	"elite_standard": ["plant_aim", "slash_aim",
+		"rush_aim", "rush_lock", "rush", "thrust_aim", "cross_aim", "pincer_aim", "pincer_move", "pincer_slash_aim", "solo_aim1", "solo_gap", "solo_aim2"],
+	"elite_miner": ["dive", "under", "warn", "erupt", "bite_aim",
+		"surface_run", "pick_aim", "rift_aim", "rift"],
 }
 
 ## 특수 정예 7종의 type(구조물 2종 제외). data/enemies.json 정의 + data/elites.json 배치표
 const ELITE_TYPES := ["elite_archer", "elite_blademaster", "elite_fang", "elite_plaguecaller", "elite_chainbreaker", "elite_standard", "elite_miner"]
+
+# ---------- §11-B 특수 정예 신규 공격 패턴 14개(2026-09-10, 전부 시험값. docs/ELITE_PATTERNS.md) ----------
+## 무엇을 노렸나: "멀리서 같은 방향으로 걸으며 자동 공격"하는 놀이를 흔드는 것이다. 개수가 목표가 아니다.
+##  - **접근 압박**: 걸어서 벌린 거리를 정예가 스스로 좁힌다(추격 사격·전진 연속 베기·달리는 물어뜯기·지상 추격 강타·닻 도약).
+##  - **도주 경로 차단**: 지금 걷고 있는 **앞쪽**을 막거나 앞질러 선다(엇박 저격·앞질러 습격·역병 가로막기·사슬 끌어쓸기·쐐기 균열).
+## 지키는 선(사용자 지시):
+##  - **확정 뒤에는 절대 따라가지 않는다.** 모든 패턴이 lock/실행 시점에 각·자리를 굳히고 그 뒤로는 갱신하지 않는다.
+##  - **플레이어 입력을 미리 읽지 않는다.** 앞을 겨누는 패턴은 obs_vel()이 주는 **관측한 위치 변화**만 쓴다(아래).
+##  - 회피 무적·피격 보호를 무시하지 않는다(전부 st.damage_player / circle_hit / arc_hit을 거친다).
+##  - 연계가 끝나면 반드시 빈틈(recover)으로 들어간다 — **반격 기회**를 없애지 않는다.
+##  - 무적·강제 생존·체력 구간 피해 상한을 새로 만들지 않았다.
+## 기존 회피(dodge)는 그대로 두었고 **패턴 수에 세지 않는다**. 기존 공격의 속도·조준만 고친 것도 세지 않는다
+## (그것은 §12 쪽이며 사슬 발사 속도·도마뱀 준비시간이 거기에 해당한다).
+##
+## 표의 뜻: type → [패턴 id, 시작 상태, 첫 상태의 표시 낱말, 재사용 시각 칸 이름]
+const NEW_PATTERNS := {
+	"elite_archer": [
+		{ "id": "chase", "state": "chase_run", "label": "추격 사격", "cd": "chase_t", "color": "#ffd166" },
+		{ "id": "snipe", "state": "snipe1_aim", "label": "엇박 저격 1발", "cd": "snipe_t", "color": "#ffd166" }],
+	"elite_blademaster": [
+		{ "id": "step", "state": "step1_aim", "label": "전진 연속 베기 1/3", "cd": "step_t", "color": "#ffb0b0" },
+		{ "id": "wave", "state": "wave_aim", "label": "추격 검기", "cd": "wave_t", "color": "#ffb0b0" }],
+	"elite_fang": [
+		{ "id": "runbite", "state": "runbite_run", "label": "달려든다", "cd": "runbite_t", "color": "#ff6b93" },
+		{ "id": "cut", "state": "cut_aim", "label": "앞질러 습격", "cd": "cut_t", "color": "#ff6b93" }],
+	"elite_plaguecaller": [
+		{ "id": "seek", "state": "seek_aim", "label": "추적 포자탄", "cd": "seek_t", "color": "#9cff9c" },
+		{ "id": "wall", "state": "wall_aim", "label": "역병 가로막기", "cd": "wall_t", "color": "#9cff9c" }],
+	"elite_chainbreaker": [
+		{ "id": "anchor", "state": "anchor_aim", "label": "닻 도약", "cd": "anchor_t", "color": "#ffd166" },
+		{ "id": "drag", "state": "drag_aim", "label": "사슬 끌어쓸기", "cd": "drag_t", "color": "#ffd166" }],
+	"elite_standard": [
+		{ "id": "rush", "state": "rush_aim", "label": "깃발 돌격", "cd": "rush_t", "color": "#e0c060" },
+		{ "id": "pincer", "state": "pincer_aim", "label": "양면 협공", "cd": "pincer_t", "color": "#e0c060" }],
+	"elite_miner": [
+		{ "id": "surface", "state": "surface_run", "label": "지상 추격", "cd": "surface_t", "color": "#c8a06a" },
+		{ "id": "rift", "state": "rift_aim", "label": "쐐기 균열", "cd": "rift_t", "color": "#c8a06a" }],
+}
+
+## 그 종류의 신규 패턴 id 목록(없으면 빈 배열). 검사·문서가 읽는 정본이다
+static func new_pattern_ids(type: String) -> Array:
+	var out: Array = []
+	for row in NEW_PATTERNS.get(type, []):
+		out.append(String((row as Dictionary).id))
+	return out
 
 ## 회피(2026-09-09, 시험값)를 **시작해도 되는 상태**. 여기 없는 상태에서는 절대 시작하지 않는다.
 ## 뺀 것과 그 이유:
@@ -198,10 +260,34 @@ static func danger_max(st: CombatState) -> int:
 
 ## 새 위험 공격을 시작해도 되는가: 기존 동시 제한(CombatState.may_attack) + 동시 위험 공격 상한.
 ## may_attack은 한 단계에 한 번만 물어야 하므로(대기 시간이 두 배로 깎인다) 상한을 **먼저** 본다
+## **종류별** 동시 위험 공격 상한(2026-09-10 §12, 시험값). 전체 상한(by_act)과 다른 값이다.
+## 왜 필요한가: 종류별 생존 상한을 올리면 같은 종류가 한꺼번에 많이 살 수 있다. 도마뱀처럼
+## **오래 유지되는 넓은 위험**(2.4초짜리 불줄기)은 그때 서로 겹쳐 피할 곳이 사라진다.
+## 표에 없는 종류는 상한이 없다(기존 동작 그대로). 값은 data/pacing.json danger_limit.by_type
+static func danger_type_max(type: String) -> int:
+	var by: Dictionary = danger_cfg().get("by_type", {})
+	return int(by[type]) if by.has(type) else 9999
+
+## 지금 같은 종류로 위험 공격 중인 적 수(자기 자신 제외)
+static func danger_count_type(st: CombatState, e: Dictionary, type: String) -> int:
+	var n := 0
+	for o in st.enemies:
+		if o == e or bool(o.dead) or String(o.type) != type:
+			continue
+		if danger_busy(o):
+			n += 1
+	return n
+
 static func may_start(st: CombatState, e: Dictionary, dt: float) -> bool:
-	if bool(danger_cfg().get("enabled", false)) and String(st.mode) != "boss" and danger_count(st, e) >= danger_max(st):
-		e.ready_t = -1.0
-		return false
+	if bool(danger_cfg().get("enabled", false)) and String(st.mode) != "boss":
+		if danger_count(st, e) >= danger_max(st):
+			e.ready_t = -1.0
+			return false
+		var tp := String(e.type)
+		var tmax := danger_type_max(tp)
+		if tmax < 9999 and danger_count_type(st, e, tp) >= tmax:
+			e.ready_t = -1.0
+			return false
 	return st.may_attack(e, dt)
 
 # ---------- 적 정의 겹쳐쓰기(data/pacing.json "enemy_tuning") ----------
@@ -308,6 +394,11 @@ static func update_base(st: CombatState, e: Dictionary, dt: float) -> void:
 	update_as(st, e, dt, base_type(String(e.type)))
 
 static func update_as(st: CombatState, e: Dictionary, dt: float, type: String) -> void:
+	# 특수 정예 7종: **관측 이동**을 먼저 갱신하고(§11-B, 매 프레임 필요) 신규 패턴 재사용 시각을 흘린다.
+	# 회피로 이 프레임이 끝나더라도 둘 다 이미 갱신됐으므로 관측이 끊기지 않는다
+	if is_elite(type):
+		obs_vel(st, e, st.target_of(e))
+		tick_patterns(e, dt)
 	# 특수 정예 7종의 회피(docs/ELITE_DODGE.md). 이동 구간에는 고유 패턴 대신 회피가 이 프레임을 굴린다.
 	# is_elite(type)이라 일반 몬스터·일반 정예 확장의 바탕 갱신 경로(update_base)는 지나가지 않는다
 	if is_elite(type) and elite_dodge(st, e, dt):
@@ -721,8 +812,12 @@ static func update_shaman(st: CombatState, e: Dictionary, dt: float) -> void:
 		"rune_aim": # 바닥 문양: 위치는 시작 때 이미 고정이라 예고 원이 플레이어를 따라오지 않는다
 			e.state_t += adv
 			if float(e.state_t) >= dv(e, "runeAim", 0.0):
+				# §10 개편: **직접 피해가 없다.** 맞으면 받는 피해가 늘어나는 저주만 건다(try_curse).
+				# 화면 표시는 예전과 같은 자리·같은 반지름이므로 무엇을 피해야 하는지는 그대로다
 				var at: Array = e.rune_at
-				circle_hit(st, e, float(at[0]), float(at[1]), dv(e, "runeR", 0.0), dv(e, "runeDamage", 0.0), "shaman_rune")
+				try_curse(st, e, float(at[0]), float(at[1]), dv(e, "runeR", 0.0))
+				st.fx({ "kind": "bossland", "x": float(at[0]), "y": float(at[1]), "r": dv(e, "runeR", 0.0), "ttl": 0.4 })
+				st.note_attack(e, "execute")
 				st.ev("spore")
 				e.rune_t = dv(e, "runeInterval", 0.0)
 				e.act_t = dv(e, "actGap", 0.0)
@@ -1137,7 +1232,9 @@ static func update_lizard(st: CombatState, e: Dictionary, dt: float) -> void:
 	var adv := dt * tf
 	var dist := PGeom.dist(e.x, e.y, p.x, p.y)
 	if not e.has("flame_t"):
-		e.flame_t = 1.2
+		# §12: 첫 실제 분사까지의 **지연**. 예전에는 코드에 1.2초가 박혀 있어 등장 뒤 한참을 그냥 걸었다.
+		# 값은 data/pacing.json enemy_tuning.lizard.flameFirst가 정본이다(준비시간 flameAim·flameLock과 분리된 값)
+		e.flame_t = dv(e, "flameFirst", 1.2)
 		e.flame_tick = 0.0
 	match String(e.state):
 		"approach":
@@ -1639,6 +1736,161 @@ static func _dodge_step(st: CombatState, e: Dictionary, c: Dictionary, dt: float
 		e.state = "approach" # 고유 패턴으로 복귀
 		e.state_t = 0.0
 
+# ---------- §11-B 공통 도구: 관측한 이동 · 패턴 고르기 ----------
+## **관측한 플레이어 이동**(사용자 지시 "플레이어 입력을 미리 읽지 말고 관측 가능한 위치·이동을 사용"의 구현).
+## 개체마다 지난 프레임의 플레이어 위치를 적어 두고, 그 차이를 OBS_WIN(초)짜리 지연으로 부드럽게 만든다.
+## 그래서 플레이어가 방향을 꺾으면 이 값은 약 OBS_WIN 동안 **옛 방향**을 가리킨다 —
+## 앞을 겨누는 패턴(엇박 저격·앞질러 습격·역병 가로막기·사슬 끌어쓸기)이 방향 전환으로 빗나가는 이유가 이 지연이다.
+## p.face(그 프레임의 이동 입력 방향)는 **쓰지 않는다** — 그건 입력을 그대로 읽는 것과 같기 때문이다.
+const OBS_WIN := 0.30
+
+## 관측 속도 [vx, vy](픽셀/초). 매 프레임 불러야 값이 따뜻하게 유지된다(update_as가 정예마다 한 번 부른다)
+static func obs_vel(st: CombatState, e: Dictionary, p: Dictionary) -> Array:
+	var lt: float = float(e.get("obs_t", -1.0))
+	var vx: float = float(e.get("obs_vx", 0.0))
+	var vy: float = float(e.get("obs_vy", 0.0))
+	if lt >= 0.0:
+		var age: float = st.t - lt
+		if age > 1e-5:
+			var k: float = clampf(age / OBS_WIN, 0.0, 1.0)
+			vx += ((float(p.x) - float(e.get("obs_x", p.x))) / age - vx) * k
+			vy += ((float(p.y) - float(e.get("obs_y", p.y))) / age - vy) * k
+	e["obs_t"] = st.t
+	e["obs_x"] = p.x
+	e["obs_y"] = p.y
+	e["obs_vx"] = vx
+	e["obs_vy"] = vy
+	return [vx, vy]
+
+## 관측 이동으로 내다본 앞 지점. lead_max로 상한을 둬 **무한정 앞서 겨누지 않는다**(멀리 도망칠수록 더 앞을 막는 일이 없게)
+static func obs_lead(st: CombatState, e: Dictionary, p: Dictionary, tof: float, lead_max: float) -> Array:
+	var v := obs_vel(st, e, p)
+	var dx: float = float(v[0]) * tof
+	var dy: float = float(v[1]) * tof
+	var dd := sqrt(dx * dx + dy * dy)
+	if dd > lead_max and dd > 1e-6:
+		dx = dx / dd * lead_max
+		dy = dy / dd * lead_max
+	return [float(p.x) + dx, float(p.y) + dy]
+
+## 지금 관측 속도의 크기(픽셀/초). "같은 방향으로 걷고 있다"를 재는 값
+static func obs_speed(e: Dictionary) -> float:
+	var vx: float = float(e.get("obs_vx", 0.0))
+	var vy: float = float(e.get("obs_vy", 0.0))
+	return sqrt(vx * vx + vy * vy)
+
+## 신규 패턴 재사용 시각을 흐르게 한다(상태와 무관하게 흐른다 — 연계 중에도 다음 차례가 준비된다).
+## 첫 사용까지의 여유는 <id>First, 다음 사용까지는 <id>Interval(둘 다 data/pacing.json enemy_tuning)
+static func tick_patterns(e: Dictionary, dt: float) -> void:
+	for row in NEW_PATTERNS.get(String(e.type), []):
+		var r: Dictionary = row
+		var key := String(r.cd)
+		if not e.has(key):
+			e[key] = dv(e, String(r.id) + "First", 2.0)
+		else:
+			e[key] = float(e[key]) - dt
+
+## 지금 시작해도 되는 신규 패턴 하나를 시작한다(했으면 true).
+## allow는 부르는 쪽이 정한 **거리·상황 조건**이다(id → bool). 재사용이 끝난 것 중 **가장 오래 기다린 것**을 고른다
+## — 무작위를 쓰지 않으므로 같은 시드에서 늘 같은 순서가 나오고 검사가 재현된다.
+static func try_new_pattern(st: CombatState, e: Dictionary, dt: float, allow: Dictionary) -> bool:
+	var best: Dictionary = {}
+	var best_left := 0.0
+	for row in NEW_PATTERNS.get(String(e.type), []):
+		var r: Dictionary = row
+		if not bool(allow.get(String(r.id), false)):
+			continue
+		var left: float = float(e.get(String(r.cd), 9.0))
+		if left > 0.0:
+			continue
+		if best.is_empty() or left < best_left:
+			best = r
+			best_left = left
+	if best.is_empty() or not elite_may_start(st, e, dt):
+		return false
+	var id := String(best.id)
+	e[String(best.cd)] = dv(e, id + "Interval", 9.0)
+	e["last_pattern"] = id
+	var uses: Dictionary = e.get("pattern_uses", {})
+	uses[id] = int(uses.get(id, 0)) + 1
+	e["pattern_uses"] = uses
+	var agg: Dictionary = st.metrics.get("elite_patterns", {}) # 계측 전용(규칙에 영향 없음)
+	agg[id] = int(agg.get(id, 0)) + 1
+	st.metrics["elite_patterns"] = agg
+	elite_begin(st, e, String(best.state), String(best.label), String(best.color))
+	return true
+
+## 이 개체가 실제로 쓴 신규 패턴 횟수(검사·계측이 읽는다)
+static func pattern_uses(e: Dictionary) -> Dictionary:
+	return e.get("pattern_uses", {})
+
+## 부채꼴 근접 판정 + 화면 표시 한 벌(신규 근접 패턴이 공통으로 쓴다)
+static func arc_strike(st: CombatState, e: Dictionary, ang: float, R: float, half: float, dmg: float, src: String) -> void:
+	arc_hit(st, e, ang, R, half, dmg, src)
+	st.fx({ "kind": "arc", "x": e.x, "y": e.y, "angle": ang, "r": R, "half": half, "ttl": 0.14, "enemy": true })
+	st.note_attack(e, "execute")
+
+# ---------- §10 주술사의 피해 증폭 저주(2026-09-10, 전부 시험값. docs/CURSE.md) ----------
+## 무엇인가: **기존 저주 문양(rune_aim)을 개편**한 것이다. 비슷한 문양을 하나 더 추가하지 않았다.
+##  - 문양 자체의 **직접 피해는 없다**(runeDamage 12 → 0). 맞으면 그 뒤 받는 피해가 +50%가 된다.
+##  - 문양 자리는 **예고를 시작하는 순간** 고정이고 그 뒤 따라오지 않는다(개편 전과 같다).
+##  - 회피 무적·피격 보호를 **무시하지 않는다** — 그 둘에 막히면 저주도 걸리지 않는다.
+##
+## 상태를 어디에 두는가: 플레이어 사전의 **시각 한 칸**(curse_until)뿐이다. 남은 시간은 st.t와의 차이로 읽으므로
+## 매 단계 줄여 줄 자리가 필요 없다(그 자리는 담당 밖 파일이다). 여러 주술사가 걸어도 같은 칸을 갱신하니
+## 배율이 겹쳐 곱해질 방법이 아예 없다 — 상한 ×1.5는 자료 구조가 보장한다.
+##
+## **곱하는 자리는 여기가 아니다.** scripts/rules/combat_state.gd가 담당 밖이라 상태만 걸어 둔다.
+## 붙일 자리는 apply_player_damage의 등급 배율(tier_dmg) 바로 다음 한 곳이다(docs/CURSE.md §붙일 자리).
+static func curse_cfg() -> Dictionary:
+	return tuning("shaman")
+
+## 저주가 더하는 몫(0.5 = 받는 피해 +50%)
+static func curse_add() -> float:
+	return float(curse_cfg().get("curseAdd", 0.5))
+
+static func curse_dur() -> float:
+	return float(curse_cfg().get("curseDur", 4.0))
+
+## 남은 저주 시간(초). 0이면 걸려 있지 않다
+static func curse_left(st: CombatState) -> float:
+	return maxf(0.0, float(st.player.get("curse_until", -1.0)) - st.t)
+
+static func curse_on(st: CombatState) -> bool:
+	return curse_left(st) > 0.0
+
+## **피해 계산에 곱할 값.** 여러 주술사가 겹쳐 걸어도 1 + curseAdd를 넘지 않는다(칸이 하나뿐이라 구조로 보장)
+static func curse_mult(st: CombatState) -> float:
+	return (1.0 + curse_add()) if curse_on(st) else 1.0
+
+## 화면에 적을 한 줄("저주 · 받는 피해 +50%"). 걸려 있지 않으면 빈 글자
+static func curse_label(st: CombatState) -> String:
+	if not curse_on(st):
+		return ""
+	return "저주 · 받는 피해 +%d%%" % int(round(curse_add() * 100.0))
+
+## 문양이 실제로 적중했는가. 맞았으면 저주를 **갱신**(더하지 않는다)하고 true
+static func try_curse(st: CombatState, e: Dictionary, cx: float, cy: float, r: float) -> bool:
+	var p := st.target_of(e)
+	if bool(p.get("lure", false)): # 미끼는 저주에 걸리지 않는다(본체가 아니다)
+		return false
+	if PGeom.dist(cx, cy, float(p.x), float(p.y)) > r + float(p.r):
+		return false
+	var pl: Dictionary = st.player
+	if float(pl.get("invuln_t", 0.0)) > 0.0: # 회피 무적을 무시하지 않는다
+		st.text(pl.x, pl.y - 30.0, "회피!", "#7ef2ff")
+		return false
+	if st.hit_protected("shaman_curse", e): # 피격 보호를 무시하지 않는다
+		return false
+	var fresh: bool = not curse_on(st)
+	pl["curse_until"] = st.t + curse_dur() # 재적중이면 남은 시간을 curseDur로 갱신한다(길이가 쌓이지 않는다)
+	st.text(pl.x, pl.y - 46.0, "저주!" if fresh else "저주 갱신", "#e9b6ff")
+	st.fx({ "kind": "burst", "x": pl.x, "y": pl.y, "r": float(pl.r) + 16.0, "ttl": 0.35, "color": "#e9b6ff" })
+	st.ev("orb")
+	var m: Dictionary = st.metrics
+	m["curse_hits"] = int(m.get("curse_hits", 0)) + 1
+	return true
+
 # ---------- A. 정예 궁수(추격 사수) ----------
 ## 첫 조준 0.70초(추적 0.58 + 방향 고정 0.12) → 단발 3회(간격 0.50초 = 재조준 0.38 + 고정 0.12)
 ## → 별도 예고 0.75초(추적 0.60 + 고정 0.15) 뒤 부채꼴 3발 → 측면 이동·재장전 1.4초 빈틈.
@@ -1664,6 +1916,11 @@ static func update_elite_archer(st: CombatState, e: Dictionary, dt: float) -> vo
 				e.state = "reposition"
 				e.state_t = 0.0
 				st.text(e.x, e.y - float(e.r) - 26.0, "자리 옮김", "#cfe3ff")
+				return
+			# §11-B 신규 2개를 먼저 본다. ① 추격 사격은 **멀어질 때**(같은 방향으로 걸어 벌린 거리를 스스로 좁힌다)
+			#                          ② 엇박 저격은 사거리 안에서. 둘 다 실패하면 기존 단발 → 부채꼴 연계
+			if try_new_pattern(st, e, dt, { "chase": dist > dv(e, "chaseStop", 200.0), "snipe": not blocked and dist <= float(d.keepMax) + 60.0 }):
+				e.chase_left = int(dv(e, "chaseShots", 2.0))
 				return
 			if not blocked and dist <= float(d.keepMax) + 60.0 and elite_may_start(st, e, dt):
 				e.shot_left = int(d.shots)
@@ -1714,6 +1971,80 @@ static func update_elite_archer(st: CombatState, e: Dictionary, dt: float) -> vo
 					_arrow(st, e, float(e.dir) + off, float(d.arrowSpeed), float(d.arrowR), float(d.fanDamage))
 				st.note_attack(e, "execute")
 				to_recover(st, e, float(d.recover))
+		# ---- §11-B ① 추격 사격: 달려 접근하다 **짧게 멈춰** 빠른 화살 ----
+		## 같은 방향으로 걷기만 하는 놀이를 흔드는 쪽은 "달려 붙는다"이다. 멈춘 뒤 예고 0.30 + 확정 0.10이 있고
+		## 확정 뒤에는 따라가지 않으므로, 멈추는 것이 보이면 옆으로 꺾어 피한다. 두 발이 끝나면 확실한 빈틈이 남는다
+		"chase_run":
+			e.state_t += adv
+			st.approach(e, p.x, p.y, dv(e, "chaseSpeed", 160.0) * sm, dt)
+			if dist <= dv(e, "chaseStop", 190.0) or float(e.state_t) >= dv(e, "chaseRun", 1.1):
+				e.state = "chase_aim"
+				e.state_t = 0.0
+				st.text(e.x, e.y - float(e.r) - 26.0, "멈춰 쏜다", "#ffd166")
+		"chase_aim": # 멈춰서 조준(이동 명령 없음). 예고 동안에는 **관측한 이동의 앞**으로 조준선이 옮겨간다
+			var ctof: float = dv(e, "chaseLock", 0.1) + dist / maxf(1.0, dv(e, "chaseArrowSpeed", 620.0))
+			var clead := obs_lead(st, e, p, ctof, dv(e, "chaseLeadMax", 130.0))
+			e.aim_angle = atan2(float(clead[1]) - e.y, float(clead[0]) - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "chaseAim", 0.3):
+				e.state = "chase_lock"
+				e.state_t = 0.0
+				e.dir = e.aim_angle # 방향 확정 — 여기서부터 따라가지 않는다
+				st.ev("lock")
+		"chase_lock":
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "chaseLock", 0.1):
+				_arrow(st, e, float(e.dir), dv(e, "chaseArrowSpeed", 620.0), float(d.arrowR), dv(e, "chaseArrowDamage", 11.0))
+				st.note_attack(e, "execute")
+				e.chase_left = int(e.get("chase_left", 1)) - 1
+				if int(e.chase_left) > 0:
+					e.state = "chase_run"
+					e.state_t = 0.0
+				else:
+					to_recover(st, e, dv(e, "chaseRecover", 1.0))
+		# ---- §11-B ② 엇박 저격: 첫 발 뒤 **이동한 방향을 새로 겨눈** 강한 두 번째 발 ----
+		## 두 발의 예고를 구분할 수 있게 만들었다: 첫 발은 짧은 조준(0.45)에 보통 화살,
+		## 사이에 눈에 보이는 **엇박 간격**(0.55, 궁수가 옆으로 자리를 옮긴다)이 있고,
+		## 두 번째는 더 긴 조준(0.70)에 굵은 예고선이며 **관측한 이동 방향의 앞**을 겨눈다.
+		## 관측은 OBS_WIN(0.30초) 지연이 있으므로 **간격 동안 방향을 바꾸면 앞을 겨눈 두 번째 발이 빗나간다**
+		"snipe1_aim":
+			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "snipe1Aim", 0.45):
+				e.state = "snipe1_lock"
+				e.state_t = 0.0
+				e.dir = e.aim_angle
+				st.ev("lock")
+		"snipe1_lock":
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "snipe1Lock", 0.1):
+				_arrow(st, e, float(e.dir), float(d.arrowSpeed), float(d.arrowR), float(d.arrowDamage))
+				st.note_attack(e, "execute")
+				e.state = "snipe_gap"
+				e.state_t = 0.0
+				st.text(e.x, e.y - float(e.r) - 30.0, "엇박 — 두 번째 발", "#ff9f43")
+		"snipe_gap": # 눈에 보이는 간격(옆으로 자리를 옮긴다). 공격 판정 없음
+			e.state_t += adv
+			strafe(st, e, float(d.strafeSpeed) * 0.7 * sm, dt)
+			if float(e.state_t) >= dv(e, "snipeGap", 0.55):
+				e.state = "snipe2_aim"
+				e.state_t = 0.0
+		"snipe2_aim": # **관측한 이동 방향의 앞**을 겨눈다(지금 서 있는 자리가 아니다)
+			var tof: float = dist / maxf(1.0, dv(e, "snipe2Speed", 520.0))
+			var lead := obs_lead(st, e, p, tof + dv(e, "snipe2Aim", 0.7) * 0.5, dv(e, "snipeLeadMax", 170.0))
+			e.aim_angle = atan2(float(lead[1]) - e.y, float(lead[0]) - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "snipe2Aim", 0.7):
+				e.state = "snipe2_lock"
+				e.state_t = 0.0
+				e.dir = e.aim_angle # 확정 — 여기서부터는 앞을 다시 재지 않는다
+				st.ev("lock")
+		"snipe2_lock":
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "snipe2Lock", 0.18):
+				_arrow(st, e, float(e.dir), dv(e, "snipe2Speed", 520.0), float(d.arrowR) + 2.0, dv(e, "snipe2Damage", 20.0))
+				st.note_attack(e, "execute")
+				to_recover(st, e, dv(e, "snipeRecover", 1.3))
 		"recover": # 측면 이동·재장전
 			strafe(st, e, float(d.strafeSpeed) * sm, dt)
 			_recover_tick(e, adv)
@@ -1741,6 +2072,11 @@ static func update_elite_blademaster(st: CombatState, e: Dictionary, dt: float) 
 	face_toward(e, p.x, p.y, float(d.guardTurn) if String(e.state) == "guard" else 6.0, adv)
 	match String(e.state):
 		"approach":
+			# §11-B ① 전진 연속 베기는 **가까울 때**(긴 돌진 두 번과 구분되는 근거리 추격),
+			#        ② 추격 검기는 **멀 때**(원거리에서도 공격이 성립한다). 둘 다 아니면 기존 돌진 연계.
+			# 거리를 만드는 backoff보다 **먼저** 본다 — 붙어 있을 때 쓰라고 만든 것이 전진 연속 베기이기 때문이다
+			if try_new_pattern(st, e, dt, { "step": dist <= dv(e, "stepRange", 240.0), "wave": dist > dv(e, "stepRange", 240.0) and not st.los_blocked(e.x, e.y, p.x, p.y) }):
+				return
 			if dist < float(d.minDist): # 붙어 있으면 스스로 거리를 만든다(밀어붙이기 금지 — 멧돼지와 같은 규칙)
 				e.state = "backoff"
 				e.state_t = 0.0
@@ -1797,6 +2133,68 @@ static func update_elite_blademaster(st: CombatState, e: Dictionary, dt: float) 
 			if float(e.state_t) >= float(d.slamAim):
 				circle_hit(st, e, e.x + cos(float(e.face)) * float(d.slamOffset), e.y + sin(float(e.face)) * float(d.slamOffset), float(d.slamR), float(d.slamDamage), "elite_slam")
 				to_recover(st, e, float(d.recover))
+		# ---- §11-B ① 전진 연속 베기: 짧게 전진하며 세 번 ----
+		## 기존 긴 돌진(240px·640/s) 두 번과 **다른 것**이다: 78px·420/s짜리 짧은 전진 셋으로
+		## 물러나는 상대를 조금씩 밀어붙인다. 매 번 예고가 따로 있고(0.32 / 0.26 / 0.26) 확정 뒤에는 방향을 바꾸지 않으므로
+		## 옆으로 꺾으면 한 번씩 흘릴 수 있다. 세 번이 끝나면 1.1초 빈틈 — 반격 기회가 남는다
+		"step1_aim", "step2_aim", "step3_aim":
+			var stof: float = dv(e, "stepDist", 78.0) / maxf(1.0, dv(e, "stepSpeed", 420.0))
+			var slead := obs_lead(st, e, p, stof, dv(e, "stepLeadMax", 90.0))
+			e.aim_angle = atan2(float(slead[1]) - e.y, float(slead[0]) - e.x)
+			e.state_t += adv
+			var sidx: int = 1 if String(e.state) == "step1_aim" else (2 if String(e.state) == "step2_aim" else 3)
+			if float(e.state_t) >= dv(e, "stepAim%d" % sidx, 0.3):
+				e.dir = e.aim_angle # 확정 — 이 걸음 동안은 방향을 바꾸지 않는다
+				e.charge_len = dv(e, "stepDist", 78.0)
+				e.charge_end = [e.x + cos(float(e.dir)) * float(e.charge_len), e.y + sin(float(e.dir)) * float(e.charge_len)]
+				e.charge_dist = 0.0
+				e.hit_done = false
+				e.state = "step%d" % sidx
+				e.state_t = 0.0
+				st.ev("lock")
+				st.note_attack(e, "execute")
+		"step1", "step2", "step3":
+			if _charge_step(st, e, dv(e, "stepSpeed", 420.0), dv(e, "stepDamage", 13.0), "elite_step", dt, tf):
+				var nidx: int = 2 if String(e.state) == "step1" else 3
+				if String(e.state) == "step3":
+					to_recover(st, e, dv(e, "stepRecover", 1.1))
+				else:
+					e.state = "step%d_aim" % nidx
+					e.state_t = 0.0
+					st.text(e.x, e.y - float(e.r) - 30.0, "전진 연속 베기 %d/3" % nidx, "#ffb0b0")
+		# ---- §11-B ② 추격 검기: 이동 경로를 겨눈 검기 + 본체도 전진 ----
+		## 원거리에서도 성립한다. 예고 동안에는 **관측한 이동 방향의 앞**으로 조준선이 옮겨가고,
+		## 확정(wave_lock) 뒤에는 각이 굳는다 — 검기는 직선으로 날아갈 뿐 따라오지 않는다.
+		## 관측은 0.30초 지연이므로 예고를 보고 **방향을 꺾으면 빗나간다**. 본체가 함께 전진하므로 제자리 걷기는 통하지 않는다
+		"wave_aim":
+			var wtof: float = dist / maxf(1.0, dv(e, "waveSpeed", 430.0))
+			var wl := obs_lead(st, e, p, wtof, dv(e, "waveLeadMax", 150.0))
+			e.aim_angle = atan2(float(wl[1]) - e.y, float(wl[0]) - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "waveAim", 0.5):
+				e.state = "wave_lock"
+				e.state_t = 0.0
+				e.dir = e.aim_angle
+				st.ev("lock")
+		"wave_lock":
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "waveLock", 0.15):
+				var wa: float = float(e.dir)
+				var pr := { "owner": "enemy", "kind": "blade_wave", "shooter": e,
+					"x": e.x + cos(wa) * (float(e.r) + 6.0), "y": e.y + sin(wa) * (float(e.r) + 6.0),
+					"vx": cos(wa) * dv(e, "waveSpeed", 430.0), "vy": sin(wa) * dv(e, "waveSpeed", 430.0),
+					"r": dv(e, "waveR", 22.0), "dmg": dv(e, "waveDamage", 15.0), "ttl": 2.0, "angle": wa, "dead": false, "hits": {} }
+				CombatState.stamp_projectile(e, pr)
+				st.projectiles.append(pr)
+				st.note_attack(e, "execute")
+				st.ev("shoot")
+				e.state = "wave"
+				e.state_t = 0.0
+		"wave": # 검기를 날린 뒤 **본체도 전진**한다(거리를 벌린 채 버티는 놀이를 막는다). 이 구간에는 접촉 피해가 없다
+			e.state_t += adv
+			st.approach(e, p.x, p.y, dv(e, "waveWalk", 190.0) * sm, dt)
+			if float(e.state_t) >= dv(e, "waveTime", 0.5):
+				to_recover(st, e, dv(e, "waveRecover", 1.0))
 		"recover":
 			_recover_tick(e, adv)
 
@@ -1837,6 +2235,11 @@ static func update_elite_fang(st: CombatState, e: Dictionary, dt: float) -> void
 				var n := PGeom.norm(p.x - e.x, p.y - e.y)
 				var s: float = float(e.side)
 				st.approach(e, p.x - n[0] * 26.0 + (-n[1]) * s * float(d.flankOffset), p.y - n[1] * 26.0 + n[0] * s * float(d.flankOffset), float(d.speed) * sm, dt)
+			# §11-B ① 달리는 물어뜯기는 **멀리 있을 때**(측면으로 도는 기존 접근과 달리 곧장 달려든다)
+			#        ② 앞질러 습격은 중거리에서. 걷는 방향 **앞쪽**에 내려앉아 도주 경로를 끊는다
+			if try_new_pattern(st, e, dt, { "runbite": dist > float(d.biteRange) + float(e.r), "cut": dist <= dv(e, "cutRange", 340.0) and dist > float(d.biteRange) + float(e.r) }):
+				e.runbite_left = int(dv(e, "runbiteCount", 2.0))
+				return
 			if dist <= float(d.biteRange) + e.r and elite_may_start(st, e, dt):
 				# 2026-09-09 가독성(표시만): 물기 예고에는 글자도 소리도 없어 평범한 늑대보다 경고가 부실했다.
 				# 짧은 낱말 하나 + **짧은 경고음**을 예고 시작에 붙인다. 예고 시간(biteAim 0.35)·속도·피해는 그대로다.
@@ -1900,6 +2303,83 @@ static func update_elite_fang(st: CombatState, e: Dictionary, dt: float) -> void
 				e.state = "approach"
 				e.state_t = 0.0
 				e.side = -int(e.side)
+		# ---- §11-B ① 달리는 물어뜯기: 먼 플레이어에게 **접근해** 짧은 물기 두 번 ----
+		## 기존 접근은 옆으로 크게 도는 길이라 걸어서 벌리면 계속 벌어졌다. 이쪽은 곧장 달려붙는다.
+		## 물기 방향은 **물기 직전에 확정**되므로 각으로는 못 피한다 — 대신 사거리가 짧아(68) **거리를 벌리면** 빗나가고,
+		## 달려오는 구간과 예고 부채꼴이 다 보인다. 두 번이 끝나면 1.0초 빈틈이 남는다
+		"runbite_run":
+			e.state_t += adv
+			st.approach(e, p.x, p.y, dv(e, "runbiteSpeed", 235.0) * sm, dt)
+			if dist <= float(d.biteRange) + float(e.r) or float(e.state_t) >= dv(e, "runbiteRun", 1.2):
+				e.state = "runbite_aim"
+				e.state_t = 0.0
+				e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+				st.ev("boss_lock")
+		"runbite_aim": # 예고 동안에도 **덤벼든다** — 멈춰 서면 걷기만으로 사거리를 벗어나 버린다
+			st.approach(e, p.x, p.y, dv(e, "runbiteSpeed", 320.0) * dv(e, "runbiteLungeMult", 0.55) * sm, dt)
+			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "runbiteAim", 0.3):
+				# 물기 직전 확정. 부채꼴은 기본 물기(90도)보다 **좁다**(runbiteDeg) — 덤벼드는 대신 각을 좁혀
+				# 방향을 꺾으면 빠져나갈 수 있게 했다
+				e.dir = e.aim_angle
+				arc_strike(st, e, float(e.dir), dv(e, "runbiteRange", float(d.biteRange)) + float(e.r), PGeom.deg(dv(e, "runbiteDeg", 60.0)) / 2.0, dv(e, "runbiteDamage", 13.0), "elite_runbite")
+				e.bite_t = 0.0
+				st.ev("bite")
+				e.runbite_left = int(e.get("runbite_left", 1)) - 1
+				if int(e.runbite_left) > 0:
+					e.state = "runbite_run"
+					e.state_t = 0.0
+				else:
+					to_recover(st, e, dv(e, "runbiteRecover", 1.0))
+		# ---- §11-B ② 앞질러 습격: 진행 방향 **앞쪽**으로 도약 뒤 돌아서 할퀴기 ----
+		## **착지와 후속을 각각 읽게** 만들었다: ① 앞쪽에 착지 원이 뜨고(0.5 예고 + 0.15 확정) ② 착지 충격이 한 번,
+		## ③ 돌아서는 0.35초 동안은 판정이 없고 ④ 그 다음 할퀴기 예고(0.30)가 따로 뜬다.
+		## 착지점은 **관측한 이동(0.30초 지연)** 으로 정하므로 예고를 보고 방향을 꺾으면 엉뚱한 곳에 내려앉는다
+		"cut_aim":
+			e.state_t += adv
+			var cl := obs_lead(st, e, p, dv(e, "cutLead", 0.75), dv(e, "cutLeadMax", 150.0))
+			var cpos := st.nearest_valid_pos(float(cl[0]), float(cl[1]), float(e.r), 160.0)
+			e.leap_at = cpos if not cpos.is_empty() else [float(cl[0]), float(cl[1])]
+			if float(e.state_t) >= dv(e, "cutAim", 0.5):
+				e.state = "cut_lock"
+				e.state_t = 0.0
+				st.ev("lock")
+				st.ev("boss_lock")
+		"cut_lock":
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "cutLock", 0.15):
+				e.state = "cut_leap"
+				e.state_t = 0.0
+				e.leap_from = [e.x, e.y]
+				e.airborne = true
+				st.note_attack(e, "execute")
+		"cut_leap":
+			e.state_t += adv
+			var cat: Array = e.leap_at
+			var cfr: Array = e.leap_from
+			var ck: float = clampf(float(e.state_t) / maxf(0.001, dv(e, "cutLeap", 0.32)), 0.0, 1.0)
+			e.x = float(cfr[0]) + (float(cat[0]) - float(cfr[0])) * ck
+			e.y = float(cfr[1]) + (float(cat[1]) - float(cfr[1])) * ck
+			if ck >= 1.0:
+				e.airborne = false
+				circle_hit(st, e, e.x, e.y, dv(e, "cutLandR", 62.0), dv(e, "cutLandDamage", 12.0), "elite_cut_land")
+				e.state = "cut_turn"
+				e.state_t = 0.0
+				st.text(e.x, e.y - float(e.r) - 26.0, "돌아선다", "#ff6b93")
+		"cut_turn": # 돌아서는 구간 — **공격 판정이 없다**(후속을 따로 읽을 시간)
+			e.state_t += adv
+			face_toward(e, p.x, p.y, dv(e, "cutTurnRate", 5.0), adv)
+			if float(e.state_t) >= dv(e, "cutTurn", 0.35):
+				elite_begin(st, e, "cut_claw_aim", "할퀴기", "#ff9f43")
+		"cut_claw_aim":
+			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "cutClawAim", 0.3):
+				e.dir = e.aim_angle
+				arc_strike(st, e, float(e.dir), dv(e, "cutClawRange", 62.0) + float(e.r), PGeom.deg(dv(e, "cutClawDeg", 100.0)) / 2.0, dv(e, "cutClawDamage", 18.0), "elite_cut_claw")
+				st.ev("bite")
+				to_recover(st, e, dv(e, "cutRecover", 1.2))
 		"recover":
 			_recover_tick(e, adv)
 			if String(e.state) == "approach":
@@ -1916,9 +2396,15 @@ static func _leap_target(st: CombatState, e: Dictionary, max_range: float) -> Ar
 	return pos if not pos.is_empty() else [e.x, e.y]
 
 # ---------- D. 역병 조율사(정예 포자) ----------
-## 포자 3개를 흩어 투척(예고 0.5) → 부풀기 0.9초 → 0.45초 간격 순차 폭발 → 재정비 1.5초.
+## 포자를 순서대로 터뜨린다(예고 0.5 → 첫 포자 0.9 → 다음 포자를 **새로 조준**해 0.55 예고 → …) → 재정비 1.5초.
 ## 잔류 구름은 수(3)·시간(2.6초) 상한이 있고, 전장 전체를 덮지 않도록 배치 전에 탈출 방향 수를 확인한다.
 ## 근접(96 이내)에는 예고된 좁은 포자 분출(70°)로 대응한다.
+##
+## **2026-09-10 §12 수정(무엇이 문제였나)**: 순차 폭발은 원래부터 있었다. 문제는 **세 자리를 전부 처음에 한 번에 고정**한 것이다
+##   (_place_pods가 throw_aim 끝에서 3개를 다 놓았다). 그래서 첫 폭발을 보고 걸어 나오면 **남은 두 개가 통째로 헛돌았다** —
+##   구역을 벗어나기만 하면 나머지 공격이 전부 의미를 잃는 구조였다.
+##   이제는 **한 번에 한 자리만** 정한다. 포자가 터지면 그때 플레이어가 서 있는 자리를 **새로 조준**해 다음 포자를 예고한다(podRearm).
+##   각 포자는 여전히 자리가 고정된 예고이고 확정 뒤 따라오지 않는다 — 바뀐 것은 '언제 자리를 정하는가'뿐이다.
 static func update_elite_plaguecaller(st: CombatState, e: Dictionary, dt: float) -> void:
 	var d: Dictionary = e.def
 	var p := st.target_of(e)
@@ -1933,30 +2419,41 @@ static func update_elite_plaguecaller(st: CombatState, e: Dictionary, dt: float)
 	match String(e.state):
 		"approach":
 			keep_distance(st, e, d, dt, sm)
+			# §11-B ① 추적 포자탄(중·원거리) ② 역병 가로막기(걷는 앞을 긴 띠로 끊는다)
+			if try_new_pattern(st, e, dt, { "seek": dist <= dv(e, "seekRange", 420.0), "wall": dist <= dv(e, "wallRange", 420.0) }):
+				if String(e.state) == "wall_aim":
+					e.wall = _place_wall(st, e)
+				return
 			# 주 무기는 포자 3개다. 분출은 '붙었는데 아직 포자가 준비되지 않았을 때'의 대응이지 기본 행동이 아니다
 			if float(e.cast_t) <= 0.0 and dist <= float(d.keepMax) + 60.0 and elite_may_start(st, e, dt):
-				elite_begin(st, e, "throw_aim", "포자 3개", "#9cff9c")
+				elite_begin(st, e, "throw_aim", "포자 %d개 — 하나씩 다시 조준" % int(d.podCount), "#9cff9c")
 				return
 			if dist <= float(d.burstRange) + e.r and elite_may_start(st, e, dt):
 				elite_begin(st, e, "burst_aim", "포자 분출", "#9cff9c")
 		"throw_aim":
 			e.state_t += adv
 			if float(e.state_t) >= float(d.throwAim):
-				e.pods = _place_pods(st, e)
+				e.pods = []
+				e.pod_done = 0
+				_aim_next_pod(st, e, float(d.swell)) # **첫 자리만** 정한다(나머지는 폭발할 때마다 새로 조준)
 				e.state = "swell"
 				e.state_t = 0.0
 				st.ev("spore")
 				st.ev("hazard_warn")
-		"swell": # 부풀기 → 순차 폭발(각 포자의 정해진 시각). 모두 터지면 재정비
+		"swell": # 한 개씩: 터질 때마다 **다음 자리를 새로 조준·예고**한다. 정한 개수를 다 쓰면 재정비
 			e.state_t += adv
 			_update_pods(st, e, d)
-			var left := false
+			var waiting := false
 			for pod in e.pods:
 				if not bool(pod.done):
-					left = true
-			if not left:
-				e.cast_t = float(d.castInterval)
-				to_recover(st, e, float(d.recover))
+					waiting = true
+			if not waiting:
+				if int(e.get("pod_done", 0)) < int(d.podCount):
+					_aim_next_pod(st, e, dv(e, "podRearm", 0.55)) # 폭발 사이에 새로 조준(§12)
+					st.ev("hazard_warn")
+				else:
+					e.cast_t = float(d.castInterval)
+					to_recover(st, e, float(d.recover))
 		"burst_aim":
 			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
 			e.state_t += adv
@@ -1967,33 +2464,152 @@ static func update_elite_plaguecaller(st: CombatState, e: Dictionary, dt: float)
 				st.note_attack(e, "execute")
 				st.ev("spore")
 				to_recover(st, e, float(d.burstRecover))
+		# ---- §11-B ① 추적 포자탄: 가까워지면 **추적을 멈추고** 부푼 뒤 폭발 ----
+		## 끝까지 쫓아와 반드시 맞히는 확정 피해로 만들지 않았다. 포자탄은 seekStop(110)까지만 따라오고
+		## 거기서 **멈춘 채** seekSwell(0.6초) 동안 부푼다 — 그 사이에 반지름 seekR 밖으로 걸어 나가면 맞지 않는다.
+		## 선회 속도에도 상한(seekTurn)이 있어 옆으로 크게 꺾으면 애초에 따라붙지 못한다
+		"seek_aim":
+			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "seekAim", 0.45):
+				e.seek = { "x": e.x + cos(float(e.aim_angle)) * (float(e.r) + 6.0), "y": e.y + sin(float(e.aim_angle)) * (float(e.r) + 6.0), "ang": float(e.aim_angle) }
+				e.state = "seek_fly"
+				e.state_t = 0.0
+				st.note_attack(e, "execute")
+				st.ev("shoot")
+		"seek_fly":
+			e.state_t += adv
+			var sk: Dictionary = e.seek
+			var sang: float = float(sk.ang)
+			var slead2 := obs_lead(st, e, p, dv(e, "seekLead", 0.55), dv(e, "seekLeadMax", 130.0))
+			var want: float = atan2(float(slead2[1]) - float(sk.y), float(slead2[0]) - float(sk.x))
+			var mx: float = dv(e, "seekTurn", 2.6) * adv
+			sang += clampf(PGeom.ang_diff(sang, want), -mx, mx)
+			sk.ang = sang
+			sk.x = float(sk.x) + cos(sang) * dv(e, "seekSpeed", 210.0) * adv
+			sk.y = float(sk.y) + sin(sang) * dv(e, "seekSpeed", 210.0) * adv
+			# 멈추는 기준은 **걷는 앞 지점**이다: 플레이어의 지금 자리를 기준으로 멈추면 계속 걷는 상대에게 늘 뒤처진다
+			var sd := PGeom.dist(float(sk.x), float(sk.y), float(slead2[0]), float(slead2[1]))
+			if sd <= dv(e, "seekStop", 90.0) or float(e.state_t) >= dv(e, "seekFly", 2.2) \
+				or float(sk.x) < 6.0 or float(sk.y) < 6.0 or float(sk.x) > st.arena_w - 6.0 or float(sk.y) > st.arena_h - 6.0:
+				e.state = "seek_swell" # **여기서 추적이 끝난다** — 자리가 굳고 그 뒤로는 움직이지 않는다
+				e.state_t = 0.0
+				st.ev("hazard_warn")
+		"seek_swell":
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "seekSwell", 0.6):
+				var sk2: Dictionary = e.seek
+				circle_hit(st, e, float(sk2.x), float(sk2.y), dv(e, "seekR", 80.0), dv(e, "seekDamage", 16.0), "elite_spore_seek")
+				st.ev("spore")
+				e.erase("seek")
+				to_recover(st, e, dv(e, "seekRecover", 1.3))
+		# ---- §11-B ② 역병 가로막기: 도주 경로에 **긴 포자 띠**를 예고한 뒤 한쪽부터 폭발 ----
+		## 띠 자리는 wall_aim 시작 순간에 확정한다(따라오지 않는다). 한쪽 끝부터 wallGap(0.18초) 간격으로 터지므로
+		## **반대쪽 끝이나 아직 안 터진 칸을 지나 빠져나갈 수 있다**. 놓기 전에 탈출 방향 수를 확인해
+		## 전부 막히면 플레이어에게 가까운 칸부터 지운다 — 피할 곳 없는 벽을 만들지 않는다
+		"wall_aim":
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "wallAim", 0.7):
+				e.state = "wall_burst"
+				e.state_t = 0.0
+				st.note_attack(e, "execute")
+		"wall_burst":
+			e.state_t += adv
+			var wleft := false
+			for wp in e.get("wall", []):
+				var w: Dictionary = wp
+				if bool(w.done):
+					continue
+				if st.t >= float(w.land_at):
+					w.done = true
+					circle_hit(st, e, float(w.x), float(w.y), float(w.r), dv(e, "wallDamage", 14.0), "elite_spore_wall")
+					st.ev("spore")
+				else:
+					wleft = true
+			if not wleft:
+				e.erase("wall")
+				to_recover(st, e, dv(e, "wallRecover", 1.4))
 		"recover":
 			keep_distance(st, e, d, dt, sm)
 			_recover_tick(e, adv)
 
-## 포자 3개 배치: 플레이어 주위에 흩어 놓되, 놓고 나서도 탈출 방향이 minExits개 이상 남는 자리만 쓴다
-static func _place_pods(st: CombatState, e: Dictionary) -> Array:
+## 다음 포자 한 개의 자리를 **지금** 정한다(§12 수정의 핵심). warn = 이 포자가 터지기까지의 예고 시간.
+## 자리는 플레이어의 **현재 위치** 주위이며, 놓고 나서도 탈출 방향이 minExits개 이상 남는 곳만 쓴다.
+## 놓을 자리가 없으면 그 포자는 건너뛴다(개수는 그대로 세므로 연계가 끝나지 않는 일이 없다).
+static func _aim_next_pod(st: CombatState, e: Dictionary, warn: float) -> void:
 	var d: Dictionary = e.def
 	var p := st.target_of(e)
-	var base: float = float(p.face) if bool(p.moving) else atan2(p.y - e.y, p.x - e.x)
-	var pods: Array = []
-	for i in int(d.podCount):
-		var a: float = base + PGeom.deg(float(d.podArcDeg)) * (float(i) - float(int(d.podCount) - 1) / 2.0)
-		var cx: float = p.x + cos(a) * float(d.podSpread)
-		var cy: float = p.y + sin(a) * float(d.podSpread)
+	var idx: int = int(e.get("pod_done", 0))
+	e.pod_done = idx + 1
+	var base: float = atan2(p.y - e.y, p.x - e.x)
+	var pods: Array = e.pods
+	for tryi in 3: # 한 자리가 막히면 좌·우로 벌려 다시 본다
+		var a: float = base + PGeom.deg(float(d.podArcDeg)) * (float(tryi) - 1.0)
+		var cx: float = p.x + cos(a) * float(d.podSpread) * (0.0 if tryi == 0 else 1.0)
+		var cy: float = p.y + sin(a) * float(d.podSpread) * (0.0 if tryi == 0 else 1.0)
 		var pos := st.nearest_valid_pos(clampf(cx, 20.0, st.arena_w - 20.0), clampf(cy, 20.0, st.arena_h - 20.0), 0.0, 120.0)
 		if pos.is_empty():
 			continue
 		var trial := { "x": float(pos[0]), "y": float(pos[1]), "r": float(d.podR) }
-		var all: Array = pods.duplicate()
-		all.append(trial)
-		if _exits_open(st, all, float(d.probe)) < int(d.minExits): # 전장을 통째로 막지 않는다
+		var live: Array = []
+		for old in pods:
+			if not bool((old as Dictionary).done):
+				live.append(old)
+		live.append(trial)
+		if _exits_open(st, live, float(d.probe)) < int(d.minExits): # 전장을 통째로 막지 않는다
 			continue
-		trial["order"] = pods.size() + 1
-		trial["land_at"] = st.t + float(d.swell) + float(pods.size()) * float(d.podGap)
+		trial["order"] = idx + 1
+		trial["land_at"] = st.t + warn
+		trial["warn"] = warn
 		trial["done"] = false
 		pods.append(trial)
-	return pods
+		return
+
+## 역병 가로막기의 띠: **관측한 이동 방향 앞쪽**에 그 방향과 직각으로 늘어선 포자 줄.
+## 놓은 뒤에도 탈출 방향이 minExits개 이상 남을 때까지 **플레이어에게 가장 가까운 칸부터** 지운다.
+## 폭발은 한쪽 끝(order 1)부터 wallGap 간격이므로 늦게 터지는 쪽으로 빠져나갈 수 있다
+static func _place_wall(st: CombatState, e: Dictionary) -> Array:
+	var p := st.target_of(e)
+	var lead := obs_lead(st, e, p, dv(e, "wallLead", 0.85), dv(e, "wallLeadMax", 150.0))
+	var dirx: float = float(lead[0]) - float(p.x)
+	var diry: float = float(lead[1]) - float(p.y)
+	if sqrt(dirx * dirx + diry * diry) < 1e-3: # 서 있으면 조율사 → 플레이어 방향 너머에 세운다
+		var a0: float = atan2(p.y - e.y, p.x - e.x)
+		dirx = cos(a0) * dv(e, "wallLeadMax", 150.0) * 0.6
+		diry = sin(a0) * dv(e, "wallLeadMax", 150.0) * 0.6
+	var ang: float = atan2(diry, dirx)
+	var cx: float = float(p.x) + dirx
+	var cy: float = float(p.y) + diry
+	var n: int = int(dv(e, "wallCount", 5.0))
+	var step: float = dv(e, "wallStep", 74.0)
+	var rr: float = dv(e, "wallR", 46.0)
+	var gap: float = dv(e, "wallGap", 0.18)
+	var warn: float = dv(e, "wallAim", 0.7)
+	var out: Array = []
+	for i in n:
+		var off: float = (float(i) - float(n - 1) / 2.0) * step
+		var wx: float = cx + cos(ang + PI / 2.0) * off
+		var wy: float = cy + sin(ang + PI / 2.0) * off
+		var pos := st.nearest_valid_pos(clampf(wx, 20.0, st.arena_w - 20.0), clampf(wy, 20.0, st.arena_h - 20.0), 0.0, 90.0)
+		if pos.is_empty():
+			continue
+		out.append({ "x": float(pos[0]), "y": float(pos[1]), "r": rr, "order": out.size() + 1,
+			"land_at": st.t + warn + float(out.size()) * gap, "warn": warn, "done": false })
+	while out.size() > 2 and _exits_open(st, out, dv(e, "probe", 90.0)) < int(dv(e, "minExits", 6.0)):
+		var near_i := 0
+		var near_d := 1e9
+		for i in out.size():
+			var w: Dictionary = out[i]
+			var dd := PGeom.dist(float(w.x), float(w.y), p.x, p.y)
+			if dd < near_d:
+				near_d = dd
+				near_i = i
+		out.remove_at(near_i)
+		for i in out.size():
+			var w2: Dictionary = out[i]
+			w2.order = i + 1
+			w2.land_at = st.t + warn + float(i) * gap
+	return out
 
 static func _update_pods(st: CombatState, e: Dictionary, d: Dictionary) -> void:
 	for pod in e.pods:
@@ -2056,6 +2672,11 @@ static func update_elite_chainbreaker(st: CombatState, e: Dictionary, dt: float)
 			if dist <= float(d.nearDist) + e.r and elite_may_start(st, e, dt):
 				elite_begin(st, e, "sweep_aim", "횡베기", "#ffb0b0")
 				return
+			# §11-B ① 닻 도약(멀리 떨어져 있어도 스스로 붙는다 — 사슬을 맞히지 않아도 접근이 성립)
+			#        ② 사슬 끌어쓸기(걷는 앞에 추를 던지고 옆으로 쓸어 당긴다 — 직선 사슬과 다른 범위)
+			var far_ok: bool = dist > float(d.nearDist) + float(e.r)
+			if try_new_pattern(st, e, dt, { "anchor": far_ok and dist <= dv(e, "anchorRange", 420.0), "drag": far_ok and dist <= dv(e, "dragRange", 300.0) }):
+				return
 			if dist <= float(d.engageDist) and not st.los_blocked(e.x, e.y, p.x, p.y) and elite_may_start(st, e, dt):
 				elite_begin(st, e, "chain_aim", "사슬", "#ffd166")
 		"chain_aim":
@@ -2077,7 +2698,8 @@ static func update_elite_chainbreaker(st: CombatState, e: Dictionary, dt: float)
 				st.note_attack(e, "execute")
 		"chain_fly": # 사슬 머리가 확정된 직선을 따라 나아간다
 			var d0: float = float(e.chain_d)
-			e.chain_d = minf(float(e.chain_len), d0 + float(d.chainSpeed) * adv)
+			# §12: 발사 속도는 data/pacing.json에서 겹쳐 읽는다(dv). 예고 시간(chainAim·chainLock)과 **분리된 값**이다
+			e.chain_d = minf(float(e.chain_len), d0 + dv(e, "chainSpeed", 620.0) * adv)
 			var hx0: float = e.x + cos(float(e.dir)) * d0
 			var hy0: float = e.y + sin(float(e.dir)) * d0
 			var hx1: float = e.x + cos(float(e.dir)) * float(e.chain_d)
@@ -2131,6 +2753,89 @@ static func update_elite_chainbreaker(st: CombatState, e: Dictionary, dt: float)
 				st.note_attack(e, "execute")
 				st.ev("boss_sweep")
 				to_recover(st, e, float(d.sweepRecover))
+		# ---- §11-B ① 닻 도약: 지면에 사슬을 박고 **자신을 당겨** 착지 강타 ----
+		## **플레이어에게 사슬을 맞히지 않아도 접근이 성립한다** — 걸어서 거리를 벌리는 놀이를 흔드는 쪽이다.
+		## 착지 원은 anchor_aim 동안만 따라오고 anchor_lock(0.15)에 자리가 굳는다. 확정 뒤에는 쫓아오지 않으므로
+		## 원 밖으로 걸어 나오면 빗나가고, 착지 뒤에는 1.2초 빈틈이 남는다
+		"anchor_aim":
+			e.state_t += adv
+			# 착지 자리는 **관측한 이동**(0.30초 지연)으로 내다본 앞이다 — 걸어서 벌리는 놀이를 흔들려면
+			# 지금 서 있는 자리에 내려앉아서는 안 된다. 확정(anchor_lock) 뒤에는 이 계산을 더 하지 않는다
+			var al := obs_lead(st, e, p, dv(e, "anchorLock", 0.15) + dv(e, "anchorFly", 0.3), dv(e, "anchorLeadMax", 130.0))
+			var an: float = atan2(float(al[1]) - e.y, float(al[0]) - e.x)
+			var agap: float = dv(e, "anchorGap", 40.0)
+			var apos := st.nearest_valid_pos(float(al[0]) - cos(an) * agap, float(al[1]) - sin(an) * agap, float(e.r), 160.0)
+			e.slam_at = apos if not apos.is_empty() else [float(al[0]) - cos(an) * agap, float(al[1]) - sin(an) * agap]
+			if float(e.state_t) >= dv(e, "anchorAim", 0.55):
+				e.state = "anchor_lock"
+				e.state_t = 0.0
+				st.ev("lock")
+		"anchor_lock":
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "anchorLock", 0.15):
+				e.state = "anchor_fly"
+				e.state_t = 0.0
+				e.pull_from = [e.x, e.y]
+				e.airborne = true
+				st.note_attack(e, "execute")
+		"anchor_fly": # 사슬을 당겨 자기 몸을 옮긴다(이 구간에는 접촉 피해가 없다)
+			e.state_t += adv
+			var aat: Array = e.slam_at
+			var afr: Array = e.pull_from
+			var ak: float = clampf(float(e.state_t) / maxf(0.001, dv(e, "anchorFly", 0.3)), 0.0, 1.0)
+			e.x = float(afr[0]) + (float(aat[0]) - float(afr[0])) * ak
+			e.y = float(afr[1]) + (float(aat[1]) - float(afr[1])) * ak
+			if ak >= 1.0:
+				e.airborne = false
+				circle_hit(st, e, e.x, e.y, dv(e, "anchorR", 88.0), dv(e, "anchorDamage", 20.0), "elite_chain_anchor")
+				e.erase("slam_at")
+				to_recover(st, e, dv(e, "anchorRecover", 1.2))
+		# ---- §11-B ② 사슬 끌어쓸기: 진행 방향 **앞**에 추를 던진 뒤 **옆으로 쓸어** 당기기 ----
+		## 기존 직선 사슬과 범위가 다르다: 추가 던져진 자리에서 집행자 쪽으로 **호를 그리며** 감겨 온다.
+		## 던질 자리는 관측한 이동(0.30초 지연)으로 정하고 drag_lock에 굳는다 — 예고를 보고 꺾으면 엉뚱한 앞을 막는다.
+		## 쓸기는 한 번만 판정하고(맞아도 연속으로 갈리지 않는다) 끝나면 1.1초 빈틈
+		"drag_aim":
+			e.state_t += adv
+			var dl := obs_lead(st, e, p, dv(e, "dragLead", 0.7), dv(e, "dragLeadMax", 130.0))
+			e.drag_at = [float(dl[0]), float(dl[1])]
+			if float(e.state_t) >= dv(e, "dragAim", 0.5):
+				e.state = "drag_lock"
+				e.state_t = 0.0
+				st.ev("lock")
+		"drag_lock":
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "dragLock", 0.15):
+				# 추가 도는 **반지름은 지금 플레이어까지의 거리**, **각은 걷는 앞 방향**이다.
+				# (앞 지점까지의 거리로 반지름을 잡으면 추가 플레이어보다 늘 바깥으로 돌아 무엇을 해도 스치기만 한다 — 첫 시험값의 결함)
+				var dat: Array = e.drag_at
+				e.drag_r = maxf(40.0, PGeom.dist(e.x, e.y, p.x, p.y))
+				e.drag_a0 = atan2(float(dat[1]) - e.y, float(dat[0]) - e.x)
+				e.drag_at = [e.x + cos(float(e.drag_a0)) * float(e.drag_r), e.y + sin(float(e.drag_a0)) * float(e.drag_r)]
+				e.drag_side = 1.0 if int(e.id) % 2 == 0 else -1.0 # 난수를 쓰지 않는다(난수 소비 순서를 건드리면 기준 전투가 흔들린다)
+				e.hit_done = false
+				e.state = "drag_toss"
+				e.state_t = 0.0
+				st.note_attack(e, "execute")
+		"drag_toss": # 추가 던져진 자리에 닿을 때까지(판정 없음 — 무엇이 올지 읽는 시간)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "dragToss", 0.2):
+				e.state = "drag_sweep"
+				e.state_t = 0.0
+				st.ev("boss_sweep")
+		"drag_sweep": # 추가 호를 그리며 감겨 온다. 지나간 자리에 한 번만 판정
+			e.state_t += adv
+			var dk: float = clampf(float(e.state_t) / maxf(0.001, dv(e, "dragSweep", 0.45)), 0.0, 1.0)
+			var da: float = float(e.drag_a0) + PGeom.deg(dv(e, "dragArcDeg", 150.0)) * float(e.drag_side) * dk
+			var drr: float = float(e.drag_r) * (1.0 - dv(e, "dragPull", 0.15) * dk) # 거의 같은 반지름으로 쓴다 — 안팎으로 움직이면 벗어난다
+			var wx: float = e.x + cos(da) * drr
+			var wy: float = e.y + sin(da) * drr
+			e.drag_now = [wx, wy]
+			if not bool(e.get("hit_done", false)) and PGeom.dist(wx, wy, p.x, p.y) <= dv(e, "dragR", 34.0) + float(p.r):
+				e.hit_done = true
+				st.damage_player(dv(e, "dragDamage", 16.0), "elite_chain_drag", e)
+			if dk >= 1.0:
+				e.erase("drag_now")
+				to_recover(st, e, dv(e, "dragRecover", 1.1))
 		"retract":
 			e.state_t += adv
 			if float(e.state_t) >= float(d.retract):
@@ -2166,6 +2871,11 @@ static func update_elite_standard(st: CombatState, e: Dictionary, dt: float) -> 
 			if dist <= float(d.slashRange) + e.r and elite_may_start(st, e, dt):
 				elite_begin(st, e, "slash_aim", "", "#ffb0b0")
 				return
+			# §11-B ① 깃발 돌격(멀 때 겨누고 접근해 찌르기 → 횡베기) ② 양면 협공(부하와 시간차. 부하가 없으면 본체 대체 연계)
+			if try_new_pattern(st, e, dt, { "rush": dist > float(d.slashRange) + float(e.r) and dist <= dv(e, "rushRange", 400.0), "pincer": dist <= dv(e, "pincerRange", 320.0) }):
+				if String(e.state) == "pincer_aim":
+					_pincer_pick(st, e)
+				return
 			if not banner_alive and int(e.plant_left) > 0 and elite_may_start(st, e, dt):
 				elite_begin(st, e, "plant_aim", "깃발 설치", "#e0c060")
 		"plant_aim":
@@ -2194,8 +2904,129 @@ static func update_elite_standard(st: CombatState, e: Dictionary, dt: float) -> 
 				st.fx({ "kind": "arc", "x": e.x, "y": e.y, "angle": e.dir, "r": float(d.slashRange) + e.r, "half": PGeom.deg(float(d.slashDeg)) / 2.0, "ttl": 0.14, "enemy": true })
 				st.note_attack(e, "execute")
 				to_recover(st, e, float(d.recover))
+		# ---- §11-B ① 깃발 돌격: 겨누고 접근해 찌르기 → 횡베기 ----
+		## 원거리에서 시작해 **스스로 붙는다**. 방향은 rush_lock(0.12)에 굳고 전진 중에는 회전하지 않으므로
+		## 옆으로 꺾으면 돌격 자체가 빗나간다. 붙은 뒤에도 찌르기(0.28)와 횡베기(0.30)의 예고가 따로 있고
+		## 찌르기는 좁고(46°) 횡베기는 넓다(170°) — 무엇을 피할지 두 번 고를 수 있다. 끝나면 1.2초 빈틈
+		"rush_aim":
+			var rtof: float = dv(e, "rushLock", 0.12) + dv(e, "rushDist", 380.0) / maxf(1.0, dv(e, "rushSpeed", 480.0))
+			var rlead := obs_lead(st, e, p, rtof, dv(e, "rushLeadMax", 170.0))
+			e.aim_angle = atan2(float(rlead[1]) - e.y, float(rlead[0]) - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "rushAim", 0.5):
+				e.state = "rush_lock"
+				e.state_t = 0.0
+				e.dir = e.aim_angle
+				e.charge_dist = 0.0
+				st.ev("lock")
+		"rush_lock":
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "rushLock", 0.12):
+				e.state = "rush"
+				e.state_t = 0.0
+				st.note_attack(e, "execute")
+		"rush": # 확정 방향으로 전진(접촉 피해 없음 — 이동은 공격이 아니다)
+			e.state_t += adv
+			var rstp: float = dv(e, "rushSpeed", 300.0) * sm * dt
+			var rx0: float = e.x
+			var ry0: float = e.y
+			var rmv := st.move_swept(e, cos(float(e.dir)) * rstp, sin(float(e.dir)) * rstp, true)
+			e.charge_dist = float(e.get("charge_dist", 0.0)) + PGeom.dist(e.x, e.y, rx0, ry0)
+			if float(e.charge_dist) >= dv(e, "rushDist", 220.0) or String(rmv.hit) != "" or dist <= dv(e, "thrustRange", 84.0) + float(e.r):
+				elite_begin(st, e, "thrust_aim", "찌르기", "#ffb0b0")
+		"thrust_aim": # 좁은 찌르기
+			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "thrustAim", 0.28):
+				e.dir = e.aim_angle
+				arc_strike(st, e, float(e.dir), dv(e, "thrustRange", 84.0) + float(e.r), PGeom.deg(dv(e, "thrustDeg", 46.0)) / 2.0, dv(e, "thrustDamage", 17.0), "elite_standard_thrust")
+				elite_begin(st, e, "cross_aim", "횡베기", "#ff9f43")
+		"cross_aim": # 넓은 횡베기
+			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "crossAim", 0.3):
+				e.dir = e.aim_angle
+				arc_strike(st, e, float(e.dir), dv(e, "crossRange", 78.0) + float(e.r), PGeom.deg(dv(e, "crossDeg", 170.0)) / 2.0, dv(e, "crossDamage", 15.0), "elite_standard_cross")
+				st.ev("boss_sweep")
+				to_recover(st, e, dv(e, "rushRecover", 1.2))
+		# ---- §11-B ② 양면 협공: 부하와 본체가 **다른 방향에서 시간차** ----
+		## 부하는 새로 부르지 않는다 — 이미 싸우고 있는 적 하나의 **이동만** 반대편으로 돌린다(경험치·금화 예산 불변).
+		## 부하가 없으면 본체 혼자 각을 바꿔 두 번 베는 **대체 연계**로 간다(_pincer_pick가 그때 solo_aim1로 보낸다).
+		## 두 방향이 동시에 닫히지 않도록 본체 쪽은 0.5초 늦게 들어오고, 각 베기에는 따로 예고가 있다
+		"pincer_aim":
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "pincerAim", 0.6):
+				if bool(e.get("pincer_solo", true)): # 부하가 없으면 **본체 대체 연계**
+					e.state = "solo_aim1"
+					e.state_t = 0.0
+				else:
+					e.state = "pincer_move"
+					e.state_t = 0.0
+					st.text(e.x, e.y - float(e.r) - 26.0, "반대편으로", "#e0c060")
+		"pincer_move": # 부하의 반대쪽으로 돌아 들어간다(이 구간에는 공격 판정이 없다)
+			e.state_t += adv
+			var pang: float = float(e.get("pincer_ang", atan2(e.y - p.y, e.x - p.x)))
+			st.approach(e, p.x + cos(pang) * (dv(e, "thrustRange", 84.0) * 0.7), p.y + sin(pang) * (dv(e, "thrustRange", 84.0) * 0.7), dv(e, "pincerMoveSpeed", 200.0) * sm, dt)
+			if float(e.state_t) >= dv(e, "pincerMove", 0.5):
+				elite_begin(st, e, "pincer_slash_aim", "협공 베기", "#e0c060")
+		"pincer_slash_aim":
+			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "pincerSlashAim", 0.32):
+				e.dir = e.aim_angle
+				arc_strike(st, e, float(e.dir), float(d.slashRange) + float(e.r), PGeom.deg(float(d.slashDeg)) / 2.0, dv(e, "pincerDamage", 16.0), "elite_standard_pincer")
+				to_recover(st, e, dv(e, "pincerRecover", 1.2))
+		"solo_aim1": # 부하가 없을 때의 **본체 대체 연계** 1/2
+			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "soloAim1", 0.35):
+				e.dir = e.aim_angle
+				arc_strike(st, e, float(e.dir), float(d.slashRange) + float(e.r), PGeom.deg(float(d.slashDeg)) / 2.0, dv(e, "pincerDamage", 16.0), "elite_standard_solo")
+				e.state = "solo_gap"
+				e.state_t = 0.0
+				st.text(e.x, e.y - float(e.r) - 30.0, "각을 바꾼다", "#e0c060")
+		"solo_gap": # 옆으로 돌아 **다른 각**을 만든다(판정 없음 — 되받아칠 틈)
+			e.state_t += adv
+			strafe(st, e, dv(e, "soloGapSpeed", 190.0) * sm, dt)
+			if float(e.state_t) >= dv(e, "soloGap", 0.45):
+				elite_begin(st, e, "solo_aim2", "반대쪽에서 2/2", "#e0c060")
+		"solo_aim2":
+			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "soloAim2", 0.3):
+				e.dir = e.aim_angle
+				arc_strike(st, e, float(e.dir), float(d.slashRange) + float(e.r), PGeom.deg(float(d.slashDeg)) / 2.0, dv(e, "pincerDamage", 16.0), "elite_standard_solo")
+				to_recover(st, e, dv(e, "pincerRecover", 1.2))
 		"recover":
 			_recover_tick(e, adv)
+
+## 양면 협공의 부하 고르기. **적을 새로 부르지 않는다** — 이미 싸우고 있는 적 하나의 이동만 반대편으로 돌린다.
+## 쓸 만한 부하가 없으면 본체 혼자 각을 바꿔 두 번 베는 **대체 연계**(solo_aim1)로 보낸다.
+static func _pincer_pick(st: CombatState, e: Dictionary) -> void:
+	var p := st.target_of(e)
+	var best: Dictionary = {}
+	var best_d := 1e9
+	for o in st.enemies:
+		if o == e or bool(o.dead) or bool(o.get("boss", false)) or bool(o.get("structure", false)) or bool(o.get("hidden", false)):
+			continue
+		var dd := PGeom.dist(o.x, o.y, p.x, p.y)
+		if dd > dv(e, "pincerRadius", 260.0) or dd >= best_d:
+			continue
+		best_d = dd
+		best = o
+	if best.is_empty():
+		e.pincer_solo = true # 부하 없음 — 예고가 끝나면 본체 대체 연계로 간다(예고 상태는 같다)
+		e.erase("pincer_ally")
+		st.text(e.x, e.y - float(e.r) - 30.0, "혼자서 두 번", "#e0c060")
+		return
+	e.pincer_solo = false
+	var ally: Dictionary = best
+	ally.rally_t = dv(e, "pincerOrderDur", 2.4) # 이동만 바꾼다(공격 시작은 그 적의 규칙과 동시 위험 상한이 그대로 정한다)
+	ally.leash_boost = dv(e, "pincerOrderSpeed", 1.5)
+	st.text(ally.x, ally.y - float(ally.r) - 26.0, "협공", "#e0c060")
+	e.pincer_ang = atan2(p.y - float(ally.y), p.x - float(ally.x)) # 부하의 **반대편**이 본체 자리다
+	e.pincer_ally = ally
+	st.ev("group")
 
 ## 주기적 호위 돌격 명령(유한 예산). **적을 새로 소환하지 않는다** — 이미 싸우고 있는 적의 이동만 바꾼다.
 ## 명령받은 적도 위험 공격 동시 제한(may_attack)을 그대로 따른다
@@ -2275,6 +3106,9 @@ static func update_elite_miner(st: CombatState, e: Dictionary, dt: float) -> voi
 	match String(e.state):
 		"approach":
 			st.approach(e, p.x, p.y, float(d.speed) * sm, dt)
+			# §11-B ① 지상 추격 강타(**몸을 드러낸 채** 달려온다 — 잠복·출현과 구분된다) ② 쐐기 균열(앞쪽 두 갈래)
+			if try_new_pattern(st, e, dt, { "surface": dist > float(d.biteRange) + float(e.r) and dist <= dv(e, "surfaceRange", 400.0), "rift": dist <= dv(e, "riftRange", 340.0) }):
+				return
 			if dist <= float(d.engageDist) and float(e.burrow_cd) <= 0.0 and elite_may_start(st, e, dt):
 				elite_begin(st, e, "dive", "잠행", "#c8a06a")
 			elif dist <= float(d.biteRange) + e.r and elite_may_start(st, e, dt):
@@ -2335,6 +3169,47 @@ static func update_elite_miner(st: CombatState, e: Dictionary, dt: float) -> voi
 				e.bite_t = 0.0
 				st.note_attack(e, "execute")
 				to_recover(st, e, float(d.biteRecover))
+		# ---- §11-B ① 지상 추격 강타: **몸을 드러내고** 달려와 곡괭이 ----
+		## 기존 잠복·출현과 구분된다: hidden이 되지 않으므로 달리는 내내 때릴 수 있고(지하 면역이 없다),
+		## 원거리에서 걷기만 하는 놀이에 대해 **거리를 스스로 좁힌다**. 곡괭이는 예고 0.40이 따로 있고 끝나면 1.2초 빈틈
+		"surface_run":
+			e.state_t += adv
+			e.hidden = false
+			st.approach(e, p.x, p.y, dv(e, "surfaceSpeed", 215.0) * sm, dt)
+			if dist <= dv(e, "pickRange", 66.0) + float(e.r) or float(e.state_t) >= dv(e, "surfaceRun", 1.4):
+				elite_begin(st, e, "pick_aim", "곡괭이", "#ffb0b0")
+		"pick_aim": # 예고 동안에도 다가선다(멈추면 걷기만으로 벗어난다). 각은 예고 내내 따라오고 실행 순간 굳는다
+			st.approach(e, p.x, p.y, dv(e, "surfaceSpeed", 330.0) * dv(e, "pickLungeMult", 0.5) * sm, dt)
+			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "pickAim", 0.4):
+				e.dir = e.aim_angle
+				arc_strike(st, e, float(e.dir), dv(e, "pickRange", 66.0) + float(e.r), PGeom.deg(dv(e, "pickDeg", 90.0)) / 2.0, dv(e, "pickDamage", 18.0), "elite_pick_run")
+				to_recover(st, e, dv(e, "surfaceRecover", 1.2))
+		# ---- §11-B ② 쐐기 균열: 앞쪽에서 **두 갈래** 균열 ----
+		## 두 갈래 **사이**가 비어 있고(각 갈래 ±26°) 바깥으로 꺾어도 벗어난다 — 두 가지 답이 있다.
+		## 예고(0.65) 동안에는 갈래가 따라오지만 실행 순간 각이 굳고 그 뒤로는 움직이지 않는다
+		"rift_aim":
+			e.aim_angle = atan2(p.y - e.y, p.x - e.x)
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "riftAim", 0.65):
+				e.dir = e.aim_angle
+				e.state = "rift"
+				e.state_t = 0.0
+				st.note_attack(e, "execute")
+				st.ev("boss_land")
+				var rl: float = dv(e, "riftLen", 260.0)
+				var rw: float = dv(e, "riftW", 46.0)
+				for s in [1.0, -1.0]:
+					var ra: float = float(e.dir) + PGeom.deg(dv(e, "riftDeg", 26.0)) * float(s)
+					var seg: float = st.beam_length(e.x, e.y, ra, rl)
+					st.fx({ "kind": "burst", "x": e.x + cos(ra) * seg * 0.5, "y": e.y + sin(ra) * seg * 0.5, "r": rw * 0.5, "ttl": 0.3, "color": "#c8a06a" })
+					if PGeom.in_beam(e.x, e.y, ra, seg, rw, p.x, p.y, float(p.r)):
+						st.damage_player(dv(e, "riftDamage", 17.0), "elite_rift", e)
+		"rift": # 균열이 벌어진 채 잠깐 남는다(표시). 판정은 이미 끝났다
+			e.state_t += adv
+			if float(e.state_t) >= dv(e, "riftHold", 0.25):
+				to_recover(st, e, dv(e, "riftRecover", 1.3))
 		"recover":
 			_recover_tick(e, adv)
 
@@ -2725,6 +3600,15 @@ static func elite_threats(st: CombatState, e: Dictionary, out: Array) -> void:
 				var ang: float = float(e.aim_angle) if state == "fan_aim" else float(e.dir)
 				var half: float = PGeom.deg(float(d.fanDeg)) * (float(int(d.fanCount) - 1) / 2.0) + 0.12
 				out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": ang, "r": 900.0, "half": half, "prog": (float(e.state_t) / float(d.fanAim)) if state == "fan_aim" else 1.0, "locked": state == "fan_lock" })
+			elif state == "chase_aim" or state == "chase_lock":
+				out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": float(e.dir) if state == "chase_lock" else float(e.aim_angle), "len": 2000.0, "w": 40.0,
+					"prog": _prog(e, "chaseAim") if state == "chase_aim" else 1.0, "locked": state == "chase_lock" })
+			elif state == "snipe1_aim" or state == "snipe1_lock":
+				out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": float(e.dir) if state == "snipe1_lock" else float(e.aim_angle), "len": 2000.0, "w": 40.0,
+					"prog": _prog(e, "snipe1Aim") if state == "snipe1_aim" else 1.0, "locked": state == "snipe1_lock" })
+			elif state == "snipe2_aim" or state == "snipe2_lock":
+				out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": float(e.dir) if state == "snipe2_lock" else float(e.aim_angle), "len": 2000.0, "w": 56.0,
+					"prog": _prog(e, "snipe2Aim") if state == "snipe2_aim" else 1.0, "locked": state == "snipe2_lock" })
 		"elite_blademaster":
 			if state == "dash1_aim" or state == "dash2_aim":
 				var pv: Dictionary = e.get("preview", {})
@@ -2735,12 +3619,27 @@ static func elite_threats(st: CombatState, e: Dictionary, out: Array) -> void:
 				out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": e.dir, "len": maxf(0.0, float(e.get("charge_len", 0.0)) - float(e.get("charge_dist", 0.0))) + 30.0, "w": w, "prog": 1.0, "locked": true })
 			elif state == "slam_aim":
 				out.append({ "kind": "circle", "e": e, "x": e.x + cos(float(e.get("face", 0.0))) * float(d.slamOffset), "y": e.y + sin(float(e.get("face", 0.0))) * float(d.slamOffset), "r": float(d.slamR), "prog": float(e.state_t) / float(d.slamAim), "locked": true })
+			elif state == "step1_aim" or state == "step2_aim" or state == "step3_aim":
+				var sk: String = "stepAim" + state.substr(4, 1)
+				out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": float(e.aim_angle), "len": dv(e, "stepDist", 78.0) + float(p.r) + 20.0, "w": w, "prog": _prog(e, sk), "locked": false })
+			elif state == "step1" or state == "step2" or state == "step3":
+				out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": float(e.dir), "len": maxf(0.0, float(e.get("charge_len", 0.0)) - float(e.get("charge_dist", 0.0))) + 20.0, "w": w, "prog": 1.0, "locked": true })
+			elif state == "wave_aim" or state == "wave_lock":
+				out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": float(e.dir) if state == "wave_lock" else float(e.aim_angle),
+					"len": 900.0, "w": dv(e, "waveR", 22.0) * 2.0, "prog": _prog(e, "waveAim") if state == "wave_aim" else 1.0, "locked": state == "wave_lock" })
 		"elite_fang":
 			if state == "bite_aim":
 				out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "r": float(d.biteRange) + e.r + 10.0, "half": PGeom.deg(float(d.biteDeg)) / 2.0 + 0.2, "prog": float(e.state_t) / float(d.biteAim), "locked": float(e.state_t) / float(d.biteAim) > 0.6 })
 			elif (state == "leap_aim" or state == "leap_lock" or state == "leap") and e.has("leap_at"):
 				var at: Array = e.leap_at
 				out.append({ "kind": "circle", "e": e, "x": float(at[0]), "y": float(at[1]), "r": float(d.leapR), "prog": (float(e.state_t) / float(d.leapAim)) if state == "leap_aim" else 1.0, "locked": state != "leap_aim" })
+			elif state == "runbite_aim":
+				out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "r": dv(e, "runbiteRange", float(d.biteRange)) + e.r + 10.0, "half": PGeom.deg(dv(e, "runbiteDeg", 60.0)) / 2.0 + 0.2, "prog": _prog(e, "runbiteAim"), "locked": _prog(e, "runbiteAim") > 0.6 })
+			elif (state == "cut_aim" or state == "cut_lock" or state == "cut_leap") and e.has("leap_at"):
+				var cat: Array = e.leap_at
+				out.append({ "kind": "circle", "e": e, "x": float(cat[0]), "y": float(cat[1]), "r": dv(e, "cutLandR", 62.0), "prog": _prog(e, "cutAim") if state == "cut_aim" else 1.0, "locked": state != "cut_aim" })
+			elif state == "cut_claw_aim":
+				out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "r": dv(e, "cutClawRange", 62.0) + e.r + 10.0, "half": PGeom.deg(dv(e, "cutClawDeg", 100.0)) / 2.0 + 0.2, "prog": _prog(e, "cutClawAim"), "locked": _prog(e, "cutClawAim") > 0.6 })
 		"elite_plaguecaller":
 			if state == "burst_aim":
 				out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "r": float(d.burstRange) + e.r + 10.0, "half": PGeom.deg(float(d.burstDeg)) / 2.0 + 0.2, "prog": float(e.state_t) / float(d.burstAim), "locked": float(e.state_t) / float(d.burstAim) > 0.6 })
@@ -2749,7 +3648,19 @@ static func elite_threats(st: CombatState, e: Dictionary, out: Array) -> void:
 					if bool(pod.done):
 						continue
 					var left: float = maxf(0.0, float(pod.land_at) - st.t)
-					out.append({ "kind": "circle", "e": e, "x": float(pod.x), "y": float(pod.y), "r": float(pod.r), "prog": 1.0 - left / maxf(0.001, float(d.swell)), "locked": true, "order": int(pod.order) })
+					out.append({ "kind": "circle", "e": e, "x": float(pod.x), "y": float(pod.y), "r": float(pod.r), "prog": 1.0 - left / maxf(0.001, float(pod.get("warn", d.swell))), "locked": true, "order": int(pod.order) })
+			elif (state == "seek_fly" or state == "seek_swell") and e.has("seek"):
+				var sk: Dictionary = e.seek
+				out.append({ "kind": "circle", "e": e, "x": float(sk.x), "y": float(sk.y), "r": dv(e, "seekR", 80.0),
+					"prog": _prog(e, "seekSwell") if state == "seek_swell" else 0.3, "locked": state == "seek_swell" })
+			elif state == "wall_aim" or state == "wall_burst":
+				for wp in e.get("wall", []):
+					var wpd: Dictionary = wp
+					if bool(wpd.done):
+						continue
+					var wleft: float = maxf(0.0, float(wpd.land_at) - st.t)
+					out.append({ "kind": "circle", "e": e, "x": float(wpd.x), "y": float(wpd.y), "r": float(wpd.r),
+						"prog": clampf(1.0 - wleft / maxf(0.001, float(wpd.warn)), 0.0, 1.0), "locked": true, "order": int(wpd.order) })
 		"elite_chainbreaker":
 			if state == "chain_aim" or state == "chain_lock":
 				var cl: float = float(e.get("chain_len", float(d.chainLen)))
@@ -2761,15 +3672,40 @@ static func elite_threats(st: CombatState, e: Dictionary, out: Array) -> void:
 				out.append({ "kind": "circle", "e": e, "x": float(sat[0]), "y": float(sat[1]), "r": float(d.slamR), "prog": (float(e.state_t) / float(d.slamAim)) if state == "slam_aim" else 1.0, "locked": true })
 			elif state == "sweep_aim":
 				out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "r": float(d.sweepRange) + e.r + 10.0, "half": PGeom.deg(float(d.sweepDeg)) / 2.0 + 0.2, "prog": float(e.state_t) / float(d.sweepAim), "locked": float(e.state_t) / float(d.sweepAim) > 0.6 })
+			elif (state == "anchor_aim" or state == "anchor_lock" or state == "anchor_fly") and e.has("slam_at"):
+				var aat: Array = e.slam_at
+				out.append({ "kind": "circle", "e": e, "x": float(aat[0]), "y": float(aat[1]), "r": dv(e, "anchorR", 88.0), "prog": _prog(e, "anchorAim") if state == "anchor_aim" else 1.0, "locked": state != "anchor_aim" })
+			elif (state == "drag_aim" or state == "drag_lock" or state == "drag_toss") and e.has("drag_at"):
+				var dat: Array = e.drag_at
+				out.append({ "kind": "circle", "e": e, "x": float(dat[0]), "y": float(dat[1]), "r": dv(e, "dragR", 34.0), "prog": _prog(e, "dragAim") if state == "drag_aim" else 1.0, "locked": state != "drag_aim" })
+			elif state == "drag_sweep" and e.has("drag_now"):
+				var dnw: Array = e.drag_now
+				out.append({ "kind": "circle", "e": e, "x": float(dnw[0]), "y": float(dnw[1]), "r": dv(e, "dragR", 34.0), "prog": 1.0, "locked": true })
 		"elite_standard":
 			if state == "slash_aim":
 				out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "r": float(d.slashRange) + e.r + 10.0, "half": PGeom.deg(float(d.slashDeg)) / 2.0 + 0.2, "prog": float(e.state_t) / float(d.slashAim), "locked": float(e.state_t) / float(d.slashAim) > 0.6 })
+			elif state == "rush_aim" or state == "rush_lock" or state == "rush":
+				out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": float(e.aim_angle) if state == "rush_aim" else float(e.dir),
+					"len": maxf(60.0, dv(e, "rushDist", 220.0) - float(e.get("charge_dist", 0.0))) + 20.0, "w": w, "prog": _prog(e, "rushAim") if state == "rush_aim" else 1.0, "locked": state != "rush_aim" })
+			elif state == "thrust_aim":
+				out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "r": dv(e, "thrustRange", 84.0) + e.r + 10.0, "half": PGeom.deg(dv(e, "thrustDeg", 46.0)) / 2.0 + 0.2, "prog": _prog(e, "thrustAim"), "locked": _prog(e, "thrustAim") > 0.6 })
+			elif state == "cross_aim":
+				out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "r": dv(e, "crossRange", 78.0) + e.r + 10.0, "half": PGeom.deg(dv(e, "crossDeg", 170.0)) / 2.0 + 0.2, "prog": _prog(e, "crossAim"), "locked": _prog(e, "crossAim") > 0.6 })
+			elif state == "pincer_slash_aim" or state == "solo_aim1" or state == "solo_aim2":
+				var pkey: String = "pincerSlashAim" if state == "pincer_slash_aim" else ("soloAim1" if state == "solo_aim1" else "soloAim2")
+				out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "r": float(d.slashRange) + e.r + 10.0, "half": PGeom.deg(float(d.slashDeg)) / 2.0 + 0.2, "prog": _prog(e, pkey), "locked": _prog(e, pkey) > 0.6 })
 		"elite_miner":
 			if state == "warn" and e.has("emerge_at"):
 				var mat: Array = e.emerge_at
 				out.append({ "kind": "circle", "e": e, "x": float(mat[0]), "y": float(mat[1]), "r": float(d.eruptR), "prog": float(e.state_t) / float(d.warn), "locked": true })
 			elif state == "bite_aim":
 				out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "r": float(d.biteRange) + e.r + 10.0, "half": PGeom.deg(float(d.biteDeg)) / 2.0 + 0.2, "prog": float(e.state_t) / float(d.biteAim), "locked": float(e.state_t) / float(d.biteAim) > 0.6 })
+			elif state == "pick_aim":
+				out.append({ "kind": "arc", "e": e, "x": e.x, "y": e.y, "ang": e.aim_angle, "r": dv(e, "pickRange", 66.0) + e.r + 10.0, "half": PGeom.deg(dv(e, "pickDeg", 90.0)) / 2.0 + 0.2, "prog": _prog(e, "pickAim"), "locked": _prog(e, "pickAim") > 0.6 })
+			elif state == "rift_aim":
+				for rs in [1.0, -1.0]:
+					var ra2: float = float(e.aim_angle) + PGeom.deg(dv(e, "riftDeg", 26.0)) * float(rs)
+					out.append({ "kind": "beam", "e": e, "x": e.x, "y": e.y, "ang": ra2, "len": st.beam_length(e.x, e.y, ra2, dv(e, "riftLen", 260.0)), "w": dv(e, "riftW", 46.0), "prog": _prog(e, "riftAim"), "locked": false })
 
 static func zone_threats(st: CombatState, out: Array) -> void:
 	for z in st.zones:

@@ -522,6 +522,26 @@
       "script": "tools/formation_probe.gd",
       "timeout_sec": 1800,
       "desc": "편성 계측(테마별 협공 3종·분대 투입 순서·한 전투의 등장 종류 수·총 등장 수와 경험치 예산·특수 정예 결투). 합격 판정이 아니라 수치를 남기는 도구다. 부분 실행: PROPHECY_SUBSET=\"act=1;seed=1\" → docs/sim/FORMATION_PROBE_PARTIAL.md"
+    },
+    "probe_patterns": {
+      "env": {},
+      "script": "tools/probe_patterns.gd",
+      "timeout_sec": 1800,
+      "desc": "§11-B 특수 정예 신규 공격 패턴 14개가 **실제 전투에서 쓰이는가** 계측(주무기별 발동 횟수 · 시작 조건이 서 있던 시간 · 거리 분포). 통과 판정이 아니라 기록.",
+      "verdict": {
+        "success_pattern": "[§11-B 신규 패턴 계측]",
+        "note": "계측 도구다. 표가 실제로 찍혔는지와 종료 코드 0만 본다(발동 횟수 자체는 판정하지 않는다)."
+      }
+    },
+    "probe_lizard_tail": {
+      "env": {},
+      "script": "tools/probe_lizard_tail.gd",
+      "timeout_sec": 3600,
+      "desc": "§12 '2막에서 도마뱀만 한두 마리씩 늦게 나온다'를 같은 시드로 전후 비교하는 계측(도마뱀 상한 · 1~2마리만 남은 시간 · 도마뱀만 남은 시간 · 동시 위험 수). 통과 판정이 아니라 기록.",
+      "verdict": {
+        "success_pattern": "[§12 도마뱀 말미 등장]",
+        "note": "계측 도구다. 표가 실제로 찍혔는지와 종료 코드 0만 본다(총 등장 수가 전후 같은지는 표에서 읽는다)."
+      }
     }
   },
   "groups": {
