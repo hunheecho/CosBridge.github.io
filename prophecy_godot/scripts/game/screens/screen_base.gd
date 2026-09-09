@@ -186,6 +186,54 @@ func on_escape() -> bool:
 var _keep_scroll := 0        # 다시 그리기 전에 보고 있던 세로 자리
 var _restore_queued := false
 
+# ---------- 손가락 끌기로 스크롤(버튼 위에서 시작해도 된다) ----------
+## 카드 판·글상자는 mouse_filter=PASS 로 내려 끌기가 스크롤까지 올라가지만,
+## **버튼 위에서 시작한 끌기**는 버튼이 먹어서 스크롤이 되지 않았다(KD-8 잔여분).
+## 상점처럼 버튼이 빽빽한 화면에서는 그게 곧 "스크롤이 안 된다"였다.
+##
+## 그래서 화면 계층에서 끌기를 직접 받는다:
+##  · 12px 넘게 움직이면 그때부터 **끌기**로 보고 스크롤한다.
+##  · 끌기로 판정한 순간, 눌려 있던 버튼에 **취소**를 보낸다(손을 떼도 눌리지 않는다).
+##    그래서 "넘기려다 실수로 팔았다"가 생기지 않는다.
+##  · 12px 안이면 아무것도 안 한다 — 평범한 탭은 예전 그대로다.
+## 터치 기기에서만 돈다. PC는 휠을 그대로 쓴다.
+const DRAG_START_PX := 12.0
+var _drag_id := -1
+var _drag_from := Vector2.ZERO
+var _dragging := false
+
+func _input(event: InputEvent) -> void:
+	if scroll == null or not visible or not PLayout.is_touch():
+		return
+	if event is InputEventScreenTouch:
+		var t := event as InputEventScreenTouch
+		if t.pressed:
+			_drag_id = t.index
+			_drag_from = t.position
+			_dragging = false
+		elif t.index == _drag_id:
+			_drag_id = -1
+			_dragging = false
+		return
+	if not (event is InputEventScreenDrag):
+		return
+	var d := event as InputEventScreenDrag
+	if d.index != _drag_id:
+		return
+	if not _dragging:
+		if d.position.distance_to(_drag_from) < DRAG_START_PX:
+			return
+		_dragging = true
+		# 탭이 아니라 끌기였다 — 눌려 있던 버튼의 누름을 취소한다
+		var c := InputEventScreenTouch.new()
+		c.index = d.index
+		c.position = d.position
+		c.pressed = false
+		c.canceled = true
+		get_viewport().push_input(c)
+	scroll.scroll_vertical = int(scroll.scroll_vertical) - int(d.relative.y)
+	get_viewport().set_input_as_handled()
+
 ## 화면을 다시 그린다. **보고 있던 자리를 잃지 않는다.**
 ##
 ## 사람 플레이 보고(2026-09-09, 친구): 상점에서 아래로 내려가 '팔기 x1'을 누르면 창이 맨 위로

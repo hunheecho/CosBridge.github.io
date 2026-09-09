@@ -175,6 +175,37 @@ def main():
         if stamp_path.exists():
             stamp_path.unlink()
 
+    # **옛 판에 갇히지 않게 한다.**
+    # 뿌리(index.html)는 로더라 언제나 현재 판으로 보내지만, 누가 b/<커밋>/ 주소를 그대로
+    # 저장해 두면(북마크·대화방에 붙인 링크·새로고침) 로더를 거치지 않아 **영원히 그 판**이다.
+    # 실제로 그렇게 됐다(2026-09-09: 친구가 고친 판을 올린 뒤에도 옛 판의 검은 화면을 계속 봤다).
+    # 그래서 각 판의 index.html에 "내가 최신인가"를 묻는 짧은 검사를 심는다.
+    # 게임이 시작되기 전에 한 번만 묻고, 다르면 뿌리로 보낸다. 진행 중인 회차를 끊지 않는다.
+    idx = bdir / "index.html"
+    if idx.exists():
+        html = idx.read_text(encoding="utf-8")
+        guard = """
+<script>
+// 이 판이 최신인지 한 번만 확인한다. 다르면 뿌리 로더로 보낸다(뿌리가 현재 판으로 옮긴다).
+// 캐시를 쓰지 않고 묻는다. 실패하면 아무 일도 하지 않는다 — 게임을 막지 않는다.
+(function () {
+  try {
+    var here = %s;
+    fetch('../../version.json?ts=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (v) {
+        if (v && v.build && v.build !== here) { location.replace('../../'); }
+      })
+      .catch(function () {});
+  } catch (e) {}
+})();
+</script>
+""" % json.dumps(short)
+        if "version.json?ts=" not in html:
+            html = html.replace("</body>", guard + "</body>") if "</body>" in html else html + guard
+            idx.write_text(html, encoding="utf-8")
+            print("판 확인 스크립트 삽입: b/%s/index.html" % short)
+
     files = {}
     for p in sorted(bdir.iterdir()):
         if p.is_file():
