@@ -15,6 +15,11 @@ var _margin: MarginContainer          # 여백 = 기본(14·10) + 안전 영역 
 var _bucket := ""                      # 마지막 refresh 때의 화면 비율 묶음(wide/standard/narrow)
 var _modal: Control                    # 확인 창 층(휴식·판매·구매 뒤 선택 — 모든 화면 공용)
 var _modal_box: VBoxContainer
+var _modal_panel: PanelContainer       # 확인 창의 판(글자 배율에 맞춰 폭을 다시 준다)
+## 확인 창 판의 기본 폭(canvas px). 글자가 배율만큼 커지면 폭도 같이 커져야 줄 수가 늘지 않는다 —
+## 폭을 그대로 두면 같은 글이 훨씬 여러 줄로 접혀 창이 세로로 길어지고, 낮은 폰 화면에서는
+## **아래쪽 '취소'·'확정' 버튼이 화면 밖으로 밀린다**(2026-09-09 실제 브라우저에서 본 위험).
+const MODAL_W := 560.0
 var _modal_token := 0                  # 확인 창마다 새 번호. 확정하면 번호가 올라 그 창의 버튼은 모두 무효가 된다(중복 클릭 방지)
 var _modal_prev_default: Button = null # 확인 창을 열기 전의 기본 버튼(취소하면 Enter가 원래 행동으로 돌아간다)
 
@@ -66,7 +71,8 @@ func _make_modal() -> void:
 	_modal.add_child(center)
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", PUi.stylebox(Color(0.1, 0.12, 0.15, 0.98), 8, 16, Color(0.5, 0.6, 0.75, 0.9)))
-	panel.custom_minimum_size = Vector2(560, 0)
+	panel.custom_minimum_size = Vector2(MODAL_W, 0)
+	_modal_panel = panel
 	center.add_child(panel)
 	_modal_box = PUi.vbox(8)
 	panel.add_child(_modal_box)
@@ -88,6 +94,10 @@ func close_confirm() -> void:
 ## 취소 버튼은 항상 마지막에 붙는다.
 func open_confirm(title: String, fill: Callable, actions: Array, cancel_text: String = "취소 (Esc)") -> void:
 	PUi.clear(_modal_box)
+	if _modal_panel != null:
+		# 글자 배율만큼 판도 넓힌다. 화면(안전 영역)보다 넓어지지는 않는다
+		var lim: float = PLayout.screen_size(get_viewport()).x - 32.0 if is_inside_tree() else MODAL_W
+		_modal_panel.custom_minimum_size = Vector2(minf(MODAL_W * PLayout.cur_ui_scale(), maxf(MODAL_W, lim)), 0.0)
 	if not _modal.visible: # 창 안에서 다른 창으로 넘어갈 때는 처음의 기본 버튼을 그대로 들고 간다
 		_modal_prev_default = default_button
 	_modal_token += 1
@@ -248,14 +258,21 @@ func _restore_scroll() -> void:
 func heading(text: String, sub: String = "") -> void:
 	top.add_child(PUi.rich("[b]%s[/b]%s" % [text, ("  [color=#9ea8b8]%s[/color]" % sub) if sub != "" else ""], 22))
 
-## 두 칸 가로 배치(왼쪽 넓게)
+## 두 칸 가로 배치(왼쪽 넓게).
+##
+## 좁은 화면에서는 **한 열로 쌓는다**(2026-09-09 실제 브라우저, 폰 가로 640×360 · 글자 배율 1.6배).
+## 두 열로 두면 오른쪽 열의 내용이 화면 오른쪽 밖으로 잘려 나갔고, 가로 스크롤이 꺼져 있어 볼 방법이 없었다.
+## 넓이는 캔버스 px이 아니라 **배율을 뺀 설계 단위**로 잰다(PLayout.two_columns_fit).
+## 부르는 쪽은 달라질 것이 없다 — 여전히 {left, right} 두 상자를 받는다.
 func two_cols(left_ratio: float = 0.55) -> Dictionary:
-	var h := PUi.hbox(12)
+	var stacked: bool = is_inside_tree() and not PLayout.two_columns_fit(get_viewport())
+	var box: BoxContainer = PUi.vbox(12) if stacked else PUi.hbox(12)
 	var l := PUi.vbox(8)
-	l.size_flags_stretch_ratio = left_ratio
 	var r := PUi.vbox(8)
-	r.size_flags_stretch_ratio = 1.0 - left_ratio
-	h.add_child(l)
-	h.add_child(r)
-	body.add_child(h)
-	return { "left": l, "right": r }
+	if not stacked:
+		l.size_flags_stretch_ratio = left_ratio
+		r.size_flags_stretch_ratio = 1.0 - left_ratio
+	box.add_child(l)
+	box.add_child(r)
+	body.add_child(box)
+	return { "left": l, "right": r, "stacked": stacked }

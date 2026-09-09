@@ -121,18 +121,21 @@ static func css_per_canvas(win_px: float, canvas_px: float, dpr: float) -> float
 		return 1.0
 	return (win_px / dpr) / canvas_px
 
+## 지금 기기의 화면 배율(devicePixelRatio). 웹이 아니면 1.0.
+## 창 크기는 **물리 px**이라 이 값으로 나눠야 눈에 보이는 CSS px이 된다.
+static func device_pixel_ratio() -> float:
+	if not OS.has_feature("web"):
+		return 1.0
+	var s: float = DisplayServer.screen_get_scale()
+	return s if s > 0.0 else 1.0
+
 ## 캔버스 px → 실제 브라우저 CSS px(보고·확인용). 지금 창에서 잰다
 static func css_size(vp: Viewport, canvas_len: float) -> float:
 	if vp == null:
 		return canvas_len
 	var cv: Vector2 = vp.get_visible_rect().size
 	var win: Vector2i = DisplayServer.window_get_size()
-	var dpr: float = 1.0
-	if OS.has_feature("web"):
-		var s: float = DisplayServer.screen_get_scale()
-		if s > 0.0:
-			dpr = s
-	return canvas_len * css_per_canvas(float(win.y), cv.y, dpr)
+	return canvas_len * css_per_canvas(float(win.y), cv.y, device_pixel_ratio())
 
 ## 화면 방향("landscape" | "portrait"). 세로 안내를 띄울지 판단하는 쪽이 쓴다
 static func orientation(vp: Viewport) -> String:
@@ -170,6 +173,19 @@ static func apply_margins(mc: MarginContainer, vp: Viewport, base_side: int = 14
 	mc.add_theme_constant_override("margin_right", int(m.right))
 	mc.add_theme_constant_override("margin_top", int(m.top))
 	mc.add_theme_constant_override("margin_bottom", int(m.bottom))
+
+## 배율을 뺀 '설계 단위 너비'. 글자가 1.6배면 캔버스 1137px은 설계 711px짜리 화면과 같다.
+## 두 열로 나눌지 한 열로 쌓을지는 **이 값**으로 판단한다(캔버스 px으로 보면 늘 넓어 보인다).
+static func design_width(vp: Viewport) -> float:
+	return screen_size(vp).x / maxf(1.0, cur_ui_scale())
+
+## 두 열로 나눠도 되는 최소 설계 너비. 이보다 좁으면 한 열로 쌓는다(폰).
+## 왜(2026-09-09 실제 브라우저): 글자 배율을 제대로 올리자 폰 가로에서 오른쪽 열의 내용이
+## 화면 오른쪽 밖으로 잘려 나갔다(가로 스크롤은 꺼져 있어 볼 방법이 없다).
+## 글자를 도로 줄이지 않고 **열을 하나로 합쳐** 세로로 흐르게 한다 — 세로 스크롤은 손가락으로 잘 된다.
+const TWO_COL_MIN_W := 900.0
+static func two_columns_fit(vp: Viewport) -> bool:
+	return design_width(vp) >= TWO_COL_MIN_W
 
 ## 두 열 배치의 왼쪽 비율(넓을수록 왼쪽(마을·카드)을 넓게)
 static func left_ratio(bucket: String) -> float:
@@ -234,7 +250,23 @@ static func is_dpad() -> bool:
 ##
 ## 터치가 아니면 1.0이다 — **PC 화면은 하나도 바뀌지 않는다.**
 ## 상한 1.6배: 그 이상 키우면 한 줄에 들어가던 글이 넘쳐 배치가 깨진다(직접 확인한 값).
+##
+## **재는 자는 CSS px이지 물리 px이 아니다**(2026-09-09 실제 브라우저 계측).
+## 예전 식은 `창 높이(물리 px) / 캔버스 높이`였다. 폰은 화면 배율(devicePixelRatio)이 2~3이라
+## 그 값이 1을 넘어 **폰에서 늘 1.0이 나왔다** — 키우라고 만든 장치가 정작 폰에서 꺼져 있었다.
+##   Pixel 8 가로(CSS 640×360 · 배율 2 → 물리 1280×720, 캔버스 1137×640)
+##     옛 식: 720/640 = 1.125 ≥ 1 → 배율 1.0 → 12px 글자가 화면에서 **6.75 CSS px**
+##     새 식: (720/2)/640 = 0.5625 → 배율 1.6(상한) → 12px 글자가 **10.8 CSS px**
+## css_per_canvas가 이미 그 계산의 정본이라 그대로 쓴다.
 const UI_SCALE_MAX := 1.6
+
+## 순수 계산(헤드리스 시험용): 캔버스 1px이 몇 CSS px로 보이는가 → 글자·버튼 배율.
+## 1 이상이면(=이미 실제 크기보다 크게 그려진다) 키우지 않는다.
+static func scale_for_css(css_per_px: float) -> float:
+	if css_per_px <= 0.0 or css_per_px >= 1.0:
+		return 1.0
+	return clampf(1.0 / css_per_px, 1.0, UI_SCALE_MAX)
+
 static func ui_scale(vp: Viewport) -> float:
 	if not is_touch() or vp == null:
 		return 1.0
@@ -244,10 +276,7 @@ static func ui_scale(vp: Viewport) -> float:
 	var win := DisplayServer.window_get_size()
 	if win.y <= 0:
 		return 1.0
-	var eff := float(win.y) / cv.y      # 캔버스 1단위가 실제 몇 px로 그려지는가
-	if eff >= 1.0:
-		return 1.0
-	return clampf(1.0 / eff, 1.0, UI_SCALE_MAX)
+	return scale_for_css(css_per_canvas(float(win.y), cv.y, device_pixel_ratio()))
 
 ## 지금 배율(화면이 크기를 바꿀 때 main이 넣어 준다). 정적이라 PUi가 인자 없이 읽는다
 static var _ui_scale := 1.0

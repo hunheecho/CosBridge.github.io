@@ -365,6 +365,65 @@ func _run() -> void:
 	s.queue_free()
 	await _settle()
 
+	# ---------- L. 실제 브라우저(폰 가로)에서 잡은 것: 관성이 사실상 없던 이유 ----------
+	## 2026-09-09, 내보낸 웹 빌드를 진짜 크롬에 띄우고 CDP로 진짜 터치를 보내 계측했다.
+	## 빠른 쓸기 뒤 목록이 **한 px도 더 가지 않았다**(1.5초 동안 자리 155.6 그대로).
+	## 원인은 프레임마다 속도를 재고 지수 평활(0.65)을 건 것이었다: 손가락 사건이 없는 프레임마다
+	## 속도가 0.35배로 줄어(520 → 182 → 64 → 22px/초) 뗄 때 남는 값이 없었다.
+	## 브라우저는 화면 갱신과 터치 표본의 주기가 달라 그런 프레임이 늘 섞인다.
+	## 아래 세 시험이 그 상황을 그대로 재현한다(위 D절은 사건이 프레임마다 있는 경우만 봤다).
+	var r2 := _rig()
+	var sc2: ScrollContainer = r2.scroll
+	var ts2: PTouchScroll = r2.ts
+	await _settle()
+	ok("L0 붙여 둔 장치가 스스로 프레임을 받는다(_process — 시험이 step을 대신 부르지 않아도 돈다)",
+		ts2.is_processing())
+
+	ts2.handle(_touch(0, Vector2(100, 290), true))
+	var lp := Vector2(100, 290)
+	for i in range(5):
+		lp += Vector2(0, -40)
+		ts2.handle(_drag(0, lp, Vector2(0, -40)))
+		for j in range(3):                     # 손가락 사건이 없는 프레임 셋(브라우저에서 실제로 이렇게 온다)
+			ts2.step(1.0 / 60.0)
+	ts2.handle(_touch(0, lp, false))
+	var v_gap := ts2.velocity()
+	var slide_gap := _coast(ts2, sc2)
+	ok("L1 프레임 사이에 손가락 사건이 없어도 관성이 살아 있다", slide_gap > 100.0,
+		"뗄 때 %.0fpx/초 → %.0fpx 더 갔다" % [v_gap, slide_gap])
+
+	ts2.stop()
+	sc2.scroll_vertical = 0
+	ts2.sync()
+	ts2.handle(_touch(0, Vector2(100, 290), true))
+	var hp := Vector2(100, 290)
+	for i in range(4):
+		hp += Vector2(0, -40)
+		ts2.handle(_drag(0, hp, Vector2(0, -40)))
+		ts2.step(1.0 / 60.0)
+	for i in range(15):                        # 손가락을 붙인 채 0.25초 멈춰 있다가 뗀다
+		ts2.step(1.0 / 60.0)
+	ts2.handle(_touch(0, hp, false))
+	ok("L2 떼기 전에 손가락을 멈추면 던지지 않는다(붙잡아 세운 뒤 떼는 동작)",
+		ts2.velocity() == 0.0 and _coast(ts2, sc2) < 2.0, "%.0fpx/초" % ts2.velocity())
+
+	ts2.stop()
+	sc2.scroll_vertical = 0
+	ts2.sync()
+	ts2.step(1.0 / 60.0)
+	ts2.handle(_touch(0, Vector2(100, 290), true))
+	var bp := Vector2(100, 290)
+	for i in range(5):
+		bp += Vector2(0, -20)
+		ts2.handle(_drag(0, bp, Vector2(0, -20)))   # 프레임을 굴리지 않는다 = 한 프레임에 다 들어온 경우
+	ts2.handle(_touch(0, bp, false))
+	var v_burst := ts2.velocity()
+	ok("L3 사건이 한 프레임에 몰려도 던진다(시간 폭 0으로 나누지 않는다)",
+		_coast(ts2, sc2) > 100.0, "뗄 때 %.0fpx/초" % v_burst)
+	ts2.stop()
+	r2.host.queue_free()
+	await _settle()
+
 	var pass_n := 0
 	for res in results:
 		if res[0]:

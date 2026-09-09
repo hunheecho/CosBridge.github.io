@@ -1033,7 +1033,9 @@ func _make_orient_gate() -> void:
 ## 전투 상단 띠의 글자(목표·체력)는 장면 파일에 크기가 박혀 있어 PUi를 지나지 않는다.
 ## 폰에서 이 줄이 안 읽혔다("위에 글자도 넘 작아서 뭔지 한참 있다 알았네" — 친구 보고).
 ## 장면 값은 그대로 두고 **터치일 때만** 배율을 덮어쓴다(PC는 예전 그대로).
-const HUD_LABEL_BASE := { "Objective": 12, "HPText": 13 }
+## Day(날짜·시간대)도 함께 키운다: 2026-09-09 실제 브라우저에서 이 줄만 6.5 CSS px으로 남아 있었다.
+## 자리는 x 224~690으로 넉넉해 글자를 키워도 오른쪽 목표 줄(x 700~)과 겹치지 않는다.
+const HUD_LABEL_BASE := { "Objective": 12, "HPText": 13, "Day": 13 }
 func _scale_hud_labels() -> void:
 	for name_key in HUD_LABEL_BASE:
 		var n: Node = get_node_or_null("UI/HUD/" + String(name_key))
@@ -1045,10 +1047,44 @@ func _scale_hud_labels() -> void:
 		else:
 			lb.remove_theme_font_size_override("font_size")
 
+## 일시정지 화면의 글자·자리도 터치 배율을 따르게 한다.
+##
+## 이 창은 장면 파일(scenes/main.tscn)로 만들어 PUi를 지나지 않는다. 그래서 폰에서 글자가
+## **7 CSS px**로 남아 있었다(2026-09-09 실제 브라우저). 전투 중에 설정·포기로 가는 유일한 창이다.
+## 글자를 키우면 상자도 같은 배율로 넓혀 가운데에 그대로 있게 한다(안 그러면 한쪽으로 밀린다).
+const PAUSE_BOX := Vector2(360.0, 220.0)      # 장면 파일의 원래 상자(offset ±180 · ±110)
+var _pause_font_base: Dictionary = {}          # 노드 → 원래 글자 크기(처음 한 번만 잰다)
+func _scale_pause_panel() -> void:
+	var vb: Control = get_node_or_null("UI/Pause/VBox")
+	if vb == null:
+		return
+	var k: float = PLayout.cur_ui_scale() if PLayout.is_touch() else 1.0
+	var w: float = PAUSE_BOX.x * k
+	var h: float = PAUSE_BOX.y * k
+	vb.offset_left = -w * 0.5
+	vb.offset_right = w * 0.5
+	vb.offset_top = -h * 0.5
+	vb.offset_bottom = h * 0.5
+	for c in vb.get_children():
+		if not (c is Label or c is Button):
+			continue
+		if c == _pause_fs_btn:
+			continue    # '전체화면으로 다시 들어가기'는 이미 합의된 크기(높이 92·글자 22)다 — 건드리지 않는다
+		var ctl: Control = c
+		var key := ctl.get_instance_id()
+		if not _pause_font_base.has(key):
+			_pause_font_base[key] = ctl.get_theme_font_size("font_size")
+		var base: int = int(_pause_font_base[key])
+		if PLayout.is_touch():
+			ctl.add_theme_font_size_override("font_size", PLayout.fs(base))
+		else:
+			ctl.remove_theme_font_size_override("font_size")
+
 func _sync_ui_scale() -> void:
 	var before := PLayout.cur_ui_scale()
 	PLayout.set_ui_scale(PLayout.ui_scale(get_viewport()))
 	_scale_hud_labels()
+	_scale_pause_panel()
 	if not is_equal_approx(before, PLayout.cur_ui_scale()):
 		var scr: Node = screens.get(screen, null)
 		if scr != null and scr.has_method("refresh"):
@@ -1332,6 +1368,7 @@ func _hide_legacy_ability_bars() -> void:
 	day.offset_bottom = 34.0
 	day.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(day)
+	_scale_hud_labels()   # 방금 만든 줄에도 지금 배율을 바로 입힌다(다음 크기 변화를 기다리지 않는다)
 
 ## 상단 날짜 줄: 날짜 · 시간대 · 세계 변화(개발용 설정·긴 효과 설명은 넣지 않는다)
 func _day_line(st: CombatState) -> String:

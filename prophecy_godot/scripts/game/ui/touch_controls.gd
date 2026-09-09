@@ -32,6 +32,12 @@ const KNOB_R := BASE_KNOB_R * STICK_SCALE            # 44
 const BTN_DODGE_R := BASE_BTN_DODGE_R * BTN_SCALE    # 72 (지름 144)
 const BTN_SMALL_R := BASE_BTN_SMALL_R * BTN_SCALE    # 57 (지름 114)
 const BTN_BUILD_R := 30.0         # '빌드' 버튼(지름 60): 조작 버튼이 아니라 확대 대상이 아니다. 위쪽 구석에 따로 둔다
+## '멈춤' 버튼(지름 60). 회피·Q·E·조이스틱의 승인 배율과 **무관한 별개 버튼**이다 — 그 넷은 한 픽셀도 건드리지 않는다.
+## 왜 필요한가(2026-09-09 실제 브라우저 확인): 일시정지 화면(계속·조작법·설정·전투 포기)을 여는 길이 **Esc뿐이었다.**
+## 폰에는 Esc가 없어서, 전투에 들어가면 설정을 열 수도 전투를 그만둘 수도 없었다.
+## '빌드' 옆에 같은 크기로 둔다(둘 다 상단 왼쪽, 조작 열·전장과 겹치지 않는 자리다).
+const BTN_PAUSE_R := 30.0
+const FS_PAUSE := 14
 
 # 글자 크기(읽기 좋게 같은 배율로). 확대 전 값은 주석의 왼쪽 숫자다
 const FS_DODGE := 24              # 16 × 1.5
@@ -114,6 +120,7 @@ var _btn_pos: Dictionary = {}
 var _zone := Rect2()
 var _guide := Vector2.ZERO      # 손을 떼고 있을 때 그리는 안내 원의 중심(끌기 영역 안에 통째로 들어간다)
 var _build_pos := Vector2.ZERO  # '내 빌드' 버튼 중심(모바일에서 전체 빌드를 여는 유일한 길)
+var _pause_pos := Vector2.ZERO  # '멈춤' 버튼 중심(모바일에서 일시정지 화면을 여는 유일한 길)
 var reserve_top := 0.0          # 상단에 빌드 HUD가 놓인 높이(px). 스틱 끌기 영역이 빌드 아이콘과 겹치지 않게 그만큼 내린다
 var reserve_top_right := 0.0    # 오른쪽 위 '전체화면' 버튼의 아래끝(canvas y). 조작 열을 그 아래에서 시작한다
 var _column := false            # 지금 회피·Q·E가 세로 한 열인가(보고·시험용)
@@ -152,6 +159,8 @@ func layout(safe: Rect2) -> void:
 	var top: float = maxf(_safe.position.y, safe.position.y + HUD_H + reserve_top)
 	# '빌드': 왼쪽 위(체력 막대 아래). 누르면 전투를 안전하게 일시정지하고 '내 빌드'를 연다
 	_build_pos = Vector2(_safe.position.x + BUILD_PAD + BTN_BUILD_R, top + BUILD_TOP + BTN_BUILD_R)
+	# '멈춤': 빌드 바로 오른쪽 같은 줄. 손가락 하나가 두 원에 걸치지 않게 BTN_GAP만큼 띄운다
+	_pause_pos = Vector2(_build_pos.x + BTN_BUILD_R + BTN_GAP + BTN_PAUSE_R, _build_pos.y)
 	# 조작 열은 오른쪽 위 '전체화면' 버튼 아래에서 시작한다(버튼이 보이든 안 보이든 자리는 늘 비워 둔다 —
 	# 전체화면을 오갈 때 버튼이 튀어 움직이면 손가락이 헛짚는다)
 	var top_r: float = maxf(top, reserve_top_right + BTN_GAP)
@@ -233,11 +242,20 @@ func guide_center() -> Vector2:
 func build_button_center() -> Vector2:
 	return _build_pos
 
+func pause_button_center() -> Vector2:
+	return _pause_pos
+
 ## 전투 중 '내 빌드' 열기(모바일 경로). main의 공통 경로를 쓰므로 전투는 안전하게 멈춘다
 func _open_build() -> void:
 	var m: Node = view.get_parent() if view != null else null
 	if m != null and m.has_method("open_build_detail"):
 		m.call("open_build_detail")
+
+## 전투 중 일시정지 화면 열기(모바일 경로). Esc가 하던 것과 **같은 함수**를 부른다
+func _open_pause() -> void:
+	var m: Node = view.get_parent() if view != null else null
+	if m != null and m.has_method("set_pause"):
+		m.call("set_pause", true)
 
 func button_center(kind: String) -> Vector2:
 	return _btn_pos.get(kind, Vector2.ZERO)
@@ -313,6 +331,10 @@ func pick_at(pos: Vector2) -> String:
 	if bd <= 0.0:
 		pick = "build"
 		best = bd
+	var pd: float = pos.distance_to(_pause_pos) - BTN_PAUSE_R
+	if pd <= 0.0 and (pick == "" or pd < best):
+		pick = "pause"
+		best = pd
 	for k in _btn_pos:
 		var kind := String(k)
 		var c: Vector2 = _btn_pos[kind]
@@ -332,6 +354,9 @@ func handle_touch(idx: int, pos: Vector2, pressed: bool) -> void:
 	var pick := pick_at(pos)
 	if pick == "build":
 		_open_build()
+		return
+	if pick == "pause":
+		_open_pause()
 		return
 	if pick != "":
 		if int(_btn_idx[pick]) < 0:
@@ -481,7 +506,9 @@ func draw_geometry() -> Dictionary:
 			"label_y": minf(origin.y + STICK_R + float(FS_MOVE) + 2.0, _safe.end.y - 4.0),
 		},
 		"buttons": btns, "dpad": dpad,
-		"build": { "center": _build_pos, "radius": BTN_BUILD_R, "font": FS_BUILD },
+		# 빌드·멈춤 글자는 터치 배율을 입힌다(원 지름 60 안에 들어가는 선까지). 폰에서 6.5 CSS px이었다
+		"build": { "center": _build_pos, "radius": BTN_BUILD_R, "font": mini(PLayout.fs(FS_BUILD), 21) },
+		"pause": { "center": _pause_pos, "radius": BTN_PAUSE_R, "font": mini(PLayout.fs(FS_PAUSE), 21) },
 	}
 
 func _draw() -> void:
@@ -549,3 +576,10 @@ func _draw_action_buttons(f: Font, g: Dictionary) -> void:
 	draw_circle(bc, br, Color(0.08, 0.1, 0.13, 0.7))
 	draw_arc(bc, br, 0.0, TAU, 40, Color(1, 1, 1, 0.45), 1.5)
 	draw_string(f, Vector2(bc.x - br, bc.y + 5.0), "빌드", HORIZONTAL_ALIGNMENT_CENTER, br * 2.0, int(bd.font), Color(1, 1, 1, 0.9))
+	# '멈춤' 버튼: 폰에는 Esc가 없다. 일시정지 화면(계속·조작법·설정·전투 포기)으로 가는 유일한 길이다
+	var pd: Dictionary = g.pause
+	var pc: Vector2 = pd.center
+	var pr: float = float(pd.radius)
+	draw_circle(pc, pr, Color(0.08, 0.1, 0.13, 0.7))
+	draw_arc(pc, pr, 0.0, TAU, 40, Color(1, 1, 1, 0.45), 1.5)
+	draw_string(f, Vector2(pc.x - pr, pc.y + 5.0), "멈춤", HORIZONTAL_ALIGNMENT_CENTER, pr * 2.0, int(pd.font), Color(1, 1, 1, 0.9))

@@ -264,9 +264,22 @@ static func font_license_path() -> String:
 	return String(gs.get_script_constant_map().get("UI_FONT_LICENSE_PATH", ""))
 
 ## 거점·상점 공용 상단 줄(HTML header): 날짜 · 시간대 · 보스 · 체력 · 금화 · 설정
+##
+## 터치에서는 **한 줄로 밀어 넣지 않고 접는다**(2026-09-09 실제 브라우저, 폰 가로 640×360 · 글자 배율 1.6배):
+## HBoxContainer는 넘쳐도 줄을 바꾸지 않아서 오른쪽 끝의 **체력·금화가 화면 밖으로 밀려 아예 안 보였다.**
+## 글자를 줄여서 맞추지 않는다 — 자리가 모자라면 다음 줄로 넘긴다(사용자 지시).
+## PC는 예전 그대로 HBox 한 줄이다.
 static func header(run: Dictionary) -> Control:
 	var b := PBuild.derive(run)
-	var h := hbox(14)
+	var wrap: bool = PLayout.is_touch()
+	var h: Container
+	if wrap:
+		var fc := HFlowContainer.new()
+		fc.add_theme_constant_override("h_separation", 14)
+		fc.add_theme_constant_override("v_separation", 2)
+		h = fc
+	else:
+		h = hbox(14)
 	var act_lbl := PRun.act_label(run)
 	h.add_child(rich_nowrap("[color=#9ea8b8]%s[/color] [b]%s%d일차[/b]" % [PRun.schedule_short(run), (act_lbl + " · ") if act_lbl != "" else "", int(run.day)], 14))
 	var slots := PRun.time_slots()
@@ -294,11 +307,10 @@ static func header(run: Dictionary) -> Control:
 		h.add_child(rich_nowrap("[color=#d24a3a][b]%s[/b][/color]" % PGlossaryTip.esc(String(PRun.world_stage_def(run).name)), 14))
 	h.add_child(rich_nowrap("[color=#9ea8b8]체력[/color] [b]%d / %d[/b]" % [int(float(run.hp)), int(float(b.hp_max))], 14))
 	h.add_child(rich_nowrap("[color=#9ea8b8]금화[/color] [color=#ffd966][b]%d[/b][/color]" % int(run.gold), 14))
-	var sp := spacer()
-	h.add_child(sp)
 	# 판본·시드는 **참고 정보**다. 줄바꿈을 허용하면 좁은 화면에서 한 글자씩 세로로 접혀
 	# 머리줄이 화면 절반을 먹는다(폰 가로 854x400에서 실제로 그랬다). 접지 않고, 좁으면 아예 뺀다.
-	if not PLayout.is_touch():
+	if not wrap:
+		h.add_child(spacer())
 		h.add_child(rich_nowrap("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(settings_short(run)), 11))
 	return h
 
