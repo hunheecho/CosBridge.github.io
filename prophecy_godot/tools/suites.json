@@ -281,6 +281,11 @@
       "timeout_sec": 300,
       "desc": "화면을 막는 창은 언제나 나갈 수 있다(3택 창의 pool별 탈출구를 실제로 눌러서 확인)"
     },
+    "screen_keep_tests": {
+      "env": {},
+      "timeout_sec": 300,
+      "desc": "같은 화면을 다시 그릴 때 보던 스크롤 자리를 지킨다(판매·재료 판매). 다른 화면에서 오면 맨 위"
+    },
     "tail_probe": {
       "env": {},
       "script": "tools/tail_probe.gd",
@@ -542,6 +547,7 @@
       "ui_flow_tests",
       "elites_tests",
       "overlay_tests",
+      "screen_keep_tests",
       "prep_shop_tests",
       "death_tests",
       "palette_tests",
@@ -591,7 +597,8 @@
       "scroll_tests",
       "ui_flow_tests",
       "render_tests",
-      "overlay_tests"
+      "overlay_tests",
+      "screen_keep_tests"
     ],
     "legacy": [
       "run_layer_tests",

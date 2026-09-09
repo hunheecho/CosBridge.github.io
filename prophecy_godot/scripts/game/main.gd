@@ -172,7 +172,10 @@ func _make_screens() -> void:
 		screens[String(name)] = s
 
 # ---------- 화면 전환 ----------
+## name 이 지금 화면과 같으면 **그 자리에서 다시 그린다**(보던 스크롤 자리를 지키려고).
+## 판매·장착·구매가 show(screen) 으로 자기 자신을 다시 부르는데, 그것은 화면 이동이 아니다.
 func show(name: String) -> void:
+	var same: bool = screen == name and screens.has(name) and bool((screens[name] as Control).visible)
 	screen = name
 	for k in screens:
 		(screens[k] as Control).visible = (String(k) == name)
@@ -192,7 +195,10 @@ func show(name: String) -> void:
 	_sync_orient_gate()
 	result_panel.visible = name == "result"
 	if screens.has(name):
-		(screens[name] as PScreen).on_enter()
+		if same:
+			(screens[name] as PScreen).refresh_in_place()
+		else:
+			(screens[name] as PScreen).on_enter()
 	if _auto:
 		print("UI_SMOKE screen=", name)
 

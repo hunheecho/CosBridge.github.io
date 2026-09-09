@@ -156,15 +156,27 @@ func _build() -> void:
 func refresh() -> void:
 	pass
 
+## **다른 화면에서 새로 들어올 때.** 맨 위에서 시작한다.
 func on_enter() -> void:
-	default_button = null
-	_apply_safe_margins()
-	_bucket = bucket()
-	refresh()
+	refresh_in_place()
 	_keep_scroll = 0          # 화면에 새로 들어올 때는 맨 위에서 시작한다
 	scroll.scroll_vertical = 0
 	if touch_scroll != null:
 		touch_scroll.stop()   # 앞 화면에서 미끄러지던 관성을 물려받지 않는다
+
+## **같은 화면을 그 자리에서 다시 그릴 때.** 보고 있던 자리를 잃지 않는다.
+##
+## 사람 플레이 보고(2026-09-09, 두 번째): "판매할 때마다 위로 올라가는 것도 없애줘.
+## 이거 예전에 없앴다고 하지 않았냐?" — 맞다. 예전에 고친 것은 clear_all() 쪽이었고
+## 그것만으로는 부족했다. 판매·장착·구매는 main.show(screen) 으로 **같은 화면을 다시**
+## 부르는데, 그 길이 on_enter() 를 타면서 refresh() 가 방금 저장한 _keep_scroll 을
+## 바로 다음 줄에서 0 으로 지워 버렸다. 그래서 되살리기가 아무 일도 하지 않았다.
+## 이제 화면이 실제로 바뀔 때만 맨 위로 간다(main.show 가 갈라 부른다).
+func refresh_in_place() -> void:
+	default_button = null
+	_apply_safe_margins()
+	_bucket = bucket()
+	refresh()
 
 ## 화면 비율 묶음(PLayout): 화면들이 열 비율·마을 높이를 고를 때 쓴다
 func bucket() -> String:
