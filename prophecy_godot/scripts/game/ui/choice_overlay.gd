@@ -95,7 +95,13 @@ func _render() -> void:
 	if rid != null and String(rid) != "" and pool != "boss":
 		_box.add_child(PUi.rich("[color=#9ea8b8]지역 계열: %s[/color]" % PGlossaryTip.esc(String(PCatalog.region_tag_text().get(String(rid), "—"))), 13))
 	if _build_open:
-		_box.add_child(_build_view(run))
+		# '지금 내 빌드'는 **선택 자체와 무관한 참고 표시**다. 여기서 무엇이 잘못되어도
+		# 3택 창 전체가 죽으면 안 된다 — 폰에서 화면이 통째로 검게 나간 적이 두 번 있다
+		# (2026-09-09 KD-9: 봉인 임무 뒤 · 돌풍 증강 뒤). 회차 사전이 비었으면 그냥 건너뛴다.
+		if run.is_empty() or (run.get("growth", {}) as Dictionary).is_empty():
+			_box.add_child(PUi.rich("[color=#9ea8b8]빌드 정보를 불러오지 못했습니다(선택에는 영향 없음).[/color]", 12))
+		else:
+			_box.add_child(_build_view(run))
 	var row := PUi.hbox(10)
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_box.add_child(row)

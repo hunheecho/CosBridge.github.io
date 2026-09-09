@@ -186,6 +186,55 @@ def main():
         html = idx.read_text(encoding="utf-8")
         guard = """
 <script>
+// ---------- 오류가 나면 화면에 보이게 한다 ----------
+// 폰에서 게임이 죽으면 캔버스가 **까맣게만** 남는다. 사람이 볼 수 있는 단서가 하나도 없다.
+// 실제로 두 번 그랬다(2026-09-09: 봉인 임무 뒤 · 돌풍 증강 뒤).
+// Godot 웹은 스크립트 오류를 console.error 로 흘리므로 그것을 가로채 화면 아래에 한 줄로 띄운다.
+// 게임을 막지 않는다 — 이미 죽은 뒤에 무엇 때문인지만 보여 준다.
+(function () {
+  var box = null, seen = {};
+  function show(msg) {
+    try {
+      msg = String(msg);
+      if (!msg || seen[msg]) return;
+      seen[msg] = 1;
+      if (!box) {
+        box = document.createElement('div');
+        box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;max-height:42%;overflow:auto;' +
+          'background:#2a1416;color:#ffb4b4;font:12px/1.5 system-ui,-apple-system,"Noto Sans KR",sans-serif;' +
+          'padding:8px 10px;border-top:2px solid #b4444a;white-space:pre-wrap;word-break:break-all';
+        var b = document.createElement('button');
+        b.textContent = '닫기';
+        b.style.cssText = 'float:right;margin-left:8px;background:#b4444a;color:#fff;border:0;border-radius:4px;padding:4px 10px;font-size:12px';
+        b.onclick = function () { box.remove(); box = null; };
+        box.appendChild(b);
+        var t = document.createElement('div');
+        t.textContent = '문제가 생겼습니다. 아래 내용을 그대로 찍어 보내 주세요:';
+        t.style.cssText = 'color:#ffd9d9;margin-bottom:4px';
+        box.appendChild(t);
+        document.body.appendChild(box);
+      }
+      var line = document.createElement('div');
+      line.textContent = msg.slice(0, 600);
+      box.appendChild(line);
+    } catch (e) {}
+  }
+  var ce = console.error;
+  console.error = function () {
+    try {
+      var s = Array.prototype.slice.call(arguments).join(' ');
+      // Godot 스크립트 오류만 고른다(엔진 잡음까지 띄우지 않는다)
+      if (s.indexOf('SCRIPT ERROR') >= 0 || s.indexOf('USER ERROR') >= 0 || s.indexOf('Invalid') >= 0) show(s);
+    } catch (e) {}
+    return ce.apply(console, arguments);
+  };
+  window.addEventListener('error', function (e) { show((e && e.message) || 'error'); });
+  window.addEventListener('unhandledrejection', function (e) {
+    show('promise: ' + ((e && e.reason && (e.reason.message || e.reason)) || '?'));
+  });
+})();
+</script>
+<script>
 // 이 판이 최신인지 한 번만 확인한다. 다르면 뿌리 로더로 보낸다(뿌리가 현재 판으로 옮긴다).
 // 캐시를 쓰지 않고 묻는다. 실패하면 아무 일도 하지 않는다 — 게임을 막지 않는다.
 (function () {
