@@ -24,6 +24,8 @@
 | 2026-09-08 15:25 (`20260908_152529`) | `--group all --jobs 2` | 21/21 PASS | 종료 0 | 통과 |
 | 2026-09-09 (`cardfix1`) | `--suites` 9개 `--jobs 1` | `world_tests` 34/34 PASS | 종료 코드 3221225477 | 실패 |
 | 2026-09-09 (`cardfix1b`) | `--suites world_tests` 단독 | 34/34 PASS | 종료 0 | 통과 |
+| 2026-09-09 (`final1`) | `--group all --jobs 1` 37개 | 전체 1886/1886 PASS | `ui_flow_tests`·`prep_shop_tests` 두 개가 3221225477 | 실패 |
+| 2026-09-09 (`final1b`) | 그 두 개만 다시 | 73/73 · 42/42 PASS | 종료 0 | 통과 |
 
 **2026-09-08 17:50 추가 관측 — 이 스위트만의 문제가 아니다.** 같은 증상이 `collision_tests`·`balance_tests`·`input_tests`·`ui_flow_tests`·`elites_tests`에서도 나왔다. 공통점은 **동시 실행**이다.
 
@@ -89,8 +91,9 @@
 **다음에 할 것.** 정적 초기화에서 사전·배열을 만드는 다른 자리를 찾아 같은 증상이 나는지 본다.
 그것이 원인이라면 지금까지의 불규칙한 사례들도 설명될 수 있다. **아직 확정이 아니므로 이 항목은 열린 상태다.**
 
-**아직 모르는 것.** 무엇이 원인인지. 지금까지 걸린 스위트가 `ui_flow_tests`·`content_tests`·`theme_tests`·`balance_tests`·`boss_pace_tests`·`input_tests`·`collision_tests`·`elites_tests`·`world_tests`로 **특정 스위트에 묶이지 않는다.** 실제 장면을 띄우지 않는 스위트에서도 난다.
-한 실행에 보통 **한 개**가 걸리고, 다음 실행에서는 다른 스위트가 걸린다 — 무작위에 가깝다. 표본이 늘어도 규칙이 보이지 않는다.
+**아직 모르는 것.** 무엇이 원인인지. 지금까지 걸린 스위트가 `ui_flow_tests`·`content_tests`·`theme_tests`·`balance_tests`·`boss_pace_tests`·`input_tests`·`collision_tests`·`elites_tests`·`world_tests`·`prep_shop_tests`로 **특정 스위트에 묶이지 않는다.** 실제 장면을 띄우지 않는 스위트에서도 난다.
+한 실행에 보통 **한두 개**가 걸리고, 다음 실행에서는 다른 스위트가 걸린다 — 무작위에 가깝다. 표본이 늘어도 규칙이 보이지 않는다.
+**`--jobs 1`에서도 난다**(2026-09-09 `final1`: 동시 실행이 아닌데 두 개가 걸렸다). 앞서 적은 "공통점은 동시 실행"은 더 이상 유지되지 않는다.
 
 **당장의 대응.** 판정이 걸린 실행은 `--jobs 1`로 돌린다. 실행기는 이 경우를 **실패로 남기고** `crash_after_pass` 표시를 붙이며, 성공한 재실행이 앞선 실패 기록을 지우지 않는다.
 

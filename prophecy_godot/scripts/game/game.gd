@@ -2,7 +2,7 @@ extends Node
 ## 자동 로드: 설정 데이터 로딩·버전·비교 설정. 규칙(CombatState)은 여기서 만든 설정 사전만 받는다.
 ## 비교 설정(회피 방식·재사용, 편성, 동시 돌진 제한)은 전투 중 바꾸지 않고 다음 재시작(new_combat)에만 적용된다.
 
-const VERSION := "godot-0.7.0"
+const VERSION := "godot-1.1.0"
 const HTML_SOURCE := "html v0.8.0 (ee10fc7)"
 const DATA_PATH := "res://data/first_fight.json"
 ## 화면 글꼴. 저장소에 함께 들어 있고(2026-09-09), 두 내보내기(웹·윈도우)에 모두 담긴다.
