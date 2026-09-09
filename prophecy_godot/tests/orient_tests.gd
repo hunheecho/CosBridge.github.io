@@ -194,6 +194,39 @@ func _run() -> void:
 	await _wait(2)
 	ok("I5 제목으로 돌아가면 세로 대기 상태도 남지 않는다", main.screen == "title" and not main.orient_paused and not gate.veil_visible())
 
+	# ---------- J. 다른 이유로 이미 멈춰 있으면 회전 복귀가 그것을 풀지 않는다 ----------
+	# 사용자 보완 지시(2026-09-09): "성장 선택 등 다른 이유로 이미 멈춘 상태라면,
+	# 화면 회전 복귀가 그 일시정지를 풀어버리지 않게 한다."
+	await _resize(960, 640)
+	main.start_run("sword")
+	main.start_sortie_card("d1c1")
+	await _wait(2)
+	var v2 = main.view
+	var st2: CombatState = v2.st
+	ok("J0 전투가 돌고 있다", main.screen == "combat" and v2.running and not v2.paused)
+	# 성장 3택을 띄워 '다른 이유로' 멈춘다
+	main.run.growth.pendingLevelUps = 1
+	var off2 = PFlow.next_offer(main.run)
+	main.open_choice(off2)
+	await _wait(2)
+	ok("J1 성장 선택이 열려 전투가 멈춘다", main.choice.is_open() and v2.paused and not main.orient_paused)
+	var sig_j := _fight_sig(st2)
+	await _resize(480, 900)   # 그 상태에서 세로로
+	ok("J2 세로로 바뀌어도 성장 선택은 그대로 열려 있다", main.choice.is_open() and v2.paused and main.orient_paused)
+	await _resize(960, 640)   # 다시 가로로
+	ok("J3 가로로 돌아와도 여전히 멈춰 있다", v2.paused and main.choice.is_open())
+	main.orient_resume()      # '계속'을 눌러도 성장 선택 때문에 멈춘 것은 안 풀린다
+	await _wait(2)
+	ok("J4 '계속'을 눌러도 성장 선택 때문인 정지는 풀리지 않는다",
+		v2.paused and main.choice.is_open() and not main.orient_paused,
+		"paused=%s choice=%s orient=%s" % [str(v2.paused), str(main.choice.is_open()), str(main.orient_paused)])
+	_run_frames(v2, 20)
+	ok("J5 그 상태로 프레임을 굴려도 전투가 진행되지 않는다", _fight_sig(st2) == sig_j, "%s → %s" % [sig_j, _fight_sig(st2)])
+	main._on_pick(String(off2.choices[0].key))   # 성장 선택을 실제로 마치면
+	await _wait(2)
+	ok("J6 성장 선택을 마치면 그때 재개된다", not v2.paused and not main.choice.is_open())
+	v2.running = false
+
 	main.view.running = false
 	main.queue_free()
 	await _wait(2)

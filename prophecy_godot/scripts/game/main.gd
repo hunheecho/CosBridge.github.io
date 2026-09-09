@@ -322,8 +322,9 @@ func start_sortie_card(card_id: String) -> void:
 	save_run() # 출격 비용은 지불된 상태로 저장
 	start_encounter()
 
-func rest() -> void:
-	if PRun.rest(run):
+## opt.useVoucher: 관문 앞 '휴식권 사용'을 고른 경우. 거점 휴식은 예전 그대로다
+func rest(opt: Dictionary = {}) -> void:
+	if PRun.rest(run, opt):
 		save_run()
 	show("base")
 
@@ -915,24 +916,51 @@ func _on_tip_pins(n: int) -> void:
 ## 웹에서 부르는 스크립트. 전체화면을 요청하고, 그 결과와 상관없이 가로 고정을 시도한다.
 ## 거절은 두 가지 길로 온다: 동기 예외(try가 삼킨다)와 Promise 거부(then의 두 번째 인자가 삼킨다).
 ## 둘 다 잡으므로 지원하지 않는 브라우저에서도 콘솔에 오류가 남지 않는다.
+## 전체화면 + 가로 고정 요청.
+## **실패를 삼키되 지우지는 않는다**(사용자 확정 2026-09-09 보완): 브라우저에 오류를 흘리지 않으면서
+## 전체화면·방향 고정 **각각의 결과와 사유**를 window.__prophecyOrient 에 남긴다.
+## '오류 없음'은 '가로 고정 성공'이 아니다 — 둘을 따로 적는다.
 const FS_ENTER_JS := """
 (function(){
+  var S = window.__prophecyOrient = window.__prophecyOrient || {};
+  S.fs = 'pending'; S.fsReason = ''; S.lock = 'pending'; S.lockReason = ''; S.at = Date.now();
+  var lock = function(){
+    try {
+      var so = window.screen ? window.screen.orientation : null;
+      if (!so || !so.lock) { S.lock = 'unsupported'; S.lockReason = 'screen.orientation.lock 없음'; return; }
+      var q = so.lock('landscape');
+      if (q && q.then) {
+        q.then(function(){ S.lock = 'ok'; S.lockReason = (so.type || ''); },
+               function(e){ S.lock = 'fail'; S.lockReason = (e && e.name ? e.name : 'rejected'); });
+      } else { S.lock = 'ok'; S.lockReason = 'promise 아님'; }
+    } catch (e) { S.lock = 'fail'; S.lockReason = (e && e.name ? e.name : 'throw'); }
+  };
   try {
     var el = document.documentElement;
-    var lock = function(){
-      try {
-        var so = window.screen ? window.screen.orientation : null;
-        if (so && so.lock) {
-          var q = so.lock('landscape');
-          if (q && q.then) { q.then(function(){}, function(){}); }
-        }
-      } catch (e) {}
-    };
     var req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-    var p = req ? req.call(el) : null;
-    if (p && p.then) { p.then(lock, function(){ lock(); }); } else { lock(); }
+    if (!req) { S.fs = 'unsupported'; S.fsReason = 'requestFullscreen 없음'; lock(); return 1; }
+    var p = req.call(el);
+    if (p && p.then) {
+      p.then(function(){ S.fs = 'ok'; lock(); },
+             function(e){ S.fs = 'fail'; S.fsReason = (e && e.name ? e.name : 'rejected'); lock(); });
+    } else {
+      S.fs = document.fullscreenElement ? 'ok' : 'unknown';
+      S.fsReason = 'promise 아님';
+      lock();
+    }
     return 1;
-  } catch (e) { return 0; }
+  } catch (e) { S.fs = 'fail'; S.fsReason = (e && e.name ? e.name : 'throw'); lock(); return 0; }
+})()
+"""
+
+## 마지막 요청의 결과를 읽는다(개발용 기록). 값이 없으면 빈 문자열
+const FS_RESULT_JS := """
+(function(){
+  try {
+    var S = window.__prophecyOrient;
+    if (!S) return '';
+    return [S.fs || '', S.fsReason || '', S.lock || '', S.lockReason || ''].join('|');
+  } catch (e) { return ''; }
 })()
 """
 
@@ -1054,8 +1082,41 @@ func request_fullscreen_landscape() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN) # PC 창: 방향 개념이 없다
 		res.fullscreen = "창 모드 전환"
 	last_fullscreen_result = res
+	_note_fs_log("요청", res)
 	_fs_poll_t = 0.0 # 다음 프레임에 실제 상태를 다시 읽는다
 	_sync_orient_gate()
+
+## 개발용 기록. 사용자 화면에는 안 나온다 — 콘솔과 이 목록에만 남는다.
+## "오류가 없었다"와 "가로 고정이 됐다"는 다른 말이라 **둘을 따로** 남긴다
+var fullscreen_log: Array = []
+func _note_fs_log(tag: String, res: Dictionary) -> void:
+	var line := "[전체화면] %s · web=%s · 전체화면=%s · 방향고정=%s" % [tag, str(res.get("web", false)), String(res.get("fullscreen", "?")), String(res.get("orientation", "?"))]
+	fullscreen_log.append(line)
+	if fullscreen_log.size() > 20:
+		fullscreen_log.remove_at(0)
+	print(line)
+
+const _FS_WORD := { "ok": "성공", "fail": "거부됨", "unsupported": "미지원", "pending": "대기", "unknown": "알 수 없음", "": "?" }
+
+## 브라우저가 실제로 어떻게 됐는지 뒤늦게 읽어 기록을 갱신한다(요청 시점에는 아직 모른다).
+## 실패해도 게임은 그대로 돈다 — 여기서 하는 일은 기록뿐이다
+func _poll_fs_result() -> void:
+	if not OS.has_feature("web"):
+		return
+	var raw := String(JavaScriptBridge.eval(FS_RESULT_JS, true))
+	if raw == "":
+		return
+	var parts := raw.split("|")
+	if parts.size() < 4:
+		return
+	var fs_w := String(_FS_WORD.get(parts[0], parts[0]))
+	var lk_w := String(_FS_WORD.get(parts[2], parts[2]))
+	var fs_txt: String = fs_w if String(parts[1]) == "" else "%s(%s)" % [fs_w, String(parts[1])]
+	var lk_txt: String = lk_w if String(parts[3]) == "" else "%s(%s)" % [lk_w, String(parts[3])]
+	if String(last_fullscreen_result.get("fullscreen", "")) == fs_txt and String(last_fullscreen_result.get("orientation", "")) == lk_txt:
+		return
+	last_fullscreen_result = { "web": true, "fullscreen": fs_txt, "orientation": lk_txt }
+	_note_fs_log("결과", last_fullscreen_result)
 
 ## 전체화면 여부가 바뀌었다(웹의 fullscreenchange · PC의 창 모드 · 검사의 흉내). 안내막·버튼만 다시 맞춘다
 func note_fullscreen_state(active: bool) -> void:
@@ -1072,6 +1133,7 @@ func _fs_detectable() -> bool:
 func _poll_fullscreen(dt: float) -> void:
 	if not _fs_detectable():
 		return
+	_poll_fs_result() # 개발용 기록 갱신(요청 결과는 뒤늦게 온다)
 	_fs_poll_t -= dt
 	if _fs_poll_t > 0.0:
 		return

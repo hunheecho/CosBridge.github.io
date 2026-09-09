@@ -125,21 +125,29 @@ func _rest_label(r: Dictionary) -> String:
 # ---------- 휴식 확인 창 ----------
 ## 결정에 필요한 것만: 무엇을 소모하는가 · 체력이 얼마에서 얼마가 되는가 · 어느 시간대로 넘어가는가.
 ## 취소하면 아무것도 바뀌지 않는다. 확정은 한 번만 실행된다(PScreen.open_confirm).
-func _open_rest() -> void:
+## use_voucher: 관문 앞 '휴식권 사용'. 거점 휴식은 예전 그대로(휴식권이 있으면 규칙이 알아서 쓴다)
+func _open_rest(use_voucher: bool = false) -> void:
 	var r := run()
-	if not PRun.can_rest(r):
-		main.message("지금은 쉴 수 없습니다 (남은 시간 %d칸)" % int(r.hours))
+	var q := PRun.rest_quote(r, { "useVoucher": use_voucher })
+	if not bool(q.can):
+		main.message("지금은 쉴 수 없습니다 — %s" % String(q.reason))
 		return
-	open_confirm("휴식할까요?", _rest_body.bind(r), [{ "text": "휴식한다", "cb": func(): main.rest() }])
+	var title := "휴식권을 쓸까요?" if use_voucher else "휴식할까요?"
+	var label := "휴식권을 쓴다" if use_voucher else "휴식한다"
+	var body := _rest_body.bind(r, use_voucher)
+	open_confirm(title, body, [{ "text": label, "cb": func(): main.rest({ "useVoucher": use_voucher }) }])
 
-func _rest_body(box: VBoxContainer, r: Dictionary) -> void:
+func _rest_body(box: VBoxContainer, r: Dictionary, use_voucher: bool = false) -> void:
 	var cost := int(PCatalog.config().REST_HOURS)
 	var hp0 := int(float(r.hp))
 	var hp1 := int(float(PBuild.derive(r).hp_max))
-	if PRun.has_service(r, "free_rest"):
-		PUi.kv(box, "소모", "[b]%s 1장[/b] [color=#9ea8b8](%s · 사는 값 %d금)[/color]" % [PUi.rest_ticket_name(), PUi.rest_ticket_note(), PRun.merchant_service_price("free_rest")], 15)
+	# 관문 앞에서는 **고른 대로** 적는다. 거점은 예전처럼 규칙이 알아서 고르므로 그 결과를 적는다
+	var gate: bool = String(r.phase) == "boss_prep"
+	var by_voucher: bool = use_voucher if gate else PRun.has_service(r, "free_rest")
+	if by_voucher:
+		PUi.kv(box, "소모", "[b]휴식권 1개 소비 · 시간 소모 없음[/b] [color=#9ea8b8](남은 %d장 · 사는 값 %d금)[/color]" % [int(r.get("services", {}).get("free_rest", 0)), PRun.merchant_service_price("free_rest")], 15)
 	else:
-		PUi.kv(box, "소모", "[b]시간 %d칸[/b] [color=#9ea8b8](남은 %d칸 → %d칸)[/color]" % [cost, int(r.hours), int(r.hours) - cost], 15)
+		PUi.kv(box, "소모", "[b]시간 %d칸[/b] [color=#9ea8b8](남은 %d칸 → %d칸)[/color]%s" % [cost, int(r.hours), int(r.hours) - cost, " [color=#9ea8b8]· 휴식권은 쓰지 않습니다[/color]" if (gate and PRun.has_service(r, "free_rest")) else ""], 15)
 	PUi.kv(box, "체력", "[b]%d → %d[/b]%s" % [hp0, hp1, " [color=#9ea8b8](이미 가득 — 시간만 넘깁니다)[/color]" if hp0 >= hp1 else ""], 15)
 	PUi.kv(box, "시간대", "[b]%s[/b]" % PRun.next_slot_name(r), 15)
 	box.add_child(PUi.rich("[color=#9ea8b8]취소하면 아무것도 바뀌지 않습니다.[/color]", 12))
@@ -859,10 +867,15 @@ func _final_prep(r: Dictionary) -> void:
 		# 관문 앞 휴식(사용자 확정 2026-09-09): 마지막 날이 아니고 시간이 남으면 시간을 써서 쉰다.
 		# 부활로 25%로 선 날 하루가 통째로 남아도 회복할 방법이 없던 것을 푼다.
 		# 규칙이 막을 때는 버튼을 숨기지 않고 이유와 함께 비활성으로 둔다(거점과 같은 처리).
+		# 시간과 휴식권을 **버튼부터 나눈다**(사용자 확정 보완): 기본 휴식은 시간 1칸이고
+		# 가진 휴식권을 자동으로 쓰지 않는다. 휴식권은 따로 골라야 쓴다.
 		var can_r := PRun.can_rest(r)
-		var rest_btn := PUi.button(_rest_label(r) if can_r else "휴식 — %s" % String(PRun.rest_quote(r).reason),
-			func(): _open_rest(), can_r, 14)
-		pb.add_child(rest_btn)
+		pb.add_child(PUi.button("휴식 (시간 %d칸)" % int(PCatalog.config().REST_HOURS) if can_r else "휴식 — %s" % String(PRun.rest_quote(r).reason),
+			func(): _open_rest(false), can_r, 14))
+		if PRun.has_service(r, "free_rest"):
+			var can_v := PRun.can_rest_voucher(r)
+			pb.add_child(PUi.button("휴식권 사용 (시간 소모 없음)" if can_v else "휴식권 사용 — %s" % String(PRun.rest_quote(r, { "useVoucher": true }).reason),
+				func(): _open_rest(true), can_v, 14))
 	if cleared:
 		pb.add_child(PUi.button("회차 결과 보기", func(): main.show("run_result"), true, 14))
 		pb.add_child(PUi.button("새 회차 시작", func(): main.new_run_flow(), true, 14))

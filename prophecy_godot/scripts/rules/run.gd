@@ -1386,7 +1386,12 @@ static func use_service(run: Dictionary, id: String) -> bool:
 ##   **has_next_day를 함께 본다** — 시간이 남은 채로 마지막 날 관문 앞에 서는 다른 경로가 생겨도
 ##   마지막 날의 비용(그날을 잃는다)이 새어 나가지 않게 하기 위해서다.
 ##   **휴식권만으로는 이 자리가 열리지 않는다** — "시간을 소비해 쉰다"가 이 자리의 규칙이다.
-##   열린 뒤에는 rest()가 예전처럼 돈다(휴식권을 가졌으면 그것을 먼저 쓴다).
+##
+## **관문 앞에서는 시간과 휴식권을 나눈다(사용자 확정 2026-09-09 보완).**
+##   기본 '휴식' = 시간 1칸. 가진 휴식권을 **자동으로 쓰지 않는다.**
+##   휴식권은 '휴식권 사용'이라는 별도 선택이고, 그것도 **마지막 날 제외·남은 시간 1칸 이상**을 지킨다
+##   — 시간 0이나 마지막 날을 우회하는 수단이 되면 안 된다.
+##   거점(prep)의 기존 규칙은 이 보완으로 바뀌지 않는다(예전처럼 휴식권이 있으면 먼저 쓴다).
 static func can_rest(run: Dictionary) -> bool:
 	match String(run.phase):
 		"prep":
@@ -1394,6 +1399,11 @@ static func can_rest(run: Dictionary) -> bool:
 		"boss_prep":
 			return has_next_day(run) and int(run.hours) >= int(C().REST_HOURS)
 	return false
+
+## 관문 앞에서 '휴식권 사용'을 고를 수 있는가. 자리 조건(마지막 날 제외·시간 1칸 이상)은 같고
+## 휴식권을 실제로 가지고 있어야 한다. 거점에서는 이 갈래를 쓰지 않는다(기존 규칙 유지)
+static func can_rest_voucher(run: Dictionary) -> bool:
+	return String(run.phase) == "boss_prep" and can_rest(run) and has_service(run, "free_rest")
 
 ## 휴식권의 표시 이름. 데이터의 서비스 이름("무료 휴식권")은 다른 담당 파일이라 바꾸지 못하므로,
 ## 화면이 쓸 문구는 규칙 계층이 준다 — "무료"가 아니라 "시간 소모 없음"이 사용자 확정 표현이다.
@@ -1414,13 +1424,15 @@ static func _rest_block_reason(run: Dictionary) -> String:
 ## 휴식 견적(확인 창용, 회차를 전혀 바꾸지 않는다). 확정은 rest()가 한다 — 취소하면 아무 일도 없다.
 ## 휴식권은 100금 그대로이고, 표현은 "무료"가 아니라 **"시간 소모 없음"**이다(costText를 화면이 그대로 쓴다).
 ## { can, reason, useVoucher, hours, costText, slotNow, slotAfter, hp, hpAfter, hpMax, heal, voucherLeft, voucherPrice, forced, text }
-static func rest_quote(run: Dictionary) -> Dictionary:
-	var voucher := has_service(run, "free_rest")
+## opt.useVoucher: 관문 앞에서 '휴식권 사용'을 고른 경우 true. 거점에서는 예전처럼 자동 판단한다
+static func rest_quote(run: Dictionary, opt: Dictionary = {}) -> Dictionary:
+	var gate := String(run.phase) == "boss_prep"
+	var voucher: bool = bool(opt.get("useVoucher", false)) if gate else has_service(run, "free_rest")
 	var hours: int = 0 if voucher else int(C().REST_HOURS)
 	var hp_max := float(build(run).hp_max)
-	var can := can_rest(run)
+	var can: bool = can_rest_voucher(run) if (gate and voucher) else can_rest(run)
 	return {
-		"can": can, "reason": "" if can else _rest_block_reason(run),
+		"can": can, "reason": "" if can else (("휴식권이 없습니다" if (gate and voucher and not has_service(run, "free_rest")) else _rest_block_reason(run))),
 		"useVoucher": voucher, "hours": hours, "voucherName": rest_voucher_name(),
 		"costText": "시간 소모 없음 (휴식권 1장)" if voucher else "시간 %d칸" % hours,
 		"slotNow": slot_name(run), "slotAfter": next_slot_name(run, hours),
@@ -1431,11 +1443,23 @@ static func rest_quote(run: Dictionary) -> Dictionary:
 	}
 
 ## 휴식 확정(확인 창의 '예'). 견적은 rest_quote가 준다
-static func rest(run: Dictionary) -> bool:
-	if not can_rest(run):
+## opt.useVoucher: 관문 앞 '휴식권 사용'. 거점에서는 무시하고 예전 규칙대로 판단한다.
+## **시간과 휴식권 중 하나만 빠진다** — 둘이 함께 빠지는 길은 없다(검사로 못 박았다).
+static func rest(run: Dictionary, opt: Dictionary = {}) -> bool:
+	var gate := String(run.phase) == "boss_prep"
+	var want_voucher: bool = bool(opt.get("useVoucher", false)) and gate
+	if want_voucher:
+		if not can_rest_voucher(run):
+			push_error("휴식권 사용 불가")
+			return false
+	elif not can_rest(run):
 		push_error("휴식 불가")
 		return false
-	if has_service(run, "free_rest"):
+	if want_voucher:
+		use_service(run, "free_rest")           # 관문 앞: 골랐을 때만 휴식권을 쓴다(시간은 그대로)
+	elif gate:
+		run.hours = int(run.hours) - int(C().REST_HOURS)  # 관문 앞 기본: 시간 1칸. 휴식권을 자동 소비하지 않는다
+	elif has_service(run, "free_rest"):
 		use_service(run, "free_rest")
 	else:
 		run.hours = int(run.hours) - int(C().REST_HOURS)

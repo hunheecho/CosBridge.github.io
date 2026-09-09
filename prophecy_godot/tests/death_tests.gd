@@ -638,6 +638,94 @@ func _init() -> void:
 	ok("표식이 소비된 뒤에는 그 안내가 사라진다(정상 입장 안내와 섞이지 않는다)",
 		PDefeatScreen.no_heal_line(scr_pending) == "" and PBossResultScreen.no_heal_line(scr_pending) == "" and not PRun.revive_pending(scr_pending))
 
+	# ---------- §14 관문 앞 휴식: 시간과 휴식권을 나눈다(사용자 확정 보완 2026-09-09) ----------
+	# 기본 '휴식'은 시간 1칸이고 가진 휴식권을 자동으로 쓰지 않는다.
+	# 휴식권은 따로 골라야 쓰며, 그것도 마지막 날 제외·남은 시간 1칸 이상 조건을 지킨다.
+	var REST_H := int(PCatalog.config().REST_HOURS)
+	var gate_kit := func(seed_v: int, day_v: int, hours_v: int, vouchers: int) -> Dictionary:
+		var rr := human_run(seed_v)
+		rr.day = day_v
+		rr.phase = "boss_prep"
+		rr.hours = hours_v
+		rr.hp = 30.0
+		if vouchers > 0:
+			if not rr.has("services") or rr.services == null:
+				rr.services = {}
+			rr.services["free_rest"] = vouchers
+		return rr
+
+	# (a) 기본 휴식: 시간만 준다. 휴식권은 그대로 남는다
+	var g1: Dictionary = gate_kit.call(701, 2, 3, 2)
+	var g1_max := float(PRun.build(g1).hp_max)
+	var q1 := PRun.rest_quote(g1, { "useVoucher": false })
+	var g1_ok := PRun.rest(g1, { "useVoucher": false })
+	ok("관문 앞 기본 휴식: 시간 1칸만 빠지고 휴식권은 그대로다(자동 소비 없음)",
+		g1_ok and int(g1.hours) == 3 - REST_H and int(g1.services.free_rest) == 2 and is_equal_approx(float(g1.hp), g1_max)
+			and int(q1.hours) == REST_H and not bool(q1.useVoucher),
+		"시간 3→%d · 휴식권 %d장 · 체력 %d · 견적 %s" % [int(g1.hours), int(g1.services.free_rest), int(float(g1.hp)), String(q1.costText)])
+
+	# (b) 휴식권 사용: 휴식권만 준다. 시간은 그대로
+	var g2: Dictionary = gate_kit.call(702, 2, 3, 2)
+	var q2 := PRun.rest_quote(g2, { "useVoucher": true })
+	var g2_ok := PRun.rest(g2, { "useVoucher": true })
+	ok("관문 앞 휴식권 사용: 휴식권 1개만 빠지고 시간은 그대로다",
+		g2_ok and int(g2.hours) == 3 and int(g2.services.free_rest) == 1 and int(q2.hours) == 0
+			and String(q2.costText).find("휴식권") >= 0,
+		"시간 %d · 휴식권 2→%d · 견적 %s" % [int(g2.hours), int(g2.services.free_rest), String(q2.costText)])
+
+	# (c) 시간과 휴식권이 **동시에** 빠지는 길이 없다
+	ok("관문 앞 휴식은 시간과 휴식권 중 하나만 소비한다(둘이 함께 빠지지 않는다)",
+		(int(g1.hours) == 3 - REST_H and int(g1.services.free_rest) == 2)
+			and (int(g2.hours) == 3 and int(g2.services.free_rest) == 1))
+
+	# (d) 취소(= rest를 부르지 않음)하면 아무것도 안 준다 — 견적은 회차를 바꾸지 않는다
+	var g3: Dictionary = gate_kit.call(703, 2, 3, 2)
+	var _q3a := PRun.rest_quote(g3, { "useVoucher": false })
+	var _q3b := PRun.rest_quote(g3, { "useVoucher": true })
+	ok("견적만 보고 취소하면 시간·휴식권·체력이 하나도 바뀌지 않는다",
+		int(g3.hours) == 3 and int(g3.services.free_rest) == 2 and is_equal_approx(float(g3.hp), 30.0))
+
+	# (e) 마지막 날은 휴식권으로도 우회할 수 없다
+	var g4: Dictionary = gate_kit.call(704, int(PRun.mode_def(human_run(704)).days), 3, 2)
+	ok("마지막 날 관문 앞에서는 휴식도 휴식권 사용도 막힌다(우회 수단이 아니다)",
+		not PRun.has_next_day(g4) and not PRun.can_rest(g4) and not PRun.can_rest_voucher(g4)
+			and String(PRun.rest_quote(g4, { "useVoucher": true }).reason).find("마지막 날") >= 0)
+
+	# (f) 시간 0도 휴식권으로 우회할 수 없다
+	var g5: Dictionary = gate_kit.call(705, 2, 0, 2)
+	ok("남은 시간이 0이면 휴식권 사용도 막힌다",
+		not PRun.can_rest(g5) and not PRun.can_rest_voucher(g5))
+
+	# (g) 거점(prep)의 기존 규칙은 이 보완으로 바뀌지 않았다(회귀)
+	var g6: Dictionary = gate_kit.call(706, 2, 3, 1)
+	g6.phase = "prep"
+	var g6_ok := PRun.rest(g6)
+	ok("거점 휴식은 예전 그대로 — 휴식권이 있으면 먼저 쓰고 시간은 그대로다(회귀)",
+		g6_ok and int(g6.hours) == 3 and int(g6.services.free_rest) == 0,
+		"시간 %d · 휴식권 %d" % [int(g6.hours), int(g6.services.free_rest)])
+
+	# (h) 휴식으로 회복한 체력이 **관문 입장과 실제 전투 시작까지** 간다
+	var g7: Dictionary = gate_kit.call(707, 2, 3, 0)
+	g7.stage = 0
+	var g7_max := float(PRun.build(g7).hp_max)
+	PRun.rest(g7, { "useVoucher": false })
+	var s7 := PRun.start_boss(g7)
+	var st7 := PFlow.make_boss_encounter(g7, s7)
+	ok("관문 앞 휴식으로 회복한 체력이 입장과 전투 시작까지 유지된다",
+		is_equal_approx(float(g7.hp), g7_max) and is_equal_approx(float(st7.player.hp), g7_max),
+		"휴식 뒤 %d · 전투 시작 %d / 최대 %d" % [int(float(g7.hp)), int(float(st7.player.hp)), int(g7_max)])
+
+	# (i) 부활 표식이 선 상태에서 쉬면 그 오른 체력으로 들어간다(25%로 다시 깎지 않는다)
+	var g8: Dictionary = gate_kit.call(708, 2, 3, 0)
+	g8.stage = 0
+	g8.revivePending = { "count": 1 }
+	var g8_max := float(PRun.build(g8).hp_max)
+	PRun.rest(g8, { "useVoucher": false })
+	var st8 := PFlow.make_boss_encounter(g8, PRun.start_boss(g8))
+	ok("부활 표식이 선 채로 쉬면 회복된 체력 그대로 입장한다(다시 25%로 안 깎는다)",
+		is_equal_approx(float(st8.player.hp), g8_max),
+		"전투 시작 %d / 최대 %d" % [int(float(st8.player.hp)), int(g8_max)])
+
 	var pass_n := 0
 	for x in results:
 		if x[0]:
