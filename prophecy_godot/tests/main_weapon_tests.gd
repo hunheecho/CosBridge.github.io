@@ -161,6 +161,43 @@ func dagger_cycle(st: CombatState, target: Dictionary) -> float:
 	fire_once(st, "daggers", target, 0.3)
 	return dmg_of(st, "daggers") - before
 
+# ---------- 설명 문구 대조 도우미 ----------
+## 자료의 수를 설명에 적히는 모양으로 만든다. 소수점 뒤의 0은 뗀다("0.70초"가 아니라 "0.7초")
+func numtext(v: float) -> String:
+	var s := "%.2f" % v
+	if s.find(".") >= 0:
+		while s.ends_with("0"):
+			s = s.substr(0, s.length() - 1)
+		if s.ends_with("."):
+			s = s.substr(0, s.length() - 1)
+	return s
+
+func says(text: String, piece: String) -> bool:
+	return text.find(piece) >= 0
+
+## 용어 사전 본문(PCatalog.glossary()가 읽는 그대로)
+func gloss_body(weapon_id: String) -> String:
+	return String((PCatalog.glossary().get("w:" + weapon_id, {}) as Dictionary).get("body", ""))
+
+## 카드·개조 화면이 읽는 개조 설명(PCatalog.weapon()이 겹쳐 읽은 그대로)
+func mod_desc(weapon_id: String, mod_id: String) -> String:
+	return String(((PCatalog.weapon(weapon_id).get("mods", {}) as Dictionary).get(mod_id, {}) as Dictionary).get("desc", ""))
+
+## 창을 앞뒤 두 적에게 **한 번만** 쏜다(자동 발사는 꺼 둔 상태, 파편이 날아가도록 시간은 진행한다).
+## 돌려주는 값: [첫 적이 받은 피해, 둘째 적이 받은 피해, 분열 적중 수, 분열 발동 수]
+## 알려진 결함 MOD-1의 회귀 단언에 쓴다 — 분열탄이 첫 적에게 도로 흡수되면 둘째 적 몫이 0이 된다
+func spear_line_once(mods: Array, front: float, gap: float) -> Array:
+	var st := mk_manual("spear", mods)
+	var p1 := at(st, front, 0.0)
+	var p2 := at(st, front + gap, 0.0)
+	var e1 := dummy(st, float(p1[0]), float(p1[1]))
+	var e2 := dummy(st, float(p2[0]), float(p2[1]))
+	PWeapons.fire(st, wep(st, "spear"), e1, false)
+	steps_pinned(st, 0.6, [[e1, float(p1[0]), float(p1[1])], [e2, float(p2[0]), float(p2[1])]])
+	var ms: Dictionary = (st.mod_stats as Dictionary).get("split", {})
+	return [float(e1.hp_max) - float(e1.hp), float(e2.hp_max) - float(e2.hp),
+		int(ms.get("hits", 0)), int(ms.get("procs", 0))]
+
 func _init() -> void:
 	var sw := stats_of("sword")
 	var sp := stats_of("spear")
@@ -621,6 +658,35 @@ func _init() -> void:
 	ok("분열 창날이 벗어나는 좌우 거리 %.1f는 관통 통로 반폭 %.1f 안이다" % [split_side, spear_lane / 2.0],
 		split_side <= spear_lane / 2.0)
 
+	# ---------- 7-2. 분열 창날의 창날은 첫 적에게 도로 흡수되지 않는다(알려진 결함 MOD-1의 회귀 단언) ----------
+	# 창날은 **첫 명중한 적의 좌표에서** 태어나므로 거리가 0이다. 투사체의 hits가 비어 있으면 다음 갱신에서
+	# 그 적을 도로 맞고 그 자리에서 사라져(pierce 기본 false) 창날 두 개 몫이 전부 정면 한 마리에게 들어갔다.
+	# 아래 두 단언이 그 회귀를 잡는다: 첫 적 몫은 개조 없을 때와 같아야 하고, 둘째 적 몫은 늘어야 한다.
+	var split_front: float = float(sp.range) * 0.5                       # 근접 약화 구간(사거리 45%) 밖
+	var split_gap: float = float(pt.travel) * cos(float(pt.spread)) * 0.6 # 창날이 실제로 닿는 거리 안
+	var line_plain := spear_line_once([], split_front, split_gap)
+	var line_split := spear_line_once(["split"], split_front, split_gap)
+	ok("분열 창날의 창날 2개가 첫 명중한 적에게 도로 흡수되지 않는다 — 첫 적이 받는 피해가 개조 없을 때와 같다",
+		is_equal_approx(float(line_split[0]), float(line_plain[0])),
+		"첫 적: 개조 없음 %.1f · 분열 창날 %.1f" % [float(line_plain[0]), float(line_split[0])])
+	ok("첫 적 뒤에 세운 둘째 적이 분열탄을 실제로 맞는다(뒤쪽 무리 처리)",
+		float(line_split[1]) > float(line_plain[1]) + 0.01,
+		"둘째 적: 개조 없음 %.1f · 분열 창날 %.1f (분열 몫 %+.1f)" % [float(line_plain[1]), float(line_split[1]),
+			float(line_split[1]) - float(line_plain[1])])
+	var split_share: float = float(sp.damage) * float(pt.dmgMult) * 2.0
+	ok("둘째 적이 더 받은 몫 %.1f은 창날 2개 값(피해 %.1f × %.0f%% × 2 = %.1f)과 같다" % [
+			float(line_split[1]) - float(line_plain[1]), float(sp.damage), float(pt.dmgMult) * 100.0, split_share],
+		absf((float(line_split[1]) - float(line_plain[1])) - split_share) <= 0.2)
+	ok("한 번 쏘면 분열이 1번 발동하고 창날 2개가 각각 한 번씩 적중한다",
+		int(line_split[3]) == 1 and int(line_split[2]) == 2,
+		"발동 %d · 적중 %d" % [int(line_split[3]), int(line_split[2])])
+	# 표적이 하나뿐이면 창날은 앞의 적을 지나쳐 아무것도 맞히지 못한다 — 단일 대상 이론 DPS가 늘지 않는다.
+	# 이 등식이 깨지면 창날이 다시 정면 한 마리에게 흡수되고 있다는 뜻이다(결함 MOD-1의 다른 얼굴).
+	var solo_plain := theory_dps("spear", 5, ["returning"])
+	var solo_split := theory_dps("spear", 5, ["returning", "split"])
+	ok("분열 창날을 더해도 단일 대상 이론 DPS가 늘지 않는다(귀환 검기 %.2f = 귀환 검기+분열 창날 %.2f)" % [solo_plain, solo_split],
+		is_equal_approx(solo_plain, solo_split))
+
 	# ---------- 8. 저항표를 코드가 아니라 자료에서 가져온다 ----------
 	ok("망치의 밀어내기·경직은 data/supports.json 저항표를 그대로 쓴다(보스 0 · 정예 감소 · 일반 1.0)",
 		is_zero_approx(PSupport.resist_mult("knock", { "boss": true }))
@@ -630,6 +696,64 @@ func _init() -> void:
 	ok("망치는 속도 충격(knock)을 쓰지 않는다 — 그 경로는 보스도 knockMult만큼 밀려 공통 규칙을 지키지 못한다",
 		is_zero_approx(float(hm.knock)) and float(hm.knockDist) > 0.0,
 		"knock %.0f · knockDist %.0f" % [float(hm.knock), float(hm.knockDist)])
+
+	# ---------- 9. 설명 문구가 자료의 값과 같은가 ----------
+	# 카드·개조 화면은 PCatalog.weapon()을, 용어 사전은 PCatalog.glossary()를 읽는다.
+	# **자료의 값으로 문자열을 만들어** 설명 안에 그 값이 그대로 있는지 본다 — 숫자를 시험에 베껴 쓰면
+	# 자료가 바뀌었을 때 시험이 거짓말을 한다. 못 박지 못하는 문장은 docs/MAIN_WEAPONS.md에 이유를 적었다.
+	for wid in ["sword", "spear", "daggers", "hammer", "bow"]:
+		var bs: Dictionary = PCatalog.weapon(String(wid)).base
+		var body := gloss_body(String(wid))
+		var nm := String(PCatalog.weapon(String(wid)).name)
+		ok("용어 사전 '%s'의 기본 피해·주기·사거리가 자료 값과 같다" % nm,
+			says(body, "기본 피해 " + numtext(float(bs.damage)))
+				and says(body, "주기 " + numtext(float(bs.interval)) + "초")
+				and says(body, "사거리 " + numtext(float(bs.range))),
+			"피해 %s · 주기 %s · 사거리 %s" % [numtext(float(bs.damage)), numtext(float(bs.interval)), numtext(float(bs.range))])
+
+	var sp_base: Dictionary = PCatalog.weapon("spear").base
+	var sp_split: Dictionary = PWeapons.mod_tune(sp, "split", {})
+	ok("용어 사전이 창의 좁은 폭(%s)을 적는다 — 이 무기의 약점이 설명에 있어야 한다" % numtext(float(sp_base.width)),
+		says(gloss_body("spear"), "폭 " + numtext(float(sp_base.width))))
+	for txt in [mod_desc("spear", "split"), gloss_body("spear")]:
+		ok("분열 창날 설명이 계수 %s%%와 '첫 적은 다시 맞지 않는다'를 함께 적는다" % numtext(float(sp_split.dmgMult) * 100.0),
+			says(String(txt), "피해 " + numtext(float(sp_split.dmgMult) * 100.0) + "%")
+				and says(String(txt), "첫 적은 다시 맞지 않"),
+			"문구: " + String(txt))
+
+	var dg_base: Dictionary = PCatalog.weapon("daggers").base
+	var dg_bleed: Dictionary = PWeapons.mod_tune(dg, "bleed", {})
+	for txt2 in [mod_desc("daggers", "bleed"), gloss_body("daggers")]:
+		ok("출혈 칼날 설명의 중첩당 피해 %s%%와 최대 %d중첩이 modTuning 값과 같다" % [
+				numtext(float(dg_bleed.perStack) * 100.0), int(dg_bleed.maxStack)],
+			says(String(txt2), "+" + numtext(float(dg_bleed.perStack) * 100.0) + "%")
+				and says(String(txt2), numtext(float(dg_bleed.maxStack)) + "중첩"),
+			"문구: " + String(txt2))
+	ok("용어 사전이 쌍검의 마무리 배율 ×%s과 중첩이 풀리는 %s초를 적는다" % [
+			numtext(float(dg_base.finalMult)), numtext(float(dg_bleed.window))],
+		says(gloss_body("daggers"), "×" + numtext(float(dg_base.finalMult)))
+			and says(gloss_body("daggers"), numtext(float(dg_bleed.window)) + "초"))
+	ok("용어 사전의 쌍검 3연타 수가 자료 값(%d)과 같다" % int(dg_base.hits),
+		says(gloss_body("daggers"), numtext(float(dg_base.hits)) + "연타"))
+
+	var hm_base: Dictionary = PCatalog.weapon("hammer").base
+	ok("용어 사전이 망치의 준비 %s초·밀어내기 %s·경직 %s초를 자료 값 그대로 적는다" % [
+			numtext(float(hm_base.windup)), numtext(float(hm_base.knockDist)), numtext(float(hm_base.stagger))],
+		says(gloss_body("hammer"), "준비 " + numtext(float(hm_base.windup)) + "초")
+			and says(gloss_body("hammer"), "(" + numtext(float(hm_base.knockDist)) + ")")
+			and says(gloss_body("hammer"), "(" + numtext(float(hm_base.stagger)) + "초)"))
+	ok("용어 사전이 망치의 반지름 %s을 적는다" % numtext(float(hm_base.radius)),
+		says(gloss_body("hammer"), "반지름 " + numtext(float(hm_base.radius))))
+
+	var bw_base: Dictionary = PCatalog.weapon("bow").base
+	ok("용어 사전이 추적궁의 근접 약화(%s 안쪽 ×%s)를 자료 값 그대로 적는다" % [
+			numtext(float(bw_base.closeFrom)), numtext(float(bw_base.closeMult))],
+		says(gloss_body("bow"), numtext(float(bw_base.closeFrom)) + " 안에서")
+			and says(gloss_body("bow"), "×" + numtext(float(bw_base.closeMult))))
+
+	var sw_cres: Dictionary = PWeapons.mod_tune(sw, "crescent", {})
+	ok("날아가는 검광 설명의 계수 %s%%가 modTuning 값과 같다" % numtext(float(sw_cres.dmgMult) * 100.0),
+		says(mod_desc("sword", "crescent"), "피해 " + numtext(float(sw_cres.dmgMult) * 100.0) + "%"))
 
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])

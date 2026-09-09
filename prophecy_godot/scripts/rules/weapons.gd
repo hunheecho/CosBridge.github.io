@@ -232,7 +232,10 @@ static func fire_beam(st: CombatState, w: Dictionary, target: Dictionary, echoed
 		st.fx({ "kind": "split_node", "x": h.x, "y": h.y, "angle": ang, "ttl": 0.25, "mod": "split" }) # 첫 명중 지점의 분기 결절(표시 전용, 판정 없음)
 		for sgn in [-1.0, 1.0]:
 			var da: float = float(sgn) * float(pt.spread)
-			proj(st, w, { "kind": "shard", "x": h.x, "y": h.y, "vx": cos(ang + da) * float(pt.speed), "vy": sin(ang + da) * float(pt.speed), "r": 4.0, "ttl": float(pt.travel) / float(pt.speed), "dmg_mult": float(pt.dmgMult), "mod": "split", "opt": { "direct": false, "mod": "split" } })
+			# hits에 첫 명중 적을 미리 넣는다(알려진 결함 MOD-1 수정). 창날은 **그 적의 좌표에서** 태어나므로
+			# 거리가 0이고, 비워 두면 다음 갱신에서 같은 적을 도로 맞고 그 자리에서 사라진다(pierce는 기본 false).
+			# 그러면 창날 두 개 몫이 전부 정면 한 마리에게 들어가 '뒤쪽 적에게 가는 추가 피해'가 되지 않는다.
+			proj(st, w, { "kind": "shard", "x": h.x, "y": h.y, "vx": cos(ang + da) * float(pt.speed), "vy": sin(ang + da) * float(pt.speed), "r": 4.0, "ttl": float(pt.travel) / float(pt.speed), "dmg_mult": float(pt.dmgMult), "mod": "split", "opt": { "direct": false, "mod": "split" }, "hits": { h.id: true } })
 	if mods.has("returning") and not echoed:
 		var fx0: float = p.x
 		var fy0: float = p.y
