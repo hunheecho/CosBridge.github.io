@@ -204,9 +204,35 @@ static func balance_name(run: Dictionary) -> String:
 	return String(BS[bal].name) if BS.has(bal) else bal
 
 ## 자동 로드 Game 없이도(헤드리스 -s 시험) 버전 문자열을 읽는다
+static var _stamp_cache := ""
+static var _stamp_read := false
+
+## 화면에 보이는 판본. 배포한 빌드에는 커밋 표식이 괄호로 붙는다(예: godot-1.1.0 (2396eda)).
+## 폰에서 "지금 보는 것이 어느 판인가"를 이 한 줄로 가른다.
 static func version() -> String:
 	var gs: GDScript = load("res://scripts/game/game.gd")
-	return String(gs.get_script_constant_map().get("VERSION", "?"))
+	var v := String(gs.get_script_constant_map().get("VERSION", "?"))
+	var b := build_stamp()
+	return v if b == "" else "%s (%s)" % [v, b]
+
+## 내보내기 도구가 남기는 배포 표식(res://data/build.json). 개발 중 실행에는 없다 → 빈 문자열.
+## 규칙에 영향이 없는 표시 전용 값이라 PCatalog에 태우지 않고 직접 읽는다.
+static func build_stamp() -> String:
+	if _stamp_read:
+		return _stamp_cache
+	_stamp_read = true
+	if not FileAccess.file_exists("res://data/build.json"):
+		return _stamp_cache
+	var f := FileAccess.open("res://data/build.json", FileAccess.READ)
+	if f == null:
+		return _stamp_cache
+	var txt := f.get_as_text()
+	f.close()
+	var j = JSON.parse_string(txt)
+	if typeof(j) != TYPE_DICTIONARY:
+		return _stamp_cache
+	_stamp_cache = String((j as Dictionary).get("build", ""))
+	return _stamp_cache
 
 static func settings_short(run: Dictionary) -> String:
 	return "%s · %s · 시드 %d" % [version(), balance_name(run), int(run.get("seed", 0))]
