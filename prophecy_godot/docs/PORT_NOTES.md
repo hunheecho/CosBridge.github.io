@@ -1208,3 +1208,53 @@ PROPHECY_SUBSET="act=2;elite=elite_miner,elite_archer;mode=single" \
 
 **배포하지 않았다.** 원격 push도 하지 않았다.
 자세한 내용은 `docs/MORNING_REPORT.md`(완료·부분 완료·미구현·알려진 결함 표와 플레이 순서).
+
+## 32. 마무리 통합 빌드 (2026-09-09, godot-1.1.0 · 2396eda)
+
+1.0.0 뒤에 받은 지시(남은 확정 요구 · 마지막 날 부활 · 웹 한글 글꼴 · 시너지 연결표 ·
+대표 조합 10개 · 전염 상한 비교)를 다섯 갈래로 나눠 진행하고 통합했다.
+**새 콘텐츠를 늘리지 않았다** — 기존 구현의 마무리와 시너지 완성만이다.
+
+| 대상 | 파일 | 크기 | SHA-256 |
+|---|---|---:|---|
+| Windows ZIP | `prophecy_godot_build/prophecy_windows_godot-1.1.0_2396eda.zip` | 39.6 MB | `6f5a093f4b187a465eb4a23176d135c2a3d273be010c9b2aeaa4d986bc6fa263` |
+| Windows exe(압축 안) | `prophecy.exe` 113,444,616 B | — | `8d0254109d4a49da1d53b3dedd44f9408abbf894b87018a612ef83b8d696ced7` |
+| 웹 ZIP | `prophecy_godot_build/prophecy_web_godot-1.1.0_2396eda.zip` | 13.2 MB | `129c07f99a295f3d1897df103aee32ad0de5278ee010ca9c0883e855fbf2a279` |
+| 웹 `index.pck` | 4,278,520 B | — | `38ad4ae661deb6e4e6e0da21dd008087c5be9b6b1a4eb72c19c20ee5e03f7601` |
+| 웹 `index.wasm` | 39,514,754 B | — | `fc74679e3b97f76878947fcd4fbe1268cbfa6188182a2e33bbc3f5dc9bfa57d0` |
+| 웹 `index.js` | 279,815 B | — | `33c94cb3175f3333b82e2a3be5e8e86f77986f0aa2042b1631f6367a4e5bb6ba` |
+| 웹 `index.html` | 5,471 B | — | `7deedc5d2f28fbd662fbc56468d9d6bdc813ffff88f58b32350b1514a605bc61` |
+
+**커밋: `2396eda` (전체 `2396eda…` — `git rev-parse HEAD`로 확인).** 브랜치 `claude/prophecy-action-prototype-hehbeo`.
+**push 하지 않았고 배포하지도 않았다.** 확인은 전부 `127.0.0.1`.
+
+### 검사 (분리 보고)
+
+- **단언 통과 1886 / 1886** (`--group all --jobs 1`, 37개 스위트, 실패 0)
+- **정상 종료 35 / 37**
+- **종료 실패(KD-1) 2** — `ui_flow_tests`(73/73 뒤) · `prep_shop_tests`(42/42 뒤). 둘만 다시 돌리면 종료 0.
+  **통과로 세지 않는다. KD-1은 열린 상태 그대로이며 이번 통합이 고친 것이 아니다.**
+- `ui_smoke_full`(전체 10일 · 관문 3): 소스에서 `result=done` · missing 없음 · 누적 gate1 95 / gate2 162 / gate3 275초 · 게임 속 전투 1345.5초.
+- **포장된 exe로도** 같은 환경 변수로 `result=done` · missing 없음 · **종료 0**(gate1 94 / gate2 159 / gate3 262초).
+
+### 웹 한글 — 이 빌드에서 다시 눈으로 확인했다
+
+`python tools/serve_web.py --dir ../prophecy_godot_build/web_2396eda --port 8793` (127.0.0.1 전용, 확인 뒤 껐다).
+브라우저에서 **제목 → 주무기 선택 → 거점 → 전투 HUD**까지 눌러 들어가며 확인:
+
+- 네모(□) **0개**. 제목 아래 `godot-1.1.0 · 시험 빌드(경험치 ×0.3)`와 `글꼴 Noto Sans KR · OFL 1.1` 고지가 보인다.
+- 거점에 **`일반 탐험 · 1칸`** 영역이 자기 자리에 있고, 아직 못 나가는 이유를
+  `일반 탐험 · 출격을 한 번 마치면 열립니다`로 적고 있다(KD-7을 고친 규칙이 화면에서도 그대로 돈다).
+- 전투 HUD 한 줄(`전멸 · 남은 25 · 지금 0/12 · 대기 5 · 돌진 0/2`)과 기술 3칸(`회피 / 감속장 / 미보유`)이 한글로 나온다.
+- **실제 안드로이드 기기 실행은 여전히 미검증**이다(기기 없음). 절차는 `docs/WEB_BUILD.md` §10.
+
+### 이번 통합에서 고친 결함
+
+| id | 무엇 |
+|---|---|
+| KD-7 | 목표 `clear` 카드가 완료되지 않아 **일반 탐험이 열리지 않고** 사건·이용권이 반복 지급됐다 |
+| SM-2 | 유인 룬이 정예를 등급 저항 없이 끌어당겼다 |
+| BP-2 | 바람의 `slows`가 서리의 `slows`와 뜻이 달랐다(적·프레임 vs 새로 걸린 횟수) |
+| — | 부활 물약을 사람이 상점에서 살 수 없었다 |
+
+자세한 항목별 처리는 `docs/FEEDBACK_TABLE.md` 9~11절.
