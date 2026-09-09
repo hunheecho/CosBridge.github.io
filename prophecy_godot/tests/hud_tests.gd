@@ -53,6 +53,13 @@ func _find_button(node: Node, needle: String) -> Button:
 			return b
 	return null
 
+## 하위 트리의 경험치 막대 개수(§14: 화면에 하나뿐이어야 한다 — 하단에 따로 만들지 않는다)
+func _count_xp_bars(node: Node) -> int:
+	var n := 1 if node is PXpBar else 0
+	for c in node.get_children():
+		n += _count_xp_bars(c)
+	return n
+
 ## 하위 트리의 PIconTile을 style별로 센다
 func _tiles_by_style(node: Node, out: Dictionary) -> void:
 	if node is PIconTile:
@@ -260,6 +267,73 @@ func _run() -> void:
 	ok("체력 막대는 붉은 계열이고 보호막은 파란 계열로 분리된다",
 		hpc.r > hpc.g + 0.4 and hpc.r > hpc.b + 0.4 and shc.b > shc.r + 0.3, "체력 %s · 보호막 %s" % [str(hpc), str(shc)])
 
+	# ---------- B2. 최상단 레벨 + 경험치바(§14) ----------
+	# 체력바 **바로 옆**, 같은 줄. 색은 체력 빨강 / 경험치 파랑. 하단에 따로 만들지 않는다.
+	var xp: PXpBar = hud.xp_bar()
+	var xpc := PXpBar.FILL
+	main._layout_hud()
+	var hr0: Rect2 = hud.health_rect()
+	var xr0: Rect2 = hud.xp_rect()
+	ok("경험치바가 체력바 바로 오른쪽·같은 줄에 있다(위아래로 흩어놓지 않는다)",
+		xp != null and xp.visible and xr0.size.x > 0.0 and xr0.position.x >= hr0.end.x and xr0.position.x <= hr0.end.x + 24.0
+			and absf(xr0.position.y - hr0.position.y) <= 2.0,
+		"체력 %s · 경험치 %s" % [str(hr0), str(xr0)])
+	ok("경험치는 파란 계열이고 체력(빨강)과 확실히 갈린다", xpc.b > xpc.r + 0.3 and xpc.b > xpc.g + 0.2 and hpc.r > xpc.r + 0.3, "경험치 %s · 체력 %s" % [str(xpc), str(hpc)])
+	# 전장에는 경험치바가 **최상단 하나뿐**이다(하단에 따로 만들지 않는다). 거점 화면의 진행 막대는 전장 HUD 밖이라 세지 않는다
+	var hud_bars := _count_xp_bars(main.get_node("UI/HUD"))
+	ok("전장 경험치바는 최상단 하나뿐(하단에 별도 경험치바 없음)",
+		hud_bars == 1 and xr0.position.y < 40.0 and xr0.end.y <= 46.0, "전장 안 개수 %d · 자리 %s" % [hud_bars, str(xr0)])
+	# 값 일치: 규칙 사전(run.growth)과 화면 값이 같다
+	var gx: Dictionary = main.run.growth
+	main._update_hud()
+	ok("레벨·경험치·필요치가 규칙 값 그대로다", xp.level == int(gx.level) and is_equal_approx(xp.xp, float(gx.xp)) and is_equal_approx(xp.need, float(PGrowth.xp_need(int(gx.level)))),
+		"화면 %s / 규칙 Lv%d %s/%d" % [xp.text_line(), int(gx.level), str(gx.xp), PGrowth.xp_need(int(gx.level))])
+	# 데스크톱은 레벨과 수치를 함께, 모바일은 레벨·막대 우선(숫자 생략)
+	ok("데스크톱은 레벨과 경험치 수치를 함께 적는다", not xp.compact and xp.text_line().find("/") > 0, xp.text_line())
+	# 부드럽게 차오른다: 실제 값이 앞서고 그려지는 값이 뒤따라온다
+	xp.snap()
+	PGrowth.add_xp(gx, float(PGrowth.xp_need(int(gx.level))) * 0.5)
+	main._update_hud()
+	var mid_shown: float = xp.shown_ratio()
+	xp._process(0.05)
+	var after_shown: float = xp.shown_ratio()
+	ok("경험치를 얻으면 막대가 곧바로 튀지 않고 부드럽게 차오른다",
+		mid_shown < xp.ratio() - 0.01 and after_shown > mid_shown and after_shown <= xp.ratio() + 0.001,
+		"그린값 %.3f → %.3f · 실제 %.3f" % [mid_shown, after_shown, xp.ratio()])
+	# 여러 레벨이 한 번에 올라도 화면 값이 실제와 같고, 레벨업 순간에만 짧게 강조된다
+	var lv_before := int(gx.level)
+	var jump: float = float(PGrowth.xp_need(lv_before)) + float(PGrowth.xp_need(lv_before + 1)) + 3.0
+	var gained := PGrowth.add_xp(gx, jump)
+	main._update_hud()
+	ok("다중 레벨업: 화면 레벨·경험치가 실제 값과 같고 옛 레벨 막대가 남지 않는다",
+		gained >= 2 and xp.level == int(gx.level) and is_equal_approx(xp.xp, float(gx.xp)) and is_equal_approx(xp.shown_ratio(), xp.ratio()),
+		"오른 레벨 %d · 화면 %s · 그린값 %.3f 실제 %.3f" % [gained, xp.text_line(), xp.shown_ratio(), xp.ratio()])
+	ok("레벨업 때만 짧게 강조된다(계속 깜박이지 않는다)", xp.flashing() and PXpBar.FLASH_SEC <= 1.0, "남은 %.2f초" % xp._flash_left)
+	xp._process(PXpBar.FLASH_SEC + 0.01)
+	ok("강조는 %.1f초 안에 스스로 꺼진다" % PXpBar.FLASH_SEC, not xp.flashing())
+	# 미처리 레벨업이 남아 있으면 막대만 보고 '다 끝났다'고 읽지 않게 함께 적는다
+	ok("미처리 레벨업 수가 화면 값과 같다", xp.pending == int(gx.pendingLevelUps) and xp.pending > 0, "화면 %d · 규칙 %d" % [xp.pending, int(gx.pendingLevelUps)])
+	# 성장 3택으로 미처리가 줄어도 즉시 따라간다
+	main.offer_pending_level_ups()
+	await process_frame
+	var pend_open := int(gx.pendingLevelUps)
+	main.close_choice()
+	gx.pendingLevelUps = maxi(0, pend_open - 1)
+	main._update_hud()
+	ok("성장 선택으로 미처리가 줄면 화면도 바로 같아진다", xp.pending == int(gx.pendingLevelUps), "화면 %d · 규칙 %d" % [xp.pending, int(gx.pendingLevelUps)])
+	# 일시정지·저장 복구: 값이 어긋나지 않고 0에서 다시 차오르지도 않는다
+	main.view.set_paused(true)
+	main._update_hud()
+	ok("일시정지 중에도 화면 값 = 실제 값", xp.level == int(gx.level) and is_equal_approx(xp.xp, float(gx.xp)))
+	main.view.set_paused(false)
+	main.save_run()
+	var saved: Dictionary = PSave.load()
+	hud.sync_ready_silent(st)   # 저장 복구·화면 재구성이 지나는 길
+	ok("저장 복구 경로에서 막대가 실제 값에 곧바로 붙는다(0에서 다시 차오르지 않는다)",
+		is_equal_approx(xp.shown_ratio(), xp.ratio()) and int(saved.growth.level) == xp.level and is_equal_approx(float(saved.growth.xp), xp.xp),
+		"그린값 %.3f 실제 %.3f · 저장 Lv%d %s" % [xp.shown_ratio(), xp.ratio(), int(saved.growth.level), str(saved.growth.xp)])
+	gx.pendingLevelUps = 0
+
 	# ---------- C. 조작 아이콘 4가지 상태 ----------
 	st.player.dodge_cd = 0.0
 	st.player.special_cd = 2.5
@@ -453,6 +527,13 @@ func _run() -> void:
 				bad.append("조작 묶음이 너무 큼 %s @%s" % [str(mr.size), str(sz)])
 		if hr.intersects(objr) or hr.end.y > 40.0 + 6.0:
 			bad.append("체력 %s @%s" % [str(hr), str(sz)])
+		# §14 경험치바: 목표 줄을 가리지 않고, 상단 띠 안에 머물고, 체력바와 겹치지 않는다
+		var xr: Rect2 = hud.xp_rect()
+		if xr.size.x > 0.0:
+			if xr.intersects(objr) or xr.end.y > 40.0 + 6.0 or xr.end.x > safe.end.x or xr.intersects(hr):
+				bad.append("경험치 %s @%s" % [str(xr), str(sz)])
+			if mr.size.y > 0.0 and mr.intersects(xr):
+				bad.append("경험치와 조작이 겹침 %s/%s @%s" % [str(xr), str(mr), str(sz)])
 		# 경기장이 화면 밖으로 잘리면 가장자리의 예고를 못 본다
 		var arena := Rect2(Vector2(round((sz.x - aw) / 2.0), round(40.0 + maxf(0.0, (sz.y - 40.0 - ah) / 2.0))), Vector2(aw, ah))
 		if arena.position.x < 0.0 or arena.position.y < 0.0 or arena.end.x > sz.x or arena.end.y > sz.y:
@@ -460,7 +541,7 @@ func _run() -> void:
 		# HUD가 경기장(=예고가 나오는 면)을 덮는 비율
 		var area: float = arena.size.x * arena.size.y
 		var covered := 0.0
-		for r in [mr, hr]:
+		for r in [mr, hr, xr]:
 			var it: Rect2 = r.intersection(arena)
 			if it.size.x > 0.0 and it.size.y > 0.0:
 				covered += it.size.x * it.size.y

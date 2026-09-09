@@ -15,6 +15,12 @@ extends Control
 
 const MANUAL := ["dodge", "q", "e"]
 
+## 상단 경험치 막대(§14): 체력 막대와 같은 높이·같은 줄. 폭은 화면에 맞춰 정하되 상단 띠(40) 안에 머문다.
+const XP_BAR_H := 26.0
+const XP_GAP := 10.0        # 체력 막대와의 사이
+const XP_MIN_W := 128.0
+const XP_MAX_W := 190.0
+
 ## 색은 여기서만 정한다. 체력은 붉은 계열로 전장에서 가장 먼저 눈에 들어와야 하고(사용자 지시),
 ## 보호막은 파란 계열로 같은 막대에 섞지 않는다. 시험이 이 관계를 그대로 확인한다.
 const HP_FILL := Color(0.82, 0.20, 0.20, 0.96)
@@ -29,6 +35,7 @@ var touch_mode := false                 # 터치일 때 키 라벨을 숨긴다(
 var _manual: Dictionary = {}            # "dodge"|"q"|"e" → PIconTile
 var _manual_row: HBoxContainer
 var _health: Control                    # 상단 체력·보호막(PHealth 내부 클래스)
+var _xp: PXpBar                         # 상단 레벨 + 경험치(§14). 체력 막대 **바로 오른쪽**, 같은 줄
 var _built_bucket := ""
 var _built_touch := false
 var _blocked := false                   # 지금 규칙이 조작 입력을 받지 않는 상태인가(등장 연출·전투 종료)
@@ -118,6 +125,14 @@ func _build() -> void:
 	_health.custom_minimum_size = Vector2(200.0, 36.0)
 	_health.size = Vector2(200.0, 36.0)
 	add_child(_health)
+	# 레벨 + 경험치(§14): 체력 막대와 **같은 줄, 바로 오른쪽**. 하단에는 따로 만들지 않는다.
+	# 터치는 숫자를 빼고 레벨·막대를 크게(글자 배율 1.6배가 이미 들어간다), 데스크톱은 수치까지 적는다.
+	_xp = PXpBar.new()
+	_xp.compact = touch_mode
+	_xp.bar_h = XP_BAR_H
+	_xp.level_fs = mini(PLayout.fs(15), 22) if touch_mode else 14
+	_xp.num_fs = mini(PLayout.fs(11), 16) if touch_mode else 11
+	add_child(_xp)
 	_manual_row = HBoxContainer.new()
 	_manual_row.add_theme_constant_override("separation", 8)
 	_manual_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -157,6 +172,12 @@ func relayout(safe: Rect2) -> float:
 		_health.custom_minimum_size = Vector2(hw, 36.0)
 		_health.size = Vector2(hw, 36.0)
 		_health.position = Vector2(round(safe.position.x + 12.0), round(safe.position.y + 4.0))
+		if _xp != null:
+			# 체력 막대 바로 오른쪽, 같은 y. 목표 줄(x 700~)·전체화면 버튼(상단 띠 아래)과 겹치지 않는 폭으로 가둔다.
+			var xw: float = clampf(safe.size.x * 0.15, XP_MIN_W, XP_MAX_W)
+			_xp.custom_minimum_size = Vector2(xw, XP_BAR_H)
+			_xp.size = Vector2(xw, XP_BAR_H)
+			_xp.position = Vector2(round(_health.position.x + hw + XP_GAP), round(safe.position.y + 4.0))
 	if _manual_row == null:
 		return 0.0
 	_manual_row.visible = not touch_mode
@@ -178,6 +199,15 @@ func health_rect() -> Rect2:
 		return Rect2()
 	return Rect2(_health.position, _health.size)
 
+## 상단 레벨·경험치 막대가 차지한 자리(가림 검사용). 보이지 않으면 빈 사각형
+func xp_rect() -> Rect2:
+	if _xp == null or not _xp.visible:
+		return Rect2()
+	return Rect2(_xp.position, _xp.size)
+
+func xp_bar() -> PXpBar:
+	return _xp
+
 # ---------- 갱신(매 프레임, 읽기 전용) ----------
 func update_from(state: CombatState) -> void:
 	if state != null and state.get_instance_id() != _ready_bound_st:
@@ -187,6 +217,7 @@ func update_from(state: CombatState) -> void:
 		return
 	_hide_legacy_health()
 	_update_health()
+	_update_xp()
 	_update_manual(st.t)
 
 func _update_health() -> void:
@@ -195,6 +226,20 @@ func _update_health() -> void:
 	var p: Dictionary = st.player
 	var shield: float = float(p.shield) # ward_shield는 shield 총량의 구성분이라 다시 더하지 않는다(F2)
 	_health.set_values(float(p.hp), float(p.hp_max), shield, maxf(float(p.shield_max), shield))
+
+## 레벨·경험치(§14): **실제 성장 상태**(st.build.growth = run.growth 참조)만 읽는다.
+## 전투 중 처치로 오르는 값도, 3택으로 pendingLevelUps가 줄어드는 것도 같은 사전이라 화면이 늘 실제 값과 같다.
+## 기준 전투·검증 전투처럼 성장이 없는 빌드에서는 아예 감춘다(0/0 막대를 그리지 않는다).
+func _update_xp() -> void:
+	if _xp == null:
+		return
+	var g = st.build.get("growth", null)
+	if typeof(g) != TYPE_DICTIONARY or not (g as Dictionary).has("level"):
+		_xp.visible = false
+		return
+	var gd: Dictionary = g
+	_xp.visible = true
+	_xp.set_values(int(gd.level), float(gd.get("xp", 0.0)), float(PGrowth.xp_need(int(gd.level))), int(gd.get("pendingLevelUps", 0)))
 
 func _update_manual(now: float) -> void:
 	var p: Dictionary = st.player
@@ -277,6 +322,10 @@ func sync_ready_silent(state: CombatState) -> void:
 	_ready_state["e"] = b.skills.get("e", null) != null and float(p.get("e_cd", 0.0)) <= 0.0
 	for k in _ready_flash:
 		_ready_flash[k] = -1.0
+	# 새 전투·재개·저장 복구: 경험치 막대도 곧바로 실제 값에 붙인다(0에서 차오르는 연출이 다시 나지 않게)
+	_update_xp()
+	if _xp != null:
+		_xp.snap()
 
 ## 방금 선택으로 바뀐 칸 강조: 자동기술 칸이 전장에 없으므로 전투 HUD에서는 아무것도 하지 않는다.
 ## 같은 강조는 거점 '현재 빌드'(PUi.build_icon_row)와 일시정지의 '내 빌드'가 보여 준다.

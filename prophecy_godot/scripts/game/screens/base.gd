@@ -328,8 +328,9 @@ func _repeat_card(r: Dictionary, into: VBoxContainer) -> Button:
 func _build_summary(r: Dictionary) -> Control:
 	var g: Dictionary = r.growth
 	var pend := int(g.pendingLevelUps)
-	var c := PUi.card("현재 빌드 [color=#9ea8b8]Lv %d[/color]%s" % [int(g.level), (" [color=#ff8c73]미처리 레벨업 %d[/color]" % pend) if pend > 0 else ""], PUi.CARD, 15)
+	var c := PUi.card("현재 빌드 [color=#9ea8b8]Lv %d · 경험치 %d/%d[/color]%s" % [int(g.level), int(floor(float(g.xp))), PGrowth.xp_need(int(g.level)), (" [color=#ff8c73]미처리 레벨업 %d[/color]" % pend) if pend > 0 else ""], PUi.CARD, 15)
 	var box: VBoxContainer = c.box
+	box.add_child(PUi.xp_row(r))   # 전투 최상단과 같은 레벨·경험치 진행 막대(§14)
 	var pick := Callable(self, "_icon_info")
 	box.add_child(PUi.build_icon_row(r, 44.0, 26.0, main.take_pick_highlight(), pick))
 	box.add_child(PUi.manual_icon_row(r, 32.0, pick))

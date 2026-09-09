@@ -331,11 +331,38 @@ static func equip_panel(run: Dictionary) -> Control:
 		var slot := String(sl)
 		var id = run.equipment.get(slot, null)
 		box.add_child(rich("[color=#9ea8b8]%s[/color]  %s" % [slot_name(slot), (equip_line(String(id)) if id != null else "[color=#6a7078]비어 있음[/color]")], 15))
+	# §16: 대장간 강화는 이제 **기술마다 따로**다. 예전에는 산 횟수(b.forge)를 "공용 공격 강화 N단계 · 피해 ×1.0"으로
+	# 적어서, 무기 레벨과 같은 것처럼 보이면서 배율까지 틀렸다(새 구조에서 b.forge_mult는 늘 1.0이다).
 	var forge_txt := ""
-	if int(b.forge) > 0:
-		forge_txt = " · %s %d단계(자동기술 피해 ×%s)" % [PGlossaryTip.term("forge", "공용 공격 강화"), int(b.forge), fmt(float(b.forge_mult))]
+	var fbs: Dictionary = b.get("forge_by_skill", {})
+	var fparts := []
+	for w0 in b.weapons:
+		var wid0 := String((w0 as Dictionary).id)
+		var flv := int(fbs.get(wid0, 0))
+		if flv > 0:
+			fparts.append("%s %d단계(피해 ×%s)" % [String((w0 as Dictionary).name), flv, fmt(PBuild.forge_mult_of(b, wid0))])
+	if fparts.size() > 0:
+		forge_txt = " · %s: %s" % [PGlossaryTip.term("forge", "대장간 강화 단계"), ", ".join(fparts)]
+	elif int(b.forge) > 0 and bool(b.get("forge_legacy", false)):
+		forge_txt = " · %s %d단계(옛 전체 강화)" % [PGlossaryTip.term("forge", "대장간 강화 단계"), int(b.forge)]
 	box.add_child(rich("[color=#9ea8b8]최대 체력 %d · 이동 ×%s · 시작 보호막 %d%s[/color]" % [int(float(b.hp_max)), fmt(float(b.speed_mult)), int(float(b.shield)), forge_txt], 14))
 	return c.panel
+
+## 레벨 + 경험치 진행 막대(§14). 전투 최상단(체력바 옆)과 **같은 위젯·같은 색**을 거점에서도 쓴다.
+## 값은 규칙 사전(run.growth)과 PGrowth.xp_need만 읽는다 — 화면이 필요 경험치를 계산하지 않는다.
+## 터치는 숫자를 빼고 레벨·막대를 크게, 데스크톱은 레벨과 수치를 함께 적는다.
+static func xp_row(run: Dictionary) -> Control:
+	var g: Dictionary = run.get("growth", {})
+	var lv: int = int(g.get("level", 1))
+	var bar := PXpBar.new()
+	bar.compact = PLayout.is_touch()
+	bar.bar_h = 24.0 * PLayout.cur_ui_scale()
+	bar.level_fs = PLayout.fs(13)
+	bar.num_fs = PLayout.fs(11)
+	bar.custom_minimum_size = Vector2(160.0, bar.bar_h)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.set_values(lv, float(g.get("xp", 0.0)), float(PGrowth.xp_need(lv)), int(g.get("pendingLevelUps", 0)))
+	return bar
 
 ## 성장 패널(HTML buildPanel): 실제 파생 수치(PBuild.derive)만 표시
 static func build_panel(run: Dictionary) -> Control:
@@ -345,6 +372,7 @@ static func build_panel(run: Dictionary) -> Control:
 	var pend := int(g.pendingLevelUps)
 	var c := card("성장 [color=#9ea8b8]Lv %d · 경험치 %d/%d%s[/color]" % [int(g.level), int(floor(float(g.xp))), PGrowth.xp_need(int(g.level)), (" · [color=#ff8c73]미처리 레벨업 %d[/color]" % pend) if pend > 0 else ""])
 	var box: VBoxContainer = c.box
+	box.add_child(xp_row(run))   # 전투 상단과 같은 진행 막대(§14)
 	if g.get("steer", null) != null:
 		box.add_child(rich("[color=#ffe066]%s[/color] 다음 레벨업은 [b]%s[/b] 후보만 제시 (%s, 1회)" % [PGlossaryTip.term("steer", "성장 예약"), PSortie.kind_name(String(g.steer.kind)), "심층 보상" if String(g.steer.get("from", "")) == "deep" else "임무 보상"], 12))
 	box.add_child(rich("[b]%s %d/%d[/b]" % [PGlossaryTip.term("auto_skill", "자동기술"), (b.weapons as Array).size(), int(S.weapons)], 15))
@@ -359,7 +387,12 @@ static func build_panel(run: Dictionary) -> Control:
 		var kind_tag := ""
 		if PGrowth.is_v2(g):
 			kind_tag = "[color=#8a93a6]%s[/color] " % ("주무기" if PCatalog.is_main_weapon(String(wd.id)) else "보조")
-		box.add_child(rich("  %s[b]%s[/b] Lv%d/%d [color=#9ea8b8]%s[/color] · %s %d/%d: %s" % [kind_tag, PGlossaryTip.term("w:" + String(wd.id), String(wd.name)), int(wd.level), cap_lv, weapon_stats_text(wd), PGlossaryTip.term("mod", "개조"), mods.size(), cap_md, (", ".join(mods) if mods.size() > 0 else "없음")], 14))
+		# §16: 무기 레벨(레벨업 3택)과 대장간 강화 단계(금화)를 같은 줄에서 **이름을 붙여** 갈라 적는다
+		var flv2 := int((b.get("forge_by_skill", {}) as Dictionary).get(String(wd.id), 0))
+		var fstage: String = " · [color=#6a7078]대장간 강화 0단계[/color]"
+		if flv2 > 0:
+			fstage = " · %s [b]%d단계[/b]" % [PGlossaryTip.term("forge", "대장간 강화"), flv2]
+		box.add_child(rich("  %s[b]%s[/b] 레벨 Lv%d/%d%s [color=#9ea8b8]%s[/color] · %s %d/%d: %s" % [kind_tag, PGlossaryTip.term("w:" + String(wd.id), String(wd.name)), int(wd.level), cap_lv, fstage, weapon_stats_text(wd), PGlossaryTip.term("mod", "개조"), mods.size(), cap_md, (", ".join(mods) if mods.size() > 0 else "없음")], 14))
 	for i in int(S.weapons) - (b.weapons as Array).size():
 		box.add_child(rich("  [color=#6a7078]빈 자동기술 슬롯[/color]", 14))
 	box.add_child(rich("[b]수동 기술[/b]", 15))

@@ -16,9 +16,13 @@ static func _src_name(src: String) -> String:
 		return String(PCatalog.commons()[src].name)
 	return src
 
-## 지속 피해 원천(dot:*@<src>)의 보유 시간 키(F4): 원천이 자동기술이면 weapon:<id>, E 기술이면 skill:<id>, Q면 skill:q, 공용 증강이면 common:<id>, 그 외("common"·"" 등)는 전투 시간 전체.
+## 출처 키 규약의 **정본**(§15). 원천 id(자동기술·기술·공용 증강) → 통계가 쓰는 owner 키.
+## 자동기술이면 weapon:<id>, E 기술이면 skill:<id>, Q면 skill:q, 공용 증강이면 common:<id>, 모르는 것은 ""(= 전투 시간 전체).
+## **화면은 절대 "weapon:" 같은 접두사를 손으로 붙이지 않는다** — 그렇게 짜깁기한 곳이 대장간 피해 비중이었고
+## `String(g.owner) == "orb"` 비교가 늘 거짓이라 기여도가 항상 0%로 나왔다. 규약이 바뀌면 이 함수 하나만 바뀐다.
+## 같은 id가 자동기술이면서 공용 증강이기도 하면(frost·ember) **자동기술이 이긴다** — 옛 규약 그대로 둔다(기록 호환).
 ## 정책: DPS 분모 = 원천을 보유한 실제 전투 시간(획득~제거). 제거 뒤 남아 있던 지속 효과의 피해는 같은 분모에 포함한다(분모를 늘리지 않음). 획득 전 시간은 절대 포함하지 않는다.
-static func _owner_key(src: String) -> String:
+static func owner_key(src: String) -> String:
 	if src == "":
 		return ""
 	if PCatalog.weapons().has(src):
@@ -46,7 +50,7 @@ static func classify(key: String) -> Dictionary:
 			var dk := id.substr(0, at) if at >= 0 else id
 			var src := id.substr(at + 1) if at >= 0 else ""
 			var base := "화상" if dk == "burn" else ("출혈" if dk == "bleed" else dk)
-			return { "name": base + (("(" + _src_name(src) + ")") if src != "" else ""), "cat": "dot", "skill": _owner_key(src) }
+			return { "name": base + (("(" + _src_name(src) + ")") if src != "" else ""), "cat": "dot", "skill": owner_key(src) }
 		"skill":
 			if id == "q" or id == "slowfield":
 				return { "name": "감속장(Q)", "cat": "skill", "skill": "skill:q" }
@@ -158,6 +162,38 @@ static func by_owner(agg: Dictionary) -> Array:
 		out.append(g)
 	out.sort_custom(func(a, b): return float(a.amount) > float(b.amount))
 	return out
+
+## owner 키 하나의 묶음(by_owner 결과 중 하나). 없으면 {} — "기록이 아예 없다"와 "피해가 0이다"를 부르는 쪽이 구분할 수 있게 한다
+static func owner_group(agg: Dictionary, owner: String) -> Dictionary:
+	if owner == "":
+		return {}
+	for g in by_owner(agg):
+		if String(g.owner) == owner:
+			return g
+	return {}
+
+## 화면용 한 묶음(§15): 원천 하나(자동기술 id 등)가 **이 회차 전체 기록**에서 낸 유효 피해와 비중.
+## 대장간과 통계 화면이 **같은 범위**(필터 없는 aggregate = 통계 화면의 '런 전체')를 보게 하려고 여기서 한 번에 만든다.
+## amount = 직접(키가 owner와 같은 행) + 파생(그 기술에 귀속된 지속 피해·개조 등) — by_owner의 기존 합산 정책 그대로다.
+## state 는 **세 가지 서로 다른 사정**을 갈라 준다(문구를 섞지 않기 위해서다):
+##   "no_record" 정산된 전투 기록 자체가 없다      "no_metric" 전투는 있는데 출처별 피해가 하나도 안 남았다(계측 누락)
+##   "zero"      기록은 있는데 이 원천의 피해가 0   "ok"        실제 비중이 있다
+static func owner_share(run: Dictionary, src: String) -> Dictionary:
+	var agg := aggregate(run)
+	var owner := owner_key(src)
+	var g := owner_group(agg, owner)
+	var total := float(agg.total)
+	var amount := float(g.get("amount", 0.0))
+	var state := "ok"
+	if int(agg.n) <= 0:
+		state = "no_record"
+	elif total <= 0.0:
+		state = "no_metric"
+	elif amount <= 0.0:
+		state = "zero"
+	return { "owner": owner, "state": state, "n": int(agg.n), "total": _r1(total), "amount": _r1(amount),
+		"direct": _r1(float(g.get("direct", 0.0))), "derived": _r1(float(g.get("derived", 0.0))),
+		"share": (round(amount / total * 1000.0) / 10.0) if total > 0.0 else 0.0 }
 
 ## 보기: 전체 / 보스전(성공) / 보스전(실패한 도전) / 일반 출격 / 최근 전투(지시 15)
 static func views(run: Dictionary) -> Dictionary:

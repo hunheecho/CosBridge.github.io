@@ -30,6 +30,85 @@ func _find_button(node: Node, needle: String) -> Button:
 			return b
 	return null
 
+## §15 대장간 피해 기여도 + §16 강화 단계/무기 레벨 구분.
+##
+## 옛 결함: 화면이 `String(g.owner) == weapon_id`로 비교했는데 통계의 owner 키는 `weapon:<id>`라
+## **언제나 거짓**이었다 → 실제로 피해를 내도 "0%(기록 없음)"만 떴다.
+## 여기서는 ① 키 규약이 정본 하나에서 나오는지 ② 기록 없음/계측 누락/실제 피해 0을 서로 다른 문구로 적는지
+## ③ 직접 + 파생 합산이 통계 정책과 같은지 ④ 통계 화면 '런 전체'와 같은 숫자인지 ⑤ 교체 뒤 오귀속이 없는지를 본다.
+func _forge_damage_share(main) -> void:
+	# frost·ember·echo처럼 자동기술과 공용 증강이 같은 id를 쓰면 **자동기술이 이긴다**(옛 규약 그대로).
+	# 겹치지 않는 id(saving)로 공용 증강 접두사를 확인한다.
+	ok("§15 출처 키 규약이 정본 하나에서 나온다(weapon:<id> · skill:q · common:<id>)",
+		PStats.owner_key("orb") == "weapon:orb" and PStats.owner_key("sword") == "weapon:sword"
+			and PStats.owner_key("slowfield") == "skill:q" and PStats.owner_key("q") == "skill:q"
+			and PStats.owner_key("saving") == "common:saving" and PStats.owner_key("echo") == "weapon:echo"
+			and PStats.owner_key("있을리없는id") == "",
+		"orb→%s · q→%s · saving→%s" % [PStats.owner_key("orb"), PStats.owner_key("q"), PStats.owner_key("saving")])
+	main.run.gold = 400
+	main.run.growth.weapons = [{ "id": "sword", "level": 2, "mods": [] }]
+	main.run.erase("dmgStats")
+	main.show("forge")
+	await process_frame
+	ok("§15 ① 기록 없음: 정산된 전투가 없으면 '0%'가 아니라 '기록 없음'이라 적는다",
+		_count_text(main.screens["forge"], "피해 기여 [b]기록 없음[/b]") == 1 and _count_text(main.screens["forge"], "피해 기여 [b]0%[/b]") == 0)
+	# ② 계측 누락: 전투 기록은 있는데 출처별 피해가 하나도 남지 않았다(고쳐야 할 결함이라 다른 색·다른 말)
+	main.run.dmgStats = { "combats": [{ "elapsed": 12.0, "dmg": {}, "total": 0.0, "taken": 0.0, "kind": "sortie", "won": true }], "byKey": {} }
+	main.screens["forge"].refresh()
+	await process_frame
+	ok("§15 ② 계측 누락: 전투는 있는데 출처별 피해가 안 남았으면 '계측 없음'으로 따로 적는다",
+		_count_text(main.screens["forge"], "피해 기여 [b]계측 없음[/b]") == 1 and _count_text(main.screens["forge"], "기록 없음") == 0)
+	# ③ 실제 피해 0: 기록도 계측도 있는데 이 기술만 0이다
+	main.run.dmgStats = { "combats": [{ "elapsed": 12.0, "dmg": { "weapon:orb": 100.0 }, "total": 100.0, "taken": 0.0, "kind": "sortie", "won": true }], "byKey": {} }
+	main.screens["forge"].refresh()
+	await process_frame
+	ok("§15 ③ 실제 피해 0: 0%와 그 사정(전투 N회에 이 기술 피해 없음)을 함께 적는다",
+		_count_text(main.screens["forge"], "피해 기여 [b]0%[/b]") == 1 and _count_text(main.screens["forge"], "이 기술이 낸 피해가 없다") == 1 and _count_text(main.screens["forge"], "계측 없음") == 0)
+	# ④ 실제 비중: 직접 + 그 기술에 귀속된 파생(지속 피해)을 통계 정책 그대로 합산한다
+	main.run.dmgStats = { "combats": [{ "elapsed": 20.0, "dmg": { "weapon:sword": 300.0, "dot:bleed@sword": 100.0, "weapon:orb": 100.0 }, "total": 500.0, "taken": 0.0,
+		"activeT": { "weapon:sword": 20.0 }, "kind": "sortie", "won": true }], "byKey": {} }
+	main.screens["forge"].refresh()
+	await process_frame
+	var sh: Dictionary = PStats.owner_share(main.run, "sword")
+	ok("§15 ④ 직접 + 파생을 합쳐 비중을 낸다(300 + 100 = 400 / 500)",
+		String(sh.state) == "ok" and is_equal_approx(float(sh.direct), 300.0) and is_equal_approx(float(sh.derived), 100.0)
+			and is_equal_approx(float(sh.amount), 400.0) and is_equal_approx(float(sh.share), 80.0), str(sh))
+	ok("§15 ④ 화면에 그 비중이 그대로 적힌다(옛 결함: 언제나 0%)",
+		_count_text(main.screens["forge"], "피해 기여 [color=#ffd966][b]%s%%[/b]" % str(sh.share)) == 1
+			and _count_text(main.screens["forge"], "직접 300.0 + 파생 100.0 = [b]400.0[/b]") == 1,
+		"비중 %s" % str(sh.share))
+	# 통계 화면 '런 전체'와 **같은 범위·같은 숫자**인지(대장간이 자기만의 계산을 하지 않는다)
+	main.show("stats")
+	await process_frame
+	ok("§15 대장간 비중 = 전투 통계 '런 전체'의 같은 기술 기여율",
+		_count_text(main.screens["stats"], "%s%%" % str(sh.share)) >= 1, "찾는 값 %s%%" % str(sh.share))
+	# ⑤ 교체 뒤 오귀속 없음: 과거 피해는 옛 기술 키에 그대로 남고 새 기술로 옮겨 붙지 않는다
+	var q_sw: Dictionary = PRun.swap_quote(main.run, "weapon", 0)
+	var opts: Array = q_sw.get("options", [])
+	if opts.size() > 0:
+		main.run.gold = 900
+		var new_wid := String(opts[0])
+		PRun.apply_swap(main.run, "weapon", 0, new_wid, [])
+		main.show("forge")
+		await process_frame
+		var sh_new: Dictionary = PStats.owner_share(main.run, new_wid)
+		var sh_old: Dictionary = PStats.owner_share(main.run, "sword")
+		ok("§15 ⑤ 교체 뒤 과거 피해가 새 기술 기록으로 붙지 않는다(새 기술 0 · 옛 기술 400 그대로)",
+			is_equal_approx(float(sh_new.amount), 0.0) and String(sh_new.state) == "zero"
+				and is_equal_approx(float(sh_old.amount), 400.0)
+				and _count_text(main.screens["forge"], "이 기술이 낸 피해가 없다") == 1
+				and _count_text(main.screens["forge"], "직접 300.0") == 0,
+			"%s → %s · 새 %s / 옛 %s" % ["sword", new_wid, str(sh_new), str(sh_old)])
+	else:
+		ok("§15 ⑤ 교체 후보가 없어 교체 뒤 귀속을 확인하지 못했다", false, "후보 0개")
+	# §16: 같은 화면에서 '대장간 강화 단계'(금화)와 '무기 레벨'(레벨업 3택)을 이름으로 갈라 적는다
+	var f: Node = main.screens["forge"]
+	ok("§16 대장간 화면이 강화 단계와 무기 레벨을 이름으로 갈라 적는다",
+		_count_text(f, "대장간 강화 단계") >= 1 and _count_text(f, "무기 레벨") >= 1 and _count_text(f, "레벨업 3택으로만 오른다") == 1,
+		"단계 %d · 레벨 %d" % [_count_text(f, "대장간 강화 단계"), _count_text(f, "무기 레벨")])
+	main.run.erase("dmgStats")
+	main.run.growth.weapons = [{ "id": "sword", "level": 1, "mods": [] }]
+
 func _run() -> void:
 	PProfile.use_path("user://prophecy_profile_ui_test_v1.json")
 	PProfile.clear()
@@ -91,6 +170,7 @@ func _run() -> void:
 	main.craft("moon_armor", true, true)
 	await process_frame
 	ok("확정 후 장착: 갑옷 슬롯 월광 갑옷, 금화 20, 재료 0, 저장 반영", main.run.equipment.armor == "moon_armor" and int(main.run.gold) == 20 and int(main.run.mats.iron) == 0 and PSave.load().equipment.armor == "moon_armor" and main.screen == "forge")
+	await _forge_damage_share(main)
 	main.show("equip")
 	await process_frame
 	main.show("shop")
