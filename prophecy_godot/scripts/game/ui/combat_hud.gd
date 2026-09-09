@@ -78,9 +78,10 @@ class PHealth extends Control:
 		if k > 0.0:
 			PRender.rrect(self, 0.0, 0.0, maxf(4.0, w * k), bar_h, 5.0, PCombatHud.HP_FILL)
 		draw_rect(Rect2(0.0, 0.0, w, bar_h), PCombatHud.HP_EDGE, false, 1.0)
-		# 큰 숫자(체력만). 보호막은 절대 여기에 더하지 않는다
-		PRender.txt(self, 8.0, bar_h - 6.0, "%d" % int(ceil(hp)), 22, Color(1, 1, 1, 0.98), -1, true)
-		PRender.txt(self, w - 8.0, bar_h - 9.0, "/ %d" % int(hp_max), 13, Color(0.94, 0.86, 0.86, 0.97), 1, true)
+		# 큰 숫자(체력만). 보호막은 절대 여기에 더하지 않는다.
+		# 터치 배율을 입히되 막대 높이(26)를 넘기지 않게 가둔다 — 폰에서 이 줄이 6~9 CSS px이었다(2026-09-09 실제 브라우저)
+		PRender.txt(self, 8.0, bar_h - 6.0, "%d" % int(ceil(hp)), mini(PLayout.fs(22), 26), Color(1, 1, 1, 0.98), -1, true)
+		PRender.txt(self, w - 8.0, bar_h - 9.0, "/ %d" % int(hp_max), mini(PLayout.fs(13), 18), Color(0.94, 0.86, 0.86, 0.97), 1, true)
 		if shield <= 0.0:
 			return
 		# 보호막: 체력 막대와 색·위치·글자를 모두 분리한다
@@ -89,7 +90,7 @@ class PHealth extends Control:
 		PRender.rrect(self, 0.0, sy, w, sh, 3.0, PCombatHud.SHIELD_BACK)
 		var sk: float = clampf(shield / maxf(1.0, shield_max), 0.0, 1.0)
 		PRender.rrect(self, 0.0, sy, maxf(3.0, w * sk), sh, 3.0, PCombatHud.SHIELD_FILL)
-		PRender.txt(self, w - 2.0, sy + sh + 10.0, "보호막 %d" % int(ceil(shield)), 12, Color(0.66, 0.84, 1.0, 0.98), 1, true)
+		PRender.txt(self, w - 2.0, sy + sh + 10.0, "보호막 %d" % int(ceil(shield)), mini(PLayout.fs(12), 17), Color(0.66, 0.84, 1.0, 0.98), 1, true)
 
 # ---------- 구성 ----------
 func _clear_children() -> void:

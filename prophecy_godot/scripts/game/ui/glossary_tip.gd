@@ -81,8 +81,9 @@ func _make_tip(id: String, pinned: bool) -> PanelContainer:
 	var p := PanelContainer.new()
 	p.add_theme_stylebox_override("panel", PUi.stylebox(Color(0.09, 0.11, 0.14, 0.98), 6, 8, Color(0.6, 0.8, 1.0, 0.8) if pinned else Color(0.4, 0.45, 0.55, 0.8)))
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
-	p.custom_minimum_size = Vector2(TIP_W, 0)
-	p.size = Vector2(TIP_W, 0)
+	var w := tip_width()
+	p.custom_minimum_size = Vector2(w, 0)
+	p.size = Vector2(w, 0)
 	var v := PUi.vbox(4)
 	p.add_child(v)
 	var head := PUi.hbox(6)
@@ -90,7 +91,8 @@ func _make_tip(id: String, pinned: bool) -> PanelContainer:
 	head.add_child(name_l)
 	if pinned:
 		var close := PUi.button("×", func(): _close_from(p), true, 12)
-		var cs: float = 36.0 if PLayout.is_touch() else 22.0 # 터치면 닫기 대상도 크게
+		# 터치면 닫기 대상도 크게. 글자 배율이 올라가면 이 대상도 같이 커진다(폰에서 손가락으로 닫는 유일한 버튼)
+		var cs: float = maxf(36.0, PLayout.button_min_height()) if PLayout.is_touch() else 22.0
 		close.custom_minimum_size = Vector2(cs, cs)
 		close.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		head.add_child(close)
@@ -171,13 +173,42 @@ static func _run_of_layer() -> Dictionary:
 		n = n.get_parent()
 	return {}
 
+## 툴팁을 놓아도 되는 영역.
+##
+## 오른쪽 위 '전체화면' 버튼 자리는 뺀다(2026-09-09 실제 브라우저): 그 버튼은 툴팁보다 위 층(layer 64)이라
+## 툴팁이 그 아래로 들어가면 **닫기(×)가 버튼에 가려** 손가락으로 닫을 수 없었다.
+## 메뉴 화면이 `PLayout.margins()`로 같은 자리를 비우는 것과 같은 처리다.
 func _bounds() -> Rect2:
-	return PLayout.safe_rect(get_viewport()) if is_inside_tree() else Rect2(0.0, 0.0, PLayout.BASE_W, PLayout.BASE_H)
+	var b: Rect2 = PLayout.safe_rect(get_viewport()) if is_inside_tree() else Rect2(0.0, 0.0, PLayout.BASE_W, PLayout.BASE_H)
+	var res: float = PLayout.corner_reserve()
+	if res > 0.0 and b.size.x - res >= 240.0:
+		b = Rect2(b.position, Vector2(b.size.x - res, b.size.y))
+	return b
+
+## 툴팁 판의 폭(canvas px). 글자가 배율만큼 커지면 폭도 같이 커져야 줄바꿈이 예전과 같다.
+## 안전 영역보다 넓어지지는 않는다.
+func tip_width() -> float:
+	var b := _bounds()
+	return minf(TIP_W * PLayout.cur_ui_scale(), maxf(200.0, b.size.x - 16.0))
+
+## 판을 내용 크기에 맞춘다(매 프레임 _clamp_all이 부른다).
+##
+## 왜 필요한가(2026-09-09 실제 브라우저 계측, 폰 가로 640×360): `PUi.rich`는 fit_content라
+## **폭이 정해지기 전**에는 최소 높이를 터무니없이 크게 잡는다. 그 첫 값으로 판이 화면 높이만큼 늘어나고,
+## Control은 한 번 커진 size를 스스로 줄이지 않으므로 그 크기가 그대로 남았다.
+## 결과: 내용은 몇 줄뿐인데 **빈 판이 화면 절반을 덮고**, 그 위 터치를 전부 삼켜
+## "바깥을 누르면 닫힘"이 대부분의 자리에서 듣지 않았다. 폭을 먼저 못 박고 그 폭에서 다시 잰 높이로 줄인다.
+func _fit(p: PanelContainer) -> void:
+	var w := tip_width()
+	var need := p.get_combined_minimum_size()
+	if absf(p.size.x - w) > 0.5 or p.size.y > need.y + 0.5:
+		p.size = Vector2(w, need.y)
 
 func _place(p: PanelContainer, at: Vector2) -> void:
 	var b := _bounds()
 	var sz := p.get_combined_minimum_size()
-	sz.x = maxf(sz.x, TIP_W)
+	sz.x = maxf(sz.x, tip_width())
+	sz.y = minf(sz.y, maxf(60.0, b.size.y - 16.0))   # 첫 프레임의 과장된 높이로 자리를 정하지 않는다
 	var x := at.x + 8.0
 	var y := at.y + 18.0
 	if x + sz.x > b.end.x - 8.0:
@@ -197,6 +228,7 @@ func _clamp_all() -> void:
 		all.append(t.panel)
 	for pp in all:
 		var p: PanelContainer = pp
+		_fit(p)
 		var sz := p.size
 		var pos := p.position
 		pos.x = clampf(pos.x, b.position.x + 8.0, maxf(b.position.x + 8.0, b.end.x - 8.0 - sz.x))

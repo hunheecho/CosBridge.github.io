@@ -75,6 +75,7 @@ static func _circles(tc: PTouchControls) -> Array:
 	for kind in ["dodge", "special", "e"]:
 		out.append([kind, tc.button_center(kind), PTouchControls.button_radius(kind)])
 	out.append(["build", tc.build_button_center(), PTouchControls.BTN_BUILD_R])
+	out.append(["pause", tc.pause_button_center(), PTouchControls.BTN_PAUSE_R])
 	return out
 
 ## 원과 사각형이 겹치는가(사각형에서 가장 가까운 점까지의 거리가 반지름보다 작으면 겹친다)
@@ -86,8 +87,8 @@ static func _circle_hits_rect(c: Vector2, r: float, rect: Rect2) -> bool:
 ## ③ 스틱 끌기 영역과 **행동 버튼**이 겹침 ④ 안내 원이 끌기 영역 밖(그림만 있고 누를 수 없는 자리)
 ## ⑤ '전체화면' 버튼과 조작이 겹침(2026-09-09 사용자 피드백으로 버튼이 커졌다)
 ##
-## '빌드'는 ③에서 뺀다: 왼쪽 위로 옮긴 뒤 아주 낮은 화면에서는 끌기 영역 안에 들어올 수 있다.
-## 그 경우의 보장은 자리가 아니라 **차례**다 — pick_at()이 빌드를 먼저 고르므로 한 터치로 스틱을 잡지 않는다(H13이 실제 터치로 확인).
+## '빌드'와 '멈춤'은 ③에서 뺀다: 왼쪽 위로 옮긴 뒤 아주 낮은 화면에서는 끌기 영역 안에 들어올 수 있다.
+## 그 경우의 보장은 자리가 아니라 **차례**다 — pick_at()이 둘을 먼저 고르므로 한 터치로 스틱을 잡지 않는다(H13·K6이 실제 터치로 확인).
 static func _layout_problems(tc: PTouchControls, safe: Rect2, tag: String) -> Array:
 	var bad := []
 	var cs := _circles(tc)
@@ -101,7 +102,7 @@ static func _layout_problems(tc: PTouchControls, safe: Rect2, tag: String) -> Ar
 		var ar: float = a[2]
 		if ac.x - ar < safe.position.x - 0.001 or ac.y - ar < safe.position.y - 0.001 or ac.x + ar > safe.end.x + 0.001 or ac.y + ar > safe.end.y + 0.001:
 			bad.append("%s %s 잘림 %s r%.0f" % [tag, String(a[0]), str(ac), ar])
-		if String(a[0]) != "build" and _circle_hits_rect(ac, ar, zone):
+		if not (String(a[0]) in ["build", "pause"]) and _circle_hits_rect(ac, ar, zone):
 			bad.append("%s %s 가 스틱 영역과 겹침" % [tag, String(a[0])])
 		if _circle_hits_rect(ac, ar, fs_rect):
 			bad.append("%s %s 가 전체화면 버튼 %s 과 겹침" % [tag, String(a[0]), str(fs_rect)])
@@ -585,6 +586,7 @@ func _run() -> void:
 	PSave.clear()
 	sec_j_dpad()
 	sec_k_mobile()
+	await sec_l_glossary()
 	var pass_n := 0
 	for r in results:
 		if r[0]:
@@ -729,6 +731,22 @@ func sec_k_mobile() -> void:
 		css.y >= 44.0 and css.x >= 100.0 and fr.size.y >= 88.0 and int(m.font) >= 26,
 		"글자 %d canvas = 약 %.1f CSS px" % [int(m.font), float(m.font) * k])
 	ok("K4b 아이콘이 아니라 '전체화면' 글자를 쓴다", POrientGate.CORNER_TEXT == "전체화면" and POrientGate.FS_TEXT.find("전체화면") == 0)
+	# K4c 글자 배율은 **CSS px**으로 재야 한다(2026-09-09 실제 브라우저 계측으로 잡은 결함).
+	## 예전 식은 창 높이(물리 px) ÷ 캔버스 높이였다. 폰은 화면 배율이 2~3이라 그 값이 1을 넘어
+	## **폰에서 늘 배율 1.0**이 나왔고, 12px 글자가 브라우저에서 6.75 CSS px로 보였다.
+	## 아래 두 줄이 옛 식과 새 식을 나란히 못 박는다.
+	var phone_css: float = PLayout.css_per_canvas(1080.0, 640.0, 3.0)        # 0.5625 (Pixel급 폰 가로)
+	var phone_phys: float = 1080.0 / 640.0                                    # 1.6875 (옛 식이 보던 값)
+	ok("K4c CSS px으로 재면 폰에서 글자가 커진다(옛 식은 1.0이었다)",
+		is_equal_approx(PLayout.scale_for_css(phone_css), PLayout.UI_SCALE_MAX)
+		and is_equal_approx(PLayout.scale_for_css(phone_phys), 1.0),
+		"CSS 기준 %.2f배 · 물리 px 기준 %.2f배" % [PLayout.scale_for_css(phone_css), PLayout.scale_for_css(phone_phys)])
+	ok("K4d 상단 목표 12px이 실제로 10 CSS px을 넘는다(고치기 전 6.75)",
+		12.0 * PLayout.scale_for_css(phone_css) * phone_css > 10.0,
+		"12px → %.1f CSS px (고치기 전 %.2f)" % [12.0 * PLayout.scale_for_css(phone_css) * phone_css, 12.0 * phone_css])
+	ok("K4e 데스크톱(배율 1·캔버스가 이미 실제 크기 이상)에서는 1.0 그대로 — PC 화면 불변",
+		is_equal_approx(PLayout.scale_for_css(PLayout.css_per_canvas(720.0, 640.0, 1.0)), 1.0)
+		and is_equal_approx(PLayout.scale_for_css(PLayout.css_per_canvas(1280.0, 640.0, 1.0)), 1.0))
 	# K5 겹침·잘림: 상단 띠(목표·체력) 아래 · 조작 밖 · 안전 영역 안. 주소창이 보이는 낮은 화면도 본다
 	var fs_bad := []
 	for sz in [PHONE, Vector2(1560, 640), Vector2(1138, 640), Vector2(854, 400), Vector2(720, 360)]:
@@ -743,11 +761,9 @@ func sec_k_mobile() -> void:
 			fs_bad.append("%s 상단 목표·체력 줄과 겹침 y=%.0f" % [tag, r2.position.y])
 		if r2.size.y < POrientGate.CORNER_MIN_H - 0.001 or r2.size.x < POrientGate.CORNER_MIN_W - 0.001:
 			fs_bad.append("%s 최소 크기 미만 %s" % [tag, str(r2.size)])
-		for kind in ["dodge", "special", "e", "build"]:
-			var c2: Vector2 = tc.build_button_center() if kind == "build" else tc.button_center(kind)
-			var rr: float = PTouchControls.BTN_BUILD_R if kind == "build" else PTouchControls.button_radius(kind)
-			if _circle_hits_rect(c2, rr, r2):
-				fs_bad.append("%s %s 와 겹침" % [tag, kind])
+		for e2 in _circles(tc):
+			if _circle_hits_rect(Vector2(e2[1]), float(e2[2]), r2):
+				fs_bad.append("%s %s 와 겹침" % [tag, String(e2[0])])
 		if _circle_hits_rect(tc.guide_center(), PTouchControls.STICK_R, r2) or tc.zone_rect().intersects(r2):
 			fs_bad.append("%s 스틱 영역과 겹침" % tag)
 	ok("K5 전체화면 버튼이 상단 줄·조작·스틱 영역과 겹치지 않고 작은 가로 화면에서도 잘리지 않는다", fs_bad.is_empty(), " / ".join(fs_bad))
@@ -760,5 +776,108 @@ func sec_k_mobile() -> void:
 	tc.handle_touch(55, bc, false)
 	tc.release_all()
 	ok("K6 '빌드' 위를 눌러도 스틱을 잡지 않는다(pick_at이 먼저 고른다)", not grabbed, "빌드가 영역 안=%s" % str(in_zone))
+	# K7 '멈춤' 버튼: 폰에는 Esc가 없다. 일시정지 화면으로 가는 화면 안 길이 있어야 한다(2026-09-09 실제 브라우저 확인)
+	## 사용자 지시: "ESC를 전제로 하지 마라." 이 버튼이 없던 동안 폰에서는 전투 중 설정도 포기도 할 수 없었다.
+	var pause_bad := []
+	for sz2 in [Vector2(640.0, 360.0), Vector2(720.0, 360.0), Vector2(854.0, 400.0), Vector2(1366.0, 640.0), Vector2(960.0, 640.0)]:
+		var sf2 := Rect2(Vector2.ZERO, sz2)
+		_place(tc, sf2, PLayout.GESTURE_PAD)
+		var tag2 := "%dx%d" % [int(sz2.x), int(sz2.y)]
+		var pc: Vector2 = tc.pause_button_center()
+		var pr: float = PTouchControls.BTN_PAUSE_R
+		if pc.x - pr < sf2.position.x - 0.001 or pc.y - pr < sf2.position.y - 0.001 \
+			or pc.x + pr > sf2.end.x + 0.001 or pc.y + pr > sf2.end.y + 0.001:
+			pause_bad.append("%s 화면 밖 %s" % [tag2, str(pc)])
+		if tc.pick_at(pc) != "pause":
+			pause_bad.append("%s 가운데를 눌러도 '멈춤'이 잡히지 않는다(%s)" % [tag2, tc.pick_at(pc)])
+		tc.release_all()
+		tc.handle_touch(56, pc, true)
+		if tc.stick_held():
+			pause_bad.append("%s '멈춤' 위를 눌렀는데 스틱을 잡았다" % tag2)
+		tc.handle_touch(56, pc, false)
+		tc.release_all()
+	ok("K7 '멈춤' 버튼이 작은 가로 화면에서도 화면 안에 있고 눌린다(Esc 없이 일시정지로 가는 길)",
+		pause_bad.is_empty(), " / ".join(pause_bad))
 	fk.queue_free()
 	tc.queue_free()
+
+## ---------- L. 용어 설명 창(툴팁): 폰에서 정말 닫을 수 있는가 ----------
+## 2026-09-09 실제 브라우저 확인(폰 가로 640×360 · 캔버스 1137×640, 내보낸 웹 빌드에 진짜 터치 입력):
+## 내용은 대여섯 줄인데 **판이 화면 높이만큼 늘어나** 빈 자리가 화면 절반을 덮었다.
+## 그 빈 자리도 판(MOUSE_FILTER_STOP)이라 터치를 삼켜서, "바깥을 누르면 닫힘"이 대부분의 자리에서 듣지 않았다.
+## 원인: PUi.rich는 fit_content라 **폭이 정해지기 전** 최소 높이를 크게 잡는데, Control은 한 번 커진 size를
+## 스스로 줄이지 않는다. 이 창의 키보드 탈출구는 Esc 하나뿐이고 폰에는 Esc가 없다 — 판 크기와 × 버튼이 곧 탈출구다.
+func sec_l_glossary() -> void:
+	var prev_touch := OS.get_environment("PROPHECY_TOUCH")
+	var prev_scale := PLayout.cur_ui_scale()
+	OS.set_environment("PROPHECY_TOUCH", "1")
+	PLayout.set_ui_scale(PLayout.UI_SCALE_MAX)     # 폰에서 실제로 쓰이는 배율
+	var layer := PGlossaryTip.new()
+	root.add_child(layer)
+	await process_frame
+	var ids: Array = PCatalog.glossary().keys()
+	if ids.is_empty():
+		ok("L0 용어 사전이 비어 있지 않다", false)
+		layer.queue_free()
+		OS.set_environment("PROPHECY_TOUCH", prev_touch)
+		PLayout.set_ui_scale(prev_scale)
+		return
+	var id := String(ids[0])
+	layer._on_click(id)                            # 밑줄 용어 탭 = 고정 툴팁
+	for i in range(6):
+		await process_frame
+	ok("L0 용어를 누르면 고정 툴팁이 열린다", layer.pin_count() == 1)
+	var p: PanelContainer = layer._pinned[0].panel
+	var vis: Rect2 = root.get_visible_rect()
+	ok("L1 툴팁 판이 내용 크기에 맞는다(화면을 통째로 덮지 않는다)",
+		p.size.y <= vis.size.y * 0.6,
+		"판 %.0fx%.0f · 화면 %.0fx%.0f" % [p.size.x, p.size.y, vis.size.x, vis.size.y])
+	ok("L2 판이 안전 영역 안에 들어간다(밖으로 밀려나지 않는다)",
+		p.position.x >= vis.position.x - 0.5 and p.position.y >= vis.position.y - 0.5
+		and p.position.x + p.size.x <= vis.end.x + 0.5,
+		"자리 %s 크기 %s" % [str(p.position), str(p.size)])
+	var close := _find_button(p, "×")
+	ok("L3 닫기(×) 버튼이 있고 터치 대상이 충분히 크다",
+		close != null and close.custom_minimum_size.x >= 36.0 and close.custom_minimum_size.y >= 36.0,
+		"×=%s" % (str(close.custom_minimum_size) if close != null else "없음"))
+	if close != null:
+		close.pressed.emit()
+		await process_frame
+	ok("L4 ×를 누르면 닫힌다(Esc 없이도 나갈 수 있다)", layer.pin_count() == 0)
+	# 바깥 탭으로도 닫힌다: 판 밖의 자리를 눌러 본다
+	layer._on_click(id)
+	for i in range(6):
+		await process_frame
+	var p2: PanelContainer = layer._pinned[0].panel
+	var outside := Vector2(clampf(p2.position.x - 40.0, vis.position.x + 4.0, vis.end.x - 4.0),
+		clampf(p2.position.y + p2.size.y + 40.0, vis.position.y + 4.0, vis.end.y - 4.0))
+	var free_spot: bool = not p2.get_global_rect().has_point(outside)
+	var t := InputEventScreenTouch.new()
+	t.index = 0
+	t.position = outside
+	t.pressed = true
+	layer._input(t)
+	for i in range(4):
+		await process_frame
+	ok("L5 판 바깥을 누르면 닫힌다(판이 화면을 덮고 있으면 이 길이 막힌다)",
+		free_spot and layer.pin_count() == 0, "바깥 자리 %s(판 밖=%s)" % [str(outside), str(free_spot)])
+	# L6 오른쪽 위 '전체화면' 버튼 자리를 침범하지 않는다.
+	## 그 버튼은 툴팁보다 위 층(layer 64)이라, 툴팁이 그 아래로 들어가면 **닫기(×)가 가려** 손가락으로 닫을 수 없다
+	## (2026-09-09 실제 브라우저에서 실제로 그랬다).
+	var prev_res := PLayout.corner_reserve()
+	PLayout.set_corner_reserve(212.0)                # 폰 가로에서 실제로 비우는 폭(버튼 202 + 여유 10)
+	layer._on_click(id)
+	for i in range(6):
+		await process_frame
+	var p3: PanelContainer = layer._pinned[0].panel
+	ok("L6 툴팁이 '전체화면' 버튼 자리를 침범하지 않는다(닫기 ×가 가리지 않는다)",
+		p3.position.x + p3.size.x <= vis.end.x - 212.0 + 0.5,
+		"툴팁 오른쪽 끝 %.0f · 비워야 할 경계 %.0f" % [p3.position.x + p3.size.x, vis.end.x - 212.0])
+	PLayout.set_corner_reserve(prev_res)
+	layer.close_all()
+	if PGlossaryTip.layer == layer:
+		PGlossaryTip.layer = null   # 정적 참조를 남기고 지우면 종료 때 해제된 객체를 만진다
+	layer.queue_free()
+	await process_frame
+	OS.set_environment("PROPHECY_TOUCH", prev_touch)
+	PLayout.set_ui_scale(prev_scale)
