@@ -2013,6 +2013,11 @@ static func buy_skill(run: Dictionary) -> bool:
 	return true
 
 ## 보유 자동기술/E 교체 견적: 120 + (레벨-1)×40 + 개조·변형 수×80. 없으면 {}
+##
+## **주무기 자리에는 주무기만, 보조 자리에는 보조만 나온다**(새 구조 v2, 2026-09-09 사용자 지시).
+## 전에는 후보에 모든 자동기술이 섞여 나와서, 주무기(Lv5·개조 2)를 보조로 바꾸면
+## 보조가 Lv5·개조 2개가 되고(상한은 Lv3·개조 1) 주무기가 0개, 보조가 3개인 회차가 됐다.
+## 옛 저장(v1)은 옛 규칙 그대로 아무 자동기술로나 바꿀 수 있다(6절: 옛 회차는 옛 구조로 끝까지).
 static func swap_quote(run: Dictionary, slot: String, index: int = 0) -> Dictionary:
 	var g: Dictionary = run.growth
 	var cur = null
@@ -2026,16 +2031,28 @@ static func swap_quote(run: Dictionary, slot: String, index: int = 0) -> Diction
 	var SW: Dictionary = SH().swap
 	var price := int(SW.base) + (int(cur.level) - 1) * int(SW.perLevel) + mods * int(SW.perMod)
 	var options := []
+	var role := ""
 	if slot == "e":
 		for id in PCatalog.e_skills():
 			if bool(PCatalog.skills()[id].impl) and String(id) != String(cur.id) and PProfile.run_unlock_ok(run, "e_skills", String(id)):
 				options.append(String(id))
 	else:
 		var W_ := PCatalog.weapons()
+		var want_main: bool = PCatalog.is_main_weapon(String(cur.id))
+		var strict: bool = PGrowth.is_v2(g)
+		role = "main" if want_main else "support"
 		for id in W_:
-			if bool(W_[id].impl) and PGrowth.weapon_of(g, String(id)).is_empty() and PProfile.run_unlock_ok(run, "weapons", String(id)):
-				options.append(String(id))
-	return { "slot": slot, "index": index, "current": cur, "level": int(cur.level), "modCount": mods, "price": price, "options": options, "affordable": int(run.gold) >= price }
+			if not bool(W_[id].impl) or not PGrowth.weapon_of(g, String(id)).is_empty():
+				continue
+			if not PProfile.run_unlock_ok(run, "weapons", String(id)):
+				continue
+			if strict and PCatalog.is_main_weapon(String(id)) != want_main:
+				continue # 주무기 ↔ 보조 교차 교체 금지(후보 단계에서 아예 제시하지 않는다)
+			options.append(String(id))
+	return { "slot": slot, "index": index, "current": cur, "level": int(cur.level), "modCount": mods, "price": price, "options": options,
+		"role": role, "levelCap": (PGrowth.level_cap(g, String(cur.id)) if slot != "e" else 0),
+		"modCap": (PGrowth.mod_cap(g, String(cur.id)) if slot != "e" else 1),
+		"affordable": int(run.gold) >= price }
 
 ## 교체 확정(마지막 단계에서만 차감·교체). 새 개조/변형은 새 기술 목록에서 modCount만큼. 실패 시 -1
 static func apply_swap(run: Dictionary, slot: String, index: int, new_id: String, new_mods: Array = []) -> int:
@@ -2046,8 +2063,15 @@ static func apply_swap(run: Dictionary, slot: String, index: int, new_id: String
 	if int(run.gold) < int(q.price):
 		push_error("금화 부족")
 		return -1
-	var nm: Array = new_mods.slice(0, int(q.modCount))
 	var g: Dictionary = run.growth
+	# **확정에서도 다시 막는다.** 후보 목록을 지나 들어와도(옛 화면·저장된 조작·도구) 거부한다.
+	if slot != "e" and PGrowth.is_v2(g) and PCatalog.is_main_weapon(new_id) != PCatalog.is_main_weapon(String(q.current.id)):
+		push_error("주무기 자리와 보조 자리는 서로 교체할 수 없습니다: %s → %s" % [String(q.current.id), new_id])
+		return -1
+	# 레벨·개조 수는 새 자리의 상한을 넘지 않는다(같은 역할끼리면 상한이 같아 값이 바뀌지 않는다)
+	var keep_lv: int = int(q.level) if slot == "e" else mini(int(q.level), PGrowth.level_cap(g, new_id))
+	var keep_mods: int = int(q.modCount) if slot == "e" else mini(int(q.modCount), PGrowth.mod_cap(g, new_id))
+	var nm: Array = new_mods.slice(0, keep_mods)
 	var label := ""
 	if slot == "e":
 		var d: Dictionary = PCatalog.skills()[new_id]
@@ -2071,7 +2095,7 @@ static func apply_swap(run: Dictionary, slot: String, index: int, new_id: String
 		var mods_out := []
 		for m in nm:
 			mods_out.append(String(m))
-		g.weapons[index] = { "id": new_id, "level": int(q.level), "mods": mods_out }
+		g.weapons[index] = { "id": new_id, "level": keep_lv, "mods": mods_out }
 		label = String(d.name)
 	run.gold = int(run.gold) - int(q.price)
 	g.picks.swap = int(g.picks.get("swap", 0)) + 1

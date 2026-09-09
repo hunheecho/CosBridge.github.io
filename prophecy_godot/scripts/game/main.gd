@@ -469,7 +469,8 @@ func take_pick_highlight() -> String:
 	return h
 
 func open_choice(off: Variant) -> void:
-	if off == null or typeof(off) != TYPE_DICTIONARY:
+	# 빈 사전은 '제시가 없다'는 뜻이다. 그것으로 창을 열면 아무 내용 없는 화면이 전투 입력을 막는다
+	if off == null or typeof(off) != TYPE_DICTIONARY or (off as Dictionary).is_empty():
 		return
 	choice.open(run, off)
 	if screen == "combat":
@@ -833,6 +834,25 @@ func _on_finished(summary: Dictionary) -> void:
 		return
 	if st.status == "won":
 		last_reward = PFlow.settle_victory(run, sortie, st)
+		# **정산이 거부되면 보상 화면으로 보내지 않는다.**
+		# 보상 화면(PRewardScreen.refresh)은 정산 결과가 비면 아무것도 그리지 않는다 —
+		# 버튼이 하나도 없는 화면이 되어 진행이 완전히 막힌다.
+		# 2026-09-09 실제 재현(tests/overlay_tests.gd ③): 임무 전투(포로 구출·봉인 해제)에 특수 정예 결투가
+		# 배정되면 status="won"인데 duel_stage가 "normal"로 남고, PFlow.settle_victory가 정산을 거부한다.
+		# 사람 보고 "포로 구출했는데 또 봉인돼서 화면 아무것도 누를 수 없는 상태가 되냐고"와 같은 화면이다.
+		# 조용히 넘기지 않는다: 이유를 회차 기록·회수·오류로 남기고, 사람은 거점으로 계속 갈 수 있게 한다.
+		# (근본 원인은 전투 규칙 쪽 승리 판정에 있다 — 여기서는 화면이 죽지 않게만 막는다)
+		if last_reward.is_empty():
+			var why := "결투 단계 %s" % (String(st.duel_stage) if String(st.duel_stage) != "" else "-")
+			push_error("승리 정산이 거부됐다(%s) — 보상 화면을 건너뛰고 거점으로 보낸다" % why)
+			PRun.add_log(run, "전투 정산 실패(%s): 이번 전투 보상이 지급되지 않았습니다" % why)
+			run.settleFailures = int(run.get("settleFailures", 0)) + 1
+			message("이번 전투의 보상 정산에 실패했습니다(기록을 남겼습니다). 거점으로 돌아갑니다.")
+			run.pendingSortie = null
+			sortie = {}
+			save_run()
+			go_base()
+			return
 		last_profile_award = _award_profile("victory", { "sortie": sortie, "st": st })
 		save_run()
 		show("reward")

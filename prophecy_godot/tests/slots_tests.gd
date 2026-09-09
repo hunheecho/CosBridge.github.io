@@ -258,6 +258,92 @@ func _init() -> void:
 		broke.append("회차 상태를 못 읽었다")
 	ok("회차를 끝까지 굴려도 주무기 1·보조 2·레벨·개조 상한이 깨지지 않는다", broke.is_empty(), str(broke))
 
+	# ---------- 13. 대장간 '기술 교체'가 주무기 ↔ 보조를 넘나들지 않는다 ----------
+	# 2026-09-09 발견: PRun.swap_quote가 후보를 **보유하지 않은 모든 자동기술**로 냈다.
+	# 그래서 주무기(Lv5·개조 2)를 보조로 바꿀 수 있었고, 그러면 보조가 Lv5·개조 2개(상한은 Lv3·개조 1)에
+	# 주무기 0개·보조 3개인 회차가 됐다. 슬롯 불변식 검사(§12)는 회차 봇이 교체를 쓰지 않아 이 구멍을 못 잡았다.
+	# 막을 곳은 두 군데다: ① 후보를 만들 때 ② 확정할 때(후보를 지나 들어와도 거부).
+	var runsw := mk_v2()
+	var gsw: Dictionary = runsw.growth
+	gsw.weapons = [{ "id": "sword", "level": 5, "mods": ["cross", "scar"] }, { "id": "blades", "level": 3, "mods": ["dual"] }]
+	runsw.gold = 2000
+	var q_main := PRun.swap_quote(runsw, "weapon", 0)
+	var q_sup := PRun.swap_quote(runsw, "weapon", 1)
+	var main_opts: Array = q_main.options
+	var sup_opts: Array = q_sup.options
+	ok("① 주무기 자리의 교체 후보는 주무기뿐이다",
+		main_opts.size() > 0 and main_opts.all(func(x): return PCatalog.is_main_weapon(String(x))), str(main_opts))
+	ok("① 보조 자리의 교체 후보는 보조뿐이다",
+		sup_opts.size() > 0 and sup_opts.all(func(x): return not PCatalog.is_main_weapon(String(x))), str(sup_opts))
+	ok("① 견적이 자리 이름·상한을 함께 알려 준다(화면이 계산하지 않게)",
+		String(q_main.role) == "main" and int(q_main.levelCap) == 5 and int(q_main.modCap) == 2
+		and String(q_sup.role) == "support" and int(q_sup.levelCap) == 3 and int(q_sup.modCap) == 1,
+		"%s/%s" % [str(q_main.role), str(q_sup.role)])
+	# ② 확정에서도 막힌다 — 그리고 실패에는 금화가 한 푼도 나가지 않는다
+	var gold0 := int(runsw.gold)
+	var cross1 := PRun.apply_swap(runsw, "weapon", 0, "bell", [])          # 주무기 자리에 보조
+	var cross2 := PRun.apply_swap(runsw, "weapon", 1, "spear", [])         # 보조 자리에 주무기
+	ok("② 확정 단계도 주무기 ↔ 보조 교차 교체를 거부한다(-1)", cross1 == -1 and cross2 == -1, "%d / %d" % [cross1, cross2])
+	ok("② 거부된 교체에는 금화가 나가지 않고 무기도 그대로다",
+		int(runsw.gold) == gold0 and String(gsw.weapons[0].id) == "sword" and String(gsw.weapons[1].id) == "blades",
+		"금화 %d → %d · %s" % [gold0, int(runsw.gold), str([String(gsw.weapons[0].id), String(gsw.weapons[1].id)])])
+	ok("② 교차 교체가 막히니 주무기 1 · 보조 2 구조가 유지된다",
+		PGrowth.main_weapons(gsw).size() == 1 and PGrowth.support_weapons(gsw).size() == 1)
+	# ③ 정상 교환(주무기 → 다른 주무기): 슬롯·레벨·개조 상한과 금화 처리를 확인한다
+	var new_main := String(main_opts[0])
+	var mod_ids := []
+	for mid in (W[new_main].mods as Dictionary):
+		if bool(W[new_main].mods[mid].impl) and mod_ids.size() < int(q_main.modCount):
+			mod_ids.append(String(mid))
+	var gold1 := int(runsw.gold)
+	var paid := PRun.apply_swap(runsw, "weapon", 0, new_main, mod_ids)
+	var w_new: Dictionary = gsw.weapons[0]
+	ok("③ 같은 자리(주무기 → 주무기) 교환은 정상 처리된다",
+		paid == int(q_main.price) and String(w_new.id) == new_main, "%d금 · %s" % [paid, String(w_new.id)])
+	ok("③ 교환 뒤 슬롯 수가 그대로다(주무기 1 · 보조 1)",
+		PGrowth.main_weapons(gsw).size() == 1 and PGrowth.support_weapons(gsw).size() == 1 and (gsw.weapons as Array).size() == 2)
+	ok("③ 교환 뒤 레벨·개조가 새 자리의 상한 안이다(주무기 Lv5 / 개조 2)",
+		int(w_new.level) == 5 and int(w_new.level) <= PGrowth.level_cap(gsw, new_main)
+		and (w_new.mods as Array).size() == 2 and (w_new.mods as Array).size() <= PGrowth.mod_cap(gsw, new_main),
+		"Lv%d · 개조 %d/%d" % [int(w_new.level), (w_new.mods as Array).size(), PGrowth.mod_cap(gsw, new_main)])
+	ok("③ 교환 뒤 개조 수가 그 레벨의 개조 자격 안이다(Lv5 주무기 = 2개까지)",
+		(w_new.mods as Array).size() <= PGrowth.mod_quota_of(gsw, w_new),
+		"개조 %d · 자격 %d" % [(w_new.mods as Array).size(), PGrowth.mod_quota_of(gsw, w_new)])
+	ok("③ 금화는 **정확히 한 번** 견적만큼만 빠진다(이중 차감·미차감 없음)",
+		int(runsw.gold) == gold1 - int(q_main.price), "%d → %d (견적 %d)" % [gold1, int(runsw.gold), int(q_main.price)])
+	# ④ 보조 → 보조 교환도 같은 규칙(레벨 3 · 개조 1 상한 안)
+	var q_sup2 := PRun.swap_quote(runsw, "weapon", 1)
+	var new_sup := String((q_sup2.options as Array)[0])
+	var smods := []
+	for mid2 in (W[new_sup].mods as Dictionary):
+		if bool(W[new_sup].mods[mid2].impl) and smods.size() < int(q_sup2.modCount):
+			smods.append(String(mid2))
+	var gold2 := int(runsw.gold)
+	var paid2 := PRun.apply_swap(runsw, "weapon", 1, new_sup, smods)
+	var s_new: Dictionary = gsw.weapons[1]
+	ok("④ 보조 → 보조 교환: 레벨 3 · 개조 1 상한을 넘지 않는다",
+		paid2 == int(q_sup2.price) and int(s_new.level) <= PGrowth.level_cap(gsw, new_sup)
+		and (s_new.mods as Array).size() <= PGrowth.mod_cap(gsw, new_sup),
+		"%s Lv%d · 개조 %d" % [String(s_new.id), int(s_new.level), (s_new.mods as Array).size()])
+	ok("④ 보조 교환에도 금화가 한 번만 빠진다", int(runsw.gold) == gold2 - int(q_sup2.price),
+		"%d → %d (견적 %d)" % [gold2, int(runsw.gold), int(q_sup2.price)])
+	# 상한 확인은 **평범한 반복문**으로 쓴다. 회차 사전을 붙잡는 람다를 여기 두면 종료할 때 프로세스가 죽는다
+	# (2026-09-09 확인: 58/58 통과 뒤 종료 코드 3221225477. 단언은 통과해도 그것은 종료 실패다)
+	var caps_ok := true
+	for w2 in (gsw.weapons as Array):
+		if int(w2.level) > PGrowth.level_cap(gsw, String(w2.id)) or (w2.mods as Array).size() > PGrowth.mod_cap(gsw, String(w2.id)):
+			caps_ok = false
+	ok("④ 두 번 교환한 뒤에도 주무기 1 · 보조 1이고 모든 상한이 지켜진다",
+		PGrowth.main_weapons(gsw).size() == 1 and PGrowth.support_weapons(gsw).size() == 1 and caps_ok,
+		str(gsw.weapons))
+	# ⑤ 옛 저장(v1)은 옛 규칙 그대로 — 자리 구분이 없으므로 아무 자동기술로나 바꾼다(6절)
+	var runv1c := mk_v1()
+	var q_v1 := PRun.swap_quote(runv1c, "weapon", 0)
+	var v1_opts: Array = q_v1.options
+	ok("⑤ 옛 저장은 교체 후보를 좁히지 않는다(옛 구조 그대로 끝까지)",
+		v1_opts.any(func(x): return PCatalog.is_main_weapon(String(x))) and v1_opts.any(func(x): return not PCatalog.is_main_weapon(String(x))),
+		"%d개" % v1_opts.size())
+
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
