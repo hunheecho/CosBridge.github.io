@@ -100,7 +100,11 @@ func _ready() -> void:
 	$UI/Pause/VBox.add_child(detail_btn)
 	$UI/Pause/VBox.move_child(detail_btn, 2)
 	# 전투 중에 전체화면이 풀렸을 때 되돌아가는 길(전체화면을 쓴 적이 있을 때만 보인다)
-	_pause_fs_btn = PUi.button("전체화면으로 다시 들어가기", func(): request_fullscreen_landscape(), true, 14)
+	# 사용자 지시(2026-09-09): 다시 들어가는 길도 구석 버튼과 **같은 수준**으로 크고 잘 보이게. PC는 예전 그대로
+	_pause_fs_btn = PUi.button("전체화면으로 다시 들어가기", func(): request_fullscreen_landscape(), true, 22 if PLayout.is_touch() else 14)
+	if PLayout.is_touch():
+		_pause_fs_btn.custom_minimum_size = Vector2(0.0, POrientGate.CORNER_TOUCH_H)
+		POrientGate.paint(_pause_fs_btn, 22)
 	_pause_fs_btn.visible = false
 	$UI/Pause/VBox.add_child(_pause_fs_btn)
 	$UI/Pause/VBox.move_child(_pause_fs_btn, 3)
@@ -1050,6 +1054,9 @@ func screen_metrics() -> Dictionary:
 		"bucket": PLayout.aspect_bucket(vis.size),
 		"fullscreen": _fs_active,             # 지금 전체화면인가
 		"touch": PLayout.is_touch(),
+		# 캔버스 1px이 브라우저에서 몇 CSS px로 보이는가. 글자·버튼이 '실제로' 큰지 판단하는 유일한 값이다
+		# (엔진 안 크기는 캔버스 단위라 고해상도 폰에서 그대로 읽으면 2~3배 크게 착각한다)
+		"css_per_canvas": snappedf(PLayout.css_size(vp, 1.0), 0.0001),
 	}
 
 ## 세로/가로를 다시 판정한다. 세로로 바뀌는 순간 전투를 멈추고 입력을 놓는다(가로로 돌아와도 저절로 재개하지 않는다)
@@ -1099,6 +1106,17 @@ func _sync_orient_gate() -> void:
 	orient.apply(_portrait, orient_paused, offer)
 	if _pause_fs_btn != null:
 		_pause_fs_btn.visible = offer
+	# 커진 '전체화면' 버튼이 메뉴 내용을 덮지 않게 오른쪽에 그만큼 자리를 비운다.
+	# 전체화면에 들어가면 버튼이 사라지므로 0이 되어 메뉴가 다시 넓어진다
+	var reserve: float = 0.0
+	if offer and PLayout.is_touch() and orient != null:
+		var cr2: Rect2 = orient.corner_rect()
+		reserve = cr2.size.x + 10.0
+	if not is_equal_approx(PLayout.corner_reserve(), reserve):
+		PLayout.set_corner_reserve(reserve)
+		for s in screens.values():
+			if s.has_method("relayout_margins"):
+				s.call("relayout_margins")
 
 ## 전체화면 + 가로 고정 요청. 반드시 버튼 콜백에서 바로 불러야 한다(브라우저는 사용자 제스처 안에서만 허용한다).
 ## 지원하지 않거나 거부해도 아무것도 막지 않는다 — 조용히 넘어가고 게임은 그대로 돈다.
@@ -1437,21 +1455,33 @@ func _layout_hud() -> void:
 	var boss: Control = $UI/HUD/Boss
 	boss.offset_left = vis.position.x + (vis.size.x - 480.0) / 2.0
 	boss.offset_right = boss.offset_left + 480.0
+	# 순서가 중요하다: ① 전체화면 버튼 자리 → ② 조작(그 아래에서 시작) → ③ 경기장(조작 열 왼쪽에)
+	var reserve := 0.0
+	if build_hud != null:
+		build_hud.touch_mode = PLayout.is_touch()
+		reserve = build_hud.relayout(safe) # 터치일 때는 빌드 줄을 상단에 두고 그 높이를 돌려준다
+	var corner_bottom := 0.0
+	if orient != null:
+		orient.layout(safe) # 전체화면 다시 들어가기 버튼도 안전 영역 안에
+		if PLayout.is_touch():
+			var cr: Rect2 = orient.corner_rect()
+			corner_bottom = cr.end.y
+	if touch != null:
+		touch.reserve_top = reserve             # 손가락 끌기 영역이 빌드 아이콘과 겹치지 않게 내린다
+		touch.reserve_top_right = corner_bottom # 조작 열이 '전체화면' 버튼 밑에서 시작하게
+		touch.layout(safe)
 	var aw := 960.0
 	var ah := 600.0
 	if view.st != null:
 		aw = float(view.st.arena_w)
 		ah = float(view.st.arena_h)
-	view.position = Vector2(round(vis.position.x + (vis.size.x - aw) / 2.0), round(vis.position.y + 40.0 + maxf(0.0, (vis.size.y - 40.0 - ah) / 2.0)))
-	var reserve := 0.0
-	if build_hud != null:
-		build_hud.touch_mode = PLayout.is_touch()
-		reserve = build_hud.relayout(safe) # 터치일 때는 빌드 줄을 상단에 두고 그 높이를 돌려준다
-	if touch != null:
-		touch.reserve_top = reserve # 손가락 끌기 영역이 빌드 아이콘과 겹치지 않게 내린다
-		touch.layout(safe)
-	if orient != null:
-		orient.layout(safe) # 전체화면 다시 들어가기 버튼도 안전 영역 안에
+	# 경기장은 **조작 열이 차지한 오른쪽 띠를 넘지 않는 선까지만** 오른쪽에 둔다(2026-09-09 사용자 보고:
+	# Q·E가 전장 오른쪽의 적과 공격 예고를 덮었다). 경기장 크기·배율은 그대로다 — 옮기는 것은 자리뿐.
+	# 터치가 아니면 play_right = 보이는 영역 끝이라 **예전 값과 같다**(PC 배치 불변).
+	var play_right: float = vis.end.x
+	if touch != null and touch.enabled:
+		play_right = minf(play_right, touch.action_band_left() - PTouchControls.BTN_GAP)
+	view.position = PLayout.arena_origin(vis, aw, ah, 40.0, play_right)
 
 func _cfg_text(st: CombatState) -> String:
 	if st.cfg.has("weapon"):

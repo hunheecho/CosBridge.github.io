@@ -97,6 +97,43 @@ static func inset_rect(r: Rect2, pad: float) -> Rect2:
 static func touch_safe_rect(vp: Viewport) -> Rect2:
 	return inset_rect(safe_rect(vp), gesture_pad())
 
+# ---------- 전장(경기장)을 놓는 자리 ----------
+## 왜 여기 있나(2026-09-09 사용자 보고): 폰 가로(캔버스 1366×640)에서 **Q·E 버튼이 전장 오른쪽의 적과 공격 예고를 덮었다.**
+## 전장은 960×600으로 고정이고 캔버스는 640 높이라 세로 여유가 없다 — 남는 것은 **가로 여유**(1366−960 = 406px)뿐이다.
+## 그래서 전장을 "조작 열이 차지한 오른쪽 띠"를 넘지 않는 선까지만 오른쪽에 두고, 모자라면 **왼쪽으로만** 물린다.
+## 전장 크기·배율은 손대지 않는다(적·글씨가 작아지지 않는다). 옮기는 것은 그리는 자리뿐이고 규칙 좌표는 그대로다.
+##
+## play_right = 조작 열의 왼쪽 끝(터치가 아니면 보이는 영역의 오른쪽 끝). 터치가 아닐 때는
+## play_right − arena_w ≥ 가운데 정렬 값이라 **예전 식과 정확히 같은 값**이 나온다(PC 배치 불변).
+static func arena_origin(vis: Rect2, arena_w: float, arena_h: float, top_band: float, play_right: float) -> Vector2:
+	var x: float = vis.position.x + (vis.size.x - arena_w) / 2.0   # 예전 값(가운데)
+	x = minf(x, play_right - arena_w)                              # 조작 열 밑으로 밀어 넣지 않는다
+	x = maxf(x, vis.position.x)                                    # 화면 왼쪽 밖으로도 나가지 않는다
+	var y: float = vis.position.y + top_band + maxf(0.0, (vis.size.y - top_band - arena_h) / 2.0)
+	return Vector2(round(x), round(y))
+
+# ---------- 실제 브라우저 표시 크기 ----------
+## 캔버스 1px이 브라우저에서 몇 **CSS px**로 보이는가. 창 크기는 물리 px이라 고해상도 폰에서는 2~3배 부풀어 있다.
+## 그대로 나누면 "충분히 크다"고 잘못 읽는다(엔진 안 글자 크기 ≠ 눈에 보이는 크기).
+## 순수 계산이라 헤드리스 시험에서도 폰 값을 넣어 확인할 수 있다.
+static func css_per_canvas(win_px: float, canvas_px: float, dpr: float) -> float:
+	if canvas_px <= 0.0 or win_px <= 0.0 or dpr <= 0.0:
+		return 1.0
+	return (win_px / dpr) / canvas_px
+
+## 캔버스 px → 실제 브라우저 CSS px(보고·확인용). 지금 창에서 잰다
+static func css_size(vp: Viewport, canvas_len: float) -> float:
+	if vp == null:
+		return canvas_len
+	var cv: Vector2 = vp.get_visible_rect().size
+	var win: Vector2i = DisplayServer.window_get_size()
+	var dpr: float = 1.0
+	if OS.has_feature("web"):
+		var s: float = DisplayServer.screen_get_scale()
+		if s > 0.0:
+			dpr = s
+	return canvas_len * css_per_canvas(float(win.y), cv.y, dpr)
+
 ## 화면 방향("landscape" | "portrait"). 세로 안내를 띄울지 판단하는 쪽이 쓴다
 static func orientation(vp: Viewport) -> String:
 	var s: Vector2 = screen_size(vp)
@@ -105,16 +142,25 @@ static func orientation(vp: Viewport) -> String:
 static func is_landscape(vp: Viewport) -> bool:
 	return orientation(vp) == "landscape"
 
-## 화면 여백: 기본 여백 + (보이는 영역과 안전 영역의 차). {left, top, right, bottom}
+## 오른쪽 위 '전체화면' 버튼이 화면 내용을 덮지 않게 비워 두는 너비(canvas px).
+## 버튼이 **보일 때만** 0보다 크다 — 전체화면 안에서는 버튼이 없으므로 0이 되어 메뉴가 다시 넓어진다.
+## main이 전체화면 상태에 맞춰 넣어 준다(set_corner_reserve). 터치가 아니면 언제나 0이다.
+static var _corner_reserve := 0.0
+static func set_corner_reserve(px: float) -> void:
+	_corner_reserve = maxf(0.0, px)
+static func corner_reserve() -> float:
+	return _corner_reserve
+
+## 화면 여백: 기본 여백 + (보이는 영역과 안전 영역의 차) + 전체화면 버튼 자리. {left, top, right, bottom}
 static func margins(vp: Viewport, base_side: int = 14, base_tb: int = 10) -> Dictionary:
 	if vp == null:
-		return { "left": base_side, "top": base_tb, "right": base_side, "bottom": base_tb }
+		return { "left": base_side, "top": base_tb, "right": base_side + int(round(_corner_reserve)), "bottom": base_tb }
 	var vis: Rect2 = vp.get_visible_rect()
 	var safe: Rect2 = safe_rect(vp)
 	return {
 		"left": base_side + int(round(maxf(0.0, safe.position.x - vis.position.x))),
 		"top": base_tb + int(round(maxf(0.0, safe.position.y - vis.position.y))),
-		"right": base_side + int(round(maxf(0.0, vis.end.x - safe.end.x))),
+		"right": base_side + int(round(maxf(0.0, vis.end.x - safe.end.x) + _corner_reserve)),
 		"bottom": base_tb + int(round(maxf(0.0, vis.end.y - safe.end.y))),
 	}
 

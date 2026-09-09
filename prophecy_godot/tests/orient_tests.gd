@@ -166,6 +166,50 @@ func _run() -> void:
 	await _wait(2)
 	ok("G3 그 버튼을 눌러도 오류 없이 지나가고 전투가 그대로 이어진다", main.screen == "combat" and view.running and not main.last_fullscreen_result.is_empty(), str(main.last_fullscreen_result))
 
+	# ---------- K. 전체화면 버튼 크기·자리(2026-09-09 사용자 피드백: "너무 작다") ----------
+	# 이 스위트는 PROPHECY_TOUCH=1로 돈다 → PLayout.is_touch()가 참이라 실제 모바일 크기가 나온다.
+	var safe_k: Rect2 = PLayout.safe_rect(root)
+	var corner: Button = gate.fullscreen_button()
+	var cr: Rect2 = gate.corner_rect()
+	var got := Vector2(corner.offset_right - corner.offset_left, corner.offset_bottom - corner.offset_top) if corner != null else Vector2.ZERO
+	# 실제 브라우저 표시 크기: 폰 가로는 물리 1080px / DPR 3 = CSS 360px 안에 캔버스 640이 들어간다
+	var kcss: float = PLayout.css_per_canvas(1080.0, 640.0, 3.0)
+	ok("K1 구석 '전체화면' 버튼이 실제로 커졌다: %.0f×%.0f canvas ≈ %.0f×%.0f CSS px(예전 108×34 ≈ 61×19)"
+		% [got.x, got.y, got.x * kcss, got.y * kcss],
+		corner != null and got.is_equal_approx(cr.size) and got.y >= 88.0 and got.x >= 190.0 and got.y * kcss >= 44.0,
+		"corner_rect=%s" % str(cr))
+	ok("K1b 글자가 '전체화면'이고 읽을 수 있는 크기다(28 canvas ≈ %.1f CSS px)" % (28.0 * kcss),
+		corner != null and corner.text == POrientGate.CORNER_TEXT and corner.get_theme_font_size("font_size") >= 26,
+		"" if corner == null else "%s / %d" % [corner.text, corner.get_theme_font_size("font_size")])
+	ok("K1c 배경과 갈리는 판을 쓴다(글자만 있는 기본 버튼이 아니다)",
+		corner != null and corner.has_theme_stylebox_override("normal"))
+	# K2 자리: 상단 목표·체력 줄 아래 · 안전 영역 안 · 화면 가장자리에 붙지 않음
+	var obj_k: Control = main.get_node("UI/HUD/Objective")
+	ok("K2 상단 목표 줄(y≤%.0f) 아래이고 안전 영역 안이며 가장자리에 붙지 않았다" % obj_k.offset_bottom,
+		cr.position.y >= obj_k.offset_bottom and safe_k.encloses(cr) and cr.end.x <= safe_k.end.x - PLayout.GESTURE_PAD + 0.001,
+		"버튼 %s · 안전 %s" % [str(cr), str(safe_k)])
+	# K3 조작과 겹치지 않는다 + 눌러도 게임 조작으로 새지 않는다(그 자리에는 조작이 하나도 없다)
+	var tc_k = main.touch
+	var leak := []
+	for f in [Vector2(0.05, 0.05), Vector2(0.5, 0.5), Vector2(0.95, 0.95), Vector2(0.05, 0.95), Vector2(0.95, 0.05)]:
+		var pt := cr.position + Vector2(cr.size.x * f.x, cr.size.y * f.y)
+		if String(tc_k.pick_at(pt)) != "" or tc_k.zone_rect().has_point(pt):
+			leak.append(str(pt))
+	ok("K3 버튼 자리에는 조작이 하나도 없다(눌러도 회피·Q·E·빌드·스틱이 같이 눌리지 않는다)", leak.is_empty(), " / ".join(leak))
+	# K4 상태 일치: 전체화면 중에는 아예 없다(잘못된 안내를 띄우지 않는다)
+	main.note_fullscreen_state(true)
+	await _wait(1)
+	var hidden_ok: bool = not gate.fullscreen_visible() and gate.fullscreen_button() == null
+	main.note_fullscreen_state(false)
+	await _wait(1)
+	ok("K4 전체화면 상태와 문구가 어긋나지 않는다(들어가 있으면 버튼 없음 · 나오면 다시 나옴)",
+		hidden_ok and gate.fullscreen_visible() and gate.fullscreen_button() != null)
+	# K5 다시 들어가는 다른 길(일시정지 화면)도 같은 수준으로 크다
+	var pause_fs: Button = main._pause_fs_btn
+	ok("K5 일시정지 화면의 '전체화면으로 다시 들어가기'도 같은 수준이다(높이 %d · 글자 %d)"
+		% [int(pause_fs.custom_minimum_size.y), pause_fs.get_theme_font_size("font_size")],
+		pause_fs != null and pause_fs.custom_minimum_size.y >= 88.0 and pause_fs.get_theme_font_size("font_size") >= 20 and pause_fs.has_theme_stylebox_override("normal"))
+
 	# ---------- H. 화면 크기 신호 ----------
 	metrics_seen.clear()
 	await _resize(480, 900)

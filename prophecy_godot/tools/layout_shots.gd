@@ -101,6 +101,12 @@ func _run() -> void:
 	await _wait(2)
 	_snap("21_pause")
 	main.set_pause(false)
+	# 세로 안내막(회전 뒤 '계속' + '전체화면으로 다시 들어가기'). 표시만 켠다 — 실제 회전이 아니라 그리기 확인용
+	main.orient.apply(false, true, true)
+	await _wait(2)
+	_snap("22_orient_veil")
+	main.orient.apply(false, false, true)
+	await _wait(1)
 	main.view.running = false
 	main.go_title()
 	await _wait(1)
