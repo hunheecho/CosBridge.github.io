@@ -20,3 +20,10 @@ prophecy_godot/docs/captures/1.0.0_clips/*.avi
 
 # 빌드 산출물은 저장소에 넣지 않는다. deploy/ 는 별도 저장소(prophecy-web-test)로 나간다
 prophecy_godot_build/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
