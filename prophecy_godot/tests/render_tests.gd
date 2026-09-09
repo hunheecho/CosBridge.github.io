@@ -16,6 +16,11 @@ extends SceneTree
 ##  5. 색만으로 구분하는 곳이 없다 — 적 등급 구분에 크기·장식이 함께 쓰인다.
 ##  6. KD-5 — 나무 가림 반지름이 1px가 아니다.
 ##  7. 그리기가 규칙을 바꾸지 않는다.
+##  8. 쌍검 집중 중첩 · 냉기/빙결/파쇄(docs/FROST_CONTRACT.md · docs/FROST_VISUAL.md) —
+##     노출 필드가 규칙과 같은 순간에 갱신되는가 / 중첩 0·1~5·최대를 다른 모양으로 그리는가 /
+##     냉기·빙결·보스 결빙이 서로 다른 요소인가 / 적 예고가 얼음 위인가 /
+##     그리는 파편 수 = 신호의 shards인가 / 표시가 전투 난수를 소비하지 않는가 / 전장을 가리지 않는가.
+##     규칙 담당(work/frost)의 구현이 아직 없으므로 적 dict에 계약 필드를 직접 넣어 확인한다.
 ##
 ## 사람이 눈으로 봐야 하는 것(이 시험이 대신해 주지 못한다)은 docs/FEEL_AND_PALETTE.md '눈으로 볼 항목'에 적어 둔다.
 
@@ -92,6 +97,13 @@ func run_until(st: CombatState, cond: Callable, max_sec: float) -> bool:
 		if bool(cond.call(st)):
 			return true
 	return bool(cond.call(st))
+
+## 전투 중인 무기 dict를 id로 찾는다(쌍검 집중 중첩 시험용)
+func wpn(st: CombatState, id: String) -> Dictionary:
+	for w in st.weapons:
+		if String(w.id) == id:
+			return w
+	return {}
 
 func zone_count(st: CombatState, t: String) -> int:
 	var n := 0
@@ -442,6 +454,177 @@ func _run() -> void:
 	var drawn := await _sim_drawn(31)
 	ok("같은 시드: 매 프레임 그려도 전투 결과가 완전히 같다(표시가 규칙·난수를 건드리지 않는다)",
 		JSON.stringify(plain) == JSON.stringify(drawn), "%s\nvs\n%s" % [JSON.stringify(plain), JSON.stringify(drawn)])
+
+	# ================= 7. 쌍검 집중 중첩 · 냉기/빙결/파쇄 표시 =================
+	# 규칙 쪽(work/frost)이 아직 이 워크트리에 없으므로 적 dict에 계약 필드를 직접 넣어 화면 반응을 본다.
+	# 읽는 이름은 docs/FROST_CONTRACT.md가 정본이고, 그리는 규칙은 docs/FROST_VISUAL.md에 적었다.
+
+	# ---------- 7-1. 집중 중첩이 무기 dict에 나와 있고 규칙과 같은 순간에 갱신된다 ----------
+	var fs := mk([{ "id": "daggers", "level": 1, "mods": ["bleed"] }])
+	var e1 := tough(fs.spawn_enemy("wolf", 520.0, 300.0))
+	var e2 := tough(fs.spawn_enemy("wolf", 560.0, 320.0))
+	var got_focus := run_until(fs, func(s: CombatState) -> bool: return int(wpn(s, "daggers").get("focus_n", 0)) > 0, 20.0)
+	var dw := wpn(fs, "daggers")
+	var fin: Dictionary = dw.get("focus", {})
+	ok("실제 전투에서 쌍검 무기 dict에 focus_id·focus_n·focus_t가 실제로 있고 규칙 값과 같다(중첩 %d)" % int(dw.get("focus_n", -1)),
+		got_focus and dw.has("focus_id") and dw.has("focus_n") and dw.has("focus_t")
+		and int(dw.focus_id) == int(fin.id) and int(dw.focus_n) == int(fin.n) and float(dw.focus_t) > 0.0,
+		"노출=%s / 규칙=%s" % [str({ "id": dw.get("focus_id", null), "n": dw.get("focus_n", null), "t": dw.get("focus_t", null) }), str(fin)])
+
+	var bt: Dictionary = PWeapons.mod_tune(dw.stats, "bleed", { "maxStack": 6, "perStack": 0.08, "window": 1.2, "bleedSec": 2.0 })
+	var win: float = float(bt.window)
+	# 대상 변경: 규칙이 다른 적을 치는 그 호출에서 노출 값도 함께 바뀐다
+	PWeapons.dagger_focus(fs, dw, e1, bt)
+	var n_before: int = int(dw.focus_n)
+	PWeapons.dagger_focus(fs, dw, e2, bt)
+	ok("대상 변경: 규칙이 다른 적을 친 그 호출에서 focus_id가 새 대상으로 바뀌고 focus_n이 0으로 풀린다",
+		int(dw.focus_id) == int(e2.id) and int(dw.focus_n) == 0 and n_before > 0,
+		"바뀌기 전 중첩 %d → 뒤 id %d·중첩 %d" % [n_before, int(dw.focus_id), int(dw.focus_n)])
+
+	# 시간 만료: 화면이 숨기는 순간과 규칙이 푸는 순간이 **같은 경계**인가(window 앞뒤 0.01초)
+	var edge := []
+	for d in [-0.01, 0.01]:
+		var ff: Dictionary = dw.focus
+		ff.id = int(e1.id)
+		ff.n = 3
+		ff.t = fs.t - win - float(d)   # d>0 이면 window를 막 넘긴 상태
+		var seen: bool = int(PWeapons.dagger_focus_view(fs, dw).n) > 0
+		PWeapons.dagger_focus(fs, dw, e1, bt)
+		edge.append([seen, int(dw.focus_n)])
+	ok("시간 만료: 화면이 감추는 경계와 규칙이 푸는 경계가 같다(window %.2f초 앞=유지·뒤=해제)" % win,
+		edge[0][0] == true and int(edge[0][1]) == 4 and edge[1][0] == false and int(edge[1][1]) == 0,
+		"앞 %s / 뒤 %s" % [str(edge[0]), str(edge[1])])
+
+	# 대상 사망: 규칙 값이 남아 있어도 화면은 그 순간 끊는다
+	dw.focus.id = int(e1.id)
+	dw.focus.n = 4
+	dw.focus.t = fs.t
+	var alive_show: bool = bool(PRender.focus_plan(fs, e1).show)
+	e1.dead = true
+	e1.hp = 0.0
+	var dead_show: bool = bool(PRender.focus_plan(fs, e1).show)
+	e1.dead = false
+	e1.hp = float(e1.hp_max)
+	ok("대상 사망: 쓰러진 순간 집중 표시가 사라진다(살아 있을 때는 나온다)", alive_show and not dead_show,
+		"살아있음=%s 사망=%s" % [str(alive_show), str(dead_show)])
+
+	# ---------- 7-2. 중첩 0 / 1~5 / 최대(6)를 그리는 모양이 다르다 ----------
+	var shape := {}
+	for n in range(0, int(bt.maxStack) + 1):
+		dw.focus.id = int(e1.id)
+		dw.focus.n = n
+		dw.focus.t = fs.t
+		var pl: Dictionary = PRender.focus_plan(fs, e1)
+		shape[n] = [bool(pl.show), (pl.parts as Array).duplicate(), int(pl.n), bool(pl.full)]
+	var mid_ok := true
+	for n in range(1, int(bt.maxStack)):
+		if not (bool(shape[n][0]) and (shape[n][1] as Array) == ["pips"] and int(shape[n][2]) == n and not bool(shape[n][3])):
+			mid_ok = false
+	var top: Array = shape[int(bt.maxStack)]
+	ok("중첩 0은 표시 없음 · 1~%d는 눈금 수로 중첩을 세고 · 최대 %d는 **다른 모양**(닫힌 고리+가시)이다" % [int(bt.maxStack) - 1, int(bt.maxStack)],
+		not bool(shape[0][0]) and (shape[0][1] as Array).is_empty() and mid_ok
+		and bool(top[0]) and bool(top[3]) and (top[1] as Array) == ["ring", "spike"] and (top[1] as Array) != ["pips"],
+		"0=%s · 3=%s · 최대=%s" % [str(shape[0]), str(shape[3]), str(top)])
+
+	# ---------- 7-3. 냉기 중첩(chill_n) ----------
+	var k0: Dictionary = PRender.frost_plan({ "id": 90, "r": 20.0, "chill_n": 0 })
+	var k3: Dictionary = PRender.frost_plan({ "id": 91, "r": 20.0, "chill_n": 3 })
+	ok("chill_n이 있는 적에만 냉기 표시가 붙고(눈금 수 = 중첩 수) chill_n이 0이면 아무것도 안 붙는다",
+		not (k0.parts as Array).has("chill") and (k0.parts as Array).is_empty()
+		and (k3.parts as Array).has("chill") and int(k3.chill_n) == 3,
+		"0중첩=%s / 3중첩=%s" % [str(k0.parts), str(k3.parts)])
+
+	# ---------- 7-4. 빙결(hard)과 보스 결빙(soft)은 그리는 요소가 다르다 ----------
+	var hard: Dictionary = PRender.frost_plan({ "id": 92, "r": 22.0, "chill_n": 0, "freeze": 1.4, "freeze_kind": "hard" })
+	var soft: Dictionary = PRender.frost_plan({ "id": 93, "r": 60.0, "chill_n": 0, "freeze": 1.4, "freeze_kind": "soft", "boss": true })
+	var hp: Array = hard.parts
+	var sp2: Array = soft.parts
+	ok("빙결(hard)은 얼음 덮개+발밑 정지 고리를 그리고, 보스 결빙(soft)은 그 둘을 **그리지 않는다**(서리 조각+흩날림)",
+		hp.has("shell") and hp.has("lock") and not sp2.has("shell") and not sp2.has("lock")
+		and sp2.has("patch") and sp2.has("drift") and hp != sp2,
+		"hard=%s / soft=%s" % [str(hp), str(sp2)])
+
+	# ---------- 7-5. 적 공격 예고는 얼음·집중 표시보다 **위** ----------
+	var enemy_body2 := _fn(src, "draw_enemy")
+	var lay := _fn(src, "_draw_layers")
+	var i_enemy := lay.find("draw_enemy(ci, st, st.enemies[idx])")
+	var i_imp := lay.find("draw_impacts(ci, st)")
+	var i_tel3 := lay.find("draw_telegraphs(ci, st)")
+	ok("얼음·집중·파쇄는 개체 층에서 그리고 적 공격 예고는 그 **뒤**에 그린다(예고가 얼음 아래 가리지 않는다)",
+		enemy_body2.find("draw_frost(") >= 0 and enemy_body2.find("draw_focus(") >= 0
+		and i_enemy > 0 and i_imp > i_enemy and i_tel3 > i_imp,
+		"개체 %d < 적중연출 %d < 예고 %d" % [i_enemy, i_imp, i_tel3])
+
+	# ---------- 7-6. 파쇄는 신호가 있을 때만, 그리는 파편 수 = 신호의 shards ----------
+	var cnt_bad := []
+	for n in [0, 1, 3, 5, 8]:
+		var sig := { "kind": "shatter", "x": 400.0, "y": 300.0, "r": 22.0, "shards": int(n), "ttl": 0.3, "t": 0.0 }
+		var pl2: Dictionary = PRender.shatter_plan(sig)
+		var dirs: PackedFloat32Array = pl2.dirs
+		if int(pl2.n) != int(n) or dirs.size() != int(n):
+			cnt_bad.append("shards=%d → 계획 %d개·방향 %d개" % [int(n), int(pl2.n), dirs.size()])
+	var miss_sig: Dictionary = PRender.shatter_plan({ "kind": "spark", "x": 400.0, "y": 300.0, "shards": 6, "ttl": 0.2, "t": 0.0 })
+	var again: Dictionary = PRender.shatter_plan({ "kind": "shatter", "x": 400.0, "y": 300.0, "r": 22.0, "shards": 5, "ttl": 0.3, "t": 0.0 })
+	var again2: Dictionary = PRender.shatter_plan({ "kind": "shatter", "x": 400.0, "y": 300.0, "r": 22.0, "shards": 5, "ttl": 0.3, "t": 0.0 })
+	var same_shape: bool = str(again2.dirs) == str(again.dirs)   # 같은 연출은 매 프레임 같은 모양(프레임마다 흔들리지 않는다)
+	ok("파쇄 파편은 신호의 shards와 **개수가 정확히 같고**, shatter 신호가 아니면 하나도 그리지 않는다",
+		cnt_bad.is_empty() and int(miss_sig.n) == 0 and (miss_sig.dirs as PackedFloat32Array).is_empty() and same_shape,
+		"어긋남=%s / 다른 신호 %d개" % [str(cnt_bad), int(miss_sig.n)])
+	var imp2 := _fn(src, "draw_impacts")
+	var fz_i := imp2.find("\"freeze_on\":")
+	var fz_body := imp2.substr(fz_i, maxi(0, imp2.find("\"shatter\":") - fz_i)) if fz_i >= 0 else ""
+	ok("얼어붙는 순간(freeze_on) 갈래가 있고 hard/soft를 서로 다른 도형(닫힌 고리 vs 열린 호 셋)으로 가른다",
+		fz_i >= 0 and fz_body.find("f.get(\"freeze_kind\", \"hard\")") >= 0 and fz_body.find("0.0, TAU, 28") >= 0 and fz_body.find("za - 0.5, za + 0.5") >= 0,
+		"갈래 위치 %d" % fz_i)
+	var sh_i := imp2.find("\"shatter\":")
+	var sh_body := imp2.substr(sh_i, maxi(0, imp2.find("\"hitflash\":") - sh_i)) if sh_i >= 0 else ""
+	ok("파쇄를 그리는 갈래가 계획(shatter_plan)의 개수만 돌고, 장식 파편을 따로 만들지 않는다",
+		sh_i >= 0 and sh_body.find("shatter_plan(f)") >= 0 and sh_body.find("for i in int(sp.n)") >= 0,
+		"갈래 위치 %d" % sh_i)
+
+	# ---------- 7-7. 표시가 전투 난수를 소비하지 않는다(계약 3절) ----------
+	var rs := mk([{ "id": "daggers", "level": 1, "mods": ["bleed"] }])
+	var fe := []
+	for i in 4:
+		fe.append(tough(rs.spawn_enemy("wolf", 360.0 + float(i) * 70.0, 260.0)))
+	run_for(rs, 1.0)
+	var bosslike: Dictionary = fe[3]
+	bosslike.freeze = 1.5
+	bosslike.freeze_kind = "soft"
+	bosslike.chill_n = 2
+	var frozen: Dictionary = fe[1]
+	frozen.freeze = 1.2
+	frozen.freeze_kind = "hard"
+	frozen.chill_n = 5
+	(fe[2] as Dictionary).chill_n = 3
+	var dw2 := wpn(rs, "daggers")
+	dw2.focus.id = int((fe[0] as Dictionary).id)
+	dw2.focus.n = 6
+	dw2.focus.t = rs.t
+	rs.fx({ "kind": "shatter", "x": float(frozen.x), "y": float(frozen.y), "r": 24.0, "shards": 5, "ttl": 0.3 })
+	rs.fx({ "kind": "freeze_on", "x": float(frozen.x), "y": float(frozen.y), "r": 22.0, "ttl": 0.3 })                          # 적지 않으면 hard
+	rs.fx({ "kind": "freeze_on", "x": float(bosslike.x), "y": float(bosslike.y), "r": 30.0, "freeze_kind": "soft", "ttl": 0.3 })
+	var rng_before: int = rs.rng._a
+	var eff_before: int = rs.effects.size()
+	await _paint(rs, "frost_focus_shatter")
+	ok("냉기·빙결·파쇄·집중을 다 그려도 전투 난수(st.rng)를 한 번도 소비하지 않는다",
+		int(rs.rng._a) == rng_before and rs.effects.size() == eff_before,
+		"난수 %d → %d · 연출 %d → %d" % [rng_before, int(rs.rng._a), eff_before, rs.effects.size()])
+
+	# ---------- 7-8. 전장을 가리지 않는다(모든 표시가 개체 둘레 안) ----------
+	var over := []
+	for rv in [12.0, 20.0, 34.0, 60.0]:
+		for kind in ["hard", "soft"]:
+			var probe := { "id": int((fe[0] as Dictionary).id), "r": float(rv), "chill_n": 6, "freeze": 1.0, "freeze_kind": String(kind) }
+			var fp: Dictionary = PRender.focus_plan(rs, probe)
+			var kp: Dictionary = PRender.frost_plan(probe)
+			var reach: float = PRender.mark_reach(probe, fp, kp)
+			if reach > PRender.mark_limit(probe):
+				over.append("r=%.0f %s → %.1f > %.1f" % [float(rv), String(kind), reach, PRender.mark_limit(probe)])
+	var new_fns := _fn(src, "draw_focus") + _fn(src, "draw_frost")
+	ok("새 표시는 전부 개체 둘레(몸 반지름×1.4+18px) 안에만 그린다 — 전장을 덮는 판·띠가 없다",
+		over.is_empty() and new_fns.find("arena_w") < 0 and new_fns.find("arena_h") < 0 and new_fns.find("Rect2(0") < 0,
+		"넘친 것=%s" % str(over))
 
 	await _close_view()
 	PSave.clear()
