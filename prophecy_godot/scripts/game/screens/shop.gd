@@ -151,6 +151,7 @@ func _prep_section(r: Dictionary, st: Dictionary) -> void:
 	for id in st.prep:
 		row.add_child(_prep_card(r, String(id)))
 	row.add_child(_potion_card(r))
+	row.add_child(_revive_card(r)) # 부활 물약: 규칙·봇 경로에만 있고 사람이 살 자리가 없었다(2026-09-09 보완)
 	body.add_child(row)
 
 func _prep_card(r: Dictionary, id: String) -> Control:
@@ -188,6 +189,33 @@ func _potion_card(r: Dictionary) -> Control:
 	box.add_child(PUi.spacer())
 	box.add_child(PUi.button("회복약 구매", func(): _act(PConsumables.buy(r, "potion"), PConsumables.buy_reason(r, "potion")), can, 14))
 	box.add_child(PUi.rich("[color=#6a7078]완전 회복은 휴식(시간 1칸) 또는 %s(%d금 · %s).[/color]" % [PUi.rest_ticket_name(), PRun.merchant_service_price("free_rest"), PUi.rest_ticket_note()], 12))
+	return p
+
+## 부활 물약. 회복약과 다른 자리(가방 상한도 따로)라 카드도 따로 둔다.
+## **언제 어떻게 살아나는지는 날짜에 따라 다르다** — 보통 날은 다음 날, 마지막 날은 같은 날 관문 앞이다.
+## 그 한 줄을 PConsumables.revive_when_line(run)에서 그대로 받아 쓴다(화면이 문구를 따로 만들지 않는다).
+func _revive_card(r: Dictionary) -> Control:
+	var d := PConsumables.revive_def()
+	if d.is_empty():
+		return PUi.spacer()
+	var id := PConsumables.revive_id()
+	var can := PConsumables.can_buy(r, id)
+	var why := PConsumables.buy_reason(r, id)
+	var c := PUi.card("", PUi.CARD_ON if can else PUi.CARD)
+	var p: PanelContainer = c.panel
+	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var box: VBoxContainer = c.box
+	box.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]회차 보험[/color]" % PGlossaryTip.esc(String(d.name)), 15))
+	box.add_child(PUi.rich(PGlossaryTip.esc(String(d.short)), 14))
+	box.add_child(PUi.rich("[color=#ffd966]%s[/color]" % PGlossaryTip.esc(PConsumables.revive_when_line(r)), 13))
+	box.add_child(PUi.rich("[color=#9ea8b8]보유 %d/%d[/color]" % [PConsumables.revive_count(r), int(PConsumables.rules().get("reviveCarryMax", 2))], 13))
+	box.add_child(PUi.rich("금화 [color=%s][b]%d[/b][/color]%s" % ["#ff8c73" if int(r.gold) < PConsumables.price(id) else "#ffd966", PConsumables.price(id), (" [color=#9ea8b8]· %s[/color]" % why) if why != "" else ""], 15))
+	box.add_child(PUi.spacer())
+	box.add_child(PUi.button("부활 물약 구매", func(): _act(PConsumables.buy(r, id), PConsumables.buy_reason(r, id)), can, 14))
+	var open_now: bool = _detail == id
+	box.add_child(PUi.button("상세 닫기 ▼" if open_now else "상세 보기 ▶", func(): _detail = ("" if open_now else id); refresh(), true, 12))
+	if open_now:
+		box.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(d.desc)), 13))
 	return p
 
 func _equip_card(r: Dictionary, id: String, from: String) -> Control:

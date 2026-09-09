@@ -136,6 +136,21 @@ func _run() -> void:
 		pbtn.pressed.emit()
 		await process_frame
 	ok("준비물·회복약을 사면 가방에 들어간다", (PConsumables.bag(main.run) as Array).size() >= 1, str(main.run.consumables))
+	# 부활 물약: 규칙(PFlow.actions buy_revive)과 봇 경로에만 있고 **사람이 상점에서 살 자리가 없었다.**
+	# 그러면 "마지막 날에는 같은 날 관문 앞에서 부활" 안내도 사람에게 닿지 않는다(2026-09-09 보완).
+	var vbtn := _find_button(main.screens["shop"], "부활 물약 구매")
+	var have0 := PConsumables.revive_count(main.run)
+	var gold_v: int = int(main.run.gold)
+	ok("상점에 부활 물약 카드가 있고 실제로 눌린다", vbtn != null, "버튼 %s" % str(vbtn != null))
+	if vbtn != null:
+		vbtn.pressed.emit()
+		await process_frame
+		ok("부활 물약을 사면 보유가 1 늘고 금화가 값만큼 준다",
+			PConsumables.revive_count(main.run) == have0 + 1 and int(main.run.gold) == gold_v - PConsumables.price(PConsumables.revive_id()),
+			"보유 %d→%d · 금화 %d→%d" % [have0, PConsumables.revive_count(main.run), gold_v, int(main.run.gold)])
+		ok("부활 물약 카드가 '지금 쓰러지면 어떻게 되는지'를 날짜에 맞춰 보여 준다",
+			_count_text(main.screens["shop"], "지금 쓰러지면") >= 1 or _count_text(main.screens["shop"], "지금은 마지막 날") >= 1,
+			PConsumables.revive_when_line(main.run))
 	# 거점: 준비물 1칸(장착·해제는 소모가 아니다)
 	main.run.consumables = ["guard_charm", "potion"]
 	main.run.prepItem = null
