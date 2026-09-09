@@ -92,6 +92,10 @@ static func snapshot(st: CombatState, full: bool = true) -> Dictionary:
 		"player": { "x": float(p.x), "y": float(p.y), "r": float(p.r), "hp": float(p.hp), "hp_max": float(p.hp_max), "shield": float(p.shield),
 			"dodge_cd": float(p.dodge_cd), "dodge_active": bool(p.dodge_active), "dodge_dist": float(p.dodge_dist), "special_cd": float(p.special_cd), "e_cd": float(p.get("e_cd", 0.0)),
 			"face": float(p.face), "moving": bool(p.moving), "hurt": float(p.flash) > 0.0, "has_e": st.build.has("skills") and st.build.skills.get("e") != null,
+			# 수동 기술은 **칸마다 무엇이 들었는지**를 함께 알려 준다(§7: Q도 감속장이 아닐 수 있다).
+			# has_e·e_id는 옛 이름 그대로 두어 기존 봇·도구가 깨지지 않게 한다
+			"has_q": st.build.has("skills") and st.build.skills.get("q") != null,
+			"q_id": (String(st.build.skills.q.id) if (st.build.has("skills") and st.build.skills.get("q") != null) else ""),
 			"e_id": (String(st.build.skills.e.id) if (st.build.has("skills") and st.build.skills.get("e") != null) else "") },
 		"rules": {},
 		"enemies": [], "threats": [], "projectiles": [], "zones": [], "objects": [], "obstacles": [], "pickups": [], "spawn_warns": [],
@@ -165,7 +169,7 @@ static func rules_of(st: CombatState) -> Dictionary:
 		if k != "orbit" and k != "mine":
 			orbit_only = false
 	return { "dodge_mode": String(D.mode), "dodge_distance": float(D.distance), "dodge_min": float(D.get("min_distance", D.distance)), "dodge_duration": float(D.duration), "dodge_invuln": float(st.player.dodge_invuln_time), "dodge_cooldown": float(st.player.dodge_cd_time) * float(st.build.dodge_cd_mult),
-		"speed": float(P.speed) * float(st.build.speed_mult), "weapon_range": (rng_ if rng_ > 0.0 else 80.0), "orbit_only": orbit_only, "q_cooldown": float(P.slowfield.cooldown) }
+		"speed": float(P.speed) * float(st.build.speed_mult), "weapon_range": (rng_ if rng_ > 0.0 else 80.0), "orbit_only": orbit_only, "q_cooldown": (float(st.build.special_cd) if st.build.has("special_cd") and float(st.build.special_cd) > 0.0 else float(P.slowfield.cooldown)) }
 
 ## 바닥 지역에 글자로 표시되는 남은 시간(거미줄 진행 호·서리 순번·제단 예고 진행). 숫자 초가 표시되는 것은 없으므로 -1
 static func shown_zone_left(_z: Dictionary) -> float:

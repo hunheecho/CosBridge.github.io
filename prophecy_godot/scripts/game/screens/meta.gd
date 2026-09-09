@@ -116,8 +116,8 @@ func refresh() -> void:
 		var have: Array = (u.mods as Dictionary).get(w, [])
 		_chips(dbox, "%s 개조" % String(W[w].name), "mods:" + w, PCatalog.mods_of(w).keys(), have, func(id: String) -> String: return String(W[w].mods[id].name))
 	_chips(dbox, "공용 증강", "commons", U.commons.keys(), u.commons, func(id: String) -> String: return String(PCatalog.commons()[id].name))
-	_chips(dbox, "Q 변형", "q_variants", U.q_variants.keys(), u.q_variants, func(id: String) -> String: return String(PCatalog.skills().slowfield.variants[id].name))
-	_chips(dbox, "E 기술(변형 2종 함께)", "e_skills", U.e_skills.keys(), u.e_skills, func(id: String) -> String: return String(PCatalog.skills()[id].name))
+	_chips(dbox, "감속장 변형", "q_variants", U.q_variants.keys(), u.q_variants, func(id: String) -> String: return String(PCatalog.skills().slowfield.variants[id].name))
+	_chips(dbox, "수동 기술 Q/E(변형 함께)", "e_skills", U.e_skills.keys(), u.e_skills, func(id: String) -> String: return String(PCatalog.skills()[id].name))
 	_chips(dbox, "장비", "equipment", U.equipment.keys(), u.equipment, func(id: String) -> String: return String(PCatalog.equipment()[id].name))
 	_chips(dbox, "제작법(대장간)", "recipes", U.recipes.keys(), u.recipes, func(id: String) -> String: return String(PCatalog.crafted_equipment()[id].name))
 	if _detail != "":
@@ -177,7 +177,7 @@ func _detail_card() -> Control:
 				name = "감속장 변형: " + String(v.name); effect = String(v.desc)
 			"e_skills":
 				var d: Dictionary = PCatalog.skills()[rest]
-				name = "E " + String(d.name); effect = String(d.desc)
+				name = "수동 기술: " + String(d.name); effect = String(d.desc)
 			"equipment":
 				var d: Dictionary = PCatalog.equipment()[rest]
 				name = String(d.name); effect = String(d.short)

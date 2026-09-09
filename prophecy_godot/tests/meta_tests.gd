@@ -115,12 +115,14 @@ func _init() -> void:
 	var mods1 := 0
 	for w in u1.mods:
 		mods1 += (u1.mods[w] as Array).size()
-	ok("trial Lv1: 자동기술 7(쌍검·망치·구체 없음)·시작 3·개조 14·공용 6·E 3·Q 변형 2·장비 8·제작법 0", (u1.weapons as Array).size() == 7 and not (u1.weapons as Array).has("daggers") and not (u1.weapons as Array).has("hammer") and not (u1.weapons as Array).has("orb") and (u1.start_weapons as Array).size() == 3 and mods1 == 14 and (u1.commons as Array).size() == 6 and not (u1.commons as Array).has("saving") and not (u1.commons as Array).has("flare") and (u1.e_skills as Array).size() == 3 and not (u1.e_skills as Array).has("strike") and (u1.q_variants as Array).size() == 2 and not (u1.q_variants as Array).has("split") and (u1.equipment as Array).size() == 8 and (u1.recipes as Array).size() == 0, str(u1))
+	# **명세 변경**(2026-09-10 §7): Q와 E가 같은 6종을 공유하게 되면서 감속장이 e_skills 해금 목록에 들어갔다.
+	# 그래서 수동 기술 해금 수가 한 칸씩 늘었다(3→4, 5→6). 구현 결함이 아니라 자료 구조가 바뀐 것이다.
+	ok("trial Lv1: 자동기술 7(쌍검·망치·구체 없음)·시작 3·개조 14·공용 6·수동 기술 4(감속장 포함)·감속장 변형 2·장비 8·제작법 0", (u1.weapons as Array).size() == 7 and not (u1.weapons as Array).has("daggers") and not (u1.weapons as Array).has("hammer") and not (u1.weapons as Array).has("orb") and (u1.start_weapons as Array).size() == 3 and mods1 == 14 and (u1.commons as Array).size() == 6 and not (u1.commons as Array).has("saving") and not (u1.commons as Array).has("flare") and (u1.e_skills as Array).size() == 4 and (u1.e_skills as Array).has("slowfield") and not (u1.e_skills as Array).has("strike") and (u1.q_variants as Array).size() == 2 and not (u1.q_variants as Array).has("split") and (u1.equipment as Array).size() == 8 and (u1.recipes as Array).size() == 0, str(u1))
 	ok("trial Lv1 개조: 검은 cross·crescent만(scar는 도전), E 변형은 기술과 함께 2종", (u1.mods.sword as Array) == ["cross", "crescent"] and (u1.e_variants.gust as Array).size() == 2)
 	var u5 := PProfile.unlocked(prof("trial", 20))
 	ok("trial Lv5: 낙뢰·Q 분할·시간 저축(4)·쌍검(3)·시작 추적궁(2) 열림, 망치(6)·정지된 칼날(7) 아직", int(u5.level) == 5 and (u5.e_skills as Array).has("strike") and (u5.q_variants as Array).has("split") and (u5.commons as Array).has("saving") and (u5.weapons as Array).has("daggers") and (u5.start_weapons as Array).has("bow") and (u5.start_weapons as Array).has("daggers") and not (u5.weapons as Array).has("hammer") and not (u5.commons as Array).has("stasis"))
 	var u10 := PProfile.unlocked(prof("trial", 68))
-	ok("trial Lv10: 자동기술 10·시작 7·공용 8(불꽃 파열만 도전)·E 5·Q 3·장비 12(대체 해금 6/7/8)·제작법 1(혈월검)", int(u10.level) == 10 and (u10.weapons as Array).size() == 10 and (u10.start_weapons as Array).size() == 7 and (u10.commons as Array).size() == 8 and not (u10.commons as Array).has("flare") and (u10.e_skills as Array).size() == 5 and (u10.q_variants as Array).size() == 3 and (u10.equipment as Array).size() == 12 and (u10.recipes as Array) == ["bloodmoon_sword"])
+	ok("trial Lv10: 자동기술 10·시작 7·공용 8(불꽃 파열만 도전)·수동 기술 6(감속장 포함)·감속장 변형 3·장비 12(대체 해금 6/7/8)·제작법 1(혈월검)", int(u10.level) == 10 and (u10.weapons as Array).size() == 10 and (u10.start_weapons as Array).size() == 7 and (u10.commons as Array).size() == 8 and not (u10.commons as Array).has("flare") and (u10.e_skills as Array).size() == 6 and (u10.e_skills as Array).has("slowfield") and (u10.q_variants as Array).size() == 3 and (u10.equipment as Array).size() == 12 and (u10.recipes as Array) == ["bloodmoon_sword"])
 	var u15 := PProfile.unlocked(prof("trial", 140))
 	ok("trial Lv15: 제작법 6 전부(대체 해금), 불꽃 파열은 여전히 도전으로만", (u15.recipes as Array).size() == 6 and not (u15.commons as Array).has("flare"))
 	var uc := PProfile.unlocked(prof("trial", 0, {}, ["mod3:sword", "flare", "eq:time_shield", "recipe:relay_shield"]))
@@ -129,7 +131,7 @@ func _init() -> void:
 	var modsl := 0
 	for w in ul.mods:
 		modsl += (ul.mods[w] as Array).size()
-	ok("legacy Lv1: 0.4.x 공개분 전부(자동기술 10·개조 30·공용 9·E 5·Q 3·장비 12), 시작 3·제작법 0은 시험 일정대로", (ul.weapons as Array).size() == 10 and modsl == 30 and (ul.commons as Array).size() == 9 and (ul.e_skills as Array).size() == 5 and (ul.q_variants as Array).size() == 3 and (ul.equipment as Array).size() == 12 and (ul.start_weapons as Array).size() == 3 and (ul.recipes as Array).size() == 0)
+	ok("legacy Lv1: 0.4.x 공개분 전부(자동기술 10·개조 30·공용 9·수동 기술 6·감속장 변형 3·장비 12), 시작 3·제작법 0은 시험 일정대로", (ul.weapons as Array).size() == 10 and modsl == 30 and (ul.commons as Array).size() == 9 and (ul.e_skills as Array).size() == 6 and (ul.q_variants as Array).size() == 3 and (ul.equipment as Array).size() == 12 and (ul.start_weapons as Array).size() == 3 and (ul.recipes as Array).size() == 0)
 	var cnt := PProfile.counts(prof("trial", 0))
 	ok("도감 개수 분모 분리: 획득 7/10 · 시작 가능 3/7", int(cnt.weapons.have) == 7 and int(cnt.weapons.total) == 10 and int(cnt.start.have) == 3 and int(cnt.start.total) == 7)
 	ok("잠긴 항목 조건 문구: 쌍검 '영구 Lv3', 검 세 번째 개조는 도전, 잔불검은 도전(또는 Lv7)", PProfile.unlock_text("weapons", "daggers") == "영구 Lv3" and PProfile.unlock_text("mods", "sword").begins_with("도전") and PProfile.unlock_text("equipment", "ember_sword").find("Lv7") >= 0, PProfile.unlock_text("equipment", "ember_sword"))

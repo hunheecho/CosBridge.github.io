@@ -395,17 +395,17 @@ static func build_panel(run: Dictionary) -> Control:
 		box.add_child(rich("  %s[b]%s[/b] 레벨 Lv%d/%d%s [color=#9ea8b8]%s[/color] · %s %d/%d: %s" % [kind_tag, PGlossaryTip.term("w:" + String(wd.id), String(wd.name)), int(wd.level), cap_lv, fstage, weapon_stats_text(wd), PGlossaryTip.term("mod", "개조"), mods.size(), cap_md, (", ".join(mods) if mods.size() > 0 else "없음")], 14))
 	for i in int(S.weapons) - (b.weapons as Array).size():
 		box.add_child(rich("  [color=#6a7078]빈 자동기술 슬롯[/color]", 14))
-	box.add_child(rich("[b]수동 기술[/b]", 15))
-	for slot in ["q", "e"]:
-		var sk = g.skills.get(slot)
+	box.add_child(rich("[b]수동 기술 Q/E[/b] [color=#9ea8b8]보조무기(자동)와 다른 칸입니다[/color]", 15))
+	for slot in PGrowth.SKILL_SLOTS:
+		var sl := String(slot)
+		var sk = g.skills.get(sl)
 		if sk == null:
-			box.add_child(rich("  [b]E[/b]: [color=#6a7078]비어 있음[/color]", 14))
+			box.add_child(rich("  [b]%s[/b]: [color=#6a7078]비어 있음[/color]" % sl.to_upper(), 14))
 			continue
 		var d: Dictionary = PCatalog.skills()[String(sk.id)]
-		var cd := float(d.cooldown[mini(3, int(sk.level)) - 1]) * float(b.skill_cd_mult)
+		var cd := PBuildDetail.cd_of_build(b, sl)
 		var vtxt := (" · 변형: " + String(d.variants[String(sk.variant)].name)) if sk.get("variant", null) != null else ""
-		var term_id := "slowfield" if slot == "q" else "e:" + String(sk.id)
-		box.add_child(rich("  [b]%s[/b]: [b]%s[/b] Lv%d/%d [color=#9ea8b8]재사용 %s초%s[/color]" % [String(d.key), PGlossaryTip.term(term_id, String(d.name)), int(sk.level), int(S.skillMax), fmt(cd), vtxt], 14))
+		box.add_child(rich("  [b]%s[/b]: [b]%s[/b] Lv%d/%d [color=#9ea8b8]재사용 %s초%s[/color]" % [sl.to_upper(), PGlossaryTip.term(skill_term(String(sk.id)), String(d.name)), int(sk.level), int(S.skillMax), fmt(cd), vtxt], 14))
 	var commons := []
 	var CM := PCatalog.commons()
 	for k in g.commons:
@@ -606,13 +606,17 @@ static func _mod_unlock_lv(unlock: Variant, j: int) -> int:
 		return 2
 	return int(arr[j]) if j < arr.size() else int(arr[arr.size() - 1])
 
+## 수동 기술 용어 사전 키. 감속장만 옛 키("slowfield")를 그대로 쓴다(용어 항목을 옮기지 않기 위해서다)
+static func skill_term(skill_id: String) -> String:
+	return "slowfield" if skill_id == "slowfield" else "e:" + skill_id
+
 ## 수동 기술 3칸(Space · Q · E) 아이콘. 전투 HUD와 같은 순서·같은 아이콘을 거점에서도 쓴다.
 ## on_pick(kind, id)가 valid면 눌리는 버튼이 된다(kind = "manual", id = "dodge"|"q"|"e").
 static func manual_icon_row(run: Dictionary, icon_px: float = 32.0, on_pick: Callable = Callable()) -> Control:
 	var g: Dictionary = run.growth
 	var h := hbox(6)
 	h.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	for spec in [["dodge", "action:dodge", "Space", "회피"], ["q", "skill:slowfield", "Q", ""], ["e", "", "E", ""]]:
+	for spec in [["dodge", "action:dodge", "Space", "회피"], ["q", "", "Q", ""], ["e", "", "E", ""]]:
 		var slot := String(spec[0])
 		var t := PIconTile.new(String(spec[1]), PIconTile.STYLE_MANUAL)
 		t.key_label = String(spec[2])
@@ -626,7 +630,7 @@ static func manual_icon_row(run: Dictionary, icon_px: float = 32.0, on_pick: Cal
 				t.title = "비어 있음"
 			else:
 				var d: Dictionary = PCatalog.skills()[String(sk.id)]
-				t.key = "skill:slowfield" if slot == "q" else PIcons.e_key(String(sk.id), sk.get("variant", null))
+				t.key = PIcons.e_key(String(sk.id), sk.get("variant", null)) # 칸이 아니라 기술 id가 아이콘을 정한다
 				t.title = String(d.name)
 				t.sub = "Lv%d" % int(sk.level)
 		if on_pick.is_valid() and not t.empty:

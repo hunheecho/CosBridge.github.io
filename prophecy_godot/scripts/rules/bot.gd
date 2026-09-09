@@ -387,28 +387,41 @@ func decide_policy(st: CombatState) -> Dictionary:
 			mv = st.steer_dir(s2, tx, ty) if st.obstacles.size() > 0 else to_t
 		elif d < want - 30.0:
 			mv = [-to_t[0], -to_t[1]]
-	# 3) Q/E
+	# 3) 수동 기술 Q/E — **칸이 아니라 그 칸에 든 기술**로 판단한다(§7: 두 칸이 6종을 공유한다).
+	#    감속장·수호 결계는 '판을 정리하는 쪽'이라 예전 Q 기준(넓게 모였을 때·보스 빈틈)을 쓰고,
+	#    나머지 4종(돌풍·칼날 폭풍·낙뢰·중력핵)은 예전 E 기준(사거리 안에 몇 마리)을 쓴다.
+	#    그래서 감속장이 E에 있어도 예전 Q처럼 쓰이고, 공격기가 Q에 있어도 예전 E처럼 쓰인다.
 	var near200 := 0
 	for e in alive:
 		if PGeom.dist(float(e.x), float(e.y), p.x, p.y) < 200.0:
 			near200 += 1
+	var near_e := 0
+	var e_range := float(pol.e_range)
+	for e in alive:
+		if PGeom.dist(float(e.x), float(e.y), p.x, p.y) < e_range:
+			near_e += 1
 	var bz := st.boss
-	if p.special_cd <= 0.0:
-		if not bz.is_empty() and not bool(bz.dead) and (bz.state == "recover" or bz.state == "dash_lock") and PGeom.dist(float(bz.x), float(bz.y), p.x, p.y) < 180.0:
+	var boss_gap: bool = not bz.is_empty() and not bool(bz.dead) and (bz.state == "recover" or bz.state == "dash_lock") and PGeom.dist(float(bz.x), float(bz.y), p.x, p.y) < 180.0
+	for slot in PSkills.SLOTS:
+		var sl := String(slot)
+		var sk = st.build.skills.get(sl) if st.build.has("skills") else null
+		if sk == null or PSkills.cd_left(st, sl) > 0.0:
+			continue
+		var sid := String(sk.id)
+		var use := false
+		if sid == "slowfield":
+			use = boss_gap or ((locked_near or (near200 >= 1 and threatened)) if pid == "survival" else near200 >= int(pol.q_min_enemies))
+		elif sid == "ward":
+			# 결계는 방어용이다: 위협받거나 체력이 줄었을 때만(예전 E 규칙 그대로)
+			use = near_e >= int(pol.e_min_enemies) and (pid == "survival" or threatened or hp_ratio <= 0.7)
+		else:
+			use = near_e >= int(pol.e_min_enemies)
+		if not use:
+			continue
+		if sl == "q":
 			special = true
-		if (locked_near or (near200 >= 1 and threatened)) if pid == "survival" else near200 >= int(pol.q_min_enemies):
-			special = true
-	var es = st.build.skills.get("e") if st.build.has("skills") else null
-	if es != null and p.e_cd <= 0.0:
-		var near_e := 0
-		var e_range := float(pol.e_range)
-		for e in alive:
-			if PGeom.dist(float(e.x), float(e.y), p.x, p.y) < e_range:
-				near_e += 1
-		if near_e >= int(pol.e_min_enemies):
+		else:
 			skill_e = true
-		if String(es.id) == "ward" and pid != "survival" and not threatened and hp_ratio > 0.7:
-			skill_e = false
 	if bool(pol.get("no_move", false)): # 제자리 정책: 이동·회피 없음(보스 비교 기준선)
 		var no_skills := bool(pol.get("no_skills", false))
 		return { "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": p.dodge_active, "special": false if no_skills else special, "skill_e": false if no_skills else skill_e }

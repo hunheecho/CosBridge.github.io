@@ -98,8 +98,12 @@ var duel_enemy = null           # 결투 상대 개체
 var duel_gate: bool = false     # 성장 선택 처리 완료(화면이 open_duel_gate()로 연다)
 var duel_gate_held: bool = false # 화면이 성장 선택을 맡았는가(hold_duel_gate). 잡지 않으면 멈추지 않고 지나간다
 var duel_t: float = 0.0         # 현재 전환 단계 경과(전투 시간 t와 분리)
-var duel_summons: int = 0       # 지금까지 부른 귀속 소환수(총 상한)
+var duel_summons: int = 0       # 지금 상대가 부른 귀속 소환수(그 상대의 총 상한 max_total과 비교한다)
 var duel_summon_t: float = 0.0
+## 예정된 결투 상대 전체(PFormation이 순서대로 넘긴 f.duels). 1대1 원칙: **한 번에 한 상대만** 살아 있다.
+## KD-12 이전에는 이 목록의 첫 상대만 나오고 나머지는 조용히 사라졌다(3막 위험 편성 t3a/t3b/t3c_risk가 2종을 예정한다).
+var duel_queue: Array = []
+var duel_index: int = 0         # duel_queue에서 지금 상대의 자리
 var spawn_total: int = 0
 var spawn_count: int = 0       # 지금까지 예약(등장 + 대기)한 수
 var spawn_timer: float = 0.4
@@ -128,7 +132,8 @@ var recorder = null
 
 static func _new_stats() -> Dictionary:
 	return { "kills": 0, "damage_taken": 0.0, "damage_taken_nominal": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "e_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "level_ups": 0, "max_alive": 0, "support_only_sec": 0.0, "thin_tail_sec": 0.0, "no_target_sec": 0.0, "max_dash_states": 0, "max_bite_states": 0, "chest_gold": 0, "boss_damage": 0.0, "absorbed": 0.0, "healed": 0.0, "elite_kills": 0, "saving_kills": 0, "equip_procs": {}, "tier_spawned": {}, "tier_kills": {}, "max_enemy_projectiles": 0, "max_enemy_zones": 0, "max_webs": 0, "field_hits": 0,
-		"squad_pushes": 0, "squad_overlaps": 0, "cap_blocked_sec": 0.0, "danger_blocked_sec": 0.0, "duel_summons": 0, "duel_summons_cleared": 0, "duel_sec": 0.0 }
+		"squad_pushes": 0, "squad_overlaps": 0, "cap_blocked_sec": 0.0, "danger_blocked_sec": 0.0, "duel_summons": 0, "duel_summons_cleared": 0, "duel_sec": 0.0, "duels_done": 0,
+		"field_uses": 0 }
 
 static func _new_metrics() -> Dictionary:
 	return { "dmg": {}, "taken": {}, "taken_hits": {}, "enemies": {}, "hits": {}, "patterns": {}, "absorbed": 0.0, "interrupts": 0, "webs": 0, "heals": 0, "heal_amount": 0.0, "far_frac": -1.0,
@@ -297,7 +302,12 @@ func set_formation(f: Dictionary) -> void:
 		xp_default_scale = float(f.xp_default_scale)
 	var du: Dictionary = f.get("duel", {})
 	if not du.is_empty() and mode != "boss": # 결투 상대는 대기열에 없다: 일반 전투가 끝난 뒤 따로 등장한다
-		duel_type = String(du.type)
+		# f.duels = 예정된 결투 전체(순서 보존). 표시가 없는 옛 편성은 f.duel 하나만 넘어오므로 그것을 목록으로 본다.
+		duel_queue = (f.get("duels", []) as Array).duplicate()
+		if duel_queue.is_empty():
+			duel_queue = [du]
+		duel_index = 0
+		duel_type = String((duel_queue[0] as Dictionary).type)
 		duel_stage = "normal"
 		duel_summon_t = 0.0
 
@@ -1394,7 +1404,6 @@ func _duel_summon_tick(dt: float) -> void:
 ## ② 귀속된 잔여 소환물은 **추가 보상 없이** 같은 프레임에 정리된다(처치로 세지 않는다).
 ## ③ 그래서 처치 직후 남은 소환물 때문에 승리 화면 전에 죽는 일이 없다(같은 프레임의 pending_loss는 승리가 이긴다).
 func _end_duel() -> void:
-	duel_stage = "done"
 	var cleared := 0
 	for e in enemies:
 		if not e.dead and bool(e.get("duel_summon", false)):
@@ -1407,6 +1416,23 @@ func _end_duel() -> void:
 			keep.append(sp)
 	pending = keep
 	stats.duel_summons_cleared = int(stats.duel_summons_cleared) + cleared
+	stats.duels_done = int(stats.get("duels_done", 0)) + 1
+	# ④ 예정된 상대가 더 있으면 **승리가 아니라 다음 상대**로 간다(KD-12).
+	#    1대1을 지키려고 앞 상대와 그 소환물을 모두 정리한 **뒤에** 다음 등장 연출을 다시 탄다.
+	#    편성이 준 총 등장 수·경험치 예산은 그대로다 — duels[]는 이미 편성 단계에서 자리를 받아 둔 개체다.
+	#    귀속 소환 계수는 상대마다 따로 센다(summon.max_total이 종류별 값이기 때문이다).
+	if duel_index + 1 < duel_queue.size():
+		duel_index += 1
+		duel_type = String((duel_queue[duel_index] as Dictionary).type)
+		duel_enemy = null   # 앞 상대는 끝났다. 다음 상대는 연출이 끝난 뒤 _start_duel이 만든다
+		duel_summons = 0
+		duel_summon_t = 0.0
+		duel_stage = "intro"
+		duel_t = 0.0
+		ev("duel_intro")
+		return
+	# 마지막 상대였다: duel_enemy는 **쓰러진 그 개체 그대로** 남긴다(정산·시험이 무엇을 이겼는지 본다)
+	duel_stage = "done"
 	pending_loss = false
 	status = "won"
 	ev("win")
@@ -1865,8 +1891,11 @@ func kill_enemy(e: Dictionary, o: Dictionary) -> void:
 		e.airborne = false
 		boss_down_t = 0.0
 		ev("boss_down")
-	if not e.structure and PBuild.has_common(build, "saving") and in_field(e) and player.special_cd > 0.0:
-		player.special_cd = maxf(0.0, player.special_cd - float(cfg.saving.cdPerKill))
+	# 시간 저축은 **감속장 조건**이다: 감속장이 든 슬롯(Q일 수도 E일 수도 있다)의 재사용을 줄인다.
+	# 감속장이 없으면 애초에 in_field가 참이 될 수 없다(후보 자격도 PGrowth가 막는다).
+	var sav_slot := PSkills.slot_of(self, "slowfield")
+	if not e.structure and PBuild.has_common(build, "saving") and sav_slot != "" and in_field(e) and PSkills.cd_left(self, sav_slot) > 0.0:
+		PSkills.set_cd_left(self, sav_slot, PSkills.cd_left(self, sav_slot) - float(cfg.saving.cdPerKill))
 		stats.saving_kills += 1
 		text(e.x, e.y - e.r - 22.0, "감속장 -%d초" % int(cfg.saving.cdPerKill), "#a9d8ff")
 		ev("saving")
@@ -2057,16 +2086,20 @@ func update_player(input: Dictionary, dt: float) -> void:
 		web = 1.0 - (1.0 - web) * (1.0 - PConsumables.purge(build).slow)
 		var spd2 := float(P.speed) * float(build.speed_mult) * wind * web
 		move_swept(p, mv[0] * spd2 * dt, mv[1] * spd2 * dt, true)
-	if bool(input.get("special", false)) and p.special_cd <= 0.0:
-		PSkills.cast_q(self)
+	# 수동 기술 2칸: 키(입력)와 시계(재사용)만 슬롯이 정하고, 무엇이 나가는지는 그 칸의 기술이 정한다.
+	# **Q도 비어 있을 수 있다**(옛 저장·시험 빌드) — 비어 있으면 아무 일도 없다.
+	if bool(input.get("special", false)) and p.special_cd <= 0.0 and build.skills.get("q") != null:
+		PSkills.cast(self, "q")
 	if bool(input.get("skill_e", false)) and p.e_cd <= 0.0 and build.skills.get("e") != null:
-		PSkills.cast_e(self)
+		PSkills.cast(self, "e")
 	push_out(p)
 	update_attack(dt)
 
-## 첫 전투 호환 이름
+## 첫 전투 호환 이름: **감속장이 든 슬롯**을 발동한다(첫 전투는 Q 감속장 고정이라 예전과 같다)
 func cast_slowfield() -> void:
-	PSkills.cast_q(self)
+	var slot := PSkills.slot_of(self, "slowfield")
+	if slot != "":
+		PSkills.cast(self, slot)
 
 func update_attack(dt: float) -> void:
 	var before := 0
@@ -2349,7 +2382,10 @@ func update_projectiles(dt: float) -> void:
 			fx({ "kind": "spark", "x": pr.x + pr.vx * tf * dt * obs[0], "y": pr.y + pr.vy * tf * dt * obs[0], "ttl": 0.15, "angle": atan2(-pr.vy, -pr.vx), "crit": false })
 		pr.x = nx
 		pr.y = ny
-		pr.ttl -= dt
+		# 수명도 **이동과 같은 비율**로 흐른다. 그러지 않으면 감속장 안에서 40% 거리만 날고 사라져
+		# 사거리가 부당하게 줄어든다(보스 파동처럼 ttl = 사거리/속도로 정한 투사체가 특히 그렇다).
+		# 플레이어 투사체는 tf가 언제나 1.0이라 예전과 완전히 같다.
+		pr.ttl -= dt * tf
 		if pr.x < -10.0 or pr.x > arena_w + 10.0 or pr.y < -10.0 or pr.y > arena_h + 10.0 or pr.ttl <= 0.0:
 			pr.dead = true
 	var keep := []
@@ -2580,10 +2616,14 @@ func step(input: Dictionary, dt: float) -> void:
 	for w in build.weapons:
 		var k := "weapon:" + String(w.id)
 		active_t[k] = float(active_t.get(k, 0.0)) + dt
-	active_t["skill:q"] = float(active_t.get("skill:q", 0.0)) + dt
-	if build.skills.get("e") != null:
-		var ke := "skill:" + String(build.skills.e.id)
-		active_t[ke] = float(active_t.get(ke, 0.0)) + dt
+	# 수동 기술 보유 시간: 슬롯이 아니라 **장착한 기술 id**마다 센다(감속장이 E에 있어도 감속장 시간이다).
+	# 키 규약은 PStats.skill_key 하나에서만 정한다(감속장은 옛 기록과 같은 "skill:q").
+	for msl in PSkills.SLOTS:
+		var msk = build.skills.get(msl)
+		if msk == null:
+			continue
+		var ks := PStats.skill_key(String(msk.id))
+		active_t[ks] = float(active_t.get(ks, 0.0)) + dt
 	for c in build.get("commons", {}): # 공용 증강·희귀 보상도 보유 시간 기록(F4: DPS 분모)
 		var kc := "common:" + String(c)
 		active_t[kc] = float(active_t.get(kc, 0.0)) + dt
@@ -2657,7 +2697,7 @@ func summary() -> Dictionary:
 		en[k].died_before_attack_rate = (snapped(float(m.died_before_attack) / float(ended), 0.001) if ended > 0 else -1.0)
 		en[k].ttk_avg = (snapped(ttk_avg / float(m.ttk.size()), 0.01) if m.ttk.size() > 0 else -1.0)
 	var out := { "status": status, "elapsed": snapped(t, 0.01), "hp": player.hp, "hp_max": player.hp_max, "kills": stats.kills, "damage_taken": stats.damage_taken, "damage_taken_nominal": stats.damage_taken_nominal, "absorbed": stats.absorbed,
-		"attacks": stats.attacks, "hits": stats.hits, "dodges": stats.dodges, "special_uses": stats.special_uses, "e_uses": stats.e_uses, "dmg": dmg, "dmg_total": snapped(total, 0.1), "taken": metrics.taken.duplicate(), "taken_hits": metrics.taken_hits.duplicate(), "enemies": en, "steps": step_n, "seed": seed_value,
+		"attacks": stats.attacks, "hits": stats.hits, "dodges": stats.dodges, "special_uses": stats.special_uses, "e_uses": stats.e_uses, "field_uses": int(stats.get("field_uses", 0)), "duels_done": int(stats.get("duels_done", 0)), "dmg": dmg, "dmg_total": snapped(total, 0.1), "taken": metrics.taken.duplicate(), "taken_hits": metrics.taken_hits.duplicate(), "enemies": en, "steps": step_n, "seed": seed_value,
 		"dodge_mode": String(cfg.player.dodge.mode), "dodge_cooldown": float(player.dodge_cd_time), "dodge_invuln": float(player.dodge_invuln_time), "dodge_weapon": String(player.dodge_weapon), "dodge_dists": stats.dodge_dists.duplicate(), "perfect_dodges": stats.perfect_dodges,
 		"formation": String(cfg.formation_id) if cfg.has("formation_id") else String(opts.get("formation_name", "?")), "spawn_total": spawn_total, "spawned": spawn_count, "xp": snapped(stats.xp, 0.0001), "level_ups": stats.level_ups,
 		"max_alive": stats.max_alive, "support_only_sec": snapped(float(stats.support_only_sec), 0.1), "thin_tail_sec": snapped(float(stats.thin_tail_sec), 0.1), "no_target_sec": snapped(float(stats.no_target_sec), 0.1), "max_dash_states": stats.max_dash_states, "max_bite_states": stats.max_bite_states, "tier_spawned": stats.tier_spawned.duplicate(), "tier_kills": stats.tier_kills.duplicate(), "max_enemy_projectiles": stats.max_enemy_projectiles, "max_enemy_zones": stats.max_enemy_zones, "max_webs": stats.max_webs, "world_stage": int(opts.get("world_stage", 0)), "dash_max": int(cfg.enemies.wolf.dash.max_concurrent), "wolf_hp": float(cfg.enemies.wolf.hp),

@@ -248,13 +248,20 @@ var new_run_opts := {} # 검증 메뉴에서 정한 새 회차 옵션 { seed, de
 
 ## 새 회차: 프로필의 해금 스냅샷·특성을 고정하고 영구 기록 대상(profileEligible)으로 만든다. 봇으로 진행한 전투가 있으면 _on_finished가 대상에서 뺀다.
 ## 검증 메뉴의 밀도 비교 회차(new_run_opts)는 시드·세트만 정하고 프로필 규칙은 같다
-func start_run(weapon_id: String) -> void:
+## skill_id = 시작 화면에서 고른 **수동 기술 1개**(Q에 Lv1으로 들어간다, §7).
+## ""(빈 값)이면 감속장 — 자동 진행 스모크·도구처럼 고르는 화면을 지나지 않는 경로의 기본값이다.
+func start_run(weapon_id: String, skill_id: String = "") -> void:
 	fight_kind = "run"
 	var seed_use: int = int(new_run_opts.get("seed", _auto_seed if _auto else 0))
 	var route_v: Array = new_run_opts.get("route", [])
 	if route_v.is_empty() and _auto and OS.get_environment("PROPHECY_UI_ROUTE") != "": # 자동 진행 스모크의 경로 고정(예: 기존 보스 3종 경로)
 		route_v = Array(OS.get_environment("PROPHECY_UI_ROUTE").split(",")).map(func(t): return String(t))
 	run = PRun.new_run(seed_use, weapon_id, "", { "density_set": String(new_run_opts.get("density_set", "")), "route": route_v, "profile": profile, "eligible": true })
+	# 고른 수동 기술을 Q에 Lv1으로 얹는다. PRun.new_run은 기본값(감속장)으로 만들고,
+	# 실제로 고른 것은 여기서만 정해진다 — 감속장을 강제로 지급하지 않는다는 뜻이다.
+	var pick_skill := skill_id if (skill_id != "" and PCatalog.skills().has(skill_id)) else "slowfield"
+	run.growth.skills.q = { "id": pick_skill, "level": 1, "variant": null }
+	run.startSkill = pick_skill
 	new_run_opts = {}
 	sortie = {}
 	last_profile_award = {}
@@ -760,8 +767,8 @@ static func _lab_build_run(key: String) -> Dictionary:
 		g.passives[String(k)] = int(gr.passives[k])
 		picks += int(gr.passives[k])
 	if gr.has("q"):
-		g.skills.q.level = int(gr.q.get("level", 1))
-		g.skills.q.variant = gr.q.get("variant", null)
+		# 옛 저장에는 q.id가 없다(감속장 고정이었다) — 그때는 감속장으로 되살린다
+		g.skills.q = { "id": String(gr.q.get("id", "slowfield")), "level": int(gr.q.get("level", 1)), "variant": gr.q.get("variant", null) }
 		picks += int(gr.q.get("level", 1)) - 1 + (1 if gr.q.get("variant", null) != null else 0)
 	if gr.has("e"):
 		g.skills.e = { "id": String(gr.e.id), "level": int(gr.e.get("level", 1)), "variant": gr.e.get("variant", null) }
@@ -915,8 +922,19 @@ func controls_text() -> String:
 		dodge_line = "Space: 회피 — 누르면 즉시 출발. 떼면 짧게 멈춤(최소 %d). 계속 누르면 최대 %d.\n   짧게 써도 재사용 대기(%.1f초, 출발 순간부터)는 같음. 무적은 회피 이동 중에만(최대 %.2f초).\n   방향은 출발 순간 고정: 이동 중이면 그 방향, 아니면 바라보는 방향. 바위·나무·경계에 막히면 그 자리에서 끝남." % [int(D.min_distance), int(D.distance), float(D.cooldown), float(D.duration)]
 	else:
 		dodge_line = "Space: 회피 — 누르면 즉시 출발, 떼도 %d까지 감(고정 거리·비교용). 재사용 %.1f초(출발 순간부터). 무적은 회피 이동 중에만(최대 %.2f초).\n   방향은 출발 순간 고정: 이동 중이면 그 방향, 아니면 바라보는 방향." % [int(D.distance), float(D.cooldown), float(D.duration)]
-	var e_line := "E: 선택 수동 기술 (레벨업·상점에서 습득: 돌풍·칼날 폭풍·낙뢰·중력핵·수호 결계)"
-	return "WASD / 방향키: 이동\n%s\nQ: 감속장 (반지름 %d, %.0f초, 안의 적 속도·준비 %.0f%%, 재사용 %.0f초)\n%s\n자동 공격: 사거리 안의 가장 가까운 적을 향해 자동기술 발동 (첫 자동기술 %.2f초마다)\nEsc: 일시정지 / 재개 · Enter: 메뉴 확인 · F3: 검증 패널(회피 방식·재사용 비교 설정, 기준 전투 다음 재시작에 적용)\n\n읽어야 할 것\n주황 짧은 부채꼴: 늑대의 물기 예고(머리 앞, 판정 범위와 같음). 진해지고 '!'가 뜨면 방향 고정 — 옆·뒤로 빠지세요. 흰색 = 물어뜨리는 순간. 물기 뒤 잠시 멈춤(연한 파랑, 보너스 없음).\n붉은 통로: 늑대가 돌진할 길(동시 최대 %d마리). 굵어지며 '!'가 뜨면 방향이 고정됨 — 옆으로 피하세요.\n통로의 폭 = 실제 판정 폭. 흰 큰 부채꼴 = 검격의 실제 판정 범위.\n노란 늑대 = 돌진 뒤 빈틈 (피해 1.5배). 파란 원 = 감속장 범위. 몸이 닿기만 해서는 피해가 없습니다.\n바위·나무의 테두리 = 충돌 경계. 돌진도 막힙니다. 직접 공격은 장애물 뒤를 때리지 못하지만 불길·폭발·감속장은 바닥 범위대로 적용됩니다.\n밝은 플레이어 + 잔상 = 회피 이동 중(무적, 적의 몸을 통과). 잔상이 사라지면 무적도 끝.\n보스: 붉은 통로(돌진), 부채꼴(휩쓸기), 원(덮쳐찍기), 발자국(늑대 등장). 큰 공격 뒤 \"빈틈!\"에 붙어서 때리세요. 밑줄 용어는 마우스를 올리면 설명, 클릭하면 고정(Esc로 닫기)." % [dodge_line, int(S.radius), float(S.duration), float(S.slow) * 100.0, float(S.cooldown), e_line, interval, dash_max]
+	# Q/E 두 칸은 **고른 기술**을 그대로 적는다(칸이 기술을 정하지 않는다 — §7)
+	var e_line := "E: 두 번째 수동 기술 (레벨업·상점에서 얻으면 이 칸에 들어감. Q에 이미 가진 기술은 후보에서 빠짐)"
+	var q_line := "Q: 시작할 때 고른 수동 기술 (감속장·돌풍·칼날 폭풍·낙뢰·중력핵·수호 결계 중 1개)"
+	var st_now = view.st if (screen == "combat" and view.st != null) else null
+	if st_now != null and st_now.build.has("skills"):
+		for sl in PSkills.SLOTS:
+			var sk_now = st_now.build.skills.get(sl, null)
+			var lbl := ("%s: %s (재사용 %.0f초)" % [String(sl).to_upper(), String(PCatalog.skills()[String(sk_now.id)].name), PSkills.cd_of(st_now, String(sl))]) if sk_now != null else ("%s: 비어 있음" % String(sl).to_upper())
+			if String(sl) == "q":
+				q_line = lbl
+			else:
+				e_line = lbl
+	return "WASD / 방향키: 이동\n%s\n%s\n   감속장은 반지름 %d, %.0f초 · 안의 적 속도·준비와 **적 투사체**가 %.0f%% (아군 투사체는 그대로)\n%s\n자동 공격: 사거리 안의 가장 가까운 적을 향해 자동기술 발동 (첫 자동기술 %.2f초마다)\nEsc: 일시정지 / 재개 · Enter: 메뉴 확인 · F3: 검증 패널(회피 방식·재사용 비교 설정, 기준 전투 다음 재시작에 적용)\n\n읽어야 할 것\n주황 짧은 부채꼴: 늑대의 물기 예고(머리 앞, 판정 범위와 같음). 진해지고 '!'가 뜨면 방향 고정 — 옆·뒤로 빠지세요. 흰색 = 물어뜨리는 순간. 물기 뒤 잠시 멈춤(연한 파랑, 보너스 없음).\n붉은 통로: 늑대가 돌진할 길(동시 최대 %d마리). 굵어지며 '!'가 뜨면 방향이 고정됨 — 옆으로 피하세요.\n통로의 폭 = 실제 판정 폭. 흰 큰 부채꼴 = 검격의 실제 판정 범위.\n노란 늑대 = 돌진 뒤 빈틈 (피해 1.5배). 파란 원 = 감속장 범위. 몸이 닿기만 해서는 피해가 없습니다.\n바위·나무의 테두리 = 충돌 경계. 돌진도 막힙니다. 직접 공격은 장애물 뒤를 때리지 못하지만 불길·폭발·감속장은 바닥 범위대로 적용됩니다.\n밝은 플레이어 + 잔상 = 회피 이동 중(무적, 적의 몸을 통과). 잔상이 사라지면 무적도 끝.\n보스: 붉은 통로(돌진), 부채꼴(휩쓸기), 원(덮쳐찍기), 발자국(늑대 등장). 큰 공격 뒤 \"빈틈!\"에 붙어서 때리세요. 밑줄 용어는 마우스를 올리면 설명, 클릭하면 고정(Esc로 닫기)." % [dodge_line, q_line, int(S.radius), float(S.duration), float(S.slow) * 100.0, e_line, interval, dash_max]
 
 func show_controls(v: bool) -> void:
 	controls_panel.visible = v
@@ -1432,15 +1450,22 @@ func _update_hud() -> void:
 	var guide := "길이=거리" if String(P.dodge.mode) == "hold" else "고정 %d" % int(P.dodge.distance)
 	var dodge_key := "회피 · " if (touch != null and touch.enabled) else "Space 회피 · " # 터치 오버레이가 켜지면 버튼 이름 없이
 	$UI/HUD/DodgeText.text = dodge_key + ("회피 중 %d" % int(p.dodge_dist) if p.dodge_active else (guide if p.dodge_cd <= 0.0 else "%.1f초" % p.dodge_cd))
-	var qcd: float = float(st.build.special_cd) if st.build.has("special_cd") else float(P.slowfield.cooldown)
+	var q_sk = st.build.skills.get("q", null) if st.build.has("skills") else null
+	var qcd: float = PSkills.cd_of(st, "q") if q_sk != null else 0.0
+	if qcd <= 0.0:
+		qcd = float(st.build.special_cd) if st.build.has("special_cd") else float(P.slowfield.cooldown)
 	$UI/HUD/Q.value = (1.0 - clampf(p.special_cd / maxf(0.01, qcd), 0.0, 1.0)) * 100.0
-	$UI/HUD/QText.text = "Q 감속장 " + ("준비" if p.special_cd <= 0.0 else "%.1f초" % p.special_cd) + (" · 전개 %.1f초" % st.field.ttl if not st.field.is_empty() else "")
+	var q_name: String = String(PCatalog.skills()[String(q_sk.id)].name) if q_sk != null else "감속장"
+	# 감속장 전개 시간은 **감속장이 든 칸**의 줄에만 붙인다(Q에 다른 기술이 있으면 아래 E 줄에 붙는다)
+	var q_field: String = (" · 전개 %.1f초" % st.field.ttl) if (not st.field.is_empty() and (q_sk == null or String(q_sk.id) == "slowfield")) else ""
+	$UI/HUD/QText.text = "Q %s " % q_name + ("준비" if p.special_cd <= 0.0 else "%.1f초" % p.special_cd) + q_field
 	var e_bar: ProgressBar = $UI/HUD/E
 	if st.build.skills.get("e", null) != null:
 		var ecd := PSkills.cd_of(st, "e")
 		var e_cd_now: float = float(p.get("e_cd", 0.0))
 		e_bar.value = (1.0 - clampf(e_cd_now / maxf(0.01, ecd), 0.0, 1.0)) * 100.0
-		$UI/HUD/EText.text = "E %s " % String(PCatalog.skills()[String(st.build.skills.e.id)].name) + ("준비" if e_cd_now <= 0.0 else "%.1f초" % e_cd_now)
+		var e_field: String = (" · 전개 %.1f초" % st.field.ttl) if (not st.field.is_empty() and String(st.build.skills.e.id) == "slowfield") else ""
+		$UI/HUD/EText.text = "E %s " % String(PCatalog.skills()[String(st.build.skills.e.id)].name) + ("준비" if e_cd_now <= 0.0 else "%.1f초" % e_cd_now) + e_field
 	else:
 		e_bar.value = 0.0
 		$UI/HUD/EText.text = "E 없음"

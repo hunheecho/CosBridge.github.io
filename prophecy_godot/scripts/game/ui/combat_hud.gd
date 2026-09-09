@@ -137,7 +137,9 @@ func _build() -> void:
 	_manual_row.add_theme_constant_override("separation", 8)
 	_manual_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_manual_row)
-	for spec in [["dodge", "action:dodge", "Space"], ["q", "skill:slowfield", "Q"], ["e", "", "E"]]:
+	# 수동 기술 2칸은 **무엇이 들어 있는지 모른 채** 만든다(아이콘·이름은 _update_manual이 매번 넣는다).
+	# 예전에는 Q를 감속장 아이콘으로 못박아 두어서 Q에 다른 기술을 넣으면 그림이 틀렸다.
+	for spec in [["dodge", "action:dodge", "Space"], ["q", "", "Q"], ["e", "", "E"]]:
 		var t := PIconTile.new(String(spec[1]), PIconTile.STYLE_MANUAL)
 		t.set_icon_px(float(S.manual), float(S.manual) + 10.0, 1)
 		t.key_label = "" if touch_mode else String(spec[2])
@@ -251,30 +253,31 @@ func _update_manual(now: float) -> void:
 	var dcd: float = float(P.dodge.cooldown)
 	var d_left: float = maxf(0.0, float(p.dodge_cd))
 	_set_manual("dodge", "action:dodge", false, clampf(d_left / maxf(0.01, dcd), 0.0, 1.0), d_left, now, "회피")
-	# Q 감속장
-	var qcd: float = float(b.special_cd) if b.has("special_cd") else float(P.slowfield.cooldown)
-	var q_left: float = maxf(0.0, float(p.special_cd))
-	_set_manual("q", "skill:slowfield", false, clampf(q_left / maxf(0.01, qcd), 0.0, 1.0), q_left, now, "감속장")
-	# E(미보유는 사용할 수 없는 빈 슬롯)
-	var e = b.skills.get("e", null)
-	if e == null:
-		var te: PIconTile = _manual["e"]
-		te.empty = true
-		te.disabled = true
-		te.key = ""
-		te.title = "미보유"
-		te.state = PIconTile.ST_NONE
-		te.cd_ratio = 0.0
-		te.cd_left = 0.0
-		te.flash_t = -1.0
-		te.now_t = now
-		te.queue_redraw()
-		_ready_state["e"] = false
-	else:
-		var ecd: float = PSkills.cd_of(st, "e")
-		var e_left: float = maxf(0.0, float(p.get("e_cd", 0.0)))
-		var sid := String(e.id)
-		_set_manual("e", PIcons.e_key(sid, e.get("variant", null)), false, clampf(e_left / maxf(0.01, ecd), 0.0, 1.0), e_left, now, String(PCatalog.skills()[sid].name))
+	# 수동 기술 Q·E: 두 칸을 **같은 규칙**으로 그린다(칸이 아니라 그 칸의 기술이 이름·아이콘을 정한다).
+	# 빈 칸은 '미보유'로 남긴다 — 재사용 대기와 다른 표시다.
+	for slot in PSkills.SLOTS:
+		var sl := String(slot)
+		var sk = b.skills.get(sl, null)
+		if sk == null:
+			var te: PIconTile = _manual[sl]
+			te.empty = true
+			te.disabled = true
+			te.key = ""
+			te.title = "미보유"
+			te.state = PIconTile.ST_NONE
+			te.cd_ratio = 0.0
+			te.cd_left = 0.0
+			te.flash_t = -1.0
+			te.now_t = now
+			te.queue_redraw()
+			_ready_state[sl] = false
+			continue
+		var scd: float = PSkills.cd_of(st, sl)
+		if scd <= 0.0 and sl == "q":
+			scd = float(P.slowfield.cooldown) # 빌드가 없는 첫 전투 호환 경로
+		var s_left: float = PSkills.cd_left(st, sl)
+		var sid := String(sk.id)
+		_set_manual(sl, PIcons.e_key(sid, sk.get("variant", null)), false, clampf(s_left / maxf(0.01, scd), 0.0, 1.0), s_left, now, String(PCatalog.skills()[sid].name))
 
 func _set_manual(ability: String, key: String, disabled_v: bool, ratio: float, left: float, now: float, title: String) -> void:
 	var t: PIconTile = _manual[ability]

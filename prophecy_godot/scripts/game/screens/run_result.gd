@@ -19,8 +19,12 @@ func refresh() -> void:
 	var wn := []
 	for w in g.weapons:
 		wn.append("%s Lv%d" % [String(PCatalog.weapon(String(w.id)).name), int(w.level)])
-	var e = g.skills.get("e", null)
-	box.add_child(PUi.rich("Lv %d · 자동기술: [b]%s[/b] · Q Lv%d%s" % [int(g.level), ", ".join(wn), int(g.skills.q.level), (" · E %s Lv%d" % [String(PCatalog.skills()[String(e.id)].name), int(e.level)]) if e != null else ""], 13))
+	# 수동 기술은 **칸마다 이름을 적는다**(Q가 감속장이라고 가정하지 않는다 — §7)
+	var sk_txt := []
+	for sl in PGrowth.SKILL_SLOTS:
+		var sk = g.skills.get(String(sl), null)
+		sk_txt.append("%s %s Lv%d" % [String(sl).to_upper(), String(PCatalog.skills()[String(sk.id)].name), int(sk.level)] if sk != null else "%s 비어 있음" % String(sl).to_upper())
+	box.add_child(PUi.rich("Lv %d · 자동기술: [b]%s[/b] · 수동 기술: [b]%s[/b]" % [int(g.level), ", ".join(wn), " · ".join(sk_txt)], 13))
 	var eq := []
 	for sl in PCatalog.world().equip_slots:
 		var id = r.equipment.get(String(sl), null)

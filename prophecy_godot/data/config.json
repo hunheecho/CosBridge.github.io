@@ -204,7 +204,7 @@
   "innerFrac": 0.35,
   "hitR": 14
  },
- "keys_text": "WASD/방향키 이동 · Space 회피 · Q 감속장 · E 기술 · Esc 일시정지",
+ "keys_text": "WASD/방향키 이동 · Space 회피 · Q/E 수동 기술 · Esc 일시정지",
  "boss_action_text": {
   "intro": "입장",
   "approach": "접근",

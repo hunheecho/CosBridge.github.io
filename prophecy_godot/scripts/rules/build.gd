@@ -240,9 +240,17 @@ static func derive(run: Dictionary) -> Dictionary:
 	b.passives = p.duplicate()
 	b.skills = { "q": g.skills.q.duplicate() if g.skills.get("q") != null else null, "e": g.skills.e.duplicate() if g.skills.get("e") != null else null }
 	b.boss_rewards = rewards.duplicate()
+	# Q 슬롯의 재사용 시간. **그 칸에 든 기술의 표**를 읽는다 — 예전에는 감속장 표를 고정으로 읽었는데,
+	# Q와 E가 같은 6종을 공유하게 되면서(§7) 그 가정이 틀렸다. Q가 비어 있으면 0(쓸 것이 없다).
 	var q = g.skills.get("q")
-	var qlv: int = mini(3, int(q.level)) if q != null else 1
-	var qcd: float = float(PCatalog.skills().slowfield.cooldown[qlv - 1])
+	if q == null:
+		b.special_cd = 0.0
+		return b
+	var SKC := PCatalog.skills()
+	var qid := String(q.id)
+	var qcd_tbl: Array = SKC[qid].cooldown if SKC.has(qid) else SKC.slowfield.cooldown
+	var qlv: int = mini(qcd_tbl.size(), maxi(1, int(q.level)))
+	var qcd: float = float(qcd_tbl[qlv - 1])
 	b.special_cd = maxf(1.0, qcd * float(b.skill_cd_mult) * float(b.get("q_cd_mult", 1.0)))
 	return b
 

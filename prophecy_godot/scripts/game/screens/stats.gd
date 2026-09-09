@@ -163,7 +163,7 @@ func _survival_card(r: Dictionary) -> Control:
 	PUi.kv(box, "체력 손실(유효)", "[b]%s[/b]" % PUi.fmt(taken), 13)
 	PUi.kv(box, "보호막이 흡수", "[b]%s[/b] [color=#9ea8b8](명목 %s − 유효 %s)[/color]" % [PUi.fmt(absorbed), PUi.fmt(nominal), PUi.fmt(taken)], 13)
 	PUi.kv(box, "회복", "[color=#9ea8b8]거점 휴식·사건으로 회복한 체력은 전투 기록에 남지 않습니다(현재 체력 %d)[/color]" % int(float(r.hp)), 13)
-	box.add_child(PUi.rich("[color=#9ea8b8]감속장(Q)의 감속·방어·회복은 피해가 아니므로 피해 표에 없습니다.[/color]", 11))
+	box.add_child(PUi.rich("[color=#9ea8b8]감속장의 감속·방어·회복은 피해가 아니므로 피해 표에 없습니다(감속장이 Q에 있든 E에 있든 같습니다).[/color]", 11))
 	return c.panel
 
 func _help_card() -> Control:

@@ -146,9 +146,31 @@ func _run() -> void:
 	var ps: Node = main.screens["pick_start"]
 	# 주무기·보조 분리: 시작 선택은 주무기만이다. 옛 구조에서 시작 자동기술로 해금해 둔 회전 칼날은
 	# 여기서 빠지고 회차 중 보조 후보로 나온다(프로필 해금 자료는 지우지 않는다)
-	ok("시작 선택 화면(trial Lv1): 시작 가능 2장(검·창 — 회전 칼날은 보조로 이동), 특성 요약에 근거리 훈련, 검 개조 후보 2개만", main.screen == "pick_start" and _count_text(ps, "이 자동기술로 시작") == 2 and _count_text(ps, "근거리 훈련") >= 1 and _count_text(ps, "교차 검격, 날아가는 검광") == 1 and _count_text(ps, "잔류 검흔") == 0, "화면=%s 시작버튼=%d 특성=%d 개조표시=%d 잔류검흔=%d" % [main.screen, _count_text(ps, "이 자동기술로 시작"), _count_text(ps, "근거리 훈련"), _count_text(ps, "교차 검격, 날아가는 검광"), _count_text(ps, "잔류 검흔")])
-	main.start_run("sword")
+	# **명세 변경**(2026-09-10 §7): 시작이 두 단계다 — ① 주무기 → ② 수동 기술 1개(Q에 Lv1).
+	# 그래서 버튼 이름이 "이 자동기술로 시작" → "이 주무기로 (다음)"으로 바뀌었다.
+	ok("시작 1/2(trial Lv1): 시작 가능 2장(검·창 — 회전 칼날은 보조로 이동), 특성 요약에 근거리 훈련, 검 개조 후보 2개만", main.screen == "pick_start" and _count_text(ps, "이 주무기로 (다음)") == 2 and _count_text(ps, "근거리 훈련") >= 1 and _count_text(ps, "교차 검격, 날아가는 검광") == 1 and _count_text(ps, "잔류 검흔") == 0, "화면=%s 시작버튼=%d 특성=%d 개조표시=%d 잔류검흔=%d" % [main.screen, _count_text(ps, "이 주무기로 (다음)"), _count_text(ps, "근거리 훈련"), _count_text(ps, "교차 검격, 날아가는 검광"), _count_text(ps, "잔류 검흔")])
+	# ② 수동 기술 단계: 실제로 버튼을 눌러 넘어간다
+	var wbtn := _find_button(ps, "이 주무기로 (다음)")
+	if wbtn != null:
+		wbtn.pressed.emit()
+		await process_frame
+	ps = main.screens["pick_start"]
+	# trial Lv1 해금: 감속장·돌풍·칼날 폭풍·수호 결계(낙뢰 Lv5·중력핵 Lv8은 아직 잠김)
+	ok("시작 2/2: 수동 기술 4장(감속장·돌풍·칼날 폭풍·수호 결계) · 낙뢰/중력핵은 아직 없음 · Q에 넣는다고 적혀 있다",
+		_count_text(ps, "이 기술로 시작") == 4 and _count_text(ps, "감속장") >= 1 and _count_text(ps, "낙뢰") == 0 and _count_text(ps, "중력핵") == 0 and _count_text(ps, "수동 기술 선택 (2/2)") >= 1,
+		"기술버튼=%d 감속장=%d 낙뢰=%d" % [_count_text(ps, "이 기술로 시작"), _count_text(ps, "감속장"), _count_text(ps, "낙뢰")])
+	var bbtn := _find_button(ps, "주무기 다시 고르기 (Esc)")
+	if bbtn != null:
+		bbtn.pressed.emit()
+		await process_frame
+	ok("2/2에서 '주무기 다시 고르기'로 1/2로 되돌아간다(회차를 시작하지 않는다)",
+		_count_text(main.screens["pick_start"], "이 주무기로 (다음)") == 2 and main.run.is_empty())
+	# 감속장이 아닌 기술로 시작한다 — 감속장을 강제로 지급하지 않는다는 규칙을 화면 경로에서 확인한다.
+	# 회차는 **한 번만** 시작한다(프로필 runs 계수를 흔들지 않기 위해서다)
+	main.start_run("sword", "gust")
 	await process_frame
+	ok("고른 기술(돌풍)이 Q에 Lv1으로 들어가고 E는 빈칸이다 · 감속장은 지급되지 않았다",
+		String(main.run.growth.skills.q.id) == "gust" and int(main.run.growth.skills.q.level) == 1 and main.run.growth.skills.get("e") == null and String(main.run.get("startSkill", "")) == "gust" and not PGrowth.has_skill(main.run.growth, "slowfield"))
 	ok("새 회차: 특성 고정·해금 스냅샷·기록 대상, 프로필 runs 1", (main.run.traits as Array) == ["near"] and main.run.has("unlocks") and bool(main.run.profileEligible) and int(PProfile.load("trial").runs) == 1 and main.screen == "base")
 	# 대장간 제작: 회차에 재료를 주입하고 제작법을 열어 미리보기 → 확정
 	main.run.unlocks.recipes = ["moon_armor"]

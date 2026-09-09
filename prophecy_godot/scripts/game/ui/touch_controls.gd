@@ -443,10 +443,14 @@ static func cooldown_fill(st: CombatState) -> Dictionary:
 	var dcd: float = float(p.get("dodge_cd_time", 0.0))
 	if dcd <= 0.0:
 		dcd = float(P.dodge.cooldown)
-	var qcd: float = float(st.build.special_cd) if st.build.has("special_cd") else float(P.slowfield.cooldown)
+	# Q 칸도 그 칸에 든 기술의 재사용을 쓴다(감속장 고정이 아니다 — §7). 비어 있으면 눈금이 없다
+	var qcd: float = PSkills.cd_of(st, "q") if st.build.get("skills", {}).get("q", null) != null else 0.0
+	if qcd <= 0.0:
+		qcd = float(st.build.special_cd) if st.build.has("special_cd") else float(P.slowfield.cooldown)
 	var out := {
 		"dodge": 1.0 - clampf(float(p.dodge_cd) / maxf(0.01, dcd), 0.0, 1.0),
 		"special": 1.0 - clampf(float(p.special_cd) / maxf(0.01, qcd), 0.0, 1.0),
+		"has_q": st.build.get("skills", {}).get("q", null) != null,
 		"e": 0.0, "has_e": false,
 	}
 	if st.build.skills.get("e", null) != null:

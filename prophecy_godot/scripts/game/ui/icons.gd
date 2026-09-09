@@ -7,9 +7,9 @@ extends RefCounted
 ##   weapon:<id>            자동기술 10종 (sword·spear·daggers·bow·hammer·blades·orb·frost·ember·mine)
 ##   mod:<weapon>:<mod>     개조 30종 (sword:cross · spear:split · frost:fan …)
 ##   action:dodge           회피
-##   skill:q  / skill:slowfield   Q 감속장
-##   skill:e:<id>           E 기술(ward = 수호 결계)
-##   skill:e:<id>:<variant> E 변형
+##   skill:q  / skill:slowfield   감속장(칸과 무관 — 옛 키를 그대로 쓴다)
+##   skill:e:<id>           수동 기술 6종(Q·E 공용. ward = 수호 결계)
+##   skill:e:<id>:<variant> 그 기술의 변형
 ##   common:<id> / passive:<id> / equip:<id> / reward:<id>
 ##
 ## 아이콘이 없는 ID는 절대 다른 효과의 아이콘으로 대체하지 않는다(오인 금지).
