@@ -1375,13 +1375,41 @@ static func use_service(run: Dictionary, id: String) -> bool:
 	return true
 
 ## 체력이 가득해도 다음 시간대로 넘길 수 있다(별도 대기 버튼 없음)
+## 쉴 수 있는가.
+## 거점(prep): 예전 그대로 — 시간 1칸 또는 휴식권.
+## 관문 앞(boss_prep): **마지막 날이 아니고 시간이 남아 있으면** 쉴 수 있다(사용자 확정 2026-09-09).
+##   왜: 관문에서 죽고 부활하면 다음 날 관문 앞에 최대 체력의 25%로 선다. 하루가 통째로 남아도
+##   그 단계에서는 휴식이 막혀 회복약 말고는 회복 수단이 없었다. '시간을 잃는다'는 비용은 이미
+##   치렀는데 그 시간을 쓸 방법이 없는 것이 어긋난다.
+##   비용은 그대로다 — 휴식은 여전히 시간 1칸(또는 가진 휴식권)을 먹는다. 공짜 회복이 아니다.
+##   마지막 날은 부활이 그날 시간을 전부 소진시키므로 hours가 0이라 자연히 막힌다. 그래도
+##   **has_next_day를 함께 본다** — 시간이 남은 채로 마지막 날 관문 앞에 서는 다른 경로가 생겨도
+##   마지막 날의 비용(그날을 잃는다)이 새어 나가지 않게 하기 위해서다.
+##   **휴식권만으로는 이 자리가 열리지 않는다** — "시간을 소비해 쉰다"가 이 자리의 규칙이다.
+##   열린 뒤에는 rest()가 예전처럼 돈다(휴식권을 가졌으면 그것을 먼저 쓴다).
 static func can_rest(run: Dictionary) -> bool:
-	return String(run.phase) == "prep" and (int(run.hours) >= int(C().REST_HOURS) or has_service(run, "free_rest"))
+	match String(run.phase):
+		"prep":
+			return int(run.hours) >= int(C().REST_HOURS) or has_service(run, "free_rest")
+		"boss_prep":
+			return has_next_day(run) and int(run.hours) >= int(C().REST_HOURS)
+	return false
 
 ## 휴식권의 표시 이름. 데이터의 서비스 이름("무료 휴식권")은 다른 담당 파일이라 바꾸지 못하므로,
 ## 화면이 쓸 문구는 규칙 계층이 준다 — "무료"가 아니라 "시간 소모 없음"이 사용자 확정 표현이다.
 static func rest_voucher_name() -> String:
 	return "휴식권 (시간 소모 없음)"
+
+## 쉴 수 없는 이유(화면이 그대로 쓴다). 관문 앞이 열린 뒤로 "거점에서만"은 더 이상 맞는 말이 아니다
+static func _rest_block_reason(run: Dictionary) -> String:
+	match String(run.phase):
+		"prep":
+			return "시간 부족(%d칸 필요)" % int(C().REST_HOURS)
+		"boss_prep":
+			if not has_next_day(run):
+				return "마지막 날 관문 앞에서는 쉴 수 없습니다"
+			return "시간 부족(%d칸 필요)" % int(C().REST_HOURS)
+	return "거점이나 관문 앞에서만"
 
 ## 휴식 견적(확인 창용, 회차를 전혀 바꾸지 않는다). 확정은 rest()가 한다 — 취소하면 아무 일도 없다.
 ## 휴식권은 100금 그대로이고, 표현은 "무료"가 아니라 **"시간 소모 없음"**이다(costText를 화면이 그대로 쓴다).
@@ -1392,7 +1420,7 @@ static func rest_quote(run: Dictionary) -> Dictionary:
 	var hp_max := float(build(run).hp_max)
 	var can := can_rest(run)
 	return {
-		"can": can, "reason": "" if can else ("거점에서만" if String(run.phase) != "prep" else "시간 부족(%d칸 필요)" % int(C().REST_HOURS)),
+		"can": can, "reason": "" if can else _rest_block_reason(run),
 		"useVoucher": voucher, "hours": hours, "voucherName": rest_voucher_name(),
 		"costText": "시간 소모 없음 (휴식권 1장)" if voucher else "시간 %d칸" % hours,
 		"slotNow": slot_name(run), "slotAfter": next_slot_name(run, hours),

@@ -855,6 +855,14 @@ func _final_prep(r: Dictionary) -> void:
 	row.add_child(PUi.button("통계", func(): main.show("stats"), true, 14))
 	row.add_child(PUi.button("기록", func(): main.show("log"), true, 14))
 	pb.add_child(row)
+	if not cleared:
+		# 관문 앞 휴식(사용자 확정 2026-09-09): 마지막 날이 아니고 시간이 남으면 시간을 써서 쉰다.
+		# 부활로 25%로 선 날 하루가 통째로 남아도 회복할 방법이 없던 것을 푼다.
+		# 규칙이 막을 때는 버튼을 숨기지 않고 이유와 함께 비활성으로 둔다(거점과 같은 처리).
+		var can_r := PRun.can_rest(r)
+		var rest_btn := PUi.button(_rest_label(r) if can_r else "휴식 — %s" % String(PRun.rest_quote(r).reason),
+			func(): _open_rest(), can_r, 14)
+		pb.add_child(rest_btn)
 	if cleared:
 		pb.add_child(PUi.button("회차 결과 보기", func(): main.show("run_result"), true, 14))
 		pb.add_child(PUi.button("새 회차 시작", func(): main.new_run_flow(), true, 14))
