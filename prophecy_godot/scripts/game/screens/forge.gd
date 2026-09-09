@@ -3,6 +3,11 @@ extends PScreen
 ## 대장간(HTML shop 'forge'·'skills' 탭 + swap 화면): 공용 공격 강화 · 개조 변경 · E 변형 변경 · 기술 교체(3단계: 새 기술 → 개조 선택 → 확인) · 제작(시험값).
 ## 견적·경고·비용은 PRun.swap_quote / swap_warnings / forge_next / mod_change_cost / craft_options 가 준다. 취소는 아무것도 바꾸지 않는다.
 
+## §16 이름 통일: 화면 어디서나 금화로 사는 것은 '대장간 강화 단계', 레벨업 3택으로 오르는 것은 '무기 레벨'이다.
+## 두 이름을 한 곳에서만 정해 두어, 같은 화면 안에서 '단계'와 'Lv'가 뒤섞여 같은 것으로 읽히지 않게 한다.
+const FORGE_STAGE_NAME := "대장간 강화 단계"
+const WEAPON_LEVEL_NAME := "무기 레벨"
+
 var _swap: Dictionary = {}   # {slot, index, new_id, mods[]} — 비어 있으면 교체 중 아님
 var _craft := ""             # 미리보기 중인 제작법 id("" = 없음)
 var _formula_open := false   # 가격 계산식·규칙 설명을 펼쳤는가(기본 접힘 — 사람 플레이 뒤 요구 2026-09-08)
@@ -42,23 +47,30 @@ func refresh() -> void:
 	# 자동기술 강화(2026-09-08 시험값): 전체가 아니라 **고른 자동기술 하나**에 투자한다
 	var fc := PUi.card("%s [color=#9ea8b8]자동기술 하나를 골라 강화한다[/color]" % PGlossaryTip.term("forge", "자동기술 강화"), PUi.CARD)
 	var fbox: VBoxContainer = fc.box
+	# §16 UI: **대장간 강화 단계**와 **무기 레벨**은 서로 다른 값이다. 한 줄에 섞어 적지 않고 두 줄로 갈라 이름·출처·상한을 모두 밝힌다.
+	fbox.add_child(PUi.rich("[color=#9ea8b8]%s는 금화로 산다. %s은 레벨업 3택으로만 오른다 — 여기서는 못 올린다. 둘은 곱해진다.[/color]" % [FORGE_STAGE_NAME, WEAPON_LEVEL_NAME], 12))
 	for w in (r.growth.weapons as Array):
 		var wid := String(w.id)
 		var wname := String(PCatalog.weapon(wid).name)
-		var wlv: int = PRun.forge_level_of(r, wid)
+		var wlv: int = PRun.forge_level_of(r, wid)          # 대장간 강화 단계(금화)
+		var glv: int = int(w.level)                          # 무기 레벨(성장 3택)
+		var glv_cap: int = PGrowth.level_cap(r.growth, wid)
+		var stage_max: int = int(SH.get("forgePerSkillMax", (SH.forge as Array).size()))
 		var Fw := PRun.forge_next(r, wid)
-		var cur := "현재 %d단계 · 피해 ×%s" % [wlv, PUi.fmt(PBuild.forge_mult_of(b, wid))]
+		fbox.add_child(PUi.rich("[b]%s[/b]  [color=#8a93a6]%s[/color] [b]Lv%d/%d[/b]  [color=#8a93a6]%s[/color] [b]%d/%d단계[/b] [color=#9ea8b8]· 지금 이 기술 피해 ×%s[/color]" % [
+			wname, WEAPON_LEVEL_NAME, glv, glv_cap, FORGE_STAGE_NAME, wlv, stage_max, PUi.fmt(PBuild.forge_mult_of(b, wid))], 14))
 		if Fw.is_empty():
-			fbox.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s · 더 올릴 수 없다[/color]" % [wname, cur], 14))
+			fbox.add_child(PUi.rich("[color=#9ea8b8]%s는 더 올릴 수 없다(%s은 그대로 레벨업으로 오른다).[/color]" % [FORGE_STAGE_NAME, WEAPON_LEVEL_NAME], 13))
+			fbox.add_child(_damage_share_line(r, wid))
 			continue
-		fbox.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8]%s[/color]" % [wname, cur], 14))
-		fbox.add_child(PUi.rich("다음 %d단계: 피해 ×%s · 금화 [color=%s][b]%d[/b][/color]%s" % [
-			int(Fw.weaponLv), PUi.fmt(1.0 + float(SH.forgeMult[mini(int(Fw.weaponLv), (SH.forgeMult as Array).size() - 1)])),
+		fbox.add_child(PUi.rich("다음 %s [b]%d → %d단계[/b]: 피해 ×%s · 금화 [color=%s][b]%d[/b][/color]%s" % [
+			FORGE_STAGE_NAME, wlv, int(Fw.weaponLv), PUi.fmt(1.0 + float(SH.forgeMult[mini(int(Fw.weaponLv), (SH.forgeMult as Array).size() - 1)])),
 			"#ff8c73" if int(r.gold) < int(Fw.cost) else "#ffd966", int(Fw.cost),
 			(" [color=#ff8c73]· 보스 %d 처치 후 개방[/color]" % int(Fw.afterBoss)) if not bool(Fw.open) else ""], 13))
-		# 효용을 눈에 보이게: 사고 나면 남는 금화 + 이 기술이 지금까지 실제로 낸 피해 비중(없으면 생략)
-		fbox.add_child(PUi.rich("[color=#9ea8b8]사면 잔액 [b]%d[/b]%s[/color]" % [maxi(0, int(r.gold) - int(Fw.cost)), _damage_share_text(r, wid)], 12))
-		var lbl := "잠김" if not bool(Fw.open) else ("이 기술 강화" if bool(Fw.affordable) else "%d 부족" % (int(Fw.cost) - int(r.gold)))
+		# 효용을 눈에 보이게: 사고 나면 남는 금화 + 이 기술이 지금까지 실제로 낸 피해 비중
+		fbox.add_child(PUi.rich("[color=#9ea8b8]사면 잔액 [b]%d[/b][/color]" % maxi(0, int(r.gold) - int(Fw.cost)), 12))
+		fbox.add_child(_damage_share_line(r, wid))
+		var lbl := "잠김" if not bool(Fw.open) else ("이 기술 %s 올리기" % FORGE_STAGE_NAME if bool(Fw.affordable) else "%d 부족" % (int(Fw.cost) - int(r.gold)))
 		var wid_c := wid
 		fbox.add_child(PUi.button(lbl, func(): main.forge_upgrade(wid_c), bool(Fw.open) and bool(Fw.affordable), 13))
 		fbox.add_child(_alternatives_line(r, int(Fw.cost)))
@@ -127,7 +139,7 @@ func refresh() -> void:
 		row.add_child(PUi.icon_of(PIcons.weapon_key(String(w.id)), 28.0, "", "", 0.0, 0))
 		# 자리 이름을 먼저 적는다 — 주무기 자리는 주무기끼리, 보조 자리는 보조끼리만 바뀐다(PRun.swap_quote)
 		var rname := "주무기" if String(q.get("role", "")) == "main" else ("보조" if String(q.get("role", "")) == "support" else "자동기술")
-		row.add_child(PUi.rich("[color=#8a93a6]%s[/color] [b]%s[/b] Lv%d · 개조 %d [color=#9ea8b8]→ 같은 %s 중에서 교체[/color] [color=#ffd966][b]%d금[/b][/color] [color=#9ea8b8](레벨·개조 수 보존, 새 개조는 새 기술에서 선택)[/color]" % [rname, PGlossaryTip.esc(String(PCatalog.weapon(String(w.id)).name)), int(w.level), (w.mods as Array).size(), rname, int(q.price)], 13))
+		row.add_child(PUi.rich("[color=#8a93a6]%s[/color] [b]%s[/b] [color=#8a93a6]%s[/color] Lv%d · 개조 %d · [color=#8a93a6]%s[/color] %d단계 [color=#9ea8b8]→ 같은 %s 중에서 교체[/color] [color=#ffd966][b]%d금[/b][/color] [color=#9ea8b8](%s·개조 수 보존, 강화 단계는 기술마다 따로)[/color]" % [rname, PGlossaryTip.esc(String(PCatalog.weapon(String(w.id)).name)), WEAPON_LEVEL_NAME, int(w.level), (w.mods as Array).size(), FORGE_STAGE_NAME, PRun.forge_level_of(r, String(w.id)), rname, int(q.price), WEAPON_LEVEL_NAME], 13))
 		var has_opt: bool = (q.options as Array).size() > 0
 		var idx := i
 		row.add_child(PUi.button(("교체" if bool(q.affordable) else "%d 부족" % (int(q.price) - int(r.gold))) if has_opt else "후보 없음", func(): _swap_open("weapon", idx), has_opt and bool(q.affordable), 12))
@@ -246,7 +258,7 @@ func _swap_view(r: Dictionary) -> void:
 	var is_e := slot == "e"
 	var cur_name := String(PCatalog.skills()[String(q.current.id)].name) if is_e else String(PCatalog.weapon(String(q.current.id)).name)
 	var hrow := PUi.hbox(8)
-	hrow.add_child(PUi.rich("[b]기술 교체[/b] [color=#9ea8b8]%s Lv%d%s → 비용[/color] [color=#ffd966][b]%d[/b][/color]" % [PGlossaryTip.esc(cur_name), int(q.level), (" · 개조 %d개 보존" % int(q.modCount)) if int(q.modCount) > 0 else "", int(q.price)], 20))
+	hrow.add_child(PUi.rich("[b]기술 교체[/b] [color=#9ea8b8]%s %s Lv%d%s → 비용[/color] [color=#ffd966][b]%d[/b][/color]" % [PGlossaryTip.esc(cur_name), ("기술 레벨" if is_e else WEAPON_LEVEL_NAME), int(q.level), (" · 개조 %d개 보존" % int(q.modCount)) if int(q.modCount) > 0 else "", int(q.price)], 20))
 	hrow.add_child(PUi.spacer())
 	hrow.add_child(PUi.button("취소 (변경 없음, Esc)", func(): on_escape(), true, 13))
 	top.add_child(hrow)
@@ -325,7 +337,12 @@ func _swap_view(r: Dictionary) -> void:
 	for m in chosen:
 		irow.add_child(PUi.icon_of(("skill:e:%s:%s" % [new_id, String(m)]) if is_e else PIcons.mod_key(new_id, String(m)), 28.0, "", "", 0.0, 0))
 	cbox.add_child(irow)
-	PUi.kv(cbox, "바뀌는 것", "[b]%s Lv%d → %s Lv%d[/b]" % [PGlossaryTip.esc(cur_name), int(q.level), PGlossaryTip.esc(String(d2.name)), int(q.level)], 13)
+	PUi.kv(cbox, "바뀌는 것", "[b]%s → %s[/b] [color=#9ea8b8](%s %d 그대로)[/color]" % [PGlossaryTip.esc(cur_name), PGlossaryTip.esc(String(d2.name)), WEAPON_LEVEL_NAME, int(q.level)], 13)
+	if not is_e:
+		# §16: 무기 레벨은 따라오지만 **대장간 강화 단계는 기술마다 따로**다. 교체 뒤 새 기술의 단계는 그 기술이 가진 단계다(0일 수 있다).
+		var cur_stage: int = PRun.forge_level_of(r, String(q.current.id))
+		var new_stage: int = PRun.forge_level_of(r, new_id)
+		PUi.kv(cbox, FORGE_STAGE_NAME, "[b]%d단계 → %d단계[/b] [color=#9ea8b8](%s는 기술마다 따로 쌓인다 — 따라오지 않는다. 옛 기술의 단계는 그 기술로 돌아가면 그대로 있다)[/color]" % [cur_stage, new_stage, FORGE_STAGE_NAME], 13)
 	PUi.kv(cbox, "변형" if is_e else "개조", "[b]%s[/b]%s" % [(", ".join(chosen_names) if chosen_names.size() > 0 else "없음"), (" [color=#9ea8b8](후보가 %d개뿐이라 %d개는 비어 있음 · 비용은 동일)[/color]" % [need, int(q.modCount) - need]) if int(q.modCount) > need else ""], 13)
 	PUi.kv(cbox, "비용", "[color=#ffd966][b]%d[/b][/color] [color=#9ea8b8](남는 금화 %d)[/color]" % [int(q.price), int(r.gold) - int(q.price)], 13)
 	if not is_e:
@@ -365,19 +382,29 @@ func _swap_confirm() -> void:
 	_swap = {}
 	main.apply_swap(String(sw.slot), int(sw.index), String(sw.new_id), sw.mods)
 
-## 이 자동기술이 이번 회차에서 실제로 낸 유효 피해 비중(기록이 없으면 ""). 강화가 값을 하는지 눈으로 보게 하는 줄이다
-func _damage_share_text(r: Dictionary, weapon_id: String) -> String:
-	var agg: Dictionary = PStats.aggregate(r)
-	var total: float = float(agg.get("total", 0.0))
-	if total <= 0.0:
-		return ""
-	var mine := 0.0
-	for g in PStats.by_owner(agg):
-		if String(g.owner) == weapon_id:
-			mine = float(g.amount)
-	if mine <= 0.0:
-		return " · 이번 회차 피해 기여 [b]0%[/b](아직 이 기술로 때린 기록 없음)"
-	return " · 이번 회차 피해 기여 [b]%d%%[/b]" % int(round(mine / total * 100.0))
+## 이 자동기술이 이번 회차에서 실제로 낸 유효 피해 비중. 강화가 값을 하는지 눈으로 보게 하는 줄이다.
+##
+## §15 고친 것: 예전에는 `String(g.owner) == weapon_id`로 비교했다. 통계의 owner 키는 `weapon:orb`인데
+## weapon_id는 `orb`라 **언제나 거짓**이었고, 실제로 피해를 냈어도 "0%(기록 없음)"만 떴다.
+## 이제 접두사를 화면에서 짜깁기하지 않고 **PStats.owner_key 규약**을 그대로 쓴다(PStats.owner_share 안에서).
+##
+## 범위는 통계 화면의 '런 전체'와 **같다**(둘 다 필터 없는 PStats.aggregate). 그래서 두 화면의 숫자가 어긋나지 않는다.
+## 합산 정책도 통계와 같다: 직접 피해 + 그 기술에 귀속된 파생(지속 피해·개조 등) = by_owner의 amount.
+##
+## 세 가지 사정을 **서로 다른 문구**로 적는다(하나로 뭉뚱그리면 "0%"가 무엇을 뜻하는지 알 수 없다):
+##   기록 없음   아직 정산된 전투가 없다               계측 없음  전투 기록은 있는데 출처별 피해가 안 남았다(계측 누락 — 고쳐야 할 결함)
+##   피해 0      기록도 계측도 있는데 이 기술이 0이다
+func _damage_share_line(r: Dictionary, weapon_id: String) -> Control:
+	var s: Dictionary = PStats.owner_share(r, weapon_id)
+	match String(s.state):
+		"no_record":
+			return PUi.rich("[color=#9ea8b8]이번 회차 피해 기여 [b]기록 없음[/b] · 아직 정산된 전투가 없다(출격하면 쌓인다)[/color]", 12)
+		"no_metric":
+			return PUi.rich("[color=#ff8c73]이번 회차 피해 기여 [b]계측 없음[/b] · 전투 %d회 기록에 출처별 피해가 남아 있지 않다(통계 결함)[/color]" % int(s.n), 12)
+		"zero":
+			return PUi.rich("[color=#9ea8b8]이번 회차 피해 기여 [b]0%%[/b] · 전투 %d회 기록에 이 기술이 낸 피해가 없다[/color]" % int(s.n), 12)
+	return PUi.rich("[color=#9ea8b8]이번 회차 피해 기여 [color=#ffd966][b]%s%%[/b][/color] · 직접 %s + 파생 %s = [b]%s[/b] / 전체 %s · 전투 %d회 (피해 통계의 '런 전체'와 같은 범위)[/color]" % [
+		str(s.share), str(s.direct), str(s.derived), str(s.amount), str(s.total), int(s.n)], 12)
 
 ## 같은 금화를 다른 곳에 쓰면 무엇을 살 수 있는가(공격 강화만 정답이 되지 않게 나란히 보여준다).
 ## 값은 전부 규칙·데이터에서 읽는다(화면이 계산하지 않는다)

@@ -1523,6 +1523,13 @@ func _layout_hud() -> void:
 	if build_hud != null:
 		build_hud.touch_mode = PLayout.is_touch()
 		reserve = build_hud.relayout(safe) # 터치일 때는 빌드 줄을 상단에 두고 그 높이를 돌려준다
+		# §14 경험치바가 상단 띠 왼쪽(체력 오른쪽)을 쓰므로, 날짜 줄을 그만큼 오른쪽으로 민다.
+		# **글자를 줄여 자리를 만들지 않는다** — 자리를 비켜 준다. 목표 줄(오른쪽)은 건드리지 않는다.
+		var day_c: Control = hud.get_node_or_null("Day")
+		var xr: Rect2 = build_hud.xp_rect()
+		if day_c != null and xr.size.x > 0.0:
+			var day_base: Vector2 = _hud_base.get("Day", Vector2(224.0, 690.0))
+			day_c.offset_left = maxf(day_base.x + dx, xr.end.x + 10.0)
 	var corner_bottom := 0.0
 	if orient != null:
 		orient.layout(safe) # 전체화면 다시 들어가기 버튼도 안전 영역 안에
