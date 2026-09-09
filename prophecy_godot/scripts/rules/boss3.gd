@@ -608,8 +608,11 @@ static func update_matriarch(st: CombatState, e: Dictionary, dt: float, adv: flo
 static func _place_shot(st: CombatState, e: Dictionary, order: int) -> void:
 	var S: Dictionary = cfg_of(e).shot
 	var p := st.player
-	(e.marks as Array).append({ "x": p.x, "y": p.y, "r": float(S.r), "land_at": st.t + float(S.delay), "order": order, "done": false })
-	st.text(p.x, p.y - 30.0, "포자 탄 %d" % order, "#e0c0ff")
+	# 파괴 자격이 포자 탄에 걸려 있으면("저 나무를 삭힌다!") 착탄 원이 그 나무를 덮을 만큼만 조준을 옮긴다.
+	# 예고 원과 실제 착탄이 같은 값이라 화면에 뜬 원이 곧 삭을 자리다. 개수·시각·반지름은 그대로
+	var sp: Array = PBoss.break_point(st, e, "shot", p.x, p.y, float(S.r))
+	(e.marks as Array).append({ "x": float(sp[0]), "y": float(sp[1]), "r": float(S.r), "land_at": st.t + float(S.delay), "order": order, "done": false })
+	st.text(float(sp[0]), float(sp[1]) - 30.0, "포자 탄 %d" % order, "#e0c0ff")
 
 ## 고리 판정: 띠(ring_r ± width/2) 안이고 빈 구간 밖일 때만. 빈 구간은 플레이어 중심 각 기준(그림과 같은 각도)
 static func ring_hits(e: Dictionary, width: float, px: float, py: float, pr: float) -> bool:
@@ -995,7 +998,9 @@ static func update_executor(st: CombatState, e: Dictionary, dt: float, adv: floa
 	match e.state:
 		"slash_warn":
 			var s0: Dictionary = e.slashes[0]
-			s0.x = p.x # 예고 중엔 따라온다
+			# 예고 중엔 따라온다. 파괴 자격이 절단선에 걸려 있으면("선 위의 모든 것을 벤다!")
+			# 지목한 엄폐물이 띠 안에 들어올 만큼만 선을 옮긴다 — 예고 선과 실제 판정이 같은 값이다
+			s0.x = PBoss.break_column_x(st, e, "slash", p.x, float(SL.width) / 2.0)
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(SL.warn):
 				s0.fixed = true
@@ -1017,8 +1022,10 @@ static func update_executor(st: CombatState, e: Dictionary, dt: float, adv: floa
 				st.note_attack(e, "execute")
 				e.slash_idx = int(e.slash_idx) + 1
 				if int(e.slash_idx) < int(SL.count):
-					# 2번 선은 1번이 떨어지는 순간 고정(시간차 gap+lock). 순서 번호·색이 다르다
-					(e.slashes as Array).append({ "x": p.x, "order": int(e.slash_idx) + 1, "fired": false, "fixed": true })
+					# 2번 선은 1번이 떨어지는 순간 고정(시간차 gap+lock). 순서 번호·색이 다르다.
+					# 파괴 자격이 남아 있으면(1번이 지목한 것을 못 갈랐다) 2번 선도 그 엄폐물을 띠 안에 넣을 만큼만 옮긴다
+					(e.slashes as Array).append({ "x": PBoss.break_column_x(st, e, "slash", p.x, half),
+						"order": int(e.slash_idx) + 1, "fired": false, "fixed": true })
 					e.state = "slash_gap"
 					e.state_t = 0.0
 					e.gap_side = 1.0 if int(e.actions) % 2 == 0 else -1.0 # 번갈아(난수 소비 없음)

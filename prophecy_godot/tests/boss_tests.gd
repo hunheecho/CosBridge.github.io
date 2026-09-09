@@ -274,6 +274,7 @@ func _init() -> void:
 	chain_tests()
 	mission_tests()
 	guardian_tests()
+	tree_break_tests()
 	var pass_n := 0
 	for r in results:
 		if r[0]:
@@ -524,3 +525,149 @@ func guardian_tests() -> void:
 	ok("수호자 3단계: 양갈래 뒤에 중앙 단발 충격파가 이어진다(중앙 %d회 / 양갈래 %d회)" % [centers, splits], splits > 0 and centers > 0)
 	ok("수호자 3단계: 양갈래 조준 각을 번갈아 돌린다(정지한 플레이어를 매번 비껴가지 않는다)", any_off, str(offs.slice(0, 6)))
 	ok("수호자: 화면 예고 각과 확정 발사 각이 같다(예고와 판정 일치)", warn_ok)
+
+# =========================================================================
+# 나무 엄폐 파괴(2026-09-09 사용자 피드백 "보스전에서 돌은 깨지는데 나무는 안 깨진다").
+# 사실: 보스 전장 clearing의 나무는 **장식이 아니라 돌과 똑같은 충돌체**다(같은 r로 이동·시야·투사체를 막는다).
+# 기존 tests/boss_break_tests.gd는 breaker.types의 **첫 종류**만 골라 엄폐 자리를 잡아, 9종 중 8종이 돌만 시험했다.
+# 여기서는 **나무 뒤에 서서** 아홉 보스 전부를 확인한다:
+#   ① 부수기 전 그 나무가 실제로 막는다(설 수 없다·시야가 막힌다)
+#   ② 예고가 지목한 그 나무가 **실제로** 사라진다(예고와 실제가 같은 것을 가리킨다)
+#   ③ 예고가 파괴보다 먼저다
+#   ④ 부순 뒤 **보이지 않는 벽이 남지 않는다** — 그 자리에 설 수 있고 시야가 통과하며 걸어 닿는 칸이 줄지 않는다
+#   ⑤ 장애물이 늘지 않는다(잔해가 새 충돌체가 되지 않는다)
+# 조사 도구: tools/probe_tree.gd → docs/sim/PROBE_TREE.md
+# =========================================================================
+
+const TREE_BOSSES: Array = ["boss", "guardian", "eater", "gate_warden", "spore_matriarch",
+	"excavation_behemoth", "frost_stalker", "blood_hunt_king", "doom_executor"]
+const TREE_SEC := 45.0
+
+func tree_boss_state(id: String, seed_v: int = 11) -> CombatState:
+	PBoss.set_cover_mode("")
+	PBoss.set_split_on(true)
+	PBoss.set_break_on(true)
+	PBoss.set_break_aim_on(true)
+	var g := PGrowth.new_growth("sword")
+	g.weapons = [{ "id": "ember", "level": 3, "mods": ["scatter", "trail"] }]
+	var b := PBuild.derive(PBuild.empty_run_like(g))
+	var st := CombatState.new({ "build": b, "seed": seed_v, "arena": "clearing", "boss": true,
+		"boss_id": id, "region_id": "boss", "xp_kill_mult": 0.3, "boss_hp": 1000000.0, "act": 3 })
+	for i in 900:
+		if String(st.boss.state) != "intro":
+			break
+		st.step({}, STEP)
+	st.boss.phase = 3
+	st.boss.phase_pending = 3
+	return st
+
+## want_type 종류의 장애물 뒤에서 보스 시선이 막히는 자리. 반환 [x, y, 장애물] (없으면 [])
+func tree_camp_spot(st: CombatState, want_type: String) -> Array:
+	var bz: Dictionary = st.boss
+	var best: Array = []
+	var bd := -1.0
+	for ob in st.obstacles:
+		if String(ob.type) != want_type:
+			continue
+		for k in 24:
+			var a: float = float(k) * TAU / 24.0
+			var d: float = float(ob.r) + 26.0
+			var x: float = clampf(float(ob.x) + cos(a) * d, 30.0, st.arena_w - 30.0)
+			var y: float = clampf(float(ob.y) + sin(a) * d, 30.0, st.arena_h - 30.0)
+			if not st.valid_pos(x, y, float(st.player.r)):
+				continue
+			if not st.los_blocked(float(bz.x), float(bz.y), x, y):
+				continue
+			var sc := PGeom.dist(x, y, float(bz.x), float(bz.y))
+			if sc > bd:
+				bd = sc
+				best = [x, y, ob]
+	return best
+
+func tree_break_tests() -> void:
+	if PTerrain.break_rules().is_empty():
+		ok("지형 파괴 규칙이 꺼져 있어 나무 엄폐 검사를 건너뛴다", true)
+		return
+	var types: Array = PTerrain.break_rules().get("breakTypes", [])
+	ok("자료가 나무를 '부술 수 있는 종류'로 싣는다(data/boss_behavior.json terrain.breakTypes)", types.has("tree"), str(types))
+	var missing_tree: Array = []
+	for bid in TREE_BOSSES:
+		var bt: Array = PBoss.beh_of(String(bid)).get("breaker", {}).get("types", [])
+		if not bt.has("tree"):
+			missing_tree.append(String(bid))
+	ok("보스 9종 전부의 파괴 행동이 나무를 포함한다(돌만 고르는 필터가 없다)", missing_tree.is_empty(), str(missing_tree))
+
+	var no_break: Array = []
+	var mismatch: Array = []
+	var wall_left: Array = []
+	for bid in TREE_BOSSES:
+		var st := tree_boss_state(String(bid))
+		var spot := tree_camp_spot(st, "tree")
+		if spot.is_empty():
+			ok("%s: 나무 뒤에 설 자리를 찾았다" % String(bid), false)
+			continue
+		var target: Dictionary = spot[2]
+		var tx: float = float(target.x)
+		var ty: float = float(target.y)
+		var start := { "x": spot[0], "y": spot[1] }
+		# ① 부수기 전: 그 나무는 실제 충돌체다
+		var solid_before: bool = not st.valid_pos(tx, ty, 1.0)
+		var blocks_before: bool = st.los_blocked(tx - float(target.r) - 4.0, ty, tx + float(target.r) + 4.0, ty)
+		ok("%s: 부수기 전 나무가 실제로 막는다(장식이 아니다)" % String(bid), solid_before and blocks_before,
+			"설 수 없다 %s · 시야 막힘 %s · r %.0f" % [str(solid_before), str(blocks_before), float(target.r)])
+		var reach0 := PTerrain.reach_cells(st.arena_w, st.arena_h, st.obstacles, start)
+		var obs0: int = st.obstacles.size()
+		var t_warn := -1.0
+		var t_break := -1.0
+		var aimed_tree := false
+		var bz: Dictionary = st.boss
+		for i in int(round(TREE_SEC / STEP)):
+			if st.status != "running" or bool(bz.dead):
+				break
+			st.player.x = spot[0]
+			st.player.y = spot[1]
+			if bool(bz.get("break_want", false)):
+				if t_warn < 0.0:
+					t_warn = st.t
+				if (bz.get("break_ob", {}) as Dictionary) == target:
+					aimed_tree = true
+			st.step({ "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": false, "special": false, "skill_e": false }, STEP)
+			st.player.hp = st.player.hp_max
+			bz.phase = 3
+			bz.phase_pending = 3
+			if t_break < 0.0 and st.obstacles.find(target) < 0:
+				t_break = st.t
+		var gone: bool = st.obstacles.find(target) < 0
+		if not gone:
+			no_break.append(String(bid))
+		if gone and not aimed_tree:
+			mismatch.append(String(bid))
+		ok("%s: 나무 뒤에 서 있으면 **그 나무가** 부서진다" % String(bid), gone and aimed_tree,
+			"예고 %s → 파괴 %s · 예고가 그 나무를 지목했다 %s" % [
+				("%.1f초" % t_warn) if t_warn >= 0.0 else "없음",
+				("%.1f초" % t_break) if t_break >= 0.0 else "없음", str(aimed_tree)])
+		if not gone:
+			continue
+		# ③ 예고가 먼저
+		ok("%s: 나무 파괴 예고가 실제 파괴보다 먼저다" % String(bid), t_warn >= 0.0 and t_warn <= t_break,
+			"%.2f초 → %.2f초" % [t_warn, t_break])
+		# ④ 보이지 않는 벽이 남지 않는다
+		var stand: bool = st.valid_pos(tx, ty, 1.0)
+		var see: bool = not st.los_blocked(tx - float(target.r) - 4.0, ty, tx + float(target.r) + 4.0, ty)
+		var beam_free: bool = st.beam_length(tx - float(target.r) - 20.0, ty, 0.0, float(target.r) * 2.0 + 40.0) >= float(target.r) * 2.0 + 40.0 - 0.001
+		var steer_free: bool = true
+		var probe_e := { "x": tx - float(target.r) - 30.0, "y": ty, "r": 22.0, "steer_side": 0, "steer_t": 0.0 }
+		var dir_v := st.steer_dir(probe_e, tx + float(target.r) + 30.0, ty)
+		if absf(float(dir_v[1])) > 0.01: # 아직 무엇인가를 돌아가고 있다 = 경로 탐색에 남아 있다
+			steer_free = false
+		var reach1 := PTerrain.reach_cells(st.arena_w, st.arena_h, st.obstacles, start)
+		if not (stand and see and beam_free and steer_free and reach1 >= reach0):
+			wall_left.append(String(bid))
+		ok("%s: 부순 나무 자리에 보이지 않는 벽이 없다(이동·시야·투사체·경로 탐색 전부)" % String(bid),
+			stand and see and beam_free and steer_free,
+			"설 수 있다 %s · 시야 통과 %s · 투사체 통과 %s · 조향이 돌아가지 않는다 %s" % [str(stand), str(see), str(beam_free), str(steer_free)])
+		ok("%s: 파괴 뒤 걸어 닿는 칸이 줄지 않고 장애물도 늘지 않는다(잔해가 새 벽이 되지 않는다)" % String(bid),
+			reach1 >= reach0 and st.obstacles.size() < obs0, "닿는 칸 %d → %d · 장애물 %d → %d" % [reach0, reach1, obs0, st.obstacles.size()])
+	ok("나무 뒤에서 그 나무가 안 부서진 보스가 없다", no_break.is_empty(), str(no_break))
+	ok("예고가 지목한 것과 실제로 부서진 것이 어긋난 보스가 없다", mismatch.is_empty(), str(mismatch))
+	ok("파괴 뒤 보이지 않는 벽이 남은 보스가 없다", wall_left.is_empty(), str(wall_left))

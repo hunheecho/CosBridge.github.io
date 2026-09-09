@@ -530,6 +530,7 @@ static func in_danger(st: CombatState, e: Dictionary, pt: Dictionary) -> bool:
 static var _cover_mode := "" # ""=파일 값 / "off"=엄폐 대응 없음(개편 전) / "reposition"|"indirect"|"break"
 static var _split_on := true # false = 양갈래 보정 없음(개편 전)
 static var _break_on := true # false = 지형 파괴 없음(개편 전). 엄폐 대응 방식만 비교할 때 끈다
+static var _break_aim_on := true # false = 파괴 조준 정렬 없음(2026-09-09 이전). 예고와 실제가 어긋나던 동작 재현용
 
 static func set_cover_mode(m: String) -> void:
 	_cover_mode = m
@@ -539,6 +540,10 @@ static func set_split_on(v: bool) -> void:
 
 static func set_break_on(v: bool) -> void:
 	_break_on = v
+
+## 파괴 조준 정렬 스위치(비교 측정 전용, 기본 켬). 끄면 예고와 실제 판정이 따로 놀던 개편 전 동작이 된다
+static func set_break_aim_on(v: bool) -> void:
+	_break_aim_on = v
 
 static func gcfg(e: Dictionary, key: String) -> Dictionary:
 	var o: Dictionary = beh_e(e).get(key, {})
@@ -626,6 +631,56 @@ static func _ob_key(e: Dictionary, want: Dictionary, ob: Dictionary) -> float:
 	if not want.is_empty() and ob == want:
 		return -1.0
 	return PGeom.dist(e.x, e.y, float(ob.x), float(ob.y))
+
+# ---------- 파괴 예고와 실제 파괴를 같은 자리에 묶는다(2026-09-09) ----------
+## 왜 필요한가(사용자 피드백 "보스전에서 돌은 깨지는데 나무는 안 깨진다"의 실제 원인).
+## 파괴 자격은 **시선을 막은 장애물**(보스와 플레이어 사이)에 서는데, 착지 충격·표식 폭발·포자 착탄·절단선은
+## 조준점이 **플레이어 자리**다. 지목한 장애물이 그 원·띠 안에 들어오는지는 우연이었고,
+## 얇은 나무(r 26)는 굵은 바위(r 42)보다 우연히 걸릴 확률이 낮아 "나무만 안 부서지는" 결과가 나왔다.
+## 여기서는 **자격이 선 그 행동에 한해** 조준점을 지목한 장애물이 판정 안에 들어올 **만큼만** 옮긴다.
+##  · 부술 수 있는 종류·개수 상한·최소 잔여·목표 보호는 하나도 늘리지 않는다(무엇이 부서질 수 있는가는 그대로).
+##  · 최소 이동이라 플레이어가 이미 그 판정 안에 있으면 **그대로 맞는다** — 공격이 장애물 전용으로 바뀌지 않는다.
+##  · 자격이 없거나 지목이 이미 사라졌으면 입력을 그대로 돌려준다(개편 전과 완전히 같다).
+
+## 지금 이 행동(pat)에 파괴 자격이 걸려 있고 지목한 장애물이 아직 살아 있으면 그 장애물, 아니면 {}
+static func break_target(st: CombatState, e: Dictionary, pat: String) -> Dictionary:
+	if not _break_aim_on or break_pat(e) != pat:
+		return {}
+	var ob: Dictionary = e.get("break_ob", {})
+	if ob.is_empty() or st.obstacles.find(ob) < 0:
+		return {}
+	if not PTerrain.breakable(st.arena_w, st.arena_h, ob, breaker_of(e).get("types", [])):
+		return {}
+	return ob
+
+## 원 판정(반지름 rad)의 중심을 (x, y)에서 **최소한만** 옮겨 지목한 장애물 표면이 원 안에 들어오게 한다.
+## 반환 [x, y]. 자격이 없으면 입력 그대로.
+static func break_point(st: CombatState, e: Dictionary, pat: String, x: float, y: float, rad: float) -> Array:
+	var ob := break_target(st, e, pat)
+	if ob.is_empty():
+		return [x, y]
+	var ox: float = float(ob.x)
+	var oy: float = float(ob.y)
+	var need: float = rad + float(ob.r)
+	var d: float = PGeom.dist(x, y, ox, oy)
+	if d <= need or d < 1e-6:
+		return [x, y] # 이미 판정 안이다 — 옮길 이유가 없다
+	var k: float = (d - need) / d
+	var nx: float = x + (ox - x) * k
+	var ny: float = y + (oy - y) * k
+	return [clampf(nx, 0.0, st.arena_w), clampf(ny, 0.0, st.arena_h)]
+
+## 세로 절단선(반폭 half)의 x를 **최소한만** 옮겨 지목한 장애물이 띠 안에 들어오게 한다. 자격이 없으면 입력 그대로
+static func break_column_x(st: CombatState, e: Dictionary, pat: String, cx: float, half: float) -> float:
+	var ob := break_target(st, e, pat)
+	if ob.is_empty():
+		return cx
+	var ox: float = float(ob.x)
+	var need: float = half + float(ob.r)
+	var d: float = absf(ox - cx)
+	if d <= need:
+		return cx
+	return cx + (need - d) * (-1.0 if ox < cx else 1.0)
 
 ## 이 보스의 공격 반폭(cover.pad). 가는 시선은 트였는데 두꺼운 공격만 돌에 먹히는 경우를 같은 잣대로 본다
 static func cover_pad(e: Dictionary) -> float:
@@ -981,12 +1036,16 @@ static func update(st: CombatState, e: Dictionary, dt: float) -> void:
 				# 이을 것이 없으면 짧은 빈틈으로 끝난다(연계 끝에는 반드시 공격 기회가 온다)
 				summon_end(st, e)
 		"pounce_aim":
-			e.land = landing_for(st, e, p.x, p.y)
+			# 파괴 자격이 도약에 걸려 있으면("저 바위 위로 뛴다!") 착지 원이 그 장애물을 덮을 만큼만 조준을 옮긴다.
+			# 예고 원(e.land)과 실제 착지가 같은 값이라 화면에 뜬 원이 곧 부서질 자리다
+			var lp: Array = break_point(st, e, "pounce", p.x, p.y, float(cfg.pounce.radius))
+			e.land = landing_for(st, e, float(lp[0]), float(lp[1]))
 			e.state_t = float(e.state_t) + adv
 			if float(e.state_t) >= float(cfg.pounce.aim):
 				e.state = "pounce_lock"
 				e.state_t = 0.0
-				e.land = landing_for(st, e, p.x, p.y)
+				var lp2: Array = break_point(st, e, "pounce", p.x, p.y, float(cfg.pounce.radius))
+				e.land = landing_for(st, e, float(lp2[0]), float(lp2[1]))
 				st.ev("boss_lock")
 		"pounce_lock":
 			e.state_t = float(e.state_t) + adv

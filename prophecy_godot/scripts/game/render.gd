@@ -2431,15 +2431,32 @@ static func elite_body(ci: Node2D, e: Dictionary, P: Dictionary, bc: Color, alph
 			ci.draw_circle(Vector2(0.0, -17.0 * u), 5.5 * u, C("#8d94a6", alpha))
 			elite_emblem(ci, -10.0 * u, -10.0 * u, 3.4 * u, alpha)
 		"low": # 피의 송곳니: 낮게 웅크린 늑대, 몸이 길다
-			var crouch: float = 0.72 if (stt == "leap_aim" or stt == "leap_lock") else 1.0
-			fill_ellipse(ci, -2.0 * u, 2.0 * u, 20.0 * u, 8.0 * u * crouch, bc, 0.0, 18)
-			ci.draw_circle(Vector2(15.0 * u, -1.0 * u), 7.0 * u, bc)
-			ci.draw_colored_polygon(PackedVector2Array([Vector2(9.0 * u, -6.0 * u), Vector2(12.0 * u, -13.0 * u), Vector2(14.0 * u, -6.0 * u)]), bc)
-			ci.draw_circle(Vector2(17.0 * u, -3.0 * u), 1.6 * u, C("#ffd166", alpha))
+			# 2026-09-09 가독성(표시만). 1막 늑대 무리·3막 쌍날 도적과 섞이지 않게 **몸에 붙박이 표식 둘**을 더한다:
+			#  ① 뼛빛 목덜미 갈기(늑대에게 없다) ② 등줄기 가시 셋(예고 때 곧게 선다).
+			# 그리고 **물기 준비**를 도약 준비와 다른 자세로 만든다 — 물기는 앞으로 낮게 파고들고, 도약은 뒤가 접힌다.
+			var biting: bool = stt == "bite_aim"
+			var leaping: bool = stt == "leap_aim" or stt == "leap_lock"
+			var crouch: float = 0.72 if leaping else (0.86 if biting else 1.0)
+			var lunge: float = 4.0 * u if biting else 0.0          # 물기 준비: 몸 전체가 앞으로 실린다
+			var headd: float = 4.0 * u if biting else 0.0          # 물기 준비: 머리가 아래로 내려간다
+			fill_ellipse(ci, -2.0 * u + lunge, 2.0 * u, 20.0 * u, 8.0 * u * crouch, bc, 0.0, 18)
+			# 등줄기 가시: 평소에는 눕고 예고 중에는 곧게 선다(색이 아니라 도형이 바뀐다)
+			var bristle: float = 6.0 * u if (biting or leaping) else 2.5 * u
+			for bx in [-9.0, -3.0, 3.0]:
+				ci.draw_line(Vector2(float(bx) * u + lunge, -3.0 * u * crouch),
+					Vector2(float(bx) * u - 1.5 * u + lunge, -3.0 * u * crouch - bristle), C("#e8dcc8", (0.85 if (biting or leaping) else 0.5) * alpha), 2.0)
+			# 뼛빛 목덜미 갈기(늑대·도적에게 없는 붙박이 실루엣). 예고 중에는 더 넓게 펴진다
+			var ruff: float = 9.5 * u if (biting or leaping) else 7.5 * u
+			for i in 5:
+				var ra: float = -1.15 + float(i) * 0.5
+				ci.draw_line(Vector2(9.0 * u + lunge, -2.0 * u + headd), Vector2(9.0 * u + lunge + cos(ra) * ruff, -2.0 * u + headd + sin(ra) * ruff), C("#efe4d2", 0.9 * alpha), 2.5)
+			ci.draw_circle(Vector2(15.0 * u + lunge, -1.0 * u + headd), 7.0 * u, bc)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(9.0 * u + lunge, -6.0 * u + headd), Vector2(12.0 * u + lunge, -13.0 * u + headd), Vector2(14.0 * u + lunge, -6.0 * u + headd)]), bc)
+			ci.draw_circle(Vector2(17.0 * u + lunge, -3.0 * u + headd), 1.6 * u, C("#ffd166", alpha))
 			for lx in [-14.0, -6.0, 6.0, 13.0]:
 				var sw: float = sin(float(e.get("move_t", 0.0)) * TAU + float(lx)) * 3.0 * u if stt == "approach" else 0.0
-				ci.draw_line(Vector2(float(lx) * u, 6.0 * u * crouch), Vector2(float(lx) * u + sw, 14.0 * u), dark, 3.0)
-			elite_emblem(ci, -12.0 * u, -4.0 * u, 3.0 * u, alpha)
+				ci.draw_line(Vector2(float(lx) * u + lunge, 6.0 * u * crouch), Vector2(float(lx) * u + sw + lunge, 14.0 * u), dark, 3.0)
+			elite_emblem(ci, -12.0 * u + lunge, -4.0 * u, 3.0 * u, alpha)
 		"hunched": # 역병 조율사: 후드를 쓴 굽은 등
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(-4.0 * u, -20.0 * u), Vector2(-13.0 * u, 14.0 * u), Vector2(11.0 * u, 14.0 * u), Vector2(6.0 * u, -14.0 * u)]), bc)
 			ci.draw_colored_polygon(PackedVector2Array([Vector2(-6.0 * u, -14.0 * u), Vector2(2.0 * u, -24.0 * u), Vector2(9.0 * u, -13.0 * u)]), C("#4b5a3c", alpha)) # 후드
@@ -2506,9 +2523,13 @@ static func elite_held(ci: Node2D, e: Dictionary, P: Dictionary, alpha: float, u
 		var sc: Color = C("#f0f0f0", alpha) if float(e.get("blocked_t", 0.0)) > 0.0 else C("#b9a45a", alpha)
 		rrect(ci, sx, -h / 2.0, w, h, 3.0, sc)
 		ci.draw_rect(Rect2(sx, -h / 2.0, w, h), C("#5a4620", alpha), false, 2.0)
-	if elite_has(P, "fang"): # 무기 없음 — 드러난 송곳니
-		ci.draw_colored_polygon(PackedVector2Array([Vector2(19.0 * u, 1.0 * u), Vector2(23.0 * u, 6.0 * u), Vector2(17.0 * u, 5.0 * u)]), C("#f5efe0", alpha))
-		ci.draw_colored_polygon(PackedVector2Array([Vector2(13.0 * u, 2.0 * u), Vector2(15.0 * u, 7.0 * u), Vector2(11.0 * u, 6.0 * u)]), C("#f5efe0", alpha))
+	if elite_has(P, "fang"): # 무기 없음 — 드러난 송곳니. 물기 준비에서는 몸과 함께 앞·아래로 실리고 턱이 벌어진다
+		var bite_on: bool = stt == "bite_aim"
+		var fx0: float = 4.0 * u if bite_on else 0.0
+		var fy0: float = 4.0 * u if bite_on else 0.0
+		var gap: float = 3.0 * u if bite_on else 0.0   # 벌어진 턱(위 송곳니는 올라가고 아래 송곳니는 내려간다)
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(19.0 * u + fx0, 1.0 * u + fy0 - gap), Vector2(23.0 * u + fx0, 6.0 * u + fy0 - gap), Vector2(17.0 * u + fx0, 5.0 * u + fy0 - gap)]), C("#f5efe0", alpha))
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(13.0 * u + fx0, 2.0 * u + fy0 + gap), Vector2(15.0 * u + fx0, 7.0 * u + fy0 + gap), Vector2(11.0 * u + fx0, 6.0 * u + fy0 + gap)]), C("#f5efe0", alpha))
 	if elite_has(P, "pouch"): # 허리에 매단 포자 주머니 3개(남은 개수 = 아직 안 터진 포자)
 		var left: int = 3
 		if telling:
@@ -2550,8 +2571,22 @@ static func elite_tell(ci: Node2D, st: CombatState, e: Dictionary, P: Dictionary
 			fill_sector(ci, ex, ey, r * 2.1, fa - half, fa + half, rgba(200, 210, 235, 0.20 * alpha))
 			stroke_sector(ci, ex, ey, r * 2.1, fa - half, fa + half, rgba(230, 238, 255, 0.85 * alpha), 2.0)
 			txt(ci, ex, ey - r - 34.0, "방패 자세 · 정면 무효", 11, C("#cfe0ff", alpha), 0, true)
-		"crouch": # 뒷다리가 접힌다
-			ci.draw_arc(Vector2(ex - cos(aim) * r * 0.8, ey - sin(aim) * r * 0.8), r * 0.8, aim + 1.9, aim + 4.4, 14, C("#ff9a9a", pulse * alpha), 3.0)
+		"crouch": # 송곳니: 물기 준비는 **벌린 턱**(앞), 도약 준비는 **접힌 뒷다리**(뒤) — 두 예고가 서로 다른 부위에서 읽힌다
+			if String(e.state) == "bite_aim":
+				var jx: float = ex + cos(aim) * r * 1.0
+				var jy: float = ey + sin(aim) * r * 1.0
+				var open: float = 0.30 + 0.22 * pulse
+				for s in [1.0, -1.0]:
+					var ja: float = aim + open * float(s)
+					var tipx: float = jx + cos(ja) * r * 1.05
+					var tipy: float = jy + sin(ja) * r * 1.05
+					ci.draw_line(Vector2(jx, jy), Vector2(tipx, tipy), C("#f5efe0", (0.55 + 0.45 * pulse) * alpha), 3.0)
+					var na: float = ja + PI / 2.0 * float(s)
+					ci.draw_colored_polygon(PackedVector2Array([Vector2(tipx, tipy),
+						Vector2(tipx - cos(ja) * r * 0.34 + cos(na) * r * 0.16, tipy - sin(ja) * r * 0.34 + sin(na) * r * 0.16),
+						Vector2(tipx - cos(ja) * r * 0.34 - cos(na) * r * 0.16, tipy - sin(ja) * r * 0.34 - sin(na) * r * 0.16)]), C("#fffaf0", pulse * alpha))
+			else:
+				ci.draw_arc(Vector2(ex - cos(aim) * r * 0.8, ey - sin(aim) * r * 0.8), r * 0.8, aim + 1.9, aim + 4.4, 14, C("#ff9a9a", pulse * alpha), 3.0)
 		"pods":   # 주머니가 하나씩 사라진다
 			ci.draw_arc(Vector2(ex, ey + r * 0.35), r * 0.8, 0.0, TAU, 18, C("#b7e08a", pulse * alpha), 2.0)
 		"chain":  # 사슬이 곧게 펴진다(몸에서 조준 방향으로 짧게 — 긴 예고선은 draw_telegraphs 몫)
@@ -3155,13 +3190,40 @@ static func draw_elite_telegraph(ci: Node2D, st: CombatState, e: Dictionary, fla
 				txt(ci, sx, sy - float(d.slamR) - 8.0, "내려찍기", 12, tel_label(1.0))
 		"elite_fang":
 			if stt == "bite_aim":
-				_tel_sector(ci, ex, ey, float(d.biteRange) + er, float(e.aim_angle), PGeom.deg(float(d.biteDeg)) / 2.0, clampf(st_t / maxf(0.001, float(d.biteAim)), 0.0, 1.0), flash_t)
+				var bhalf: float = PGeom.deg(float(d.biteDeg)) / 2.0
+				var bR: float = float(d.biteRange) + er
+				var bk: float = clampf(st_t / maxf(0.001, float(d.biteAim)), 0.0, 1.0)
+				_tel_sector(ci, ex, ey, bR, float(e.aim_angle), bhalf, bk, flash_t)
+				# 최소 표식(2026-09-09): 부채꼴 양 끝에서 가운데로 **닫히는 송곳니 둘**. 남은 시간이 벌어진 폭으로 읽힌다.
+				# 쌍날 도적의 베기 부채꼴은 크기·색이 거의 같으므로 **도형 자체**로 가른다(글자를 늘리지 않는다)
+				var spread: float = bhalf * (1.0 - 0.72 * bk)
+				for fs in [1.0, -1.0]:
+					var fa: float = float(e.aim_angle) + spread * float(fs)
+					var fx1: float = ex + cos(fa) * bR
+					var fy1: float = ey + sin(fa) * bR
+					var fn: float = fa + PI / 2.0 * float(fs)
+					ci.draw_colored_polygon(PackedVector2Array([
+						Vector2(fx1 - cos(fa) * bR * 0.32, fy1 - sin(fa) * bR * 0.32),
+						Vector2(fx1 + cos(fn) * bR * 0.11, fy1 + sin(fn) * bR * 0.11),
+						Vector2(fx1 - cos(fn) * bR * 0.11, fy1 - sin(fn) * bR * 0.11)]), tel_edge(0.55 + 0.45 * flash_t))
 			elif (stt == "leap_aim" or stt == "leap_lock" or stt == "leap") and e.has("leap_at"):
 				var at: Array = e.leap_at
+				var lx: float = float(at[0])
+				var ly: float = float(at[1])
+				var lR: float = float(d.leapR)
 				var lk: float = clampf(st_t / maxf(0.001, float(d.leapAim)), 0.0, 1.0) if stt == "leap_aim" else 1.0
-				ci.draw_circle(Vector2(float(at[0]), float(at[1])), float(d.leapR), tel_fill(0.12 + 0.3 * lk))
-				tel_stroke_circle(ci, float(at[0]), float(at[1]), float(d.leapR), flash_t if stt != "leap_aim" else 0.7, 3.0)
-				txt(ci, float(at[0]), float(at[1]) - float(d.leapR) - 8.0, "도약 착지", 12, tel_label(1.0))
+				ci.draw_circle(Vector2(lx, ly), lR, tel_fill(0.12 + 0.3 * lk))
+				tel_stroke_circle(ci, lx, ly, lR, flash_t if stt != "leap_aim" else 0.7, 3.0)
+				# 착지 원 안의 **발톱 자국 넷**(2026-09-09). 도약 두꺼비의 착지 원(반지름 78)과 크기가 비슷하므로
+				# 원 자체가 아니라 안에 든 도형으로 가른다. 판정 반지름은 그대로 leapR이다
+				var lang: float = atan2(ly - ey, lx - ex)
+				for ci2 in 4:
+					var ca: float = lang + (float(ci2) - 1.5) * 0.30
+					ci.draw_line(Vector2(lx - cos(ca) * lR * 0.62, ly - sin(ca) * lR * 0.62),
+						Vector2(lx + cos(ca) * lR * 0.62, ly + sin(ca) * lR * 0.62), tel_edge(0.35 + 0.5 * lk), 2.5)
+				# 보스가 몸을 실은 방향(어디서 날아오는지) — 도약이 확정되면 실선으로 굳는다
+				dashed_line(ci, Vector2(ex, ey), Vector2(lx, ly), tel_soft(0.3 + 0.4 * lk), 2.0, 9.0, 7.0)
+				txt(ci, lx, ly - lR - 8.0, "도약 착지", 12, tel_label(1.0))
 		"elite_plaguecaller":
 			if stt == "burst_aim":
 				_tel_sector(ci, ex, ey, float(d.burstRange) + er, float(e.aim_angle), PGeom.deg(float(d.burstDeg)) / 2.0, clampf(st_t / maxf(0.001, float(d.burstAim)), 0.0, 1.0), flash_t)

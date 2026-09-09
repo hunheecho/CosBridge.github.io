@@ -111,6 +111,51 @@ func _init() -> void:
 	# ---------- 7. 기본값은 수정 후 동작 ----------
 	ok("기본값은 수정 후 동작(환경 변수 없이 legacy가 아니다)", not CombatState.collision_legacy)
 
+	# ---------- 8. 나무는 돌과 같은 충돌체이고, 부수면 **보이지 않는 벽이 남지 않는다** ----------
+	# 2026-09-09 사용자 피드백("보스전에서 돌은 깨지는데 나무는 안 깨진다")의 충돌 쪽 몫.
+	# 여기서는 종류(rock/tree)로 충돌 판정이 갈리지 않는다는 것과, break_obstacle 뒤에
+	# 이동·시야·투사체·경로 탐색 **전부**에서 함께 사라진다는 것을 직접 확인한다.
+	var TREE := { "id": "t1", "type": "tree", "x": 480.0, "y": 300.0, "r": 26.0, "canopy": true }
+	var ROCK_SAME := { "id": "r9", "type": "rock", "x": 480.0, "y": 300.0, "r": 26.0, "canopy": false }
+	var st7 := mk_obs([TREE.duplicate()])
+	var st8 := mk_obs([ROCK_SAME.duplicate()])
+	park(st7, st7.player, TREE, 0.0)
+	var tree_into := nudge(st7, st7.player, -6.0, 0.0)
+	park(st8, st8.player, ROCK_SAME, 0.0)
+	var rock_into := nudge(st8, st8.player, -6.0, 0.0)
+	ok("같은 반지름이면 나무와 돌의 충돌 판정이 같다(종류로 갈리지 않는다)",
+		is_equal_approx(tree_into, rock_into) and tree_into < 0.01, "나무 %.4f · 돌 %.4f" % [tree_into, rock_into])
+	# 파괴 API는 '전장에 남길 최소 장애물 수(keepMin)'를 지키므로, 나무 말고 멀리 떨어진 여분을 함께 둔다
+	var FAR: Array = [{ "id": "f1", "type": "rock", "x": 150.0, "y": 150.0, "r": 20.0, "canopy": false },
+		{ "id": "f2", "type": "rock", "x": 810.0, "y": 150.0, "r": 20.0, "canopy": false },
+		{ "id": "f3", "type": "rock", "x": 810.0, "y": 450.0, "r": 20.0, "canopy": false }]
+	var st9 := mk_obs([TREE.duplicate()] + FAR.duplicate(true))
+	st9.objects.clear() # 필수 목표 옆(goalGuard)이라는 다른 이유로 거절되지 않게 한다
+	var tx: float = float(TREE.x)
+	var ty: float = float(TREE.y)
+	var tr: float = float(TREE.r)
+	ok("부수기 전 나무는 이동·시야·투사체를 모두 막는다",
+		not st9.valid_pos(tx, ty, 1.0) and st9.los_blocked(tx - tr - 4.0, ty, tx + tr + 4.0, ty)
+		and st9.beam_length(tx - tr - 20.0, ty, 0.0, tr * 2.0 + 40.0) < tr * 2.0 + 40.0)
+	st9.metrics["broken"] = []
+	var removed: bool = st9.break_obstacle(0, "시험:나무")
+	var probe := { "x": tx - tr - 30.0, "y": ty, "r": 22.0, "steer_side": 0, "steer_t": 0.0 }
+	var sd := st9.steer_dir(probe, tx + tr + 30.0, ty)
+	ok("나무를 부수면 이동·시야·투사체·경로 탐색에서 **함께** 사라진다(그림만 지우지 않는다)",
+		removed and st9.obstacles.find(TREE) < 0 and st9.valid_pos(tx, ty, 1.0)
+		and not st9.los_blocked(tx - tr - 4.0, ty, tx + tr + 4.0, ty)
+		and st9.beam_length(tx - tr - 20.0, ty, 0.0, tr * 2.0 + 40.0) >= tr * 2.0 + 40.0 - 0.001
+		and absf(float(sd[1])) < 0.01,
+		"부순 뒤 남은 장애물 %d개(전부 멀리 있는 여분) · 조향 y성분 %.3f" % [st9.obstacles.size(), float(sd[1])])
+	# 잔해가 새 장애물이 되지 않는다: 부수기는 목록에서 빼기만 하므로 개수가 늘 수 없다
+	var st10 := mk_obs([TREE.duplicate()] + FAR.duplicate(true))
+	st10.objects.clear()
+	st10.metrics["broken"] = []
+	var n_before: int = st10.obstacles.size()
+	st10.break_obstacle(0, "시험:잔해")
+	ok("파괴는 장애물을 더하지 않는다(잔해가 새 벽이 되지 않는다)", st10.obstacles.size() < n_before,
+		"%d → %d" % [n_before, st10.obstacles.size()])
+
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
