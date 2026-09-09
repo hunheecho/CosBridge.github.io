@@ -65,12 +65,20 @@ const MODS := [0, 1, 2]
 const SEEDS := [1, 2, 3]
 const BOT := "skilled"
 const TARGET_RATIO := 1.5    # 사용자 확정: 쌍검 이론 단일 대상 DPS ≥ 검 × 1.5
+# 창 '분열 창날'이 뒤쪽 적까지 가는지 재는 일렬 무리(창 전용, MOD-1)
+const LINE_N := 3            # 일렬로 세우는 늑대 수
+const LINE_FIRST := 120.0    # 첫 적까지 거리. 창의 근접 약화(사거리 45% = 103.5) 밖이라 셋 다 같은 배율로 맞는다
+const LINE_GAP := 45.0       # 적 사이 간격. 분열탄 도달 거리(modTuning travel) 안이라 바로 뒤 적에게 닿는다
+const LINE_SEC := 10.0       # 고정 표적 실행 길이(적별 분열 피해를 가르는 측정)
+const LINE_KILL_SEC := 60.0  # 처치 시간 상한. 이 안에 다 못 쓰러뜨리면 -1로 적는다
+const LINE_LEVELS := [2, 5]  # 개조 1개가 처음 열리는 레벨(2)과 최대 레벨(5)
 
 var sub := PSubset.new()
 var theory_rows: Array = []   # 이론 결과
 var real_rows: Array = []     # 실제 결과(시드별)
 var swarm_rows: Array = []    # 무리 결과(시드별)
 var far_rows: Array = []      # 원거리 참고
+var line_rows: Array = []     # 창 일렬 무리(분열 창날) 결과
 var mod_pick: Dictionary = {} # "weapon|level|k" → [개조 id]
 
 # ---------- 개조 자격(Lv2에 첫 개, Lv4에 두 번째) ----------
@@ -253,6 +261,110 @@ func swarm_one(wid: String, level: int, mods: Array, seed_v: int) -> Dictionary:
 	return { "weapon": wid, "level": level, "mods": mods.duplicate(), "seed": seed_v,
 		"dps": (float(d[0]) + float(d[1])) / SWARM_SEC, "hits": int(st.metrics.hits.get(wid, 0)) }
 
+# ---------- ④ 창 '분열 창날': 일렬 무리에서 뒤쪽 적까지 가는가(창 전용) ----------
+## 늑대를 일렬로 세우고 창만 쏜다. 분열탄이 첫 명중한 적에게 다시 흡수되면 **뒤쪽 적이 받는 분열 피해가 0**이다
+## (`docs/MOD_REVIEW.md` MOD-1의 재현 절차 ①). 여기서 그 값을 직접 잰다.
+##
+## 적별 분열 피해를 어떻게 가르는가: **같은 자리·같은 시간으로 개조 없이 한 번 더 재고 차이를 본다.**
+## 표적을 매 단계 제자리에 고정하고 죽지 않게 두므로 두 실행은 분열탄 말고 다른 것이 하나도 다르지 않다
+## (피해 계산에는 난수가 없다 — `CombatState.damage_enemy`). 산술로 추정하지 않고 측정으로 가른다.
+func line_positions(st: CombatState) -> Array:
+	var out: Array = []
+	for i in LINE_N:
+		out.append([st.player.x + LINE_FIRST + LINE_GAP * float(i), st.player.y])
+	return out
+
+## 고정 표적 일렬(죽지 않는다). 적별 총 피해와 개조 계측을 돌려준다
+func line_damage(level: int, mods: Array) -> Dictionary:
+	var st := mk("spear", level, mods, 1)
+	var pos: Array = line_positions(st)
+	var es: Array = []
+	for p in pos:
+		es.append(target(st, float((p as Array)[0]), float((p as Array)[1]), false))
+	var n := int(round(LINE_SEC / STEP))
+	for i in n:
+		st.step({}, STEP)
+		for j in es.size():
+			var e: Dictionary = es[j]
+			e.x = float((pos[j] as Array)[0])
+			e.y = float((pos[j] as Array)[1])
+			e.vx = 0.0
+			e.vy = 0.0
+	var per: Array = []
+	for e_v in es:
+		var e2: Dictionary = e_v
+		per.append(float(e2.hp_max) - float(e2.hp))
+	var ms: Dictionary = (st.mod_stats as Dictionary).get("split", {})
+	return { "per": per, "split_hits": int(ms.get("hits", 0)), "split_procs": int(ms.get("procs", 0)),
+		"split_dmg": float(ms.get("damage", 0.0)), "fires": int(wep(st, "spear").count) }
+
+## 실제 체력의 늑대를 일렬로 세우고 **적별 쓰러지는 시각**과 전부 쓰러질 때까지의 시간을 잰다.
+## 창은 줄을 통째로 꿰므로 '전부 쓰러질 때까지'만 보면 분열탄이 어디로 갔는지 드러나지 않는다 —
+## 적별 시각을 함께 봐야 뒤쪽 적이 실제로 더 빨리 쓰러지는지 읽힌다. 상한 안에 못 쓰러뜨리면 -1
+func line_kill(level: int, mods: Array) -> Dictionary:
+	var st := mk("spear", level, mods, 1)
+	var pos: Array = line_positions(st)
+	var es: Array = []
+	var at_t: Array = []
+	for p in pos:
+		var e: Dictionary = st.spawn_enemy("wolf", float((p as Array)[0]), float((p as Array)[1]))
+		e.bite_cd = 1.0e9      # 물기·돌진을 끈다: 재는 것은 화력이지 생존이 아니다
+		e.dash_ready_at = 1.0e9
+		es.append(e)
+		at_t.append(-1.0)
+	var n := int(round(LINE_KILL_SEC / STEP))
+	var all_t := -1.0
+	for i in n:
+		st.step({}, STEP)
+		var alive := 0
+		for j in es.size():
+			var e2: Dictionary = es[j]
+			if bool(e2.dead):
+				if float(at_t[j]) < 0.0:
+					at_t[j] = float(st.t)
+				continue
+			alive += 1
+			e2.x = float((pos[j] as Array)[0])
+			e2.y = float((pos[j] as Array)[1])
+			e2.vx = 0.0
+			e2.vy = 0.0
+		if alive == 0:
+			all_t = float(st.t)
+			break
+	return { "each": at_t, "all": all_t }
+
+## 개조 없음 / 분열 창날 한 쌍을 재고 적별 분열 피해를 가른다
+func line_pair(level: int) -> Dictionary:
+	var base := line_damage(level, [])
+	var with_split := line_damage(level, ["split"])
+	var delta: Array = []
+	var rear := 0.0
+	var first_extra := 0.0
+	var distinct := 0
+	for i in LINE_N:
+		var d: float = float((with_split.per as Array)[i]) - float((base.per as Array)[i])
+		delta.append(d)
+		if d > 0.01:
+			distinct += 1
+		if i == 0:
+			first_extra = d
+		else:
+			rear += d
+	# 같은 개조가 **단일 대상**에 얼마나 보태는지도 같은 자리에서 잰다(개조 없음 ↔ 분열 창날 하나).
+	# 무리 처리가 정상화되는 것과 단일 대상 화력이 줄어드는 것은 서로 다른 이야기라 따로 적는다.
+	var one_base := theory("spear", level, [], THEORY_DIST)
+	var one_split := theory("spear", level, ["split"], THEORY_DIST)
+	return { "level": level, "delta": delta, "distinct": distinct, "first_extra": first_extra, "rear": rear,
+		"split_hits": int(with_split.split_hits), "split_procs": int(with_split.split_procs),
+		"split_dmg": float(with_split.split_dmg), "fires": int(with_split.fires),
+		"base_per": (base.per as Array).duplicate(), "split_per": (with_split.per as Array).duplicate(),
+		"single_base": float(one_base.dps), "single_split": float(one_split.dps),
+		"kill_base": line_kill(level, []), "kill_split": line_kill(level, ["split"]) }
+
+## 처치 시각 한 칸의 글자(못 쓰러뜨렸으면 그 사실을 적는다)
+func kill_text(v: float) -> String:
+	return ("%.2f초" % v) if v >= 0.0 else ("%.0f초 안에 못 끝냄" % LINE_KILL_SEC)
+
 # ---------- 표 만들기 ----------
 func avg(rows: Array, field: String) -> float:
 	if rows.is_empty():
@@ -327,7 +439,13 @@ func _init() -> void:
 			fr["mods_k"] = 0
 			far_rows.append(fr)
 
-	print("DPS_PROBE_JSON " + JSON.stringify({ "theory": theory_rows, "real": real_rows, "swarm": swarm_rows, "far": far_rows }))
+	# 창 '분열 창날'이 뒤쪽 적까지 가는가(창을 고른 실행에서만, 레벨 축과 별개로 잰다)
+	if weapons.has("spear"):
+		for lv_v in LINE_LEVELS:
+			line_rows.append(line_pair(int(lv_v)))
+			printerr("done spear 일렬 무리 Lv%d" % int(lv_v))
+
+	print("DPS_PROBE_JSON " + JSON.stringify({ "theory": theory_rows, "real": real_rows, "swarm": swarm_rows, "far": far_rows, "line": line_rows }))
 	write_report(weapons, levels, mods_ax, seeds)
 	quit()
 
@@ -341,7 +459,8 @@ func write_report(weapons: Array, levels: Array, mods_ax: Array, seeds: Array) -
 	md += "| 실제 단일 대상 DPS | 늑대 1기(거리 %.0f에서 시작)를 실력 봇(%s)이 %.0f초 상대. 적도 봇도 실제로 움직인다 |\n" % [REAL_START, BOT, REAL_SEC]
 	md += "| 접근 손실 | 사거리 밖이라 발사 자체를 못 한 몫. 놓친 주기 수 × 주기(초)와 DPS 감소로 적는다 |\n"
 	md += "| 이탈 손실 | 발사는 했는데 연타 중 적이 벗어나 빠진 타수·피해. 이론 1주기 값과의 차이 |\n"
-	md += "| 무리(참고) | 늑대 %d기를 %.0f초. **검이 유리해야 정상**이다 |\n\n" % [SWARM_N, SWARM_SEC]
+	md += "| 무리(참고) | 늑대 %d기를 %.0f초. **검이 유리해야 정상**이다 |\n" % [SWARM_N, SWARM_SEC]
+	md += "| 창 일렬 무리(§4-2) | 늑대 %d기를 %.0f 간격으로 **일렬로** 세우고 창만 쏜다. '분열 창날'의 창날이 뒤쪽 적까지 가는지(알려진 결함 MOD-1) |\n\n" % [LINE_N, LINE_GAP]
 	md += "표적·플레이어 모두 죽지 않게 체력을 크게 둔다. 죽으면 무기마다 시간 창이 달라져 DPS를 비교할 수 없기 때문이다.\n"
 	md += "개조 1·2개는 **그 무기의 단일 대상 이론 DPS가 가장 높아지는 조합을 측정으로 골랐다**(목록 순서가 아니다).\n\n"
 	md += "**자격 없는 칸은 재지 않았다(표에 `-`).** 주무기 개조는 Lv2에 첫 개, Lv4에 두 번째가 열린다\n"
@@ -471,6 +590,60 @@ func write_report(weapons: Array, levels: Array, mods_ax: Array, seeds: Array) -
 				md += (" %.1f |" % avg(rs2, "dps")) if not rs2.is_empty() else " - |"
 			md += "\n"
 	md += "\n늑대 %d기 %.0f초. 총 피해 ÷ 시간이다.\n\n" % [SWARM_N, SWARM_SEC]
+
+	# ---- 창 '분열 창날'의 뒤쪽 무리 처리 ----
+	if not line_rows.is_empty():
+		var lpos := []
+		for i in LINE_N:
+			lpos.append("%.0f" % (LINE_FIRST + LINE_GAP * float(i)))
+		md += "## 4-2. 창 '분열 창날': 일렬 무리에서 뒤쪽 적까지 가는가\n\n"
+		md += "늑대 %d기를 거리 %s에 **일렬로** 세우고 창만 쏜다(표적 고정 %0.0f초). 적별 분열 피해는\n" % [LINE_N, ", ".join(lpos), LINE_SEC]
+		md += "**개조 없이 같은 조건으로 한 번 더 재고 그 차이**로 가른다 — 산술 추정이 아니라 측정이다.\n"
+		md += "첫 적까지 거리 %.0f는 창의 근접 약화 구간(사거리 45%%) 밖이라 셋 다 같은 배율로 맞는다.\n\n" % LINE_FIRST
+		md += "| 레벨 | 발사 | 분열 발동 | 분열 적중 | 분열 피해 | 첫 적이 받은 분열 | 뒤쪽 적이 받은 분열 | 분열이 맞힌 적 수 |\n"
+		md += "|---:|---:|---:|---:|---:|---:|---:|---:|\n"
+		for r_v in line_rows:
+			var r: Dictionary = r_v
+			md += "| %d | %d | %d | %d | %.1f | **%.1f** | **%.1f** | %d |\n" % [int(r.level), int(r.fires),
+				int(r.split_procs), int(r.split_hits), float(r.split_dmg), float(r.first_extra), float(r.rear), int(r.distinct)]
+		md += "\n**'뒤쪽 적이 받은 분열'이 0이면 분열탄이 첫 적에게 도로 흡수된 것이다**(알려진 결함 MOD-1).\n"
+		md += "분열탄은 관통하지 않으므로 한 발이 적 하나를 맞히고 사라진다 — 두 발 모두 첫 적 바로 뒤 한 마리에게 들어간다.\n\n"
+		md += "### 적별 총 피해(고정 표적 %.0f초)\n\n" % LINE_SEC
+		md += "| 레벨 | 적 | 개조 없음 | 분열 창날 | 차이(= 분열 몫) |\n|---:|---:|---:|---:|---:|\n"
+		for r_v2 in line_rows:
+			var r2: Dictionary = r_v2
+			for i in LINE_N:
+				md += "| %d | %d번(거리 %.0f) | %.1f | %.1f | %+.1f |\n" % [int(r2.level), i + 1,
+					LINE_FIRST + LINE_GAP * float(i), float((r2.base_per as Array)[i]), float((r2.split_per as Array)[i]),
+					float((r2.delta as Array)[i])]
+		md += "\n### 처치 시각(실제 체력의 늑대 %d기, 적별)\n\n" % LINE_N
+		md += "창은 줄을 통째로 꿰므로 '셋 다 쓰러질 때까지'만 보면 분열탄이 어디로 갔는지 드러나지 않는다.\n"
+		md += "**적별 시각**을 함께 봐야 뒤쪽 적이 실제로 더 빨리 쓰러지는지 읽힌다.\n\n"
+		md += "| 레벨 | 적 | 개조 없음 | 분열 창날 | 차이 |\n|---:|---:|---:|---:|---:|\n"
+		for r_v3 in line_rows:
+			var r3: Dictionary = r_v3
+			var kb: Dictionary = r3.kill_base
+			var ks: Dictionary = r3.kill_split
+			for i in LINE_N:
+				var b: float = float((kb.each as Array)[i])
+				var s2: float = float((ks.each as Array)[i])
+				md += "| %d | %d번(거리 %.0f) | %s | %s | %s |\n" % [int(r3.level), i + 1,
+					LINE_FIRST + LINE_GAP * float(i), kill_text(b), kill_text(s2),
+					("%+.2f초" % (s2 - b)) if (b >= 0.0 and s2 >= 0.0) else "-"]
+			md += "| %d | 셋 다 | %s | %s | %s |\n" % [int(r3.level), kill_text(float(kb.all)), kill_text(float(ks.all)),
+				("%+.2f초" % (float(ks.all) - float(kb.all))) if (float(kb.all) >= 0.0 and float(ks.all) >= 0.0) else "-"]
+		md += "\n적은 제자리에 고정하고 물기·돌진을 껐다(재는 것은 화력이지 생존이 아니다).\n\n"
+		md += "### 같은 개조가 단일 대상에 보태는 몫(거리 %.0f · 표적 1기)\n\n" % THEORY_DIST
+		md += "무리 처리와 단일 대상은 **다른 이야기**라 따로 잰다. 분열탄이 앞의 적을 지나쳐 나아가면\n"
+		md += "표적이 하나뿐인 자리에서는 아무것도 맞히지 못하므로 이 몫은 0이 되는 것이 정상이다.\n\n"
+		md += "| 레벨 | 개조 없음 | 분열 창날 하나 | 개조가 보탠 몫 |\n|---:|---:|---:|---:|\n"
+		for r_v4 in line_rows:
+			var r4: Dictionary = r_v4
+			var sb: float = float(r4.single_base)
+			var ss: float = float(r4.single_split)
+			md += "| %d | %.2f | %.2f | %+.2f (%+.0f%%) |\n" % [int(r4.level), sb, ss, ss - sb,
+				((ss - sb) / sb * 100.0) if sb > 0.0 else 0.0]
+		md += "\n"
 
 	# ---- 원거리 참고 ----
 	md += "## 5. 참고: 원거리 표적(거리 %.0f · 개조 없음)\n\n" % FAR_DIST
