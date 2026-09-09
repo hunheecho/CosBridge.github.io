@@ -537,26 +537,35 @@ func sec8_mod_coverage() -> void:
 		"독 %s→%s · 대상 %d→%d" % [str(snappedf(float(d0.get("dps", 0.0)), 0.1)), str(snappedf(float(d1.get("dps", 0.0)), 0.1)),
 			int(d0.get("spread_n", 0)), int(d1.get("spread_n", 0))])
 
-	# ----- 결함 기록(고치지 않는다) -----
-	# 유인 룬은 적을 끌어당기면서 등급 저항(PSupport.knock_dist)을 거치지 않는다.
-	# 보스만 빼고 정예는 온전히 끌린다 — 다른 밀어내기(바람 정령)와 규칙이 다르다
-	# 지뢰는 플레이어 발밑에 깔린다. 정예를 폭발 조건(trigger 30 + 반지름) 밖, 유인 반경(70) 안에 세운다.
-	# 준비 시간(arm 0.5초)이 지나야 당기기 시작하므로 1.5초를 굴린다
-	var stm: CombatState = lab([["mine", 1, ["lure"]]])
-	var elite: Dictionary = stm.spawn_enemy("elite_fang", stm.player.x + 64.0, stm.player.y)
-	PWeapons.fire_mine(stm, wep(stm, "mine"))
-	var ex0: float = float(elite.x)
-	for i in int(1.5 / STEP):
-		PWeapons.update_mines(stm, STEP)
-		if stm.mines.is_empty():
-			break
-	var moved: float = absf(float(elite.x) - ex0)
-	ok("정예로 세운 시험 대상이 실제로 정예다(SM-2 재현 조건)", bool(elite.get("elite", false)))
-	if moved > 0.5:
-		defect("SM-2", "유인 룬(룬 지뢰)이 정예를 등급 저항 없이 끌어당긴다",
-			"위치를 강제로 바꾸는 것은 PSupport.knock_dist를 거쳐 정예 0.35배·보스 0이 되어야 한다",
-			"정예가 %s만큼 끌려왔다" % str(snappedf(moved, 0.1)),
-			"scripts/rules/weapons.gd:596~602 — `if not e.boss and not bool(e.airborne)`만 보고 st.move_swept로 바로 당긴다. 같은 규칙의 바람 정령(supports_a.gd:684)은 knock_dist를 거친다")
+	# ----- SM-2 회귀: 유인 룬도 등급 저항을 지킨다(2026-09-09 고침) -----
+	# 예전에는 보스만 빼고 정예를 일반 적과 똑같이 끌어당겼다(1.5초에 18px).
+	# 위치를 강제로 바꾸는 것은 전부 PSupport.knock_dist를 거쳐야 한다 — 바람 정령과 같은 규칙이다.
+	# 지뢰는 플레이어 발밑에 깔린다. 폭발 조건(trigger + 반지름) 밖, 유인 반경(70) 안에 세운다.
+	# 준비 시간(arm 0.5초)이 지나야 당기기 시작한다. **0.6초만 굴린다** —
+	# 오래 굴리면 일반 적이 지뢰 반지름에 닿아 멈춰(거리 제한) 배율 비교가 깨진다
+	var pulled := {}
+	for tp in ["wolf", "elite_fang"]:
+		var stm: CombatState = lab([["mine", 1, ["lure"]]])
+		var tgt: Dictionary = stm.spawn_enemy(String(tp), stm.player.x + 64.0, stm.player.y)
+		tgt.hp = 99999.0
+		PWeapons.fire_mine(stm, wep(stm, "mine"))
+		var tx0: float = float(tgt.x)
+		for i in int(0.6 / STEP):
+			PWeapons.update_mines(stm, STEP)
+			if stm.mines.is_empty():
+				break
+		pulled[String(tp)] = absf(float(tgt.x) - tx0)
+		if String(tp) == "elite_fang":
+			ok("정예로 세운 시험 대상이 실제로 정예다(SM-2 조건)", bool(tgt.get("elite", false)))
+	var pull_n: float = float(pulled.get("wolf", 0.0))
+	var pull_e: float = float(pulled.get("elite_fang", 0.0))
+	ok("유인 룬: 일반 적은 끌려온다", pull_n > 1.0, "%.1fpx(0.6초 중 준비 0.5초를 뺀 0.1초)" % pull_n)
+	ok("유인 룬: 정예는 등급 저항만큼 덜 끌려온다(바람 정령과 같은 규칙)",
+		pull_e > 0.0 and pull_e < pull_n - 0.1, "정예 %.2fpx < 일반 %.2fpx" % [pull_e, pull_n])
+	var km: float = float((PCatalog.support_resist().get("knock", {}) as Dictionary).get("elite", 1.0))
+	ok("유인 룬: 저항 배율이 자격표(supports.json resist.knock.elite)와 맞는다",
+		absf(pull_e - pull_n * km) < maxf(0.15, pull_n * 0.06),
+		"정예 %.2f · 기대 %.2f(=%.2f×%.2f)" % [pull_e, pull_n * km, pull_n, km])
 
 # ---------- 9. 전염 세대 상한이 실제로 달린 손잡이인가 ----------
 ## `data/supports.json`은 읽기만 한다. 메모리에 올라온 자격표의 gen_max만 잠시 바꾸고 되돌린다.

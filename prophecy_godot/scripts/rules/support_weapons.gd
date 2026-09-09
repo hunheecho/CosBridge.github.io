@@ -185,7 +185,9 @@ static func lure_target(st: CombatState, e: Dictionary) -> Dictionary:
 ##   blocked 차단 횟수 · blocked_dmg 막은 피해            (수호 방울)
 ##   reduced_dmg 경감한 피해 · reflects 반격 · reflect_dmg 반격 피해  (가시 갑각)
 ##   taunted 유인한 적 · soaked 대신 받은 공격 · soaked_dmg          (도깨비 인형)
-##   slows 둔화 적용 · slow_sec 둔화 시간                            (서리 수정·잔바람)
+##   slows **새로 둔화가 걸린 적의 수**(이미 걸린 적의 갱신은 세지 않는다)
+##   slow_sec **둔화 적·초**(둔화 중인 적 하나가 1초를 보내면 1.0)      (서리 수정·잔바람)
+##   ↑ 이 둘은 단위가 다르다. 서로 더하거나 한쪽 이름으로 다른 쪽 값을 넣지 마라(2026-09-09 BP-2)
 ##   push_dist 밀어낸 거리                                           (바람 정령)
 ##   spreads 전염 · bursts 파열 · dot_dmg 독 피해                    (역병 나비)
 ##   marks 표적 지정 · mark_keeps 표적 유지 프레임                   (추격 까마귀)
@@ -215,7 +217,7 @@ const METER_MAP := {
 	"bell":   { "blocked": "blocked", "blocked_dmg": "blocked_damage",
 				"guards": "guarded", "reduced_dmg": "reduced", "reflects": "reflects", "reflect_dmg": "reflect_damage" },
 	"echo":   { "copies": "spawned", "hits": "strikes", "copy_dmg": "damage" },
-	"wind":   { "fires": "blasts", "push_dist": "push_total", "slows": "slowed" },
+	"wind":   { "fires": "blasts", "push_dist": "push_total", "slows": "slowed", "slow_sec": "slow_sec" },
 	"plague": { "fires": "applied", "spreads": "spreads", "bursts": "bursts" },
 	"thorns": { "reduced_dmg": "reduced", "reflects": "reflects", "hits": "reflect_hits" },
 	"doll":   { "fires": "placed", "taunted": "lured", "soaked": "absorbed", "soaked_dmg": "absorbed_dmg" },

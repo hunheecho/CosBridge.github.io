@@ -642,8 +642,15 @@ static func update_mines(st: CombatState, dt: float) -> void:
 				if not e.boss and not bool(e.airborne):
 					var dd := PGeom.dist(e.x, e.y, mn.x, mn.y)
 					if dd <= 70.0 + e.r and dd > float(mn.r):
+						# **등급 저항을 지킨다.** 예전에는 보스만 빼고 정예를 일반 적과 똑같이 끌어당겼다
+						# (1.5초에 18px). 밀어내기·끌어당기기는 같은 저항표(supports.json resist.knock)를
+						# 쓰기로 되어 있고, 같은 파일 356행의 '연결 폭발'은 이미 그렇게 하고 있었다.
+						# 2026-09-09 시너지 검수 SM-2.
+						var pull := PSupport.knock_dist(40.0 * dt, e)
+						if pull <= 0.0:
+							continue
 						var n := PGeom.norm(mn.x - e.x, mn.y - e.y)
-						st.move_swept(e, n[0] * 40.0 * dt, n[1] * 40.0 * dt)
+						st.move_swept(e, n[0] * pull, n[1] * pull)
 		for e in st.alive_targets():
 			if not bool(e.airborne) and PGeom.dist(e.x, e.y, mn.x, mn.y) <= float(mn.r) + e.r:
 				explode_mine(st, mn)

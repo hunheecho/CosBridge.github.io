@@ -570,6 +570,24 @@ func sec5_wind() -> void:
 		PWeapons.fire(cs, cw, ce, false)
 	ok("잔바람 장판은 상한을 넘겨 쌓이지 않는다(화면을 덮지 않게)",
 		zone_count(cs, "windgust") <= int(cw.stats.gustMax), "%d개(상한 %d)" % [zone_count(cs, "windgust"), int(cw.stats.gustMax)])
+	# 지표 두 개가 **다른 것을 센다**(2026-09-09 BP-2 회귀).
+	# slows = 새로 둔화가 걸린 적의 수 · slow_sec = 둔화 적·초. 예전에는 하나가 둘을 겸해
+	# 서리 수정의 slows(새로 걸린 횟수)와 같은 이름으로 세 자릿수 차이가 났다
+	var ms2 := mk([{ "id": "sword", "level": 1, "mods": [] }, { "id": "wind", "level": 1, "mods": ["lingering"] }])
+	var mw2 := wep(ms2, "wind")
+	var me2 := put(ms2, "wolf", 540.0, 300.0)
+	me2.hp = 99999.0
+	PWeapons.fire(ms2, mw2, me2, false)
+	for i in 60: # 1초 동안 한 마리가 계속 둔화 안에 있게 한다
+		me2.last_x = float(me2.x) - 2.0
+		me2.last_y = float(me2.y)
+		PSupport.update(ms2, STEP)
+	PSupport.sync_meters(ms2)
+	var m_slows := PSupport.metered(ms2, "wind", "slows")
+	var m_sec := PSupport.metered(ms2, "wind", "slow_sec")
+	ok("바람 둔화 지표: 적 1기가 1초 있으면 slows=1 · slow_sec≈1.0(프레임 수가 아니다)",
+		absf(m_slows - 1.0) < 0.001 and absf(m_sec - 1.0) < 0.05,
+		"slows=%.0f · slow_sec=%.2f" % [m_slows, m_sec])
 
 # ---------- 6. 공통 수명 ----------
 func sec6_lifetime() -> void:

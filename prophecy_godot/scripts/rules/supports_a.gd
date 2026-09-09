@@ -46,7 +46,7 @@ static func _new_state(id: String) -> Dictionary:
 				"spawned": 0, "strikes": 0, "damage": 0.0, "fizzles": 0 }
 		"wind":
 			return { "blasts": 0, "pushed": 0, "push_total": 0.0, "push_max": 0.0,
-				"gusts": 0, "slowed": 0, "slow_min": 1.0 }
+				"gusts": 0, "slowed": 0, "slow_sec": 0.0, "slow_min": 1.0 }
 	return {}
 
 ## 그 보조의 전투 중 상태(없으면 만든다). st.support는 전투 시작 때 PSupport.init_state가 비운다
@@ -756,8 +756,16 @@ static func _wind_update(st: CombatState, dt: float) -> void:
 			if PGeom.dist(float(z2.x), float(z2.y), e.x, e.y) <= float(z2.r) + float(e.r):
 				mult = PSupport.stack_slow(mult, float(z2.get("slow", 0.0)), e)
 		if mult >= 0.999:
+			e["wind_slow_on"] = false
 			continue
-		S.slowed = int(S.slowed) + 1
+		# **두 가지를 따로 센다.** 예전에는 `slowed`가 '둔화 중인 적 × 프레임'이라
+		# 서리 수정의 `slows`('새로 둔화가 걸린 횟수')와 같은 이름표를 쓰면서 뜻이 달랐다
+		# (같은 전투에서 바람 2261.5 · 서리 13.5 — 단위가 달라 세 자릿수 차이가 났다).
+		# 이제 `slowed`는 **새로 둔화된 적의 수**, `slow_sec`는 **둔화 적·초**다. 2026-09-09 대표 조합 검수 BP-2.
+		S.slow_sec = float(S.slow_sec) + dt
+		if not bool(e.get("wind_slow_on", false)):
+			e["wind_slow_on"] = true
+			S.slowed = int(S.slowed) + 1
 		S.slow_min = minf(float(S.slow_min), mult)
 		var dx := float(e.x) - float(e.get("last_x", e.x))
 		var dy := float(e.y) - float(e.get("last_y", e.y))
