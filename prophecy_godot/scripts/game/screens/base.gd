@@ -794,7 +794,11 @@ func _final_prep(r: Dictionary) -> void:
 	if cleared:
 		note = "마지막 보스를 넘었습니다. 이 회차의 성장은 여기서 끝납니다. 같은 빌드로 다시 도전하거나 새 회차를 시작하세요."
 	else:
-		note = "보스전은 하루 시간 밖의 관문입니다. 상점·대장간·장비 교체는 시간을 쓰지 않습니다. 패배하면 입장 시점으로 돌아와 같은 준비로 재도전합니다(하루 손실 없음)."
+		# 사람 플레이의 패배 규칙은 2026-09-09에 바뀌었다(무료 상태 복원·무제한 재도전 없음). 옛 문구는 시험 재시도 경로에만 맞다.
+		if PRun.retry_mode(r):
+			note = "보스전은 하루 시간 밖의 관문입니다. 상점·대장간·장비 교체는 시간을 쓰지 않습니다. [시험 재시도 경로] 패배하면 입장 시점으로 돌아와 같은 준비로 재도전합니다(하루 손실 없음)."
+		else:
+			note = "보스전은 하루 시간 밖의 관문입니다. 상점·대장간·장비 교체는 시간을 쓰지 않습니다. 패배하면 부활 물약이 있어야 이어갈 수 있고, 부활한 뒤의 재입장은 체력이 자동으로 차지 않습니다."
 		if stages > 1 and int(r.get("stage", 0)) < stages - 1:
 			note += " 승리하면 그날의 시간대가 %s부터 시작됩니다." % String(PRun.time_slots()[0])
 	top.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % note, 12))
@@ -824,7 +828,10 @@ func _final_prep(r: Dictionary) -> void:
 	if not cleared:
 		_prep_card(r, left) # 관문에서도 준비물 1개를 골라 둘 수 있다(재도전은 입장 스냅샷으로 함께 되돌아온다)
 	var snap := PUi.card("입장 스냅샷", PUi.CARD, 13)
-	(snap.box as VBoxContainer).add_child(PUi.rich("[color=#9ea8b8]Lv %d · %s · 체력 %d · 재도전 %d회%s[/color]" % [int(g.level), ", ".join(wn), int(float(b.hp_max)), int(r.get("bossRetries", 0)), " (입장 시점 상태로 복구됨: 처치 경험치·보상 중복 없음)" if int(r.get("bossRetries", 0)) > 0 else ""], 12))
+	# 입장 체력은 규칙이 정한다(PRun.boss_start_hp): 보통 입장은 최대 체력, **부활로 들어가는 재입장**은 지금 체력 그대로다
+	(snap.box as VBoxContainer).add_child(PUi.rich("[color=#9ea8b8]Lv %d · %s · 입장 체력 %d/%d · 재도전 %d회%s[/color]" % [int(g.level), ", ".join(wn), int(PRun.boss_start_hp(r, b)), int(float(b.hp_max)), int(r.get("bossRetries", 0)), " (입장 시점 상태로 복구됨: 처치 경험치·보상 중복 없음)" if int(r.get("bossRetries", 0)) > 0 else ""], 12))
+	if PRun.revive_pending(r):
+		(snap.box as VBoxContainer).add_child(PUi.rich("[color=#ffd479]부활 뒤 재입장이라 입장 시 자동 회복이 없습니다 — 지금 체력 그대로 들어갑니다(회복약을 쓰면 그만큼 오릅니다).[/color]", 12))
 	(snap.box as VBoxContainer).add_child(PUi.rich("[color=#9ea8b8]준비물·회복약도 입장 시점으로 복구됩니다(재도전마다 다시 사지 않아도 되고, 무한 회복도 아닙니다).[/color]", 12))
 	left.add_child(snap.panel)
 	var recs: Dictionary = r.get("bossRecords", {})

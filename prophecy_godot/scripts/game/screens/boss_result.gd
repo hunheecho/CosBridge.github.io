@@ -17,16 +17,30 @@ static func defeat_lines(r: Dictionary) -> Array:
 			"[color=#9ea8b8]부활 물약을 가지고 있었다면 최대 체력 25%로 관문 앞에 다시 설 수 있었습니다.[/color]",
 		]
 	if PRun.revived_same_day(r): # 마지막 날: 날짜를 넘기지 않고 같은 날 관문 앞
-		return [
+		var last_lines := [
 			"[b]부활 물약 1개를 썼습니다.[/b] 마지막 날이라 [b]날짜는 넘어가지 않습니다[/b] — [b]같은 %d일차 관문 앞[/b]에서 [b]최대 체력의 25%%[/b]로 다시 섭니다." % int(r.get("day", 1)),
 			"[color=#9ea8b8]대신 오늘 남은 시간은 전부 사라졌습니다(휴식·상점 없이 관문만 남습니다). 다시 쓰러지면 부활 물약이 또 한 개 듭니다 — 남은 %d개.[/color]" % PConsumables.revive_count(r),
 		]
+		var nh_last := no_heal_line(r)
+		if nh_last != "":
+			last_lines.append(nh_last)
+		return last_lines
 	if bool((r.get("death", {}) as Dictionary).get("revived", false)):
-		return [
+		var lines := [
 			"[b]부활 물약 1개를 썼습니다.[/b] 남은 하루를 잃고 [b]%d일차 관문 앞[/b]에 [b]최대 체력의 25%%[/b]로 다시 섭니다." % int(r.get("day", 1)),
 			"[color=#9ea8b8]관문은 그대로 남아 있어 다음 막은 열리지 않습니다 · 남은 부활 물약 %d개.[/color]" % PConsumables.revive_count(r),
 		]
+		var nh := no_heal_line(r)
+		if nh != "":
+			lines.append(nh)
+		return lines
 	return []
+
+## 부활로 관문 앞에 섰을 때만 붙는 한 줄. 재입장에는 자동 회복이 없다(PRun.revive_pending이 true인 동안)
+static func no_heal_line(r: Dictionary) -> String:
+	if not PRun.revive_pending(r):
+		return ""
+	return "[color=#ffd479]다시 들어가도 체력은 자동으로 차지 않습니다 — 지금 체력 %d/%d 그대로 시작합니다. 회복약을 쓰면 그만큼 오른 체력으로 들어갑니다.[/color]" % [int(PRun.boss_start_hp(r)), int(float(PRun.build(r).hp_max))]
 
 ## 바로 다시 들어갈 수 있는가. 시험 경로와 **마지막 날 부활**뿐이다
 ## (마지막 날은 남은 시간이 0이라 거점에서 할 일이 없다. 다음 날 부활은 하루가 통째로 남으므로 거점을 거치게 둔다)
