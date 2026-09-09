@@ -365,6 +365,24 @@ func _run() -> void:
 		"note=%s log=%s" % [String(ov2.note()), str(runp.get("log", []))])
 	ok("④-4 미정의 pool이어도 나갈 길은 남는다(모바일에서 갇히지 않는다)",
 		pexit != null and ov2.has_exit(), "버튼 %s" % str(_all_buttons(ov2, [])))
+	# ④-5 **고른 카드가 거부되면 같은 창이 다시 뜨면 안 된다.**
+	# 예전에는 PGrowth.apply_choice가 false를 내도 pendingOffer가 남아, 눌러도 같은 3택이 계속 떴다 —
+	# 버튼은 있는데 아무리 눌러도 진행이 안 되는 화면이다('버튼 존재'와 '실제 탈출'의 차이).
+	var runf := PRun.new_run(5, "sword")
+	var gf: Dictionary = runf.growth
+	gf.weapons = [{ "id": "sword", "level": 5, "mods": [] }]   # 이미 상한이라 레벨업 선택이 거부된다
+	gf.pendingLevelUps = 1
+	var offf := { "pool": "level", "choices": [{ "kind": "weapon_level", "id": "sword", "key": "weapon_level:sword" }] }
+	gf.pendingOffer = offf
+	PFlow.resolve_offer(runf, offf, offf.choices[0])
+	ok("④-5 적용이 거부되면 그 제시를 닫는다(같은 3택이 다시 뜨지 않는다)",
+		gf.get("pendingOffer", null) == null and PFlow.next_offer(runf, {}) == null,
+		"pendingOffer=%s · 남은 레벨업 %d" % [str(gf.get("pendingOffer", null)), int(gf.pendingLevelUps)])
+	ok("④-5 거부를 **조용히 넘기지 않는다**(회차 기록 + 실패 회수)",
+		int(gf.get("applyFailures", 0)) == 1 and str(runf.get("log", [])).contains("보상 적용 실패"),
+		"실패 %d · 기록=%s" % [int(gf.get("applyFailures", 0)), str(runf.get("log", []))])
+	ok("④-5 거부됐다고 금화를 대신 주지 않는다(무엇을 잃었는지 보이게 둔다)",
+		int(runf.gold) == int(PRun.new_run(5, "sword").gold), "금화 %d" % int(runf.gold))
 	ov2.queue_free()
 
 	main.queue_free()
