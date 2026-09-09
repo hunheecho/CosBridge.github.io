@@ -16,3 +16,4 @@ prophecy_godot/docs/captures/0.8.0_clips/*.avi
 
 # 0.9.x 실제 속도 영상 클립(초당 약 1.5MB): 명령으로 다시 만든다
 prophecy_godot/docs/captures/0.9.0_clips/*.avi
+prophecy_godot/docs/captures/1.0.0_clips/*.avi

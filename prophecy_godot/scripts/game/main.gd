@@ -1481,6 +1481,26 @@ const CLIPS := {
 	# 보스가 엄폐물을 부순다(2026-09-09). 성격에 맞는 행동이 실제로 선택되는지 본다
 	"boss_break_warden": { "desc": "성문 파수장 — 방패 돌파로 바위를 부순다(엄폐 뒤에 선 채로)", "kind": "boss", "boss": "gate_warden", "build": "stage2", "drive": "cover" },
 	"boss_break_guardian": { "desc": "봉인 수호자 — 막은 장애물을 지목해 부순다(엄폐 뒤에 선 채로)", "kind": "boss", "boss": "guardian", "build": "stage2", "drive": "cover" },
+
+	# ---------- 1.0.x 새 몬스터 · 테마 협공 · 특수 정예 결투(2026-09-09) ----------
+	# 앞의 열한 편은 보조무기와 개조를 찍었다. 여기서는 **적 쪽에 새로 들어온 것**을 찍는다.
+	# 신규 3종은 **약한 빌드**로 찍는다. 완성 빌드(stage2)로 세우면 박쥐(체력 18)가 2초 안에 전멸해
+	# '치고 빠지는' 행동 자체가 화면에 남지 않는다. 규칙이 아니라 촬영용 상대의 세기를 고른 것이다
+	"mon_new": { "desc": "신규 일반 3종 — 흡혈 박쥐(물고 이탈) · 불씨 도마뱀(불줄기) · 도약 두꺼비(착지 예고)", "kind": "arena",
+		"types": ["bat", "lizard", "toad"], "count": 4, "bot": "novice",
+		"weapons": [{ "id": "sword", "level": 1, "mods": [] }] },
+	"mon_elite": { "desc": "일반 정예 변종 — 쇄도 멧돼지 · 연사 궁수 · 충격 두꺼비(늑대 셋과 함께)", "kind": "elites", "build": "stage2",
+		"types": ["boar_elite", "archer_elite", "toad_elite"] },
+	# 협공은 **실제 출격 편성**으로만 찍는다. 연습장에 세우면 등장 시차·분대 배치가 사라져 협공이 아니게 된다
+	"form_coop": { "desc": "테마 협공 — 얼어붙은 협곡 '봉쇄와 사격 사이 통과'(서리술사가 길을 좁히고 궁수가 겹친다)",
+		"kind": "sortie", "region": "t2c_snow", "day": 5, "build": "stage2", "formationId": "t2c_frost_wolf" },
+	"form_coop2": { "desc": "테마 협공 — 사냥 숲 '막힌 길과 착지 예고'(거미줄 + 두꺼비 착지)",
+		"kind": "sortie", "region": "t1a_path", "day": 2, "build": "stage1", "formationId": "t1a_boar" },
+	# 결투: 일반 편성 증원이 없는 1대1. 특수 정예 자신의 소환·깃발·구조물은 그대로 나온다
+	"duel_special": { "desc": "특수 정예 결투 — 증원 없는 1대1(사냥 숲 · 송곳니 우두머리)",
+		"kind": "sortie", "region": "t1a_path", "day": 2, "build": "stage1", "duelType": "elite_fang", "warmup_until": "transition" },
+	"duel_standard": { "desc": "특수 정예 결투 — 군단 기수(부하 소환은 유지된다)",
+		"kind": "sortie", "region": "t1b_yard", "day": 2, "build": "stage1", "duelType": "elite_standard", "warmup_until": "transition" },
 }
 
 ## 방패병 클립 전용 조작(사람 입력 자리): 정면에서 버티거나, 뒤로 돌아 들어간다. 규칙은 건드리지 않는다
@@ -1650,6 +1670,10 @@ func _clip_start() -> void:
 				sortie.mission = true
 				sortie.objective = String(c.objective)
 				sortie.cardId = "clip"
+			if c.has("formationId"): # 테마 협공: 어느 편성인지 못 박는다(안 적으면 그날의 기본 편성이 나온다)
+				sortie.formationId = String(c.formationId)
+			if c.has("duelType"): # 특수 정예 결투 상대. PRun.encounter_waves가 이 값을 그대로 읽는다
+				sortie.duelType = String(c.duelType)
 			st = CombatState.new(PFlow.encounter_opts(run, sortie))
 	# 엄폐 조작은 종류를 가리지 않는다(보스 파괴 클립이 쓴다). match 밖에 두어야 보스 갈래에도 걸린다
 	if String(c.get("drive", "")) == "cover":
@@ -1658,6 +1682,26 @@ func _clip_start() -> void:
 	use_bot = true
 	lab_label = "영상 클립: " + String(c.desc)
 	_view_start(st, bot)
+	# **앞 구간 미리 돌리기.** 결투는 일반 편성을 전부 정리한 뒤에 열리므로(CombatState.update_duel),
+	# 그냥 찍으면 짧은 클립이 일반 전투만 담는다. 여기서는 결투가 시작될 때까지를 **한 프레임 안에서**
+	# 미리 돌린 뒤 촬영을 시작한다 — 규칙·시간 배율·봇은 그대로이고, 영상에 담는 구간만 고른 것이다.
+	# (Movie Maker는 그린 프레임만 담으므로 이 되감기는 파일에 들어가지 않는다.)
+	var until := String(c.get("warmup_until", ""))
+	if until != "":
+		var wf := 0
+		while wf < 60 * 240:
+			if until == "duel" and view.st != null and view.st.duel_stage == "duel":
+				break
+			# "transition"은 **전환 장면부터** 찍는다: 일반 편성이 정리된 순간(normal을 벗어난 첫 프레임)에 멈춘다.
+			# 그래야 잔여 정리 → 성장 선택 → 등장 연출 → 결투가 영상 안에 그대로 들어간다
+			if until == "transition" and view.st != null and view.st.duel_stage != "normal":
+				break
+			if view.st == null or String(view.st.status) != "running":
+				break
+			view._process(1.0 / 60.0)
+			wf += 1
+		print("CLIP warmup=", _clip_id, " until=", until, " sec=", snapped(float(wf) / 60.0, 0.01),
+			" duel_stage=", (view.st.duel_stage if view.st != null else "?"))
 	show("combat")
 	_refresh_combat_texts()
 	print("CLIP start=", _clip_id, " sec=", _clip_sec, " fps=", _clip_fps, " ", String(c.desc))
@@ -1680,7 +1724,17 @@ func _clip_tick() -> void:
 			sup_m = (view.st.metrics.support as Dictionary).duplicate(true)
 			cause_m = (view.st.metrics.cause_fires as Dictionary).duplicate()
 			cause_m["부순 장애물"] = (view.st.metrics.get("broken", []) as Array).size()
+		# **누가 실제로 나왔는지**도 함께 남긴다. 새 몬스터·협공 편성·결투 클립은
+		# "그 종류가 화면에 있었는가"가 곧 촬영 성공 여부라, 지표만으로는 확인이 안 된다.
+		var seen := {}
+		var duel := ""
+		if view.st != null:
+			for e in view.st.enemies:
+				var tk := String(e.get("type", ""))
+				seen[tk] = int(seen.get(tk, 0)) + 1
+			duel = String(view.st.duel_stage)
 		print("CLIP done=", _clip_id, " frames=", _clip_frames, " combat_t=", snapped(tt, 0.01), " screen=", screen,
+			" enemies=", JSON.stringify(seen), " duel=", duel,
 			" support=", JSON.stringify(sup_m), " cause=", JSON.stringify(cause_m))
 		get_tree().quit()
 
