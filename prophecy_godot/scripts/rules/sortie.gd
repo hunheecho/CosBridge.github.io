@@ -51,8 +51,19 @@ static func reward_target(run: Dictionary, kind: String) -> String:
 					parts.append("%s 개조 %d/%d" % [String(W[String(w.id)].name), (w.mods as Array).size(), int(S.weaponMods)])
 			return " / ".join(parts)
 		"skill":
-			var e = g.skills.get("e", null)
-			return ("%s·감속장 강화/변형" % String(PCatalog.skills()[String(e.id)].name)) if e != null else "E 기술 습득·감속장 강화"
+			# **Q가 감속장이라는 가정을 쓰지 않는다**(2026-09-10, §7). Q·E 두 칸에 어떤 기술이든
+			# 들어갈 수 있으므로 실제로 장착한 기술 이름을 적는다. 빈 칸은 '습득'으로 안내한다
+			var qs = g.skills.get("q", null)
+			var es = g.skills.get("e", null)
+			var SK := PCatalog.skills()
+			var names := []
+			if qs != null and SK.has(String(qs.id)):
+				names.append("%s 강화/변형" % String(SK[String(qs.id)].name))
+			if es != null and SK.has(String(es.id)):
+				names.append("%s 강화/변형" % String(SK[String(es.id)].name))
+			else:
+				names.append("수동 기술 습득")
+			return " · ".join(names)
 		"common":
 			return "공통 증강"
 		"service":
