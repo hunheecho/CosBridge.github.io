@@ -4,15 +4,16 @@ extends SceneTree
 ##      (직접: godot --headless --path prophecy_godot -s tests/equip_combat_tests.gd)
 ##
 ## 대상(docs/SPEC_EQUIP_SKILLBANK.md 3절 [1][2][3][10] · docs/EQUIP_COMBAT.md)
-##  [1]  공성 망치머리(siege_hammerhead) — 전투망치 착탄 뒤 전방 균열
+##  [1]  공성 망치머리(siege_hammerhead) — 전투망치 착탄점에 짧은 간격 뒤 추가 충격 1회(전방 균열은 없앴다)
 ##  [2]  겹번개 도선(stormwire)          — 일반 감전 추가 피해를 같은 적에게 1회 복제
 ##  [3]  서리 결정 흉갑(frostcrest_armor) — 빙결 요구 냉기 중첩 5 → 4
 ##  [10] 잔영 허물(afterimage_cloak)     — 회피 출발점의 잔영이 '아직 겨누는 중인 적'만 흔든다
 ##
 ## 여기서 못박는 것
 ##  1. 장비를 끼지 않으면 **아무것도 달라지지 않는다**(기준 전투 지문 보존).
-##  2. [1] 최초 착탄에 맞은 적이 균열에 **다시** 맞고, 한 번의 균열에는 **한 번만** 맞는다.
+##  2. [1] 최초 착탄에 맞은 적이 추가 충격에 **다시** 맞고, 한 번의 추가 충격에는 **한 번만** 맞는다.
 ##     피해 기준은 **최초 타격의 명목 공격 피해**이며 잃은 체력·과잉 피해와 무관하다.
+##     터지는 자리는 **최초 착탄점 고정**이고, 같은 빙결을 본타와 추가 충격이 두 번 파쇄하지 않는다.
 ##  3. [2] 복제는 자기 자신을 다시 부르지 않고, **방전 충전 횟수에 포함되지 않으며**, 큰 방전을 복제하지 않는다.
 ##  4. [3] 요구량만 줄고 **재빙결 제한·보스 결빙(soft)** 은 그대로다. 바닥값 아래로는 내려가지 않는다.
 ##  5. [10] 확정된 공격은 안 바뀌고, 잔영이 광역 피해를 **대신 받지 않으며**, 회피 수치가 하나도 안 바뀐다.
@@ -86,7 +87,7 @@ func procs(st: CombatState, key: String) -> float:
 	return PSupport.metered(st, "orb", key)
 
 func _init() -> void:
-	sec1_hammer_crack()
+	sec1_hammer_focus()
 	sec2_shock_echo()
 	sec3_frost_req()
 	sec4_afterimage()
@@ -96,70 +97,218 @@ func _init() -> void:
 	quit(0 if pass_n == results.size() else 1)
 
 # ---------- [1] 공성 망치머리 ----------
-## 착탄점 = 플레이어에서 앞으로 100(사거리 110 안). 반경 80.
-##   A = 착탄점(본타 + 균열)  ·  B = 착탄점에서 앞으로 120(원 밖 · 균열 길이 170 안)
-func hammer_case(equip: Dictionary) -> Array:
-	var st := lab([["hammer", 1, []]], equip, "hammer")
+## 착탄점 = 플레이어에서 앞으로 100(사거리 110 안). 본타 반경 80 · 준비 0.45.
+## 추가 충격(시험값): 지연 0.25초 · 반경 = 본타 반경 × 0.65 = 52 · 피해 = 최초 타격의 50%.
+##   A = 착탄점(본타 + 추가 충격)  ·  B = 착탄점에서 앞으로 120(옛 전방 균열 길이 170 안 — 지금은 아무것도 안 맞아야 한다)
+const FOCUS_DELAY := 0.25
+const FOCUS_RMULT := 0.65
+
+func hammer_stats() -> Dictionary:
+	return wep(lab([["hammer", 1, []]], {}, "hammer"), "hammer").stats
+
+## [st, A가 잃은 체력, B가 잃은 체력]
+func hammer_case(equip: Dictionary, mods: Array = [], seconds: float = 1.0) -> Array:
+	var st := lab([["hammer", 1, mods.duplicate()]], equip, "hammer")
 	var a := dummy(st, 100.0, 0.0)
 	var b := dummy(st, 220.0, 0.0)
 	var hp_a0: float = float(a.hp)
 	var hp_b0: float = float(b.hp)
 	PWeapons.fire(st, wep(st, "hammer"), a, false)
-	advance_delayed(st, 1.0)
+	advance_delayed(st, seconds) # 준비 0.45 + 후속(추가 충격 0.25 · 여진 0.6)이 모두 끝날 만큼 돌린다
 	return [st, hp_a0 - float(a.hp), hp_b0 - float(b.hp)]
 
-func sec1_hammer_crack() -> void:
-	var dmg: float = float(wep(lab([["hammer", 1, []]], {}, "hammer"), "hammer").stats.damage)
+func sec1_hammer_focus() -> void:
+	var hs := hammer_stats()
+	var dmg: float = float(hs.damage)
+	var rad: float = float(hs.radius)
+	var frad: float = rad * FOCUS_RMULT
+
+	# 확정 수치는 그대로다(바꾸지 않았다)
+	ok("[1] 망치 확정 수치 불변: 반경 %s · 사거리 %s · 피해 %s · 주기 %s · 준비 %s" % [str(rad), str(hs.range), str(dmg), str(hs.interval), str(hs.get("windup", 0.0))],
+		is_equal_approx(rad, 80.0) and is_equal_approx(float(hs.range), 110.0) and is_equal_approx(dmg, 30.0)
+		and is_equal_approx(float(hs.interval), 1.4) and is_equal_approx(float(hs.get("windup", 0.0)), 0.45))
 
 	var off := hammer_case({})
 	var st_off: CombatState = off[0]
-	ok("[1] 장비 없음: 착탄 원 안의 적만 본타 1회, 원 밖의 적은 0(균열 없음)",
+	ok("[1] 장비 없음: 착탄 원 안의 적만 본타 1회, 앞쪽 적은 0",
 		near(float(off[1]), dmg) and is_zero_approx(float(off[2])) and not (st_off.stats.equip_procs as Dictionary).has(EQ_HAMMER),
 		"A %s / B %s (본타 %s)" % [str(off[1]), str(off[2]), str(dmg)])
 
 	var on := hammer_case({ "weapon": EQ_HAMMER })
 	var st_on: CombatState = on[0]
-	ok("[1] 최초 착탄에 맞은 적이 **균열에 다시 맞는다**: A = 본타 + 본타×0.5",
+	ok("[1] 착탄점 적 = 본타 + 추가 충격 = 본타×1.5(30이면 45.0)",
 		near(float(on[1]), dmg * 1.5), "A %s (기대 %s)" % [str(on[1]), str(dmg * 1.5)])
-	ok("[1] 한 번의 균열에 같은 적은 **한 번만** 맞는다: 원 밖 B = 본타×0.5 정확히(2배가 아니다)",
-		near(float(on[2]), dmg * 0.5), "B %s (기대 %s)" % [str(on[2]), str(dmg * 0.5)])
-	ok("[1] 균열 피해 기준은 **최초 타격의 명목 피해**다: 본타를 맞은 A의 추가분 = 본타를 안 맞은 B의 피해",
-		near(float(on[1]) - dmg, float(on[2])), "A 추가분 %s / B %s" % [str(float(on[1]) - dmg), str(on[2])])
-	ok("[1] 내려찍기 1회 = 균열 1회(계측)", int((st_on.stats.equip_procs as Dictionary).get(EQ_HAMMER, 0)) == 1)
+	ok("[1] **전방 균열이 사라졌다**: 착탄점 앞 120(옛 균열 길이 170 안)의 적은 0을 받는다",
+		is_zero_approx(float(on[2])), "B %s (기대 0)" % str(on[2]))
+	ok("[1] 내려찍기 1회 = 추가 충격 1회(계측)", int((st_on.stats.equip_procs as Dictionary).get(EQ_HAMMER, 0)) == 1)
+	ok("[1] 타격 수도 정확히 2회다(본타 1 + 추가 충격 1). 같은 적을 더 때리지 않는다",
+		int((st_on.metrics.hits as Dictionary).get("hammer", 0)) == 2,
+		"타격 %d" % int((st_on.metrics.hits as Dictionary).get("hammer", 0)))
 
-	# 과잉 피해를 다시 피해량으로 쓰지 않는다: 본타로 즉사한(과잉 피해가 큰) 적이 있어도 균열 피해는 그대로다
+	# 추가 충격 1회에 **큰 적도 한 번만** 맞는다(몸집이 반경을 다 덮어도 한 번이다)
+	var st_big := lab([["hammer", 1, []]], { "weapon": EQ_HAMMER }, "hammer")
+	var big := dummy(st_big, 100.0, 0.0)
+	big.r = 60.0
+	var hp_big: float = float(big.hp)
+	PWeapons.fire(st_big, wep(st_big, "hammer"), big, false)
+	advance_delayed(st_big, 1.0)
+	ok("[1] 추가 충격 1회에 **몸집 큰 적(r=60)도 한 번만** 맞는다: 본타×1.5 정확히",
+		near(hp_big - float(big.hp), dmg * 1.5) and int((st_big.metrics.hits as Dictionary).get("hammer", 0)) == 2,
+		"%s (기대 %s) · 타격 %d회" % [str(hp_big - float(big.hp)), str(dmg * 1.5), int((st_big.metrics.hits as Dictionary).get("hammer", 0))])
+
+	# 과잉 피해를 다시 피해량으로 쓰지 않는다: 본타로 즉사한 적이 있어도 살아남은 적의 추가 충격은 명목값 그대로다
 	var st2 := lab([["hammer", 1, []]], { "weapon": EQ_HAMMER }, "hammer")
 	var a2 := dummy(st2, 100.0, 0.0, dmg * 0.4) # 본타 한 방에 죽는다(과잉 피해 = 본타 × 0.6)
-	var b2 := dummy(st2, 220.0, 0.0)
-	var hp_b2: float = float(b2.hp)
+	var c2 := dummy(st2, 100.0, 30.0) # 같은 착탄 원 안에서 살아남는 적
+	var hp_c2: float = float(c2.hp)
 	PWeapons.fire(st2, wep(st2, "hammer"), a2, false)
 	advance_delayed(st2, 1.0)
-	ok("[1] 과잉 피해를 다시 피해량으로 쓰지 않는다: A가 즉사해도 B의 균열 피해는 본타×0.5 그대로",
-		bool(a2.dead) and near(hp_b2 - float(b2.hp), dmg * 0.5), "B %s (기대 %s)" % [str(hp_b2 - float(b2.hp)), str(dmg * 0.5)])
+	ok("[1] **즉사시켜 과잉 피해가 나도** 추가 충격 피해는 명목값 그대로다(본타×1.5)",
+		bool(a2.dead) and near(hp_c2 - float(c2.hp), dmg * 1.5),
+		"살아남은 적 %s (기대 %s)" % [str(hp_c2 - float(c2.hp)), str(dmg * 1.5)])
+
+	# 피해 배율이 두 겹으로 곱해지지 않는다: 추가분은 정확히 본타의 0.5배다
+	ok("[1] 피해 배율 중복 없음: 추가 충격분 = 본타 × 0.5 정확히",
+		near(float(on[1]) - dmg, dmg * 0.5), "추가분 %s (기대 %s)" % [str(float(on[1]) - dmg), str(dmg * 0.5)])
+
+	# ---- 위치 고정: 추가 충격 직전에 플레이어·적을 옮겨도 착탄점 그대로 ----
+	var st5 := lab([["hammer", 1, []]], { "weapon": EQ_HAMMER }, "hammer")
+	var ax: float = float(st5.player.x) + 100.0
+	var ay: float = float(st5.player.y)
+	var a5 := dummy(st5, 100.0, 0.0)
+	var hp_a5: float = float(a5.hp)
+	PWeapons.fire(st5, wep(st5, "hammer"), a5, false)
+	advance_delayed(st5, 0.5) # 본타는 끝났고(0.45) 추가 충격은 아직(0.45 + 0.25 = 0.70)
+	var after_land: float = hp_a5 - float(a5.hp)
+	# 예고 표시가 **판정에 쓸 값 그대로**인가(자리·반지름·수명 = 지연시간)
+	var warn := {}
+	for f in st5.effects:
+		if String(f.kind) == "focuswarn":
+			warn = f
+	ok("[1] 표시 = 판정: 예고(focuswarn)의 자리·반지름·수명이 실제 판정값과 같다(착탄점 · %s · %s초)" % [str(frad), str(FOCUS_DELAY)],
+		not warn.is_empty() and near(float(warn.x), ax, 0.001) and near(float(warn.y), ay, 0.001)
+		and near(float(warn.r), frad, 0.001) and near(float(warn.ttl), FOCUS_DELAY, 0.001),
+		"예고 %s" % str(warn))
+	ok("[1] 지연시간 전에는 아직 터지지 않는다: 0.5초 시점에서 A는 본타 1회분만 잃었다",
+		near(after_land, dmg) and not (st5.stats.equip_procs as Dictionary).has(EQ_HAMMER),
+		"A %s (기대 %s)" % [str(after_land), str(dmg)])
+	# 이제 플레이어도 적도 옮긴다
+	a5.x = ax + 400.0
+	a5.y = ay
+	st5.player.x = ax + 400.0
+	st5.player.y = ay
+	var c5 := dummy(st5, -400.0, 0.0) # 옮긴 플레이어 기준 -400 = 원래 착탄점 그 자리
+	var hp_c5: float = float(c5.hp)
+	advance_delayed(st5, 0.4)
+	ok("[1] **위치 고정**: 추가 충격 전에 플레이어·적을 옮겨도 터지는 자리는 최초 착탄점 그대로다",
+		near(hp_a5 - float(a5.hp), after_land) and near(hp_c5 - float(c5.hp), dmg * 0.5)
+		and int((st5.stats.equip_procs as Dictionary).get(EQ_HAMMER, 0)) == 1,
+		"옮긴 적 추가분 %s(기대 0) / 착탄점 새 적 %s(기대 %s)" % [str(hp_a5 - float(a5.hp) - after_land), str(hp_c5 - float(c5.hp)), str(dmg * 0.5)])
+
+	# ---- 파쇄: 자격은 유지하되 같은 빙결을 두 번 깨지 않는다 ----
+	# (가) 추가 충격도 파쇄를 터뜨릴 자격이 있다 — 본타 뒤에 언 적을 추가 충격이 깬다
+	var st6 := lab([["hammer", 1, []]], { "weapon": EQ_HAMMER }, "hammer")
+	var e6 := dummy(st6, 100.0, 0.0)
+	PWeapons.fire(st6, wep(st6, "hammer"), e6, false)
+	advance_delayed(st6, 0.5) # 본타는 끝났다
+	for i in st6.frost_need():
+		st6.add_chill_stack(e6, 1, {})
+	var froze6: bool = st6.is_frozen(e6)
+	advance_delayed(st6, 0.4)
+	ok("[1] **파쇄 자격 유지**: 본타 뒤에 언 적을 추가 충격이 깬다(파쇄 1회)",
+		froze6 and is_equal_approx(PSupport.metered(st6, "frost", "shatters"), 1.0),
+		"빙결 %s / 파쇄 %s" % [str(froze6), str(PSupport.metered(st6, "frost", "shatters"))])
+	ok("[1] 자격표: 추가 충격 경로(main_extra)는 파쇄 자격이 있다 — 새 경로 이름을 만들지 않았다",
+		PSupport.eligible("frost_shatter", "main_extra") and PSupport.eligible("frost_shatter", "main_direct"))
+
+	# ---- 연계 자격(7절): 추가 충격은 개조 '전방 충격파'·'여진'과 **같은 main_extra** 다. 새 경로 이름을 만들지 않았다 ----
+	ok("[1] 경로 분류: 추가 충격(direct:false · 주무기 hammer)은 main_extra로 분류된다",
+		PSupport.cause_of(st_on, { "weapon": "hammer", "hit": { "src": { "weapon_id": "hammer", "direct": false } } }) == "main_extra"
+		and PSupport.cause_of(st_on, { "weapon": "hammer", "hit": { "src": { "weapon_id": "hammer", "direct": true } } }) == "main_direct",
+		PSupport.cause_of(st_on, { "weapon": "hammer", "hit": { "src": { "weapon_id": "hammer", "direct": false } } }))
+	ok("[1] 자격표(7절): main_extra는 파쇄·감전 후속·까마귀 표적·숙주 파열을 부르고, **방전 충전은 직접 올리지 못한다**",
+		PSupport.eligible("frost_shatter", "main_extra")
+		and PSupport.eligible("shock_bonus", "main_extra")
+		and PSupport.eligible("crow_mark", "main_extra")
+		and PSupport.eligible("plague_host_burst", "main_extra")
+		and not PSupport.eligible("shock_discharge", "main_extra")
+		and not PSupport.eligible("echo_copy", "main_extra"))
+
+	# 감전 후속을 실제로 부르는가(값으로) · 방전 충전은 그 후속이 올린다(간접)
+	var st9 := lab([["hammer", 1, []], ["orb", 1, ["conduct"]]], { "weapon": EQ_HAMMER }, "hammer")
+	var e9 := dummy(st9, 100.0, 0.0)
+	PWeapons.fire(st9, wep(st9, "hammer"), e9, false)
+	advance_delayed(st9, 0.5) # 본타는 감전 없는 적을 때렸다
+	var sp0: float = PSupport.metered(st9, "orb", "shock_procs")
+	e9.conduct = float(PCatalog.support_tuning("orb").get("shockDur", 2.0)) # 본타 뒤에 감전이 걸렸다
+	advance_delayed(st9, 0.4) # 추가 충격
+	ok("[1] 연계: 추가 충격이 **감전 후속을 실제로 부른다**(충격파·여진과 같은 경로) · 방전 충전은 그 후속이 1 올린다",
+		is_zero_approx(sp0) and is_equal_approx(PSupport.metered(st9, "orb", "shock_procs"), 1.0) and int(st9.support_charge) == 1,
+		"본타 뒤 후속 %s → 추가 충격 뒤 후속 %s · 충전 %d" % [str(sp0), str(PSupport.metered(st9, "orb", "shock_procs")), int(st9.support_charge)])
+
+	# (나) 같은 빙결을 본타와 추가 충격이 **두 번** 깨지 않는다
+	var st7 := lab([["hammer", 1, []]], { "weapon": EQ_HAMMER }, "hammer")
+	var e7 := dummy(st7, 100.0, 0.0)
+	for i in st7.frost_need():
+		st7.add_chill_stack(e7, 1, {})
+	var froze7: bool = st7.is_frozen(e7)
+	PWeapons.fire(st7, wep(st7, "hammer"), e7, false)
+	advance_delayed(st7, 0.5)
+	var sh_after_land: float = PSupport.metered(st7, "frost", "shatters")
+	advance_delayed(st7, 0.4)
+	ok("[1] **같은 빙결을 두 번 파쇄하지 않는다**: 본타가 깨면 추가 충격은 안 깬다(파쇄 1회 그대로)",
+		froze7 and is_equal_approx(sh_after_land, 1.0) and is_equal_approx(PSupport.metered(st7, "frost", "shatters"), 1.0)
+		and not st7.is_frozen(e7) and float(e7.get("refreeze_t", 0.0)) > 0.0
+		and int((st7.stats.equip_procs as Dictionary).get(EQ_HAMMER, 0)) == 1,
+		"본타 뒤 %s / 추가 충격 뒤 %s · 재빙결 제한 %s" % [str(sh_after_land), str(PSupport.metered(st7, "frost", "shatters")), str(e7.get("refreeze_t", 0.0))])
+
+	# ---- 개조와 함께 썼을 때 ----
+	# 전방 충격파: 앞으로 뻗는 몫은 개조가, 착탄점에 모으는 몫은 장비가 맡는다(둘이 각자 제 역할)
+	var sw := hammer_case({ "weapon": EQ_HAMMER }, ["shockwave"])
+	ok("[1] **전방 충격파 개조와 함께**: 앞의 적은 충격파만(본타×0.6), 착탄점 적은 본타 + 충격파 + 추가 충격",
+		near(float(sw[2]), dmg * 0.6) and near(float(sw[1]), dmg * (1.0 + 0.6 + 0.5)),
+		"앞 %s(기대 %s) / 착탄점 %s(기대 %s)" % [str(sw[2]), str(dmg * 0.6), str(sw[1]), str(dmg * (1.0 + 0.6 + 0.5))])
+	# 여진: 같은 역할이 아니라 **각각 따로** 터진다(합치지도 지우지도 않는다)
+	var af := hammer_case({ "weapon": EQ_HAMMER }, ["aftershock"], 1.5) # 여진은 착탄 0.45 + 0.6 = 1.05초에 온다
+	ok("[1] **여진 개조와 함께**: 둘을 합치거나 지우지 않는다 — 착탄점 적 = 본타 + 여진 0.5 + 추가 충격 0.5",
+		near(float(af[1]), dmg * 2.0), "착탄점 %s (기대 %s)" % [str(af[1]), str(dmg * 2.0)])
 
 	# 전투망치가 없으면 작동하지 않는다
 	var st3 := lab([["sword", 1, []]], { "weapon": EQ_HAMMER }, "sword")
 	var e3 := dummy(st3, 50.0, 0.0)
 	PWeapons.fire(st3, wep(st3, "sword"), e3, false)
 	advance_delayed(st3, 1.0)
-	ok("[1] **망치가 없으면 작동하지 않는다**: 검으로 때려도 균열이 나지 않는다",
+	ok("[1] **망치가 없으면 작동하지 않는다**: 검으로 때려도 추가 충격이 나지 않는다",
 		not (st3.stats.equip_procs as Dictionary).has(EQ_HAMMER))
 	var d3: Dictionary = PCatalog.equipment_def(EQ_HAMMER)
 	ok("[1] 그 조건이 **장비 설명과 상점 문구(short·desc)** 에 적혀 있다",
 		String(d3.short).find("전투망치") >= 0 and String(d3.desc).find("전투망치가 없으면") >= 0, String(d3.short))
+	ok("[1] 장비 정의에 옛 균열 값(len·w)이 남아 있지 않고, 새 값(지연·반경 배율)이 자료에 있다",
+		not (d3.eff.hammerFocus as Dictionary).has("len") and not (d3.eff.hammerFocus as Dictionary).has("w")
+		and near(float((d3.eff.hammerFocus as Dictionary).delay), FOCUS_DELAY, 0.001)
+		and near(float((d3.eff.hammerFocus as Dictionary).radiusMult), FOCUS_RMULT, 0.001)
+		and near(float((d3.eff.hammerFocus as Dictionary).mult), 0.5, 0.001), str(d3.eff.hammerFocus))
 
-	# 준비 중 회피 취소 = 본타도 균열도 없다(§2 취소 규칙)
+	# 준비 중 회피 취소 = 본타도 추가 충격도 없다(§2 취소 규칙)
 	var st4 := lab([["hammer", 1, []]], { "weapon": EQ_HAMMER }, "hammer")
 	var a4 := dummy(st4, 100.0, 0.0)
-	var b4 := dummy(st4, 220.0, 0.0)
 	var hp_a4: float = float(a4.hp)
-	var hp_b4: float = float(b4.hp)
 	PWeapons.fire(st4, wep(st4, "hammer"), a4, false)
 	PWeapons.cancel_windup(st4)
 	advance_delayed(st4, 1.0)
-	ok("[1] 준비 중 회피로 취소하면 본타도 균열도 일어나지 않는다",
-		is_zero_approx(hp_a4 - float(a4.hp)) and is_zero_approx(hp_b4 - float(b4.hp))
-		and not (st4.stats.equip_procs as Dictionary).has(EQ_HAMMER))
+	ok("[1] 준비 중 회피로 취소하면 본타도 추가 충격도 일어나지 않는다",
+		is_zero_approx(hp_a4 - float(a4.hp)) and not (st4.stats.equip_procs as Dictionary).has(EQ_HAMMER))
+
+	# 밀어내기·경직은 본타만 준다(한 번의 내려찍기가 제압을 두 번 걸지 않는다)
+	var st8 := lab([["hammer", 1, []]], { "weapon": EQ_HAMMER }, "hammer")
+	var e8 := dummy(st8, 100.0, 0.0)
+	PWeapons.fire(st8, wep(st8, "hammer"), e8, false)
+	advance_delayed(st8, 0.5)
+	var x_land: float = float(e8.x)
+	advance_delayed(st8, 0.4)
+	ok("[1] 밀어내기·경직은 **본타만** 준다: 추가 충격은 적을 더 밀지 않는다",
+		near(float(e8.x), x_land, 0.001) and int((st8.stats.equip_procs as Dictionary).get(EQ_HAMMER, 0)) == 1,
+		"착탄 직후 x %s → 추가 충격 뒤 x %s" % [str(x_land), str(e8.x)])
 
 # ---------- [2] 겹번개 도선 ----------
 ## 감전된 적 e1(앞 60)과 그 옆 e2(앞 60 · 옆 45 — 감전 후속 반경 50 안).
@@ -388,7 +537,7 @@ func sec4_afterimage() -> void:
 # ---------- 장비 정의(2절: 기본 능력치 하나 + 고유 효과) ----------
 func sec5_defs() -> void:
 	var rows := {
-		EQ_HAMMER: ["weapon", "eliteDirect", "hammerCrack"],
+		EQ_HAMMER: ["weapon", "eliteDirect", "hammerFocus"],
 		EQ_SHOCK: ["weapon", "reach", "shockEcho"],
 		EQ_FROST: ["armor", "hpMax", "frostReq"],
 		EQ_CLOAK: ["armor", "speed", "afterimage"],
@@ -415,7 +564,8 @@ func sec5_defs() -> void:
 	# 화면: 새 효과를 그리는 갈래가 있고 **규칙이 만든 값**을 읽는가(render_tests와 같은 방식의 원본 확인)
 	var f := FileAccess.open("res://scripts/game/render.gd", FileAccess.READ)
 	var src := f.get_as_text() if f != null else ""
-	ok("화면: 균열(crack)·잔영(draw_afterimage)·잔영 소멸(afterimage_pop) 갈래가 있고 규칙 값을 읽는다",
-		src.find("\"crack\":") >= 0 and src.find("\"afterimage_pop\":") >= 0
+	ok("화면: 추가 충격 예고·폭발(focuswarn·focusblast)·잔영(draw_afterimage)·잔영 소멸(afterimage_pop) 갈래가 있고 규칙 값을 읽는다",
+		src.find("\"focuswarn\":") >= 0 and src.find("\"focusblast\":") >= 0 and src.find("\"afterimage_pop\":") >= 0
 		and src.find("static func draw_afterimage(") >= 0 and src.find("st.afterimage") >= 0
 		and src.find("draw_afterimage(ci, st)") >= 0)
+	ok("화면: **옛 전방 균열 갈래(crack)가 남아 있지 않다**", src.find("\"crack\":") < 0)
