@@ -67,7 +67,42 @@ static func normalize(run: Dictionary) -> Dictionary:
 	return _normalize(run)
 
 ## 저장: 임시 파일에 쓴 뒤 본 파일 위로 이름 변경. 성공 여부
+## **사람의 저장을 시험이 덮어쓰지 못하게 하는 관문**(2026-09-10 사고 뒤 추가).
+##
+## 무슨 일이 있었나: 검사 스크립트를 **창을 띄운 채 APPDATA 격리 없이** 돌렸다. 그 스크립트가
+## PSave.clear() 뒤 새 회차를 저장해 **사람이 진행하던 회차 저장이 시험 자료로 덮여 사라졌다.**
+## 되돌릴 방법이 없었다(원본을 지운 뒤 새로 썼다).
+##
+## 그래서 규칙 계층에 관문을 둔다. `PROPHECY_TEST=1`이 켜져 있는데 user:// 가 **격리된 자리가
+## 아니면** 쓰기를 거부한다. 격리 표시는 경로에 `userdata__` 또는 `prophecy_test_runs`가 들어 있는 것
+## (공용 실행기 tools/run_suites.py가 그렇게 만든다).
+## 검사·도구는 이 값을 켜고 돌린다 → 격리를 깜빡하면 저장이 안 되고 경고가 남는다.
+## 사람이 하는 실제 게임은 이 값이 없으므로 아무 영향이 없다.
+## 지금 돌고 있는 것이 **검사·도구 스크립트**인가. `-s tests/…` 또는 `-s tools/…` 로 판별한다.
+## 환경 변수에만 기대면 사고를 못 막는다 — 실제 사고 때 그 변수는 없었고, 창을 띄운 채
+## `-s tests/bank_ui_tests.gd` 로 돌렸을 뿐이다. 실행 인자는 그 경우에도 반드시 남는다
+static func running_test_script() -> bool:
+	if OS.get_environment("PROPHECY_TEST") == "1":
+		return true
+	for a in OS.get_cmdline_args():
+		var t := String(a).replace("\\", "/")
+		if t.begins_with("tests/") or t.begins_with("tools/") or t.find("/tests/") >= 0 or t.find("/tools/") >= 0:
+			return true
+	return false
+
+static func write_blocked() -> String:
+	if not running_test_script():
+		return ""
+	var dir := ProjectSettings.globalize_path("user://")
+	if dir.find("userdata__") >= 0 or dir.find("prophecy_test_runs") >= 0:
+		return ""
+	return "검사·도구 스크립트인데 저장 자리가 격리돼 있지 않다: " + dir
+
 static func save(run: Dictionary) -> bool:
+	var blocked := write_blocked()
+	if blocked != "":
+		push_error("저장 거부 — " + blocked + " · 사람의 저장을 덮어쓰지 않으려고 막았다(PSave.write_blocked)")
+		return false
 	var doc := { "schema": SCHEMA, "saved_at": int(Time.get_unix_time_from_system()), "run": _normalize(run) }
 	var txt := JSON.stringify(doc)
 	var f := FileAccess.open(TMP_PATH, FileAccess.WRITE)
@@ -112,6 +147,12 @@ static func load() -> Dictionary:
 	return _normalize(parsed.run)
 
 static func clear() -> void:
+	# 지우기도 같은 관문을 지난다. 사고를 낸 스크립트는 clear() 뒤 새 회차를 저장했다 —
+	# 지우기만 막아도, 저장만 막아도 반쪽이라 둘 다 막는다
+	var blocked := write_blocked()
+	if blocked != "":
+		push_error("저장 지우기 거부 — " + blocked + " · 사람의 저장을 지우지 않으려고 막았다")
+		return
 	var d := DirAccess.open("user://")
 	if d == null:
 		return
