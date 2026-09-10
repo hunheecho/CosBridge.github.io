@@ -71,7 +71,9 @@ func _ready() -> void:
 	_font_note = PUi.rich("%s\n전문: %s" % [PUi.font_notice(), PUi.font_license_path()], 11, PUi.DIM)
 	v.add_child(_font_note)
 	# 판본은 여기서만 커밋 표식까지 보여 준다(제목 화면에는 번호만 — docs/VERSIONING.md)
-	v.add_child(PUi.rich("[color=#9ea8b8]판본[/color] [b]%s[/b]" % PUi.version_full(), 12))
+	# 이름은 한국어·영어를 같은 줄에 둔다. 줄 수를 늘리지 않으려고 판본 줄에 붙였다(docs/NAMING.md)
+	v.add_child(PUi.rich("[b]%s[/b] [color=#9ea8b8](%s) · 판본[/color] [b]%s[/b]"
+		% [PUi.app_name(), PUi.app_name_en(), PUi.version_full()], 12))
 	v.add_child(PUi.button("닫기 (Esc)", func(): close(), true, 14))
 	visible = false
 

@@ -10,7 +10,15 @@ config_version=5
 
 [application]
 
-config/name="예언의 시간표 — Godot 첫 전투"
+; 표시명(창 제목이 이 값이다). 정본은 scripts/game/game.gd 의 APP_NAME 이고 여기는 엔진용 사본이다.
+config/name="텐데이즈투둠스데이"
+; 아래 두 줄은 **저장 자리를 옛 이름에 묶어 두는 열쇠**다. 지우거나 새 이름으로 바꾸지 마라.
+; Godot 의 user:// 는 원래 config/name 에서 파생된다. 이름만 바꾸면 저장 폴더가 함께 바뀌어
+; 사용자가 이미 하던 회차·프로필·처치 기록에 못 닿는다. 그래서 경로를 직접 못 박는다.
+; 여기 적힌 "예언의 시간표 — Godot 첫 전투" 는 **옛 표시명이 아니라 폴더 이름**이다. docs/NAMING.md
+; (편집기를 열면 이 ; 주석은 지워진다 — 설명의 정본은 docs/PROJECT_SETTINGS.md 와 docs/NAMING.md)
+config/use_custom_user_dir=true
+config/custom_user_dir_name="Godot/app_userdata/예언의 시간표 — Godot 첫 전투"
 config/version="0.5.0"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")

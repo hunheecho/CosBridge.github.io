@@ -221,6 +221,17 @@ static func version() -> String:
 	var gs: GDScript = load("res://scripts/game/game.gd")
 	return "v" + String(gs.get_script_constant_map().get("VERSION", "?"))
 
+## 게임 표시명(한국어). 정본은 game.gd의 APP_NAME **한 자리**다 — 화면은 여기를 거쳐서만 읽는다.
+## 자동 로드 Game 없이도(헤드리스 -s 시험) 읽히게 상수 표를 직접 본다(version()·font_notice()와 같은 방식).
+static func app_name() -> String:
+	var gs: GDScript = load("res://scripts/game/game.gd")
+	return String(gs.get_script_constant_map().get("APP_NAME", ""))
+
+## 게임 표시명(영어). 영어 표기가 필요한 자리에서만 쓴다
+static func app_name_en() -> String:
+	var gs: GDScript = load("res://scripts/game/game.gd")
+	return String(gs.get_script_constant_map().get("APP_NAME_EN", ""))
+
 ## 판본 + 커밋 표식(설정 화면·기록용). 개발 중 실행에는 해시가 없어 판본만 나온다
 static func version_full() -> String:
 	var b := build_stamp()

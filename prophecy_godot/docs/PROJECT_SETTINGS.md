@@ -5,6 +5,9 @@
 
 | 설정 | 값 | 왜 |
 |---|---|---|
+| `application/config/name` | `텐데이즈투둠스데이` | 창 제목이 되는 표시명. **정본은 `scripts/game/game.gd` 의 `APP_NAME` 이고 여기는 엔진용 사본**이다(엔진은 GDScript 상수를 못 읽는다). 두 값이 어긋나지 않는지는 `name_tests` 가 본다 |
+| `application/config/use_custom_user_dir` | `true` | **사용자 저장 자리를 옛 이름에 묶어 두는 열쇠.** Godot 의 `user://` 는 원래 `config/name` 에서 파생돼서, 이름만 바꾸면 저장 폴더가 함께 바뀌고 사용자가 하던 회차·프로필·처치 기록에 못 닿는다 |
+| `application/config/custom_user_dir_name` | `Godot/app_userdata/예언의 시간표 — Godot 첫 전투` | 위 열쇠가 가리키는 실제 경로. 여기 적힌 옛 이름은 **표시명이 아니라 폴더 이름**이다. 지우지도 새 이름으로 바꾸지도 마라 — 바꾸는 순간 사용자의 저장이 끊긴다. `docs/NAMING.md` |
 | `window/size/viewport_width` · `_height` | 960 · 640 | 전장 기준 크기. 판정·좌표가 이 값을 전제한다 |
 | `window/stretch/mode` | `canvas_items` | 화면이 커져도 전장 비율을 유지한다 |
 | `window/stretch/aspect` | `expand` | 양옆 여백을 UI가 쓰되 **플레이 공간·판정은 안 바뀐다** |
