@@ -61,15 +61,27 @@ static func _normalize(run: Dictionary) -> Dictionary:
 		run.stock.skill.price = int(run.stock.skill.price)
 	if run.has("hp"):
 		run.hp = float(run.hp)
-	# **'전투 중' 표시는 저장에 남기지 않는다**(KD-13).
-	# 전투 시작 직후에 체크포인트를 저장하는데, 그 표시가 그대로 실려 나가면
-	# 이어하기로 거점에 돌아온 사람의 기술 편성이 영영 잠긴다.
-	# 이어하기는 언제나 거점부터이므로 여기서 항상 내린다.
-	run["inCombat"] = false
+	# **여기서 전투 상태를 건드리지 않는다.** 이 함수는 제자리 수정이고 저장·불러오기 양쪽이 부른다.
+	# 여기에 run["inCombat"] = false 를 두었더니 **진행 중인 회차의 전투 잠금이 풀렸다** —
+	# 전투 시작 체크포인트를 저장하는 순간 원본 회차가 열려 버렸다(2026-09-10 지적).
+	# 정규화는 형식(정수·실수)만 만지고, 전투 표시는 _for_file / load 가 각자 맡는다.
 	return run
 
 static func normalize(run: Dictionary) -> Dictionary:
 	return _normalize(run)
+
+## 파일에 담을 회차. **원본을 건드리지 않는 깊은 사본**이다.
+##
+## 왜 사본인가 — 전투 시작 직후 체크포인트를 저장한다. 그때 원본에 손을 대면
+## **진행 중인 전투의 편성 잠금이 그 자리에서 풀린다.** 실제로 그렇게 만들었다가 지적받았다.
+## 저장은 읽어서 쓰는 일이지 회차를 바꾸는 일이 아니다.
+##
+## 전투 표시를 파일에서 내리는 이유는 그대로다(KD-13): 이어하기는 언제나 거점부터이고,
+## 표시가 실려 나가면 돌아온 사람의 편성이 영영 잠긴다.
+static func _for_file(run: Dictionary) -> Dictionary:
+	var copy: Dictionary = run.duplicate(true)
+	copy["inCombat"] = false
+	return copy
 
 ## 저장: 임시 파일에 쓴 뒤 본 파일 위로 이름 변경. 성공 여부
 ## **사람의 저장을 시험이 덮어쓰지 못하게 하는 관문**(2026-09-10 사고 뒤 추가).
@@ -112,7 +124,8 @@ static func save(run: Dictionary) -> bool:
 	if blocked != "":
 		push_error("저장 거부 — " + blocked + " · 사람의 저장을 덮어쓰지 않으려고 막았다(PSave.write_blocked)")
 		return false
-	var doc := { "schema": SCHEMA, "saved_at": int(Time.get_unix_time_from_system()), "run": _normalize(run) }
+	_normalize(run) # 형식 정규화는 예전 그대로 원본에도 적용한다(정수·실수 자리만 만진다)
+	var doc := { "schema": SCHEMA, "saved_at": int(Time.get_unix_time_from_system()), "run": _for_file(run) }
 	var txt := JSON.stringify(doc)
 	var f := FileAccess.open(TMP_PATH, FileAccess.WRITE)
 	if f == null:
@@ -154,6 +167,9 @@ static func load() -> Dictionary:
 			d.rename(SAVE_PATH.get_file(), CORRUPT_PATH.get_file())
 		return {}
 	var run := _normalize(parsed.run)
+	# 불러온 회차는 **언제나 거점부터**다. 파일이 어떤 값을 안고 있든 전투 표시를 내린다.
+	# 저장 쪽에서도 내리지만(_for_file), 옛 파일·손으로 고친 파일까지 덮으려고 여기서도 내린다.
+	run["inCombat"] = false
 	_drop_unknown_equipment(run)
 	return run
 

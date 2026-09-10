@@ -16,6 +16,10 @@ extends SceneTree
 ##   ③ 전투 도중 저장하고 이어하기해도 잠기지 않는다(이어하기는 언제나 거점부터다)
 ##   ④ 보스 전투도 같다
 ##   ⑤ 이 표시가 없는 옛 저장은 예전처럼 열린다(회차를 못 쓰게 만들지 않는다)
+##   ⑥ **저장이 진행 중인 회차를 건드리지 않는다** — 체크포인트를 저장해도 원본은 잠긴 채다
+##      (2026-09-10 지적: PSave._normalize 가 제자리 수정이라, 그 안에서 표시를 내리자
+##       저장하는 순간 **원본 회차의 잠금이 풀렸다.** 지금은 저장이 깊은 사본에만 손댄다)
+##   ⑦ 저장이 **실패**했을 때도 원본의 전투 잠금은 그대로다
 
 var pass_n := 0
 var fail_n := 0
@@ -37,6 +41,22 @@ func all_blocked(run: Dictionary) -> bool:
 	var unchanged: bool = PGrowth.skill_id_in(run.growth, "q") == before_q \
 		and PGrowth.skill_id_in(run.growth, "e") == before_e
 	return not a and not b and not c and unchanged
+
+## world 자료의 장비 목록을 잠깐 비운다(= 자료를 못 읽은 상태). 되돌릴 값을 돌려준다.
+## 저장 관문(PSave.write_blocked)을 닫아 **저장 실패**를 만드는 데 쓴다
+func blank_data():
+	var saved = PCatalog._cache.get("world", null)
+	if typeof(saved) == TYPE_DICTIONARY:
+		var b: Dictionary = (saved as Dictionary).duplicate(true)
+		b["equipment"] = {}
+		PCatalog._cache["world"] = b
+	return saved
+
+func restore_data(saved) -> void:
+	if typeof(saved) == TYPE_DICTIONARY:
+		PCatalog._cache["world"] = saved
+	else:
+		PCatalog.reset()
 
 func mk_run() -> Dictionary:
 	var r := PRun.new_run(1, "sword")
@@ -97,7 +117,7 @@ func _init() -> void:
 		PGrowth.bank_edit_reason(run3).find("전투 중") < 0 and String(run3.get("phase", "")) == "dead",
 		"%s / phase=%s" % [PGrowth.bank_edit_reason(run3), String(run3.get("phase", ""))])
 
-	print("\n[5] 전투 도중 저장 → 이어하기로 잠기지 않는다")
+	print("\n[5] 전투 도중 체크포인트 저장 — **원본은 잠긴 채**, 불러온 사본은 거점에서 열린다")
 	var run4 := mk_run()
 	var c4 := PSortie.cards_for(run4)
 	var s4 := PSortie.start(run4, String(c4[0].id))
@@ -106,12 +126,35 @@ func _init() -> void:
 	ok("전투 중이다", PGrowth.bank_edit_reason(run4) != "")
 	var saved := PSave.save(run4) # 전투 시작 체크포인트와 같은 자리
 	ok("전투 중에도 저장은 된다(저장을 막는 것이 아니다)", saved, PSave.write_blocked())
+	# ── 조건 ①: 저장 **직후에도** 원본 회차는 잠긴 채여야 한다
+	ok("저장 직후에도 원본의 '전투 중' 표시가 살아 있다",
+		bool(run4.get("inCombat", false)), str(run4.get("inCombat", null)))
+	ok("저장 직후에도 원본이 전투를 사유로 든다",
+		PGrowth.bank_edit_reason(run4).find("전투 중") >= 0, PGrowth.bank_edit_reason(run4))
+	ok("저장 직후에도 원본의 보관·배치·맞바꾸기가 **전부** 거부된다", all_blocked(run4))
+	# ── 조건 ②: 그 저장을 따로 불러오면 거점에서 편성이 된다
 	var back := PSave.load()
 	ok("이어하기가 회차를 돌려준다", not back.is_empty())
-	ok("**이어하기한 회차는 잠겨 있지 않다**(거점부터 시작하므로)",
+	ok("불러온 회차는 잠겨 있지 않다(거점부터 시작하므로)",
 		PGrowth.bank_edit_reason(back) == "", PGrowth.bank_edit_reason(back))
-	ok("이어하기 뒤 실제로 편성을 바꿀 수 있다", PGrowth.swap_qe(back))
+	ok("불러온 회차에서 실제로 맞바꾸기가 된다", PGrowth.swap_qe(back))
+	ok("불러온 회차를 만져도 **원본은 여전히 잠겨 있다**(둘이 같은 사전이 아니다)",
+		PGrowth.bank_edit_reason(run4).find("전투 중") >= 0 and all_blocked(run4))
 	PSave.clear()
+
+	print("\n[5-2] 저장이 **실패**해도 원본의 전투 잠금은 그대로다")
+	var run4b := mk_run()
+	var c4b := PSortie.cards_for(run4b)
+	var s4b := PSortie.start(run4b, String(c4b[0].id))
+	var st4b := PFlow.make_encounter(run4b, s4b)
+	st4b.spawn_hold = true
+	var keep = blank_data() # 자료를 잠깐 비워 저장 관문을 닫는다
+	ok("저장 관문이 닫혔다", PSave.write_blocked() != "", PSave.write_blocked())
+	ok("저장이 실패한다", not PSave.save(run4b))
+	restore_data(keep)
+	ok("실패한 저장 뒤에도 원본의 '전투 중' 표시가 살아 있다",
+		bool(run4b.get("inCombat", false)), str(run4b.get("inCombat", null)))
+	ok("실패한 저장 뒤에도 편성이 전부 거부된다", all_blocked(run4b))
 
 	print("\n[6] 보스 전투도 같다")
 	var run5 := mk_run()
@@ -124,6 +167,18 @@ func _init() -> void:
 	ok("보스 전투에 들어가면 막힌다", PGrowth.bank_edit_reason(run5) != "",
 		PGrowth.bank_edit_reason(run5))
 	ok("보스 전투에서도 셋 다 거부된다", all_blocked(run5))
+	# 보스 전투에서도 같은 두 조건을 본다
+	var saved5 := PSave.save(run5)
+	ok("보스 전투 중에도 저장은 된다", saved5, PSave.write_blocked())
+	ok("보스 전투: 저장 직후에도 원본이 잠긴 채다",
+		bool(run5.get("inCombat", false)) and all_blocked(run5),
+		PGrowth.bank_edit_reason(run5))
+	var back5 := PSave.load()
+	ok("보스 전투: 불러온 회차는 관문 준비라 편성이 열린다",
+		PGrowth.bank_edit_reason(back5) == "", PGrowth.bank_edit_reason(back5))
+	ok("보스 전투: 불러온 회차에서 실제로 맞바꾸기가 된다", PGrowth.swap_qe(back5))
+	ok("보스 전투: 그래도 원본은 여전히 잠겨 있다", all_blocked(run5))
+	PSave.clear()
 
 	print("\n[7] 이 표시가 없는 옛 저장은 예전처럼 열린다")
 	var old_run := mk_run()
