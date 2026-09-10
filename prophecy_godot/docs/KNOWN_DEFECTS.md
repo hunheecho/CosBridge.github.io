@@ -46,6 +46,7 @@
 | 2026-09-10 (`f9-ui`, `20260910_165930`) | `--suites` 14개 `--jobs 1` | 14개 전부 단언 통과(합계 653/653) | `equip_ui_tests`(40/40)·`orient_tests`(52/52) 두 개가 3221225477 | 실패 |
 | 2026-09-10 (`f9-ui`) | `--suites equip_ui_tests` 단독 3회 | 매번 40/40 PASS | 세 번 다 종료 0 | 통과 |
 | 2026-09-10 (`f9-ui`) | `--suites ui_chain_tests,eq_fire_tests,save_guard_tests` 3회 반복 | 매번 101/101 · 44/44 · 35/35 | 1회차 `ui_chain_tests` · 3회차 `eq_fire_tests` 가 3221225477(나머지 종료 0) | 9회 중 2회 실패 |
+| 2026-09-10 (`f9-ui`, `20260910_170559`) | 커밋 뒤 **같은 14개를 그대로 다시** `--jobs 1` | 또 653/653 전부 통과 | 이번에는 `equip_chain_tests`(33/33)·`input_tests`(112/112) 두 개 — **앞 실행과 다른 스위트**다 | 실패 |
 
 **2026-09-08 17:50 추가 관측 — 이 스위트만의 문제가 아니다.** 같은 증상이 `collision_tests`·`balance_tests`·`input_tests`·`ui_flow_tests`·`elites_tests`에서도 나왔다. 공통점은 **동시 실행**이다.
 
