@@ -119,7 +119,16 @@ func refresh() -> void:
 	_chips(dbox, "감속장 변형", "q_variants", U.q_variants.keys(), u.q_variants, func(id: String) -> String: return String(PCatalog.skills().slowfield.variants[id].name))
 	_chips(dbox, "수동 기술 Q/E(변형 함께)", "e_skills", U.e_skills.keys(), u.e_skills, func(id: String) -> String: return String(PCatalog.skills()[id].name))
 	_chips(dbox, "장비", "equipment", U.equipment.keys(), u.equipment, func(id: String) -> String: return String(PCatalog.equipment()[id].name))
-	_chips(dbox, "제작법(대장간)", "recipes", U.recipes.keys(), u.recipes, func(id: String) -> String: return String(PCatalog.crafted_equipment()[id].name))
+	# 제작법 칸은 **지금 만들 수 있는 것**만 센다(사용자 확정 2026-09-10). 목록도 활성 제작법만 그린다 —
+	# 폐기한 것을 '잠김'으로 두면 다시 열릴 것처럼 읽히기 때문이다.
+	_chips(dbox, "제작법(대장간)", "recipes", PCatalog.active_crafted_ids(), u.recipes_active, func(id: String) -> String: return String(PCatalog.crafted_equipment()[id].name))
+	# **보유·달성 기록은 지우지 않는다**: 이미 연 폐기 제작법은 여기 따로 남겨 둔다(제작 완료 조건과는 다른 값이다)
+	var retired_have := []
+	for id in u.recipes:
+		if PCatalog.equipment_retired(String(id)):
+			retired_have.append(String(PCatalog.crafted_equipment()[String(id)].name))
+	if retired_have.size() > 0:
+		dbox.add_child(PUi.rich("[color=#9ea8b8]폐기한 제작법(기록으로만 남김 · 새로 만들 수 없음): %s[/color]" % PGlossaryTip.esc(", ".join(retired_have)), 11))
 	if _detail != "":
 		dbox.add_child(_detail_card())
 	body.add_child(dc.panel)

@@ -132,6 +132,27 @@ func _run() -> void:
 	await process_frame
 	var meta: Node = main.screens["meta"]
 	ok("영구 성장 화면: 프로필 종류·레벨·특성 4행·도감 표시", main.screen == "meta" and _count_text(meta, "영구 Lv 1") >= 1 and _count_text(meta, "공격 성향") >= 1 and _count_text(meta, "잠김") >= 5 and _count_text(meta, "시작 가능 3/7") >= 1)
+	# 도감 제작법 분모는 **활성 목록**에서 나온다(2026-09-10 사용자 확정) — 화면이 고정값을 적지 않는다.
+	# 폐기 2종은 목록에도 '잠김'으로도 나오지 않는다(다시 열릴 것처럼 읽히지 않게)
+	var live_recipes := PCatalog.active_crafted_count()
+	ok("도감 제작법 분모가 활성 제작 목록 %d와 같다(화면에 박은 값이 아니다)" % live_recipes,
+		_count_text(meta, "제작법 0/%d" % live_recipes) >= 1 and _count_text(meta, "반격 방패") == 0 and _count_text(meta, "연계 방패") == 0,
+		"활성 %d" % live_recipes)
+	# 만렙 프로필로 한 번 더: 활성 제작법을 전부 열면 분모와 분자가 같아지고, **폐기분은 기록으로만** 따로 남는다
+	var rec_keep: float = float(main.profile.get("records", 0))
+	main.profile.records = PProfile.records_to_max()
+	main.show("meta") # show_meta()는 프로필을 파일에서 다시 읽는다 — 여기서는 손에 든 프로필 그대로 그려야 한다
+	await process_frame
+	var meta_max: Node = main.screens["meta"]
+	ok("만렙 도감: 제작법 %d/%d(활성만) · 폐기한 제작법은 총계 밖 **기록 줄**로 남는다" % [live_recipes, live_recipes],
+		_count_text(meta_max, "제작법 %d/%d" % [live_recipes, live_recipes]) >= 1
+			and _count_text(meta_max, "폐기한 제작법(기록으로만 남김") >= 1
+			and _count_text(meta_max, "잠김 · 반격 방패") == 0,
+		"제작법줄 %d · 기록줄 %d" % [_count_text(meta_max, "제작법 %d/%d" % [live_recipes, live_recipes]), _count_text(meta_max, "폐기한 제작법(기록으로만 남김")])
+	main.profile.records = rec_keep
+	main.show("meta")
+	await process_frame
+	meta = main.screens["meta"]
 	main.set_trait(1, "near")
 	await process_frame
 	ok("특성 선택(1행 근거리 훈련) → 저장·표시", PProfile.selected_traits(main.profile) == ["near"] and PProfile.selected_traits(PProfile.load("trial")) == ["near"] and _count_text(main.screens["meta"], "● 근거리 훈련") == 1)

@@ -263,12 +263,13 @@ static func _open_cats(profile: Dictionary) -> Array:
 	var k := String(profile.get("kind", "trial"))
 	return (P[k].get("open", []) as Array) if P.has(k) else []
 
-## 지금 열린 것 전부: { weapons[], start_weapons[], mods{weapon:[mod]}, commons[], q_variants[], e_skills[], e_variants{e:[v]}, equipment[], recipes[], level }
+## 지금 열린 것 전부: { weapons[], start_weapons[], mods{weapon:[mod]}, commons[], q_variants[], e_skills[], e_variants{e:[v]}, equipment[], recipes[], recipes_active[], level }
+## recipes = **연 기록 전부**(폐기 포함, 옛 저장의 기록을 지우지 않는다) · recipes_active = **지금 제작할 수 있는 것**만
 static func unlocked(profile: Dictionary) -> Dictionary:
 	var lv := level(profile)
 	var U := PCatalog.meta_unlocks()
 	var open := _open_cats(profile)
-	var out := { "weapons": [], "start_weapons": [], "mods": {}, "commons": [], "q_variants": [], "e_skills": [], "e_variants": {}, "equipment": [], "recipes": [], "level": lv }
+	var out := { "weapons": [], "start_weapons": [], "mods": {}, "commons": [], "q_variants": [], "e_skills": [], "e_variants": {}, "equipment": [], "recipes": [], "recipes_active": [], "level": lv }
 	var W := PCatalog.weapons()
 	for id in U.weapons:
 		if open.has("weapons") or _entry_ok(profile, U.weapons[id], lv):
@@ -314,6 +315,10 @@ static func unlocked(profile: Dictionary) -> Dictionary:
 	for id in U.recipes:
 		if open.has("recipes") or _entry_ok(profile, U.recipes[id], lv):
 			(out.recipes as Array).append(String(id))
+			# **보유·달성 기록**(recipes)과 **지금 제작할 수 있는 것**(recipes_active)을 갈라 둔다(사용자 확정 2026-09-10).
+			# 폐기한 제작법은 아래 목록에서만 빠진다 — 이미 연 기록은 recipes에 그대로 남는다.
+			if not PCatalog.equipment_retired(String(id)):
+				(out.recipes_active as Array).append(String(id))
 	return out
 
 ## 도감 개수: { weapons{have,total}, start{have,total}, mods{have,total}, commons{}, e{}, equipment{}, recipes{} }
@@ -335,7 +340,11 @@ static func counts(profile: Dictionary) -> Dictionary:
 		"e": { "have": (u.e_skills as Array).size(), "total": (U.e_skills as Dictionary).size() },
 		"q_variants": { "have": (u.q_variants as Array).size(), "total": (U.q_variants as Dictionary).size() },
 		"equipment": { "have": (u.equipment as Array).size(), "total": (U.equipment as Dictionary).size() },
-		"recipes": { "have": (u.recipes as Array).size(), "total": (U.recipes as Dictionary).size() },
+		# 제작법 총계는 **실제 활성 목록**에서 나온다(사용자 확정 2026-09-10) — 고정값을 박지 않는다.
+		# 자료에 제작 장비를 하나 더 넣으면 total이 저절로 는다. 폐기분은 retired에 따로 센다(기록은 남는다).
+		"recipes": { "have": (u.recipes_active as Array).size(), "total": PCatalog.active_crafted_count(),
+			"retired": (u.recipes as Array).size() - (u.recipes_active as Array).size(),
+			"retired_total": (PCatalog.crafted_equipment() as Dictionary).size() - PCatalog.active_crafted_count() },
 	}
 
 ## 잠긴 항목의 조건 문구(해금 규칙 항목에서). 예: "영구 Lv3", "도전: … (또는 Lv7)"
@@ -382,6 +391,8 @@ static func next_unlock_line(profile: Dictionary) -> String:
 		if int(U.equipment[id].get("level", 0)) == target:
 			names.append(String(PCatalog.equipment()[String(id)].name) + "(대체)")
 	for id in U.recipes:
+		if PCatalog.equipment_retired(String(id)):
+			continue # 폐기한 제작법은 '다음에 열림'으로 광고하지 않는다(이미 연 기록은 그대로 둔다)
 		if int(U.recipes[id].get("level", 0)) == target:
 			names.append(String(PCatalog.crafted_equipment()[String(id)].name) + " 제작법(대체)")
 	for row in PCatalog.trait_rows():

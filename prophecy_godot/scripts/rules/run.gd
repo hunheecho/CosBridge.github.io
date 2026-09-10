@@ -2491,31 +2491,65 @@ static func craft_options(run: Dictionary) -> Array:
 	return out
 
 ## 제작에 쓸 재료 장비 **개체**를 고른다: 같은 종류가 여럿이면 **강화가 가장 낮은 것**부터,
-## 같은 강화면 가방을 장착보다 먼저 쓴다(비싸게 강화한 장비를 조용히 태우지 않기 위해서다).
-## 강화 계승은 **승인되지 않았다** — 여기서는 어느 개체를 쓸지만 정하고, 완성품은 +0으로 나온다(§4, 처리안 보고).
-## 없으면 { where: "" }
+## 같은 강화면 가방을 장착보다 먼저 쓴다.
+##
+## 계승이 확정된 뒤(2026-09-10) 이 규칙을 **다시 봤다**. 그대로 둔다. 이유:
+## 강화 비용표(shop.equipUpgrade.steps)는 장비 종류와 무관하게 단계마다 같은 값이다.
+## 그래서 '재료를 강화한 뒤 제작'과 '제작한 뒤 완성품을 강화'의 **총 강화 지출이 같다**(craft_cost_parity).
+## → 낮은 개체를 태워도 플레이어가 잃는 금화가 없다. 대신 비싸게 강화한 개체는 **손에 남는다**.
+## 반대로 높은 쪽을 태우면 남는 개체가 +0이 되어, 같은 단계를 되찾으려면 이미 낸 값을 다시 내야 한다.
+## → 낮은 쪽 우선이 더 안전하다. 다만 **무엇을 태우는지는 반드시 확인창에 보여 준다**(uid·단계·위치를 함께 돌려준다).
+##
+## 돌려주는 값: { where("bag"|"equipped"|""), uid, plus, slot?, count(같은 종류 보유 수), others[{uid,plus,where}] }
 static func craft_pick_uid(run: Dictionary, type_id: String) -> Dictionary:
-	var best := { "where": "", "uid": "", "plus": 0 }
-	var found := false
+	var all: Array = []
 	for id in run.bag:
 		var uid := String(id)
-		if equip_type_of(uid) != type_id:
-			continue
-		var p := equip_plus_of(run, uid)
-		if not found or p < int(best.plus):
-			best = { "where": "bag", "uid": uid, "plus": p }
-			found = true
+		if equip_type_of(uid) == type_id:
+			all.append({ "where": "bag", "uid": uid, "plus": equip_plus_of(run, uid) })
 	for slot in run.equipment:
 		if run.equipment[slot] == null:
 			continue
 		var uid2 := String(run.equipment[slot])
-		if equip_type_of(uid2) != type_id:
-			continue
-		var p2 := equip_plus_of(run, uid2)
-		if not found or p2 < int(best.plus):
-			best = { "where": "equipped", "uid": uid2, "plus": p2, "slot": String(slot) }
-			found = true
+		if equip_type_of(uid2) == type_id:
+			all.append({ "where": "equipped", "uid": uid2, "plus": equip_plus_of(run, uid2), "slot": String(slot) })
+	var best := { "where": "", "uid": "", "plus": 0, "count": all.size(), "others": [] }
+	for e in all:
+		var cand: Dictionary = e
+		if String(best.where) == "" or int(cand.plus) < int(best.plus):
+			best = cand.duplicate(true)
+	if String(best.where) == "":
+		return { "where": "", "uid": "", "plus": 0, "count": 0, "others": [] }
+	var others: Array = []
+	for e2 in all:
+		var o: Dictionary = e2
+		if String(o.uid) != String(best.uid):
+			others.append(o)
+	best["count"] = all.size()
+	best["others"] = others
 	return best
+
+## 이 제작법의 **결과가 물려받을 강화 단계**(2026-09-10 사용자 확정: 재료의 강화를 결과에 계승한다).
+## 재료 장비가 둘 이상인 제작법이면 **가장 높은 단계**를 물려준다 — 이미 낸 강화 비용을 다시 받지 않기 위해서다.
+## (지금 활성 제작법은 모두 재료 장비가 하나뿐이라 '그 재료의 단계' 그대로다.)
+static func craft_inherit_plus(run: Dictionary, id: String) -> int:
+	var rc := PCatalog.recipe(id)
+	var p := 0
+	for eid in rc.get("equipment", []):
+		var pick := craft_pick_uid(run, String(eid))
+		if String(pick.where) != "":
+			p = maxi(p, int(pick.plus))
+	return p
+
+## 어떤 장비든 +0에서 이 단계까지 올리는 **총 강화 지출**(비용표는 장비 종류와 무관하다).
+## 확인창이 '제작 뒤에 올려도 같은 값'이라고 적을 때 쓰는 숫자다 — 화면이 따로 계산하지 않는다.
+static func equip_upgrade_total_cost(plus: int) -> int:
+	var steps: Array = equip_upgrade_rules().get("steps", [])
+	var acc := 0
+	for s in steps:
+		if int((s as Dictionary).plus) <= plus:
+			acc += int((s as Dictionary).cost)
+	return acc
 
 static func craft_option(run: Dictionary, id: String, with_preview: bool = true) -> Dictionary:
 	var d: Dictionary = PCatalog.crafted_equipment()[id]
@@ -2527,8 +2561,10 @@ static func craft_option(run: Dictionary, id: String, with_preview: bool = true)
 		var pick := craft_pick_uid(run, e)
 		var where := String(pick.get("where", ""))
 		var nm := equip_name(e)
+		# uid·plus·count·others를 그대로 올려 준다 — 확인창이 **어느 개체를 태우고 무엇이 남는지** 적을 수 있게(사용자 확정 2026-09-10)
 		ings.append({ "kind": "equipment", "id": e, "name": nm, "n": 1, "have": 1 if where != "" else 0, "where": where,
-			"uid": String(pick.get("uid", "")), "plus": int(pick.get("plus", 0)) })
+			"uid": String(pick.get("uid", "")), "plus": int(pick.get("plus", 0)),
+			"slot": String(pick.get("slot", "")), "count": int(pick.get("count", 0)), "others": pick.get("others", []) })
 		if where == "":
 			missing.append(nm)
 	var M := PCatalog.materials()
@@ -2546,7 +2582,11 @@ static func craft_option(run: Dictionary, id: String, with_preview: bool = true)
 	var owned := owns_equip(run, id)
 	if owned:
 		missing.append("이미 보유")
-	var opt := { "id": id, "def": d, "recipe": rc, "fee": fee, "affordable": affordable, "ingredients": ings, "missing": missing, "can": missing.is_empty(), "owned": owned, "preview": {} }
+	var inherit := craft_inherit_plus(run, id)
+	var opt := { "id": id, "def": d, "recipe": rc, "fee": fee, "affordable": affordable, "ingredients": ings, "missing": missing,
+		"can": missing.is_empty(), "owned": owned, "preview": {},
+		"inherit": inherit,                                          # 완성품이 물려받을 강화 단계
+		"inheritPaid": equip_upgrade_total_cost(inherit) }            # 그 단계까지 이미 낸 강화 지출(다시 받지 않는다)
 	if bool(opt.can) and with_preview:
 		var dup: Dictionary = run.duplicate(true)
 		var before := PBuild.derive(dup)
@@ -2569,12 +2609,20 @@ static func can_craft(run: Dictionary, id: String, use_equipped: bool = true) ->
 	return true
 
 ## 제작 확정(원자적: 검증 → 소비 → 생성 → 가방/장착). 저장은 호출자가 1회. use_equipped=false면 장착 중인 재료 장비는 쓰지 않는다(실패).
-## 회차 강화(forge)는 장비 인스턴스와 무관하므로 그대로. 분해·환급 없음. 실패 시 아무것도 바꾸지 않는다
+## 회차 강화(forge)는 장비 인스턴스와 무관하므로 그대로. 분해·환급 없음. 실패 시 아무것도 바꾸지 않는다.
+##
+## **강화 계승(2026-09-10 사용자 확정)**: 재료 장비의 강화 단계를 완성품에 물려준다(+0→+0 · +1→+1 · +2→+2).
+## - 이미 낸 강화 비용을 **다시 받지 않는다**(제작 수수료·재료는 별개다).
+## - 관문 개방 조건(equip_upgrade_next의 afterBoss)은 **다시 보지 않는다** — 계승은 구매가 아니라 이월이고,
+##   그 단계는 이미 그 조건을 지나 산 것이기 때문이다.
+## - 계승은 **제작에서만** 일어난다. 아무 장비 사이의 강화 이전 기능으로 넓히지 않는다(§4 금지 그대로).
+## - 소비하지 않은 같은 종류의 다른 개체와 그 강화는 **건드리지 않는다**(craft_pick_uid가 고른 개체만 지운다).
 static func craft(run: Dictionary, id: String, use_equipped: bool = true, equip_after: bool = false) -> bool:
 	if not can_craft(run, id, use_equipped):
 		push_error("제작 불가: " + id)
 		return false
 	var rc := PCatalog.recipe(id)
+	var inherit := craft_inherit_plus(run, id) # 재료를 지우기 **전에** 읽는다
 	for eid in rc.get("equipment", []):
 		var e := String(eid)
 		var pick := craft_pick_uid(run, e)
@@ -2588,17 +2636,19 @@ static func craft(run: Dictionary, id: String, use_equipped: bool = true, equip_
 				if run.equipment[slot] != null and String(run.equipment[slot]) == uid:
 					run.equipment[slot] = null
 		paid_map(run).erase(uid) # 재료로 사라진 개체의 지불 기록도 사라진다(완성품은 '구매액 없는 장비'다)
-		equip_plus_map(run).erase(uid) # 재료의 강화도 함께 사라진다 — **완성품에 계승하지 않는다**(§4 미승인)
+		equip_plus_map(run).erase(uid) # 재료 개체의 강화 기록은 개체와 함께 지운다(아래에서 완성품에 계승한다)
 	for mid in rc.get("mats", {}):
 		run.mats[String(mid)] = int(run.mats.get(String(mid), 0)) - int(rc.mats[mid])
 	run.gold = int(run.gold) - int(rc.get("fee", 0))
-	var out_uid := equip_new_uid(run, id) # 완성품도 개체다(+0에서 시작)
+	var out_uid := equip_new_uid(run, id) # 완성품도 개체다
+	if inherit > 0:
+		equip_plus_map(run)[out_uid] = inherit # 계승: 금화를 다시 받지 않는다
 	(run.bag as Array).append(out_uid)
 	if not run.has("crafted"):
 		run.crafted = []
 	(run.crafted as Array).append(id)
-	clamp_hp(run)
+	clamp_hp(run) # 계승 단계까지 반영한 뒤에 부른다(최대 체력이 오르는 장비가 있다)
 	if equip_after:
 		equip_item(run, out_uid)
-	add_log(run, "%s 제작 (-%d금)%s" % [equip_name(id), int(rc.get("fee", 0)), "·장착" if equip_after else "·보관"])
+	add_log(run, "%s%s 제작 (-%d금)%s" % [equip_name(id), (" +%d 계승" % inherit) if inherit > 0 else "", int(rc.get("fee", 0)), "·장착" if equip_after else "·보관"])
 	return true
