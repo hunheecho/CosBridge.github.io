@@ -7,6 +7,12 @@ extends Node
 ## 규칙과 올리는 방법은 docs/VERSIONING.md. **배포할 때마다 끝자리를 올린다** —
 ## 그래야 "지금 네가 보는 게 어느 판이냐"에 번호 하나로 답할 수 있다.
 const VERSION := "1.3.2"
+## **게임 표시명의 정본은 이 두 줄뿐이다**(2026-09-10 사용자 확정). 화면은 PUi.app_name()/app_name_en()으로만 읽는다 —
+## 화면마다 문자열을 적어 두면 다음 개명 때 또 흩어진 자리를 찾아다니게 된다.
+## project.godot 의 application/config/name 은 엔진이 창 제목에 쓰는 사본이라 같은 값을 한 벌 더 적어 둔다(엔진은 상수를 못 읽는다).
+## **저장 폴더 이름은 여기에 딸려 오지 않는다** — user:// 는 옛 이름에 고정돼 있다. docs/NAMING.md
+const APP_NAME := "텐데이즈투둠스데이"
+const APP_NAME_EN := "Ten Days to Doomsday"
 const HTML_SOURCE := "html v0.8.0 (ee10fc7)"
 const DATA_PATH := "res://data/first_fight.json"
 ## 화면 글꼴. 저장소에 함께 들어 있고(2026-09-09), 두 내보내기(웹·윈도우)에 모두 담긴다.

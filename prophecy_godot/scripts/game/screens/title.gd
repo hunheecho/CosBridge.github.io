@@ -27,10 +27,16 @@ func refresh() -> void:
 	PUi.clear(_menu)
 	PUi.clear(bottom)
 	var saved := PSave.load() if PSave.exists() else {}
-	var h := PUi.label("예언의 시간표 (가칭)", 36)
+	# 표시명은 여기에 적지 않는다 — 정본은 game.gd의 APP_NAME 한 자리다(docs/NAMING.md)
+	var h := PUi.label(PUi.app_name(), 36)
 	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_menu.add_child(h)
-	var sub := PUi.label("마검사의 준비 기간 — 액션 로그라이트", 14, PUi.DIM)
+	# 영어 표기는 **PC에서만** 덧붙인다. 터치에서는 글자가 1.6배라 이 한 줄이 두 줄로 접히면서
+	# 아래 항목(설정·종료·글꼴 고지)을 캔버스(640) 밖으로 밀어낸다 — 줄 수를 늘리지 않는다
+	var sub_txt := "마검사의 준비 기간 — 액션 로그라이트"
+	if not PLayout.is_touch():
+		sub_txt = "%s · %s" % [PUi.app_name_en(), sub_txt]
+	var sub := PUi.label(sub_txt, 14, PUi.DIM)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_menu.add_child(sub)
 	_menu.add_child(PUi.spacer(8))

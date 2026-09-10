@@ -319,6 +319,11 @@
       "timeout_sec": 300,
       "desc": "실제 장비로 구매→강화→제작→착용→전투 발동→창고 보관→Q 배치→Q/E 교환→저장→이어하기→해제를 한 회차로 잇는 통합 검사"
     },
+    "name_tests": {
+      "env": {},
+      "timeout_sec": 300,
+      "desc": "게임 이름을 바꿔도 저장 자리는 옛 이름 그대로다 — 표시명(정본 한 자리)·user:// 꼬리·실행기 격리·저장→이어하기 값 보존"
+    },
     "screen_keep_tests": {
       "env": {},
       "timeout_sec": 300,
@@ -633,6 +638,7 @@
       "screen_keep_tests",
       "save_repair_tests",
       "save_guard_tests",
+      "name_tests",
       "equip_chain_tests",
       "duel_card_tests",
       "prep_shop_tests",
