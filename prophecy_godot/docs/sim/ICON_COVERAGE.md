@@ -5,27 +5,10 @@
 아이콘이 없는 항목은 다른 효과의 아이콘을 재사용하지 않고 중립 자리표시 기호 + 실제 이름으로 표시한다.
 
 - 표시 대상 ID: 147
-- 아이콘 있음: 138
-- 누락: 9
+- 아이콘 있음: 147
+- 누락: 0
 
-## 누락 · equipment (6)
-
-| ID | 이름 |
-| --- | --- |
-| `equip:counter_guard` | 받아넘김의 방패 |
-| `equip:crystal_coffin` | 결정 관 |
-| `equip:falling_star_maul` | 낙성 추 |
-| `equip:instant_blade` | 찰나의 검 |
-| `equip:reprieve_coat` | 유예의 외투 |
-| `equip:retrace_greaves` | 되짚는 각반 |
-
-## 누락 · skill (3)
-
-| ID | 이름 |
-| --- | --- |
-| `skill:e:eq_icetomb` | 결정 관 |
-| `skill:e:eq_meteor` | 낙성 강하 |
-| `skill:e:eq_reprieve` | 유예의 시계 |
+누락 없음. 표시 대상 ID가 늘어나면 이 문서에 다시 나타난다.
 
 ## 적용 · weapon (17)
 
@@ -105,12 +88,15 @@
 | `mod:wind:focused` | 압축 돌풍 | `mod_wind_focused` |
 | `mod:wind:lingering` | 잔바람 | `mod_wind_lingering` |
 
-## 적용 · skill (9)
+## 적용 · skill (12)
 
 | ID | 이름 | 그림 파일 |
 | --- | --- | --- |
 | `skill:e:bladestorm` | 칼날 폭풍 | `skill_bladestorm` |
 | `skill:e:eq_flashcut` | 찰나 가르기 | `skill_eq_flashcut` |
+| `skill:e:eq_icetomb` | 결정 관 | `skill_eq_crystalcoffin` |
+| `skill:e:eq_meteor` | 낙성 강하 | `skill_eq_meteordrop` |
+| `skill:e:eq_reprieve` | 유예의 시계 | `skill_eq_reprieveclock` |
 | `skill:e:eq_retrace` | 되짚는 궤적 | `skill_eq_retrace` |
 | `skill:e:eq_riposte` | 받아치기 | `skill_eq_riposte` |
 | `skill:e:gravity` | 중력핵 | `skill_gravity` |
@@ -172,7 +158,7 @@
 | `passive:toughness` | 강인함 | `passive_toughness` |
 | `passive:vitality` | 건강 | `passive_vitality` |
 
-## 적용 · equip (22)
+## 적용 · equip (28)
 
 | ID | 이름 | 그림 파일 |
 | --- | --- | --- |
@@ -180,19 +166,25 @@
 | `equip:bloodmoon_sword` | 혈월검 | `equip_bloodmoon_sword` |
 | `equip:caster_shield` | 시전자의 방패 | `equip_caster_shield` |
 | `equip:chrono_staff` | 시간술사의 지팡이 | `equip_chrono_staff` |
+| `equip:counter_guard` | 받아넘김의 방패 | `equip_counter_guard` |
+| `equip:crystal_coffin` | 결정 관 | `equip_crystal_coffin` |
 | `equip:echo_staff` | 잔향의 지팡이 | `equip_echo_staff` |
 | `equip:ember_sword` | 잔불검 | `equip_ember_sword` |
 | `equip:emergency_shield` | 비상 방패 | `equip_emergency_shield` |
 | `equip:expedition_armor` | 원정대의 갑옷 | `equip_expedition_armor` |
+| `equip:falling_star_maul` | 낙성 추 | `equip_falling_star_maul` |
 | `equip:frostcrest_armor` | 서리 결정 흉갑 | `equip_frostcrest_armor` |
 | `equip:guardian_armor` | 수호자의 갑옷 | `equip_guardian_armor` |
 | `equip:hunter_sword` | 사냥꾼의 검 | `equip_hunter_sword` |
+| `equip:instant_blade` | 찰나의 검 | `equip_instant_blade` |
 | `equip:iron_shield` | 철벽 방패 | `equip_iron_shield` |
 | `equip:moon_armor` | 월광 갑옷 | `equip_moon_armor` |
 | `equip:pioneer_spear` | 개척자의 창 | `equip_pioneer_spear` |
 | `equip:relay_shield` | 연계 방패 | `equip_relay_shield` |
 | `equip:renewal_coat` | 재생의 여행복 | `equip_renewal_coat` |
+| `equip:reprieve_coat` | 유예의 외투 | `equip_reprieve_coat` |
 | `equip:reprisal_shield` | 반격 방패 | `equip_reprisal_shield` |
+| `equip:retrace_greaves` | 되짚는 각반 | `equip_retrace_greaves` |
 | `equip:siege_hammerhead` | 공성 망치머리 | `equip_siege_hammerhead` |
 | `equip:stormwire` | 겹번개 도선 | `equip_stormwire` |
 | `equip:time_shield` | 시간의 방패 | `equip_time_shield` |

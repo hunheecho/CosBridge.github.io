@@ -68,6 +68,15 @@ func total_dmg(st: CombatState) -> float:
 		s += float(st.metrics.dmg[k])
 	return s
 
+## 신규 획득 후보로 나오는 패시브 수. 표에서 지운 것과 후보에서만 뺀 것은 다른 사실이다 —
+## 보유분은 그대로 살아 있어야 하므로 정의는 남기고 offer만 끈다
+func _offerable(ps: Dictionary) -> int:
+	var n := 0
+	for k in ps:
+		if bool((ps[k] as Dictionary).get("offer", true)):
+			n += 1
+	return n
+
 func _init() -> void:
 	var W := PCatalog.weapons()
 	var CM := PCatalog.commons()
@@ -78,7 +87,7 @@ func _init() -> void:
 	# 옛 값(10종·30개)은 보조 7종·개조 21개가 늘기 전의 수다.
 	# **명세 변경**(2026-09-10 §7): Q와 E가 같은 6종을 공유하게 되어 e_skills 목록에 감속장이 들어갔다(5 → 6).
 	# 변형 총수 13(감속장 3 + 나머지 10)은 그대로다 — 기술이 늘어난 것이 아니라 **고를 수 있는 칸**이 늘었다.
-	ok("카탈로그: 자동기술 17(주무기 5·보조 12)·개조 51·공용 9·패시브 8·수동 기술 6(감속장 포함)·변형 13·희귀 6·장비 15(이식분 12 + 2026-09-10 신규 3)", W.size() == 17 and _mod_count(W) == 51 and CM.size() == 9 and PS.size() == 8 and PCatalog.e_skills().size() == 6 and _variant_count(SK) == 13 and PCatalog.boss_rewards().size() == 6 and EQ.size() == 15, "무기 %d mods %d variants %d" % [W.size(), _mod_count(W), _variant_count(SK)])
+	ok("카탈로그: 자동기술 17(주무기 5·보조 12)·개조 51·공용 9·패시브 10(신규 후보 8 + 후보 제외 2: 빈틈 포착·지속력)·수동 기술 6(감속장 포함)·변형 13·희귀 6·장비 19(이식분 12 + 전투 효과형 3 + 기술 부여 4)", W.size() == 17 and _mod_count(W) == 51 and CM.size() == 9 and PS.size() == 10 and _offerable(PS) == 8 and PCatalog.e_skills().size() == 6 and _variant_count(SK) == 13 and PCatalog.boss_rewards().size() == 6 and EQ.size() == 19, "무기 %d mods %d variants %d 장비 %d 패시브 %d(후보 %d)" % [W.size(), _mod_count(W), _variant_count(SK), EQ.size(), PS.size(), _offerable(PS)])
 	var n_main := 0
 	var n_sup := 0
 	for wid in W:

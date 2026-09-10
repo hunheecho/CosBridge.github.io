@@ -1,6 +1,6 @@
 {
  "schema": "prophecy.icons.v1",
- "source": "assets/icons/manifest_source.json (프로젝트 안에서 코드로 그린 벡터 141종, 최종 아트 아님)",
+ "source": "assets/icons/manifest_source.json (프로젝트 안에서 코드로 그린 벡터 147종, 최종 아트 아님)",
  "note": "게임 ID -> 아이콘 파일. 여기에 없는 ID는 절대 다른 효과의 아이콘으로 대체하지 않고 중립 자리표시 기호 + 실제 한국어 이름으로 그린다.",
  "generator": "tools/icon_gen.gd — manifest_source.json을 고치고 이 도구를 다시 돌려 svg/png/매핑을 함께 만든다(손으로 고치지 않는다)",
  "dir64": "res://assets/icons/png64",
@@ -823,7 +823,7 @@
    "color": "#F2A65A",
    "kind": "skill"
   },
-  "skill:eq_meteordrop": {
+  "skill:eq_meteor": {
    "file": "skill_eq_meteordrop",
    "name": "낙성 강하",
    "color": "#FF9E6E",
@@ -841,17 +841,53 @@
    "color": "#B9E27C",
    "kind": "skill"
   },
-  "skill:eq_crystalcoffin": {
+  "skill:eq_icetomb": {
    "file": "skill_eq_crystalcoffin",
    "name": "결정 관",
    "color": "#8FE3F0",
    "kind": "skill"
   },
-  "skill:eq_reprieveclock": {
+  "skill:eq_reprieve": {
    "file": "skill_eq_reprieveclock",
    "name": "유예의 시계",
    "color": "#D7A8FF",
    "kind": "skill"
+  },
+  "equip:instant_blade": {
+   "file": "equip_instant_blade",
+   "name": "찰나의 검",
+   "color": "#BFE6FF",
+   "kind": "equip"
+  },
+  "equip:falling_star_maul": {
+   "file": "equip_falling_star_maul",
+   "name": "낙성 추",
+   "color": "#FFD08A",
+   "kind": "equip"
+  },
+  "equip:counter_guard": {
+   "file": "equip_counter_guard",
+   "name": "받아넘김의 방패",
+   "color": "#B8D8B0",
+   "kind": "equip"
+  },
+  "equip:retrace_greaves": {
+   "file": "equip_retrace_greaves",
+   "name": "되짚는 각반",
+   "color": "#C9B6E8",
+   "kind": "equip"
+  },
+  "equip:crystal_coffin": {
+   "file": "equip_crystal_coffin",
+   "name": "결정 관",
+   "color": "#A9E4F0",
+   "kind": "equip"
+  },
+  "equip:reprieve_coat": {
+   "file": "equip_reprieve_coat",
+   "name": "유예의 외투",
+   "color": "#E8CFA0",
+   "kind": "equip"
   }
  },
  "alias": {

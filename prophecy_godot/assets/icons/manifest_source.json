@@ -765,7 +765,7 @@
     "kind": "equip",
     "key": "siege_hammerhead",
     "color": "#D6B07A",
-    "shape": "<path d='M10 20H34V44H10Z' fill='currentColor' fill-opacity='.30'/><path d='M22 44V58'/><path d='M34 32H44M44 32L38 26M44 32L38 38'/><path d='M50 22L58 32 50 42'/>"
+    "shape": "<path d='M8 18H30V46H8Z' fill='currentColor' fill-opacity='.30'/><path d='M19 46V58'/><circle cx='45' cy='32' r='4' fill='currentColor' stroke='none'/><circle cx='45' cy='32' r='10'/><circle cx='45' cy='32' r='17'/>"
   },
   {
     "id": "equip_stormwire",
@@ -1079,7 +1079,7 @@
     "color": "#FFB877",
     "shape": "<path d='M18 14c3 6 8 7 7 13-1 5-6 7-10 5-7-3-5-11-1-14-1 6 2 5 3 1Z' fill='currentColor' fill-opacity='.35'/><path d='M36 34c3 6 8 7 7 13-1 5-6 7-10 5-7-3-5-11-1-14-1 6 2 5 3 1Z' fill='currentColor' fill-opacity='.35'/><circle cx='52' cy='52' r='4' fill='currentColor' fill-opacity='.35'/><path d='M10 56H30' stroke-dasharray='3 4'/>"
   },
-{
+  {
     "id": "skill_eq_flashcut",
     "name": "찰나 가르기",
     "kind": "skill",
@@ -1087,15 +1087,15 @@
     "color": "#F2A65A",
     "shape": "<circle cx='12' cy='52' r='4' fill='currentColor' stroke='none'/><path d='M12 52L52 12'/><path d='M46 6L58 18' stroke-dasharray='2 4'/><path d='M16 40H28M36 24H48' stroke-dasharray='3 4'/>"
   },
-{
+  {
     "id": "skill_eq_meteordrop",
     "name": "낙성 강하",
     "kind": "skill",
-    "key": "eq_meteordrop",
+    "key": "eq_meteor",
     "color": "#FF9E6E",
     "shape": "<ellipse cx='32' cy='50' rx='22' ry='8' stroke-dasharray='3 4'/><circle cx='32' cy='30' r='9' fill='currentColor' fill-opacity='.35'/><path d='M32 4V18M18 8L25 19M46 8L39 19'/><path d='M12 50L20 43M52 50L44 43'/>"
   },
-{
+  {
     "id": "skill_eq_riposte",
     "name": "받아치기",
     "kind": "skill",
@@ -1103,7 +1103,7 @@
     "color": "#9EC8FF",
     "shape": "<path d='M22 12L38 18V32C38 41 31 47 30 48 29 47 22 41 22 32Z' fill='currentColor' fill-opacity='.22'/><path d='M44 20Q58 32 44 46'/><path d='M44 46L52 44M44 46L42 38'/><path d='M6 32H14'/>"
   },
-{
+  {
     "id": "skill_eq_retrace",
     "name": "되짚는 궤적",
     "kind": "skill",
@@ -1111,20 +1111,68 @@
     "color": "#B9E27C",
     "shape": "<path d='M10 50Q24 18 34 34T54 16' stroke-dasharray='4 4'/><circle cx='10' cy='50' r='4' fill='currentColor' stroke='none'/><path d='M54 16L44 14M54 16L52 26'/><path d='M20 58H44'/>"
   },
-{
+  {
     "id": "skill_eq_crystalcoffin",
     "name": "결정 관",
     "kind": "skill",
-    "key": "eq_crystalcoffin",
+    "key": "eq_icetomb",
     "color": "#8FE3F0",
     "shape": "<path d='M32 6L52 18V44L32 56 12 44V18Z' fill='currentColor' fill-opacity='.2'/><circle cx='32' cy='24' r='5'/><path d='M25 32H39V46H25Z'/><path d='M4 30H11M53 30H60' stroke-dasharray='2 4'/>"
   },
-{
+  {
     "id": "skill_eq_reprieveclock",
     "name": "유예의 시계",
     "kind": "skill",
-    "key": "eq_reprieveclock",
+    "key": "eq_reprieve",
     "color": "#D7A8FF",
     "shape": "<circle cx='32' cy='34' r='19'/><path d='M32 21V34L42 40'/><path d='M32 6V12M17 10L21 16M47 10L43 16'/><path d='M12 54Q32 63 52 54' stroke-dasharray='3 4'/>"
+  },
+  {
+    "id": "equip_instant_blade",
+    "name": "찰나의 검",
+    "kind": "equip",
+    "key": "instant_blade",
+    "color": "#BFE6FF",
+    "shape": "<path d='M20 46L42 16 49 14 49 22 27 52Z' fill='currentColor' fill-opacity='.28'/><path d='M17 41L28 52M22 49L12 59'/><path d='M40 10L52 10M44 16L56 16M48 22L58 22'/>"
+  },
+  {
+    "id": "equip_falling_star_maul",
+    "name": "낙성 추",
+    "kind": "equip",
+    "key": "falling_star_maul",
+    "color": "#FFD08A",
+    "shape": "<path d='M30 8L34 18 44 20 36 27 38 38 30 32 22 38 24 27 16 20 26 18Z' fill='currentColor' fill-opacity='.30'/><path d='M52 8L44 18M56 20L48 26'/><path d='M14 50Q30 42 46 50' /><circle cx='30' cy='52' r='4' fill='currentColor' stroke='none'/>"
+  },
+  {
+    "id": "equip_counter_guard",
+    "name": "받아넘김의 방패",
+    "kind": "equip",
+    "key": "counter_guard",
+    "color": "#B8D8B0",
+    "shape": "<path d='M12 10H46V38C46 46 38 52 29 56 20 52 12 46 12 38Z' fill='currentColor' fill-opacity='.30'/><path d='M29 20V38M22 29L29 20 36 29'/><path d='M50 46L60 36M60 36H52M60 36V44'/>"
+  },
+  {
+    "id": "equip_retrace_greaves",
+    "name": "되짚는 각반",
+    "kind": "equip",
+    "key": "retrace_greaves",
+    "color": "#C9B6E8",
+    "shape": "<path d='M20 12H34L38 34 34 52H20L16 34Z' fill='currentColor' fill-opacity='.28'/><path d='M16 30H38'/><path d='M46 20a14 14 0 1 1-4 22'/><path d='M46 12v9h-9'/>"
+  },
+  {
+    "id": "equip_crystal_coffin",
+    "name": "결정 관",
+    "kind": "equip",
+    "key": "crystal_coffin",
+    "color": "#A9E4F0",
+    "shape": "<path d='M32 6L50 20V44L32 58 14 44V20Z' fill='currentColor' fill-opacity='.26'/><path d='M32 6V58M14 20L50 44M50 20L14 44'/>"
+  },
+  {
+    "id": "equip_reprieve_coat",
+    "name": "유예의 외투",
+    "kind": "equip",
+    "key": "reprieve_coat",
+    "color": "#E8CFA0",
+    "shape": "<path d='M22 8L32 18 42 8 52 15 46 25V54H18V25L12 15Z' fill='currentColor' fill-opacity='.26'/><circle cx='32' cy='36' r='11'/><path d='M32 29V36L38 40'/>"
   }
 ]

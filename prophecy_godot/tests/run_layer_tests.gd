@@ -33,7 +33,7 @@ func _init() -> void:
 	# ---------- 상점 재고(HTML 1·150) ----------
 	var stock := PRun.stock(run)
 	var st2 := PRun.stock(run)
-	ok("상점: 하루 시드 재고 장비 2 + 기술 1, 다시 열어도 동일", (stock.equipment as Array).size() == 2 and stock.skill != null and str(stock.equipment) == str(st2.equipment) and int(stock.skill.price) == 180, str(stock.equipment))
+	ok("상점: 하루 시드 재고 장비 4 + 기술 1, 다시 열어도 동일", (stock.equipment as Array).size() == 4 and stock.skill != null and str(stock.equipment) == str(st2.equipment) and int(stock.skill.price) == 180, str(stock.equipment))
 	var eq0 := String(stock.equipment[0])
 	ok("금화 60으로는 장비(120~140)를 살 수 없다", not PRun.can_buy_equipment(run, eq0, "stock"))
 	# 유료 새로고침·잠금·준비물·회복약·무료 휴식권 값(2026-09-08). 자세한 경계는 tests/prep_shop_tests.gd
@@ -59,16 +59,20 @@ func _init() -> void:
 	ok("구매 가능 → 구매·장착, 같은 장비 중복 구매 불가, 재고 판매 기록 유지", PRun.can_buy_equipment(run, eq0, "stock") and PRun.buy_equipment(run, eq0, true, "stock") and PRun.owns_equip(run, eq0) and not PRun.can_buy_equipment(run, eq0, "stock") and (PRun.stock(run).sold as Array).has(eq0), "gold %d equip %s bag %s" % [int(run.gold), str(run.equipment), str(run.bag)])
 	var slot0 := String(PCatalog.equipment()[eq0].slot)
 	var price0 := PRun.equip_price(eq0)
+	# 진열은 **종류**로 하고 사면 그 자리에서 **개체 id**가 발급된다(eeda196 §4).
+	# 지불액·판매가·탈착은 전부 개체에 붙으므로 여기서부터는 uid0으로 묻는다 —
+	# 종류 id로 물으면 지불 기록이 없어 -1이 나온다(예전 검사가 그래서 틀렸다)
+	var uid0 := String(run.equipment[slot0])
 	ok("가격표: 무기 140·갑옷 120·방패 120. 판매는 **실제 지불 금액의 절반**(2026-09-09) — 옛 고정표 35/30/30은 sell_price에만 남는다",
 		int(run.gold) == 500 - price0 and price0 == int(PCatalog.shop().price[slot0]) and PRun.sell_price(eq0) == int(PCatalog.shop().sellPrice[slot0])
-			and PRun.sell_value(run, eq0) == int(floor(float(price0) * 0.5)) and PRun.paid_for(run, eq0) == price0,
-		"지불 %d → 판매 %d" % [PRun.paid_for(run, eq0), PRun.sell_value(run, eq0)])
+			and PRun.sell_value(run, uid0) == int(floor(float(price0) * 0.5)) and PRun.paid_for(run, uid0) == price0,
+		"개체 %s · 지불 %d → 판매 %d" % [uid0, PRun.paid_for(run, uid0), PRun.sell_value(run, uid0)])
 	PRun.unequip_item(run, slot0)
-	PRun.equip_item(run, eq0)
+	PRun.equip_item(run, uid0)
 	PRun.unequip_item(run, slot0)
 	var gold_before := int(run.gold)
-	var sell_q := PRun.sell_quote(run, eq0)
-	PRun.sell_equipment(run, eq0, int(sell_q.gold))
+	var sell_q := PRun.sell_quote(run, uid0)
+	PRun.sell_equipment(run, uid0, int(sell_q.gold))
 	ok("탈착 반복으로 금화가 새지 않고 판매는 견적(구매액의 절반)만큼 1회", int(run.gold) == gold_before + int(sell_q.gold) and int(sell_q.gold) == int(floor(float(price0) * 0.5)) and not PRun.owns_equip(run, eq0) and (run.bag as Array).is_empty())
 	run.bag.append("vitality_coat")
 	PRun.equip_item(run, "vitality_coat")
