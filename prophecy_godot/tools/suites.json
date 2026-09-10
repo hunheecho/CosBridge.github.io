@@ -304,6 +304,11 @@
       "timeout_sec": 300,
       "desc": "특수 정예 결투는 임무 목표 카드에 붙지 않는다(KD-11). 일반 카드에는 그대로 붙는다"
     },
+    "review_input_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "검수 지적 재현(화면 신호 경로·판매 안내 문구가 규칙과 같은 값을 쓰는지)"
+    },
     "save_repair_tests": {
       "env": {},
       "timeout_sec": 300,
@@ -668,6 +673,12 @@
       "overlay_tests",
       "screen_keep_tests",
       "save_repair_tests",
+      "review_input_tests",
+      "bank_tests",
+      "bank_ui_tests",
+      "equip_combat_tests",
+      "equip_ui_tests",
+      "enemy_pace_tests",
       "save_version_tests",
       "save_guard_tests",
       "combat_lock_tests",

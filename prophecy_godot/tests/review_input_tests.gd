@@ -155,7 +155,13 @@ func _run() -> void:
 	# ---------- 3. 일반 탐험 ----------
 	# 반복 탐험 카드는 '그 장소의 출격을 한 번 마쳐야' 열린다. Enter 기본 경로는 사건 화면에서
 	# 추가 전투로 갈라지므로, 여기서는 귀환을 명시적으로 마친 뒤 버튼 상태를 본다
-	if main.run.get("pendingSortie", null) != null or main.get("sortie") != null:
+	# main.sortie 는 **빈 사전 {}** 로 시작한다(null 이 아니다). `!= null` 로 물으면 언제나 참이라
+	# 진행 중인 출격이 없는데도 귀환을 불러 PRun.return_to_base 가 sortie.loot 에서 죽었다.
+	# 진짜로 진행 중인 출격이 있을 때만 부른다
+	var ps = main.run.get("pendingSortie", null)
+	var cur = main.get("sortie")
+	var has_sortie: bool = ps != null or (typeof(cur) == TYPE_DICTIONARY and not (cur as Dictionary).is_empty())
+	if has_sortie:
 		main.return_home()
 		await process_frame
 	main.go_base()
@@ -255,12 +261,14 @@ func _run() -> void:
 
 	# ---------- 7. 화면에 적힌 판매가가 규칙과 같은가 ----------
 	var SH: Dictionary = PCatalog.shop()
-	var shown_w := int((SH.get("sellPrice", {}) as Dictionary).get("weapon", -1))
+	# 2026-09-10: 옛 고정 판매가표(sellPrice)를 지웠다. 이제 화면도 규칙도 같은 자리를 읽는다.
 	var buy_w := int((SH.get("price", {}) as Dictionary).get("weapon", 0))
-	var real_w := int(floor(float(buy_w) * 0.5))
-	ok("[명세] 상점 상세의 '되팔 때' 안내가 실제 판매가(구매액의 절반)와 같다",
-		shown_w == real_w, "화면 안내 %d금 · 규칙상 %d금(구매 %d금의 절반) — shop.gd:236이 옛 고정표를 읽는다"
-			% [shown_w, real_w, buy_w])
+	var real_w := int(floor(float(buy_w) * PRun.sell_rate()))
+	ok("[명세] 옛 고정 판매가표가 자료에 남아 있지 않다",
+		not SH.has("sellPrice"), str(SH.keys()))
+	ok("[명세] 판매 기본가가 구매액 × sellRate 다",
+		PRun.sell_base_list("hunter_sword") == real_w,
+		"규칙 %d금 · 구매 %d금 × %.2f" % [PRun.sell_base_list("hunter_sword"), buy_w, PRun.sell_rate()])
 
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])

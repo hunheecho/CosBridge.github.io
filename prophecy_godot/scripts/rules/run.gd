@@ -1988,7 +1988,16 @@ static func merchant_open(run: Dictionary) -> bool:
 ## 아래 세 함수는 개체 id도 종류도 받는다(안에서 타입으로 바꾼다)
 static func equip_price(id: String) -> int: return int(SH().price[String(PCatalog.equipment_def(equip_type_of(id)).slot)])
 ## 옛 고정 판매가표(35/30/30). 지금 판매 규칙은 sell_value가 정본이며 이 함수는 옛 표를 읽는 자리(도구·대조)에만 남아 있다
-static func sell_price(id: String) -> int: return int(SH().sellPrice[String(PCatalog.equipment_def(equip_type_of(id)).slot)])
+## 회차 없이 **종류**만 놓고 세는 판매 기본가(도구·표 작성용).
+## 아무도 산 적이 없는 장비이므로 정상 구매가를 지불액 자리에 쓴다 — sell_base_value의 "산 적 없음" 갈래와 같은 식이다.
+## 옛 고정 판매가표(shop.sellPrice 35/30/30)를 읽던 sell_price는 **없앴다**(2026-09-10 사용자 확정:
+## 남은 도구를 승인된 판매 계산으로 전환하고 참조가 없어진 표를 정리한다).
+static func sell_base_list(id: String) -> int:
+	var rate := sell_rate()
+	if rate < 0.0:
+		push_error("판매 비율 자료(shop.sellRate)가 없다: 판매 금액을 셀 수 없다")
+		return 0
+	return int(floor(float(equip_price(id)) * rate))
 static func equip_name(id: String) -> String: return String(PCatalog.equipment_def(equip_type_of(id)).get("name", equip_type_of(id)))
 
 # ---------- 판매(2026-09-09 확정: 구매액의 절반 · 2026-09-10 확정: + 강화 비용의 50%) ----------

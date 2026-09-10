@@ -53,7 +53,7 @@ func _init() -> void:
 	var t0 := Time.get_ticks_msec()
 	var md := "# 제작 재료 접근성·경제 기회비용 (%s, 봇 %s, 전략 %s, 시작 %s, 시드 %s)\n\n" % [Game.VERSION, pol, strat, start, str(seeds)]
 	md += "생성: `tools/craft_economy.gd`. 회차 봇(전략 %s)이 실제 경로를 완주한 뒤 손에 남은 재료·장비·금화로 제작 6종의 도달 가능성을 센다. 봇은 제작하지 않으며(거점 봇 규칙: 기술·강화·장비 구매만) 강제 재료 지급도 없다. 송곳니는 정예 처치에서만 나오므로 위험 조건 임무·더 깊이·강적의 흔적을 받지 않는 gradual 전략은 송곳니 0이다(deep 전략 표와 비교). 사람 플레이 기록이 아니다.\n\n" % strat
-	md += "## 제작법과 비용 (초안: 수수료 + 소비 장비 판매가 + 재료 판매 포기분)\n\n| 제작품 | 재료 장비 | 재료 | 수수료 | 소비 장비 판매가 | 재료 판매 포기분 | 실제 비용 합계 |\n|---|---|---|---|---|---|---|\n"
+	md += "## 제작법과 비용 (초안: 수수료 + 소비 장비 판매 기본가 + 재료 판매 포기분)\n\n| 제작품 | 재료 장비 | 재료 | 수수료 | 소비 장비 판매 기본가 | 재료 판매 포기분 | 실제 비용 합계 |\n|---|---|---|---|---|---|---|\n"
 	var cost_of := {}
 	for id in CE:
 		var d: Dictionary = CE[id]
@@ -61,7 +61,7 @@ func _init() -> void:
 		var eq_sell := 0
 		var eq_names := []
 		for e in rc.get("equipment", []):
-			eq_sell += PRun.sell_price(String(e))
+			eq_sell += PRun.sell_base_list(String(e)) # 승인된 판매 계산(구매가 × sellRate). 옛 고정표 아님
 			eq_names.append(PRun.equip_name(String(e)))
 		var mat_sell := 0
 		var mat_names := []

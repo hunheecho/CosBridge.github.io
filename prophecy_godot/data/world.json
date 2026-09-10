@@ -2608,13 +2608,8 @@
    "armor": 120,
    "shield": 120
   },
-  "sellPrice": {
-   "weapon": 35,
-   "armor": 30,
-   "shield": 30
-  },
   "sellRate": 0.5,
-  "sellRateNote": "판매 기본가 비율(2026-09-09 사용자 확정 '실제 지불액의 절반'의 정본). 판매 기본가 = floor(지불액 × sellRate)이고, 산 적이 없는 장비(드롭·제작·옛 저장)는 지불액 대신 정상 구매가(shop.price)를 쓴다. 강화 비용 환급은 여기에 들어 있지 않다 — 그것은 equipUpgrade.sellRefundRate가 따로 정한다. 위의 sellPrice(35/30/30)는 옛 고정 판매가표이며 지금 규칙에서는 쓰지 않는다(PRun.sell_price가 대조용으로만 읽는다).",
+  "sellRateNote": "판매 기본가 비율(2026-09-09 사용자 확정 '실제 지불액의 절반'의 정본). 판매 기본가 = floor(지불액 × sellRate)이고, 산 적이 없는 장비(드롭·제작·옛 저장)는 지불액 대신 정상 구매가(shop.price)를 쓴다. 강화 비용 환급은 여기에 들어 있지 않다 — 그것은 equipUpgrade.sellRefundRate가 따로 정한다. 2026-09-10: 옛 고정 판매가표 sellPrice(35/30/30)를 **지웠다**. 마지막까지 그것을 읽던 tools/craft_economy.gd 를 승인된 계산(PRun.sell_base_list)으로 옮긴 뒤, 읽는 곳이 하나도 남지 않아 정리했다. 새 밸런스 결정이 아니라 참조가 끊긴 표의 정리다.",
   "newSkill": 180,
   "newE": 180,
   "swap": {

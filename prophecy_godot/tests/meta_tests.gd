@@ -105,7 +105,9 @@ func _init() -> void:
 	PSave.clear()
 	var M := PCatalog.meta()
 	ok("meta.json 로드: schema prophecy_meta/1, 레벨 15, 문턱 14개 합 140, 특성 12, 제작 9(잔영 허물 + 장비 기술 제작 2종), 도전 21", String(M.schema) == "prophecy_meta/1" and PProfile.max_level() == 15 and (M.levels.thresholds as Array).size() == 14 and PCatalog.trait_defs().size() == 12 and PCatalog.crafted_equipment().size() == 9 and PCatalog.challenges().size() == 21, "challenges %d" % PCatalog.challenges().size())
-	ok("카탈로그 분리: equipment()는 19(제작품 제외), equipment_def는 28 모두, 판매가 무기 35·갑옷/방패 30", PCatalog.equipment().size() == 19 and not PCatalog.equipment().has("bloodmoon_sword") and not PCatalog.equipment_def("bloodmoon_sword").is_empty() and PRun.sell_price("bloodmoon_sword") == 35 and PRun.sell_price("moon_armor") == 30 and PRun.sell_price("relay_shield") == 30)
+	# 옛 고정 판매가표(35/30/30)는 2026-09-10에 지웠다. 판매 기본가는 이제 **구매가 × sellRate**다.
+	# 값을 낮춘 것이 아니라 정본이 바뀐 것이다 — 무기 140×0.5=70 · 갑옷/방패 120×0.5=60.
+	ok("카탈로그 분리: equipment()는 19(제작품 제외), equipment_def는 28 모두, 판매 기본가는 구매가의 절반(무기 70·갑옷/방패 60)", PCatalog.equipment().size() == 19 and not PCatalog.equipment().has("bloodmoon_sword") and not PCatalog.equipment_def("bloodmoon_sword").is_empty() and PRun.sell_base_list("bloodmoon_sword") == 70 and PRun.sell_base_list("moon_armor") == 60 and PRun.sell_base_list("relay_shield") == 60)
 	# ---------- 레벨 문턱 ----------
 	ok("레벨: 0→1, 3→1, 4→2, 8→3, 14→4, 68→10, 139→14, 140→15, 200→15(상한)", PProfile.level_of(0) == 1 and PProfile.level_of(3) == 1 and PProfile.level_of(4) == 2 and PProfile.level_of(8) == 3 and PProfile.level_of(14) == 4 and PProfile.level_of(68) == 10 and PProfile.level_of(139) == 14 and PProfile.level_of(140) == 15 and PProfile.level_of(200) == 15)
 	var nl := PProfile.next_level(prof("trial", 5))
