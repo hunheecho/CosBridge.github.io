@@ -68,5 +68,38 @@ func _init() -> void:
 	ok("멀쩡한 저장은 손대지 않는다",
 		JSON.stringify(r3.equipment) + JSON.stringify(r3.bag) == before)
 
+	# **자료를 못 읽은 상황에서는 아무것도 지우면 안 된다.**
+	# 사용자 지적(2026-09-10): "자료를 아직 못 읽었거나 개체 id 를 잘못 해석해서
+	# 존재하는 장비를 없는 것으로 판단하는 경우를 막아야 한다."
+	# 목록을 잠깐 비워(캐시를 직접 갈아끼워) 그 상황을 만든 뒤, 장비가 살아남는지 본다.
+	var r4 := PRun.new_run(14, "sword")
+	r4.equipment = { "weapon": null, "armor": known, "shield": null }
+	r4.bag = [known]
+	var saved_world = PCatalog._cache.get("world", null)
+	var blanked: Dictionary = {}
+	if typeof(saved_world) == TYPE_DICTIONARY:
+		blanked = (saved_world as Dictionary).duplicate(true)
+		blanked["equipment"] = {}
+		PCatalog._cache["world"] = blanked
+	PSave._drop_unknown_equipment(r4)
+	if typeof(saved_world) == TYPE_DICTIONARY:
+		PCatalog._cache["world"] = saved_world
+	ok("자료를 못 읽으면 아무것도 지우지 않는다(멀쩡한 장비를 지우는 쪽이 더 위험하다)",
+		String(r4.equipment.armor) == known and (r4.bag as Array).has(known), str(r4.equipment) + str(r4.bag))
+	ok("그 상황에서 회차 기록에 '정리했다'를 적지도 않는다",
+		not (r4.get("log", []) as Array).any(func(l): return String(l).find("자료에 없는 장비") >= 0),
+		str(r4.get("log", [])))
+
+	# 개체 id 해석: 같은 종류라도 일련번호가 다르면 각각, 그러나 **종류는 같게** 읽어야 한다
+	ok("개체 id 해석 — '<종류>#N' 의 종류는 '#' 앞", PRun.equip_type_of(known + "#7") == known,
+		PRun.equip_type_of(known + "#7"))
+	ok("개체 id 해석 — '#' 이 없으면 문자열 전체가 종류(옛 저장)", PRun.equip_type_of(known) == known)
+	var r5 := PRun.new_run(15, "sword")
+	r5.equipment = { "weapon": null, "armor": known + "#1", "shield": null }
+	r5.bag = [known + "#2", known + "#3"]
+	PSave._drop_unknown_equipment(r5)
+	ok("같은 종류의 개체 여러 개가 전부 살아남는다",
+		String(r5.equipment.armor) == known + "#1" and (r5.bag as Array).size() == 2, str(r5.bag))
+
 	print("%d/%d PASS" % [pass_n, pass_n + fail_n])
 	quit(1 if fail_n > 0 else 0)

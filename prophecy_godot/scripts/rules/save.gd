@@ -160,6 +160,14 @@ static func load() -> Dictionary:
 static func _drop_unknown_equipment(run: Dictionary) -> void:
 	if run.is_empty():
 		return
+	# **자료를 못 읽었으면 아무것도 빼지 않는다.**
+	# PCatalog._load 가 실패하면 빈 사전을 돌려주고, 그러면 여기서 **멀쩡한 장비까지 전부**
+	# '없는 것'으로 보여 사람의 장비를 통째로 지워 버린다. 지우는 쪽이 훨씬 위험하므로,
+	# 목록이 실제로 서 있을 때만 정리한다. 서 있지 않으면 그대로 두고 넘긴다 —
+	# 없는 장비가 남아도 아래 게임이 죽을 뿐이고, 지워 버리면 되돌릴 수 없다.
+	if (PCatalog.equipment() as Dictionary).is_empty():
+		push_warning("장비 자료를 읽지 못해 저장 정리를 건너뛴다(멀쩡한 장비를 지우지 않으려고)")
+		return
 	var dropped: Array = []
 	var eq: Dictionary = run.get("equipment", {})
 	for slot in eq.keys():
