@@ -44,6 +44,11 @@
       "timeout_sec": 600,
       "desc": "수동 기술 Q/E 구조(§7)·보유 조건과 보상(§8)·감속장 투사체 감속(§9)·결투 연속 처리(KD-12)"
     },
+    "skill_cause_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "일반 수동 기술의 **고유 피해 출처**(skill_*)와 연계 자격 — 파쇄·흡혈 불허 · 숙주 파열 불허 유지 · 감전 후속·까마귀는 미결정(결과 불허) · 장비 기술 넷은 그대로. 기술을 실제로 발동시켜 값으로 잰다"
+    },
     "port_tests": {
       "env": {},
       "timeout_sec": 600,
@@ -632,6 +637,7 @@
     "all": [
       "run_tests",
       "qe_tests",
+      "skill_cause_tests",
       "eq_skill_tests",
       "collision_tests",
       "spore_tests",
@@ -691,6 +697,7 @@
     ],
     "rules": [
       "run_tests",
+      "skill_cause_tests",
       "eq_skill_tests",
       "collision_tests",
       "spore_tests",

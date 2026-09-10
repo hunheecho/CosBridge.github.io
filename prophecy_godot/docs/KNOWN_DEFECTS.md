@@ -552,3 +552,37 @@ elif (objective == "clear" or objective == "elite") and spawned_all and pending.
 **보고만 한다.** `scripts/**`는 이번 작업의 소유 범위가 아니다(다른 담당이 같은 파일을 고치고 있다).
 고칠 자리를 적어 두면: `bank_edit_reason`이 phase 외에 **"지금 전투가 돌고 있는가"**(예: 회차에 진행 중인
 `sortie`가 있는가 · `CombatState`가 살아 있는가)를 함께 보게 하면 화면이 어떻게 바뀌어도 관문이 남는다.
+
+---
+
+## KD-14. `main_extra` 칸에 아직 **주무기가 아닌 것 둘**이 섞여 있고, 파쇄는 그것을 막지 않는다 (**열림 — 이번 지시 범위 밖**)
+
+`PSupport.cause_of`의 마지막 줄은 `return "main_extra" if indirect else "main_direct"`다.
+그래서 **주인(`src.weapon_id`)이 없는 파생 피해**가 전부 `main_extra`로 떨어진다.
+자격표에서 `main_extra`의 뜻은 "주무기가 낸 타격"이므로(`data/supports.json` `frost_shatter.why` 원문:
+"모두 주무기가 낸 타격이므로 자격이 있다"), 주무기가 아닌 것이 그 칸으로 들어오면 **자격을 잘못 얻는다.**
+
+2026-09-10에 그 중 하나(**Q/E 일반 수동 기술**)를 고쳤다 — `PSkills.hit`이 기술별 경로 이름(`skill_*`)을 적는다.
+**남은 것은 둘이다.**
+
+| 남은 것 | 출처 표시 | 지금 무엇이 막고 있나 | 파쇄 |
+|---|---|---|---|
+| 공용 증강 '정지된 칼날'의 감속장 종료 폭발 | `tag common:stasis` | 흡혈: `LIFESTEAL.require_main_weapon` · 숙주 파열: `PSupportB._death_cause`의 zone_tick 교정 | **막지 않는다** |
+| 보스 보상 '무기 공명' 폭발 | `tag reward:resonance` | 위와 같음 | **막지 않는다** |
+
+즉 이 둘은 **얼어붙은 적의 빙결을 깨뜨릴 수 있다.** "파쇄를 터뜨리는 것은 주무기 공격"이라는 확정과 어긋난다.
+
+**값으로 확인했다**(얼린 늑대에게 각 폭발의 피해 opt를 게임이 만드는 모양 그대로 한 번 넣었다):
+
+| 넣은 것 | `frost_cause_of` | 파쇄 자격 | 실제 파쇄 | 빙결 남음 |
+|---|---|---|---|---|
+| `common:stasis` 폭발 | `main_extra` | true | **1회** | false |
+| `reward:resonance` 폭발 | `main_extra` | true | **1회** | false |
+
+**고치지 않은 이유.** 2026-09-10 지시는 "**일반 수동 기술**의 고유 피해 출처를 만들라"였고,
+그 둘은 수동 기술이 아니라 공용 증강·보스 보상이다. 승인 없이 밸런스를 건드리지 않기 위해 **보고만 한다.**
+
+**고칠 자리.** 수동 기술과 같은 방식이면 된다 — 그 두 피해를 내는 자리
+(`CombatState.update` 안 `common:stasis` 폭발 · `PWeapons.on_hit` 안 `reward:resonance` 폭발)에서
+`cause`를 적어 보내고, 그 이름을 `eligibility.causes`와 `frost_shatter.deny`에 적는다.
+**사용자 확정이 먼저 필요하다**(둘 다 지금 파쇄를 터뜨리고 있으므로 고치면 밸런스가 바뀐다).
