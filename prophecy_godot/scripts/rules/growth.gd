@@ -15,6 +15,7 @@ static func new_growth(start_weapon: String = "sword", start_skill: String = "sl
 		"structure": STRUCTURE, # 주무기 1 + 공통 보조 2. 이 표시가 없는 저장은 옛 구조("v1")로 본다
 		"weapons": [{ "id": start_weapon, "level": 1, "mods": [] }],
 		"commons": {}, "passives": {}, "skills": { "q": { "id": (start_skill if PCatalog.skills().has(start_skill) else "slowfield"), "level": 1, "variant": null }, "e": null },
+		"bank": [], # 스킬 창고(§6): Q/E에서 뺀 **일반** 수동 기술을 레벨·변형째 보관한다. 새 회차는 비어 있다
 		"bossRewards": [], "steer": null,
 		"picks": { "weapon_new": 0, "weapon_level": 0, "weapon_mod": 0, "common": 0, "skill_new": 0, "skill_level": 0, "skill_variant": 0, "passive": 0, "skip": 0 },
 		"log": [], "pendingDeepPick": null, "pendingBossPick": null, "pendingMissionPick": null, "pendingEventPick": null,
@@ -234,6 +235,212 @@ static func skill_id_in(g: Dictionary, slot: String) -> String:
 	var sk = g.get("skills", {}).get(slot, null)
 	return String(sk.id) if sk != null else ""
 
+# ================= 스킬 창고와 장비 기술(§5·§6·§7, 2026-09-10) =================
+## 네 상태를 코드에서 이렇게 가른다. **서로 다른 곳을 읽는다 — 하나를 다른 하나로 대신하지 않는다.**
+##   보유(일반 수동 기술) : Q·E 칸에 있거나 창고(growth.bank)에 있다  → owns_manual_skill
+##   창고 보관            : growth.bank 배열 안에만 있다               → in_bank / bank
+##   Q·E 배치             : growth.skills.q / .e 에 들어 있다           → skill_id_in / has_skill
+##   장비 착용            : run.equipment 의 어느 칸이 그 장비 개체다   → granted_skill_ids
+##
+## 그래서 "창고에 있는 감속장"은 has_skill이 절대 true가 되지 않고(창고는 skills를 건드리지 않는다),
+## "장비 기술이 배치돼 있지만 장비를 벗은 상태"는 배치는 남고 usable_skill만 null이 된다.
+const EQUIP_SKILL_PREFIX := "eq_"
+
+## 이 기술 id가 **장비 기술**인가(규약: eq_ 로 시작한다 — 다른 담당과 합의한 유일한 판정 기준).
+## 장비 기술 = 레벨 없음 · 개조 없음 · 보상 후보 아님 · 창고에 보관하지 않음 · 착용 중에만 사용 가능.
+static func is_equip_skill(id: String) -> bool:
+	return id.begins_with(EQUIP_SKILL_PREFIX)
+
+## 창고 배열(없으면 **만들어서** 돌려준다 — 넣고 빼는 쪽에서만 쓴다). 항목은 **일반 수동 기술만** [{ id, level, variant }]
+static func bank(g: Dictionary) -> Array:
+	if typeof(g.get("bank", null)) != TYPE_ARRAY:
+		g.bank = []
+	return g.bank
+
+## 읽기 전용 조회. 옛 저장(bank 키가 없는 회차)을 **조회만으로 바꾸지 않는다** — 빈 배열로 본다
+static func bank_ro(g: Dictionary) -> Array:
+	var v = g.get("bank", null)
+	return v if typeof(v) == TYPE_ARRAY else []
+
+static func bank_ids(g: Dictionary) -> Array:
+	var out := []
+	for e in bank_ro(g):
+		out.append(String(e.id))
+	return out
+
+static func in_bank(g: Dictionary, id: String) -> bool:
+	return bank_ids(g).has(id)
+
+## 창고에서 그 기술 항목을 찾는다(없으면 {}). 돌려주는 것은 **배열 안의 그 사전 자체**다
+static func bank_entry(g: Dictionary, id: String) -> Dictionary:
+	for e in bank_ro(g):
+		if String(e.id) == id:
+			return e
+	return {}
+
+## 그 **일반** 수동 기술을 이 회차에서 가지고 있는가(배치 중이거나 창고에 있거나).
+## 새 기술 획득 후보를 막는 자리가 이것을 본다 — 창고에 있는 것을 다시 '새 기술'로 주면 중복 소유가 된다
+static func owns_manual_skill(g: Dictionary, id: String) -> bool:
+	return has_skill(g, id) or in_bank(g, id)
+
+## 지금 **착용 중인 장비**가 주는 장비 기술 id 목록.
+## 두 통로를 합집합으로 본다(둘 중 하나만 있어도 동작한다 — 담당이 나뉘어 있기 때문이다):
+##   ① 장비 정의의 grantsSkill: "eq_xxx"  ← 다른 담당이 넣는 정본
+##   ② 장비 기술 정의의 grantedBy: [장비 종류 id...]  ← 이 갈래가 쓰는 보조 통로
+## 가방에 든 장비는 세지 않는다. **착용**만이 자격이다(§6: 사용 가능 ≠ 배치).
+static func granted_skill_ids(run: Dictionary) -> Array:
+	var out := []
+	var eq = run.get("equipment", null)
+	if typeof(eq) != TYPE_DICTIONARY:
+		return out
+	var worn := []
+	for slot in eq:
+		if eq[slot] != null:
+			worn.append(PRun.equip_type_of(String(eq[slot])))
+	for t in worn:
+		var d := PCatalog.equipment_def(String(t))
+		var gs := String(d.get("grantsSkill", ""))
+		if gs != "" and not out.has(gs):
+			out.append(gs)
+	var ES := PCatalog.equip_skill_defs()
+	for sid in ES:
+		if out.has(String(sid)):
+			continue
+		for t2 in (ES[sid] as Dictionary).get("grantedBy", []):
+			if worn.has(String(t2)):
+				out.append(String(sid))
+				break
+	return out
+
+## 이 장비 기술을 **지금 쓸 수 있는가**(그 기술을 주는 장비를 착용 중인가)
+static func equip_skill_granted(run: Dictionary, skill_id: String) -> bool:
+	return granted_skill_ids(run).has(skill_id)
+
+## 그 칸의 기술을 지금 쓸 수 없는 이유 한 줄. 쓸 수 있으면 ""(빈 칸도 "").
+## **배치를 지우지 않는다** — 장비를 다시 끼면 아무 조작 없이 그대로 되살아난다(§6).
+static func slot_blocked_reason(run: Dictionary, slot: String) -> String:
+	var g: Dictionary = run.get("growth", {})
+	var sid := skill_id_in(g, slot)
+	if sid == "" or not is_equip_skill(sid):
+		return ""
+	if equip_skill_granted(run, sid):
+		return ""
+	var nm := String(PCatalog.skills().get(sid, {}).get("name", sid))
+	return "%s은(는) 그 장비를 착용해야 씁니다. 지금은 장비를 벗어 사용할 수 없습니다(배치는 그대로 남아 있습니다)." % nm
+
+## 그 칸에서 **실제로 쓸 수 있는** 기술(없으면 null). 전투가 보는 값은 언제나 이것이다.
+## 배치(growth.skills)와 갈라 두는 이유: 장비를 벗어도 배치는 지우지 않되 전투에서는 나가지 않게 하려는 것.
+static func usable_skill(run: Dictionary, slot: String):
+	var g: Dictionary = run.get("growth", {})
+	var sk = g.get("skills", {}).get(slot, null)
+	if sk == null:
+		return null
+	if is_equip_skill(String(sk.id)) and not equip_skill_granted(run, String(sk.id)):
+		return null
+	return sk
+
+# ---------- 편성(거점에서만, 시간·금화 소모 없음) ----------
+## 편성을 지금 바꿀 수 있는가. 못 바꾸면 이유 한 줄.
+## **전투 중에는 절대 열지 않는다** — 재사용 시간 시계(player.special_cd·e_cd)는 CombatState 안에만 있고,
+## 거점에서 편성을 바꿔도 그 시계는 존재하지 않는다. 그래서 장착·해제·Q/E 교환으로 재사용을 초기화하거나
+## 짧은 쪽으로 바꾸는 구멍이 생기지 않는다(§6). 전투 중 교체 기능은 만들지 않았다.
+static func bank_edit_reason(run: Dictionary) -> String:
+	var phase := String(run.get("phase", "prep"))
+	if phase == "prep" or phase == "boss_prep":
+		return ""
+	return "거점(또는 관문 준비)에서만 기술 편성을 바꿀 수 있습니다."
+
+## 창고에 넣는다(일반 기술만). 장비 기술은 창고에 **영구 복제되지 않는다** — 그냥 배치에서 빠진다
+static func _to_bank(g: Dictionary, sk) -> void:
+	if sk == null:
+		return
+	var sid := String(sk.id)
+	if is_equip_skill(sid):
+		return # 장비 기술은 소유물이 아니다(장비가 소유물이다). 창고에 넣지 않는다
+	if in_bank(g, sid):
+		return # 같은 기술이 창고에 두 번 들어가지 않는다
+	bank(g).append({ "id": sid, "level": int(sk.get("level", 1)), "variant": sk.get("variant", null) })
+
+## 그 칸을 비우고 든 기술을 창고로 보낸다(일반 기술이면). 바뀐 것이 없으면 false
+static func store_skill(run: Dictionary, slot: String) -> bool:
+	if bank_edit_reason(run) != "":
+		push_error(bank_edit_reason(run)); return false
+	if not SKILL_SLOTS.has(slot):
+		push_error("알 수 없는 칸: " + slot); return false
+	var g: Dictionary = run.growth
+	var sk = g.get("skills", {}).get(slot, null)
+	if sk == null:
+		return false
+	_to_bank(g, sk)
+	g.skills[slot] = null
+	return true
+
+## 그 칸에 기술을 배치한다. id는 **창고에 있는 일반 기술** 또는 **착용 장비가 주는 장비 기술**.
+## - 원래 그 칸에 있던 일반 기술은 **창고로 간다**(레벨·변형을 그대로 안고 간다. 삭제하지 않는다).
+## - 같은 기술을 Q와 E에 **중복 배치하지 않는다**(장비 기술도 예외가 아니다).
+## - **임의로 다른 기술을 자동 선택하지 않는다** — 이 함수는 부른 쪽이 고른 것 하나만 넣는다.
+static func place_skill(run: Dictionary, slot: String, id: String) -> bool:
+	if bank_edit_reason(run) != "":
+		push_error(bank_edit_reason(run)); return false
+	if not SKILL_SLOTS.has(slot):
+		push_error("알 수 없는 칸: " + slot); return false
+	var g: Dictionary = run.growth
+	var other := "e" if slot == "q" else "q"
+	if skill_id_in(g, other) == id:
+		push_error("같은 기술을 두 칸에 둘 수 없습니다: " + id); return false
+	if skill_id_in(g, slot) == id:
+		return false # 이미 그 칸에 있다(아무 일도 하지 않는다)
+	var entry := {}
+	if is_equip_skill(id):
+		if not equip_skill_granted(run, id):
+			push_error("그 장비를 착용해야 배치할 수 있습니다: " + id); return false
+		# 장비 기술은 레벨·개조가 없다. **기존 Q/E의 레벨·변형을 계승하지 않는다**(§5)
+		entry = { "id": id, "level": 1, "variant": null }
+	else:
+		if not PCatalog.skills().has(id):
+			push_error("알 수 없는 기술: " + id); return false
+		var be := bank_entry(g, id)
+		if be.is_empty():
+			push_error("창고에 없는 기술입니다: " + id); return false
+		# 보관해 둔 레벨·변형을 **그대로** 되돌린다(§7: 다시 배치하면 복구된다)
+		entry = { "id": id, "level": int(be.get("level", 1)), "variant": be.get("variant", null) }
+		(bank(g) as Array).erase(be)
+	_to_bank(g, g.get("skills", {}).get(slot, null))
+	g.skills[slot] = entry
+	return true
+
+## Q와 E를 한 번에 맞바꾼다(§6). 레벨·변형·고유 상태는 **그 기술을 따라간다**.
+## 재사용 시간은 전투 밖에 존재하지 않으므로 이 조작으로 초기화되거나 짧은 쪽으로 바뀌지 않는다.
+static func swap_qe(run: Dictionary) -> bool:
+	if bank_edit_reason(run) != "":
+		push_error(bank_edit_reason(run)); return false
+	var g: Dictionary = run.growth
+	var q = g.get("skills", {}).get("q", null)
+	var e = g.get("skills", {}).get("e", null)
+	if q == null and e == null:
+		return false
+	g.skills.q = e
+	g.skills.e = q
+	return true
+
+## 지금 배치할 수 있는 것들(화면이 그대로 그린다).
+## { bank: [{id,name,level,variant,...}], equip: [{id,name,...}] } — 이미 다른 칸에 든 것은 blocked로 표시한다
+static func placeable(run: Dictionary, slot: String) -> Dictionary:
+	var g: Dictionary = run.growth
+	var other := "e" if slot == "q" else "q"
+	var SK := PCatalog.skills()
+	var out := { "bank": [], "equip": [] }
+	for be in bank_ro(g):
+		var sid := String(be.id)
+		var d: Dictionary = SK.get(sid, {})
+		(out.bank as Array).append({ "id": sid, "name": String(d.get("name", sid)), "level": int(be.get("level", 1)),
+			"variant": be.get("variant", null), "blocked": skill_id_in(g, other) == sid })
+	for sid2 in granted_skill_ids(run):
+		var d2: Dictionary = SK.get(String(sid2), {})
+		(out.equip as Array).append({ "id": String(sid2), "name": String(d2.get("name", sid2)),
+			"blocked": skill_id_in(g, other) == String(sid2), "placed": skill_id_in(g, slot) == String(sid2) })
+	return out
+
 ## 변형 해금 표의 종류. 감속장 변형은 **어느 칸에 있든** 옛 q_variants 표를 그대로 쓴다
 ## (프로필에 이미 쌓인 해금을 슬롯이 바뀌었다는 이유로 버리지 않기 위해서다). 나머지 5종은 e_variants.
 static func variant_unlock_cat(skill_id: String) -> String:
@@ -262,6 +469,24 @@ static func equip_eff_inactive_reason(g: Dictionary, eff: Dictionary) -> String:
 		return "E 칸이 비어 있어 발동하지 않습니다(E에 수동 기술을 넣으면 되살아납니다)."
 	if eff.has("relay") and (g.get("skills", {}).get("e", null) == null or g.get("skills", {}).get("q", null) == null):
 		return "Q와 E 두 칸이 모두 차 있어야 발동합니다(Q를 쓴 뒤 창 안에 E를 쓰는 효과입니다)."
+	return ""
+
+## 같은 판정을 **회차 전체**로 한다. 장비를 벗어 지금 쓸 수 없는 장비 기술이 든 칸은 '빈 칸'으로 센다 —
+## 그러지 않으면 쓰지도 못하는 장비 기술이 E에 박혀 있다는 이유로 '시전자의 방패'가 켜져 있다고 잘못 말한다.
+## 창고에 든 기술은 어느 쪽에서도 '사용 중'으로 세지 않는다(창고는 skills를 건드리지 않는다 — §7).
+static func equip_inactive_reason_run(run: Dictionary, equip_id: String) -> String:
+	var d := PCatalog.equipment_def(equip_id)
+	return equip_eff_inactive_reason_run(run, d.get("eff", {})) if not d.is_empty() else ""
+
+static func equip_eff_inactive_reason_run(run: Dictionary, eff: Dictionary) -> String:
+	var g: Dictionary = run.get("growth", {})
+	var base := equip_eff_inactive_reason(g, eff)
+	if base != "":
+		return base
+	if eff.has("eShield") and usable_skill(run, "e") == null:
+		return "E 칸의 장비 기술을 지금 쓸 수 없어(장비를 벗었습니다) 발동하지 않습니다."
+	if eff.has("relay") and (usable_skill(run, "q") == null or usable_skill(run, "e") == null):
+		return "Q와 E 두 칸이 모두 지금 쓸 수 있어야 발동합니다(장비를 벗은 칸은 세지 않습니다)."
 	return ""
 
 static func has_bleed_source(g: Dictionary) -> bool:
@@ -428,12 +653,20 @@ static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 			var sid := String(id)
 			if not SK.has(sid) or not bool(SK[sid].impl) or sid == q_id:
 				continue
+			if is_equip_skill(sid) or in_bank(g, sid):
+				continue # 장비 기술은 새 기술 후보가 아니고, 창고에 든 것은 이미 보유다(무료로 다시 배치하면 된다)
 			if not PProfile.run_unlock_ok(run, "e_skills", sid):
 				continue
 			push.call({ "kind": "skill_new", "id": sid, "tags": [] })
 	for slot in SKILL_SLOTS:
 		var sk = g.skills.get(slot)
 		if sk == null:
+			continue
+		# **장비 기술은 레벨업·개조 후보에 섞이지 않는다**(§5). 칸을 차지하고 있어도 성장 대상이 아니다.
+		# 화면에서 숨기는 것이 아니라 후보 생성 자체에서 뺀다(확정 쪽 apply_choice에서도 다시 막는다).
+		if is_equip_skill(String(sk.id)):
+			continue
+		if not SK.has(String(sk.id)):
 			continue
 		var d: Dictionary = SK[String(sk.id)]
 		if int(sk.level) < int(S.skillMax):
@@ -677,6 +910,12 @@ static func apply_choice(run: Dictionary, choice: Dictionary, dry: bool = false)
 			# 후보 목록을 지나 들어와도(옛 화면·저장된 조작·도구) 같은 기술을 두 칸에 두지 않는다
 			if skill_id_in(g, "q") == String(choice.id):
 				push_error("이미 Q에 가진 기술입니다: " + String(choice.id)); return false
+			# 확정에서도 막는다: 장비 기술은 '새 수동 기술'로 얻는 것이 아니고(장비를 착용해 쓴다),
+			# 창고에 든 기술은 이미 보유라 다시 지급하면 중복 소유가 된다(§5·§6)
+			if is_equip_skill(String(choice.id)):
+				push_error("장비 기술은 보상으로 얻지 않습니다: " + String(choice.id)); return false
+			if in_bank(g, String(choice.id)):
+				push_error("이미 창고에 보관 중인 기술입니다: " + String(choice.id)); return false
 			if not PProfile.run_unlock_ok(run, "e_skills", String(choice.id)):
 				push_error("해금되지 않은 기술입니다: " + String(choice.id)); return false
 			g.skills.e = { "id": String(choice.id), "level": 1, "variant": null }
@@ -684,11 +923,15 @@ static func apply_choice(run: Dictionary, choice: Dictionary, dry: bool = false)
 			var sk = g.skills.get(String(choice.slot))
 			if sk == null or String(sk.id) != String(choice.id) or int(sk.level) >= int(S.skillMax):
 				push_error("기술 레벨"); return false
+			if is_equip_skill(String(choice.id)):
+				push_error("장비 기술은 레벨업하지 않습니다: " + String(choice.id)); return false
 			sk.level = int(sk.level) + 1
 		"skill_variant":
 			var sk = g.skills.get(String(choice.slot))
 			if sk == null or String(sk.id) != String(choice.id) or sk.get("variant") != null:
 				push_error("기술 변형"); return false
+			if is_equip_skill(String(choice.id)):
+				push_error("장비 기술은 개조(변형)하지 않습니다: " + String(choice.id)); return false
 			# 확정에서도 해금 자격을 다시 본다(기술 교환 뒤 남아 있던 옛 후보를 그대로 받지 않게)
 			var vcat2 := variant_unlock_cat(String(choice.id))
 			var vok: bool = PProfile.run_unlock_ok(run, "q_variants", String(choice.variant)) if vcat2 == "q_variants" else PProfile.run_unlock_ok(run, "e_variants", String(choice.id), String(choice.variant))

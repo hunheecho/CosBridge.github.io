@@ -90,3 +90,53 @@ Q와 E는 **같은 6종을 공유하는 두 칸**이다. 칸이 기술을 정하
 - 옛 저장에 남아 있는 감속장 전용 증강·장비는 **회수하지 않는다.**
 - `data/growth.json`의 `e_skills` 목록에서 감속장을 **맨 뒤**에 붙였다 — 앞 5개의 자리 번호가 바뀌면
   진행 중인 회차의 상점 진열 시드가 함께 바뀌기 때문이다.
+
+---
+
+# 스킬 창고와 장비 기술 (2026-09-10, SPEC_EQUIP_SKILLBANK §5·§6·§7)
+
+## 네 상태를 어디서 읽는가 — 하나를 다른 하나로 대신하지 않는다
+
+| 상태 | 정본 자리 | 조회 |
+|---|---|---|
+| **보유**(일반 수동 기술) | `growth.skills.q/.e` **또는** `growth.bank` | `PGrowth.owns_manual_skill` |
+| **창고 보관** | `growth.bank` = `[{id, level, variant}]` | `PGrowth.in_bank` · `bank_ro` |
+| **Q·E 배치** | `growth.skills.q` · `.e` | `PGrowth.skill_id_in` · `has_skill` |
+| **장비 착용** | `run.equipment`의 장비가 주는 기술 | `PGrowth.granted_skill_ids` |
+
+- **창고는 `skills`를 건드리지 않는다.** 그래서 "창고에 있는 감속장" 때문에 감속장 조건이 켜지는 일이 없다.
+- **전투가 보는 것은 `PGrowth.usable_skill`** — `PBuild.derive`가 `b.skills`에 그것을 담는다.
+  배치는 `b.skills_placed`, 못 쓰는 이유는 `b.skill_blocked`로 따로 실어 화면이 설명할 수 있게 한다.
+  HUD·모바일 버튼·입력·재사용 시계가 전부 `b.skills`를 보므로 **화면마다 예외를 붙이지 않는다.**
+
+## 장비 기술 (`eq_` 로 시작)
+
+- 정의: `data/meta.json`의 `equip_skills` 6종(`PCatalog.equip_skill_defs`). `PCatalog.skills()`가 일반 6종과 합쳐 준다.
+- **일반 기술 목록(`e_skills`)에는 들어가지 않는다** → 레벨업·개조·새 기술·상점 진열·E 교체 후보에 나오지 않는다.
+  후보 생성(`PGrowth.candidates`)·선택 확정(`apply_choice`)·해금 관문(`PProfile.run_unlock_ok`)·
+  상점 교체(`PRun.swap_quote`) 네 곳에서 각각 막는다.
+- 자격은 **착용**이다. 장비 정의의 `grantsSkill: "eq_xxx"`(다른 담당이 넣는 정본)와
+  기술 정의의 `grantedBy: [장비 종류...]`(보조 통로)를 합집합으로 본다 — 둘 중 하나만 있어도 동작한다.
+- 레벨·변형이 없다. 기존 Q/E의 레벨·변형을 **계승하지 않는다.** 화면은 'Lv1/3'이 아니라 **'장비 기술 · 성장 없음'**으로 적는다.
+- **창고에 들어가지 않는다.** 칸에서 내리면 그냥 빠진다(일반 스킬로 영구 복제되지 않는다).
+
+## 편성(거점 전용, 시간·금화 없음)
+
+`PGrowth.place_skill(run, slot, id)` · `store_skill(run, slot)` · `swap_qe(run)` — 화면은 `scripts/game/screens/skillbank.gd`.
+거점 '기술 편성' 버튼과 장비 화면 하단에서 연다.
+
+- 빼면 **레벨·변형째** 창고로 가고, 다시 넣으면 그대로 복구된다.
+- 같은 기술을 Q와 E에 두지 않는다(장비 기술도 예외 없음).
+- **장비를 벗어도 배치를 지우지 않고**, 임의의 일반 기술을 자동으로 넣지도 않는다. '지금 사용 불가'로 적고 직접 고르게 한다.
+- **재사용 시간 우회 없음**: 재사용 시계는 `CombatState`의 `player.special_cd`·`e_cd`에만 있고,
+  편성은 `PGrowth.bank_edit_reason`이 `phase`가 `prep`/`boss_prep`일 때만 허용한다(전투 중 교체 기능은 만들지 않았다).
+
+## 옛 저장
+
+`growth.bank`가 없는 회차는 **조회만으로 바뀌지 않는다**(`bank_ro`가 빈 배열로 본다).
+처음 창고에 넣을 때 그 자리에서 만든다. 기존 Q/E·레벨·변형은 손대지 않는다.
+
+## 검사
+
+`bank_tests`(규칙 38건) · `bank_ui_tests`(실제 버튼 23건 · 캡처 `docs/captures/bank_*.png`).
+`bank_ui_tests`는 user:// 저장을 지우고 다시 쓰므로 **격리된 APPDATA에서만** 돈다(안전 장치 내장).

@@ -1062,5 +1062,53 @@
     "key": "ember",
     "color": "#FFB877",
     "shape": "<path d='M18 14c3 6 8 7 7 13-1 5-6 7-10 5-7-3-5-11-1-14-1 6 2 5 3 1Z' fill='currentColor' fill-opacity='.35'/><path d='M36 34c3 6 8 7 7 13-1 5-6 7-10 5-7-3-5-11-1-14-1 6 2 5 3 1Z' fill='currentColor' fill-opacity='.35'/><circle cx='52' cy='52' r='4' fill='currentColor' fill-opacity='.35'/><path d='M10 56H30' stroke-dasharray='3 4'/>"
+  },
+{
+    "id": "skill_eq_flashcut",
+    "name": "찰나 가르기",
+    "kind": "skill",
+    "key": "eq_flashcut",
+    "color": "#F2A65A",
+    "shape": "<circle cx='12' cy='52' r='4' fill='currentColor' stroke='none'/><path d='M12 52L52 12'/><path d='M46 6L58 18' stroke-dasharray='2 4'/><path d='M16 40H28M36 24H48' stroke-dasharray='3 4'/>"
+  },
+{
+    "id": "skill_eq_meteordrop",
+    "name": "낙성 강하",
+    "kind": "skill",
+    "key": "eq_meteordrop",
+    "color": "#FF9E6E",
+    "shape": "<ellipse cx='32' cy='50' rx='22' ry='8' stroke-dasharray='3 4'/><circle cx='32' cy='30' r='9' fill='currentColor' fill-opacity='.35'/><path d='M32 4V18M18 8L25 19M46 8L39 19'/><path d='M12 50L20 43M52 50L44 43'/>"
+  },
+{
+    "id": "skill_eq_riposte",
+    "name": "받아치기",
+    "kind": "skill",
+    "key": "eq_riposte",
+    "color": "#9EC8FF",
+    "shape": "<path d='M22 12L38 18V32C38 41 31 47 30 48 29 47 22 41 22 32Z' fill='currentColor' fill-opacity='.22'/><path d='M44 20Q58 32 44 46'/><path d='M44 46L52 44M44 46L42 38'/><path d='M6 32H14'/>"
+  },
+{
+    "id": "skill_eq_retrace",
+    "name": "되짚는 궤적",
+    "kind": "skill",
+    "key": "eq_retrace",
+    "color": "#B9E27C",
+    "shape": "<path d='M10 50Q24 18 34 34T54 16' stroke-dasharray='4 4'/><circle cx='10' cy='50' r='4' fill='currentColor' stroke='none'/><path d='M54 16L44 14M54 16L52 26'/><path d='M20 58H44'/>"
+  },
+{
+    "id": "skill_eq_crystalcoffin",
+    "name": "결정 관",
+    "kind": "skill",
+    "key": "eq_crystalcoffin",
+    "color": "#8FE3F0",
+    "shape": "<path d='M32 6L52 18V44L32 56 12 44V18Z' fill='currentColor' fill-opacity='.2'/><circle cx='32' cy='24' r='5'/><path d='M25 32H39V46H25Z'/><path d='M4 30H11M53 30H60' stroke-dasharray='2 4'/>"
+  },
+{
+    "id": "skill_eq_reprieveclock",
+    "name": "유예의 시계",
+    "kind": "skill",
+    "key": "eq_reprieveclock",
+    "color": "#D7A8FF",
+    "shape": "<circle cx='32' cy='34' r='19'/><path d='M32 21V34L42 40'/><path d='M32 6V12M17 10L21 16M47 10L43 16'/><path d='M12 54Q32 63 52 54' stroke-dasharray='3 4'/>"
   }
 ]

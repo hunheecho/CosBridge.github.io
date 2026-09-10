@@ -63,6 +63,7 @@ func refresh() -> void:
 	bottom.add_child(back)
 	bottom.add_child(PUi.button("상점", func(): main.show("shop"), true, 14))
 	bottom.add_child(PUi.button("대장간", func(): main.show("forge"), true, 14))
+	bottom.add_child(PUi.button("기술 편성", func(): main.show("skillbank"), true, 14))
 	default_button = back
 
 func _pick_slot(_kind: String, slot: String) -> void:
@@ -99,7 +100,19 @@ func _item_body(box: VBoxContainer, r: Dictionary, id: String, worn: bool, detai
 	box.add_child(PUi.rich(PUi.equip_effect_lines(tid, plus), 14))
 	# 수동 기술 보유 조건(§8): 조건을 못 채우면 **지우지 않고** 지금 발동하지 않는 이유를 적는다.
 	# 감속장을 E로 교환해 잃어도 장비는 그대로 남고, 다시 얻으면 아무 조작 없이 되살아난다.
-	var why := PGrowth.equip_inactive_reason(r.growth, PRun.equip_type_of(id))
+	# 장비 기술(§5·§6): 이 장비가 기술을 준다면 **착용 중에만** 쓸 수 있다는 것과, 벗어도 배치는 남는다는 것을 적는다.
+	# 여기서 Q/E에 넣지는 않는다 — '사용 가능해지는 것'과 'Q/E에 배치하는 것'은 다른 조작이다.
+	var grants := String(d.get("grantsSkill", ""))
+	if grants == "":
+		for gs in PCatalog.equip_skill_defs():
+			if (PCatalog.equip_skill_defs()[gs].get("grantedBy", []) as Array).has(tid):
+				grants = String(gs)
+	if grants != "":
+		var gname := String(PCatalog.skills().get(grants, {}).get("name", grants))
+		var placed := PGrowth.skill_slot_of(r.growth, grants)
+		PUi.kv(box, "장비 기술", "[b]%s[/b] [color=#9ea8b8]· 레벨업·개조 없음 · 이 장비를 착용 중일 때만 사용[/color]" % PGlossaryTip.esc(gname), 14)
+		box.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % ("지금 %s 칸에 배치돼 있습니다. 벗으면 사용할 수 없게 되지만 배치와 창고의 기술은 그대로 남습니다." % placed.to_upper() if placed != "" else "아직 Q·E에 배치하지 않았습니다 — [b]기술 편성[/b]에서 직접 넣습니다."), 13))
+	var why := PGrowth.equip_inactive_reason_run(r, PRun.equip_type_of(id))
 	if why != "":
 		box.add_child(PUi.rich("[color=#ff8c73]지금은 효과 없음 — %s[/color]" % PGlossaryTip.esc(why), 13))
 	var dup: Dictionary = r.duplicate(true)

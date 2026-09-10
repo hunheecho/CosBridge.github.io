@@ -89,7 +89,31 @@ static func support_tuning(id: String) -> Dictionary:
 static func growth() -> Dictionary: return _load("growth").growth
 static func commons() -> Dictionary: return _load("growth").commons
 static func passives() -> Dictionary: return _load("growth").passives
-static func skills() -> Dictionary: return _load("growth").skills
+## 수동 기술 정의: growth.json의 **일반 수동 기술 6종** + meta.json equip_skills의 **장비 기술**(id가 "eq_"로 시작).
+## 두 목록을 여기서 합치는 이유: 재사용 시간·이름을 읽는 자리(PBuild·PSkills·화면)가 사전 하나만 보면 되게 하려는 것이다.
+## **합쳤다고 같은 종류가 되는 것은 아니다** — 장비 기술은 e_skills(보상·상점 후보 목록)에 들어가지 않고,
+## 레벨업·개조·창고 보관 대상도 아니다(§5). 그 구분은 PGrowth.is_equip_skill 한 곳에서 판정한다.
+static func skills() -> Dictionary:
+	if _cache.has("skills_merged"):
+		return _cache["skills_merged"]
+	var out: Dictionary = (_load("growth").skills as Dictionary).duplicate(true)
+	for k in equip_skill_defs():
+		out[String(k)] = equip_skill_defs()[k]
+	_cache["skills_merged"] = out
+	return out
+
+## 장비 기술 정의만(meta.json equip_skills, note 제외)
+static func equip_skill_defs() -> Dictionary:
+	if _cache.has("equip_skill_defs"):
+		return _cache["equip_skill_defs"]
+	var out := {}
+	var ES: Dictionary = meta().get("equip_skills", {})
+	for k in ES:
+		if String(k) != "note":
+			out[String(k)] = ES[k]
+	_cache["equip_skill_defs"] = out
+	return out
+
 static func e_skills() -> Array: return _load("growth").e_skills
 static func boss_rewards() -> Dictionary: return _load("growth").boss_rewards
 static func region_tags() -> Dictionary: return _load("growth").region_tags
@@ -152,7 +176,29 @@ static func boss_hp_sets() -> Dictionary:
 	return out
 static func run_modes() -> Dictionary: return _load("enemies").run_modes
 static func world() -> Dictionary: return _load("world")
-static func equipment() -> Dictionary: return _load("world").equipment
+## 장비 사전. 평소에는 data/world.json 그대로다.
+##
+## 시험 전용 겹쳐쓰기(PROPHECY_EQUIP_SKILL_DEMO=1): 장비 기술 6종을 주는 **장비 정의**는 다른 담당의 몫이라
+## 아직 자료에 없다. 그런데 '소유 / 창고 보관 / Q·E 배치 / 장비 착용' 네 상태를 **실제 화면에서 눌러**
+## 확인하려면 grantsSkill을 가진 장비가 하나는 있어야 한다. 그래서 시험용 장비 한 개를 코드 안에만 두고
+## 환경 변수로만 켠다 — data/world.json·data/meta.json의 장비 정의는 건드리지 않는다.
+## 환경 변수가 없으면 사전에 **하나도 들어가지 않아** 평소 동작·저장·시험이 전과 완전히 같다.
+const DEMO_EQUIP_ENV := "PROPHECY_EQUIP_SKILL_DEMO"
+const DEMO_EQUIP_ID := "demo_flashcut_blade"
+
+static func equip_skill_demo() -> bool:
+	return OS.get_environment(DEMO_EQUIP_ENV) != ""
+
+static func equipment() -> Dictionary:
+	var EQ: Dictionary = _load("world").equipment
+	if equip_skill_demo() and not EQ.has(DEMO_EQUIP_ID):
+		EQ[DEMO_EQUIP_ID] = {
+			"name": "시험용 각인검", "slot": "weapon",
+			"short": "시험 전용 · 착용 중 장비 기술 '찰나 가르기'를 쓸 수 있다",
+			"desc": "시험 전용 장비다(환경 변수로만 나타난다). 착용하면 장비 기술 '찰나 가르기'를 Q나 E에 배치할 수 있다.",
+			"eff": {}, "grantsSkill": "eq_flashcut",
+		}
+	return EQ
 static func shop() -> Dictionary: return _load("world").shop
 static func regions() -> Array: return _load("world").regions
 static func materials() -> Dictionary: return _load("world").materials

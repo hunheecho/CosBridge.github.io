@@ -4,8 +4,8 @@
 만드는 도구는 `tools/icon_gen.gd`(프로젝트 안에서 코드로 그린 벡터 → svg·png128·png64·data/icons.json). 최종 아트는 아니다.
 아이콘이 없는 항목은 다른 효과의 아이콘을 재사용하지 않고 중립 자리표시 기호 + 실제 이름으로 표시한다.
 
-- 표시 대상 ID: 133
-- 아이콘 있음: 133
+- 표시 대상 ID: 139
+- 아이콘 있음: 139
 - 누락: 0
 
 누락 없음. 표시 대상 ID가 늘어나면 이 문서에 다시 나타난다.
@@ -88,11 +88,17 @@
 | `mod:wind:focused` | 압축 돌풍 | `mod_wind_focused` |
 | `mod:wind:lingering` | 잔바람 | `mod_wind_lingering` |
 
-## 적용 · skill (6)
+## 적용 · skill (12)
 
 | ID | 이름 | 그림 파일 |
 | --- | --- | --- |
 | `skill:e:bladestorm` | 칼날 폭풍 | `skill_bladestorm` |
+| `skill:e:eq_crystalcoffin` | 결정 관 | `skill_eq_crystalcoffin` |
+| `skill:e:eq_flashcut` | 찰나 가르기 | `skill_eq_flashcut` |
+| `skill:e:eq_meteordrop` | 낙성 강하 | `skill_eq_meteordrop` |
+| `skill:e:eq_reprieveclock` | 유예의 시계 | `skill_eq_reprieveclock` |
+| `skill:e:eq_retrace` | 되짚는 궤적 | `skill_eq_retrace` |
+| `skill:e:eq_riposte` | 받아치기 | `skill_eq_riposte` |
 | `skill:e:gravity` | 중력핵 | `skill_gravity` |
 | `skill:e:gust` | 돌풍 | `skill_gust` |
 | `skill:e:strike` | 낙뢰 | `skill_strike` |

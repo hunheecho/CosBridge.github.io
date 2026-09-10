@@ -613,6 +613,10 @@ func _actions_card(r: Dictionary, into: VBoxContainer, out_of_time: bool) -> voi
 		var endb := PUi.button("하루 종료 → %d일차 (남은 %d칸 버림)" % [int(r.day) + 1, int(r.hours)], func(): _open_endday(), true, 14)
 		endb.custom_minimum_size = Vector2(0, PLayout.button_min_height())
 		box.add_child(endb)
+	# 기술 편성(창고 ↔ Q/E, §6)은 시간·금화를 쓰지 않는다 — 그래서 '오늘' 카드의 조작 줄에 둔다
+	var sk := PUi.button("기술 편성 (창고 ↔ Q/E)", func(): main.show("skillbank"), true, 14)
+	sk.custom_minimum_size = Vector2(0, PLayout.button_min_height())
+	box.add_child(sk)
 	var row := PUi.hbox(6)
 	var sq := PUi.button("저장 후 종료", func(): main.save_quit(), true, 13)
 	sq.custom_minimum_size = Vector2(0, PLayout.button_min_height())

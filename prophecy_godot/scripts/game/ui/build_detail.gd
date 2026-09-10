@@ -190,8 +190,20 @@ func _manual_card(build: Dictionary) -> Control:
 	var SK := PCatalog.skills()
 	for slot in PGrowth.SKILL_SLOTS:
 		var sk = build.skills.get(slot, null)
+		# 장비를 벗어 지금 못 쓰는 장비 기술: **배치는 그대로 남아 있다**는 것을 적는다(조용히 사라지지 않는다)
+		var blocked := String((build.get("skill_blocked", {}) as Dictionary).get(slot, ""))
+		var placed = (build.get("skills_placed", {}) as Dictionary).get(slot, null)
 		var row := PUi.hbox(8)
-		if sk == null:
+		if sk == null and blocked != "" and placed != null:
+			var bt := PIconTile.new(PIcons.e_key(String(placed.id)), PIconTile.STYLE_MANUAL)
+			bt.set_icon_px(40.0, 40.0, 0)
+			bt.disabled = true
+			row.add_child(bt)
+			var bcol := PUi.vbox(1)
+			bcol.add_child(PUi.rich("[b]%s[/b] %s [color=#ff8c73]지금 사용 불가[/color]" % [String(slot).to_upper(), PGlossaryTip.esc(String(SK.get(String(placed.id), {}).get("name", String(placed.id))))], 15))
+			bcol.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(blocked), 12))
+			row.add_child(bcol)
+		elif sk == null:
 			var et := PIconTile.new("", PIconTile.STYLE_MANUAL)
 			et.empty = true
 			et.set_icon_px(40.0, 40.0, 0)
@@ -206,10 +218,21 @@ func _manual_card(build: Dictionary) -> Control:
 			row.add_child(t)
 			var vtxt := (" · 변형 " + String(d.variants[String(sk.variant)].name)) if sk.get("variant", null) != null else ""
 			var col := PUi.vbox(1)
-			col.add_child(PUi.rich("[b]%s[/b] %s Lv%d%s" % [String(slot).to_upper(), PGlossaryTip.esc(String(d.name)), int(sk.level), vtxt], 15))
+			# 장비 기술에는 **'Lv1/3' 같은 성장 가능 표시를 붙이지 않는다**(§5). '장비 기술 · 성장 없음'으로 적는다
+			var grow := "[color=#9ea8b8]장비 기술 · 성장 없음[/color]" if PGrowth.is_equip_skill(sid) else ("Lv%d%s" % [int(sk.level), vtxt])
+			col.add_child(PUi.rich("[b]%s[/b] %s %s" % [String(slot).to_upper(), PGlossaryTip.esc(String(d.name)), grow], 15))
 			col.add_child(PUi.rich("[color=#9ea8b8]재사용[/color] [b]%s초[/b] [color=#9ea8b8]%s[/color]" % [PUi.fmt(cd_of_build(build, String(slot))), PGlossaryTip.esc(String(d.get("desc", "")))], 13))
 			row.add_child(col)
 		box.add_child(row)
+	# 창고(§6): 지금 편성에 없지만 **보유 중인** 일반 기술. 레벨·변형을 그대로 안고 기다린다
+	var bank: Array = PGrowth.bank_ro(build.get("growth", {}))
+	if not bank.is_empty():
+		var names := []
+		for be in bank:
+			var bd: Dictionary = SK.get(String(be.id), {})
+			var bv := (" · " + String((bd.get("variants", {}) as Dictionary).get(String(be.variant), {}).get("name", String(be.variant)))) if be.get("variant", null) != null else ""
+			names.append("%s Lv%d%s" % [String(bd.get("name", String(be.id))), int(be.get("level", 1)), bv])
+		box.add_child(PUi.rich("[color=#9ea8b8]기술 창고 %d개 — %s (편성에 없으므로 전투에서 발동하지 않습니다)[/color]" % [bank.size(), PGlossaryTip.esc(" · ".join(names))], 12))
 	return c.panel
 
 ## 빌드의 최종 재사용 시간(초). 규칙(PSkills.cd_of / PBuild.derive)이 이미 계산한 값을 읽기만 한다.

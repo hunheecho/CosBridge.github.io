@@ -2210,6 +2210,10 @@ static func swap_quote(run: Dictionary, slot: String, index: int = 0) -> Diction
 		cur = g.weapons[index]
 	if cur == null:
 		return {}
+	# 장비 기술이 든 칸은 상점 '교체'의 대상이 아니다(§5: 레벨업·개조 불가 · 장비를 바꿔서 얻고 버린다).
+	# 여기서 막지 않으면 유료 교체가 장비 기술을 일반 기술로 바꿔 창고 경로에 복제해 넣게 된다
+	if slot == "e" and PGrowth.is_equip_skill(String(cur.id)):
+		return {}
 	var mods: int = (1 if cur.get("variant", null) != null else 0) if slot == "e" else (cur.mods as Array).size()
 	var SW: Dictionary = SH().swap
 	var price := int(SW.base) + (int(cur.level) - 1) * int(SW.perLevel) + mods * int(SW.perMod)

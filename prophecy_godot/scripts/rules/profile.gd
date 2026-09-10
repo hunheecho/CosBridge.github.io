@@ -395,7 +395,10 @@ static func run_unlock_ok(run: Dictionary, cat: String, id: String, sub: String 
 	# 해금 여부보다 먼저 본다 — 해금 스냅샷이 없는 회차(봇·시험실·도구·옛 저장)에서도 같은 기술이
 	# 두 칸에 들어가면 안 되기 때문이다. 이 한 곳에서 막으면 성장 3택·상점 진열·기술 교체가
 	# 모두 같은 답을 낸다(교체·상점 쪽 코드는 이 함수를 지나간다).
-	if cat == "e_skills" and PGrowth.has_skill(run.get("growth", {}), id):
+	# 창고에 보관 중인 기술도 **이미 보유**다(2026-09-10 §6). 새 기술 후보·상점 진열·교체 후보에서 뺀다 —
+	# 창고에서 무료로 다시 꺼내 쓰면 되는 것을 돈이나 보상으로 또 주면 같은 기술이 두 벌이 된다.
+	# 장비 기술은 이 목록(e_skills = 일반 수동 기술) 자체에 들어 있지 않지만, 지나가더라도 여기서 막는다.
+	if cat == "e_skills" and (PGrowth.is_equip_skill(id) or PGrowth.owns_manual_skill(run.get("growth", {}), id)):
 		return false
 	if not run.has("unlocks") or typeof(run.unlocks) != TYPE_DICTIONARY:
 		return true
