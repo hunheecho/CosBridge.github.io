@@ -79,7 +79,12 @@
 ## 4. 파쇄 자격 (자격표 `data/supports.json` eligibility)
 
 - 파쇄를 **터뜨리는 것은 주무기 공격**이다. `PSupport.cause_of`가 돌려주는 원인 중
-  `main_direct`와, 주무기 개조가 만든 **직접 추가 타격**만 자격이 있다.
+  `main_direct`와, 주무기 개조가 만든 **직접 추가 타격**(`main_extra`)이 자격을 갖는다.
+- **2026-09-10 사용자 확정으로 장비 기술 네 종의 직접 타격이 더해졌다** —
+  `eq_slash`(찰나 가르기) · `eq_meteor_core`·`eq_meteor_wave`(낙성 강하) · `eq_riposte`(받아치기) ·
+  `eq_retrace`(되짚는 궤적). 그 다섯 이름을 `frost_shatter.allow`에 **그대로** 적었다
+  (장비 기술을 `main_direct`로 위장하지도, `equip_skill_direct` 같은 묶음 이름을 만들지도 않았다).
+  **`eq_icetomb`(결정 관)은 `deny`에 그대로**이고 [9] 유예의 시계는 피해 경로 이름 자체가 없다.
 - 지속 피해(`dot`) · 장판(`zone_tick`) · 보조 공격(`support_direct`) · 지뢰(`mine_blast`)는 **깨뜨리지 못한다.**
   잔영 분신의 모방(`echo_direct`)도 보조가 낸 타격이므로 못 깨뜨린다.
 - 파쇄 추가 피해와 파편은 **다시 냉기를 쌓지 않고 다른 빙결을 파쇄하지 않는다**(재귀 차단).

@@ -175,13 +175,22 @@ func sec0_contract() -> void:
 		and not PSupport.eligible("wind_slam", "wind_slam")
 		and not PSupport.eligible("wind_slam", "zone_tick")
 		and not PSupport.eligible("wind_slam", "dot"))
-	ok("숙주 파열은 주무기 처치에서만 열리고 독 틱·자기 자신을 막는다",
+	ok("숙주 파열은 주무기 처치에서 열리고 독 틱·자기 자신을 막는다",
 		PSupport.eligible("plague_host_burst", "main_direct")
 		and PSupport.eligible("plague_host_burst", "main_extra")
 		and not PSupport.eligible("plague_host_burst", "dot")
 		and not PSupport.eligible("plague_host_burst", "plague_burst")
 		and not PSupport.eligible("plague_host_burst", "support_direct")
 		and not PSupport.eligible("plague_host_burst", "zone_tick"))
+	# 2026-09-10 사용자 확정: 장비 기술 **네 종의 직접 타격·직접 처치**도 파쇄·숙주 파열을 연다.
+	# 결정 관(eq_icetomb)과 유예의 시계는 닫힌 채다. 실측은 eq_skill_tests 7·10절에 있다
+	ok("2026-09-10 확정: 장비 기술 **네 종(다섯 경로)** 이 파쇄·숙주 파열을 열고 **결정 관은 닫혀 있다**",
+		PSupport.eligible("plague_host_burst", "eq_slash") and PSupport.eligible("frost_shatter", "eq_slash")
+		and PSupport.eligible("plague_host_burst", "eq_meteor_core") and PSupport.eligible("frost_shatter", "eq_meteor_core")
+		and PSupport.eligible("plague_host_burst", "eq_meteor_wave") and PSupport.eligible("frost_shatter", "eq_meteor_wave")
+		and PSupport.eligible("plague_host_burst", "eq_riposte") and PSupport.eligible("frost_shatter", "eq_riposte")
+		and PSupport.eligible("plague_host_burst", "eq_retrace") and PSupport.eligible("frost_shatter", "eq_retrace")
+		and not PSupport.eligible("plague_host_burst", "eq_icetomb") and not PSupport.eligible("frost_shatter", "eq_icetomb"))
 	ok("독 전염은 예전처럼 죽음의 경로를 가리지 않는다(기존 규칙을 좁히지 않았다)",
 		PSupport.eligible("plague_spread", "dot") and PSupport.eligible("plague_spread", "support_direct")
 		and PSupport.eligible("plague_spread", "plague_burst"))

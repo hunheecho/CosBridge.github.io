@@ -39,6 +39,23 @@ const ROWS := {
 	"eq_reprieve": [EQ_COAT, "armor", true, "hpMax"],
 }
 
+# ---------- 7절 연계 자격(2026-09-10 사용자 확정) ----------
+## **열린 넷**의 피해 경로. 파쇄·숙주 파열을 발동할 수 있다
+const EQ_OPEN := ["eq_slash", "eq_meteor_core", "eq_meteor_wave", "eq_riposte", "eq_retrace"]
+## **닫힌 채로 둔 것**의 피해 경로. [9] 유예의 시계는 적에게 피해를 주지 않아 경로 이름 자체가 없다
+const EQ_SHUT := ["eq_icetomb"]
+## 여섯 경로 전부(자격표 causes에 등록된 장비 기술 어휘)
+const EQ_CAUSES := ["eq_slash", "eq_meteor_core", "eq_meteor_wave", "eq_riposte", "eq_retrace", "eq_icetomb"]
+## 경로 이름 → 그 피해를 낸 기술 id(PSkills.eq_hit에 그대로 넘긴다)
+const EQ_SKILL_OF := {
+	"eq_slash": "eq_flashcut",
+	"eq_meteor_core": "eq_meteor",
+	"eq_meteor_wave": "eq_meteor",
+	"eq_riposte": "eq_riposte",
+	"eq_retrace": "eq_retrace",
+	"eq_icetomb": "eq_icetomb",
+}
+
 var results := []
 
 func ok(name: String, cond: bool, extra: String = "") -> void:
@@ -46,10 +63,17 @@ func ok(name: String, cond: bool, extra: String = "") -> void:
 	print(("PASS " if cond else "FAIL ") + name + ((" — " + extra) if extra != "" else ""))
 
 # ---------- 시험실 ----------
-## 원하는 기술을 Q에 넣고 원하는 장비를 착용한 빈 전장. auto=false면 자동기술을 끈다
-func mk(q_id: String, equip: Dictionary = {}, weapon: String = "sword", auto: bool = false) -> CombatState:
+## 원하는 기술을 Q에 넣고 원하는 장비를 착용한 빈 전장. auto=false면 자동기술을 끈다.
+## supports = [[보조무기 id, 레벨, [개조...]], ...] · passives = { 패시브 id: 레벨 }
+## (7절 연계 실측에서 역병 나비·흡혈을 함께 켜려고 더했다 — 기본값이면 예전과 똑같은 전장이다)
+func mk(q_id: String, equip: Dictionary = {}, weapon: String = "sword", auto: bool = false,
+		supports: Array = [], passives: Dictionary = {}) -> CombatState:
 	var g: Dictionary = PGrowth.new_growth(weapon)
 	g.skills.q = { "id": q_id, "level": 1, "variant": null } if q_id != "" else null
+	for r in supports:
+		(g.weapons as Array).append({ "id": String(r[0]), "level": int(r[1]), "mods": (r[2] as Array).duplicate() })
+	for k in passives:
+		(g.passives as Dictionary)[String(k)] = int(passives[k])
 	var run: Dictionary = PBuild.empty_run_like(g)
 	var eqd: Dictionary = run.equipment
 	for slot in equip:
@@ -68,9 +92,41 @@ func mk(q_id: String, equip: Dictionary = {}, weapon: String = "sword", auto: bo
 	return st
 
 ## 그 기술과 그 기술을 주는 장비를 함께 갖춘 전장(정상 사용 경로)
-func armed(sid: String, weapon: String = "sword", auto: bool = false) -> CombatState:
+func armed(sid: String, weapon: String = "sword", auto: bool = false,
+		supports: Array = [], passives: Dictionary = {}) -> CombatState:
 	var row: Array = ROWS[sid]
-	return mk(sid, { String(row[1]): String(row[0]) }, weapon, auto)
+	return mk(sid, { String(row[1]): String(row[0]) }, weapon, auto, supports, passives)
+
+func wep(st: CombatState, id: String) -> Dictionary:
+	for w in st.weapons:
+		if String(w.id) == id:
+			return w
+	return {}
+
+## 적을 움직이지 않고 지연 효과와 보조 규칙만 굴린다(기하가 그대로 유지된다 — stagger_tests와 같은 방식)
+func quiet_tick(st: CombatState, sec: float) -> void:
+	for i in int(round(sec / STEP)):
+		var keep := []
+		for d in st.delayed:
+			d.t = float(d.t) - STEP
+			if float(d.t) <= 0.0:
+				(d.fn as Callable).call()
+			else:
+				keep.append(d)
+		st.delayed = keep
+		PSupport.update(st, STEP)
+
+func shatters(st: CombatState) -> float:
+	return PSupport.metered(st, "frost", "shatters")
+
+## 그 적을 그 자리에서 얼린다(냉기를 요구량만큼 쌓는다). 얼었는지 돌려준다
+func freeze(st: CombatState, e: Dictionary) -> bool:
+	st.add_chill_stack(e, st.frost_need())
+	return st.is_frozen(e)
+
+## 장비 기술이 실제로 쓰는 피해 함수 그대로(PSkills.eq_hit) — 출처 표시가 같다
+func eq_blow(st: CombatState, e: Dictionary, cause: String, dmg: float = 1.0) -> void:
+	PSkills.eq_hit(st, e, dmg, EQ_SKILL_OF[cause], cause, {})
 
 func dummy(st: CombatState, dx: float, dy: float = 0.0, hp: float = 1000000.0, type_id: String = "wolf") -> Dictionary:
 	var e: Dictionary = st.spawn_enemy(type_id, float(st.player.x) + dx, float(st.player.y) + dy)
@@ -124,6 +180,10 @@ func _init() -> void:
 	sec7_eligibility()
 	sec8_cleanup()
 	sec9_focus()
+	sec10_plague_host()
+	sec11_lifesteal_shut()
+	sec12_stagger_unchanged()
+	sec13_others_shut()
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
@@ -674,38 +734,158 @@ func sec6_reprieve() -> void:
 	ok("[9] 승리 확정 뒤의 정산은 체력을 **1 미만으로 내리지 않는다**(이긴 전투를 사후 정산으로 뒤집지 않는다)",
 		float(st9.player.hp) >= 1.0 and not bool(st9.player.dead), str(st9.player.hp))
 
-# ---------- 7절 연계 자격 ----------
+# ---------- 7절 연계 자격(2026-09-10 사용자 확정으로 넷이 열렸다) ----------
+## 확정된 것
+##  · **열린 것**: [4] 찰나 가르기 · [5] 낙성 강하 · [6] 받아치기 · [7] 되짚는 궤적 →
+##    직접 타격에 **파쇄**, 직접 처치에 **숙주 파열**.
+##  · **닫힌 것**: [8] 결정 관 · [9] 유예의 시계.
+##  · **함께 열지 않은 것**: 감전 후속 · 방전 충전 · 까마귀 표적 · 흡혈 — 여섯 전부 그대로 닫혀 있다.
+##  · 각 효과의 **기존 필요 조건은 그대로**다(얼지 않은 적에 파쇄 없음 · 독 없는 적에 숙주 파열 없음).
+##  · **새 묶음 경로 이름을 만들지 않았다** — 기술별 경로 이름을 자격표 allow에 그대로 적었다.
 func sec7_eligibility() -> void:
-	var causes: Array = ["eq_slash", "eq_meteor_core", "eq_meteor_wave", "eq_riposte", "eq_retrace", "eq_icetomb"]
 	var known := true
-	for c in causes:
+	for c in EQ_CAUSES:
 		if not PSupport.known_cause(String(c)):
 			known = false
 	ok("7절: 여섯 경로 이름이 **자격표의 어휘**로 등록되어 있다(모르는 이름으로 조용히 지나가지 않는다)", known)
 
-	var effects: Array = ["frost_shatter", "shock_bonus", "shock_discharge", "crow_mark", "plague_host_burst"]
-	var all_denied := true
-	var opened := ""
-	for eff in effects:
-		for c in causes:
-			if PSupport.eligible(String(eff), String(c)):
-				all_denied = false
-				opened += "%s←%s " % [String(eff), String(c)]
-	ok("7절: 여섯 경로 어느 것도 **파쇄·감전 후속·방전 충전·까마귀 표적·숙주 파열**을 열지 않는다(승인 없이 연쇄를 열지 않았다)",
-		all_denied, opened)
+	# (가) 넷만 열렸다
+	var open_ok := true
+	var open_rows := []
+	for c in EQ_OPEN:
+		var s1: bool = PSupport.eligible("frost_shatter", String(c))
+		var p1: bool = PSupport.eligible("plague_host_burst", String(c))
+		open_rows.append("%s 파쇄 %s·숙주 파열 %s" % [String(c), str(s1), str(p1)])
+		if not (s1 and p1):
+			open_ok = false
+	ok("7절: **네 종의 경로 다섯이 파쇄·숙주 파열을 연다**(사용자 확정)", open_ok, " · ".join(open_rows))
 
-	ok("7절: **[8] 결정 관의 냉기만은 막지 않는다** — 냉기 → 빙결 → 주무기 파쇄 연계를 실제로 연다",
+	# (나) 둘은 닫힌 채다
+	var shut_ok := true
+	var shut_rows := []
+	for c in EQ_SHUT:
+		var s2: bool = PSupport.eligible("frost_shatter", String(c))
+		var p2: bool = PSupport.eligible("plague_host_burst", String(c))
+		shut_rows.append("%s 파쇄 %s·숙주 파열 %s" % [String(c), str(s2), str(p2)])
+		if s2 or p2:
+			shut_ok = false
+	ok("7절: **[8] 결정 관은 닫힌 채다** · [9] 유예의 시계는 피해 경로 이름 자체가 없다",
+		shut_ok and not PSupport.known_cause("eq_reprieve"), " · ".join(shut_rows))
+
+	# (다) 그 근거가 자격표의 **어느 항목**인가 — 이름이 실제로 allow/deny에 적혀 있어야 한다
+	var EF: Dictionary = (PCatalog.eligibility().get("effects", {}) as Dictionary)
+	var FS: Dictionary = EF.get("frost_shatter", {})
+	var PH: Dictionary = EF.get("plague_host_burst", {})
+	var fs_allow: Array = FS.get("allow", [])
+	var fs_deny: Array = FS.get("deny", [])
+	var ph_allow: Array = PH.get("allow", [])
+	var ph_deny: Array = PH.get("deny", [])
+	var listed := true
+	for c in EQ_OPEN:
+		if not fs_allow.has(String(c)) or not ph_allow.has(String(c)):
+			listed = false
+		if fs_deny.has(String(c)) or ph_deny.has(String(c)):
+			listed = false
+	for c in EQ_SHUT:
+		if not fs_deny.has(String(c)) or not ph_deny.has(String(c)):
+			listed = false
+	ok("7절: 근거는 **자격표 항목 한 곳**이다 — 다섯은 allow에, eq_icetomb은 deny에 이름이 적혀 있다",
+		listed, "파쇄 allow %s / deny에 eq_icetomb %s" % [str(fs_allow), str(fs_deny.has("eq_icetomb"))])
+
+	# (라) **새 묶음 경로 이름을 만들지 않았다** — equip_skill_direct 같은 이름은 어휘에 없다
+	ok("7절: **묶음 경로 이름을 새로 만들지 않았다**(기술별 출처를 그대로 유지했다)",
+		not PSupport.known_cause("equip_skill_direct") and not PSupport.known_cause("eq_direct")
+		and not fs_allow.has("equip_skill_direct"))
+
+	# (마) 함께 열지 않은 넷: 감전 후속 · 방전 충전 · 까마귀 표적 · 흡혈
+	var shut4 := true
+	var shut4_rows := []
+	for c in EQ_CAUSES:
+		var sb: bool = PSupport.eligible("shock_bonus", String(c))
+		var sd: bool = PSupport.eligible("shock_discharge", String(c))
+		var cm: bool = PSupport.eligible("crow_mark", String(c))
+		var ls: bool = PBuild.lifesteal_eligible(String(c))
+		shut4_rows.append("%s 감전%s·방전%s·까마귀%s·흡혈%s" % [String(c), str(sb), str(sd), str(cm), str(ls)])
+		if sb or sd or cm or ls:
+			shut4 = false
+	ok("7절: **감전 후속·방전 충전·까마귀 표적·흡혈은 여섯 전부 그대로 닫혀 있다**(일괄 허용이 아니다)",
+		shut4, " · ".join(shut4_rows))
+
+	ok("7절: **[8] 결정 관의 냉기만은 막지 않는다** — 냉기 → 빙결 → 파쇄 연계를 실제로 연다",
 		PSupport.eligible("frost_stack", "eq_icetomb"))
 
-	# 실제 전투에서도 같은 결론인가: 얼어붙은 적을 장비 기술로 때려도 파쇄가 나지 않는다
+	# ---- 실제 경로: 얼어붙은 적을 [4] 찰나 가르기로 베면 파쇄가 난다 ----
 	var st := armed("eq_flashcut")
 	var e := dummy(st, 120.0, 0.0)
-	st.add_chill_stack(e, st.frost_need())
-	var frozen: bool = st.is_frozen(e)
+	var frozen: bool = freeze(st, e)
+	var hp_e: float = float(e.hp)
 	PSkills.cast(st, "q")
 	st.step(inp(true), STEP)
-	ok("7절(실제 경로): 얼어붙은 적을 [4]로 베어도 **파쇄가 나지 않는다**(주무기만 깬다는 확정 유지)",
-		frozen and st.is_frozen(e) and not bool(e.get("freeze_broke", false)))
+	ok("7절(실제 경로): 얼어붙은 적을 [4]로 베면 **파쇄가 난다**(파쇄 1회 · 빙결 해제 · 재빙결 제한)",
+		frozen and float(e.hp) < hp_e and is_equal_approx(shatters(st), 1.0)
+		and not st.is_frozen(e) and float(e.get("refreeze_t", 0.0)) > 0.0,
+		"파쇄 %s · 남은 빙결 %s · 재빙결 제한 %s" % [str(shatters(st)), str(st.is_frozen(e)), str(e.get("refreeze_t", 0.0))])
+
+	# ---- 필요 조건 유지: **얼지 않은 적**에게는 어떤 장비 기술로도 파쇄가 없다 ----
+	var st_nf := armed("eq_flashcut")
+	var e_nf := dummy(st_nf, 120.0, 0.0)
+	var hp_nf: float = float(e_nf.hp)
+	PSkills.cast(st_nf, "q")
+	st_nf.step(inp(true), STEP)
+	var nf_rows := []
+	for c in EQ_OPEN:
+		eq_blow(st_nf, e_nf, String(c), 5.0)
+		nf_rows.append(String(c))
+	ok("필요 조건 유지: **얼지 않은 적에게는 파쇄가 0이다**(맞기는 맞았다)",
+		float(e_nf.hp) < hp_nf and is_zero_approx(shatters(st_nf)) and not st_nf.is_frozen(e_nf),
+		"파쇄 %s · 때린 경로 %s" % [str(shatters(st_nf)), " ".join(nf_rows)])
+
+	# ---- 다섯 경로 전부가 실제 피해 경로에서 파쇄를 낸다(PSkills.eq_hit — 기술이 쓰는 그 함수) ----
+	var each_ok := true
+	var each_rows := []
+	for c in EQ_OPEN:
+		var st_c := armed("eq_flashcut")
+		var e_c := dummy(st_c, 100.0, 0.0)
+		var froze_c: bool = freeze(st_c, e_c)
+		eq_blow(st_c, e_c, String(c), 5.0)
+		each_rows.append("%s %s" % [String(c), str(shatters(st_c))])
+		if not (froze_c and is_equal_approx(shatters(st_c), 1.0)):
+			each_ok = false
+	# 닫힌 경로는 같은 자리에서도 깨지 않는다
+	var st_shut := armed("eq_icetomb")
+	var e_shut := dummy(st_shut, 100.0, 0.0)
+	var froze_shut: bool = freeze(st_shut, e_shut)
+	eq_blow(st_shut, e_shut, "eq_icetomb", 5.0)
+	each_rows.append("eq_icetomb %s" % str(shatters(st_shut)))
+	ok("실측: **다섯 경로는 각각 파쇄 1회 · eq_icetomb은 0회**(같은 조건 같은 자리)",
+		each_ok and froze_shut and is_zero_approx(shatters(st_shut)) and st_shut.is_frozen(e_shut),
+		" · ".join(each_rows))
+
+	# ---- 같은 빙결에서 파쇄는 한 번뿐(장비 기술 경로에서도) ----
+	var st_once := armed("eq_flashcut")
+	var e_once := dummy(st_once, 100.0, 0.0)
+	var froze_once: bool = freeze(st_once, e_once)
+	eq_blow(st_once, e_once, "eq_slash", 5.0)
+	var after_first: float = shatters(st_once)
+	eq_blow(st_once, e_once, "eq_slash", 5.0)
+	eq_blow(st_once, e_once, "eq_meteor_core", 5.0)
+	ok("실측: **같은 빙결에서 파쇄는 한 번뿐이다**(장비 기술로 세 번 때려도 1회)",
+		froze_once and is_equal_approx(after_first, 1.0) and is_equal_approx(shatters(st_once), 1.0),
+		"첫 타격 뒤 %s → 세 타격 뒤 %s · 재빙결 제한 %s" % [str(after_first), str(shatters(st_once)), str(e_once.get("refreeze_t", 0.0))])
+
+	# ---- 재귀 없음: 장비 기술이 만든 파쇄의 **파편**이 다시 파쇄를 부르지 않는다 ----
+	var st_rec := armed("eq_flashcut")
+	var host_r := dummy(st_rec, 100.0, 0.0)
+	var n1 := dummy(st_rec, 120.0, 20.0)   # 파편 반경 안
+	var n2 := dummy(st_rec, 130.0, -20.0)  # 파편 반경 안
+	var froze_all: bool = freeze(st_rec, host_r) and freeze(st_rec, n1) and freeze(st_rec, n2)
+	var hp_n1: float = float(n1.hp)
+	eq_blow(st_rec, host_r, "eq_slash", 5.0)
+	ok("재귀 없음(파쇄): 장비 기술이 깬 **파편이 이웃의 빙결을 다시 깨지 않는다**(파쇄 1회 그대로)",
+		froze_all and is_equal_approx(shatters(st_rec), 1.0)
+		and st_rec.is_frozen(n1) and st_rec.is_frozen(n2) and float(n1.hp) < hp_n1,
+		"파쇄 %s · 이웃 파편 피해 %.1f · 이웃 빙결 %s/%s"
+			% [str(shatters(st_rec)), hp_n1 - float(n1.hp), str(st_rec.is_frozen(n1)), str(st_rec.is_frozen(n2))])
 
 	# 결정 관의 냉기는 실제로 빙결까지 이어진다
 	var st2 := armed("eq_icetomb")
@@ -1039,3 +1219,202 @@ func tomb_cycle(focus_lv: int, cd_mult: float) -> Dictionary:
 	return { "invuln_frac": float(inv_n) / float(total), "uses": uses,
 		"gap_min": float(gap_min) * STEP if gap_min < 999999 else -1.0,
 		"cd": float(b.special_cd) }
+
+# ---------- 10. 숙주 파열 × 장비 기술(2026-09-10 사용자 확정) ----------
+## 역병 나비(개조 '숙주 파열')를 함께 켜고, 장비 기술의 **직접 처치**로 파열이 실제로 열리는지 값으로 잰다.
+## 여기서 못박는 것
+##  1. 열린 넷의 경로로 **직접 처치**하면 파열이 난다.
+##  2. **독이 없으면 나지 않는다** — 기존 필요 조건을 그대로 지킨다(자격만 열었다).
+##  3. 닫아 둔 결정 관(eq_icetomb)의 경로로는 나지 않는다.
+##  4. **재귀가 없다** — 파열 피해로 죽은 감염된 이웃은 다시 파열하지 않고,
+##     장비 기술이 만든 파쇄 추가 피해가 마지막 일격이면 그 죽음도 파열을 열지 않는다.
+##  5. **전염(plague_spread)은 그대로**다(allow "*") — 파열이 열리지 않은 죽음에서도 옮는다.
+func plague_lab(sid: String) -> CombatState:
+	return armed(sid, "sword", false, [["plague", 1, ["burst"]]])
+
+func infected(e: Dictionary) -> bool:
+	return not (e.get("plague", {}) as Dictionary).is_empty()
+
+func sec10_plague_host() -> void:
+	# 10-1. [5] 낙성 강하의 경로로 직접 처치 → 파열이 열린다
+	var st := plague_lab("eq_meteor")
+	var host := dummy(st, 120.0, 0.0, 200.0)
+	var near1 := dummy(st, 150.0, 30.0, 400.0)
+	PSupport.fire(st, wep(st, "plague"), host, false)
+	quiet_tick(st, 1.2)
+	var P: Dictionary = PSupportB.plague_stat(st)
+	var hp_n: float = float(near1.hp)
+	ok("전제: 숙주에게 역병 나비의 독이 걸렸다", infected(host))
+	eq_blow(st, host, "eq_meteor_core", 1.0e6)
+	ok("10-1: 독 걸린 적을 **[5] 낙성 강하로 직접 처치하면 숙주 파열이 난다**(사용자 확정)",
+		bool(host.dead) and int(P.bursts) == 1 and float(near1.hp) < hp_n,
+		"파열 %d회 · 이웃 %.1f → %.1f" % [int(P.bursts), hp_n, float(near1.hp)])
+
+	# 10-1b. 열린 넷의 다섯 경로 전부가 같은 결론인가
+	var each_ok := true
+	var each_rows := []
+	for c in EQ_OPEN:
+		var st_c := plague_lab("eq_flashcut")
+		var h_c := dummy(st_c, 120.0, 0.0, 200.0)
+		var n_c := dummy(st_c, 150.0, 30.0, 400.0)
+		PSupport.fire(st_c, wep(st_c, "plague"), h_c, false)
+		quiet_tick(st_c, 1.2)
+		var P_c: Dictionary = PSupportB.plague_stat(st_c)
+		var hp_c: float = float(n_c.hp)
+		eq_blow(st_c, h_c, String(c), 1.0e6)
+		each_rows.append("%s 파열 %d(이웃 -%.1f)" % [String(c), int(P_c.bursts), hp_c - float(n_c.hp)])
+		if int(P_c.bursts) != 1 or float(n_c.hp) >= hp_c:
+			each_ok = false
+	ok("10-1b: **다섯 경로 전부** 직접 처치로 파열이 난다", each_ok, " · ".join(each_rows))
+
+	# 10-2. 필요 조건 유지: **독이 없으면** 장비 기술로 처치해도 파열이 없다
+	var st2 := plague_lab("eq_flashcut")
+	var h2 := dummy(st2, 120.0, 0.0, 200.0)
+	var n2 := dummy(st2, 150.0, 30.0, 400.0)
+	var P2: Dictionary = PSupportB.plague_stat(st2)
+	var hp2: float = float(n2.hp)
+	eq_blow(st2, h2, "eq_slash", 1.0e6)
+	ok("10-2: **독 없는 적을 장비 기술로 처치하면 숙주 파열은 0이다**(필요 조건 유지)",
+		bool(h2.dead) and not infected(h2) and int(P2.bursts) == 0 and is_equal_approx(float(n2.hp), hp2),
+		"파열 %d회 · 이웃 체력 %.1f(그대로 %.1f)" % [int(P2.bursts), float(n2.hp), hp2])
+
+	# 10-3. 닫아 둔 결정 관 경로로는 열리지 않는다
+	var st3 := plague_lab("eq_icetomb")
+	var h3 := dummy(st3, 120.0, 0.0, 200.0)
+	var n3 := dummy(st3, 150.0, 30.0, 400.0)
+	PSupport.fire(st3, wep(st3, "plague"), h3, false)
+	quiet_tick(st3, 1.2)
+	var P3: Dictionary = PSupportB.plague_stat(st3)
+	var hp3: float = float(n3.hp)
+	eq_blow(st3, h3, "eq_icetomb", 1.0e6)
+	ok("10-3: **[8] 결정 관 경로로 처치하면 파열이 열리지 않는다**(닫아 둔 둘)",
+		bool(h3.dead) and int(P3.bursts) == 0 and int(P3.burst_blocked) >= 1 and is_equal_approx(float(n3.hp), hp3),
+		"파열 %d · 막힘 %d" % [int(P3.bursts), int(P3.burst_blocked)])
+	ok("10-3b: 그때에도 **독 전염은 그대로 일어난다**(전염과 파열의 발동을 구분한다)",
+		int(P3.spreads) >= 1 and infected(n3), "전염 %d회" % int(P3.spreads))
+
+	# 10-4. 재귀 없음 ①: 파열 피해로 죽은 감염된 이웃은 **다시 파열하지 않는다**
+	var st4 := plague_lab("eq_flashcut")
+	var h4 := dummy(st4, 120.0, 0.0, 200.0)
+	var n4 := dummy(st4, 150.0, 20.0, 4.0) # 파열 피해로 죽을 만큼 얇게
+	PSupport.fire(st4, wep(st4, "plague"), h4, false)
+	quiet_tick(st4, 1.2)
+	PSupport.fire(st4, wep(st4, "plague"), n4, false)
+	quiet_tick(st4, 1.2)
+	var P4: Dictionary = PSupportB.plague_stat(st4)
+	ok("전제: 두 마리 모두 감염됐다", infected(h4) and infected(n4))
+	eq_blow(st4, h4, "eq_slash", 1.0e6)
+	ok("10-4: **재귀 없음** — 장비 기술이 연 파열의 폭발로 죽은 감염된 적은 다시 파열하지 않는다",
+		bool(n4.dead) and int(P4.bursts) == 1 and int(P4.burst_blocked) >= 1,
+		"파열 %d회 · 막힘 %d회" % [int(P4.bursts), int(P4.burst_blocked)])
+
+	# 10-5. 재귀 없음 ②: 장비 기술이 만든 **파쇄 추가 피해**가 마지막 일격이면 파열이 열리지 않는다
+	#      (frost_shatter는 plague_host_burst.deny에 그대로 있다)
+	var st5 := plague_lab("eq_flashcut")
+	var h5 := dummy(st5, 120.0, 0.0, 200.0)
+	# 이웃은 파열 반경(90) 안에 둔다. **체력으로는 가르지 못한다** — 파쇄 파편도 같은 자리를 때리기 때문이다.
+	# 그래서 **경직**으로 가른다: 짧은 경직을 주는 것은 파열(plague_burst)이고 파편(frost_shard)은 주지 않는다
+	var n5 := dummy(st5, 150.0, 30.0, 400.0)
+	PSupport.fire(st5, wep(st5, "plague"), h5, false)
+	quiet_tick(st5, 1.2)
+	var froze5: bool = freeze(st5, h5)
+	var P5: Dictionary = PSupportB.plague_stat(st5)
+	h5.hp = 1.0 # 파쇄 추가 피해가 마지막 일격이 되도록 얇게(장비 기술 타격 자체로는 죽지 않는다)
+	eq_blow(st5, h5, "eq_slash", 0.4)
+	ok("10-5: **재귀 없음** — 장비 기술이 깬 파쇄의 추가 피해가 마지막 일격이면 파열이 열리지 않는다",
+		froze5 and bool(h5.dead) and is_equal_approx(shatters(st5), 1.0)
+		and int(P5.bursts) == 0 and int(P5.burst_blocked) >= 1 and is_zero_approx(float(n5.stagger_t)),
+		"파쇄 %s · 파열 %d · 막힘 %d · 이웃 경직 %.3f초" % [str(shatters(st5)), int(P5.bursts), int(P5.burst_blocked), float(n5.stagger_t)])
+
+# ---------- 11. 흡혈은 함께 열지 않았다 ----------
+## 자격표는 data/growth.json LIFESTEAL이고 여섯 경로 전부 denied에 있다. 값으로 확인한다.
+func sec11_lifesteal_shut() -> void:
+	var st := armed("eq_flashcut", "sword", false, [], { "lifesteal": 3 })
+	var e := dummy(st, 100.0, 0.0)
+	st.player.hp = 10.0
+	var frac: float = float(st.build.get("lifesteal", 0.0))
+	for c in EQ_CAUSES:
+		eq_blow(st, e, String(c), 100.0)
+	var by_eq: float = float(st.player.hp) - 10.0
+	st.damage_enemy(e, 100.0, { "src": { "weapon_id": "sword", "direct": true } })
+	var by_main: float = float(st.player.hp) - 10.0 - by_eq
+	ok("11: **장비 기술 여섯 경로로는 흡혈이 없다**(주무기 직접 타격에서는 회복한다 — 장치가 꺼져 있는 것이 아니다)",
+		float(frac) > 0.0 and is_zero_approx(by_eq) and by_main > 0.0,
+		"비율 %.4f · 장비 기술 6타 회복 %.4f · 주무기 1타 회복 %.4f" % [frac, by_eq, by_main])
+
+# ---------- 12. 장비 기술이 연 파쇄와 '연계 완성' 경직 ----------
+## 자격이 열렸다고 경직 규칙까지 느슨해지지 않았다는 것을 값으로 남긴다.
+##  · **공유 재경직 제한**(stagger_cd) 그대로 — 장비 기술이 건 경직 뒤에 다른 연계가 곧바로 걸지 못한다.
+##  · **보스는 행동이 멈추지 않는다** — 파쇄는 나고 피해도 들어가지만 경직만 걸리지 않는다.
+func stag_applied(st: CombatState, src: String) -> int:
+	return int((st.stagger_stats.applied as Dictionary).get(src, 0))
+
+func stag_blocked(st: CombatState, why: String) -> int:
+	return int((st.stagger_stats.blocked as Dictionary).get(why, 0))
+
+func sec12_stagger_unchanged() -> void:
+	# 12-1. 공유 재경직 제한: 장비 기술이 연 파쇄로 경직이 걸린 뒤, 다른 연계는 막힌다
+	var st := armed("eq_flashcut")
+	var e := dummy(st, 100.0, 0.0)
+	var froze: bool = freeze(st, e)
+	eq_blow(st, e, "eq_slash", 5.0)
+	var got: float = float(e.get("stagger_t", 0.0))
+	var second: bool = st.apply_stagger(e, "plague_burst") # 다른 연계가 곧바로 시도한다
+	ok("12-1: 장비 기술이 연 파쇄도 **경직을 걸고**, 그 뒤 다른 연계는 **공유 제한에 막힌다**(번갈아 무한 경직 없음)",
+		froze and got > 0.0 and stag_applied(st, "frost_shatter") == 1 and not second
+		and (stag_blocked(st, "already") + stag_blocked(st, "cooldown")) >= 1,
+		"경직 %.3f초 · 발동 %d · 두 번째 %s · 막힘(이미/제한) %d/%d"
+			% [got, stag_applied(st, "frost_shatter"), str(second), stag_blocked(st, "already"), stag_blocked(st, "cooldown")])
+
+	# 12-2. 보스: 파쇄는 나고 피해도 들어가지만 **행동은 멈추지 않는다**
+	var st2 := armed("eq_flashcut")
+	var b2 := dummy(st2, 100.0, 0.0)
+	b2.boss = true # 보스 등급(결빙 soft · 경직 0초)
+	var froze2: bool = freeze(st2, b2)
+	var hp_b: float = float(b2.hp)
+	eq_blow(st2, b2, "eq_slash", 5.0)
+	ok("12-2: 보스는 **행동이 멈추지 않는다** — 장비 기술로 파쇄해도 경직만 걸리지 않는다(피해·파쇄는 정상)",
+		froze2 and is_equal_approx(shatters(st2), 1.0) and float(b2.hp) < hp_b
+		and is_zero_approx(float(b2.get("stagger_t", 0.0))) and stag_blocked(st2, "boss") >= 1,
+		"파쇄 %s · 남은 경직 %.3f초 · 보스 막힘 %d회" % [str(shatters(st2)), float(b2.get("stagger_t", 0.0)), stag_blocked(st2, "boss")])
+
+# ---------- 13. 함께 열지 않은 셋 — 실제 경로로도 0이다 ----------
+## 자격표 조회(7절 (마))만으로는 "표는 그런데 실제로는?"이 남는다. 값으로도 남긴다.
+##  · 감전 후속 — 감전된 적을 장비 기술로 때려도 후속이 터지지 않는다(주무기로 때리면 터진다).
+##  · 방전 충전 — 그래서 축전도 오르지 않는다.
+##  · 까마귀 표적 — 장비 기술로 때린 적이 표적으로 지정되지 않는다(주무기로 때리면 지정된다).
+func sec13_others_shut() -> void:
+	var T := PCatalog.support_tuning("orb")
+
+	# 13-1. 감전 후속·방전 충전
+	var st := armed("eq_flashcut", "sword", false, [["orb", 1, ["conduct"]]])
+	var e := dummy(st, 100.0, 0.0)
+	for c in EQ_CAUSES:
+		e.conduct = float(T.get("shockDur", 2.0))
+		eq_blow(st, e, String(c), 5.0)
+	var by_eq: float = PSupport.metered(st, "orb", "shock_procs")
+	var chg_eq: int = int(st.support_charge)
+	e.conduct = float(T.get("shockDur", 2.0))
+	st.damage_enemy(e, 5.0, { "src": { "weapon_id": "sword", "direct": true } })
+	ok("13-1: **장비 기술로는 감전 후속이 터지지 않고 방전 충전도 오르지 않는다**(주무기로는 터진다)",
+		is_zero_approx(by_eq) and chg_eq == 0
+		and is_equal_approx(PSupport.metered(st, "orb", "shock_procs"), 1.0) and int(st.support_charge) == 1,
+		"장비 기술 6타 후속 %s·충전 %d → 주무기 1타 후속 %s·충전 %d"
+			% [str(by_eq), chg_eq, str(PSupport.metered(st, "orb", "shock_procs")), int(st.support_charge)])
+
+	# 13-2. 까마귀 표적
+	var st2 := armed("eq_flashcut", "sword", false, [["crow", 1, []]])
+	var a2 := dummy(st2, 100.0, 0.0)
+	var b2 := dummy(st2, 100.0, 60.0)
+	for c in EQ_CAUSES:
+		eq_blow(st2, a2, String(c), 5.0)
+	# 상태는 **그때그때 다시 읽는다** — 첫 지정 전에는 st.support에 crow 칸 자체가 없다
+	var eq_marks: int = int(((st2.support as Dictionary).get("crow", {}) as Dictionary).get("marks", 0))
+	var after_eq = ((st2.support as Dictionary).get("crow", {}) as Dictionary).get("target", null)
+	st2.damage_enemy(b2, 5.0, { "src": { "weapon_id": "sword", "direct": true } })
+	var S2: Dictionary = (st2.support as Dictionary).get("crow", {})
+	var after_main = S2.get("target", null)
+	ok("13-2: **장비 기술로 때린 적은 까마귀 표적이 되지 않는다**(주무기로 때린 적은 된다)",
+		after_eq == null and eq_marks == 0 and after_main != null
+		and int((after_main as Dictionary).id) == int(b2.id) and int(S2.get("marks", 0)) == 1,
+		"장비 기술 6타 뒤 지정 %d회 · 주무기 1타 뒤 지정 %d회" % [eq_marks, int(S2.get("marks", 0))])

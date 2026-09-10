@@ -165,8 +165,13 @@ static func on_enemy_hit(_st: CombatState, _e: Dictionary, _opt: Dictionary, _dm
 ##
 ## **⑥ 숙주 파열**(2026-09-09 사용자 지시 · docs/STAGGER.md). 개조 이름이 '역병 파열'에서 바뀌었고
 ## 동작이 하나 **좁아졌다**: 예전에는 어떤 죽음이든 터졌지만 이제 **주무기 처치일 때만** 터진다.
-## 자격 판정은 자격표 `plague_host_burst`(allow: main_direct·main_extra) 한 곳이 정본이다 —
+## 자격 판정은 자격표 `plague_host_burst` 한 곳이 정본이다 —
 ## 되돌리려면 그 allow를 ["*"]로 바꾸면 예전 동작이 그대로 돌아온다.
+## 2026-09-10 사용자 확정: allow는 main_direct·main_extra에 더해 **장비 기술 네 종의 직접 타격**
+## (eq_slash·eq_meteor_core·eq_meteor_wave·eq_riposte·eq_retrace)까지다. 결정 관(eq_icetomb)은 deny 그대로이고
+## 유예의 시계는 적에게 피해를 주지 않아 이 판정에 오지 않는다.
+## **필요 조건은 아래 코드가 그대로 지킨다** — `pg`(그 적에게 남은 역병 나비의 독)가 비었거나
+## `pg.burst`가 아니면 어떤 경로로 죽였든 파열은 없다. 독 없는 적을 장비 기술로 죽여도 0이다.
 ##
 ## **죽음이 독 정보를 지우기 전에 무엇을 쥐고 있는가**: 지역 변수 pg가 e.plague **그 dict를 가리킨다.**
 ## 아래 e["plague"] = {}는 적의 칸만 비우고 pg가 든 값은 그대로 남으므로,
