@@ -309,6 +309,16 @@
       "timeout_sec": 300,
       "desc": "저장에 자료에 없는 장비가 들어 있어도 게임이 죽지 않는다(빼고 기록을 남긴다). 폐기 장비는 그대로 둔다"
     },
+    "save_guard_tests": {
+      "env": {},
+      "timeout_sec": 300,
+      "desc": "저장 보호 관문(PSave.write_blocked)이 실제로 막는지 — 자료가 안 서면 저장·지우기를 거부하고 기존 파일이 한 바이트도 안 바뀐다"
+    },
+    "equip_chain_tests": {
+      "env": {},
+      "timeout_sec": 300,
+      "desc": "실제 장비로 구매→강화→제작→착용→전투 발동→창고 보관→Q 배치→Q/E 교환→저장→이어하기→해제를 한 회차로 잇는 통합 검사"
+    },
     "screen_keep_tests": {
       "env": {},
       "timeout_sec": 300,
@@ -622,6 +632,8 @@
       "overlay_tests",
       "screen_keep_tests",
       "save_repair_tests",
+      "save_guard_tests",
+      "equip_chain_tests",
       "duel_card_tests",
       "prep_shop_tests",
       "death_tests",
