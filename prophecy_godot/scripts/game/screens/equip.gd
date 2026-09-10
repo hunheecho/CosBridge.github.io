@@ -130,6 +130,13 @@ func _item_body(box: VBoxContainer, r: Dictionary, id: String, worn: bool, detai
 	box.add_child(PUi.rich("[b]자세한 효과[/b]", 14))
 	box.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(d.desc)), 13))
 	box.add_child(PUi.rich("[b]되팔 때[/b]", 14))
-	box.add_child(PUi.rich("[color=#9ea8b8]%d금 · 장착 중이면 해제한 뒤 팝니다. 판 장비는 되사올 수 없습니다.[/color]" % int(PRun.sell_quote(main.run, id).gold), 13))
+	# 판매가가 어떻게 갈리는지 견적 그대로 적는다: 기본가(지불액의 절반) + 강화 비용 환급
+	var sq := PRun.sell_quote(main.run, id)
+	var sq_paid := int(sq.get("paid", -1))
+	var sq_basis := ("낸 값 %d금" % sq_paid) if sq_paid >= 0 else ("산 적이 없어 정상가 %d금" % PRun.equip_price(id))
+	var sq_up := ("" if int(sq.get("plus", 0)) <= 0 else " + 강화 환급 %d금(+%d까지 낸 %d금의 %d%%)" % [
+		int(sq.get("refund", 0)), int(sq.get("plus", 0)), int(sq.get("upgradeSpent", 0)), int(round(PRun.sell_refund_rate() * 100.0))])
+	box.add_child(PUi.rich("[color=#9ea8b8][b]%d금[/b] = 기본 %d금(%s의 %d%%)%s · 장착 중이면 해제한 뒤 팝니다. 판 장비는 되사올 수 없습니다.[/color]" % [
+		int(sq.get("gold", 0)), int(sq.get("base", 0)), sq_basis, int(round(PRun.sell_rate() * 100.0)), sq_up], 13))
 	box.add_child(PUi.rich("[b]교체 규칙[/b]", 14))
 	box.add_child(PUi.rich("[color=#9ea8b8]같은 부위에는 하나만 낍니다. 새로 끼면 원래 장비는 가방으로 가고, 거점에서는 몇 번을 바꿔도 값이 들지 않습니다.[/color]", 13))

@@ -185,6 +185,10 @@ func _equip_upgrade_card(r: Dictionary) -> Control:
 		PGlossaryTip.term("equip_upgrade", EQUIP_UP_NAME), open_max, done], PUi.CARD)
 	var box: VBoxContainer = c.box
 	box.add_child(PUi.rich("[color=#9ea8b8]강화는 [b]강화한 그 장비[/b]에만 붙습니다. 가방에 넣어도 유지되고, 다른 장비를 껴도 따라가지 않으며, 팔면 함께 사라집니다. [b]제작 재료로 쓸 때만[/b] 그 단계가 완성품에 계승됩니다. [b]기본 능력치만[/b] 오릅니다(횟수·지속·재사용 시간은 오르지 않습니다).[/color]", 12))
+	# 판매가 규칙(사용자 확정 2026-09-10): 팔면 강화 비용의 일부가 돌아온다. 값은 자료에서 읽는다
+	var refund_rate := PRun.sell_refund_rate()
+	box.add_child(PUi.rich("[color=#9ea8b8]되팔 때 [b]낸 강화 비용의 %d%%[/b]가 판매가에 더해집니다(+1 %d금 · +2 %d금). [b]강화로 오르는 기본 능력치가 없는 장비는 강화할 수 없습니다[/b] — 값만 받고 아무것도 바뀌지 않는 일이 없게 막아 둡니다.[/color]" % [
+		int(round(refund_rate * 100.0)), int(floor(float(PRun.equip_upgrade_total_cost(1)) * refund_rate)), int(floor(float(PRun.equip_upgrade_total_cost(2)) * refund_rate))], 12))
 	if opts.is_empty():
 		box.add_child(PUi.rich("[color=#6a7078]강화할 장비가 없습니다(상점에서 장비를 먼저 사세요)[/color]", 13))
 		return c.panel
@@ -345,6 +349,10 @@ func _craft_preview(r: Dictionary, opt: Dictionary) -> Control:
 	if inherit > 0:
 		box.add_child(PUi.rich("[color=#7fd6a0]완성품이 재료의 [b]강화 +%d 단계를 그대로 물려받습니다[/b] — 이미 낸 강화 %d금을 다시 받지 않습니다(위 수수료 %d금·재료는 별개).[/color]" % [
 			inherit, int(opt.get("inheritPaid", 0)), int(opt.fee)], 11))
+		# 판매가도 함께 넘어간다: 강화 환급은 **개체 하나**에만 붙으므로, 태운 재료 쪽에서 두 번 나오지 않는다
+		box.add_child(PUi.rich("[color=#9ea8b8]되팔 때 강화 환급도 [b]완성품 쪽으로 넘어갑니다[/b](강화 %d금의 %d%% = %d금). 태운 재료에서 따로 돌려받지는 않습니다.[/color]" % [
+			int(opt.get("inheritPaid", 0)), int(round(PRun.sell_refund_rate() * 100.0)),
+			int(floor(float(opt.get("inheritPaid", 0)) * PRun.sell_refund_rate()))], 11))
 	else:
 		var t1 := PRun.equip_upgrade_total_cost(1)
 		box.add_child(PUi.rich("[color=#9ea8b8]재료가 +0이라 완성품도 +0입니다. [b]먼저 강화해도, 만든 뒤 강화해도 총 강화 지출은 같습니다[/b](+1까지 %d금).[/color]" % t1, 11))

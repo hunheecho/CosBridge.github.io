@@ -1991,7 +1991,13 @@ static func equip_price(id: String) -> int: return int(SH().price[String(PCatalo
 static func sell_price(id: String) -> int: return int(SH().sellPrice[String(PCatalog.equipment_def(equip_type_of(id)).slot)])
 static func equip_name(id: String) -> String: return String(PCatalog.equipment_def(equip_type_of(id)).get("name", equip_type_of(id)))
 
-# ---------- 판매(2026-09-09 사용자 확정: 구매액의 절반) ----------
+# ---------- 판매(2026-09-09 확정: 구매액의 절반 · 2026-09-10 확정: + 강화 비용의 50%) ----------
+## 판매가는 **두 값을 따로 세어 더한다**:
+##   ① 기본가  = floor(실제 지불액 × shop.sellRate)          — 산 적이 없으면 정상 구매가를 지불액 자리에 쓴다
+##   ② 강화 환급 = floor(누적 강화 비용 × shop.equipUpgrade.sellRefundRate)
+## 지금 자료 기준 ②는 +0 0금 · +1 35금 · +2 100금이다. **비율·비용은 전부 자료가 정본이고 코드에 숫자를 두지 않는다.**
+## 중복 환급이 없는 이유: 강화 단계는 개체 id 하나(run.equipPlus)에만 붙고, 제작으로 재료를 태우면 그 기록이
+## 함께 지워지며(craft), 완성품은 계승 단계만 갖는다. 제작은 강화 비용을 다시 청구하지도, 환급하지도 않는다.
 ## 장비 개체별 실제 지불 금액표. 구매할 때만 적는다(할인가로 샀으면 할인가가 남아 싸게 사서 비싸게 파는 일이 없다).
 static func paid_map(run: Dictionary) -> Dictionary:
 	if typeof(run.get("paidFor", null)) != TYPE_DICTIONARY:
@@ -2010,26 +2016,74 @@ static func paid_for(run: Dictionary, id: String) -> int:
 static func note_paid(run: Dictionary, id: String, price: int, from: String) -> void:
 	paid_map(run)[id] = { "price": maxi(0, price), "from": from, "day": int(run.get("day", 1)) }
 
-## 판매 금액: 실제 지불 금액의 50%(정수 내림). 구매액이 없는 장비(드롭·제작·옛 저장)는 **정상 기준 구매가의 절반**(첫 후보, docs/DEATH_AND_ECONOMY.md)
-static func sell_value(run: Dictionary, id: String) -> int:
+## 판매 비율의 정본은 **자료**다(코드에 숫자를 두지 않는다).
+## 없거나 0~1 밖이면 -1을 돌려준다 — 부르는 쪽이 판매를 막는다(잘못된 자료로 금화가 먼저 늘지 않게).
+static func _rate_of(d: Dictionary, key: String) -> float:
+	if not d.has(key):
+		return -1.0
+	var v = d[key]
+	if typeof(v) != TYPE_FLOAT and typeof(v) != TYPE_INT:
+		return -1.0
+	var f := float(v)
+	return f if f >= 0.0 and f <= 1.0 else -1.0
+
+## 지불액에 곱하는 비율(data/world.json shop.sellRate). 없으면 -1
+static func sell_rate() -> float:
+	return _rate_of(SH(), "sellRate")
+
+## 강화 비용에 곱하는 환급 비율(data/world.json shop.equipUpgrade.sellRefundRate). 없으면 -1
+static func sell_refund_rate() -> float:
+	return _rate_of(equip_upgrade_rules(), "sellRefundRate")
+
+## 자료가 성했는가(둘 다 있어야 판매 금액을 셀 수 있다)
+static func sell_rates_ok() -> bool:
+	return sell_rate() >= 0.0 and sell_refund_rate() >= 0.0
+
+## 판매 **기본가**: 실제 지불 금액 × shop.sellRate(정수 내림).
+## 구매액이 없는 장비(드롭·제작·옛 저장)는 **정상 기준 구매가**를 지불액 자리에 쓴다(docs/DEATH_AND_ECONOMY.md).
+## 강화 비용 환급은 여기에 **들어 있지 않다** — sell_upgrade_refund가 따로 센다(사용자 확정 2026-09-10).
+static func sell_base_value(run: Dictionary, id: String) -> int:
+	var rate := sell_rate()
+	if rate < 0.0:
+		push_error("판매 비율 자료(shop.sellRate)가 없다: 판매 금액을 셀 수 없다")
+		return 0
 	var p := paid_for(run, id)
 	if p < 0:
 		p = equip_price(id)
-	return int(floor(float(p) * 0.5))
+	return int(floor(float(p) * rate))
+
+## 판매 **강화 환급**: 이 개체가 지금 단계까지 쌓은 누적 강화 비용 × sellRefundRate(정수 내림).
+## 단계는 개체 하나에만 붙으므로(run.equipPlus) 재료로 태운 개체와 완성품이 같은 비용을 두 번 돌려주지 않는다 —
+## 제작으로 **계승된** 단계도 완성품 한 곳에서만 환급된다.
+static func sell_upgrade_refund(run: Dictionary, id: String) -> int:
+	var rate := sell_refund_rate()
+	if rate < 0.0:
+		push_error("강화 환급 비율 자료(shop.equipUpgrade.sellRefundRate)가 없다")
+		return 0
+	return int(floor(float(equip_upgrade_total_cost(equip_plus_of(run, id))) * rate))
+
+## 판매 금액 = 기본가 + 강화 환급. 두 값을 **따로 세어 더한다**(§판매, 사용자 확정 2026-09-10)
+static func sell_value(run: Dictionary, id: String) -> int:
+	return sell_base_value(run, id) + sell_upgrade_refund(run, id)
 
 ## 판매 근거 문자열("paid" = 실제 지불액 기준 / "list" = 정상 기준 구매가 기준)
 static func sell_basis(run: Dictionary, id: String) -> String:
 	return "paid" if paid_for(run, id) >= 0 else "list"
 
 ## 확인 창에 그대로 쓰는 견적(회차를 전혀 바꾸지 않는다). 화면은 이 값만 보여 주고 확정은 sell_equipment가 한다.
-## { id, name, slot, gold(받을 금액), paid(-1 = 구매액 없음), basis, equipped, unequips, hpMax, hpMaxAfter, hp, hpAfter, goldAfter, can, reason }
+## { id, name, slot, gold(받을 금액 = base + refund), base, refund, upgradeSpent, plus,
+##   paid(-1 = 구매액 없음), basis, equipped, unequips, hpMax, hpMaxAfter, hp, hpAfter, goldAfter, can, reason }
 static func sell_quote(run: Dictionary, id: String) -> Dictionary:
 	var d := PCatalog.equipment_def(equip_type_of(id))
 	if d.is_empty():
 		return { "id": id, "can": false, "reason": "없는 장비", "gold": 0 }
+	if not sell_rates_ok(): # 자료가 비었으면 금액을 셀 수 없다 — 팔 수 없다고 답한다(금화가 먼저 늘지 않게)
+		return { "id": id, "can": false, "reason": "판매 비율 자료가 없습니다", "gold": 0, "base": 0, "refund": 0 }
 	var slot := String(d.slot)
 	var equipped: bool = run.equipment.get(slot, null) != null and String(run.equipment[slot]) == id
-	var gold := sell_value(run, id)
+	var base_gold := sell_base_value(run, id)
+	var refund := sell_upgrade_refund(run, id)
+	var gold := base_gold + refund
 	var hp_max := float(build(run).hp_max)
 	var hp_max_after := hp_max
 	if equipped: # 장착 중 판매는 해제를 포함한다 — 최대 체력이 줄면 현재 체력도 잘린다
@@ -2041,13 +2095,15 @@ static func sell_quote(run: Dictionary, id: String) -> Dictionary:
 	return {
 		"id": id, "name": equip_display_name(run, id), "slot": slot, "type": equip_type_of(id), "plus": equip_plus_of(run, id),
 		"gold": gold, "price": gold, # price는 옛 행동 목록 항목(data.price)을 읽던 자리를 위한 같은 값의 별칭이다
+		"base": base_gold, "refund": refund,                       # 판매가를 가르는 두 값(지불액의 절반 / 강화 비용 환급)
+		"upgradeSpent": equip_upgrade_total_cost(equip_plus_of(run, id)), # 이 개체에 실제로 들어간 누적 강화 비용
 		"paid": paid_for(run, id), "basis": sell_basis(run, id),
 		"equipped": equipped, "unequips": equipped,
 		"hp": float(run.hp), "hpAfter": minf(float(run.hp), hp_max_after), "hpMax": hp_max, "hpMaxAfter": hp_max_after,
 		"goldAfter": int(run.gold) + gold,
 		"can": owned, "reason": "" if owned else "보유하지 않은 장비",
 		"text": "%s을(를) %d금에 판매할까요?%s%s" % [equip_display_name(run, id), gold, " (장착 중이라 해제됩니다)" if equipped else "",
-			" · 강화 +%d도 함께 사라집니다(되돌릴 수 없습니다)" % equip_plus_of(run, id) if equip_plus_of(run, id) > 0 else ""],
+			" · 강화 +%d도 함께 사라집니다(되돌릴 수 없습니다 — 강화 비용 %d금 중 %d금을 되돌려 받습니다)" % [equip_plus_of(run, id), equip_upgrade_total_cost(equip_plus_of(run, id)), refund] if equip_plus_of(run, id) > 0 else ""],
 	}
 
 static func can_sell_equipment(run: Dictionary, id: String) -> bool:
@@ -2162,7 +2218,7 @@ static func sell_equipment(run: Dictionary, id: String, expect_gold: int = -1) -
 	clamp_hp(run)
 	run.gold = int(run.gold) + int(q.gold)
 	add_log(run, "%s 판매 +%d%s%s" % [equip_name(id), int(q.gold), " (장착 해제)" if bool(q.equipped) else "",
-		" (강화 +%d 소멸)" % plus_sold if plus_sold > 0 else ""])
+		" (강화 +%d 소멸 · 기본 %d + 강화 환급 %d)" % [plus_sold, int(q.base), int(q.refund)] if plus_sold > 0 else ""])
 	return true
 
 ## 빈 슬롯 획득: 새 자동기술 / 새 E (Lv1, 개조·변형 없음)
@@ -2388,12 +2444,63 @@ static func equip_upgrade_open_max(run: Dictionary) -> int:
 	var done: int = (run.get("bossesDone", []) as Array).size()
 	var n := 0
 	for s in steps:
+		if typeof(s) != TYPE_DICTIONARY or not _upgrade_step_ok(s):
+			continue # 자료가 망가진 칸은 열린 것으로 세지 않는다
 		if done >= int((s as Dictionary).afterBoss):
 			n = int((s as Dictionary).plus)
 	return n
 
-## 다음 강화 견적. 최대이거나 정의가 없으면 {}
-## { uid, type, name, plus, next, cost, afterBoss, open, affordable, can, reason }
+## 효과 사전에서 upgrade 경로("bigHit.reduce")가 가리키는 값. 없으면 null
+static func _eff_at_path(eff: Dictionary, path: String) -> Variant:
+	var node: Variant = eff
+	for k in path.split(".", false):
+		if typeof(node) != TYPE_DICTIONARY or not (node as Dictionary).has(String(k)):
+			return null
+		node = (node as Dictionary)[String(k)]
+	return node if typeof(node) == TYPE_FLOAT or typeof(node) == TYPE_INT else null
+
+## 이 장비 종류를 from_plus → to_plus 로 올리면 **실제로 값이 달라지는 항목**들(upgrade 표의 경로 이름).
+## 표가 없거나, 표에만 있고 eff에 그 경로가 없거나, 값이 같으면 빈 배열이다.
+static func equip_upgrade_diff(type_id: String, from_plus: int, to_plus: int) -> Array:
+	var out: Array = []
+	var d := PCatalog.equipment_def(type_id)
+	if d.is_empty():
+		return out
+	var up: Dictionary = d.get("upgrade", {})
+	if up.is_empty():
+		return out
+	var a := PCatalog.equipment_eff(type_id, from_plus)
+	var b := PCatalog.equipment_eff(type_id, to_plus)
+	for path in up:
+		var p := String(path)
+		var va = _eff_at_path(a, p)
+		var vb = _eff_at_path(b, p)
+		if va == null or vb == null:
+			continue # 표에만 있고 실제 효과에는 없는 경로 — 아무것도 올리지 않는다
+		if not is_equal_approx(float(va), float(vb)):
+			out.append(p)
+	return out
+
+## **강화로 실제로 달라지는 것이 있는 장비인가**(사용자 확정 2026-09-10: 효과 없는 유료 강화는 결함이다).
+## 거짓이면 견적(equip_upgrade_next)이 사유를 돌려주고 can_upgrade_equip·upgrade_equip이 모두 거부한다.
+## 폐기 2종(반격 방패·연계 방패)도 강화표가 없어 여기서 막힌다 — 다만 **이미 가진 개체를 지우거나 효과를 빼지는 않는다**.
+static func equip_upgrade_effect_ok(type_id: String, from_plus: int, to_plus: int) -> bool:
+	return not equip_upgrade_diff(type_id, from_plus, to_plus).is_empty()
+
+## 강화 단계표 한 칸이 성한가(plus·cost·afterBoss가 다 있고 값이 말이 되는가).
+## 자료가 망가졌으면 금화·단계를 건드리기 **전에** 막는다(원자성).
+static func _upgrade_step_ok(s: Dictionary) -> bool:
+	for k in ["plus", "cost", "afterBoss"]:
+		if not s.has(k):
+			return false
+		var v = s[k]
+		if typeof(v) != TYPE_INT and typeof(v) != TYPE_FLOAT:
+			return false
+	return int(s.cost) >= 0 and int(s.plus) > 0 and int(s.afterBoss) >= 0
+
+## 다음 강화 견적. **최대 단계이거나 장비 정의가 없으면 {}**(옛 동작 그대로).
+## 강화할 수 없는 사유가 있으면 빈 사전이 아니라 can=false + reason 을 돌려준다.
+## { uid, type, name, plus, next, cost, afterBoss, open, affordable, can, reason, changes }
 static func equip_upgrade_next(run: Dictionary, uid: String) -> Dictionary:
 	var steps: Array = equip_upgrade_rules().get("steps", [])
 	var cur := equip_plus_of(run, uid)
@@ -2401,11 +2508,23 @@ static func equip_upgrade_next(run: Dictionary, uid: String) -> Dictionary:
 	var d := PCatalog.equipment_def(tid)
 	if d.is_empty() or steps.is_empty() or cur >= steps.size():
 		return {}
+	var owned := has_equip_uid(run, uid)
+	var blocked := { "uid": uid, "type": tid, "name": equip_display_name(run, uid), "plus": cur, "next": cur,
+		"cost": 0, "afterBoss": 0, "open": false, "affordable": false, "can": false, "reason": "", "changes": [] }
+	if typeof(steps[cur]) != TYPE_DICTIONARY or not _upgrade_step_ok(steps[cur]):
+		blocked.reason = "강화 자료가 잘못되었습니다(shop.equipUpgrade.steps)"
+		return blocked
 	var s: Dictionary = steps[cur]
+	# 강화로 **아무 값도 달라지지 않는 장비**는 여기서 막는다 — 금화만 받고 아무것도 안 주는 일이 없게
+	var changes := equip_upgrade_diff(tid, cur, int(s.plus))
+	if changes.is_empty():
+		blocked.next = int(s.plus)
+		blocked.afterBoss = int(s.afterBoss)
+		blocked.reason = "이 장비는 강화할 수 없습니다(강화로 오르는 기본 능력치가 없습니다)"
+		return blocked
 	var done: int = (run.get("bossesDone", []) as Array).size()
 	var open: bool = done >= int(s.afterBoss)
 	var cost := int(s.cost)
-	var owned := has_equip_uid(run, uid)
 	var reason := ""
 	if not owned:
 		reason = "보유하지 않은 장비"
@@ -2415,14 +2534,15 @@ static func equip_upgrade_next(run: Dictionary, uid: String) -> Dictionary:
 		reason = "금화 %d 부족" % (cost - int(run.gold))
 	return { "uid": uid, "type": tid, "name": equip_display_name(run, uid), "plus": cur, "next": int(s.plus),
 		"cost": cost, "afterBoss": int(s.afterBoss), "open": open, "affordable": int(run.gold) >= cost,
-		"can": owned and open and int(run.gold) >= cost, "reason": reason }
+		"can": owned and open and int(run.gold) >= cost, "reason": reason, "changes": changes }
 
 static func can_upgrade_equip(run: Dictionary, uid: String) -> bool:
 	var q := equip_upgrade_next(run, uid)
 	return not q.is_empty() and bool(q.can)
 
 ## 강화 확정(확인 창의 '예'). expect_cost >= 0이면 견적과 같을 때만 실행한다(두 번 눌러도 두 번 차감되지 않는다).
-## 시간은 쓰지 않는다. 실패하면 아무것도 바꾸지 않는다
+## 시간은 쓰지 않는다. **원자적이다**: 검사가 전부 통과한 뒤에야 금화와 단계를 함께 바꾼다 —
+## 자료가 비었거나 강화로 아무 값도 달라지지 않는 장비면 금화가 먼저 빠지는 일이 없다
 static func upgrade_equip(run: Dictionary, uid: String, expect_cost: int = -1) -> bool:
 	var q := equip_upgrade_next(run, uid)
 	if q.is_empty() or not bool(q.can):
@@ -2430,6 +2550,10 @@ static func upgrade_equip(run: Dictionary, uid: String, expect_cost: int = -1) -
 		return false
 	if expect_cost >= 0 and expect_cost != int(q.cost):
 		push_error("견적이 바뀌었다(%d → %d): 강화 취소" % [expect_cost, int(q.cost)])
+		return false
+	# 확정 직전 마지막 확인: 효과가 실제로 달라지는가(견적과 확정이 같은 판정을 쓴다)
+	if not equip_upgrade_effect_ok(String(q.type), int(q.plus), int(q.next)):
+		push_error("장비 강화 불가(%s): 강화로 오르는 기본 능력치가 없다" % uid)
 		return false
 	run.gold = int(run.gold) - int(q.cost)
 	equip_plus_map(run)[uid] = int(q.next)

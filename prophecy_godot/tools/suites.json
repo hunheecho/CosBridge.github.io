@@ -532,6 +532,14 @@
       "timeout_sec": 900,
       "desc": "시너지 연결 검사(감전 경로별 발동·분신 모방이 감전을 부른다·독 전염 세대 상한과 파열 중복 금지·반사 자기 호출 금지·무기 공명 자격·정상 연쇄를 막지 않는다)"
     },
+    "sell_upgrade_tests": {
+      "env": {
+        "PROPHECY_TEST_RETRY": "1"
+      },
+      "timeout_sec": 600,
+      "desc": "판매가(지불액의 절반 + 강화 비용의 50%)와 효과 있는 강화만 팔리는 규칙의 실측(2026-09-10 사용자 확정). 견적·확인창·실제 입금액이 같은지 진짜 화면으로도 확인한다",
+      "env_reason": "PROPHECY_TEST_RETRY=1: 마지막 절에서 실제 게임 화면(main.tscn)을 띄워 판매 확인 창을 눌러 본다 — equip_ui_tests와 같은 이유다"
+    },
     "equip_ui_tests": {
       "env": {
         "PROPHECY_TEST_RETRY": "1"
@@ -634,6 +642,7 @@
       "save_repair_tests",
       "save_guard_tests",
       "equip_chain_tests",
+      "sell_upgrade_tests",
       "duel_card_tests",
       "prep_shop_tests",
       "death_tests",

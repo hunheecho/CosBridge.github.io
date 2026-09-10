@@ -277,8 +277,14 @@ func _equip_card(r: Dictionary, id: String, from: String) -> Control:
 		box.add_child(PUi.rich("[color=#9ea8b8]%s[/color]" % PGlossaryTip.esc(String(d.desc)), 13))
 		var cur = r.equipment.get(String(d.slot), null)
 		PUi.kv(box, "현재 %s" % PUi.slot_name(String(d.slot)), PUi.equip_line(String(cur), r) if cur != null else "[color=#6a7078]없음[/color]", 13)
-		var SH2 := PCatalog.shop()
-		PUi.kv(box, "되팔 때", "무기 %d · 방어구 %d · 방패 %d" % [int(SH2.sellPrice.weapon), int(SH2.sellPrice.armor), int(SH2.sellPrice.shield)], 12)
+		# 되팔 때: 옛 고정표(35/30/30)가 아니라 **지금 규칙**을 적는다 — 지불액의 절반 + 강화 비용의 50%.
+		# 지금 이 값으로 사면 얼마가 돌아오는지 실제 숫자로 보여 준다(강화는 판 단계까지의 누적 비용 기준)
+		var back := int(floor(float(price) * PRun.sell_rate()))
+		var up1 := PRun.equip_upgrade_total_cost(1)
+		var up2 := PRun.equip_upgrade_total_cost(2)
+		var rr := PRun.sell_refund_rate()
+		PUi.kv(box, "되팔 때", "[b]%d금[/b] [color=#9ea8b8]— 낸 값 %d금의 %d%%. 강화했으면 그 비용의 %d%%를 더 돌려받습니다(+1 %d금 · +2 %d금).[/color]" % [
+			back, price, int(round(PRun.sell_rate() * 100.0)), int(round(rr * 100.0)), int(floor(float(up1) * rr)), int(floor(float(up2) * rr))], 12)
 		PUi.kv(box, "규칙", "재고는 날마다 정해지고 다시 열어도 같습니다. 같은 장비는 두 번 살 수 없습니다.", 12)
 	return p
 
