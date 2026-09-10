@@ -172,6 +172,18 @@ static func main_weapons(g: Dictionary) -> Array:
 static func support_weapons(g: Dictionary) -> Array:
 	return (g.weapons as Array).filter(func(w): return not PCatalog.is_main_weapon(String(w.id)))
 
+## 이 성장의 **주무기 기본 회피 재사용 시간**(초). 표는 data/config.json PLAYER.dodge.byWeapon 하나뿐이고
+## 여기서는 읽기만 한다(전투도 CombatState.resolve_dodge에서 같은 표를 읽는다 — 값이 두 곳에 적히지 않게).
+## 주무기가 없으면 공통 기본값. 카드 미리보기가 회피 재사용을 적을 때 쓴다
+static func dodge_cd_base(g: Dictionary) -> float:
+	var D: Dictionary = PCatalog.config().PLAYER.dodge
+	var by: Dictionary = D.get("byWeapon", {})
+	for w in main_weapons(g):
+		var row: Dictionary = by.get(String((w as Dictionary).id), {})
+		if not row.is_empty():
+			return float(row.get("cooldown", D.cooldown))
+	return float(D.cooldown)
+
 ## 새 자동기술을 하나 더 가질 수 있는지. v2에서 주무기는 회차 중에 늘지 않는다(시작에 고른 1개).
 ## **옛 저장이 주무기 계열을 여러 개 갖고 있어도 지우지 않는다** — 더 늘지 않을 뿐이다.
 static func can_take_weapon(g: Dictionary, weapon_id: String) -> bool:
@@ -692,6 +704,11 @@ static func candidates(run: Dictionary, ctx: Dictionary = {}) -> Array:
 			continue
 		if lv == 0 and passive_count(g) >= int(S.passives):
 			continue
+		# **신규 획득 후보에서 뺀 패시브**(data/growth.json "offer": false — 빈틈 포착·지속력).
+		# 막는 것은 레벨 0에서 새로 얻는 길뿐이다. 이미 보유한 회차는 레벨업 후보가 그대로 나오고
+		# 효과 계산(PBuild.derive)도 그대로다 — 기존 저장의 보유분을 조용히 삭제·치환하지 않기 위해서다(§1 기존 저장)
+		if lv == 0 and not bool(d.get("offer", true)):
+			continue
 		push.call({ "kind": "passive", "id": String(id), "tags": [] })
 	if pool == "deep":
 		return out.filter(func(c): return bool(c.regionMatch))
@@ -987,6 +1004,14 @@ static func skip_choice(run: Dictionary) -> void:
 static func _fmt(n: float) -> String:
 	return str(snapped(n, 0.1))
 
+## 소수 둘째 자리까지(끝의 0은 지운다). 0.25%처럼 0.1 단위로 반올림하면 값이 바뀌어 보이는 자리에 쓴다
+static func _fmt2(n: float) -> String:
+	return str(snapped(n, 0.01))
+
+## 소수 셋째 자리까지. 회피 재사용(0.855초 같은 값)이 "0.9"로 뭉개지지 않게
+static func _fmt3(n: float) -> String:
+	return str(snapped(n, 0.001))
+
 ## 보조 레벨업이 올리는 항목의 화면 이름(data/supports.json levelScale의 키)
 const LEVEL_STAT_NAMES := {
 	"radius": "반지름", "hops": "연쇄 횟수", "chill": "냉기 지속", "ttl": "장판 지속", "max": "설치 상한",
@@ -1114,6 +1139,15 @@ static func describe(run: Dictionary, c: Dictionary) -> Dictionary:
 				"haste": ch += " · %s 주기 %s → %s초" % [wname.call(String(w0.id)), _fmt(float(w0.interval)), _fmt(float(w0b.interval))]
 				"focus": ch += " · Q 재사용 %s → %s초" % [_fmt(float(before.special_cd)), _fmt(float(after.special_cd))]
 				"exploit": ch += " · 빈틈 ×%s → ×%s" % [_fmt(float(before.exposed_mult)), _fmt(float(after.exposed_mult))]
+				# 회피 재사용은 **주무기 표 × 배율**이다. 화면이 숫자를 지어내지 않게 규칙과 같은 곳(자료 표)에서 읽어 곱한다.
+				# 소수 셋째 자리까지 적는다 — 0.1초 단위로 반올림하면 쌍검 0.900 → 0.855가 "0.9 → 0.9"로 보여 변화가 사라진다
+				"dodge_mastery":
+					var dodge_base := dodge_cd_base(g)
+					ch += " · 회피 재사용 %s → %s초 (거리·이동·무적 그대로)" % [
+						_fmt3(dodge_base * float(before.get("dodge_cd_mult", 1.0))), _fmt3(dodge_base * float(after.get("dodge_cd_mult", 1.0)))]
+				# 궁은 레벨당 0.25%라 소수 둘째 자리까지 적는다(0.1% 단위로 반올림하면 0.25가 0.3으로 보인다)
+				"lifesteal": ch += " · 주무기 직접 타격이 깎은 체력의 %s%% → %s%% 회복" % [
+					_fmt2(float(before.get("lifesteal", 0.0)) * 100.0), _fmt2(float(after.get("lifesteal", 0.0)) * 100.0)]
 			out.change = ch; out.scope = "캐릭터 전체"
 			out.slot = "슬롯 소비 없음" if lv > 0 else "패시브 슬롯 %d/%d" % [passive_count(g) + 1, int(S.passives)]
 		"service":

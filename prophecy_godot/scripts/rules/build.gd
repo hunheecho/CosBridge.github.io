@@ -107,6 +107,34 @@ static func weapon_stats(b: Dictionary, w: Dictionary) -> Dictionary:
 	s.range = float(s.get("range", 0.0))
 	return s
 
+## 흡혈 비율(0이면 없음). 패시브 레벨 × 주무기별 레벨당 비율.
+## 값은 data/growth.json growth.LIFESTEAL에 있고 여기 숫자를 적지 않는다.
+## 주무기가 없는 상태(보조만 든 시연·시험)에서는 기본값을 쓴다 — 그때는 애초에 main_direct 경로가 없어 회복도 없다
+static func lifesteal_frac(g: Dictionary) -> float:
+	var lv: int = int(g.get("passives", {}).get("lifesteal", 0))
+	if lv <= 0:
+		return 0.0
+	var L: Dictionary = PCatalog.growth().get("LIFESTEAL", {})
+	var per: float = float(L.get("per_level", 0.005))
+	var by: Dictionary = L.get("by_weapon", {})
+	for w in g.get("weapons", []):
+		var wid := String((w as Dictionary).id)
+		if PCatalog.is_main_weapon(wid):
+			if by.has(wid):
+				per = float(by[wid])
+			break
+	return per * float(lv)
+
+## 그 피해 경로가 흡혈 자격이 있는가. 경로 이름은 자격표 어휘(PSupport.cause_of)를 그대로 쓴다 —
+## 새 어휘를 만들지 않아야 '보조 폭발이 주무기 타격으로 잘못 분류되는' 기존 결함이 그대로 옮겨오지 않는다
+static func lifesteal_eligible(cause: String) -> bool:
+	var L: Dictionary = PCatalog.growth().get("LIFESTEAL", {})
+	var deny: Array = L.get("denied", [])
+	if deny.has(cause):
+		return false
+	var allow: Array = L.get("eligible", [])
+	return allow.has(cause)
+
 ## run dict(growth·equipment·forge·buffs)에서 빌드 계산. growth 전용이면 empty_run_like(growth)를 넘긴다
 static func derive(run: Dictionary) -> Dictionary:
 	var C := PCatalog.config()
@@ -185,9 +213,22 @@ static func derive(run: Dictionary) -> Dictionary:
 		b.damage_mult = float(b.damage_mult) * float(b.conq_damage_mult)
 		b.speed_mult = float(b.speed_mult) * (1.0 + float(CE.speed))
 	b.toughness = float(PV.toughness) * float(p.get("toughness", 0))
+	# 빈틈 포착·지속력은 **신규 획득 후보에서만** 뺐다(data/growth.json passives.*.offer=false).
+	# 효과 계산은 여기 그대로 남는다 — 기존 저장의 보유분이 조용히 사라지거나 오류를 내지 않게 하기 위해서다(§1 기존 저장)
 	b.exposed_mult = float(b.exposed_mult) + float(PV.exploit) * float(p.get("exploit", 0))
 	b.duration_mult = 1.0 + float(PV.persistence) * float(p.get("persistence", 0))
+	# 집중: **일반 수동 기술과 장비 기술 여섯에 똑같이** 걸린다. 두 종류를 가르는 자리가 없다 —
+	# 재사용 계산은 PBuild.derive(q)와 PSkills.cd_of(e) 두 곳뿐이고 둘 다 이 배율 하나만 읽는다.
+	# 장비 기술의 레벨을 올리는 것이 아니고(장비 기술은 max 1), 무적·방어 지속시간은 여기서 건드리지 않는다
 	b.skill_cd_mult = (1.0 - float(PV.focus) * float(p.get("focus", 0))) * float(b.skill_cd_mult)
+	# 회피 숙련: **무기별 기본 재사용 시간에 비례**하는 배율 하나만 만든다.
+	# 실제 곱은 CombatState.update_player의 p.dodge_cd = p.dodge_cd_time × dodge_cd_mult 한 곳뿐이라
+	# 거리(D.distance)·이동 시간(D.duration)·무적(p.dodge_invuln_time)은 이 값을 아예 읽지 않는다.
+	# 무기별 차이도 그대로다 — 표의 값에 같은 비율을 곱할 뿐이다
+	b.dodge_cd_mult = maxf(0.0, 1.0 - float(PV.get("dodge_mastery", 0.05)) * float(p.get("dodge_mastery", 0))) * float(b.dodge_cd_mult)
+	# 흡혈: **주무기 직접 타격이 실제로 깎은 체력**에 곱할 비율. 궁만 절반이다(data/growth.json growth.LIFESTEAL).
+	# 여기서는 비율만 정하고, 자격 판정·회복은 CombatState.damage_enemy 한 곳에서 한다
+	b.lifesteal = lifesteal_frac(g)
 	var rewards: Array = g.get("bossRewards", [])
 	if rewards.has("tempo"):
 		b.skill_cd_mult *= 0.85

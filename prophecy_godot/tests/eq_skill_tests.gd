@@ -123,6 +123,7 @@ func _init() -> void:
 	sec6_reprieve()
 	sec7_eligibility()
 	sec8_cleanup()
+	sec9_focus()
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
@@ -786,3 +787,255 @@ func sec8_cleanup() -> void:
 		and src.find("static func draw_eq_skill(") >= 0 and src.find("st.eq_act") >= 0
 		and src.find("st.eq_trail") >= 0 and src.find("st.eq_guard") >= 0 and src.find("st.eq_debt") >= 0
 		and src.find("draw_eq_skill(ci, st)") >= 0)
+
+# ==================================================================
+# 9. 집중이 장비 기술에도 걸린다(2026-09-10 지시 2절) — **실측** 재사용
+# ==================================================================
+## 사용자 지적: "자료에서 읽어 비교하는 검사만으로 실제 쿨다운까지 증명되지 않는다."
+## 그래서 여기서는 전투를 실제로 굴려 **쓴 뒤 다시 쓸 수 있게 되는 시각**을 센다.
+## 일반 수동 기술 6종의 같은 측정은 tests/qe_tests.gd에 있다.
+##
+## 함께 못박는 것
+##  · Q에 두든 E에 두든 배율이 같다 · 표시 재사용(PSkills.cd_of)과 실제가 같다.
+##  · 집중이 붙어도 장비 기술은 **여전히 레벨·개조가 없다**(성장 후보에 나오지 않는다).
+##  · 무적·방어 지속시간은 집중과 무관하게 그대로다.
+##  · 각 기술의 **재사용 시작 시점**(준비/발동/유지/종료/재입력)을 실제 상태로 확인한다.
+
+## 집중 lv를 얹고 그 기술을 그 칸에 넣은 전장(그 기술을 주는 장비를 착용한다)
+func mk_focus(sid: String, slot: String, focus_lv: int) -> CombatState:
+	var row: Array = ROWS[sid]
+	var g: Dictionary = PGrowth.new_growth("sword")
+	g.skills.q = { "id": (sid if slot == "q" else "slowfield"), "level": 1, "variant": null }
+	g.skills.e = { "id": sid, "level": 1, "variant": null } if slot == "e" else null
+	g.passives = { "focus": focus_lv }
+	var run: Dictionary = PBuild.empty_run_like(g)
+	(run.equipment as Dictionary)[String(row[1])] = String(row[0])
+	var b: Dictionary = PBuild.derive(run)
+	var st := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": 1, "arena": "clearing",
+		"waves": [], "region_id": "lab", "act": 1,
+		"formation": { "units": [], "alive_cap": 0, "group": 0, "interval": 1.0, "type_caps": {} } })
+	st.spawn_hold = true
+	st.obstacles = []
+	st.player.x = 400.0
+	st.player.y = 300.0
+	st.player.face = 0.0
+	st.player.attack_timer = 1.0e9
+	dummy(st, 120.0, 0.0)
+	dummy(st, -120.0, 40.0)
+	return st
+
+func uses_of(st: CombatState, slot: String) -> int:
+	return int(st.stats.special_uses) if slot == "q" else int(st.stats.e_uses)
+
+## 그 칸의 키를 매 단계 누르며 **사용 횟수가 두 번 오르는 사이**를 센다(선언값을 읽지 않는다)
+func recast_gap(sid: String, slot: String, focus_lv: int) -> Dictionary:
+	var st := mk_focus(sid, slot, focus_lv)
+	var press := inp(slot == "q", slot == "e")
+	var n1 := -1
+	var n2 := -1
+	var n := 0
+	while n < int(round(40.0 / STEP)):
+		var before := uses_of(st, slot)
+		st.step(press, STEP)
+		n += 1
+		if uses_of(st, slot) > before:
+			if n1 < 0:
+				n1 = n
+			else:
+				n2 = n
+				break
+	return { "gap": float(n2 - n1) * STEP if n1 > 0 and n2 > 0 else -1.0,
+		"decl": PSkills.cd_of(st, slot), "status": String(st.status) }
+
+func sec9_focus() -> void:
+	print("\n[9] 집중 × 장비 기술 — 실측 재사용")
+	var SK := PCatalog.skills()
+	var mults := [1.0, 0.9, 0.8, 0.7]
+	var rows := []
+	var lv_ok := true
+	var qe_ok := true
+	var decl_ok := true
+	for sid in PSkills.EQ_IDS:
+		var base: float = float(SK[String(sid)].cooldown[0])
+		for lv in 4:
+			var rq := recast_gap(String(sid), "q", lv)
+			var re := recast_gap(String(sid), "e", lv)
+			var want: float = base * float(mults[lv])
+			rows.append("%s Lv%d Q %.3f E %.3f (기대 %.3f)" % [sid, lv, float(rq.gap), float(re.gap), want])
+			# [7] 되짚는 궤적은 첫 입력이 아니라 **귀환 시점**에 재사용이 걸린다 → 한두 단계 늦다.
+			# 그래서 허용 오차를 세 단계(0.025초)로 둔다. 재사용 시작 시점은 아래에서 따로 못박는다
+			if absf(float(rq.gap) - want) > 3.0 * STEP or absf(float(re.gap) - want) > 3.0 * STEP:
+				lv_ok = false
+			if absf(float(rq.gap) - float(re.gap)) > 3.0 * STEP:
+				qe_ok = false
+			if absf(float(rq.decl) - want) > 1e-6 or absf(float(re.decl) - want) > 1e-6:
+				decl_ok = false
+	ok("2절 집중: 장비 기술 6종의 **실측 재사용**이 표 × (1.0/0.9/0.8/0.7)와 같다", lv_ok, " · ".join(rows))
+	ok("2절 집중: **Q에 두든 E에 두든 배율이 같다** — 같은 기술·같은 레벨에서 실측이 일치한다", qe_ok)
+	ok("2절 집중: **표시 재사용 시간(PSkills.cd_of)과 실제 재사용이 같다**", decl_ok)
+
+	# 집중은 장비 기술의 '레벨업'이 아니다 — 레벨은 1 그대로이고 성장 후보에도 나오지 않는다
+	var lvl_ok := true
+	var cand_ok := true
+	for sid2 in PSkills.EQ_IDS:
+		var st2 := mk_focus(String(sid2), "q", 3)
+		var sk = st2.build.skills.get("q")
+		if sk == null or int(sk.level) != 1:
+			lvl_ok = false
+		var run2: Dictionary = PBuild.empty_run_like(st2.build.growth)
+		(run2.equipment as Dictionary)[String((ROWS[String(sid2)] as Array)[1])] = String((ROWS[String(sid2)] as Array)[0])
+		for c in PGrowth.candidates(run2, { "pool": "level" }):
+			if String(c.id) == String(sid2):
+				cand_ok = false
+	ok("2절 집중을 장비 기술의 **레벨업으로 취급하지 않는다** — 레벨은 1 그대로다", lvl_ok)
+	ok("2절 집중이 붙어도 장비 기술은 성장 후보(레벨·변형)에 나오지 않는다", cand_ok)
+
+	# 무적·방어 지속시간은 집중과 무관하다
+	var T_tomb := tune("eq_icetomb")
+	var inv_rows := []
+	var inv_ok := true
+	for lv3 in [0, 3]:
+		var st3 := mk_focus("eq_icetomb", "q", lv3)
+		PSkills.cast(st3, "q")
+		var n3 := 0
+		while n3 < int(round(4.0 / STEP)) and PSkills.eq_invuln(st3):
+			st3.step(inp(), STEP)
+			n3 += 1
+		inv_rows.append("집중 Lv%d 무적 %.3f초" % [lv3, float(n3) * STEP])
+		if absf(float(n3) * STEP - float(T_tomb.get("max", 1.2))) > 2.0 * STEP:
+			inv_ok = false
+	var guard_rows := []
+	for lv4 in [0, 3]:
+		var st4 := mk_focus("eq_riposte", "q", lv4)
+		PSkills.cast(st4, "q")
+		var n4 := 0
+		while n4 < int(round(4.0 / STEP)) and not st4.eq_guard.is_empty():
+			st4.step(inp(), STEP)
+			n4 += 1
+		guard_rows.append("집중 Lv%d 방어 창 %.3f초" % [lv4, float(n4) * STEP])
+		if absf(float(n4) * STEP - float(tune("eq_riposte").get("guard", 0.45))) > 2.0 * STEP:
+			inv_ok = false
+	ok("2절 집중은 **무적·방어 지속시간을 늘리지 않는다**([8] 갇힘 · [6] 방어 창)",
+		inv_ok, " · ".join(inv_rows) + " · " + " · ".join(guard_rows))
+
+	# 재사용 시작 시점(준비/발동/유지/종료/재입력)을 실제 상태로 확인한다
+	print("\n[9-2] 각 장비 기술의 재사용 시작 시점")
+	var when_rows := []
+	var when_ok := true
+	for sid3 in PSkills.EQ_IDS:
+		var st5 := mk_focus(String(sid3), "q", 0)
+		PSkills.cast(st5, "q")
+		var left := PSkills.cd_left(st5, "q")
+		var phase := String(st5.eq_act.get("phase", "")) if not st5.eq_act.is_empty() else ""
+		var want_now: bool = String(sid3) != "eq_retrace" # [7]만 첫 입력에 걸지 않는다
+		when_rows.append("%s 첫 입력 직후 남은 재사용 %.2f (단계 '%s')" % [sid3, left, phase])
+		if (left > 0.0) != want_now:
+			when_ok = false
+	ok("2절 재사용 시작 시점: [4][5]는 **준비(충전) 시작**, [6][8][9]는 **발동 순간**에 걸리고, [7]만 첫 입력에 걸지 않는다",
+		when_ok, " · ".join(when_rows))
+
+	# [4][5] 충전을 Space로 취소하면 재사용을 돌려받는다(집중이 붙어도 같다)
+	var refund_ok := true
+	for sid4 in ["eq_flashcut", "eq_meteor"]:
+		var st6 := mk_focus(String(sid4), "q", 3)
+		PSkills.cast(st6, "q")
+		st6.step(inp(false, false, true), STEP)
+		if PSkills.cd_left(st6, "q") > 0.0 or not st6.eq_act.is_empty():
+			refund_ok = false
+	ok("2절 [4][5] 충전 중 Space 취소는 재사용을 돌려준다(집중 Lv3에서도 같다)", refund_ok)
+
+	# [7] 되짚는 궤적: 첫 입력에는 안 걸리고 **귀환** 또는 **기록 만료**에 걸린다
+	var st7 := mk_focus("eq_retrace", "q", 3)
+	PSkills.cast(st7, "q")
+	var before7 := PSkills.cd_left(st7, "q")
+	st7.step(inp(true), STEP)   # 같은 칸 재입력 = 귀환
+	var after7 := PSkills.cd_left(st7, "q")
+	var st8 := mk_focus("eq_retrace", "q", 3)
+	PSkills.cast(st8, "q")
+	var n8 := 0
+	while n8 < int(round(6.0 / STEP)) and st8.eq_trail.is_empty() == false:
+		st8.step(inp(), STEP)
+		n8 += 1
+	ok("2절 [7] 되짚는 궤적: 첫 입력에는 재사용이 걸리지 않고 **재입력(귀환)** 또는 **기록 만료**에 걸린다 — 집중 배율은 그때 적용된다",
+		is_equal_approx(before7, 0.0) and absf(after7 - 12.0 * 0.7) <= 2.0 * STEP
+			and absf(PSkills.cd_left(st8, "q") - 12.0 * 0.7) <= 2.0 * STEP,
+		"귀환 %.3f · 만료(%.2f초) %.3f · 기대 %.3f" % [after7, float(n8) * STEP, PSkills.cd_left(st8, "q"), 12.0 * 0.7])
+
+	# 장비를 벗었다 다시 껴도(전투 중 빌드 재계산) 남은 재사용이 초기화되지 않는다
+	var keep_rows := []
+	var keep_ok := true
+	for sid5 in ["eq_flashcut", "eq_icetomb", "eq_reprieve"]:
+		var st9 := mk_focus(String(sid5), "q", 0)
+		PSkills.cast(st9, "q")
+		for i in 120:
+			st9.step(inp(), STEP)
+		var left0 := PSkills.cd_left(st9, "q")
+		var row5: Array = ROWS[String(sid5)]
+		var g9: Dictionary = PGrowth.new_growth("sword")
+		g9.skills.q = { "id": String(sid5), "level": 1, "variant": null }
+		g9.passives = { "focus": 3 }
+		var run9: Dictionary = PBuild.empty_run_like(g9)
+		(run9.equipment as Dictionary)[String(row5[1])] = String(row5[0])
+		st9.rebuild(PBuild.derive(run9))
+		var left1 := PSkills.cd_left(st9, "q")
+		keep_rows.append("%s %.3f → %.3f" % [sid5, left0, left1])
+		if not is_equal_approx(left0, left1) or left1 <= 0.0:
+			keep_ok = false
+	ok("2절 장착·해제·빌드 재계산으로 **재사용 시간이 초기화되지 않는다**", keep_ok, " · ".join(keep_rows))
+
+	# [8] 결정 관 + 집중: 무적을 빈틈 없이 반복할 수 있는가(다른 재사용 감소와 겹칠 때까지 본다)
+	print("\n[9-3] 결정 관 + 집중: 무적을 빈틈 없이 반복할 수 있는가")
+	var gap_rows := []
+	var gapless := false
+	var combos := [[0, 1.0], [3, 1.0], [3, 0.85], [3, 0.85 * 0.85]]
+	for combo in combos:
+		var r := tomb_cycle(int(combo[0]), float(combo[1]))
+		gap_rows.append("집중 Lv%d × %.4f → 재사용 %.2f · 무적 비율 %.1f%% · 최소 빈틈 %.2f초" % [
+			int(combo[0]), float(combo[1]), float(r.cd), float(r.invuln_frac) * 100.0, float(r.gap_min)])
+		if float(r.gap_min) <= 0.0 or float(r.invuln_frac) >= 0.5:
+			gapless = true
+	ok("2절 [8] 결정 관은 집중 Lv3에 다른 재사용 감소(시간의 샘·박자)를 다 겹쳐도 **빈틈 없이 반복되지 않는다**",
+		not gapless, " · ".join(gap_rows) + " · 한 번의 무적 %.2f초" % float(T_tomb.get("max", 1.2)))
+
+## 결정 관을 반복해서 쓰는 30초 동안 무적인 시간의 비율과 무적 사이의 최소 빈틈.
+## cd_mult는 집중 밖의 다른 재사용 감소(시간의 샘 0.85 · 보스 보상 박자 0.85)를 겹쳐 보기 위한 자리다
+func tomb_cycle(focus_lv: int, cd_mult: float) -> Dictionary:
+	var g: Dictionary = PGrowth.new_growth("sword")
+	g.skills.q = { "id": "eq_icetomb", "level": 1, "variant": null }
+	g.passives = { "focus": focus_lv }
+	var run: Dictionary = PBuild.empty_run_like(g)
+	(run.equipment as Dictionary)["shield"] = "crystal_coffin"
+	if not is_equal_approx(cd_mult, 1.0):
+		run["buffs"] = { "skillCd": cd_mult }
+	var b: Dictionary = PBuild.derive(run)
+	var st := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": 1, "arena": "clearing",
+		"waves": [], "region_id": "lab", "act": 1,
+		"formation": { "units": [], "alive_cap": 0, "group": 0, "interval": 1.0, "type_caps": {} } })
+	st.spawn_hold = true
+	st.obstacles = []
+	st.player.x = 400.0
+	st.player.y = 300.0
+	st.player.attack_timer = 1.0e9
+	dummy(st, 200.0, 0.0)
+	var total := int(round(30.0 / STEP))
+	var inv_n := 0
+	var uses := 0
+	var gap_now := 0
+	var gap_min := 999999
+	for i in total:
+		# 결정 관은 '누르면 갇히고 최대 시간까지 유지'다. 준비되는 즉시 한 번 누르고 그 뒤에는 손을 뗀다
+		var ready: bool = PSkills.cd_left(st, "q") <= 0.0 and st.eq_act.is_empty()
+		var before := int(st.stats.special_uses)
+		st.step(inp(ready), STEP)
+		if int(st.stats.special_uses) > before:
+			uses += 1
+		if PSkills.eq_invuln(st):
+			inv_n += 1
+			if gap_now > 0:
+				gap_min = mini(gap_min, gap_now)
+			gap_now = 0
+		elif uses > 0:
+			gap_now += 1
+	return { "invuln_frac": float(inv_n) / float(total), "uses": uses,
+		"gap_min": float(gap_min) * STEP if gap_min < 999999 else -1.0,
+		"cd": float(b.special_cd) }

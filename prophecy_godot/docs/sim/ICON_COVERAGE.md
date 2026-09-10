@@ -4,11 +4,28 @@
 만드는 도구는 `tools/icon_gen.gd`(프로젝트 안에서 코드로 그린 벡터 → svg·png128·png64·data/icons.json). 최종 아트는 아니다.
 아이콘이 없는 항목은 다른 효과의 아이콘을 재사용하지 않고 중립 자리표시 기호 + 실제 이름으로 표시한다.
 
-- 표시 대상 ID: 139
-- 아이콘 있음: 139
-- 누락: 0
+- 표시 대상 ID: 147
+- 아이콘 있음: 138
+- 누락: 9
 
-누락 없음. 표시 대상 ID가 늘어나면 이 문서에 다시 나타난다.
+## 누락 · equipment (6)
+
+| ID | 이름 |
+| --- | --- |
+| `equip:counter_guard` | 받아넘김의 방패 |
+| `equip:crystal_coffin` | 결정 관 |
+| `equip:falling_star_maul` | 낙성 추 |
+| `equip:instant_blade` | 찰나의 검 |
+| `equip:reprieve_coat` | 유예의 외투 |
+| `equip:retrace_greaves` | 되짚는 각반 |
+
+## 누락 · skill (3)
+
+| ID | 이름 |
+| --- | --- |
+| `skill:e:eq_icetomb` | 결정 관 |
+| `skill:e:eq_meteor` | 낙성 강하 |
+| `skill:e:eq_reprieve` | 유예의 시계 |
 
 ## 적용 · weapon (17)
 
@@ -88,15 +105,12 @@
 | `mod:wind:focused` | 압축 돌풍 | `mod_wind_focused` |
 | `mod:wind:lingering` | 잔바람 | `mod_wind_lingering` |
 
-## 적용 · skill (12)
+## 적용 · skill (9)
 
 | ID | 이름 | 그림 파일 |
 | --- | --- | --- |
 | `skill:e:bladestorm` | 칼날 폭풍 | `skill_bladestorm` |
-| `skill:e:eq_crystalcoffin` | 결정 관 | `skill_eq_crystalcoffin` |
 | `skill:e:eq_flashcut` | 찰나 가르기 | `skill_eq_flashcut` |
-| `skill:e:eq_meteordrop` | 낙성 강하 | `skill_eq_meteordrop` |
-| `skill:e:eq_reprieveclock` | 유예의 시계 | `skill_eq_reprieveclock` |
 | `skill:e:eq_retrace` | 되짚는 궤적 | `skill_eq_retrace` |
 | `skill:e:eq_riposte` | 받아치기 | `skill_eq_riposte` |
 | `skill:e:gravity` | 중력핵 | `skill_gravity` |
@@ -143,13 +157,15 @@
 | `common:stasis` | 정지된 칼날 | `common_stasis` |
 | `common:wide` | 넓어진 공격 | `common_wide` |
 
-## 적용 · passive (8)
+## 적용 · passive (10)
 
 | ID | 이름 | 그림 파일 |
 | --- | --- | --- |
+| `passive:dodge_mastery` | 회피 숙련 | `passive_dodge_mastery` |
 | `passive:exploit` | 빈틈 포착 | `passive_exploit` |
 | `passive:focus` | 집중 | `passive_focus` |
 | `passive:haste` | 가속 | `passive_haste` |
+| `passive:lifesteal` | 흡혈 | `passive_lifesteal` |
 | `passive:mastery` | 무기 숙련 | `passive_mastery` |
 | `passive:mobility` | 기동력 | `passive_mobility` |
 | `passive:persistence` | 지속력 | `passive_persistence` |

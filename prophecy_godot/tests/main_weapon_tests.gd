@@ -165,6 +165,22 @@ func dagger_cycle(st: CombatState, target: Dictionary) -> float:
 ## 그 주무기를 들고 회피 1회를 실제로 재생해 **재 본다**(설정을 그대로 베끼지 않는다).
 ## 이동 시간 = dodge_active가 켜져 있던 시간, 무적 시간 = invuln_t가 남아 있던 시간,
 ## 재사용 대기 = dodge_cd가 0이 될 때까지의 시간. 셋을 따로 센다.
+## 패시브를 얹은 전투(회피 숙련·흡혈 실측용). mk와 같은 전장이고 성장만 다르다
+func mk_p(weapon_id: String, passives: Dictionary, auto: bool = false) -> CombatState:
+	var g := PGrowth.new_growth(weapon_id)
+	g.weapons = [{ "id": weapon_id, "level": 1, "mods": [] }]
+	for k in passives:
+		g.passives[String(k)] = int(passives[k])
+	var b := PBuild.derive(PBuild.empty_run_like(g))
+	var st := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": 1, "arena": "clearing", "obstacles": [],
+		"formation": { "units": [], "alive_cap": 0, "group": 0, "interval": 1.0, "type_caps": {} } })
+	st.spawn_hold = true
+	st.player.x = 300.0
+	st.player.y = 300.0
+	if not auto:
+		st.player.attack_timer = 1.0e8
+	return st
+
 func dodge_probe(weapon_id: String, hold: bool = true) -> Dictionary:
 	var st := mk(weapon_id)
 	var press := { "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": hold }
@@ -190,6 +206,54 @@ func dodge_probe(weapon_id: String, hold: bool = true) -> Dictionary:
 	return { "move": float(move_n) * STEP, "invuln": float(inv_n) * STEP, "cd": float(cd_n) * STEP,
 		"dist": PGeom.dist(x0, y0, st.player.x, st.player.y),
 		"set_cd": float(st.player.dodge_cd_time), "set_inv": float(st.player.dodge_invuln_time) }
+
+## 회피 숙련 Lv를 얹고 **한 번 회피한 뒤 다시 회피가 나가기까지**를 실제로 잰다(선언값을 읽지 않는다).
+## 이동 시간·이동 거리·무적도 같은 회차에서 함께 재 두어, 재사용만 줄었는지 한 줄로 비교할 수 있게 한다
+func dodge_mastery_probe(weapon_id: String, lv: int, hold: bool = true) -> Dictionary:
+	var st := mk_p(weapon_id, { "dodge_mastery": lv })
+	var press := { "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": hold }
+	var keep := { "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": hold }
+	var x0: float = st.player.x
+	var y0: float = st.player.y
+	st.step(press, STEP)
+	var move_n := 1 if st.player.dodge_active else 0
+	var inv_n := 1 if float(st.player.invuln_t) > 0.0 else 0
+	var dist: float = 0.0
+	var n := 1
+	while n < 4000:
+		st.step(keep, STEP)
+		n += 1
+		if st.player.dodge_active:
+			move_n = n
+		else:
+			if dist <= 0.0:
+				dist = PGeom.dist(x0, y0, st.player.x, st.player.y)
+		if float(st.player.invuln_t) > 0.0:
+			inv_n = n
+		if float(st.player.dodge_cd) <= 0.0:
+			break
+	# 다시 쓸 수 있게 되는 시각은 **따로 굴려서** 잰다: 계속 누르며 회피 1회차와 2회차 사이의 단계를 센다.
+	# 같은 회차에서 이어 재면 위의 '대기 해제 감지' 단계 하나가 오차로 섞인다
+	var st2 := mk_p(weapon_id, { "dodge_mastery": lv })
+	var press2 := { "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": false }
+	var d1 := -1
+	var d2 := -1
+	var m := 0
+	while m < 4000:
+		var before := int(st2.stats.dodges)
+		st2.step(press2, STEP)
+		m += 1
+		if int(st2.stats.dodges) > before:
+			if d1 < 0:
+				d1 = m
+			else:
+				d2 = m
+				break
+	return { "recast": float(d2 - d1) * STEP if d1 > 0 and d2 > 0 else -1.0,
+		"cd_clear": float(n) * STEP, "move": float(move_n) * STEP,
+		"invuln": float(inv_n) * STEP, "dist": dist, "dodges": int(st2.stats.dodges),
+		"set_cd": float(st.player.dodge_cd_time), "set_inv": float(st.player.dodge_invuln_time),
+		"mult": float(st.build.dodge_cd_mult) }
 
 ## 회피를 시작하고 wait초 뒤에 피해를 넣어 본다. 막혔으면 true
 func dodge_blocks_at(weapon_id: String, wait: float, hold: bool = false) -> Dictionary:
@@ -864,8 +928,18 @@ func _init() -> void:
 
 	# 성장·장비를 다 얹어도 무적이 겹치거나 상시가 되지 않는다
 	var st_gr := mk("sword")
-	ok("§1 회피 재사용 배율은 성장·장비가 건드리지 않는다(dodge_cd_mult = 1.0) — 무적 비율이 조용히 커지지 않는다",
+	# 2026-09-10 규칙 변경: **패시브 '회피 숙련'만** 이 배율을 건드린다(사용자 지시 1절).
+	# 예전 시험은 "성장·장비가 아예 건드리지 않는다(= 언제나 1.0)"였는데, 그 전제가 지시로 바뀌었다.
+	# 그래서 기대값을 두 갈래로 나눈다: **회피 숙련이 없으면 그대로 1.0**(장비·다른 성장은 여전히 못 건드린다),
+	# 회피 숙련이 있으면 표에 적힌 만큼만 줄어든다. 아래 12절이 그 값을 실제로 잰다
+	ok("§1 회피 숙련이 없으면 회피 재사용 배율은 1.0 그대로다 — 장비·다른 성장은 이 값을 건드리지 않는다",
 		is_equal_approx(float(st_gr.build.dodge_cd_mult), 1.0), "%.3f" % float(st_gr.build.dodge_cd_mult))
+	var gr_all := PGrowth.new_growth("sword")
+	gr_all.weapons = [{ "id": "sword", "level": 1, "mods": [] }]
+	gr_all.passives = { "vitality": 3, "toughness": 3, "mastery": 3, "mobility": 3 }
+	ok("§1 회피 숙련이 아닌 패시브를 가득 채워도 회피 재사용 배율은 1.0이다",
+		is_equal_approx(float(PBuild.derive(PBuild.empty_run_like(gr_all)).dodge_cd_mult), 1.0),
+		"%.3f" % float(PBuild.derive(PBuild.empty_run_like(gr_all)).dodge_cd_mult))
 	var st_dup := mk("sword")
 	st_dup.step({ "mx": 1.0, "my": 0.0, "dodge_press": true, "dodge_held": false }, STEP)
 	var inv_after_first: float = float(st_dup.player.invuln_t)
@@ -1134,6 +1208,214 @@ func _init() -> void:
 		fight_rows.append("%s %s %.1f초 처치%d 체력%.0f" % [wid4, fr.status, fr.sec, int(fr.kills), fr.hp])
 	print("BOW_FIGHT_MEASURE 기준 전투(시드 7 · Lv1 · 개조 없음 · 봇 balanced): " + " | ".join(fight_rows))
 
+	sec12_dodge_mastery()
+	sec13_lifesteal()
+
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
+
+# ==================================================================
+# 12. 패시브 '회피 숙련'(2026-09-10 시험값) — **실측** 재사용표
+# ==================================================================
+## 무엇을 못박는가
+##  ① Lv1 -5% · Lv2 -10% · Lv3 -15%가 **무기별 기본 재사용 시간에 비례**해 적용된다.
+##  ② 재는 것은 선언값이 아니라 **한 번 회피한 뒤 다시 회피가 실제로 나가는 시각**이다.
+##  ③ 회피 거리·이동 시간·무적 시간은 레벨이 올라도 **하나도 변하지 않는다**.
+##  ④ 무기별 회피 차이가 유지된다(같은 레벨에서 쌍검 < 검 < 창 < 망치 < 활).
+##  ⑤ 무적 < 재사용이 모든 무기·모든 레벨에서 유지된다(상시 무적 없음).
+func sec12_dodge_mastery() -> void:
+	var base := { "daggers": 0.9, "sword": 1.1, "spear": 1.3, "hammer": 1.6, "bow": 2.2 }
+	var want_mult := [1.0, 0.95, 0.90, 0.85]
+	var rows := []
+	var cd_ok := true
+	var same_ok := true
+	var order_ok := true
+	var always_ok := true
+	var base_row := {}
+	for wid in ["daggers", "sword", "spear", "hammer", "bow"]:
+		var b0 := dodge_mastery_probe(String(wid), 0)
+		base_row[String(wid)] = b0
+		for lv in 4:
+			var pr := dodge_mastery_probe(String(wid), lv)
+			var want: float = float(base[String(wid)]) * float(want_mult[lv])
+			rows.append("%s Lv%d 실측 %.3f/기대 %.3f" % [wid, lv, float(pr.recast), want])
+			# 실측은 단계 단위(1/120초)라 한 단계 오차를 허용한다
+			if absf(float(pr.recast) - want) > STEP + 1e-9 or int(pr.dodges) != 2:
+				cd_ok = false
+			if absf(float(pr.set_cd) * float(pr.mult) - want) > 1e-9:
+				cd_ok = false
+			# 거리·이동·무적은 Lv0과 완전히 같아야 한다
+			if absf(float(pr.dist) - float(b0.dist)) > 0.05 or absf(float(pr.move) - float(b0.move)) > 1e-9 \
+					or absf(float(pr.invuln) - float(b0.invuln)) > 1e-9 or absf(float(pr.set_inv) - float(b0.set_inv)) > 1e-9:
+				same_ok = false
+			if float(pr.invuln) >= float(pr.recast):
+				always_ok = false
+	for lv2 in 4:
+		var prev := 0.0
+		for wid2 in ["daggers", "sword", "spear", "hammer", "bow"]:
+			var pr2 := dodge_mastery_probe(String(wid2), lv2)
+			if float(pr2.recast) <= prev:
+				order_ok = false
+			prev = float(pr2.recast)
+	ok("§1 회피 숙련: 무기 5종 × Lv0~3의 **실측 재사용**이 기본표 × (1.00/0.95/0.90/0.85)와 같다",
+		cd_ok, " · ".join(rows))
+	ok("§1 회피 숙련: 거리·이동 시간·무적 시간은 레벨이 올라도 **하나도 변하지 않는다**(Lv0과 동일)",
+		same_ok, "예: 쌍검 Lv0 거리 %.1f 이동 %.3f 무적 %.3f" % [
+			float(base_row["daggers"].dist), float(base_row["daggers"].move), float(base_row["daggers"].invuln)])
+	ok("§1 회피 숙련: 같은 레벨에서 무기별 차이가 유지된다(쌍검 < 검 < 창 < 망치 < 활)", order_ok)
+	ok("§1 회피 숙련: 모든 무기·모든 레벨에서 무적 < 재사용 — 상시 무적이 되지 않는다", always_ok)
+	# 잔영 허물(회피 변형 장비)과 함께: 회피 수치만 줄고 장비 효과의 지속·횟수는 그대로다
+	var g_af := PGrowth.new_growth("daggers")
+	g_af.weapons = [{ "id": "daggers", "level": 1, "mods": [] }]
+	var run_af := PBuild.empty_run_like(g_af)
+	(run_af.equipment as Dictionary)["armor"] = "afterimage_cloak"
+	var b_af0 := PBuild.derive(run_af)
+	var g_af3 := PGrowth.new_growth("daggers")
+	g_af3.weapons = [{ "id": "daggers", "level": 1, "mods": [] }]
+	g_af3.passives = { "dodge_mastery": 3 }
+	var run_af3 := PBuild.empty_run_like(g_af3)
+	(run_af3.equipment as Dictionary)["armor"] = "afterimage_cloak"
+	var b_af3 := PBuild.derive(run_af3)
+	var eff0: Dictionary = b_af0.equip.get("afterimage", {})
+	var eff3: Dictionary = b_af3.equip.get("afterimage", {})
+	ok("§1 회피 숙련은 회피 변형 장비(잔영 허물)의 **효과 수치를 늘리지 않는다** — 재사용 배율만 다르다",
+		not eff0.is_empty() and str(eff0) == str(eff3) and is_equal_approx(float(b_af0.dodge_cd_mult), 1.0)
+			and is_equal_approx(float(b_af3.dodge_cd_mult), 0.85),
+		"장비 효과 %s → %s · 배율 %.3f → %.3f" % [str(eff0), str(eff3), float(b_af0.dodge_cd_mult), float(b_af3.dodge_cd_mult)])
+
+# ==================================================================
+# 13. 패시브 '흡혈'(2026-09-10 시험값)
+# ==================================================================
+## ① 검·쌍검·창·망치 0.5%/레벨 · 궁 0.25%/레벨.
+## ② 기준은 **실제로 깎은 적 체력**이다(초과 피해 제외).
+## ③ 주무기 직접 타격만 적격 — 보조·장판·도트·수동 기술·장비 기술은 회복하지 않는다.
+## ④ 소수점을 버리지 않는다(약한 연타가 쌓인다).
+## ⑤ 최대 체력을 넘기지 않고 사망을 되돌리지 않는다.
+func sec13_lifesteal() -> void:
+	var frac_rows := []
+	var frac_ok := true
+	for wid in ["daggers", "sword", "spear", "hammer", "bow"]:
+		for lv in [1, 2, 3]:
+			var st := mk_p(String(wid), { "lifesteal": lv })
+			var want: float = (0.0025 if String(wid) == "bow" else 0.005) * float(lv)
+			frac_rows.append("%s Lv%d %.4f" % [wid, lv, float(st.build.lifesteal)])
+			if not is_equal_approx(float(st.build.lifesteal), want):
+				frac_ok = false
+	var st_no := mk_p("sword", {})
+	ok("흡혈: 무기별 비율이 표와 같다(검·쌍검·창·망치 0.5%/레벨 · 궁 0.25%/레벨) · 미보유는 0",
+		frac_ok and is_equal_approx(float(st_no.build.lifesteal), 0.0), " · ".join(frac_rows))
+
+	# 초과 피해 제외: 체력 10인 적에게 100을 줘도 회복 계산 대상은 10
+	var over_rows := []
+	var over_ok := true
+	for wid2 in ["sword", "bow"]:
+		var st2 := mk_p(String(wid2), { "lifesteal": 3 })
+		st2.player.hp = 10.0
+		var e2 := dummy(st2, st2.player.x + 60.0, st2.player.y, 10.0)
+		var before2: float = float(st2.player.hp)
+		st2.damage_enemy(e2, 100.0, { "src": { "weapon": st2.build.weapons[0], "weapon_id": String(wid2), "direct": true } })
+		var got2: float = float(st2.player.hp) - before2
+		var want2: float = 10.0 * float(st2.build.lifesteal)
+		over_rows.append("%s 회복 %.4f(기대 %.4f · 100×비율이면 %.4f)" % [wid2, got2, want2, 100.0 * float(st2.build.lifesteal)])
+		if absf(got2 - want2) > 1e-6:
+			over_ok = false
+	ok("흡혈: **초과 피해를 제외한다** — 체력 10인 적에게 100 피해를 줘도 회복 계산 대상은 10이다",
+		over_ok, " · ".join(over_rows))
+
+	# 출처별 자격표(포함·제외를 명시한다)
+	var st3 := mk_p("sword", { "lifesteal": 3 })
+	var ws: Dictionary = st3.build.weapons[0]
+	var cases := [
+		["주무기 기본 타격", { "src": { "weapon": ws, "weapon_id": "sword", "direct": true } }, true],
+		["주무기 개조의 추가 타격", { "src": { "weapon": ws, "weapon_id": "sword", "direct": false, "extra": true, "mod": "cross" } }, false],
+		["공용 메아리가 만든 추가 타격", { "cause": "main_extra", "src": { "weapon": ws, "weapon_id": "sword", "direct": true } }, false],
+		["보조무기 직접 타격", { "src": { "weapon_id": "blades", "direct": true } }, false],
+		["장판 틱", { "cause": "zone_tick", "src": { "weapon_id": "sword", "direct": false, "extra": true } }, false],
+		["화상·출혈·독", { "src": { "extra": true, "direct": false }, "dot": "burn", "dot_src": "common" }, false],
+		["수동 기술", { "src": { "skill": true, "direct": false, "skill_id": "strike" } }, false],
+		["장비 기술 [4] 찰나 가르기", { "cause": "eq_slash", "src": { "skill": true, "direct": false, "skill_id": "eq_flashcut" } }, false],
+		["장비 기술 [5] 낙성 강하 중심", { "cause": "eq_meteor_core", "src": { "skill": true, "direct": false, "skill_id": "eq_meteor" } }, false],
+		["장비 기술 [6] 받아치기", { "cause": "eq_riposte", "src": { "skill": true, "direct": false, "skill_id": "eq_riposte" } }, false],
+		["장비 기술 [7] 되짚는 궤적", { "cause": "eq_retrace", "src": { "skill": true, "direct": false, "skill_id": "eq_retrace" } }, false],
+		["지뢰 폭발", { "src": { "weapon_id": "mine", "direct": true } }, false],
+		["파쇄 추가 피해", { "cause": "frost_shatter", "src": { "extra": true, "direct": false, "tag": "frost:shatter" } }, false],
+		["감전 후속", { "cause": "shock_bonus", "src": { "weapon_id": "orb", "direct": false } }, false],
+		["불꽃 파열", { "cause": "flare_burst", "src": { "extra": true, "direct": false, "tag": "common:flare" } }, false],
+		["가시 반격", { "cause": "reflect", "src": { "extra": true, "direct": false } }, false],
+	]
+	var src_rows := []
+	var src_ok := true
+	for row in cases:
+		var e3 := dummy(st3, st3.player.x + 60.0, st3.player.y, 1000000.0)
+		st3.player.hp = 10.0
+		var b3: float = float(st3.player.hp)
+		st3.damage_enemy(e3, 100.0, (row[1] as Dictionary).duplicate(true))
+		var got3: float = float(st3.player.hp) - b3
+		e3.dead = true
+		src_rows.append("%s %s" % [String(row[0]), "적격" if got3 > 0.0 else "비적격"])
+		if (got3 > 0.0) != bool(row[2]):
+			src_ok = false
+	ok("흡혈 자격표: **주무기 직접 타격만** 회복한다(개조 추가 타격·보조·장판·도트·수동 기술·장비 기술 전부 제외)",
+		src_ok, " · ".join(src_rows))
+
+	# 소수점 유지: 약한 연타가 사라지지 않는다
+	var st4 := mk_p("sword", { "lifesteal": 1 })
+	st4.player.hp = 10.0
+	var e4 := dummy(st4, st4.player.x + 60.0, st4.player.y, 1000000.0)
+	var o4 := { "src": { "weapon": st4.build.weapons[0], "weapon_id": "sword", "direct": true } }
+	var first_gain := 0.0
+	for i in 40:
+		var b4: float = float(st4.player.hp)
+		st4.damage_enemy(e4, 6.0, o4.duplicate(true))
+		if i == 0:
+			first_gain = float(st4.player.hp) - b4
+	ok("흡혈: **소수점을 버리지 않는다** — 6 피해 × 40회(1회 회복 %.3f)가 그대로 쌓인다" % first_gain,
+		absf(first_gain - 0.03) < 1e-6 and absf(float(st4.player.hp) - 10.0 - 1.2) < 1e-6,
+		"1회 %.4f · 누적 %.4f · 흡혈 집계 %.4f" % [first_gain, float(st4.player.hp) - 10.0, float(st4.stats.lifesteal)])
+
+	# 최대 체력 상한 · 사망 되돌리기 없음
+	var st5 := mk_p("sword", { "lifesteal": 3 })
+	var e5 := dummy(st5, st5.player.x + 60.0, st5.player.y, 1000000.0)
+	var o5 := { "src": { "weapon": st5.build.weapons[0], "weapon_id": "sword", "direct": true } }
+	st5.player.hp = float(st5.player.hp_max)
+	st5.damage_enemy(e5, 100000.0, o5.duplicate(true))
+	var cap_ok: bool = is_equal_approx(float(st5.player.hp), float(st5.player.hp_max))
+	st5.player.hp = 0.0
+	st5.damage_enemy(e5, 100000.0, o5.duplicate(true))
+	ok("흡혈: 최대 체력을 넘겨 회복하지 않고 **사망을 되돌리지 않는다**",
+		cap_ok and is_equal_approx(float(st5.player.hp), 0.0),
+		"가득 %.1f/%.1f · 체력 0에서 %.1f" % [float(st5.player.hp_max), float(st5.player.hp_max), float(st5.player.hp)])
+
+	# 자동 재생 없음: 흡혈만 있고 아무것도 때리지 않으면 체력이 오르지 않는다
+	var st6 := mk_p("sword", { "lifesteal": 3 })
+	st6.player.hp = 30.0
+	dummy(st6, st6.player.x + 400.0, st6.player.y, 1000000.0)
+	for i2 in int(round(10.0 / STEP)):
+		st6.step({}, STEP)
+	ok("흡혈: **시간당 자동 재생이 없다** — 10초 동안 아무것도 맞히지 않으면 체력이 그대로다",
+		is_equal_approx(float(st6.player.hp), 30.0) and is_equal_approx(float(st6.stats.lifesteal), 0.0),
+		"체력 %.3f · 흡혈 집계 %.3f" % [float(st6.player.hp), float(st6.stats.lifesteal)])
+
+	# 실제 전투 경로(자동공격을 켜고 5초): 무기 5종이 모두 회복한다 · 전투당 상한이 없다
+	var live_rows := []
+	var live_ok := true
+	for wid3 in ["daggers", "sword", "spear", "hammer", "bow"]:
+		var st7 := mk_p(String(wid3), { "lifesteal": 3 }, true)
+		st7.player.hp = 10.0
+		var e7 := dummy(st7, st7.player.x + 60.0, st7.player.y, 1000000.0)
+		var n7 := 0
+		while n7 < int(round(5.0 / STEP)):
+			st7.step({}, STEP)
+			e7.x = st7.player.x + 60.0
+			e7.y = st7.player.y
+			n7 += 1
+		var dealt := 0.0
+		for k in st7.metrics.dmg:
+			dealt += float(st7.metrics.dmg[k])
+		var want7: float = dealt * float(st7.build.lifesteal)
+		live_rows.append("%s 준 피해 %.1f · 회복 %.3f(기대 %.3f)" % [wid3, dealt, float(st7.stats.lifesteal), want7])
+		if dealt <= 0.0 or absf(float(st7.stats.lifesteal) - want7) > 0.01:
+			live_ok = false
+	ok("흡혈: 실제 전투 5초에서 무기 5종이 **준 피해 × 비율**만큼 회복한다(전투당 상한 없음)",
+		live_ok, " · ".join(live_rows))
