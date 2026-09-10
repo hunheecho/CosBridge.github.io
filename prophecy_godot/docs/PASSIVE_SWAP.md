@@ -90,10 +90,14 @@ Lv1 −5% · Lv2 −10% · Lv3 −15%. **무기별 기본 재사용 시간에 �
 - 자격 판정은 자격표 어휘 한 곳(`PSupport.cause_of` → `CombatState.frost_cause_of`)만 쓴다.
   표는 `data/growth.json` `growth.LIFESTEAL`에 있다.
 
+- 특성 **회복 준비**(`heal_mult`)를 흡혈에도 **정확히 한 번** 곱한다(2026-09-10 사용자 확정).
+  곱하는 자리는 `CombatState.apply_lifesteal` 한 곳뿐이고, 다른 회복 경로
+  (체력 구슬 `update_pickups` · 승리 회복 `PRun` · 응급 약낭 · 물약)와 칸이 겹치지 않는다.
+
 | 출처(자격표 어휘) | 흡혈 |
 |---|---|
 | 주무기 기본 타격 `main_direct` | **적격** |
-| 주무기 개조가 만든 추가 타격 / 공용 메아리·연사 `main_extra` | 제외 (아래 사유) |
+| 주무기 개조가 만든 추가 타격 / 메아리·연사가 반복한 **주무기** 공격 / 공성 망치머리 착탄점 추가 충격 `main_extra` | **적격** (2026-09-10 사용자 확정 · 아래 단서) |
 | 보조무기 직접 타격 `support_direct` | 제외 |
 | 잔영 분신 `echo_direct` · 장판 `zone_tick` · 도트 `dot` · 반사 `reflect` | 제외 |
 | 감전 후속·방전·복제 `shock_bonus`/`shock_discharge`/`shock_echo` | 제외 |
@@ -102,16 +106,45 @@ Lv1 −5% · Lv2 −10% · Lv3 −15%. **무기별 기본 재사용 시간에 �
 | 수동 기술(감속장·돌풍·칼날 폭풍·낙뢰·중력핵·수호 결계) | 제외 |
 | 장비 기술 여섯 `eq_slash`/`eq_meteor_core`/`eq_meteor_wave`/`eq_riposte`/`eq_retrace`/`eq_icetomb` | 제외 |
 
-**`main_extra`를 제외한 이유(미확정 — 사용자 결정 필요).**
-자격표의 이 한 칸에 두 가지가 함께 들어 있다: ① 주무기 **개조**가 만든 추가 타격(교차 검격·분열 창날 등)과
-② 공용 증강 **메아리·연사**가 만든 추가 타격. 켜면 ②까지 조용히 자격을 얻는다 —
-사용자가 경고한 "기존 출처 분류 오류 때문에 보조 폭발 등이 섞이는" 자리가 바로 여기다.
-그래서 첫 구현은 껐고, 켜려면 `data/growth.json` `growth.LIFESTEAL.denied`에서 `"main_extra"`를 빼
-`eligible`로 옮기면 된다(코드는 고치지 않는다). ①만 켜고 ②는 끄려면 자격표에 새 경로 이름을 하나 더
-만들어야 하는데, 그 표는 `data/supports.json`이고 이번 작업의 소유 밖이라 손대지 않았다.
+#### `main_extra`를 켤 때의 단서 — **주무기가 낸 타격인지 한 번 더 본다**
+
+`main_extra`는 자격표에서 **한 칸이지만 실제로 들어오는 것은 한 종류가 아니다.**
+`tools/pass_probe.gd`의 B0 감사(`CombatState.lifesteal_audit`)로 **실제로 전투를 굴려** 센 전수는 이렇다.
+
+| 실제로 `main_extra`로 들어온 것 | 무엇인가 | 사용자 허용 목록에 |
+|---|---|---|
+| `weapon:sword` / `weapon:sword indirect` / `개조:scar` | 검 본체·날아가는 검광·잔류 검흔 | 있다 |
+| `weapon:spear indirect` / `개조:split` | 꿰뚫는 표식·분열 창날 | 있다 |
+| `weapon:hammer indirect` / `개조:aftershock` | 전방 충격파·여진 | 있다 |
+| `weapon:hammer 개조:equip:siege_hammerhead` | 공성 망치머리의 착탄점 추가 충격 | 있다 |
+| `weapon:daggers` 등(메아리·일제 공격 중) | 공용 증강이 반복한 **주무기** 공격 | 있다 |
+| **`skill:strike indirect`** | **Q/E 일반 수동 기술** | **없다(불허)** |
+| **`common:stasis`** | **공용 증강 '정지된 칼날'의 감속장 종료 폭발** | **없다(불허)** |
+| **`reward:resonance`** | **보스 보상 '무기 공명' 폭발** | **없다(불허)** |
+| **`weapon:orb`** | **메아리·일제 공격이 반복한 보조무기 공격** | **없다(불허)** |
+
+`PSupport.cause_of()`의 마지막 줄이 `return "main_extra" if indirect else "main_direct"`이고,
+`st.attack_cause`가 `echo`/`volley`면 **보조무기의 타격까지** `main_extra`로 돌린다 —
+그래서 이 넷이 같은 칸으로 들어온다.
+
+**고친 방법**: 출처 분류(`PSupport.cause_of`)는 **건드리지 않았다**. 고치면 파쇄·감전 후속·
+까마귀 표적·숙주 파열의 `main_extra` 자격까지 함께 좁아지기 때문이다. 대신 자격표에
+`require_main_weapon: ["main_extra"]`를 두고, 그 경로에 한해 **그 타격의 주인(`src.weapon_id`)이
+주무기인지** 한 번 더 본다(`PBuild.lifesteal_eligible`). 불허 넷은 모두 `src`에 주무기 id가 없다.
+이것은 자격을 **좁히는** 조건이지 자격표를 우회하는 길이 아니다.
+
+- 갈래 사격(활 `spread`)·교차 검격(`cross`)·귀환 검기(`returning`)·도탄·관통·쌍검 개조는
+  **`main_direct`로 들어온다**(값으로 확인). 켜고 끄고와 무관하게 원래부터 적격이었다.
+- 추가 타격도 **든 주무기의 비율**을 쓴다 — `build.lifesteal`이 주무기 하나로 정해지기 때문이다.
+  활의 추가 타격 200 피해 → 1.500(0.75%), 검·창·망치·쌍검은 3.000(1.5%). 값으로 확인했다.
 
 - **소수점을 버리지 않는다.** 6 피해 × 40회에서 1회 회복 0.030이 그대로 40번 쌓여 1.200이 된다.
-- 최대 체력을 넘겨 회복하지 않고(`minf`), 체력이 0이면 회복하지 않는다(사망을 되돌리지 않는다).
-- 시간당 자동 재생 없음 · 전투당 회복 상한 없음.
+- 최대 체력을 넘긴 회복은 **버린다**(`minf`) — 비축하지 않아 다음 타격이 그 몫을 되찾지 못한다
+  (값: 가득 직전에서 계산 회복 15.0 중 0.1만 들어가고 14.9는 사라진다).
+- 체력이 0이면 회복하지 않는다(사망을 되돌리지 않는다).
+- 시간당 자동 재생 없음 · 전투당 회복 상한·재사용 시간·발동 횟수 제한 없음.
+- 주무기로 파쇄를 터뜨려도 **주무기 타격 피해만** 회복한다(값: 적 체력 116 감소 중 주무기 몫 100만
+  기준이 되어 1.500 회복 — 파쇄 추가 피해 16과 파편은 0).
 
-검사: `tests/main_weapon_tests.gd` `sec13_lifesteal()`.
+검사: `tests/main_weapon_tests.gd` `sec13_lifesteal()` · `sec13b_lifesteal_extra()`.
+실측 표: `tools/pass_probe.gd` B0(경로 전수) · B(자격·상한) · B7(흡혈 유무 비교).

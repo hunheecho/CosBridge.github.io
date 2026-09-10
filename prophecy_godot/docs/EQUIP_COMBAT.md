@@ -74,10 +74,12 @@
 까마귀 표적·숙주 파열은 **자격표 조회로만** 확인했다(`eligible("crow_mark", "main_extra")` 등) —
 실제 장면에서 값으로 돌려보지는 않았다.
 
-**흡혈**(2026-09-10 갱신 — 그 사이에 패시브 '흡혈'이 생겼다) — 자격표는 `data/growth.json`의
-`growth.LIFESTEAL`이고 `eligible`은 `main_direct` 하나뿐이다. 그래서 **[1] 추가 충격은 `main_extra`라 흡혈
-자격이 없고**(`denied`에 적혀 있다), **[2] 복제(`shock_echo`)도 `denied`에 있다.**
-장비 기술 여섯 경로도 전부 `denied`에 있다. 이번에 그 표를 건드리지 않았다.
+**흡혈**(2026-09-10 **사용자 확정으로 다시 갱신**) — 자격표는 `data/growth.json`의 `growth.LIFESTEAL`이고
+`eligible`은 이제 `main_direct` + `main_extra` 둘이다. 그래서 **[1] 착탄점 추가 충격은 `main_extra`라
+흡혈 자격이 있다**(값: 전투망치 Lv3 흡혈 1.5%에서 추가 충격 180 피해 → 2.700 회복).
+반대로 **[2] 복제(`shock_echo`)는 `denied` 그대로**이고 장비 기술 여섯 경로도 전부 `denied` 그대로다.
+`main_extra`에는 주무기 것이 아닌 피해도 섞여 들어오므로 그 칸에만
+`require_main_weapon` 조건이 걸려 있다 — 자세한 것은 `docs/PASSIVE_SWAP.md` §흡혈.
 
 **[2] 이유** — 복제는 원본 감전 후속과 **같은 피해를 한 번 더** 넣는 것뿐이고 새 연계를 열지 않는다.
 그래서 `shock_echo`를 새 경로 이름으로 만들고, 감전 후속·파쇄·냉기 중첩·까마귀 표적·분신 모방·

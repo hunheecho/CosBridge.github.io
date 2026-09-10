@@ -143,6 +143,149 @@ func table_dodge() -> void:
 			f2(float(t3.move)), float(t3.dist), f2(float(t3.invuln))])
 
 # ================================================================
+# B0. 흡혈 경로 전수 감사 — **무엇이 실제로 main_extra로 들어오는가**
+# ================================================================
+## 2026-09-10 사용자 확정으로 main_extra가 흡혈 자격을 얻었다. 자격표의 설명글은
+## "주무기 개조가 만든 추가 타격 + 공성 망치머리의 착탄점 추가 충격"이라고 적혀 있지만,
+## **설명글을 믿지 않고 값으로 센다** — PSupport.cause_of의 마지막 줄이
+## `return "main_extra" if indirect else "main_direct"` 라서, 무기 id가 없는 파생 피해도
+## 이 칸으로 떨어질 수 있기 때문이다. 여기서는 시나리오를 실제로 굴려 경로별 집계를 합친다.
+## CombatState.lifesteal_audit(기본 꺼짐)을 켜면 흡혈 심사에 들어온 모든 피해가
+## stats.lifesteal_paths에 이름·출처별로 쌓인다. 규칙·회복량은 하나도 달라지지 않는다.
+func mods_of(weapon: String) -> Array:
+	var w: Dictionary = PCatalog.weapons().get(weapon, {})
+	var out := []
+	for m in w.get("mods", []):
+		# 자료에 따라 개조가 사전({id,name,...})으로도, id 문자열로도 들어 있다. 둘 다 받는다
+		if typeof(m) == TYPE_DICTIONARY:
+			out.append(String((m as Dictionary).get("id", "")))
+		else:
+			out.append(String(m))
+	return out
+
+## 감사 한 판. 모든 인자를 실제 성장 자료 모양 그대로 넣는다.
+## press=false면 Q/E를 누르지 않는다(무엇이 원인인지 갈라 보기 위해)
+func audit_run(weapon: String, mods: Array, commons: Dictionary, supports: Array, rewards: Array,
+		equip: Dictionary, press: bool, seconds: float, acc: Dictionary) -> void:
+	var g := PGrowth.new_growth(weapon, "slowfield")
+	g.weapons = [{ "id": weapon, "level": 5, "mods": mods.duplicate() }]
+	for s in supports:
+		(g.weapons as Array).append({ "id": String(s), "level": 3, "mods": mods_of(String(s)) })
+	g.commons = commons.duplicate()
+	g.passives = { "lifesteal": 3 }
+	g.bossRewards = rewards.duplicate()
+	g.skills.q = { "id": "slowfield", "level": 3, "variant": null }
+	g.skills.e = { "id": "strike", "level": 3, "variant": null }
+	var run := PBuild.empty_run_like(g)
+	for slot in equip:
+		(run.equipment as Dictionary)[String(slot)] = String(equip[slot])
+	var b := PBuild.derive(run)
+	var st := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": 3, "arena": "clearing",
+		"waves": [], "region_id": "lab", "act": 1,
+		"formation": { "units": [], "alive_cap": 0, "group": 0, "interval": 1.0, "type_caps": {} } })
+	st.spawn_hold = true
+	st.obstacles = []
+	st.player.x = 400.0
+	st.player.y = 300.0
+	# 회복이 최대 체력에 막혀 0이 되면 '자격이 없는 것'과 구분되지 않는다. 체력을 크게 비워 둔다
+	st.player.hp_max = 1.0e7
+	st.player.hp = 1.0
+	for i in 4:
+		var e: Dictionary = st.spawn_enemy("wolf", float(st.player.x) + 60.0 + float(i) * 26.0, float(st.player.y))
+		e.hp = 1.0e9
+		e.hp_max = 1.0e9
+		e.speed = 0.0
+		e.bite_cd = 1.0e9
+		e.dash_ready_at = 1.0e9
+	var n := int(round(seconds / STEP))
+	for i2 in n:
+		st.step(inp(press, press), STEP)
+	var paths: Dictionary = st.stats.lifesteal_paths
+	for c in paths:
+		var row: Dictionary = paths[c]
+		if not acc.has(c):
+			acc[String(c)] = { "hits": 0, "eff": 0.0, "healed": 0.0, "srcs": {} }
+		var into: Dictionary = acc[String(c)]
+		into.hits = int(into.hits) + int(row.hits)
+		into.eff = float(into.eff) + float(row.eff)
+		into.healed = float(into.healed) + float(row.healed)
+		for s2 in row.srcs:
+			var cell: Array = row.srcs[s2]
+			var dst: Dictionary = into.srcs
+			if not dst.has(String(s2)):
+				dst[String(s2)] = [0, 0.0, 0.0]
+			var into_cell: Array = dst[String(s2)]
+			into_cell[0] = int(into_cell[0]) + int(cell[0])
+			into_cell[1] = float(into_cell[1]) + float(cell[1])
+			into_cell[2] = float(into_cell[2]) + float(cell[2])
+
+## 경로별 표를 찍는다. 출처마다 **적중 · 깎은 체력 · 실제로 회복한 양**을 함께 적어
+## '자격이 없어 0'인 것과 '아예 피해가 없어 0'인 것을 값으로 갈라 볼 수 있게 한다
+func dump_acc(title: String, acc: Dictionary) -> void:
+	print("\n" + title)
+	print("%-16s %7s %10s %10s  %s" % ["경로", "적중", "깎은 체력", "회복", "출처별 [적중/깎은 체력/회복]"])
+	var names := acc.keys()
+	names.sort()
+	for c in names:
+		var row: Dictionary = acc[String(c)]
+		var srcs: Dictionary = row.srcs
+		var labels := srcs.keys()
+		labels.sort()
+		var parts := []
+		for s in labels:
+			var cell: Array = srcs[s]
+			parts.append("%s[%d/%.1f/%.3f]" % [String(s), int(cell[0]), float(cell[1]), float(cell[2])])
+		print("%-16s %7d %10.1f %10.3f  %s" % [String(c),
+			int(row.hits), float(row.eff), float(row.healed), ", ".join(parts)])
+
+const ALL_SUPPORTS := ["blades", "orb", "frost", "ember", "mine", "crow", "bell", "echo", "wind", "plague", "thorns", "doll"]
+const ALL_COMMONS := { "wide": 1, "reach": 1, "frost": 1, "burn": 1, "echo": 1, "ember": 1, "flare": 1, "saving": 1, "stasis": 1 }
+const ALL_REWARDS := ["volley", "resonance", "seed", "clone", "vigor", "tempo"]
+
+func table_lifesteal_paths() -> void:
+	print("\n=== B0. 흡혈 경로 전수 감사(무엇이 실제로 어느 경로로 들어오는가) ===")
+	var L: Dictionary = PCatalog.growth().LIFESTEAL
+	print("자격 경로 %s · 주무기 소유 조건 %s · 제외 %d종" % [
+		str(L.eligible), str(L.get("require_main_weapon", [])), (L.denied as Array).size()])
+	CombatState.lifesteal_audit = true
+
+	# ① 주무기 + **그 개조 하나씩만**. 개조별로 어느 경로로 들어오는지 따로 본다
+	print("\n-- B0-1. 주무기 개조 하나씩(다른 증강·보조·기술 전부 끔) --")
+	for wid in MAIN_WEAPONS:
+		for m in mods_of(String(wid)):
+			var one := {}
+			audit_run(String(wid), [String(m)], {}, [], [], {}, false, 14.0, one)
+			dump_acc("[%s + 개조 %s]" % [String(wid), String(m)], one)
+
+	# ② 장비 '공성 망치머리'의 착탄점 추가 충격
+	var siege := {}
+	audit_run("hammer", [], {}, [], [], { "weapon": "siege_hammerhead" }, false, 14.0, siege)
+	dump_acc("-- B0-2. 전투망치 + 장비 '공성 망치머리'(개조 없음) --", siege)
+
+	# ③ 공용 증강 '메아리'와 보스 보상 '일제 공격'만
+	var echo_only := {}
+	audit_run("sword", [], { "echo": 1 }, [], ["volley"], {}, true, 14.0, echo_only)
+	dump_acc("-- B0-3. 공용 '메아리' + 보스 보상 '일제 공격'(주무기만) --", echo_only)
+	var echo_sup := {}
+	audit_run("sword", [], { "echo": 1 }, ALL_SUPPORTS, ["volley"], {}, true, 14.0, echo_sup)
+	dump_acc("-- B0-4. 메아리·일제 공격 + **보조무기 12종**(같은 증강이 보조도 반복한다) --", echo_sup)
+
+	# ④ 전부 켠 판(주무기 5종 × 개조 전부 × 공용 전부 × 보상 전부 × 보조 12종 × Q/E)
+	var all := {}
+	for wid2 in MAIN_WEAPONS:
+		audit_run(String(wid2), mods_of(String(wid2)), ALL_COMMONS, ALL_SUPPORTS, ALL_REWARDS, {}, true, 16.0, all)
+	for sid in ["siege_hammerhead", "stormwire", "instant_blade", "falling_star_maul", "counter_guard", "retrace_greaves", "frostcrest_armor"]:
+		var slot := "weapon"
+		if sid == "counter_guard":
+			slot = "shield"
+		elif sid == "retrace_greaves" or sid == "frostcrest_armor":
+			slot = "armor"
+		audit_run("hammer" if sid == "siege_hammerhead" else "sword", [], ALL_COMMONS, ALL_SUPPORTS, ALL_REWARDS,
+			{ slot: String(sid) }, true, 14.0, all)
+	dump_acc("-- B0-5. 전부 켠 판(주무기 5종·개조 전부·공용 전부·보상 전부·보조 12종·Q/E·장비 7종) --", all)
+	CombatState.lifesteal_audit = false
+
+# ================================================================
 # B. 흡혈
 # ================================================================
 ## 그 출처의 피해 opt 한 벌(게임이 실제로 만드는 모양 그대로)
@@ -169,6 +312,31 @@ func src_opts(st: CombatState) -> Array:
 		["가시 반격(reflect)", { "cause": "reflect", "src": { "extra": true, "direct": false } }],
 	]
 
+## 무기·흡혈 레벨·피해·출처 모양을 정해 한 번 때리고 회복량을 잰다.
+## heal_prep=true면 영구 특성 '회복 준비'(heal_mult 1.1)를 함께 든다
+func heal_probe(weapon: String, ls_lv: int, dmg: float, src_shape: Dictionary, heal_prep: bool) -> float:
+	var g := growth_of(weapon, "slowfield", "", { "lifesteal": ls_lv })
+	var run := PBuild.empty_run_like(g)
+	if heal_prep:
+		run["traits"] = ["heal"]
+	var b := PBuild.derive(run)
+	var st := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": 1, "arena": "clearing",
+		"waves": [], "region_id": "lab", "act": 1,
+		"formation": { "units": [], "alive_cap": 0, "group": 0, "interval": 1.0, "type_caps": {} } })
+	st.spawn_hold = true
+	st.obstacles = []
+	st.player.x = 400.0
+	st.player.y = 300.0
+	st.player.attack_timer = 1.0e9
+	st.player.hp = 1.0
+	var e := dummy(st, 60.0, 0.0, 1.0e7)
+	var src := src_shape.duplicate(true)
+	src["weapon"] = st.weapons[0].stats
+	src["weapon_id"] = weapon
+	var before: float = float(st.player.hp)
+	st.damage_enemy(e, dmg, { "src": src })
+	return float(st.player.hp) - before
+
 ## 한 출처로 피해 한 번을 넣고 회복량을 잰다
 func heal_by(st: CombatState, e: Dictionary, dmg: float, opt: Dictionary) -> float:
 	var before: float = float(st.player.hp)
@@ -189,6 +357,18 @@ func table_lifesteal() -> void:
 		var got := heal_by(st, e, 100.0, (row[1] as Dictionary).duplicate(true))
 		print("%-42s  100  %s  %s" % [String(row[0]), f2(got), "적격" if got > 0.0 else "비적격"])
 		e.dead = true
+
+	print("\n-- B2a. 무기 5종 × Lv1~3 실측 회복량(1000 피해 · 기본 타격 vs 추가 타격 vs 회복 준비) --")
+	print("%-9s %-4s %8s %12s %12s %14s" % ["무기", "레벨", "비율", "기본(main_direct)", "추가(main_extra)", "추가+회복 준비"])
+	for wid0 in MAIN_WEAPONS:
+		for lv0 in [1, 2, 3]:
+			var d_opt := { "direct": true }
+			var x_opt := { "direct": false, "extra": true, "mod": "x" }
+			var g1 := heal_probe(String(wid0), lv0, 1000.0, d_opt, false)
+			var g2 := heal_probe(String(wid0), lv0, 1000.0, x_opt, false)
+			var g3 := heal_probe(String(wid0), lv0, 1000.0, x_opt, true)
+			var st_r := mk(String(wid0), "slowfield", "", { "lifesteal": lv0 })
+			print("%-9s Lv%-2d %8.4f %12s %12s %14s" % [String(wid0), lv0, float(st_r.build.lifesteal), f2(g1), f2(g2), f2(g3)])
 
 	print("\n-- B2. 초과 피해 제외(체력 10인 적에게 100 피해) --")
 	for lvv in [1, 2, 3]:
@@ -259,6 +439,49 @@ func _total_dmg(st: CombatState) -> float:
 	for k in st.metrics.dmg:
 		s += float(st.metrics.dmg[k])
 	return s
+
+# ================================================================
+# B7. 비교 측정 — 흡혈 유무(무기별로 분리)
+# ================================================================
+## 대표 셋: 쌍검(단일 연타) · 전투망치(무리 타격) · 추적궁(원거리).
+## **같은 성장·금화 예산, 같은 적 편성·같은 seed**에서 흡혈만 0/3으로 갈라 굴린다.
+## 봇 정책도 같다. 여기 숫자는 관측일 뿐이며 밸런스 승인이 아니다.
+## 주의: 봇의 거리 유지·공격 기회는 무기마다 다르다 — 무기 사이의 차이를 흡혈 성능 차이로 읽으면 안 된다.
+func compare_run(weapon: String, lv: int, lifesteal_lv: int, seed_v: int, region: String, day: int) -> Dictionary:
+	var run := PRun.new_run(seed_v, weapon)
+	run.day = day
+	(run.growth.weapons as Array)[0] = { "id": weapon, "level": lv, "mods": mods_of(weapon) }
+	run.growth.level = 5
+	run.growth.passives = { "lifesteal": lifesteal_lv } if lifesteal_lv > 0 else {}
+	run.gold = 0 # 금화 예산을 양쪽 다 0으로 고정한다(상점·강화 차이를 없앤다)
+	run.hp = float(PRun.build(run).hp_max)
+	var sortie := { "regionId": region, "deep": false, "loot": { "gold": 0, "mats": {}, "chestGold": 0 },
+		"encounters": 0, "seed": seed_v * 977 + day, "day": day, "slot": 1, "variant": null }
+	var st := PFlow.make_encounter(run, sortie, { "fixed_build": true })
+	PBot.run_combat(st, "balanced", { "max_sec": 180.0 })
+	var base: float = float(st.stats.get("lifesteal_base", 0.0))
+	var healed: float = float(st.stats.get("lifesteal", 0.0))
+	var lost: float = float(st.stats.get("lifesteal_over", 0.0))
+	return { "base": base, "calc": healed + lost, "healed": healed, "lost": lost,
+		"taken": float(st.stats.damage_taken), "sec": float(st.stats.elapsed), "kills": int(st.stats.kills),
+		"status": String(st.status), "hp": float(st.player.hp), "dead": float(st.player.hp) <= 0.0 }
+
+func table_lifesteal_compare() -> void:
+	print("\n=== B7. 비교 측정(흡혈 유무 · 무기별로 분리 · 같은 성장·금화 0·같은 편성·같은 seed) ===")
+	print("%-8s %-6s %-5s %11s %10s %10s %9s %10s %7s %6s %8s %s" % [
+		"무기", "흡혈", "seed", "흡혈 대상 피해", "계산 회복", "실제 회복", "버린 회복", "받은 피해", "전투(초)", "처치", "결과", "받은 피해 대비"])
+	for weapon in ["daggers", "hammer", "bow"]:
+		for seed_v in [1, 2, 3]:
+			for ls in [0, 3]:
+				var r := compare_run(String(weapon), 3, ls, seed_v, "ridge", 3)
+				var ratio := "해당 없음"
+				if float(r.taken) > 0.0:
+					ratio = "%.1f%%" % (float(r.healed) / float(r.taken) * 100.0)
+				print("%-8s %-6s %-5d %11.1f %10.3f %10.3f %9.3f %10.1f %7.1f %6d %8s %s" % [
+					String(weapon), ("Lv3" if ls > 0 else "없음"), seed_v,
+					float(r.base), float(r.calc), float(r.healed), float(r.lost),
+					float(r.taken), float(r.sec), int(r.kills),
+					(String(r.status) + ("·사망" if bool(r.dead) else "")), ratio])
 
 # ================================================================
 # C. 집중 — 일반 6종 + 장비 6종 × Lv0~3 × Q/E
@@ -415,7 +638,9 @@ func table_tomb() -> void:
 func _init() -> void:
 	print("# pass_probe — 회피 숙련·흡혈·집중 실측 (전부 첫 시험값)")
 	table_dodge()
+	table_lifesteal_paths()
 	table_lifesteal()
+	table_lifesteal_compare()
 	table_focus()
 	table_swap()
 	table_tomb()
