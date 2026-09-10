@@ -78,6 +78,12 @@ var temp_buff: String = ""
 # 제작 전용 장비·영구 특성 상태(시험값 meta.json). 해당 장비/특성이 없으면 0·{}로 남아 기준 전투 경로에 영향이 없다
 var moon_shield: float = 0.0        # 월광 갑옷: 이 장비 몫의 보호막(감속장 안에서만 재생, 0이 되면 재생 없음)
 var afterimage: Dictionary = {}     # 장비 '잔영 허물': 회피 출발점의 잔영 {x, y, r, t, dur, aimed{적 id: 그때의 상태}}. 피해를 대신 받지 않는다
+## ---- 장비 기술 여섯(3절 [4]~[9], PSkills의 eq_* 구역이 관리한다) ----
+## 넷이 전부 비어 있으면 관련 코드가 한 줄도 실행되지 않는다 — 기준 전투(D33) 지문이 그대로다.
+var eq_act: Dictionary = {}         # 진행 중인 장비 기술 **하나**(충전·순간이동·도약·귀환·갇힘). 무적을 여기서 유도한다
+var eq_trail: Dictionary = {}       # [7] 되짚는 궤적의 경로 기록 {slot, t, pts[]}
+var eq_guard: Dictionary = {}       # [6] 받아치기의 정면 방어 창 {slot, t, dmg, blocked}
+var eq_debt: Dictionary = {}        # [9] 유예의 시계의 예정 피해 {slot, t, amount, cap}
 var reprisal_cd: float = 0.0        # 반격 방패 내부 재사용
 var relay_window: float = 0.0       # 연계 방패: Q 뒤 E까지 허용 창
 var relay_cd: float = 0.0
@@ -1660,9 +1666,23 @@ func damage_player(amount: float, src: String, attacker = null) -> bool:
 		if recorder != null:
 			recorder.on_reject(self, amount, src, attacker, "dodge_invuln")
 		return false
+	# 장비 기술이 주는 무적([4] 발동 순간 · [8] 갇힘). **회피 무적과 다른 것**이라 완벽 회피로 세지 않는다.
+	# 판정은 PSkills.eq_invuln 한 곳이고 그것은 진행 중인 상태에서 유도한다 —
+	# 그 상태가 어떤 이유로 사라지든(취소·해제·화면 전환·전투 종료) 무적도 그 자리에서 함께 사라진다
+	if PSkills.eq_invuln(self):
+		stats.equip_procs.eq_invuln = int(stats.equip_procs.get("eq_invuln", 0)) + 1
+		if recorder != null:
+			recorder.on_reject(self, amount, src, attacker, "eq_invuln")
+		return false
 	if hit_protected(src, attacker):
 		if recorder != null:
 			recorder.on_reject(self, amount, src, attacker, "hit_protection")
+		return false
+	# [6] 받아치기. **이미 막힌 공격에는 방어 창을 쓰지 않으므로** 무적·피격 보호 뒤에 둔다.
+	# 막았으면 피해는 0이고 그 자리에서 반격이 나간다. 공통 피격 보호는 세우지 않는다(맞지 않았다)
+	if PSkills.eq_riposte_block(self, src, attacker):
+		if recorder != null:
+			recorder.on_reject(self, amount, src, attacker, "eq_riposte")
 		return false
 	apply_player_damage(amount, src, attacker)
 	p.hit_prot = float(cfg.player.hit_protect)
@@ -1727,6 +1747,11 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 	if direct_hit and EQ.has("fieldTaken") and attacker != null and in_field(attacker):
 		amount = round(amount * (1.0 - float(EQ.fieldTaken)) * 10.0) / 10.0
 		stats.equip_procs.time_shield = int(stats.equip_procs.get("time_shield", 0)) + 1
+	# [9] 유예의 시계: **모든 경감이 끝난 뒤** 남은 값의 일부를 '예정된 피해'로 미룬다.
+	# 자리가 여기 하나인 이유 — 앞에 두면 미룬 값에 경감이 다시 걸려 방어가 두 번 적용되고,
+	# 보호막 차감 뒤에 두면 이미 보호막이 먹은 몫까지 다시 미루게 된다.
+	# 무적·피격 보호·보조 완전 차단에 막힌 피해는 애초에 여기까지 오지 않는다.
+	amount = PSkills.eq_reprieve_defer(self, amount)
 	var rest := amount
 	if p.shield > 0.0:
 		var used := minf(p.shield, rest)
@@ -1787,11 +1812,60 @@ func apply_player_damage(amount: float, src: String, attacker = null) -> void:
 
 func zone_damage(amount: float) -> void:
 	var p := player
+	# 장비 기술 무적([8] 결정 관)은 장판 피해도 막는다. **받아치기는 여기 없다** —
+	# 장판·지속 피해는 받아치기가 막지 않는다는 규칙([6])이 이 자리에서 그대로 드러난다
+	if PSkills.eq_invuln(self):
+		stats.equip_procs.eq_invuln = int(stats.equip_procs.get("eq_invuln", 0)) + 1
+		return
 	if p.dead or float(p.invuln_t) > 0.0 or intro > 0.0 or (not boss.is_empty() and bool(boss.dead)):
 		if recorder != null:
 			recorder.on_reject(self, amount, "zone", null, "dodge_invuln" if (float(p.invuln_t) > 0.0 and not p.dead) else "inactive")
 		return
 	apply_player_damage(amount, "zone")
+
+## [9] 유예의 시계 정산. 예정 피해는 **이미 모든 경감이 끝난 값**이라 여기서 다시 경감하지 않는다 —
+## 저주·강인함·보조 차단·장비 경감을 두 번 적용하는 자리가 없다.
+## 무적·피격 보호로도 막히지 않는다(이미 확정된 피해를 잠시 미뤄 둔 것뿐이다).
+## 보호막 → 체력 순으로 들어간다(정산 시점에 남아 있는 보호막은 정상적으로 흡수한다).
+## floor1 = 승리가 확정된 뒤의 정산이면 체력을 1 미만으로 내리지 않는다(이긴 전투를 사후 정산으로 뒤집지 않는다).
+## 부르는 곳은 PSkills.eq_settle 하나뿐이다 — 예정 피해를 없애는 출구가 그 함수 하나여야 조용한 삭제가 생기지 않는다.
+func settle_reprieve(amount: float, floor1: bool) -> void:
+	var p := player
+	var rest := amount
+	if p.shield > 0.0:
+		var used := minf(p.shield, rest)
+		p.shield -= used
+		rest -= used
+		if not caster_shield.is_empty():
+			caster_shield.amt = maxf(0.0, float(caster_shield.amt) - used)
+		if moon_shield > 0.0:
+			moon_shield = maxf(0.0, moon_shield - used)
+		if not relay_shield.is_empty():
+			relay_shield.amt = maxf(0.0, float(relay_shield.amt) - used)
+		PSkills.on_shield_damaged(self, used)
+		metrics.absorbed += used
+		stats.absorbed += used
+	if rest <= 0.0:
+		return
+	var floor_hp: float = 1.0 if floor1 else 0.0
+	var eff: float = minf(rest, maxf(0.0, float(p.hp) - floor_hp))
+	if eff <= 0.0:
+		return
+	p.hp -= eff
+	stats.damage_taken += eff
+	stats.damage_taken_nominal += eff
+	metrics.taken["reprieve"] = float(metrics.taken.get("reprieve", 0.0)) + eff
+	metrics.taken_hits["reprieve"] = int(metrics.taken_hits.get("reprieve", 0)) + 1
+	p.flash = 0.2
+	text(p.x, p.y - 28.0, "-" + str(int(round(eff))), "#c9a0ff")
+	ev("hurt", { "src": "reprieve" })
+	if p.hp <= 0.0:
+		p.hp = 0.0
+		p.dead = true
+		pending_loss = true
+		if not _in_step:
+			status = "lost"
+			ev("lose")
 
 ## 넉백(0.3.1 배율 ×2 유지 — HTML ×4와 다름, PORT_BASELINE C21). 돌진·도약·돌파·지하 중 무시, 보스·방패병 배율
 func knock_enemy(e: Dictionary, n: Array, amount: float) -> void:
@@ -1868,6 +1942,10 @@ func damage_enemy(e: Dictionary, amount: float, opt = {}, knock_c: float = 0.0, 
 	metrics.cause_hits[cz] = int(metrics.cause_hits.get(cz, 0)) + 1
 	if sr.has("mod") and effective > 0.0:
 		note_mod(String(sr.mod), "hit", effective) # 개조 파생 피해의 적중·피해(출처 행 src_key는 그대로 — 기존 표 불변)
+	# [9] 유예의 시계: **주무기 직접 타격**으로 실제 피해를 주면 예정 피해가 그만큼 지워진다.
+	# 경로 판정은 자격표 어휘 한 곳(frost_cause_of)만 쓰므로 보조무기·지속 피해·파생 타격은 지우지 못한다
+	if not eq_debt.is_empty() and effective > 0.0:
+		PSkills.eq_reprieve_erase(self, effective, o)
 	if effective > 0.0 and not field.is_empty() and in_field(e):
 		stats.field_hits += 1 # 감속장 안(감속된) 적에게 유효 피해(영구 도전 판정용)
 	if float(e.first_hit_t) < 0.0:
@@ -2094,6 +2172,11 @@ func resolve_dodge() -> void:
 func update_player(input: Dictionary, dt: float) -> void:
 	var p := player
 	var P: Dictionary = cfg.player
+	# **진행 중인 장비 기술이 먼저 입력을 가져간다**(떼기·재입력·Space 취소).
+	# 이것은 '새 발동'이 아니라 이미 시작한 발동의 마무리라 재사용 관문보다 앞이다.
+	# 진행 중인 것이 없으면 EQ_NONE을 돌려주므로 아래 단계 순서는 예전과 한 글자도 다르지 않다(기준 전투 보존).
+	var eq_in: Dictionary = PSkills.eq_take_input(self, input)
+	var eq_lock: bool = PSkills.eq_locks_move(self) # 충전·순간이동·도약·귀환·갇힘 중에는 이동·회피가 묶인다
 	p.swing_t += dt
 	p.hurt_t += dt
 	if p.hit_prot > 0.0:
@@ -2111,7 +2194,7 @@ func update_player(input: Dictionary, dt: float) -> void:
 	# 재사용 대기와 무적 시간은 **든 주무기**를 따른다(data/config.json PLAYER.dodge.byWeapon, 시험값).
 	# 이동(distance·duration)은 다섯 무기가 같다 — 무적을 늘렸다고 조작이 묶이는 시간이 늘지 않게.
 	var D: Dictionary = P.dodge
-	if not p.dodge_active and bool(input.get("dodge_press", false)) and p.dodge_cd <= 0.0:
+	if not p.dodge_active and bool(input.get("dodge_press", false)) and p.dodge_cd <= 0.0 and not eq_lock and not bool(eq_in.dodge):
 		var d := mv if p.moving else [cos(p.face), sin(p.face)]
 		p.dodge_active = true
 		p.dodge_t = 0.0
@@ -2181,14 +2264,19 @@ func update_player(input: Dictionary, dt: float) -> void:
 		# 출격 준비물 '정화 향': 바닥 지대가 붙잡는 정도를 줄인다(지대 수명은 건드리지 않는다)
 		web = 1.0 - (1.0 - web) * (1.0 - PConsumables.purge(build).slow)
 		var spd2 := float(P.speed) * float(build.speed_mult) * wind * web
-		move_swept(p, mv[0] * spd2 * dt, mv[1] * spd2 * dt, true)
+		# 장비 기술이 이동을 묶고 있으면 걷지 않는다. **바라보는 방향(face)은 위에서 이미 갱신했다** —
+		# [4] 충전 중 방향 고르기와 [5] 충전 중 착지점 고르기가 그 값을 쓴다
+		if not eq_lock:
+			move_swept(p, mv[0] * spd2 * dt, mv[1] * spd2 * dt, true)
 	# 수동 기술 2칸: 키(입력)와 시계(재사용)만 슬롯이 정하고, 무엇이 나가는지는 그 칸의 기술이 정한다.
 	# **Q도 비어 있을 수 있다**(옛 저장·시험 빌드) — 비어 있으면 아무 일도 없다.
-	if bool(input.get("special", false)) and p.special_cd <= 0.0 and build.skills.get("q") != null:
+	# 위에서 장비 기술이 가져간 입력(eq_in)은 여기서 다시 쓰지 않는다(같은 누름으로 두 번 발동하지 않게).
+	if bool(input.get("special", false)) and not bool(eq_in.q) and p.special_cd <= 0.0 and build.skills.get("q") != null:
 		PSkills.cast(self, "q")
-	if bool(input.get("skill_e", false)) and p.e_cd <= 0.0 and build.skills.get("e") != null:
+	if bool(input.get("skill_e", false)) and not bool(eq_in.e) and p.e_cd <= 0.0 and build.skills.get("e") != null:
 		PSkills.cast(self, "e")
-	push_out(p)
+	if not PSkills.eq_airborne(self): # [5] 도약 중에는 공중이라 장애물 밀어내기를 적용하지 않는다
+		push_out(p)
 	update_attack(dt)
 
 ## 첫 전투 호환 이름: **감속장이 든 슬롯**을 발동한다(첫 전투는 Q 감속장 고정이라 예전과 같다)
@@ -2201,7 +2289,19 @@ func update_attack(dt: float) -> void:
 	var before := 0
 	for w in weapons:
 		before += int(w.count)
+	# [8] 결정 관: 갇혀 있는 동안 **새 공격만** 멈춘다. 자동기술 목록을 한 걸음 동안만 비워서
+	# 발사 결정·회전 칼날 접촉·재사용 시계를 전부 멈추고(환급도 손해도 없다),
+	# **이미 발사한 것은 그대로 흐르게** 한다 — PWeapons.update의 앞부분(지연 착탄 st.delayed)과
+	# 뒷부분(설치된 지뢰 update_mines)은 자동기술 목록을 읽지 않으므로 정상 진행한다.
+	# 투사체·장판·적은 이 함수 밖(update_projectiles·update_zones·update_enemies)이라 애초에 영향이 없다.
+	# 보조무기 갱신(PSupport.update)도 이 목록에서 자기 무기를 찾으므로 새 공격을 시작하지 않는다.
+	var hold: bool = PSkills.eq_holds_attacks(self)
+	var kept: Array = weapons
+	if hold:
+		weapons = []
 	PWeapons.update(self, dt)
+	if hold:
+		weapons = kept
 	var after := 0
 	for w in weapons:
 		after += int(w.count)
@@ -2699,6 +2799,9 @@ func step(input: Dictionary, dt: float) -> void:
 	if in_transition():
 		# **전환 구간**(성장 선택·강적 등장 연출): 보스 등장 연출과 같은 기준으로 전투 시간과 모든 재사용 시간이
 		# 함께 멈춘다. 그동안 적이 행동하지 않으므로 피해를 받지 않고, 연출 길이로 회복·재사용 시간을 벌 수도 없다.
+		# 진행 중인 장비 기술을 그 자리에서 끝낸다(3절 [8] · 10절 9번):
+		# 연출 뒤에 충전·무적·입력 상태가 남아 있으면 안 된다. 예정 피해([9])는 정산 경로로만 없앤다
+		PSkills.eq_on_transition(self)
 		update_duel(dt)
 		for e in enemies:
 			e.anim_t = float(e.get("anim_t", 0.0)) + dt
@@ -2746,6 +2849,10 @@ func step(input: Dictionary, dt: float) -> void:
 	update_duel(dt) # 특수 정예 결투 단계 진행(전환·고유 소환·결투 종료)
 	update_effects(dt)
 	check_objective()
+	# 전투가 이 단계에 끝났다면 진행 중인 장비 기술을 정리하고 **남은 예정 피해를 정산한다.**
+	# 여기(승패 확정 판정 앞)에 두어야 정산이 만든 사망이 기존 규칙을 그대로 지나간다(새 장치 없음)
+	if status != "running":
+		PSkills.eq_on_combat_end(self)
 	if status == "running" and pending_loss:
 		status = "lost"
 		ev("lose")
@@ -2766,6 +2873,9 @@ func rebuild(b: Dictionary) -> void:
 	if float(b.hp_max) > old_max:
 		p.hp = minf(p.hp_max, p.hp + (float(b.hp_max) - old_max))
 	PWeapons.refresh(self)
+	# 빌드가 바뀌어 그 장비를 더 이상 착용하지 않으면 진행 중인 장비 기술을 끝내고
+	# **예정 피해는 정산한다** — 장비 해제로 조용히 사라지는 구멍을 막는다
+	PSkills.eq_on_rebuild(self)
 
 ## 결과 요약(정산은 호출자가 1회만 한다: settled 플래그)
 ## 개조별 이번 전투 발동/적중/피해(표시용). 값이 없는 개조는 넣지 않는다(0으로 미발동처럼 보이지 않게)

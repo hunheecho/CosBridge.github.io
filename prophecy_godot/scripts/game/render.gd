@@ -972,6 +972,44 @@ static func draw_player_effects(ci: Node2D, st: CombatState) -> void:
 						pts.append(Vector2(L * q * (0.4 + 0.6 * (1.0 - k)), half_w * q + jag))
 					ci.draw_polyline(pts, rgba(214, 176, 122, (0.85 if is_zero_approx(lane) else 0.55) * k), 4.0 if is_zero_approx(lane) else 2.5)
 				ci.draw_set_transform_matrix(IDENT)
+			# ---------- 장비 기술 여섯([4]~[9])의 순간 연출 ----------
+			# 좌표·길이·반지름·각도는 전부 **규칙이 실제 판정에 쓴 값 그대로**다(PSkills의 eq_* 구역).
+			# 여기서 다시 만들지 마라 — 그리는 순간 표시와 판정이 갈라진다.
+			"eq_slash": # [4] 찰나 가르기: 출발점 → 실제로 멈춘 자리까지의 베인 선(장애물 앞에서 끊긴 그 길이 그대로)
+				var a0 := Vector2(float(f.x), float(f.y))
+				var a1 := Vector2(float(f.x1), float(f.y1))
+				ci.draw_line(a0, a1, rgba(230, 245, 255, 0.9 * k), maxf(2.0, float(f.w) * 0.5 * k))
+				ci.draw_line(a0, a1, rgba(255, 255, 255, 0.7 * k), 2.0)
+				stroke_circle(ci, a1.x, a1.y, 10.0 + 10.0 * (1.0 - k), rgba(200, 235, 255, 0.7 * k), 2.0)
+			"eq_slam": # [5] 낙성 강하: 중심 강타(채움)와 바깥 충격파(윤곽)를 **두 반지름으로 갈라** 그린다
+				var sc := Vector2(float(f.x), float(f.y))
+				ci.draw_circle(sc, float(f.r) * (0.6 + 0.4 * (1.0 - k)), rgba(255, 214, 150, 0.35 * k))
+				stroke_circle(ci, sc.x, sc.y, float(f.r), rgba(255, 226, 170, 0.85 * k), 3.0)
+				dashed_circle(ci, sc.x, sc.y, float(f.wave) * (0.7 + 0.3 * (1.0 - k)), rgba(255, 210, 150, 0.55 * k), 2.0, 6.0, 6.0)
+			"eq_counter", "eq_push": # [6] 받아치기: 반격 부채꼴(밝게)과 못 막았을 때의 밀치기(옅게)
+				var cc2 := Vector2(float(f.x), float(f.y))
+				var strong: bool = String(f.kind) == "eq_counter"
+				var col := rgba(255, 233, 168, (0.9 if strong else 0.45) * k)
+				var ang0: float = float(f.angle) - float(f.half)
+				var ang1: float = float(f.angle) + float(f.half)
+				ci.draw_arc(cc2, float(f.r) * (0.5 + 0.5 * (1.0 - k)), ang0, ang1, 26, col, 4.0 if strong else 2.0)
+				ci.draw_line(cc2, cc2 + Vector2(cos(ang0), sin(ang0)) * float(f.r), col, 2.0)
+				ci.draw_line(cc2, cc2 + Vector2(cos(ang1), sin(ang1)) * float(f.r), col, 2.0)
+			"eq_mark": # [7] 되짚는 궤적: 기록을 시작한 자리 표시
+				dashed_circle(ci, float(f.x), float(f.y), float(f.r) + 6.0 * (1.0 - k), rgba(190, 230, 255, 0.8 * k), 2.0, 4.0, 4.0)
+			"eq_retrace": # [7] 귀환이 끝난 순간, 실제로 지나온 길을 한 번 훑어 보여 준다
+				var rp: Array = f.get("pts", [])
+				if rp.size() >= 2:
+					var line := PackedVector2Array()
+					for row in rp:
+						line.append(Vector2(float(row[0]), float(row[1])))
+					ci.draw_polyline(line, rgba(190, 230, 255, 0.6 * k), 3.0)
+			"eq_tomb": # [8] 결정 관: 갇히는 순간의 결정 껍질
+				stroke_circle(ci, float(f.x), float(f.y), float(f.r) + 8.0 * (1.0 - k), rgba(191, 239, 255, 0.9 * k), 3.0)
+			"eq_tomb_break": # [8] 해제: 냉기가 실제로 닿는 반지름 그대로
+				dashed_circle(ci, float(f.x), float(f.y), float(f.r) * (0.6 + 0.4 * (1.0 - k)), rgba(191, 239, 255, 0.75 * k), 2.5, 7.0, 5.0)
+			"eq_reprieve": # [9] 유예의 시계: 발동 순간
+				stroke_circle(ci, float(f.x), float(f.y), float(f.r) + 12.0 * (1.0 - k), rgba(201, 160, 255, 0.8 * k), 2.5)
 			"afterimage_pop": # 장비 '잔영 허물': 잔영이 공격 한 번을 받고 흩어지는 순간(피해를 대신 받은 것이 아니다)
 				var pc := Vector2(float(f.x), float(f.y))
 				for i in 5:
@@ -1060,6 +1098,69 @@ static func draw_afterimage(ci: Node2D, st: CombatState) -> void:
 	# 몸통 실루엣(세로 선 하나 + 어깨 선): '사람 모양의 잔상'이라는 것만 읽히면 된다
 	ci.draw_line(c + Vector2(0.0, -r * 0.9), c + Vector2(0.0, r * 0.9), rgba(210, 240, 255, 0.55 * k), 2.0)
 	ci.draw_line(c + Vector2(-r * 0.7, -r * 0.2), c + Vector2(r * 0.7, -r * 0.2), rgba(210, 240, 255, 0.4 * k), 2.0)
+
+## **장비 기술 여섯([4]~[9])의 지속 상태.** 규칙이 들고 있는 st.eq_act·eq_trail·eq_guard·eq_debt만 읽는다 —
+## 여기서 수명·판정을 만들지 않으므로 규칙이 상태를 끝내면 그 프레임에 화면에서도 사라진다(표시 = 판정).
+## 넷이 전부 비어 있으면 아무것도 그리지 않는다.
+static func draw_eq_skill(ci: Node2D, st: CombatState) -> void:
+	var p: Dictionary = st.player
+	var pc := Vector2(float(p.x), float(p.y))
+	# [7] 기록 중인 경로: 되짚어 갈 길이 지금 어디까지 남아 있는지 그대로 보여 준다
+	var tr: Dictionary = st.eq_trail
+	if not tr.is_empty():
+		var pts: Array = tr.pts
+		if pts.size() >= 2:
+			var line := PackedVector2Array()
+			for row in pts:
+				line.append(Vector2(float(row[0]), float(row[1])))
+			ci.draw_polyline(line, rgba(190, 230, 255, 0.45), 2.5)
+		var first: Array = pts[0]
+		dashed_circle(ci, float(first[0]), float(first[1]), float(p.r) + 6.0, rgba(190, 230, 255, 0.7), 2.0, 4.0, 4.0)
+	# [6] 방어 창: 지금 막고 있는 부채꼴(방향은 규칙과 같은 player.face)
+	var g: Dictionary = st.eq_guard
+	if not g.is_empty():
+		var T: Dictionary = PSkills.eq_tune("eq_riposte")
+		var half := deg_to_rad(float(T.get("arc", 120.0)) * 0.5)
+		var ang := float(p.face)
+		var gr: float = float(p.r) * VS + 14.0
+		ci.draw_arc(pc, gr, ang - half, ang + half, 24, rgba(255, 233, 168, 0.8), 3.0)
+	# [9] 예정 피해: 얼마가 미뤄져 있는지 발밑에 눈금 하나로(0이면 그리지 않는다)
+	var db: Dictionary = st.eq_debt
+	if not db.is_empty() and float(db.amount) > 0.0:
+		var w := 46.0
+		var frac := clampf(float(db.amount) / maxf(0.001, float(db.cap)), 0.0, 1.0)
+		var y0: float = pc.y + float(p.r) * VS + 20.0
+		ci.draw_rect(Rect2(pc.x - w * 0.5, y0, w, 4.0), rgba(60, 40, 80, 0.7))
+		ci.draw_rect(Rect2(pc.x - w * 0.5, y0, w * frac, 4.0), rgba(201, 160, 255, 0.95))
+	# 진행 중인 채널(충전·도약·갇힘). 무적 구간은 **테두리를 밝게** 해 눈으로도 갈린다
+	var a: Dictionary = st.eq_act
+	if a.is_empty():
+		return
+	var sid := String(a.get("id", ""))
+	var invuln: bool = bool(a.get("invuln", false))
+	var charging: bool = String(a.get("phase", "")) == "charge"
+	if charging:
+		var kk := clampf(float(a.t) / maxf(0.001, float(a.max)), 0.0, 1.0)
+		# 충전 눈금(찬 만큼만 호를 그린다) + 지금 확정될 방향
+		ci.draw_arc(pc, float(p.r) * VS + 10.0, -PI * 0.5, -PI * 0.5 + TAU * kk, 28, rgba(255, 226, 170, 0.9), 3.0)
+		var fa := float(p.face)
+		ci.draw_line(pc, pc + Vector2(cos(fa), sin(fa)) * (26.0 + 18.0 * kk), rgba(255, 240, 200, 0.8), 2.0)
+	if sid == "eq_meteor":
+		if charging:
+			var aim: Array = a.get("aim", [])
+			if aim.size() == 2: # 착지점 예고. 놓는 순간 이 자리가 그대로 확정된다
+				var ac := Vector2(float(aim[0]), float(aim[1]))
+				dashed_circle(ci, ac.x, ac.y, float(PSkills.eq_tune("eq_meteor").get("core_r", 70.0)), rgba(255, 214, 150, 0.8), 2.0, 6.0, 5.0)
+				ci.draw_line(pc, ac, rgba(255, 214, 150, 0.35), 1.5)
+		else: # 도약 중: 확정된 착지점은 더 이상 움직이지 않는다
+			var tc := Vector2(float(a.get("tx", p.x)), float(a.get("ty", p.y)))
+			dashed_circle(ci, tc.x, tc.y, float(PSkills.eq_tune("eq_meteor").get("core_r", 70.0)), rgba(255, 214, 150, 0.9), 2.5, 6.0, 5.0)
+	if sid == "eq_icetomb":
+		stroke_circle(ci, pc.x, pc.y, float(p.r) * VS + 9.0, rgba(191, 239, 255, 0.95), 3.0)
+		var kt := clampf(float(a.t) / maxf(0.001, float(a.max)), 0.0, 1.0)
+		ci.draw_arc(pc, float(p.r) * VS + 14.0, -PI * 0.5, -PI * 0.5 + TAU * (1.0 - kt), 26, rgba(191, 239, 255, 0.7), 2.0)
+	if invuln: # 무적인 구간에만 나오는 테두리 — '지금 안 맞는다'가 눈으로 갈려야 한다
+		stroke_circle(ci, pc.x, pc.y, float(p.r) * VS + 5.0, rgba(255, 255, 255, 0.9), 2.0)
 
 ## 감전 누적(축전)의 진행. 누적은 **전투 전역 하나**라 어느 적에게도 붙일 수 없어서 플레이어 **발밑**에 그린다
 ## (머리 위는 수호 방울이 이미 쓰고, 적 공격 예고를 가리지 않는 자리다).
@@ -4282,6 +4383,7 @@ static func _draw_layers(ci: Node2D, st: CombatState, decor: Dictionary) -> void
 			draw_enemy(ci, st, st.enemies[idx])
 	draw_supports(ci, st)      # 보조무기 개체(까마귀·분신·인형): 개체 위, 예고 아래
 	draw_afterimage(ci, st)    # 장비 '잔영 허물'의 잔영: 같은 층(개체 위·예고 아래)
+	draw_eq_skill(ci, st)      # 장비 기술 여섯의 지속 상태(충전·조준·방어·기록·예정 피해)
 	draw_canopies(ci, st)
 	draw_impacts(ci, st)
 	draw_telegraphs(ci, st)
