@@ -35,6 +35,9 @@
 | 2026-09-10 (`f5-qe`) | `--suites gust_tests` 단독 3회 | 매번 28/28 PASS | 세 번 다 종료 0 | 통과 |
 | 2026-09-10 (`f5-qe`, `20260910_071443`) | `--suites` 15개 `--jobs 1` (커밋 뒤 재확인) | 15개 전부 단언 통과(`slots_tests` 67/67 포함) | `slots_tests` 하나가 3221225477 | 실패 |
 | 2026-09-10 (`f5-qe`) | `--suites slots_tests` 단독 3회 | 매번 67/67 PASS | 세 번 다 종료 0 | 통과 |
+| 2026-09-10 (`merge_mid`) | 병합 뒤 `--suites` 11개 `--jobs 2` | 11개 전부 단언 통과(`balance_tests` 46/46 포함) | `balance_tests` 하나가 3221225477 | 실패 |
+| 2026-09-10 (`kd1_1`~`kd1_3`) | `--suites balance_tests` 단독 3회 | 매번 46/46 PASS | 세 번 다 종료 0 | 통과 |
+| 2026-09-10 (`merge_mid_j1`) | **같은 11개를 `--jobs 1`** 로 다시 | 11개 전부 단언 통과 | 11개 전부 종료 0 | 통과 |
 
 **2026-09-08 17:50 추가 관측 — 이 스위트만의 문제가 아니다.** 같은 증상이 `collision_tests`·`balance_tests`·`input_tests`·`ui_flow_tests`·`elites_tests`에서도 나왔다. 공통점은 **동시 실행**이다.
 
