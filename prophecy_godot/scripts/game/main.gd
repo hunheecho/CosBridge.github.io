@@ -160,6 +160,7 @@ func _ready() -> void:
 func _make_screens() -> void:
 	var defs := {
 		"title": PTitleScreen, "pick_start": PPickStartScreen, "base": PBaseScreen, "shop": PShopScreen, "equip": PEquipScreen, "forge": PForgeScreen,
+			"skillbank": PSkillBankScreen,
 		"stats": PStatsScreen, "log": PLogScreen, "reward": PRewardScreen, "after": PAfterScreen, "event": PEventScreen, "defeat": PDefeatScreen,
 		"boss_result": PBossResultScreen, "run_result": PRunResultScreen, "meta": PMetaScreen,
 	}
@@ -425,6 +426,35 @@ func equip_item(id: String) -> void:
 func unequip_item(slot: String) -> void:
 	PRun.unequip_item(run, slot)
 	save_run()
+	show(screen)
+
+# ---------- 기술 편성(창고 ↔ Q/E, §6) ----------
+## 셋 다 **거점에서 시간·금화 없이** 되는 조작이다. 규칙은 PGrowth가 판정하고 여기서는 저장·다시 그리기만 한다.
+## show(screen)은 같은 화면을 그 자리에서 다시 그린다(보던 자리를 잃지 않는다).
+func place_skill(slot: String, skill_id: String) -> void:
+	if PGrowth.place_skill(run, slot, skill_id):
+		save_run()
+	show(screen)
+
+func store_skill(slot: String) -> void:
+	if PGrowth.store_skill(run, slot):
+		save_run()
+	show(screen)
+
+func swap_qe_skills() -> void:
+	if PGrowth.swap_qe(run):
+		save_run()
+	show(screen)
+
+## 시험 전용(PROPHECY_EQUIP_SKILL_DEMO=1). 장비 기술을 주는 장비 정의는 다른 담당의 몫이라 아직 자료에 없다.
+## 소유·보관·배치 구조를 실제 화면에서 눌러 확인하려고 시험용 장비 하나를 가방에 넣는다.
+## 환경 변수가 없으면 버튼 자체가 나타나지 않고 이 함수도 아무 일도 하지 않는다.
+func grant_demo_equip() -> void:
+	if not PCatalog.equip_skill_demo() or run.is_empty():
+		return
+	if not PRun.owns_equip_type(run, PCatalog.DEMO_EQUIP_ID):
+		(run.bag as Array).append(PRun.equip_new_uid(run, PCatalog.DEMO_EQUIP_ID))
+		save_run()
 	show(screen)
 
 func forge_upgrade(weapon_id: String = "") -> void:
@@ -1332,7 +1362,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif screens.has(screen):
 			var s: PScreen = screens[screen]
 			if not s.on_escape():
-				if screen in ["shop", "equip", "forge", "stats", "log"]:
+				if screen in ["shop", "equip", "forge", "stats", "log", "skillbank"]:
 					go_base()
 	if event.is_action_pressed("debug_panel"):
 		debug_panel.visible = not debug_panel.visible
@@ -2625,6 +2655,10 @@ func _auto_tick() -> void:
 			_auto_wait = 4
 		"equip":
 			_auto_shot("16_equip")
+			show("skillbank")
+			_auto_wait = 4
+		"skillbank":
+			_auto_shot("16b_skillbank")
 			show("stats")
 			_auto_wait = 4
 		"stats":

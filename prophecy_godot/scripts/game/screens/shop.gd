@@ -344,10 +344,10 @@ func _needs_row(r: Dictionary, id: String, d: Dictionary) -> Control:
 			parts.append("%s감속장을 Q나 E에 편성[/color]" % ("[color=#9fe89f]" if okf else "[color=#ff8c73]"))
 			break
 	if eff.has("eShield"):
-		var oke: bool = g.get("skills", {}).get("e", null) != null
+		var oke: bool = PGrowth.usable_skill(r, "e") != null
 		parts.append("%sE 칸에 수동 기술[/color]" % ("[color=#9fe89f]" if oke else "[color=#ff8c73]"))
 	if eff.has("relay"):
-		var okr: bool = g.get("skills", {}).get("e", null) != null and g.get("skills", {}).get("q", null) != null
+		var okr: bool = PGrowth.usable_skill(r, "e") != null and PGrowth.usable_skill(r, "q") != null
 		parts.append("%sQ·E 두 칸 모두 사용[/color]" % ("[color=#9fe89f]" if okr else "[color=#ff8c73]"))
 	if eff.has("eliteDirect"):
 		parts.append("[color=#9ea8b8]정예가 나오는 전투[/color]")
@@ -378,7 +378,7 @@ func _compare_note(r: Dictionary, d: Dictionary) -> String:
 		if not any_elite:
 			return "[color=#9ea8b8]오늘 장소에는 정예가 없음[/color]"
 	# 수동 기술 보유 조건(§8): 감속장·E 칸이 필요한 장비는 **왜 지금 안 되는지**를 말한다(조용히 빼지 않는다)
-	var why := PGrowth.equip_eff_inactive_reason(g, eff)
+	var why := PGrowth.equip_eff_inactive_reason_run(r, eff) # 회차 전체로 본다: 장비를 벗어 못 쓰는 장비 기술이 든 칸은 빈 칸으로 센다
 	if why != "":
 		return "[color=#ff8c73]%s[/color]" % PGlossaryTip.esc(why)
 	if eff.has("fieldDirect") or eff.has("fieldTaken") or eff.has("fieldMark") or eff.has("fieldRegen"):

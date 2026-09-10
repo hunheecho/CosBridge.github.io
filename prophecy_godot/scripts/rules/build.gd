@@ -249,11 +249,20 @@ static func derive(run: Dictionary) -> Dictionary:
 		b.weapons.append(weapon_stats(b, w))
 	b.commons = g.get("commons", {}).duplicate()
 	b.passives = p.duplicate()
-	b.skills = { "q": g.skills.q.duplicate() if g.skills.get("q") != null else null, "e": g.skills.e.duplicate() if g.skills.get("e") != null else null }
+	# 전투가 보는 것은 **지금 쓸 수 있는** 기술이다(PGrowth.usable_skill).
+	# 배치(growth.skills)는 그대로 두고, 장비를 벗어 못 쓰는 장비 기술만 여기서 null이 된다 —
+	# 그래서 HUD·모바일 버튼·입력·재사용 시계가 **한 곳의 답**을 따라가고 화면마다 예외를 붙이지 않는다(§6).
+	# 창고(growth.bank)는 여기 들어오지 않는다: 보관 스킬의 효과는 미편성 상태에서 전투에 적용되지 않는다(§7).
+	var uq = PGrowth.usable_skill(run, "q")
+	var ue = PGrowth.usable_skill(run, "e")
+	b.skills = { "q": uq.duplicate() if uq != null else null, "e": ue.duplicate() if ue != null else null }
+	# 배치는 배치대로 알려 준다(화면이 "장비를 벗어 지금 못 씀"을 설명할 수 있게). 전투 규칙은 이 값을 보지 않는다
+	b.skills_placed = { "q": g.skills.q.duplicate() if g.skills.get("q") != null else null, "e": g.skills.e.duplicate() if g.skills.get("e") != null else null }
+	b.skill_blocked = { "q": PGrowth.slot_blocked_reason(run, "q"), "e": PGrowth.slot_blocked_reason(run, "e") }
 	b.boss_rewards = rewards.duplicate()
 	# Q 슬롯의 재사용 시간. **그 칸에 든 기술의 표**를 읽는다 — 예전에는 감속장 표를 고정으로 읽었는데,
 	# Q와 E가 같은 6종을 공유하게 되면서(§7) 그 가정이 틀렸다. Q가 비어 있으면 0(쓸 것이 없다).
-	var q = g.skills.get("q")
+	var q = uq # 배치가 아니라 **쓸 수 있는** Q. 못 쓰는 칸의 재사용 시간을 계산하지 않는다
 	if q == null:
 		b.special_cd = 0.0
 		return b
