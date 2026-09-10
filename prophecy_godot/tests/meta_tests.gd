@@ -456,7 +456,9 @@ func _init() -> void:
 	# 완성품은 **장비 개체**다(§4): 슬롯에는 "bloodmoon_sword#N"이 들어간다. 종류로 비교할 때는 equip_type_of를 쓴다
 	var made_uid := String(rc.equipment.weapon)
 	ok("확정(장착): 재료 장비·송곳니·무쇠·90금 소비, 완성품 장착, 가방 비움, crafted 기록, 강화 단계 무관", crafted_ok and PRun.equip_type_of(made_uid) == "bloodmoon_sword" and (rc.bag as Array).is_empty() and int(rc.mats.fang) == 0 and int(rc.gold) == 10 and (rc.crafted as Array) == ["bloodmoon_sword"] and int(rc.forge) == 0, "eq %s bag %s gold %d" % [str(rc.equipment), str(rc.bag), int(rc.gold)])
-	ok("완성품은 +0에서 시작한다(재료 강화 자동 계승 없음 — §4 미승인)", PRun.equip_plus_of(rc, made_uid) == 0)
+	# 명세 변경(2026-09-10 사용자 확정): 재료의 강화를 결과에 **계승**한다. 여기 재료(잔불검)는 +0이므로 결과도 +0이다.
+	# 옛 기대값("계승하지 않으니 언제나 +0")은 구현에 맞춘 것이 아니라 **규칙이 바뀐 것**이라 아래에서 +1/+2까지 따로 본다
+	ok("재료가 +0이면 완성품도 +0이다(계승 규칙 +0→+0)", PRun.equip_plus_of(rc, made_uid) == 0)
 	ok("중복 확정 불가(재료 없음·이미 보유)", not PRun.craft(rc, "bloodmoon_sword", true, true) and int(rc.gold) == 10)
 	var gold_s := int(rc.gold)
 	PRun.sell_equipment(rc, made_uid)
@@ -565,7 +567,12 @@ func _init() -> void:
 	ok("폐기 장비는 상점 재고에 절대 나오지 않는다(7일치 재고 확인)", not seen_retired)
 	ok("폐기 판정 자체", PCatalog.equipment_retired("reprisal_shield") and PCatalog.equipment_retired("relay_shield") and not PCatalog.equipment_retired("moon_armor") and not PCatalog.equipment_retired("iron_shield"))
 
-	# 제작 × 강화(§4 미결정 항목의 **현재 동작**을 못 박아 둔다 — 처리안이 정해지면 여기부터 고친다)
+	# ---------- 제작 × 강화 계승(2026-09-10 **사용자 확정**) ----------
+	# 확정 문구: "재료 장비의 강화 단계를 결과 장비에 계승한다(+0→+0 · +1→+1 · +2→+2).
+	#  제작 전후 동일 단계의 강화 비용이 같아야 한다. 계승 시 이미 낸 강화 비용을 다시 받지 않는다.
+	#  재료로 쓴 개체만 소비한다. 계승을 아무 장비 사이의 강화 이전으로 확대하지 마라."
+	# 옛 검사는 "완성품은 언제나 +0"을 못 박고 있었다. 그것은 구현 결함이 아니라 **그때의 규칙**이었고,
+	# 규칙이 바뀌었으므로 기대값을 함께 바꾼다(구현에 맞춘 것이 아니다).
 	var rcp := PRun.new_run(81, "sword")
 	rcp.gold = 2000
 	rcp.bossesDone = ["b1", "b2"]
@@ -578,21 +585,165 @@ func _init() -> void:
 	PRun.upgrade_equip(rcp, g_high)
 	PRun.upgrade_equip(rcp, g_high)
 	var pick_o := PRun.craft_pick_uid(rcp, "guardian_armor")
-	ok("재료가 여럿이면 **강화가 가장 낮은 개체**를 쓴다(비싸게 강화한 장비를 조용히 태우지 않는다)",
+	# 선택 규칙을 계승 확정 뒤 **다시 봤다**: 그대로 둔다. 강화 비용표가 장비 종류와 무관해
+	# '제작 뒤 강화'가 '강화 뒤 제작'과 같은 값이므로 낮은 쪽을 태워도 금화 손해가 없고, 비싼 개체는 손에 남는다.
+	ok("재료가 여럿이면 **강화가 가장 낮은 개체**를 쓴다(계승 확정 뒤에도 유지 — 비싼 개체는 손에 남는다)",
 		String(pick_o.uid) == g_low and int(pick_o.plus) == 0, str(pick_o))
+	ok("고른 개체와 함께 **같은 종류를 몇 개 가졌는지·무엇이 남는지**도 돌려준다(확인창이 구분해 적을 수 있게)",
+		int(pick_o.count) == 2 and (pick_o.others as Array).size() == 1 and String((pick_o.others as Array)[0].uid) == g_high and int((pick_o.others as Array)[0].plus) == 2, str(pick_o))
 	var opt_moon := PRun.craft_option(rcp, "moon_armor", false)
 	var ing_plus := -1
 	for ing in opt_moon.ingredients:
 		if String(ing.kind) == "equipment":
 			ing_plus = int(ing.get("plus", -1))
-	ok("제작 후보가 소비할 개체의 강화 단계를 함께 알려 준다(화면이 미리 경고할 수 있게)", ing_plus == 0, "plus %d" % ing_plus)
+	ok("제작 후보가 소비할 개체의 강화 단계와 결과가 물려받을 단계를 함께 알려 준다",
+		ing_plus == 0 and int(opt_moon.inherit) == 0 and int(opt_moon.inheritPaid) == 0, "plus %d inherit %s" % [ing_plus, str(opt_moon.get("inherit"))])
 	ok("제작 확정: 낮은 쪽만 사라지고 강화한 개체는 그대로 남는다",
 		PRun.craft(rcp, "moon_armor", false, false) and not (rcp.bag as Array).has(g_low) and (rcp.bag as Array).has(g_high) and PRun.equip_plus_of(rcp, g_high) == 2)
 	var made_moon := ""
 	for id in rcp.bag:
 		if PRun.equip_type_of(String(id)) == "moon_armor":
 			made_moon = String(id)
-	ok("완성품은 +0이고 재료의 강화를 물려받지 않는다(§4: 자동 계승 미승인)", made_moon != "" and PRun.equip_plus_of(rcp, made_moon) == 0)
+	ok("재료로 쓴 개체만 소비된다: 완성품은 재료(+0)를 물려받아 +0, 남은 개체는 +2 그대로",
+		made_moon != "" and PRun.equip_plus_of(rcp, made_moon) == 0 and PRun.equip_plus_of(rcp, g_high) == 2)
+
+	# 재료 +0 / +1 / +2를 각각 제작해 **결과가 같은 단계로 나오는지** 값으로 본다
+	var inh_rows := []
+	for want in [0, 1, 2]:
+		var ri := PRun.new_run(90 + want, "sword")
+		ri.gold = 3000
+		ri.bossesDone = ["b1", "b2"]
+		ri.mats.iron = 2
+		ri.mats.pelt = 1
+		var mat_uid := PRun.equip_new_uid(ri, "guardian_armor")
+		(ri.bag as Array).append(mat_uid)
+		var spent_up := 0
+		for _i in want:
+			var qn := PRun.equip_upgrade_next(ri, mat_uid)
+			spent_up += int(qn.cost)
+			PRun.upgrade_equip(ri, mat_uid)
+		var gold_pre := int(ri.gold)
+		var fee_i := int(PCatalog.recipe("moon_armor").get("fee", 0))
+		var opt_i := PRun.craft_option(ri, "moon_armor", false)
+		PRun.craft(ri, "moon_armor", false, false)
+		var out_uid := ""
+		for id in ri.bag:
+			if PRun.equip_type_of(String(id)) == "moon_armor":
+				out_uid = String(id)
+		var got := PRun.equip_plus_of(ri, out_uid)
+		inh_rows.append({ "want": want, "got": got, "spent_up": spent_up, "fee_paid": gold_pre - int(ri.gold), "fee": fee_i, "inherit": int(opt_i.inherit) })
+		ok("재료 +%d로 제작하면 결과도 +%d다(계승)" % [want, want], got == want and int(opt_i.inherit) == want, "결과 +%d" % got)
+		ok("재료 +%d 계승에 강화 비용을 다시 받지 않는다(수수료 %d금만 빠진다)" % [want, fee_i], gold_pre - int(ri.gold) == fee_i, "빠진 금화 %d" % (gold_pre - int(ri.gold)))
+		# 계승 단계가 실제 능력치에 반영되는지(그냥 숫자만 붙는 것이 아니다)
+		var eff_i := PCatalog.equipment_eff("moon_armor", got)
+		ok("계승 단계가 완성품의 기본 능력치에 실제로 반영된다(+%d)" % want,
+			int(eff_i.startShield) == int(PCatalog.equipment_eff("moon_armor", want).startShield) and (want == 0 or int(eff_i.startShield) > int(PCatalog.equipment_eff("moon_armor", 0).startShield)),
+			"startShield %d" % int(eff_i.startShield))
+	print("[계승표] ", JSON.stringify(inh_rows)) # 보고용 값(재료 단계 → 결과 단계 · 강화 지출 · 실제 차감액)
+	# **강화 후 제작 vs 제작 후 강화**: 최종 단계와 총 강화 지출이 같아야 한다(사용자 확정)
+	for want2 in [1, 2]:
+		# ① 강화 후 제작
+		var ra := PRun.new_run(120 + want2, "sword")
+		ra.gold = 3000
+		ra.bossesDone = ["b1", "b2"]
+		ra.mats.iron = 2
+		ra.mats.pelt = 1
+		var ua := PRun.equip_new_uid(ra, "guardian_armor")
+		(ra.bag as Array).append(ua)
+		var up_a := 0
+		for _i in want2:
+			up_a += int(PRun.equip_upgrade_next(ra, ua).cost)
+			PRun.upgrade_equip(ra, ua)
+		PRun.craft(ra, "moon_armor", false, false)
+		var oa := ""
+		for id in ra.bag:
+			if PRun.equip_type_of(String(id)) == "moon_armor":
+				oa = String(id)
+		# ② 제작 후 강화
+		var rcb := PRun.new_run(140 + want2, "sword")
+		rcb.gold = 3000
+		rcb.bossesDone = ["b1", "b2"]
+		rcb.mats.iron = 2
+		rcb.mats.pelt = 1
+		var ub := PRun.equip_new_uid(rcb, "guardian_armor")
+		(rcb.bag as Array).append(ub)
+		PRun.craft(rcb, "moon_armor", false, false)
+		var ob := ""
+		for id in rcb.bag:
+			if PRun.equip_type_of(String(id)) == "moon_armor":
+				ob = String(id)
+		var up_b := 0
+		for _i in want2:
+			up_b += int(PRun.equip_upgrade_next(rcb, ob).cost)
+			PRun.upgrade_equip(rcb, ob)
+		ok("강화 후 제작 = 제작 후 강화: 최종 +%d 같고 총 강화 지출도 %d금으로 같다" % [want2, up_a],
+			PRun.equip_plus_of(ra, oa) == want2 and PRun.equip_plus_of(rcb, ob) == want2 and up_a == up_b
+				and up_a == PRun.equip_upgrade_total_cost(want2) and int(ra.gold) == int(rcb.gold),
+			"강화후제작 +%d/%d금(잔액 %d) · 제작후강화 +%d/%d금(잔액 %d)" % [PRun.equip_plus_of(ra, oa), up_a, int(ra.gold), PRun.equip_plus_of(rcb, ob), up_b, int(rcb.gold)])
+	# 계승을 **아무 장비 사이의 강화 이전**으로 넓히지 않았는가: 일반 교체는 여전히 +0이다
+	var rsw := PRun.new_run(160, "sword")
+	rsw.gold = 3000
+	rsw.bossesDone = ["b1", "b2"]
+	var sw_a := PRun.equip_new_uid(rsw, "guardian_armor")
+	(rsw.bag as Array).append(sw_a)
+	PRun.upgrade_equip(rsw, sw_a)
+	var sw_b := PRun.equip_new_uid(rsw, "vitality_coat")
+	(rsw.bag as Array).append(sw_b)
+	PRun.equip_item(rsw, sw_b)
+	ok("계승은 제작에서만 일어난다: 다른 장비로 갈아껴도 강화는 옮겨가지 않는다(+1 그대로 / 새 장비 +0)",
+		PRun.equip_plus_of(rsw, sw_a) == 1 and PRun.equip_plus_of(rsw, sw_b) == 0)
+	# 제작 취소(확정을 부르지 않음) = 금화·재료·강화 상태 불변
+	var rcn := PRun.new_run(170, "sword")
+	rcn.gold = 500
+	rcn.bossesDone = ["b1", "b2"]
+	rcn.mats.iron = 2
+	rcn.mats.pelt = 1
+	var cn_u := PRun.equip_new_uid(rcn, "guardian_armor")
+	(rcn.bag as Array).append(cn_u)
+	PRun.upgrade_equip(rcn, cn_u)
+	var cancel_gold := int(rcn.gold) # 강화(-70)까지 끝난 상태의 금화
+	var cancel_before := JSON.stringify(PSave.normalize(rcn.duplicate(true)))
+	var _cn_opt := PRun.craft_option(rcn, "moon_armor", true) # 미리보기까지 만들어 본다(복제 회차에서 제작한다)
+	ok("제작 미리보기만 보고 확정하지 않으면 금화·재료·강화가 그대로다",
+		JSON.stringify(PSave.normalize(rcn.duplicate(true))) == cancel_before and PRun.equip_plus_of(rcn, cn_u) == 1
+			and int(rcn.gold) == cancel_gold and int(rcn.mats.iron) == 2 and (rcn.bag as Array).has(cn_u),
+		"금화 %d(기대 %d) · 단계 %d" % [int(rcn.gold), cancel_gold, PRun.equip_plus_of(rcn, cn_u)])
+
+	# ---------- 도감·제작 총계는 **활성 목록**에서 나온다(2026-09-10 사용자 확정) ----------
+	var live_n := PCatalog.active_crafted_count()
+	var def_n := PCatalog.crafted_equipment().size()
+	var retired_n := 0
+	for id in PCatalog.crafted_equipment():
+		if PCatalog.equipment_retired(String(id)):
+			retired_n += 1
+	ok("활성 제작 총계 = 정의 − 폐기(지금 %d = %d − %d), 고정값이 아니다" % [live_n, def_n, retired_n], live_n == def_n - retired_n and live_n > 0)
+	ok("활성 제작법은 전부 해금표(unlocks.recipes)에 자리가 있다(총계에 닿을 수 없는 항목이 없다)",
+		PCatalog.active_crafted_ids().all(func(id): return (PCatalog.meta_unlocks().recipes as Dictionary).has(String(id))), str(PCatalog.active_crafted_ids()))
+	var legacy15 := prof("legacy", PProfile.records_to_max())
+	var cnt15 := PProfile.counts(legacy15)
+	ok("도감 제작법 총계가 활성 목록 %d와 같고, 폐기 %d종은 총계 밖의 **기록**으로 따로 센다" % [live_n, retired_n],
+		int(cnt15.recipes.total) == live_n and int(cnt15.recipes.have) == live_n and int(cnt15.recipes.retired) == retired_n and int(cnt15.recipes.retired_total) == retired_n, str(cnt15.recipes))
+	ok("폐기 제작법의 해금 기록 자체는 지워지지 않는다(unlocked().recipes에는 그대로 있다)",
+		(PProfile.unlocked(legacy15).recipes as Array).has("reprisal_shield") and not (PProfile.unlocked(legacy15).recipes_active as Array).has("reprisal_shield"))
+	# 장비를 하나 늘리면 총계도 는다 — 고정값이 박혀 있지 않다는 근거(자료를 임시로 늘렸다가 되돌린다)
+	PCatalog.crafted_equipment()["__probe_equip"] = { "name": "총계 시험용", "slot": "armor", "short": "", "desc": "", "eff": {},
+		"recipe": { "equipment": ["traveler_armor"], "mats": {}, "fee": 10 } }
+	var live_n2 := PCatalog.active_crafted_count()
+	var cnt_after := PProfile.counts(legacy15)
+	ok("제작 장비를 하나 늘리면 활성 총계와 도감 분모가 함께 1 는다(%d → %d)" % [live_n, live_n2],
+		live_n2 == live_n + 1 and int(cnt_after.recipes.total) == live_n + 1, "총계 %d · 도감 %d" % [live_n2, int(cnt_after.recipes.total)])
+	PCatalog.reset() # 임시로 넣은 항목을 지운다(다음 검사에 새지 않게)
+	ok("시험용 항목을 되돌리면 총계도 원래대로 %d다" % live_n, PCatalog.active_crafted_count() == live_n)
+	# 폐기 장비를 가진 **옛 저장**에서 보유 기록이 사라지지 않는다
+	var rold := PRun.new_run(180, "sword")
+	rold.equipment = { "weapon": "hunter_sword", "armor": "vitality_coat", "shield": "reprisal_shield" }
+	rold.bag = ["relay_shield"]
+	rold.crafted = ["reprisal_shield"]
+	PSave.save(rold)
+	var rold2 := PSave.load()
+	ok("폐기 장비를 가진 옛 저장: 장착·가방·제작 기록이 그대로 남는다(총계에서 뺐다고 지우지 않는다)",
+		String(rold2.equipment.shield) == "reprisal_shield" and (rold2.bag as Array).has("relay_shield") and (rold2.get("crafted", []) as Array).has("reprisal_shield"))
+	PSave.clear()
 
 	# ---------- 제작 6종 효과(전투) ----------
 	st = mk({ "equipment": { "weapon": "bloodmoon_sword" } })
