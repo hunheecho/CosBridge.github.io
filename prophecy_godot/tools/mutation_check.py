@@ -12,11 +12,19 @@
 그래서 한동안 보호가 빠진 작업본이 남아 있었다.
 
 이 도구는 그 방식을 없앤다. 작업본은 **읽기만** 한다:
-  1) 프로젝트를 임시 폴더로 통째 복사한다(작업본은 손대지 않는다)
+  1) 프로젝트를 임시 폴더로 복사한다(작업본은 손대지 않는다)
   2) 복사본에서 지정한 줄을 지운다
   3) 복사본에서 검사를 돌린다
   4) 결과를 적고 복사본을 지운다
 중간에 끊겨도 작업본은 처음부터 끝까지 그대로다.
+
+2026-09-10 보강(사용자 지시) — 말로 적지 않고 **도구가 스스로 확인한다**:
+  ① 실행 **전에** 대상 경로를 확인한다. 사본의 저장 자리가 **실제 사용자 저장 위치**와 겹치거나
+     격리 표시(userdata__ / prophecy_test_runs)가 없으면 **사본도 만들지 않고 중단**한다(종료 2).
+     사람의 저장 폴더는 경로만 계산해 피한다 — 열지도 읽지도 않는다.
+  ② 코드 위치뿐 아니라 **저장 위치도 격리**한다(APPDATA·LOCALAPPDATA를 사본 전용 폴더로).
+  ③ 실행 **전후로 작업본 전체의 해시를 떠서 대조**한다. 검사가 중단되든 시간을 넘기든
+     이 대조는 반드시 돈다(finally). 한 파일이라도 달라지면 결과와 상관없이 **실패**로 끝낸다(종료 3).
 
 사용:
     python tools/mutation_check.py --file scripts/rules/save.gd \\
@@ -29,7 +37,9 @@
                      하나도 주지 않으면 "검사 전체가 실패해야 한다"로 본다
 """
 import argparse
+import hashlib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -77,6 +87,97 @@ def godot_exe() -> str:
     return guess
 
 
+# ---------------------------------------------------------------------------
+# 안전 장치 셋 (2026-09-10 사용자 지시)
+#   ① 실행 전 대상 경로를 확인하고, **실제 사용자 저장 위치**를 가리키면 실행 자체를 중단한다
+#   ② 고장 주입 사본의 코드 위치뿐 아니라 **저장 위치도 격리**한다(그리고 그것을 확인한다)
+#   ③ 중단·시간 초과 뒤에도 실제 작업본의 보호가 살아 있어야 하므로,
+#      **작업본을 절대 쓰지 않는다는 것을 도구가 스스로 확인한다**(실행 전후 해시 대조)
+# ---------------------------------------------------------------------------
+
+# 해시 대조에서 뺄 것. .git 은 우리 소관이 아니고, .godot 은 엔진이 스스로 갱신하는 캐시라
+# "우리가 건드렸다"의 증거가 되지 못한다(사본을 만들 때 읽기만 해도 잠금 파일이 움직인다).
+HASH_SKIP_DIRS = {".git", ".godot", "clips"}
+
+
+def project_app_name() -> str:
+    """project.godot 의 application/config/name. user:// 폴더 이름이 이 값이다."""
+    try:
+        txt = (PROJECT / "project.godot").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    m = re.search(r'^config/name\s*=\s*"(.*)"\s*$', txt, re.MULTILINE)
+    return m.group(1) if m else ""
+
+
+def real_user_save_dir() -> Path:
+    """**사람이 실제로 쓰는** 저장 폴더. 여기는 읽지도 쓰지도 않는다 — 경로만 계산해 피한다."""
+    name = project_app_name()
+    if os.name == "nt":
+        base = os.environ.get("APPDATA", "")
+        if not base:
+            return Path("")
+        return Path(base) / "Godot" / "app_userdata" / name
+    home = Path.home()
+    return home / ".local" / "share" / "godot" / "app_userdata" / name
+
+
+def _inside(child: Path, parent: Path) -> bool:
+    try:
+        child.resolve().relative_to(parent.resolve())
+        return True
+    except (ValueError, OSError):
+        return False
+
+
+def guard_paths(dst: Path, user_dir: Path) -> str:
+    """실행 전 확인. 위험하면 사유 한 줄을 돌려준다(빈 문자열이면 안전)."""
+    real = real_user_save_dir()
+    if str(real) and (_inside(user_dir, real) or _inside(real, user_dir) or
+                      user_dir.resolve() == real.resolve()):
+        return ("사본의 저장 자리가 **실제 사용자 저장 위치**와 겹친다 — 실행하지 않는다\n"
+                "  사본 저장 자리: %s\n  사람 저장 자리: %s" % (user_dir, real))
+    marker = str(user_dir).replace("\\", "/")
+    if "userdata__" not in marker and "prophecy_test_runs" not in marker:
+        return ("사본의 저장 자리에 격리 표시(userdata__ / prophecy_test_runs)가 없다 — "
+                "이 상태로 보호를 빼고 돌리면 규칙 계층의 관문도 막지 못한다: %s" % user_dir)
+    if _inside(dst, PROJECT) or dst.resolve() == PROJECT.resolve():
+        return "고장 주입 사본이 작업본 안에 있다 — 실행하지 않는다: %s" % dst
+    return ""
+
+
+def hash_tree(root: Path) -> dict:
+    """작업본 전체의 파일별 해시. '작업본을 안 건드렸다'를 값으로 확인하는 데 쓴다."""
+    out = {}
+    for path in sorted(root.rglob("*")):
+        rel = path.relative_to(root)
+        if any(part in HASH_SKIP_DIRS for part in rel.parts):
+            continue
+        if not path.is_file():
+            continue
+        h = hashlib.sha256()
+        try:
+            with open(path, "rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    h.update(chunk)
+        except OSError as e:
+            out[str(rel)] = "읽기 실패: %s" % e
+            continue
+        out[str(rel)] = h.hexdigest()
+    return out
+
+
+def diff_tree(before: dict, after: dict) -> list:
+    changed = []
+    for k in sorted(set(before) | set(after)):
+        b = before.get(k)
+        a = after.get(k)
+        if b != a:
+            changed.append("%s (%s → %s)" % (k, "없음" if b is None else b[:12],
+                                             "없음" if a is None else a[:12]))
+    return changed
+
+
 def copy_project(dst: Path) -> None:
     """통째 복사 — 가져오기 캐시까지 들고 간다. 느리다(--full 일 때만)."""
     def ignore(_dir, names):
@@ -108,6 +209,20 @@ def copy_minimal(dst: Path, tests: list) -> int:
             raise SystemExit("검사 파일이 없다: %s" % src)
         shutil.copy2(src, dst / t)
         n += 1
+    # 검사 하나가 **다른 검사 파일을 별개의 프로세스로 띄우는** 경우가 있다
+    # (tests/save_guard_tests.gd → tests/save_guard_probe.gd). 그 몸통이 없으면
+    # 사본에서 "보호가 없어서 실패"가 아니라 "파일이 없어서 실패"가 되어 결과를 잘못 읽는다.
+    # tests/*.gd 는 전부 합쳐도 작으므로 통째로 들고 간다.
+    for src2 in sorted((PROJECT / "tests").glob("*.gd")):
+        dst2 = dst / "tests" / src2.name
+        if not dst2.exists():
+            shutil.copy2(src2, dst2)
+            n += 1
+    for src3 in sorted((PROJECT / "tests").glob("*.uid")):
+        dst3 = dst / "tests" / src3.name
+        if not dst3.exists():
+            shutil.copy2(src3, dst3)
+            n += 1
     return n
 
 
@@ -158,6 +273,19 @@ def main() -> int:
 
     tmp = Path(tempfile.mkdtemp(prefix="mutation_"))
     dst = tmp / "proj"
+    # ② 사본의 저장 자리. 이름에 격리 표시(userdata__)를 넣어 규칙 계층의 관문도 통과시킨다
+    user_dir = tmp / "userdata__mutation"
+    # ① **실행 전** 확인. 위험하면 사본도 만들지 않고 그 자리에서 멈춘다
+    why_stop = guard_paths(dst, user_dir)
+    if why_stop:
+        print("실행 중단 —", why_stop)
+        shutil.rmtree(tmp, ignore_errors=True)
+        return 2
+    print("실행 전 확인 통과 — 사본 저장 자리 %s" % user_dir)
+    print("  사람의 저장 자리(계산만 하고 **읽지도 쓰지도 않는다**): %s" % real_user_save_dir())
+    # ③ 작업본을 정말 안 건드리는지 스스로 확인한다(실행 전 해시)
+    before_hash = hash_tree(PROJECT)
+    print("작업본 해시를 떴다 — 파일 %d개(실행이 끝나면 다시 떠서 대조한다)" % len(before_hash))
     ok = False
     try:
         if a.full:
@@ -187,7 +315,7 @@ def main() -> int:
         # 이 도구는 보호 장치를 빼고 돌린다. 격리하지 않으면 보호가 빠진 사본이
         # 사람의 실제 저장 폴더(APPDATA\Godot\app_userdata)를 그대로 본다 —
         # 검사한다면서 사고를 내는 꼴이다. 공용 실행기(run_suites.py)와 같은 방식으로 막는다.
-        user_dir = tmp / "userdata__mutation"
+        # 위 guard_paths()가 실행 전에 이 자리가 사람의 저장 자리와 겹치지 않는지 이미 확인했다.
         user_dir.mkdir(parents=True, exist_ok=True)
         env = dict(os.environ)
         env["APPDATA"] = str(user_dir)
@@ -256,13 +384,24 @@ def main() -> int:
                     print("  다만 이 단언들은 **실패로 잡히지 않았다**(그 앞에서 멈췄을 수 있다): %s" % missed)
         else:
             print("→ 보호를 뺐는데도 검사가 그대로 통과했다. 검사가 실제 결함을 못 잡는다는 뜻이다.")
-        print("작업본은 손대지 않았다:", PROJECT)
         return 0 if ok else 1
     finally:
+        # ③ **중단·시간 초과로 여기 왔더라도** 반드시 대조한다.
+        #    "작업본은 손대지 않았다"를 말로 적지 않고 값으로 확인한다.
+        after_hash = hash_tree(PROJECT)
+        changed = diff_tree(before_hash, after_hash)
         if a.keep:
             print("복사본을 남긴다:", dst)
         else:
             shutil.rmtree(tmp, ignore_errors=True)
+        if changed:
+            print("작업본이 바뀌었다 — 이 도구가 건드리지 말아야 할 것을 건드렸다:")
+            for c in changed[:20]:
+                print("  · " + c)
+            print("→ 결과와 상관없이 **실패**로 끝낸다(작업본 보호가 이 도구의 첫째 계약이다).")
+            return 3  # 위의 return/예외보다 이 값이 이긴다 — 일부러 그렇게 둔다
+        print("작업본 대조: 파일 %d개가 실행 전후로 **한 바이트도 달라지지 않았다** — %s"
+              % (len(after_hash), PROJECT))
 
 
 if __name__ == "__main__":

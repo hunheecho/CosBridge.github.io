@@ -1,6 +1,18 @@
 extends SceneTree
-## **실제 장비 6종으로 한 줄 전체를 이어서 굴린다** — 최종 통합 검수의 뼈대.
+## **이것은 규칙 호출 검사다. 화면 버튼을 하나도 누르지 않는다.**
 ## 실행: python tools/run_suites.py --suites equip_chain_tests --jobs 1
+##
+## 무엇을 하고 무엇을 하지 않는가 — 사용자 지적(2026-09-10)으로 범위를 바로잡았다:
+##   "현재 검사는 규칙 함수를 직접 호출하는 연결 검사다.
+##    이를 **실제 화면 버튼 조작 완료로 보고하지 마라.**"
+##   여기서 부르는 것은 PRun·PGrowth·PSave·PSkills 의 규칙 함수뿐이다. scenes/main.tscn 을 띄우지 않는다.
+##   **실제 화면 버튼 경로**는 tests/ui_chain_tests.gd 가 같은 순서를 버튼으로 이어서 확인한다.
+##   **장비 기술 6종 각각의 전투 발동**(무엇을 맞혔고 무엇이 바뀌었는지)은 tests/eq_fire_tests.gd 가
+##   **적을 세워 놓고** 값으로 확인한다. 이 파일의 [6]은 그 대신이 아니다(아래 [6] 머리말 참고).
+##
+## 이 파일이 실제로 덮는 것 — **연결의 존재**와 **한 회차 안에서의 앞뒤 관계**다:
+##   [0] 장비 기술 6종에 각각 실제 장비가 붙어 있는가(연결 존재 확인)
+##   [1]~[9] 구매·강화·제작·착용·보관·배치·교환·저장·해제가 서로 어긋나지 않는가
 ##
 ## 왜 있는가 — 사용자 지시(2026-09-10):
 ##   "구조는 우리 설계와 맞아. 현재는 '각 갈래 완료·통합 전'이고,
@@ -51,7 +63,9 @@ func mk_run() -> Dictionary:
 	return r
 
 func _init() -> void:
-	print("[0] 자료에 여섯 장비가 실제로 있다")
+	print("[0] 연결 존재 확인(규칙 호출) — 장비 기술 6종에 각각 실제 장비가 붙어 있다")
+	print("     ※ 이것은 '자료의 연결이 있다'까지다. 각 기술이 전투에서 실제로 무엇을 하는지는")
+	print("        tests/eq_fire_tests.gd 가 적을 세워 놓고 값으로 확인한다.")
 	var gm := granting_map()
 	var missing: Array = []
 	for sid in gm:
@@ -136,7 +150,10 @@ func _init() -> void:
 	ok("장비 기술은 창고에 복제되지 않는다",
 		not PGrowth.in_bank(run.growth, "eq_icetomb"), str(PGrowth.bank_ids(run.growth)))
 
-	print("\n[6] 전투 발동 — 실제로 쓰고 재사용 시계가 돈다")
+	print("\n[6] 재사용 시계 — **결정 관 한 종만**, 적이 없는 전장에서 시계만 본다")
+	print("     ※ 6종 전투 검증이 아니다. 여기서 보는 것은 '발동하면 시계가 돌고 연타가 막힌다'뿐이고,")
+	print("        무엇을 맞혔는지·무엇이 바뀌었는지는 보지 않는다(적이 없다).")
+	print("        6종 각각의 적중·방어·귀환·가둠·유예는 tests/eq_fire_tests.gd 가 확인한다.")
 	var st := _mk_combat(run)
 	ok("쓰기 전에는 재사용 대기가 없다", PSkills.cd_left(st, "q") <= 0.0, str(PSkills.cd_left(st, "q")))
 	var fired := PSkills.cast(st, "q")
@@ -145,7 +162,9 @@ func _init() -> void:
 	ok("발동 뒤 재사용 대기가 생긴다", cd_after > 0.0, "%.2f초" % cd_after)
 	ok("연달아 다시 쓰이지 않는다", not PSkills.cast(st, "q"))
 
-	print("\n[7] Q/E 교환 — 전투 시계를 건드리지 않는다")
+	print("\n[7] Q/E 교환 — 교환 **전** 전투 객체의 옛 시계가 그대로다(여기까지만이다)")
+	print("     ※ 이것만으로 '우회가 없다'고 끝내지 않는다. 실제 편성 변경 경로를 거친 뒤")
+	print("        **새 전투에 들어가 옮겨진 슬롯에서 재시전**해 보는 것은 tests/ui_chain_tests.gd 가 한다.")
 	PGrowth.swap_qe(run)
 	ok("교환하면 Q와 E가 바뀐다", PGrowth.skill_id_in(run.growth, "e") == "eq_icetomb",
 		"q=%s e=%s" % [PGrowth.skill_id_in(run.growth, "q"), PGrowth.skill_id_in(run.growth, "e")])
@@ -189,7 +208,8 @@ func _init() -> void:
 	print("\n%d/%d PASS" % [pass_n, pass_n + fail_n])
 	quit(1 if fail_n > 0 else 0)
 
-## 적이 나오지 않는 빈 전장(재사용 시계와 발동 여부만 본다)
+## 적이 나오지 않는 **빈 전장**. 여기서 알 수 있는 것은 재사용 시계와 발동 여부뿐이다 —
+## 효과가 무엇을 맞혔는지는 알 수 없다. 그 확인은 tests/eq_fire_tests.gd 가 표적을 세워 놓고 한다
 func _mk_combat(r: Dictionary) -> CombatState:
 	var st := CombatState.new({ "build": PBuild.derive(r), "seed": 1, "arena": "clearing",
 		"formation": { "units": [], "alive_cap": 0, "group": 0, "interval": 1.0, "type_caps": {} } })
