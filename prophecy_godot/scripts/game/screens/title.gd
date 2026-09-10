@@ -26,7 +26,11 @@ func _build() -> void:
 func refresh() -> void:
 	PUi.clear(_menu)
 	PUi.clear(bottom)
-	var saved := PSave.load() if PSave.exists() else {}
+	# 불러오기 결과를 셋으로 받는다(정상 / 없음 / 판 불일치). 예전에는 {} 하나여서
+	# "저장이 없다"와 "판이 바뀌어 못 이어한다"를 화면이 구분하지 못했다.
+	var load_res := PSave.load_result()
+	var saved: Dictionary = load_res.run
+	var version_blocked := String(load_res.status) == PSave.LOAD_VERSION
 	# 표시명은 여기에 적지 않는다 — 정본은 game.gd의 APP_NAME 한 자리다(docs/NAMING.md)
 	var h := PUi.label(PUi.app_name(), 36)
 	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -54,8 +58,20 @@ func refresh() -> void:
 	if not saved.is_empty():
 		# 지시 2: 버전이 같아도 회차 설정이 같지 않다. 저장된 회차의 실제 일정을 버튼에 적는다
 		cont_txt = "계속하기  (%s · %d일차 · Lv %d · 금화 %d)" % [PRun.schedule_short_of_save(saved), int(saved.get("day", 1)), int(saved.growth.level), int(saved.get("gold", 0))]
+	elif version_blocked:
+		cont_txt = "계속하기  (이어할 수 없음)"
 	var cont := PUi.button(cont_txt, func(): main.continue_run(), not saved.is_empty(), 18)
 	_menu.add_child(cont)
+	# 판이 달라 못 이어할 때 — **버튼을 감추지 않는다.** 감추면 모바일에서 사라진 자리를
+	# 키로 대신할 수 없고, 왜 못 누르는지도 알 수 없다(예전 지적).
+	# 자리에 그대로 두고 눌리지 않게 한 뒤, **사유를 글자로** 바로 아래 붙인다.
+	if version_blocked:
+		var why := PUi.label(PSave.VERSION_MESSAGE, 13, PUi.WARN)
+		why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_menu.add_child(why)
+		var keep := PUi.label("이전 회차 저장 파일은 지우지 않았습니다. 영구 성장·도전과제·처치 기록·설정은 그대로입니다.", 11, PUi.DIM)
+		keep.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_menu.add_child(keep)
 	var new_days := int((PCatalog.run_modes()[PCatalog.run_mode_default()] as Dictionary).get("days", 10))
 	var newb := PUi.button("새 회차  (본편 · %d일)" % new_days, _on_new, true, 18)
 	_menu.add_child(newb)

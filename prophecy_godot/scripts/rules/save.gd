@@ -5,6 +5,41 @@ extends RefCounted
 ## JSON 숫자는 전부 float로 읽히므로 _normalize가 정수 필드를 int로 되돌린다(저장 전 run에도 같은 규칙을 적용하면 문자열이 일치한다).
 
 const SCHEMA := "prophecy_save/1"
+
+## ---------- 회차 판본(run_version) ----------
+## **schema 와 다른 것을 가리킨다.**
+##   schema      : 파일의 겉모양(키 구성 {schema, saved_at, run_version, run}).
+##   run_version : 그 안에 담긴 **회차 규칙의 판**.
+##
+## 왜 나눠 뒀나 — schema 를 올리면 아래 load() 가 파일을 **.corrupt 로 이름을 바꿔 밀어낸다.**
+## 그 길은 사람의 저장을 옆으로 치우는 동작이고, 화면은 "저장이 깨졌다"와 "판이 바뀌었다"를
+## 구분하지 못한다. 그래서 겉모양은 그대로 두고 판본만 따로 적는다.
+## **판이 다른 저장 파일은 지우지도, 이름을 바꾸지도 않는다** — 그대로 둔다.
+## 사람이 새 회차를 시작하면 그때 정상 경로로 덮인다.
+##
+## 판별을 **판본으로만** 한다는 것도 여기에 못 박는다.
+## "자료에 없는 장비가 들어 있으니 옛 회차겠지" 같은 짐작으로 가르지 않는다 —
+## 시험용 장비가 든 새 판본 저장은 예전처럼 정리하고 **그대로 이어할 수 있어야 한다**
+## (tests/save_version_tests.gd 가 값으로 확인한다).
+##
+## 판본 이력
+##   1 — 판본을 적기 전의 모든 파일. run_version 이 **없으면 1로 본다.**
+##   2 — 2026-09-10 대규모 개편. 장비가 개체(`<종류>#N`)와 강화 단계(run.equipPlus)로 바뀌고,
+##       수동 기술 창고(growth.bank)와 장비 기술(eq_*)이 들어왔다.
+##       사용자 확정: **이전 회차의 장비·패시브를 새 규칙으로 이전하지 않는다.**
+##       그래서 판본 1 회차는 이어할 수 없다(프로필·도전과제·처치 기록·설정은 그대로 산다).
+const RUN_VERSION := 2
+const LEGACY_RUN_VERSION := 1
+
+## load_result().status 가 가지는 값. 지금까지 {} 하나로 뭉뚱그리던 것을 셋으로 가른다
+const LOAD_OK := "ok"                 ## 정상 — run 에 회차가 들어 있다
+const LOAD_NONE := "none"             ## 저장이 없다(또는 읽지 못했다)
+const LOAD_VERSION := "version"       ## 판 불일치 — 이어하기 불가. **파일은 그대로 둔다**
+const LOAD_BROKEN := "broken"         ## 파일이 깨졌다(겉모양 자체가 아니다) — 예전처럼 .corrupt 로 보관
+
+## 판이 다를 때 화면에 그대로 내보내는 문구(정본 한 자리)
+const VERSION_MESSAGE := "대규모 업데이트로 새 회차를 시작해야 합니다"
+
 const SAVE_PATH := "user://prophecy_save_v1.json"
 const TMP_PATH := "user://prophecy_save_v1.json.tmp"
 const CORRUPT_PATH := "user://prophecy_save_v1.json.corrupt"
@@ -125,7 +160,10 @@ static func save(run: Dictionary) -> bool:
 		push_error("저장 거부 — " + blocked + " · 사람의 저장을 덮어쓰지 않으려고 막았다(PSave.write_blocked)")
 		return false
 	_normalize(run) # 형식 정규화는 예전 그대로 원본에도 적용한다(정수·실수 자리만 만진다)
-	var doc := { "schema": SCHEMA, "saved_at": int(Time.get_unix_time_from_system()), "run": _for_file(run) }
+	# run_version 은 **doc 맨 위**에 적는다(run 안이 아니다). 회차 사전을 건드리지 않으므로
+	# 저장 전후로 run 을 통째로 비교하는 기존 검사들이 그대로 성립한다.
+	var doc := { "schema": SCHEMA, "saved_at": int(Time.get_unix_time_from_system()),
+		"run_version": RUN_VERSION, "run": _for_file(run) }
 	var txt := JSON.stringify(doc)
 	var f := FileAccess.open(TMP_PATH, FileAccess.WRITE)
 	if f == null:
@@ -148,13 +186,30 @@ static func save(run: Dictionary) -> bool:
 static func exists() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 
-## 불러오기: 없거나 깨졌으면 {} (깨진 파일은 .corrupt로 이름 변경)
-static func load() -> Dictionary:
+## 불러온 파일의 회차 판본. run_version 이 없으면 **판본 1**(적기 전의 파일)로 본다
+static func file_run_version(doc: Dictionary) -> int:
+	var v = doc.get("run_version", null)
+	if typeof(v) == TYPE_FLOAT or typeof(v) == TYPE_INT:
+		return int(v)
+	return LEGACY_RUN_VERSION
+
+## 불러오기 — **결과를 셋(넷)으로 갈라서** 돌려준다.
+##   { status, run, file_version, current_version, message }
+##
+## 왜 갈랐나: 예전에는 없음·깨짐·판 불일치가 전부 {} 하나였다. 그래서 화면이
+## "저장이 없다"밖에 말하지 못했고, 판이 바뀌어 못 이어하는 사람에게 사유를 보여 줄 수 없었다.
+##
+## **판 불일치일 때 파일에 손대지 않는다.** 지우지도, .corrupt 로 옮기지도 않는다.
+## 사람이 새 회차를 시작하면 그때 정상 경로(save)로 덮인다.
+## .corrupt 보관은 **정말로 겉모양이 깨진 파일**에만 남겨 둔다(예전 동작 그대로).
+static func load_result() -> Dictionary:
+	var out := { "status": LOAD_NONE, "run": {}, "file_version": 0,
+		"current_version": RUN_VERSION, "message": "" }
 	if not FileAccess.file_exists(SAVE_PATH):
-		return {}
+		return out
 	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if f == null:
-		return {}
+		return out
 	var txt := f.get_as_text()
 	f.close()
 	var parsed = JSON.parse_string(txt)
@@ -165,13 +220,38 @@ static func load() -> Dictionary:
 			if d.file_exists(CORRUPT_PATH.get_file()):
 				d.remove(CORRUPT_PATH.get_file())
 			d.rename(SAVE_PATH.get_file(), CORRUPT_PATH.get_file())
-		return {}
-	var run := _normalize(parsed.run)
+		out["status"] = LOAD_BROKEN
+		out["message"] = "저장 파일을 읽을 수 없습니다"
+		return out
+	var doc: Dictionary = parsed
+	var fv := file_run_version(doc)
+	out["file_version"] = fv
+	if fv != RUN_VERSION:
+		# **여기서 파일을 건드리지 않는다.** 사유만 돌려준다
+		out["status"] = LOAD_VERSION
+		out["message"] = VERSION_MESSAGE
+		return out
+	var run := _normalize(doc.run)
 	# 불러온 회차는 **언제나 거점부터**다. 파일이 어떤 값을 안고 있든 전투 표시를 내린다.
 	# 저장 쪽에서도 내리지만(_for_file), 옛 파일·손으로 고친 파일까지 덮으려고 여기서도 내린다.
 	run["inCombat"] = false
 	_drop_unknown_equipment(run)
+	out["status"] = LOAD_OK
+	out["run"] = run
+	return out
+
+## 예전 그대로의 얇은 겉면: 이어할 수 있는 회차만 돌려주고, 아니면 {}.
+## 사유가 필요한 쪽(제목 화면·이어하기)은 load_result()를 쓴다.
+static func load() -> Dictionary:
+	var r := load_result()
+	if String(r.status) != LOAD_OK:
+		return {}
+	var run: Dictionary = r.run
 	return run
+
+## 지금 저장을 **이어할 수 있는가**(파일이 있고 판본이 맞는가)
+static func continuable() -> bool:
+	return String(load_result().status) == LOAD_OK
 
 ## **자료에 없는 장비를 불러올 때 걸러낸다.**
 ##

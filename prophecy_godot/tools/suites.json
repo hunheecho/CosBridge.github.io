@@ -309,6 +309,11 @@
       "timeout_sec": 300,
       "desc": "저장에 자료에 없는 장비가 들어 있어도 게임이 죽지 않는다(빼고 기록을 남긴다). 폐기 장비는 그대로 둔다"
     },
+    "save_version_tests": {
+      "env": {},
+      "timeout_sec": 300,
+      "desc": "회차 판본(run_version)으로만 이어하기 가부를 가른다 — 옛 판본은 막고 파일은 그대로 두며, 프로필·처치 기록도 손대지 않는다. 자료에 없는 장비로 판별하지 않는다. 제목 화면은 '계속하기'를 감추지 않고 눌리지 않게 두고 사유를 글자로 보여 준다"
+    },
     "combat_lock_tests": {
       "env": {},
       "timeout_sec": 300,
@@ -663,6 +668,7 @@
       "overlay_tests",
       "screen_keep_tests",
       "save_repair_tests",
+      "save_version_tests",
       "save_guard_tests",
       "combat_lock_tests",
       "name_tests",

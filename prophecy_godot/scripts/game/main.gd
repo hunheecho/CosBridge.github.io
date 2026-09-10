@@ -318,7 +318,13 @@ func continue_run() -> void:
 	if not PCatalog.data_ready():
 		message(PCatalog.data_problem())
 		return
-	var r := PSave.load()
+	# 불러오기 결과는 셋으로 갈라져 온다(정상 / 없음 / 판 불일치).
+	# **판이 다른 저장은 열지 않고, 파일도 건드리지 않는다** — 사유만 알린다.
+	var res := PSave.load_result()
+	if String(res.status) == PSave.LOAD_VERSION:
+		message(PSave.VERSION_MESSAGE)
+		return
+	var r: Dictionary = res.run
 	if r.is_empty():
 		message("저장된 회차가 없습니다")
 		return
