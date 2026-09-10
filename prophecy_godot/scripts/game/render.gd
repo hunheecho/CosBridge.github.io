@@ -957,21 +957,20 @@ static func draw_player_effects(ci: Node2D, st: CombatState) -> void:
 				var mtg: float = float(f.get("trigger", 0.0))
 				if mtg > 0.0:
 					dashed_circle(ci, c.x, c.y, mtg, rgba(255, 235, 190, 0.75 * k), 1.5, 4.0, 4.0)
-			"crack": # 장비 '공성 망치머리'의 전방 균열. len·w는 규칙이 실제 판정에 쓴 값 그대로다(PWeapons.equip_hammer_crack)
-				# 개조 '전방 충격파'(beam, 푸른 띠)와 **다른 실루엣**이어야 한다 — 갈라진 땅이라 채우지 않고
-				# 지그재그 갈래 셋으로 그린다. 폭(w)은 바깥 갈래의 좌우 끝으로 그대로 드러난다
-				var L: float = f.len
-				var W: float = f.w
-				ci.draw_set_transform_matrix(xf(Vector2(float(f.x), float(f.y)), float(f.angle), Vector2.ONE))
-				for lane in [-1.0, 0.0, 1.0]:
-					var pts := PackedVector2Array()
-					var half_w: float = W / 2.0 * float(lane)
-					for i in 7:
-						var q: float = float(i) / 6.0
-						var jag: float = (6.0 if i % 2 == 0 else -6.0) * (1.0 - q)
-						pts.append(Vector2(L * q * (0.4 + 0.6 * (1.0 - k)), half_w * q + jag))
-					ci.draw_polyline(pts, rgba(214, 176, 122, (0.85 if is_zero_approx(lane) else 0.55) * k), 4.0 if is_zero_approx(lane) else 2.5)
-				ci.draw_set_transform_matrix(IDENT)
+			"focuswarn": # 장비 '공성 망치머리': 착탄점 추가 충격의 **예고**. x·y·r은 규칙이 실제 판정에 쓸 값 그대로이고,
+				# 수명(ttl)이 곧 지연시간이라 **이 원이 사라지는 순간이 터지는 순간**이다(PWeapons.equip_hammer_focus).
+				# 내려찍기 예고(strikewarn, 노란 점선)와 갈리게 안쪽에서 **자라나는** 고리를 하나 더 그린다 —
+				# 그 고리가 바깥 점선 원에 닿는 순간이 곧 터지는 순간이다
+				var fwc := Vector2(float(f.x), float(f.y))
+				var fwr: float = f.r
+				dashed_circle(ci, fwc.x, fwc.y, fwr, rgba(255, 196, 128, 0.55 + 0.45 * (1.0 - k)), 2.0, 5.0, 5.0)
+				stroke_circle(ci, fwc.x, fwc.y, maxf(1.0, fwr * (0.25 + 0.75 * (1.0 - k))), rgba(255, 226, 180, 0.75), 2.0)
+			"focusblast": # 장비 '공성 망치머리': 실제로 터지는 순간. 반지름은 판정에 쓴 값 그대로다(여기서 다시 만들지 마라).
+				# 본타 impact(옅은 모래색 넓은 원)보다 **좁고 진하게** 그려 '한 자리에 모았다'가 읽히게 한다
+				var fbc := Vector2(float(f.x), float(f.y))
+				var fbr: float = f.r
+				ci.draw_circle(fbc, fbr * (0.7 + 0.3 * (1.0 - k)), rgba(255, 186, 120, 0.4 * k))
+				stroke_circle(ci, fbc.x, fbc.y, fbr, rgba(255, 224, 176, 0.95 * k), 4.0 * k + 1.5)
 			# ---------- 장비 기술 여섯([4]~[9])의 순간 연출 ----------
 			# 좌표·길이·반지름·각도는 전부 **규칙이 실제 판정에 쓴 값 그대로**다(PSkills의 eq_* 구역).
 			# 여기서 다시 만들지 마라 — 그리는 순간 표시와 판정이 갈라진다.

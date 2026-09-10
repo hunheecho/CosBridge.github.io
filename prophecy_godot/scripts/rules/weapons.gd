@@ -456,31 +456,57 @@ static func land_heavy(st: CombatState, w: Dictionary, ix: float, iy: float, ang
 		later(st, 0.6, func():
 			st.fx({ "kind": "impact", "x": ix, "y": iy, "r": float(s.radius), "ttl": 0.3, "after": true })
 			hit_circle(st, w, ix, iy, float(s.radius), 0.5, { "direct": false, "ground": true }))
-	equip_hammer_crack(st, w, ix, iy, ang)
+	equip_hammer_focus(st, w, ix, iy)
 	st.ev("boss_land")
 
-## **장비 '공성 망치머리'**(eff.hammerCrack, 시험값). 전투망치가 착탄한 **뒤** 전방으로 균열이 뻗어 추가 충격을 준다.
+## **장비 '공성 망치머리'**(eff.hammerFocus, 시험값). 전투망치가 착탄한 **뒤 짧은 간격을 두고**
+## **최초 착탄점 바로 그 자리에** 추가 충격이 한 번 더 터진다.
+##
+## 예전의 **전방 균열은 없앴다**(2026-09-10). 앞으로 뻗는 공격은 개조 '전방 충격파'의 몫이고,
+## 이 장비는 **착탄점 한 자리에 화력을 모으는** 쪽으로 역할을 갈랐다. 균열 관련 값(len·w)도 자료에서 뺐다.
 ##
 ## 못박는 것
 ##  ① **전투망치 전용.** 무기 id가 hammer가 아니면 아무 일도 하지 않는다(장비 설명·상점 문구에도 그렇게 적혀 있다).
-##  ② **피해 기준은 최초 타격의 공격 피해(명목값)다.** hit_beam은 `w.stats.damage × mult`를 쓰므로
-##     본타가 실제로 깎은 체력·보호막·과잉 피해와 무관하다. 적이 반쯤 죽어 있든 무적이든 균열 피해는 같다.
-##  ③ **최초 착탄에 맞은 적도 균열에 다시 맞는다.** 균열은 본타와 따로 대상을 고르며 제외 목록을 쓰지 않는다.
-##  ④ **한 번의 균열에 같은 적이 두 번 맞지 않는다.** hit_beam이 alive_targets를 한 번만 훑기 때문이다.
-##  ⑤ 준비 중 회피로 취소하면 land_heavy 자체가 불리지 않으므로 균열도 없다(§2 취소 규칙 그대로).
-##  ⑥ 연계 자격은 **개조 '전방 충격파'와 같은 main_extra**다 — direct:false로 넣으므로
+##  ② **피해 기준은 최초 타격의 공격 피해(명목값)다.** hit_circle → dmg_to는 `w.stats.damage × mult`를 쓰므로
+##     본타가 실제로 깎은 체력·보호막·과잉 피해와 무관하다. 적이 반쯤 죽어 있든 즉사했든 추가 충격 피해는 같다.
+##     **피해 배율이 두 겹으로 곱해지지도 않는다** — 본타가 이미 곱한 값이 아니라 명목 공격 피해에서 새로 센다.
+##  ③ **위치는 최초 착탄점으로 고정.** ix·iy를 여기서 **값으로** 붙잡아 두고, 지연 뒤의 람다는 그 두 값만 읽는다.
+##     플레이어·적 좌표를 다시 보지 않으므로 그 사이에 누가 움직여도 터지는 자리는 바뀌지 않는다.
+##  ④ **최초 착탄에 맞은 적도 추가 충격에 다시 맞는다.** 추가 충격은 본타와 따로 대상을 고르며 제외 목록을 쓰지 않는다.
+##  ⑤ **한 번의 추가 충격에 같은 적이 두 번 맞지 않는다.** hit_circle이 alive_targets를 한 번만 훑기 때문이다
+##     (몸집이 큰 적도 한 번이다 — 반경 판정은 적 하나당 한 번만 본다).
+##  ⑥ **밀어내기·경직은 본타만 준다.** 여기서는 heavy_control을 부르지 않는다 — 한 번의 내려찍기가
+##     제압을 두 번 걸면 주기 1.4초짜리 무기가 제압을 이어 붙일 수 있다.
+##  ⑦ 준비 중 회피로 취소하면 land_heavy 자체가 불리지 않으므로 추가 충격도 없다(§2 취소 규칙 그대로).
+##     착탄한 **뒤에** 회피하는 것은 취소가 아니라 이미 예약된 추가 충격은 그대로 터진다(여진과 같다).
+##  ⑧ 연계 자격은 **개조 '전방 충격파'·'여진'과 같은 main_extra**다 — direct:false로 넣으므로
 ##     PSupport.cause_of가 '주무기가 낸 추가 타격'으로 분류한다. 자격표를 우회하는 새 통로를 만들지 않는다.
-static func equip_hammer_crack(st: CombatState, w: Dictionary, ix: float, iy: float, ang: float) -> void:
+##     **파쇄 자격은 그대로 유지한다.** 같은 빙결을 본타와 추가 충격이 두 번 깨는 일은 자격표가 아니라
+##     CombatState.try_shatter의 freeze_broke 표와 _end_freeze가 막는다 — 본타가 깬 순간 빙결이 끝나고
+##     재빙결 제한(refreezeSec)이 걸리므로, 지연 뒤에 온 추가 충격에는 깨뜨릴 빙결이 남아 있지 않다.
+##  ⑨ **표시 = 판정.** 예고 원(focuswarn)의 자리·반지름은 아래 판정에 쓰는 값 그대로이고,
+##     예고의 수명이 곧 지연시간이라 **예고가 사라지는 순간이 터지는 순간**이다.
+##
+## 개조 '여진'과 무엇이 다른가(둘 다 켜면 각각 따로 터진다 — 합치지도 지우지도 않는다)
+##   여진: 지연 0.6초 · 반경 = 망치 반경 그대로(80) · ground(장애물 무시)
+##   이 장비: 지연 0.25초 · 반경 = 망치 반경 × 0.65(52) · 착탄점에서의 시야 판정(장애물이 가리면 안 맞는다) · 예고 표시 있음
+static func equip_hammer_focus(st: CombatState, w: Dictionary, ix: float, iy: float) -> void:
 	var EQ: Dictionary = st.build.get("equip", {})
-	if not EQ.has("hammerCrack") or String(w.id) != "hammer":
+	if not EQ.has("hammerFocus") or String(w.id) != "hammer":
 		return
-	var HC: Dictionary = EQ.hammerCrack
-	var L := float(HC.get("len", 170.0))
-	var W := float(HC.get("w", 56.0))
-	var m := float(HC.get("mult", 0.5))
-	st.fx({ "kind": "crack", "x": ix, "y": iy, "angle": ang, "len": L, "w": W, "ttl": 0.3 })
-	hit_beam(st, w, ix, iy, ang, L, W, m, { "direct": false })
-	st.stats.equip_procs.siege_hammerhead = int(st.stats.equip_procs.get("siege_hammerhead", 0)) + 1
+	var HF: Dictionary = EQ.hammerFocus
+	var m := float(HF.get("mult", 0.5))
+	var delay := float(HF.get("delay", 0.25))
+	var rad := float(w.stats.radius) * float(HF.get("radiusMult", 0.65))
+	# 착탄점을 **값으로** 붙잡는다. 아래 람다는 이 두 값만 쓰고 플레이어·적 좌표를 다시 읽지 않는다
+	var hx := ix
+	var hy := iy
+	st.fx({ "kind": "focuswarn", "x": hx, "y": hy, "r": rad, "ttl": delay })
+	var blast := func() -> void:
+		st.fx({ "kind": "focusblast", "x": hx, "y": hy, "r": rad, "ttl": 0.3 })
+		hit_circle(st, w, hx, hy, rad, m, { "direct": false })
+		st.stats.equip_procs.siege_hammerhead = int(st.stats.equip_procs.get("siege_hammerhead", 0)) + 1
+	later(st, delay, blast)
 
 ## 전투망치의 제압(밀어내기·경직). 등급별 세기는 **직접 쓰지 않고** data/supports.json의 저항표를 쓴다.
 ## 보스는 밀어내기·경직 저항이 0이라 위치도 행동도 강제로 바뀌지 않는다(무한 제압 금지).
