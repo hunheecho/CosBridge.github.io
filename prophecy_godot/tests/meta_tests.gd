@@ -521,6 +521,14 @@ func _init() -> void:
 	var gold_b4 := int(eqr.gold)
 	var eq_qup := PRun.sell_quote(eqr, eu_a)
 	ok("강화한 장비의 판매 견적에 '강화가 사라진다'가 적혀 있다", String(eq_qup.text).find("강화 +2") >= 0, String(eq_qup.text))
+	# 규칙 추가(2026-09-10 사용자 확정): 판매가 = 기본가 + **강화 비용의 sellRefundRate**.
+	# 옛 검사는 '지불액의 절반'만 보고 있었다. 구현에 맞춘 것이 아니라 **더해지는 항이 새로 생긴 것**이라 여기서 함께 못박는다
+	ok("강화한 장비 판매가 = 기본가 + 강화 비용 환급(따로 세어 더한다)",
+		int(eq_qup.gold) == int(eq_qup.base) + int(eq_qup.refund)
+			and int(eq_qup.base) == int(floor(float(PRun.equip_price("vitality_coat")) * PRun.sell_rate()))
+			and int(eq_qup.refund) == int(floor(float(PRun.equip_upgrade_total_cost(2)) * PRun.sell_refund_rate()))
+			and int(eq_qup.upgradeSpent) == PRun.equip_upgrade_total_cost(2),
+		"%d = %d + %d (강화 지출 %d)" % [int(eq_qup.gold), int(eq_qup.base), int(eq_qup.refund), int(eq_qup.upgradeSpent)])
 	ok("판매하면 그 개체가 가방에서 사라지고 강화 기록도 지워진다",
 		PRun.sell_equipment(eqr, eu_a, int(eq_qup.gold)) and not (eqr.bag as Array).has(eu_a) and PRun.equip_plus_of(eqr, eu_a) == 0 and int(eqr.gold) == gold_b4 + int(eq_qup.gold)
 			and not (eqr.get("equipPlus", {}) as Dictionary).has(eu_a))

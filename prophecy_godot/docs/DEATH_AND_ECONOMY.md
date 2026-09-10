@@ -114,9 +114,26 @@
 > 마지막 날은 남은 시간이 0이라 회복약(35금, 30 회복, 하루 2개·가방 3개)만이 완충 수단이다. 일반 출격 사망에서는 예전처럼 25%가 그대로 걸린다.
 > 마지막 날은 관문 날이라 일반 출격 자체가 잠겨 있어(`PRun.can_sortie`) 마지막 날 사망은 언제나 관문 사망이다.
 
-## 3. 판매 = 구매액의 절반 [확정]
+## 3. 판매 = 구매액의 절반 + 강화 비용의 50% [확정]
 
-* **구매한 장비**: `floor(실제 지불 금액 × 0.5)`.
+> 2026-09-10 추가 확정: **기존 장비 기본 판매가에 강화 비용의 50%를 더한다.**
+> 두 값은 **따로 계산해 더한다** — 기존 '실제 지불액의 절반' 규칙과 강화 비용 환급은 서로 다른 값이다.
+>
+> | 판매가 | 계산 | 정본 |
+> |---|---|---|
+> | ① 기본가 | `floor(실제 지불액 × shop.sellRate)` | `data/world.json` `shop.sellRate` |
+> | ② 강화 환급 | `floor(누적 강화 비용 × shop.equipUpgrade.sellRefundRate)` | `data/world.json` `shop.equipUpgrade.sellRefundRate` |
+> | 받을 금액 | ① + ② | `PRun.sell_value` / `sell_quote.gold` |
+>
+> 지금 자료 기준 누적 강화 비용은 +1 70금 · +2 200금이므로 **환급은 +0 0금 · +1 35금 · +2 100금**이다.
+> **비율도 비용도 코드에 숫자를 두지 않는다.** `PRun.sell_rate()` / `PRun.sell_refund_rate()`가 자료에서 읽고,
+> 자료가 없거나 0~1 밖이면 -1을 돌려주어 **판매 자체가 막힌다**(금화가 먼저 늘지 않는다).
+>
+> 중복 환급이 없는 이유: 강화 단계는 **개체 하나**(`run.equipPlus[<개체 id>]`)에만 붙는다. 제작이 재료를 태울 때
+> 그 개체의 강화 기록도 함께 지워지고(`PRun.craft`), 완성품은 **계승 단계만** 갖는다. 제작은 강화 비용을 다시
+> 청구하지도 환급하지도 않으므로 같은 강화 비용이 재료와 완성품 양쪽에서 돌아오는 경로가 없다.
+
+* **구매한 장비 기본가**: `floor(실제 지불 금액 × shop.sellRate)`(지금 0.5).
 * **실제 지불 금액을 개체별로 보존**한다: `run.paidFor[<장비 id>] = { price, from, day }`.
   `PRun.buy_equipment`가 할인(상인 15%·상점 할인권)을 **적용한 뒤의 금액**을 적는다 → 싸게 사서 비싸게 파는 일이 없다.
 * **구매액이 없는 장비**(드롭·제작·옛 저장): **정상 기준 구매가의 절반** = `floor(PRun.equip_price(id) × 0.5)`. [시험 규칙 — 사용자가 준 "첫 후보"를 그대로 넣었다]
@@ -124,6 +141,18 @@
 * 장비를 팔면 `run.paidFor`에서 그 개체의 기록도 사라진다. 다시 사면 그때 값이 다시 적힌다.
 * 제작으로 재료가 된 장비의 기록도 사라진다(완성품은 "구매액 없는 장비"가 된다).
 * 옛 고정 판매가표(무기 35·갑옷 30·방패 30)는 `PRun.sell_price(id)`에만 남아 있다. **판매 규칙의 정본은 `PRun.sell_value(run, id)`다.**
+* **강화 환급은 제작으로 계승된 단계에도 그대로 적용된다.** 재료를 +2까지 올려 제작하든, 만든 뒤 완성품을 +2로 올리든
+  최종 단계·성능·총 강화 지출·**판매가**가 같다(`tests/sell_upgrade_tests.gd` [4]).
+* 실측 표(`tests/sell_upgrade_tests.gd` [1], 정가 구매 기준):
+
+  | 장비 | 정상가 | +0 | +1 | +2 |
+  |---|---|---|---|---|
+  | 사냥꾼의 검(무기) | 140 | 70 | 105 | 170 |
+  | 생명력의 외투(방어구) | 120 | 60 | 95 | 160 |
+  | 철벽 방패(방패) | 120 | 60 | 95 | 160 |
+
+  할인권(30%)으로 98금에 산 무기는 기본가가 49금이 되고 강화 환급은 그대로다(+2면 49 + 100 = 149금).
+  제작 완성품은 산 적이 없으므로 기본가가 **정상가의 절반**이다(월광 갑옷 120 → 60금).
 
 ### 확인 단계(견적 → 확정)
 
@@ -209,10 +238,13 @@
 
 | 함수 | 인자 | 반환 |
 |---|---|---|
-| `PRun.sell_quote(run, id)` | `run: Dictionary`, `id: String` | `Dictionary { id, name, slot, gold, price(=gold 별칭), paid, basis, equipped, unequips, hp, hpAfter, hpMax, hpMaxAfter, goldAfter, can, reason, text }` |
+| `PRun.sell_quote(run, id)` | `run: Dictionary`, `id: String` | `Dictionary { id, name, slot, gold, price(=gold 별칭), base, refund, upgradeSpent, plus, paid, basis, equipped, unequips, hp, hpAfter, hpMax, hpMaxAfter, goldAfter, can, reason, text }` |
 | `PRun.can_sell_equipment(run, id)` | 〃 | `bool` |
 | `PRun.sell_equipment(run, id, expect_gold := -1)` | 〃 + `expect_gold: int` | `bool`(확정 성공) |
-| `PRun.sell_value(run, id)` | 〃 | `int`(받을 금액만) |
+| `PRun.sell_value(run, id)` | 〃 | `int`(받을 금액 = 기본가 + 강화 환급) |
+| `PRun.sell_base_value(run, id)` | 〃 | `int`(① 기본가만) |
+| `PRun.sell_upgrade_refund(run, id)` | 〃 | `int`(② 강화 환급만) |
+| `PRun.sell_rate()` / `PRun.sell_refund_rate()` | — | `float`(자료의 비율. -1 = 자료 없음 → 판매 불가) |
 | `PRun.paid_for(run, id)` | 〃 | `int`(-1 = 구매액 없음) |
 
 확인 창 순서: `sell_quote`로 창을 띄우고 → 사용자가 "예" → `sell_equipment(run, id, int(quote.gold))`.

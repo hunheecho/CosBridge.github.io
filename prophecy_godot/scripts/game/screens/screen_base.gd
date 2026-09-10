@@ -137,9 +137,11 @@ func open_sell_confirm(id: String) -> void:
 	if r.is_empty():
 		return
 	var nm := PRun.equip_display_name(r, id) # 강화 단계까지 이름에 넣는다(무엇을 파는지 헷갈리지 않게 — §4)
-	var price := int(PRun.sell_quote(main.run, id).gold)   # 판매가 정본은 견적이다(구매액의 절반)
+	var q := PRun.sell_quote(main.run, id)   # 판매가 정본은 견적이다(지불액의 절반 + 강화 비용의 50%)
+	var price := int(q.gold)
+	# 확정에 이 금액을 그대로 넘긴다 — 창에 적힌 값과 실제 입금액이 다를 수 없다
 	open_confirm("%s%s %d금에 판매할까요?" % [PGlossaryTip.esc(nm), PUi.josa(nm, "을", "를"), price],
-		_sell_body.bind(r, id, price), [{ "text": "판매한다", "cb": func(): main.sell_equipment(id) }])
+		_sell_body.bind(r, id, price), [{ "text": "판매한다", "cb": func(): main.sell_equipment(id, price) }])
 
 func _sell_body(box: VBoxContainer, r: Dictionary, id: String, price: int) -> void:
 	var slot := ""
@@ -148,6 +150,14 @@ func _sell_body(box: VBoxContainer, r: Dictionary, id: String, price: int) -> vo
 		if r.equipment.get(s, null) != null and String(r.equipment[s]) == id:
 			slot = s
 	PUi.kv(box, "받을 금액", "[color=#ffd966][b]+%d금[/b][/color] [color=#9ea8b8](금화 %d → %d)[/color]" % [price, int(r.gold), int(r.gold) + price], 15)
+	# 판매가가 어떻게 갈리는지 그대로 적는다(기본가 + 강화 비용 환급) — 견적과 같은 값이다
+	var q := PRun.sell_quote(r, id)
+	var paid := int(q.get("paid", -1))
+	var basis := ("이 장비에 실제로 낸 %d금" % paid) if paid >= 0 else ("산 적이 없는 장비라 정상가 %d금" % PRun.equip_price(id))
+	PUi.kv(box, "기본가", "[b]%d금[/b] [color=#9ea8b8]%s의 %d%%[/color]" % [int(q.get("base", 0)), basis, int(round(PRun.sell_rate() * 100.0))], 13)
+	if int(q.get("plus", 0)) > 0:
+		PUi.kv(box, "강화 환급", "[b]%d금[/b] [color=#9ea8b8]+%d까지 낸 강화 비용 %d금의 %d%%[/color]" % [
+			int(q.get("refund", 0)), int(q.plus), int(q.get("upgradeSpent", 0)), int(round(PRun.sell_refund_rate() * 100.0))], 13)
 	if slot != "":
 		var dup: Dictionary = r.duplicate(true)
 		PRun.unequip_item(dup, slot)

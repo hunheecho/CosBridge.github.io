@@ -418,8 +418,13 @@ func buy_merchant_service() -> void:
 	save_run()
 	show("shop")
 
-func sell_equipment(id: String) -> void:
-	PRun.sell_equipment(run, id)
+## 판매 확정. expect_gold >= 0이면 **확인 창에 적힌 금액과 같을 때만** 판다 —
+## 창을 띄운 사이에 값이 달라졌거나 두 번 눌렸으면 아무것도 하지 않는다(견적 = 확인창 = 입금액)
+func sell_equipment(id: String, expect_gold: int = -1) -> void:
+	if not PRun.sell_equipment(run, id, expect_gold):
+		message("판매할 수 없습니다: %s" % String(PRun.sell_quote(run, id).get("reason", "견적이 바뀌었습니다")))
+		show(screen)
+		return
 	save_run()
 	show(screen)
 

@@ -63,17 +63,22 @@ func _init() -> void:
 	# 지불액·판매가·탈착은 전부 개체에 붙으므로 여기서부터는 uid0으로 묻는다 —
 	# 종류 id로 물으면 지불 기록이 없어 -1이 나온다(예전 검사가 그래서 틀렸다)
 	var uid0 := String(run.equipment[slot0])
-	ok("가격표: 무기 140·갑옷 120·방패 120. 판매는 **실제 지불 금액의 절반**(2026-09-09) — 옛 고정표 35/30/30은 sell_price에만 남는다",
+	# 2026-09-10 규칙 추가: 판매가 = **기본가(지불액 × shop.sellRate) + 강화 환급(누적 강화 비용 × sellRefundRate)**.
+	# 여기 개체는 +0이라 환급이 0이고 기대값은 예전과 같다 — 기대값을 구현에 맞춘 것이 아니라 **더해지는 항이 0인 경우**다.
+	# 비율은 자료에서 읽는다(코드에 0.5를 적지 않는다). 강화가 붙은 경우는 tests/sell_upgrade_tests.gd가 본다
+	ok("가격표: 무기 140·갑옷 120·방패 120. 판매는 **실제 지불 금액의 절반 + 강화 비용 환급**(2026-09-09·2026-09-10) — 옛 고정표 35/30/30은 sell_price에만 남는다",
 		int(run.gold) == 500 - price0 and price0 == int(PCatalog.shop().price[slot0]) and PRun.sell_price(eq0) == int(PCatalog.shop().sellPrice[slot0])
-			and PRun.sell_value(run, uid0) == int(floor(float(price0) * 0.5)) and PRun.paid_for(run, uid0) == price0,
-		"개체 %s · 지불 %d → 판매 %d" % [uid0, PRun.paid_for(run, uid0), PRun.sell_value(run, uid0)])
+			and PRun.sell_value(run, uid0) == int(floor(float(price0) * PRun.sell_rate())) and PRun.paid_for(run, uid0) == price0
+			and PRun.sell_base_value(run, uid0) == PRun.sell_value(run, uid0) and PRun.sell_upgrade_refund(run, uid0) == 0,
+		"개체 %s · 지불 %d → 판매 %d(기본 %d + 강화 환급 %d)" % [uid0, PRun.paid_for(run, uid0), PRun.sell_value(run, uid0),
+			PRun.sell_base_value(run, uid0), PRun.sell_upgrade_refund(run, uid0)])
 	PRun.unequip_item(run, slot0)
 	PRun.equip_item(run, uid0)
 	PRun.unequip_item(run, slot0)
 	var gold_before := int(run.gold)
 	var sell_q := PRun.sell_quote(run, uid0)
 	PRun.sell_equipment(run, uid0, int(sell_q.gold))
-	ok("탈착 반복으로 금화가 새지 않고 판매는 견적(구매액의 절반)만큼 1회", int(run.gold) == gold_before + int(sell_q.gold) and int(sell_q.gold) == int(floor(float(price0) * 0.5)) and not PRun.owns_equip(run, eq0) and (run.bag as Array).is_empty())
+	ok("탈착 반복으로 금화가 새지 않고 판매는 견적(기본가 + 강화 환급)만큼 1회", int(run.gold) == gold_before + int(sell_q.gold) and int(sell_q.gold) == int(floor(float(price0) * PRun.sell_rate())) and int(sell_q.gold) == int(sell_q.base) + int(sell_q.refund) and not PRun.owns_equip(run, eq0) and (run.bag as Array).is_empty())
 	run.bag.append("vitality_coat")
 	PRun.equip_item(run, "vitality_coat")
 	run.hp = 120.0
