@@ -183,6 +183,7 @@ func _init() -> void:
 	sec10_plague_host()
 	sec11_lifesteal_shut()
 	sec12_stagger_unchanged()
+	sec13_others_shut()
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
@@ -1376,3 +1377,44 @@ func sec12_stagger_unchanged() -> void:
 		froze2 and is_equal_approx(shatters(st2), 1.0) and float(b2.hp) < hp_b
 		and is_zero_approx(float(b2.get("stagger_t", 0.0))) and stag_blocked(st2, "boss") >= 1,
 		"파쇄 %s · 남은 경직 %.3f초 · 보스 막힘 %d회" % [str(shatters(st2)), float(b2.get("stagger_t", 0.0)), stag_blocked(st2, "boss")])
+
+# ---------- 13. 함께 열지 않은 셋 — 실제 경로로도 0이다 ----------
+## 자격표 조회(7절 (마))만으로는 "표는 그런데 실제로는?"이 남는다. 값으로도 남긴다.
+##  · 감전 후속 — 감전된 적을 장비 기술로 때려도 후속이 터지지 않는다(주무기로 때리면 터진다).
+##  · 방전 충전 — 그래서 축전도 오르지 않는다.
+##  · 까마귀 표적 — 장비 기술로 때린 적이 표적으로 지정되지 않는다(주무기로 때리면 지정된다).
+func sec13_others_shut() -> void:
+	var T := PCatalog.support_tuning("orb")
+
+	# 13-1. 감전 후속·방전 충전
+	var st := armed("eq_flashcut", "sword", false, [["orb", 1, ["conduct"]]])
+	var e := dummy(st, 100.0, 0.0)
+	for c in EQ_CAUSES:
+		e.conduct = float(T.get("shockDur", 2.0))
+		eq_blow(st, e, String(c), 5.0)
+	var by_eq: float = PSupport.metered(st, "orb", "shock_procs")
+	var chg_eq: int = int(st.support_charge)
+	e.conduct = float(T.get("shockDur", 2.0))
+	st.damage_enemy(e, 5.0, { "src": { "weapon_id": "sword", "direct": true } })
+	ok("13-1: **장비 기술로는 감전 후속이 터지지 않고 방전 충전도 오르지 않는다**(주무기로는 터진다)",
+		is_zero_approx(by_eq) and chg_eq == 0
+		and is_equal_approx(PSupport.metered(st, "orb", "shock_procs"), 1.0) and int(st.support_charge) == 1,
+		"장비 기술 6타 후속 %s·충전 %d → 주무기 1타 후속 %s·충전 %d"
+			% [str(by_eq), chg_eq, str(PSupport.metered(st, "orb", "shock_procs")), int(st.support_charge)])
+
+	# 13-2. 까마귀 표적
+	var st2 := armed("eq_flashcut", "sword", false, [["crow", 1, []]])
+	var a2 := dummy(st2, 100.0, 0.0)
+	var b2 := dummy(st2, 100.0, 60.0)
+	for c in EQ_CAUSES:
+		eq_blow(st2, a2, String(c), 5.0)
+	# 상태는 **그때그때 다시 읽는다** — 첫 지정 전에는 st.support에 crow 칸 자체가 없다
+	var eq_marks: int = int(((st2.support as Dictionary).get("crow", {}) as Dictionary).get("marks", 0))
+	var after_eq = ((st2.support as Dictionary).get("crow", {}) as Dictionary).get("target", null)
+	st2.damage_enemy(b2, 5.0, { "src": { "weapon_id": "sword", "direct": true } })
+	var S2: Dictionary = (st2.support as Dictionary).get("crow", {})
+	var after_main = S2.get("target", null)
+	ok("13-2: **장비 기술로 때린 적은 까마귀 표적이 되지 않는다**(주무기로 때린 적은 된다)",
+		after_eq == null and eq_marks == 0 and after_main != null
+		and int((after_main as Dictionary).id) == int(b2.id) and int(S2.get("marks", 0)) == 1,
+		"장비 기술 6타 뒤 지정 %d회 · 주무기 1타 뒤 지정 %d회" % [eq_marks, int(S2.get("marks", 0))])
