@@ -91,6 +91,10 @@ static func running_test_script() -> bool:
 	return false
 
 static func write_blocked() -> String:
+	# **자료가 안 섰으면 저장하지 않는다.** 그 상태의 회차는 장비·무기가 비어 있어
+	# 그대로 쓰면 멀쩡한 저장을 망가진 것으로 덮어쓴다(사용자 지시: 기존 저장 보존).
+	if not PCatalog.data_ready():
+		return "게임 자료가 서 있지 않다 — 불완전한 회차로 저장을 덮어쓰지 않는다"
 	if not running_test_script():
 		return ""
 	var dir := ProjectSettings.globalize_path("user://")

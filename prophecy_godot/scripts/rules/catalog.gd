@@ -274,6 +274,29 @@ static func equipment_def(id: String) -> Dictionary:
 		return CE[id]
 	push_error("알 수 없는 장비: " + id)
 	return {}
+## **회차를 시작해도 되는 자료가 실제로 섰는가.**
+## _load 는 실패하면 빈 사전을 돌려주고 게임은 그대로 진행한다 — 그러면 장비·무기가 전부
+## '없는 것'이 되어 빌드 계산 아래에서 죽는다. 그 상태로는 **회차에 들어가지 않는 것**이 맞다.
+## 없는 장비를 저장에서 빼는 처리(PSave)도 이 판정이 참일 때만 한다 —
+## 자료가 안 섰는데 정리하면 멀쩡한 장비를 지운다.
+## 비어 있으면 무엇이 비었는지 사람 말로 돌려준다. 정상이면 빈 문자열.
+static func data_problem() -> String:
+	var missing: Array = []
+	if (equipment() as Dictionary).is_empty():
+		missing.append("장비")
+	if (weapons() as Dictionary).is_empty():
+		missing.append("자동기술")
+	if (skills() as Dictionary).is_empty():
+		missing.append("수동 기술")
+	if (enemies() as Dictionary).is_empty():
+		missing.append("적")
+	if missing.is_empty():
+		return ""
+	return "게임 자료를 읽지 못했습니다(%s). 회차를 시작할 수 없습니다 — 저장은 그대로 둡니다." % ", ".join(missing)
+
+static func data_ready() -> bool:
+	return data_problem() == ""
+
 ## 이 장비 id 가 지금 자료에 있는가. **오류를 내지 않고** 묻기만 한다
 ## (PSave 가 저장을 불러올 때 없는 장비를 걸러내는 데 쓴다)
 static func equipment_known(id: String) -> bool:

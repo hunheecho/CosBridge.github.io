@@ -251,6 +251,11 @@ var new_run_opts := {} # 검증 메뉴에서 정한 새 회차 옵션 { seed, de
 ## skill_id = 시작 화면에서 고른 **수동 기술 1개**(Q에 Lv1으로 들어간다, §7).
 ## ""(빈 값)이면 감속장 — 자동 진행 스모크·도구처럼 고르는 화면을 지나지 않는 경로의 기본값이다.
 func start_run(weapon_id: String, skill_id: String = "") -> void:
+	# **자료가 안 섰으면 회차에 들어가지 않는다**(2026-09-10 사용자 지시).
+	# 예전에는 그대로 진행해서 빌드 계산 아래에서 죽었다. 저장은 건드리지 않는다.
+	if not PCatalog.data_ready():
+		message(PCatalog.data_problem())
+		return
 	fight_kind = "run"
 	var seed_use: int = int(new_run_opts.get("seed", _auto_seed if _auto else 0))
 	var route_v: Array = new_run_opts.get("route", [])
@@ -307,6 +312,11 @@ func craft(recipe_id: String, use_equipped: bool, equip_after: bool) -> void:
 	show("forge")
 
 func continue_run() -> void:
+	# 자료가 안 섰으면 **불러오지도 않는다.** 불러오면 PSave 가 정리를 시도하고,
+	# 그 뒤 저장까지 하면 멀쩡한 저장이 망가진다. 손대지 않고 안내만 한다
+	if not PCatalog.data_ready():
+		message(PCatalog.data_problem())
+		return
 	var r := PSave.load()
 	if r.is_empty():
 		message("저장된 회차가 없습니다")
