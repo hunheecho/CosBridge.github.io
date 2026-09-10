@@ -144,7 +144,47 @@ static func load() -> Dictionary:
 				d.remove(CORRUPT_PATH.get_file())
 			d.rename(SAVE_PATH.get_file(), CORRUPT_PATH.get_file())
 		return {}
-	return _normalize(parsed.run)
+	var run := _normalize(parsed.run)
+	_drop_unknown_equipment(run)
+	return run
+
+## **자료에 없는 장비를 불러올 때 걸러낸다.**
+##
+## 왜: 장비는 id 문자열로 저장된다. 그 id가 지금 자료에 없으면(시험용 장비가 든 저장, 판이 바뀌며
+## 사라진 장비, 손으로 고친 저장) PCatalog.equipment_def가 빈 사전을 돌려주고, 그것을 받은 쪽이
+## `.slot`을 읽다 **게임이 죽는다.** 실제로 그런 저장이 만들어진 적이 있다(2026-09-10).
+##
+## 사람의 장비를 함부로 버리지 않는다 — **지금 자료에 아예 없는 것만** 뺀다. 폐기 표시(retired)가
+## 붙은 장비는 자료에 그대로 있으므로 여기서 걸리지 않는다(기존 저장 보존).
+## 무엇을 뺐는지는 기록으로 남겨 조용히 사라지지 않게 한다.
+static func _drop_unknown_equipment(run: Dictionary) -> void:
+	if run.is_empty():
+		return
+	var dropped: Array = []
+	var eq: Dictionary = run.get("equipment", {})
+	for slot in eq.keys():
+		var uid = eq[slot]
+		if uid == null:
+			continue
+		if PCatalog.equipment_known(PRun.equip_type_of(String(uid))):
+			continue
+		dropped.append(String(uid))
+		eq[slot] = null
+	var bag: Array = run.get("bag", [])
+	var keep: Array = []
+	for uid in bag:
+		if PCatalog.equipment_known(PRun.equip_type_of(String(uid))):
+			keep.append(uid)
+		else:
+			dropped.append(String(uid))
+	if keep.size() != bag.size():
+		run["bag"] = keep
+	if dropped.is_empty():
+		return
+	push_warning("저장에 없는 장비가 들어 있어 뺐다(게임을 멈추지 않으려고): " + str(dropped))
+	var log: Array = run.get("log", [])
+	log.append("자료에 없는 장비 %d개를 정리했다: %s" % [dropped.size(), ", ".join(dropped)])
+	run["log"] = log
 
 static func clear() -> void:
 	# 지우기도 같은 관문을 지난다. 사고를 낸 스크립트는 clear() 뒤 새 회차를 저장했다 —

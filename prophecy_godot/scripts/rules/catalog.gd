@@ -274,6 +274,11 @@ static func equipment_def(id: String) -> Dictionary:
 		return CE[id]
 	push_error("알 수 없는 장비: " + id)
 	return {}
+## 이 장비 id 가 지금 자료에 있는가. **오류를 내지 않고** 묻기만 한다
+## (PSave 가 저장을 불러올 때 없는 장비를 걸러내는 데 쓴다)
+static func equipment_known(id: String) -> bool:
+	return equipment().has(id) or crafted_equipment().has(id)
+
 static func is_crafted(id: String) -> bool:
 	return crafted_equipment().has(id)
 

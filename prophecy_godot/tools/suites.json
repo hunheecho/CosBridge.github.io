@@ -294,6 +294,11 @@
       "timeout_sec": 300,
       "desc": "특수 정예 결투는 임무 목표 카드에 붙지 않는다(KD-11). 일반 카드에는 그대로 붙는다"
     },
+    "save_repair_tests": {
+      "env": {},
+      "timeout_sec": 300,
+      "desc": "저장에 자료에 없는 장비가 들어 있어도 게임이 죽지 않는다(빼고 기록을 남긴다). 폐기 장비는 그대로 둔다"
+    },
     "screen_keep_tests": {
       "env": {},
       "timeout_sec": 300,
@@ -600,6 +605,7 @@
       "elites_tests",
       "overlay_tests",
       "screen_keep_tests",
+      "save_repair_tests",
       "duel_card_tests",
       "prep_shop_tests",
       "death_tests",
