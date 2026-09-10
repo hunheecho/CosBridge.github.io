@@ -535,7 +535,13 @@ func _damage_share_line(r: Dictionary, weapon_id: String) -> Control:
 func _alternatives_line(r: Dictionary, gold: int) -> Control:
 	var SH := PCatalog.shop()
 	var parts := []
-	parts.append("장비 %d~%d" % [int(SH.sellPrice.armor) * 4, int(SH.price.weapon)])
+	# 장비 값의 폭은 **구매가표**에서 직접 읽는다(옛 고정 판매가표 × 4로 에둘러 계산하지 않는다)
+	var eq_lo := 1 << 30
+	var eq_hi := 0
+	for sl in (SH.price as Dictionary):
+		eq_lo = mini(eq_lo, int(SH.price[sl]))
+		eq_hi = maxi(eq_hi, int(SH.price[sl]))
+	parts.append("장비 %d~%d" % [eq_lo, eq_hi])
 	var cheap := ""
 	var cheap_p := 1 << 30
 	for id in PConsumables.prep_ids():
