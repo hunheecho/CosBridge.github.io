@@ -319,6 +319,19 @@
       "timeout_sec": 300,
       "desc": "실제 장비로 구매→강화→제작→착용→전투 발동→창고 보관→Q 배치→Q/E 교환→저장→이어하기→해제를 한 회차로 잇는 통합 검사"
     },
+    "eq_fire_tests": {
+      "env": {},
+      "timeout_sec": 300,
+      "desc": "장비 기술 6종을 하나씩 실제로 발동시켜 효과를 값으로 본다(적을 세워 놓고: 적중·방어·귀환·가둠·유예). 규칙 호출 검사이지 화면 조작이 아니다"
+    },
+    "ui_chain_tests": {
+      "env": {
+        "PROPHECY_TOUCH": "1"
+      },
+      "timeout_sec": 900,
+      "desc": "실제 main.tscn 버튼으로 구매→강화→제작→착용→전투 발동→거점→교체→창고 보관→Q 배치→Q/E 교환→저장→이어하기→해제→재배치를 한 회차로 잇는다. 전투 중 편성 변경 차단·모바일 버튼도 화면에서 확인",
+      "env_reason": "PROPHECY_TOUCH=1: 좁은 화면(모바일)에서 필수 조작이 보이고 눌리는지, 닫기 경로가 키에만 기대지 않는지를 같은 회차에서 확인한다(PLayout.is_touch)."
+    },
     "screen_keep_tests": {
       "env": {},
       "timeout_sec": 300,
@@ -634,6 +647,8 @@
       "save_repair_tests",
       "save_guard_tests",
       "equip_chain_tests",
+      "eq_fire_tests",
+      "ui_chain_tests",
       "duel_card_tests",
       "prep_shop_tests",
       "death_tests",
