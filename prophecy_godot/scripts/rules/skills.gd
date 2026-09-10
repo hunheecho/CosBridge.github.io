@@ -88,9 +88,41 @@ static func sdmg(st: CombatState, slot: String) -> float:
 		return float(d.damage[mini(3, int(sk.level)) - 1])
 	return 0.0
 
-## 기술 피해. 출처 키는 **슬롯이 아니라 기술 id**다(감속장이 E에 있어도 출처는 감속장이다)
+# ---------- 일반 수동 기술의 피해 경로 이름(2026-09-10 사용자 확정) ----------
+## 무엇을 고쳤는가 — 예전에는 `hit`이 경로 이름(cause)을 적지 않았다. 그러면 주인(weapon_id)이 없는
+## 이 피해가 `PSupport.cause_of`의 마지막 줄(`main_extra if indirect else main_direct`)에서
+## **전부 main_extra로 떨어진다.** main_extra는 자격표에서 "주무기가 낸 타격"을 뜻하므로
+## 수동 기술이 **파쇄를 터뜨릴 자격을 잘못 얻고 있었다**(실측: 낙뢰로 얼어붙은 적의 빙결이 풀렸다).
+##
+## **왜 기술별로 나눴는가**(묶음 이름 하나로 합치지 않은 이유)
+##  1. 장비 기술 여섯이 이미 기술별 이름(eq_slash·eq_meteor_core…)을 쓴다. 같은 자리에서 같은 방식을 쓴다.
+##  2. 원인별 집계(CombatState.metrics.cause_dmg/cause_hits)와 흡혈 감사가 **무엇이 얼마나 때렸는지**
+##     따로 셀 수 있다 — 묶어 버리면 "수동 기술"이라는 한 칸만 남아 어느 기술이 무엇을 열었는지 못 읽는다.
+##  3. 나중에 기술 하나만 자격을 여는 결정이 오면 그 이름 하나만 allow에 적으면 된다.
+##     묶음 이름이면 여섯이 함께 열려 **일괄 허용**이 되는데, 그것이 이번에 금지된 것이다.
+## **장비 기술 넷(eq_*)과 합치지 않는다.** 그 넷은 지금 이름 그대로이고 자격도 그대로다.
+##
+## 감속장(slowfield)은 여기 없다 — 적에게 피해를 주지 않아 경로 자체가 없다
+## (장비 [9] 유예의 시계를 자격표 어휘에 넣지 않은 것과 같은 기준이다).
+const SKILL_CAUSE := {
+	"strike": "skill_strike",         # 낙뢰(연쇄·폭풍우 변형 포함. 폭풍우가 남기는 장판은 zone_tick이다)
+	"gust": "skill_gust",             # 돌풍(회오리 변형 포함)
+	"bladestorm": "skill_bladestorm", # 칼날 폭풍
+	"gravity": "skill_gravity",       # 중력핵(틱 피해와 붕괴 폭발)
+	"ward": "skill_ward",             # 수호 결계 개조 '맥동'의 타격
+}
+
+## 그 기술의 피해 경로 이름. **표에 없는 id는 안전망 이름으로 떨어진다** —
+## 새 수동 기술을 넣고 표에 적는 것을 잊어도 main_extra(주무기 자격)로 새지 않게 하려는 것이다.
+## skill_other도 자격표 어휘에 등록돼 있고 파쇄·숙주 파열·흡혈의 deny에 함께 적혀 있다.
+static func skill_cause(skill_id: String) -> String:
+	return String(SKILL_CAUSE.get(skill_id, "skill_other"))
+
+## 기술 피해. 출처 키는 **슬롯이 아니라 기술 id**다(감속장이 E에 있어도 출처는 감속장이다).
+## 경로 이름(cause)을 **반드시 적어 보낸다** — 적지 않으면 위 주석의 오분류가 그대로 돌아온다.
 static func hit(st: CombatState, e: Dictionary, dmg: float, skill_id: String, opt: Dictionary = {}) -> float:
 	var o := opt.duplicate()
+	o["cause"] = skill_cause(skill_id)
 	o.src = { "skill": true, "direct": false, "skill_id": skill_id }
 	return st.damage_enemy(e, dmg * link_skill_mult(st), o)
 

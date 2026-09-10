@@ -665,10 +665,18 @@ static func _doll_end(st: CombatState, d: Dictionary, s: Dictionary, why: String
 ## **hit(피해 opt 자체)을 반드시 넘긴다** — cause_of가 그것 없이는 지속 피해(화상·출혈)와
 ## 개조가 만든 추가 타격을 기본 타격과 구분하지 못한다(support_weapons.gd 47~49줄의 경고 그대로).
 ## 넘기지 않으면 화상 틱으로 죽은 적이 "main_direct"로 분류돼 **주무기 처치로 잘못 읽힌다.**
-## 마지막 한 줄은 그 함수가 남긴 구멍 하나를 죽음 판정에서만 막는다: 공용 증강의 장판 틱·E 기술처럼
+## 마지막 한 줄은 그 함수가 남긴 구멍 하나를 죽음 판정에서만 막는다:
 ## **무기 id가 없는 파생 피해**를 cause_of가 main_extra로 떨어뜨리는데, 주무기가 낸 타격이 아니므로
 ## 여기서 zone_tick으로 바로잡는다(모든 주무기 타격은 PWeapons.src를 거쳐 weapon_id를 반드시 달고 온다).
 ## 전염(plague_spread)은 allow "*"라 이 교정으로 동작이 달라지지 않는다 — 숙주 파열 자격에만 영향을 준다.
+##
+## **2026-09-10 재점검(수동 기술에 고유 출처를 준 뒤 이 교정이 아직 필요한가)** — 필요하다. 그대로 둔다.
+##  · Q/E 일반 수동 기술은 이제 자기 경로 이름(skill_*)을 달고 오므로 `c == "main_extra"` 조건에
+##    **애초에 걸리지 않는다.** 그래서 이름이 겹쳐 두 겹으로 작동하거나 서로 어긋날 자리가 없다.
+##    수동 기술의 불허 근거도 이제 자격표 plague_host_burst.deny에 직접 적혀 있다(교정에 기대지 않는다).
+##  · 그러나 **무기 id 없이 main_extra로 오는 것이 아직 남아 있다**: 공용 증강 '정지된 칼날'의
+##    감속장 종료 폭발(tag common:stasis)과 보스 보상 '무기 공명' 폭발(tag reward:resonance).
+##    이 한 줄을 지우면 그 둘이 곧바로 '주무기 처치'로 읽혀 숙주 파열이 열린다. 그러므로 지우지 않는다.
 static func _death_cause(st: CombatState, opt: Dictionary) -> String:
 	var o := { "hit": opt }
 	var sr: Dictionary = opt.get("src", {})

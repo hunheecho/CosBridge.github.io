@@ -74,6 +74,9 @@ static func _peek(st: CombatState, id: String) -> Dictionary:
 ## 판정은 반드시 PSupport.cause_of를 거친다(자격표 어휘의 정본이 한 곳이어야 하므로).
 ## 여기서는 그 함수가 읽는 모양({cause, weapon})으로 바꿔 줄 뿐이다:
 ##  - opt.cause가 이미 있으면 그대로 쓴다(내가 만든 타격은 항상 cause를 적어 보낸다).
+##    2026-09-10부터 **Q/E 일반 수동 기술도 여기에 걸린다**(PSkills.hit이 skill_* 를 적어 보낸다).
+##    그 전에는 아래 세 번째 갈래에서 zone_tick으로 분류돼 까마귀 표적이 막혔는데, 이제는
+##    자기 이름으로 와서 자격표(crow_mark)의 allow 목록에 없어 막힌다 — 결과는 같고 근거가 표로 올라왔다.
 ##  - 지속 피해(opt.dot)는 "dot".
 ##  - 직접 타격이 아닌 파생 피해(src.extra 또는 direct:false)는 주무기 개조면 "main_extra", 그 밖(장판 틱·공용 효과)이면 "zone_tick".
 ##  - 나머지는 무기 id만 넘겨 주무기/보조를 가르게 한다.
