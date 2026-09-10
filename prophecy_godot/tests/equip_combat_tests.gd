@@ -92,6 +92,8 @@ func _init() -> void:
 	sec3_frost_req()
 	sec4_afterimage()
 	sec5_defs()
+	sec6_focus_vs_aftershock()
+	sec7_echo_no_burst()
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
@@ -569,3 +571,129 @@ func sec5_defs() -> void:
 		and src.find("static func draw_afterimage(") >= 0 and src.find("st.afterimage") >= 0
 		and src.find("draw_afterimage(ci, st)") >= 0)
 	ok("화면: **옛 전방 균열 갈래(crack)가 남아 있지 않다**", src.find("\"crack\":") < 0)
+
+# ---------- 6. [1] × 개조 '여진' 병용: 출처를 나눠 센다(2026-09-10 사용자 확정 4절) ----------
+## 사용자 확정: **둘을 모두 유지하고 병용을 허용한다.** 유사하다는 이유로 지우거나 재설계하지 않는다.
+## 대신 **혼동하지 않게 계측 출처를 나눈다** — 여진은 개조 계측 mod_stats["aftershock"],
+## 이 장비는 mod_stats["equip:siege_hammerhead"]다(id의 "equip:"이 장비라는 표시).
+## 연계 자격은 둘 다 그대로 main_extra이고 **피해·시점·대상 판정은 하나도 바꾸지 않았다**(계측만 더했다).
+func mod_row(st: CombatState, id: String) -> Dictionary:
+	return (st.mod_stats as Dictionary).get(id, { "procs": 0, "hits": 0, "damage": 0.0 })
+
+## 내려찍기 한 번을 단계별로 굴리며 **언제·얼마를** 때렸는지 모은다. [[초, 피해], ...]
+func strike_timeline(mods: Array, equip: Dictionary, seconds: float) -> Array:
+	var st := lab([["hammer", 1, mods.duplicate()]], equip, "hammer")
+	var a := dummy(st, 100.0, 0.0)
+	PWeapons.fire(st, wep(st, "hammer"), a, false)
+	var events := []
+	for i in int(round(seconds / STEP)):
+		var hp_b: float = float(a.hp)
+		PWeapons.update(st, STEP)
+		if float(a.hp) < hp_b - 1e-6:
+			events.append([float(i + 1) * STEP, hp_b - float(a.hp)])
+	return [st, events]
+
+func fmt_events(events: Array) -> String:
+	var out := []
+	for r in events:
+		out.append("%.2f초 %.1f" % [float(r[0]), float(r[1])])
+	return " · ".join(out)
+
+func sec6_focus_vs_aftershock() -> void:
+	var dmg: float = float(hammer_stats().damage)
+
+	# (가) 장비만: 본타(준비 0.45) + 추가 충격(+0.25)
+	var only_eq := strike_timeline([], { "weapon": EQ_HAMMER }, 1.6)
+	var st_eq: CombatState = only_eq[0]
+	var ev_eq: Array = only_eq[1]
+	ok("[1] 장비만: 타격 2회 — 본타 0.45초 %s · 추가 충격 0.70초 %s" % [str(dmg), str(dmg * 0.5)],
+		ev_eq.size() == 2 and near(float(ev_eq[0][0]), 0.45, 0.02) and near(float(ev_eq[0][1]), dmg)
+		and near(float(ev_eq[1][0]), 0.70, 0.02) and near(float(ev_eq[1][1]), dmg * 0.5),
+		fmt_events(ev_eq))
+
+	# (나) 여진만: 본타(0.45) + 여진(+0.6)
+	var only_af := strike_timeline(["aftershock"], {}, 1.6)
+	var st_af: CombatState = only_af[0]
+	var ev_af: Array = only_af[1]
+	ok("[1] 여진만: 타격 2회 — 본타 0.45초 %s · 여진 1.05초 %s" % [str(dmg), str(dmg * 0.5)],
+		ev_af.size() == 2 and near(float(ev_af[0][0]), 0.45, 0.02) and near(float(ev_af[0][1]), dmg)
+		and near(float(ev_af[1][0]), 1.05, 0.02) and near(float(ev_af[1][1]), dmg * 0.5),
+		fmt_events(ev_af))
+
+	# (다) 병용: **셋 다 제 시점에 제 피해로** 온다. 합치지도 지우지도 않았다
+	var both := strike_timeline(["aftershock"], { "weapon": EQ_HAMMER }, 1.6)
+	var st_both: CombatState = both[0]
+	var ev_both: Array = both[1]
+	ok("[1]+여진 **병용**: 타격 3회 — 본타 0.45초 %s · 추가 충격 0.70초 %s · 여진 1.05초 %s(합치지도 지우지도 않았다)"
+			% [str(dmg), str(dmg * 0.5), str(dmg * 0.5)],
+		ev_both.size() == 3
+		and near(float(ev_both[0][0]), 0.45, 0.02) and near(float(ev_both[0][1]), dmg)
+		and near(float(ev_both[1][0]), 0.70, 0.02) and near(float(ev_both[1][1]), dmg * 0.5)
+		and near(float(ev_both[2][0]), 1.05, 0.02) and near(float(ev_both[2][1]), dmg * 0.5),
+		fmt_events(ev_both))
+
+	# (라) **계측 출처가 갈린다** — 병용해도 서로의 칸에 섞이지 않는다
+	var m_eq: Dictionary = mod_row(st_both, "equip:" + EQ_HAMMER)
+	var m_af: Dictionary = mod_row(st_both, "aftershock")
+	ok("[1]+여진 **계측 출처 분리**: 장비 %s / 여진 %s — 각각 발동 1·적중 1·피해 %s이고 섞이지 않는다"
+			% ["equip:" + EQ_HAMMER, "aftershock", str(dmg * 0.5)],
+		int(m_eq.procs) == 1 and int(m_eq.hits) == 1 and near(float(m_eq.damage), dmg * 0.5)
+		and int(m_af.procs) == 1 and int(m_af.hits) == 1 and near(float(m_af.damage), dmg * 0.5),
+		"장비 %s / 여진 %s" % [str(m_eq), str(m_af)])
+	ok("[1] 장비만 켰을 때 **여진 칸은 비어 있다**(반대도 같다)",
+		int(mod_row(st_eq, "aftershock").procs) == 0 and int(mod_row(st_eq, "equip:" + EQ_HAMMER).procs) == 1
+		and int(mod_row(st_af, "equip:" + EQ_HAMMER).procs) == 0 and int(mod_row(st_af, "aftershock").procs) == 1,
+		"장비만 %s / 여진만 %s" % [str(mod_row(st_eq, "aftershock")), str(mod_row(st_af, "equip:" + EQ_HAMMER))])
+
+	# (마) 병용해도 **같은 빙결은 한 번만** 깨진다(본타가 깨면 나머지 둘은 깨뜨릴 빙결이 없다)
+	var st7 := lab([["hammer", 1, ["aftershock"]]], { "weapon": EQ_HAMMER }, "hammer")
+	var e7 := dummy(st7, 100.0, 0.0)
+	for i in st7.frost_need():
+		st7.add_chill_stack(e7, 1, {})
+	var froze7: bool = st7.is_frozen(e7)
+	PWeapons.fire(st7, wep(st7, "hammer"), e7, false)
+	advance_delayed(st7, 1.6)
+	ok("[1]+여진 병용에서도 **같은 빙결의 파쇄는 1회뿐**이다(파쇄 가능 타격이 셋이어도)",
+		froze7 and is_equal_approx(PSupport.metered(st7, "frost", "shatters"), 1.0)
+		and float(e7.get("refreeze_t", 0.0)) > 0.0,
+		"빙결 %s · 파쇄 %s · 재빙결 제한 %s" % [str(froze7), str(PSupport.metered(st7, "frost", "shatters")), str(e7.get("refreeze_t", 0.0))])
+
+# ---------- 7. [2] 겹번개 도선: 복제 처치로는 숙주 파열이 나지 않는다 ----------
+## 사용자 확정: **복제한 감전 피해로 적을 처치해도 숙주 파열은 발생하지 않는다.**
+## 이미 그렇게 돼 있으므로 이것은 구현이 아니라 **확인**이다 — 값으로 증명하고 검사로 못박는다.
+func quiet_tick(st: CombatState, sec: float) -> void:
+	for i in int(round(sec / STEP)):
+		var keep := []
+		for d in st.delayed:
+			d.t = float(d.t) - STEP
+			if float(d.t) <= 0.0:
+				(d.fn as Callable).call()
+			else:
+				keep.append(d)
+		st.delayed = keep
+		PSupport.update(st, STEP)
+
+func sec7_echo_no_burst() -> void:
+	var T := PCatalog.support_tuning("orb")
+	var bonus: float = float(wep(lab([["orb", 1, []]]), "orb").stats.damage) * float(T.get("bonusMult", 0.4))
+
+	var st := lab([["orb", 1, []], ["plague", 1, ["burst"]]], { "weapon": EQ_SHOCK })
+	var host := dummy(st, 60.0, 0.0, 400.0)
+	var near1 := dummy(st, 60.0, 45.0, 400.0) # 감전 후속 반경(50)·파열 반경(90) 안
+	PSupport.fire(st, wep(st, "plague"), host, false)
+	quiet_tick(st, 1.2)
+	var P: Dictionary = PSupportB.plague_stat(st)
+	var infected: bool = not (host.get("plague", {}) as Dictionary).is_empty()
+	# **복제가 마지막 일격이 되도록** 체력을 맞춘다: 본타 1.0 + 감전 후속 bonus 를 견디고, 복제 bonus 에 죽는다
+	host.hp = 1.0 + bonus + 0.5
+	host.conduct = float(T.get("shockDur", 2.0))
+	hit_as(st, host, main_direct(), 1.0)
+	ok("[2] 전제: 감염된 적이 **복제 피해로 죽었다**(본타·감전 후속으로는 죽지 않았다)",
+		infected and bool(host.dead) and int((st.stats.equip_procs as Dictionary).get(EQ_SHOCK, 0)) == 1,
+		"복제 %d회 · 사망 %s" % [int((st.stats.equip_procs as Dictionary).get(EQ_SHOCK, 0)), str(host.dead)])
+	ok("[2] **복제 처치로는 숙주 파열이 나지 않는다**(자격표 plague_host_burst.deny의 shock_echo)",
+		int(P.bursts) == 0 and int(P.burst_blocked) >= 1 and is_zero_approx(float(near1.stagger_t)),
+		"파열 %d · 막힘 %d · 이웃 경직 %.3f초" % [int(P.bursts), int(P.burst_blocked), float(near1.stagger_t)])
+	ok("[2] 그때에도 **독 전염은 그대로 일어난다**(전염과 파열의 발동을 구분한다)",
+		int(P.spreads) >= 1 and not (near1.get("plague", {}) as Dictionary).is_empty(),
+		"전염 %d회" % int(P.spreads))

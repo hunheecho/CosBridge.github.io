@@ -453,9 +453,15 @@ static func land_heavy(st: CombatState, w: Dictionary, ix: float, iy: float, ang
 		st.fx({ "kind": "beam", "x": ix, "y": iy, "angle": ang, "len": 160.0, "w": 50.0, "ttl": 0.2 })
 		hit_beam(st, w, ix, iy, ang, 160.0, 50.0, 0.6, { "direct": false })
 	if (s.mods as Array).has("aftershock"):
+		# **계측 출처를 장비 '공성 망치머리'와 구분한다**(2026-09-10 사용자 확정 4절). 둘은 비슷해 보이지만
+		# 다른 효과이고 병용도 허용이므로, 통계·기록에서 **따로 세어야** 한다.
+		# 여진은 개조이므로 개조 계측 통로(mod_stats["aftershock"])를 쓴다 — 지연 0.6초 · 반경 그대로 · 장애물 무시.
+		# 장비 쪽은 mod_stats["equip:siege_hammerhead"]와 stats.equip_procs.siege_hammerhead로 따로 쌓인다.
+		# **피해·시점·대상 판정은 하나도 바꾸지 않았다**(계측만 더했다)
+		st.note_mod("aftershock", "proc")
 		later(st, 0.6, func():
 			st.fx({ "kind": "impact", "x": ix, "y": iy, "r": float(s.radius), "ttl": 0.3, "after": true })
-			hit_circle(st, w, ix, iy, float(s.radius), 0.5, { "direct": false, "ground": true }))
+			hit_circle(st, w, ix, iy, float(s.radius), 0.5, { "direct": false, "ground": true, "mod": "aftershock" }))
 	equip_hammer_focus(st, w, ix, iy)
 	st.ev("boss_land")
 
@@ -487,9 +493,12 @@ static func land_heavy(st: CombatState, w: Dictionary, ix: float, iy: float, ang
 ##  ⑨ **표시 = 판정.** 예고 원(focuswarn)의 자리·반지름은 아래 판정에 쓰는 값 그대로이고,
 ##     예고의 수명이 곧 지연시간이라 **예고가 사라지는 순간이 터지는 순간**이다.
 ##
-## 개조 '여진'과 무엇이 다른가(둘 다 켜면 각각 따로 터진다 — 합치지도 지우지도 않는다)
-##   여진: 지연 0.6초 · 반경 = 망치 반경 그대로(80) · ground(장애물 무시)
-##   이 장비: 지연 0.25초 · 반경 = 망치 반경 × 0.65(52) · 착탄점에서의 시야 판정(장애물이 가리면 안 맞는다) · 예고 표시 있음
+## 개조 '여진'과 무엇이 다른가(둘 다 켜면 각각 따로 터진다 — 합치지도 지우지도 않는다. 2026-09-10 사용자 확정 4절)
+##   여진: 지연 0.6초 · 반경 = 망치 반경 그대로(80) · ground(장애물 무시) · 피해 = 본타 × 0.5
+##   이 장비: 지연 0.25초 · 반경 = 망치 반경 × 0.65(52) · 착탄점에서의 시야 판정(장애물이 가리면 안 맞는다) · 예고 표시 있음 · 피해 = 본타 × 0.5
+##   **계측도 따로 센다**: 여진 → mod_stats["aftershock"] · 이 장비 → mod_stats["equip:siege_hammerhead"]
+##   (+ stats.equip_procs.siege_hammerhead). 연계 자격만 같은 main_extra이고, 누가 냈는지는 섞이지 않는다.
+##   **유사하다는 이유로 어느 하나를 지우거나 다른 효과로 재설계하지 않았다.**
 static func equip_hammer_focus(st: CombatState, w: Dictionary, ix: float, iy: float) -> void:
 	var EQ: Dictionary = st.build.get("equip", {})
 	if not EQ.has("hammerFocus") or String(w.id) != "hammer":
@@ -504,7 +513,12 @@ static func equip_hammer_focus(st: CombatState, w: Dictionary, ix: float, iy: fl
 	st.fx({ "kind": "focuswarn", "x": hx, "y": hy, "r": rad, "ttl": delay })
 	var blast := func() -> void:
 		st.fx({ "kind": "focusblast", "x": hx, "y": hy, "r": rad, "ttl": 0.3 })
-		hit_circle(st, w, hx, hy, rad, m, { "direct": false })
+		# **계측 출처를 개조 '여진'과 구분한다**(2026-09-10 사용자 확정 4절). 경로 이름(cause)은 여전히
+		# main_extra로 같지만 — 그래야 연계 자격이 충격파·여진과 같다 — **누가 낸 타격인가**는 따로 쌓는다:
+		# 여진은 mod_stats["aftershock"], 이 장비는 mod_stats["equip:siege_hammerhead"]다.
+		# id에 붙인 "equip:"이 개조가 아니라 장비라는 표시다. 피해·시점·대상 판정은 바꾸지 않았다
+		st.note_mod("equip:siege_hammerhead", "proc")
+		hit_circle(st, w, hx, hy, rad, m, { "direct": false, "mod": "equip:siege_hammerhead" })
 		st.stats.equip_procs.siege_hammerhead = int(st.stats.equip_procs.get("siege_hammerhead", 0)) + 1
 	later(st, delay, blast)
 

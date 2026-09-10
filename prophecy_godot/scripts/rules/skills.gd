@@ -553,7 +553,17 @@ static func eq_holds_attacks(st: CombatState) -> bool:
 
 ## 장비 기술의 피해. **경로 이름(cause)을 반드시 적어 보낸다.**
 ## 적지 않으면 PSupport.cause_of가 '무기 id 없는 파생 피해'를 main_extra로 떨어뜨려
-## 승인되지 않은 연계(파쇄·숙주 파열)가 우연히 열린다. 자격표는 data/supports.json 한 곳뿐이다(새 장치 없음).
+## 승인되지 않은 연계가 우연히 열린다. 자격표는 data/supports.json 한 곳뿐이다(새 장치 없음).
+##
+## 2026-09-10 사용자 확정 뒤로 이 이름이 **자격을 실제로 가른다.**
+##  · eq_slash · eq_meteor_core · eq_meteor_wave · eq_riposte · eq_retrace
+##    → 자격표 frost_shatter·plague_host_burst의 **allow에 적혀 있다**(파쇄·숙주 파열을 발동할 수 있다).
+##  · eq_icetomb → 두 표의 **deny에 그대로 남아 있다**(결정 관은 파쇄도 숙주 파열도 열지 않는다).
+##  · [9] 유예의 시계는 적에게 피해를 주지 않아 이 함수를 아예 지나가지 않는다.
+##  · 감전 후속·방전 충전·까마귀 표적은 **여섯 전부 deny 그대로**이고, 흡혈은 data/growth.json
+##    LIFESTEAL.denied에 여섯 전부 적혀 있다 — 이번에 함께 열지 않았다.
+## **묶음 경로 이름(equip_skill_direct 같은 것)을 새로 만들지 않았다** — 기술별 출처를 남겨야
+## 통계·기록에서 무엇이 깼는지 따로 셀 수 있고, 닫아 둔 둘이 그 이름에 묻어 들어올 길도 없다.
 static func eq_hit(st: CombatState, e: Dictionary, dmg: float, skill_id: String, cause: String, opt: Dictionary = {}) -> float:
 	var o := opt.duplicate()
 	o["cause"] = cause

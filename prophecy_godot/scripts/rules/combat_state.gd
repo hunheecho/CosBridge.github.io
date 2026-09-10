@@ -573,9 +573,16 @@ func _tick_frost(e: Dictionary, dt: float) -> void:
 			e["chill_n"] = 0
 			e["chill_n_t"] = 0.0
 
-## 파쇄. 빙결·결빙 중인 적을 **주무기 공격**이 맞혔을 때만 일어난다.
+## 파쇄. 빙결·결빙 중인 적을 **자격 있는 경로**가 맞혔을 때만 일어난다.
 ## 부르는 곳은 damage_enemy 한 곳뿐이며, 이미 피해가 들어간 뒤(= 빗나간 공격에서는 부르지 않는다) 부른다.
-## true면 실제로 파쇄가 났다
+## true면 실제로 파쇄가 났다.
+##
+## 자격은 **자격표 한 곳**(data/supports.json frost_shatter)만 본다. 2026-09-10 사용자 확정으로
+## 주무기 경로(main_direct·main_extra)에 더해 **장비 기술 네 종의 직접 타격**
+## (eq_slash·eq_meteor_core·eq_meteor_wave·eq_riposte·eq_retrace)이 allow에 들어왔다.
+## 결정 관(eq_icetomb)은 deny 그대로다. **필요 조건은 이 함수가 그대로 지킨다** —
+## 얼어 있지 않으면(is_frozen) 어떤 경로로도 파쇄가 나지 않고,
+## **같은 빙결에서 파쇄는 한 번뿐**이다(freeze_broke 표시를 먼저 세우고 끝에 _end_freeze로 빙결을 끝낸다).
 func try_shatter(e: Dictionary, o: Dictionary) -> bool:
 	if e.dead or not is_frozen(e) or bool(e.get("freeze_broke", false)):
 		return false
