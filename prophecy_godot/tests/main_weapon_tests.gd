@@ -1397,6 +1397,43 @@ func sec13_lifesteal() -> void:
 		is_equal_approx(float(st6.player.hp), 30.0) and is_equal_approx(float(st6.stats.lifesteal), 0.0),
 		"체력 %.3f · 흡혈 집계 %.3f" % [float(st6.player.hp), float(st6.stats.lifesteal)])
 
+	# 적 등급(일반·정예·보스)과 다수·방패병: **등급 분기가 없다** — 회복은 그 타격이 깎은 체력 하나에만 달려 있다
+	var tier_rows := []
+	var tier_ok := true
+	for tid in ["wolf", "wolf_alpha", "elite_fang", "boss"]:
+		var stt := mk_p("sword", { "lifesteal": 3 })
+		stt.player.hp = 10.0
+		var et := dummy(stt, stt.player.x + 60.0, stt.player.y, 1000000.0, String(tid))
+		var bt: float = float(stt.player.hp)
+		var eff: float = stt.damage_enemy(et, 100.0, { "src": { "weapon": stt.build.weapons[0], "weapon_id": "sword", "direct": true } })
+		var gott: float = float(stt.player.hp) - bt
+		tier_rows.append("%s 깎임 %.1f 회복 %.4f" % [tid, eff, gott])
+		if absf(gott - eff * 0.015) > 1e-6:
+			tier_ok = false
+	# 방패병: 앞 막기로 피해가 줄어든다. 회복은 **줄어든 뒤 실제로 깎인 값**을 따라간다
+	var st_sh := mk_p("sword", { "lifesteal": 3 })
+	st_sh.player.hp = 10.0
+	var e_sh := dummy(st_sh, st_sh.player.x + 60.0, st_sh.player.y, 1000000.0, "shieldbearer")
+	var b_sh: float = float(st_sh.player.hp)
+	var eff_sh: float = st_sh.damage_enemy(e_sh, 100.0, { "src": { "weapon": st_sh.build.weapons[0], "weapon_id": "sword", "direct": true }, "from": { "x": st_sh.player.x, "y": st_sh.player.y } })
+	var got_sh: float = float(st_sh.player.hp) - b_sh
+	tier_rows.append("shieldbearer 깎임 %.1f 회복 %.4f" % [eff_sh, got_sh])
+	if absf(got_sh - eff_sh * 0.015) > 1e-6:
+		tier_ok = false
+	# 다수: 마리마다 따로 정산한다(합산 상한 없음)
+	var st_many := mk_p("sword", { "lifesteal": 3 })
+	st_many.player.hp = 10.0
+	var o_many := { "src": { "weapon": st_many.build.weapons[0], "weapon_id": "sword", "direct": true } }
+	var sum_eff := 0.0
+	for i3 in 6:
+		var em := dummy(st_many, st_many.player.x + 50.0 + float(i3) * 10.0, st_many.player.y, 1000000.0)
+		sum_eff += st_many.damage_enemy(em, 100.0, o_many.duplicate(true))
+	tier_rows.append("6마리 합 깎임 %.1f 회복 %.4f" % [sum_eff, float(st_many.stats.lifesteal)])
+	if absf(float(st_many.stats.lifesteal) - sum_eff * 0.015) > 1e-6:
+		tier_ok = false
+	ok("흡혈: 일반·정예·보스·방패병·다수 어디서도 **등급 분기가 없다** — 회복 = 그 타격이 깎은 체력 × 비율",
+		tier_ok, " · ".join(tier_rows))
+
 	# 실제 전투 경로(자동공격을 켜고 5초): 무기 5종이 모두 회복한다 · 전투당 상한이 없다
 	var live_rows := []
 	var live_ok := true
