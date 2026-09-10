@@ -221,6 +221,31 @@ func sec1_hammer_focus() -> void:
 	ok("[1] 자격표: 추가 충격 경로(main_extra)는 파쇄 자격이 있다 — 새 경로 이름을 만들지 않았다",
 		PSupport.eligible("frost_shatter", "main_extra") and PSupport.eligible("frost_shatter", "main_direct"))
 
+	# ---- 연계 자격(7절): 추가 충격은 개조 '전방 충격파'·'여진'과 **같은 main_extra** 다. 새 경로 이름을 만들지 않았다 ----
+	ok("[1] 경로 분류: 추가 충격(direct:false · 주무기 hammer)은 main_extra로 분류된다",
+		PSupport.cause_of(st_on, { "weapon": "hammer", "hit": { "src": { "weapon_id": "hammer", "direct": false } } }) == "main_extra"
+		and PSupport.cause_of(st_on, { "weapon": "hammer", "hit": { "src": { "weapon_id": "hammer", "direct": true } } }) == "main_direct",
+		PSupport.cause_of(st_on, { "weapon": "hammer", "hit": { "src": { "weapon_id": "hammer", "direct": false } } }))
+	ok("[1] 자격표(7절): main_extra는 파쇄·감전 후속·까마귀 표적·숙주 파열을 부르고, **방전 충전은 직접 올리지 못한다**",
+		PSupport.eligible("frost_shatter", "main_extra")
+		and PSupport.eligible("shock_bonus", "main_extra")
+		and PSupport.eligible("crow_mark", "main_extra")
+		and PSupport.eligible("plague_host_burst", "main_extra")
+		and not PSupport.eligible("shock_discharge", "main_extra")
+		and not PSupport.eligible("echo_copy", "main_extra"))
+
+	# 감전 후속을 실제로 부르는가(값으로) · 방전 충전은 그 후속이 올린다(간접)
+	var st9 := lab([["hammer", 1, []], ["orb", 1, ["conduct"]]], { "weapon": EQ_HAMMER }, "hammer")
+	var e9 := dummy(st9, 100.0, 0.0)
+	PWeapons.fire(st9, wep(st9, "hammer"), e9, false)
+	advance_delayed(st9, 0.5) # 본타는 감전 없는 적을 때렸다
+	var sp0: float = PSupport.metered(st9, "orb", "shock_procs")
+	e9.conduct = float(PCatalog.support_tuning("orb").get("shockDur", 2.0)) # 본타 뒤에 감전이 걸렸다
+	advance_delayed(st9, 0.4) # 추가 충격
+	ok("[1] 연계: 추가 충격이 **감전 후속을 실제로 부른다**(충격파·여진과 같은 경로) · 방전 충전은 그 후속이 1 올린다",
+		is_zero_approx(sp0) and is_equal_approx(PSupport.metered(st9, "orb", "shock_procs"), 1.0) and int(st9.support_charge) == 1,
+		"본타 뒤 후속 %s → 추가 충격 뒤 후속 %s · 충전 %d" % [str(sp0), str(PSupport.metered(st9, "orb", "shock_procs")), int(st9.support_charge)])
+
 	# (나) 같은 빙결을 본타와 추가 충격이 **두 번** 깨지 않는다
 	var st7 := lab([["hammer", 1, []]], { "weapon": EQ_HAMMER }, "hammer")
 	var e7 := dummy(st7, 100.0, 0.0)
