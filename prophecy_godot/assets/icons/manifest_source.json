@@ -584,6 +584,22 @@
     "shape": "<circle cx='20' cy='22' r='13'/><path d='M20 13V22L27 26'/><path d='M8 46H50M42 39L52 46 42 53' stroke-width='4'/><path d='M20 46V53M32 46V53M44 46V53' stroke-dasharray='2 3'/>"
   },
   {
+    "id": "passive_dodge_mastery",
+    "name": "회피 숙련",
+    "kind": "passive",
+    "key": "dodge_mastery",
+    "color": "#8FE3D0",
+    "shape": "<path d='M12 44C20 30 34 26 50 28' stroke-dasharray='6 5'/><path d='M42 20L52 28 42 36' stroke-width='4'/><circle cx='18' cy='20' r='7'/><path d='M18 13V20L24 23'/>"
+  },
+  {
+    "id": "passive_lifesteal",
+    "name": "흡혈",
+    "kind": "passive",
+    "key": "lifesteal",
+    "color": "#E0697E",
+    "shape": "<path d='M32 8C32 8 46 26 46 38A14 14 0 0 1 18 38C18 26 32 8 32 8Z' fill='currentColor' fill-opacity='.26'/><path d='M24 46L20 58M40 46L44 58' stroke-width='4'/><path d='M26 34H38' stroke-width='4'/>"
+  },
+  {
     "id": "passive_toughness",
     "name": "강인함",
     "kind": "passive",

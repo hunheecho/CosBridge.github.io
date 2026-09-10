@@ -284,7 +284,13 @@ func _update_manual(now: float) -> void:
 	# '사용 불가': 규칙이 실제로 입력을 받지 않는 동안(등장 연출 intro · 전투 종료). 미보유·재사용 대기와 다른 표시다.
 	_blocked = st.intro > 0.0 or st.status != "running"
 	# 회피
-	var dcd: float = float(P.dodge.cooldown)
+	# 회피 진행 막대의 분모는 **규칙이 실제로 거는 재사용 시간**이다: 주무기 표(p.dodge_cd_time) × 패시브 배율(build.dodge_cd_mult).
+	# 예전에는 공통 기본값(config PLAYER.dodge.cooldown = 1.5)을 썼는데, 주무기별 회피가 들어온 뒤로는
+	# 그 값이 어떤 무기와도 맞지 않아 막대가 실제와 어긋났다(활 2.2초는 막대가 먼저 다 차고, 쌍검 0.9초는 늦게 찼다).
+	# 회피 숙련이 붙으면 어긋남이 더 커지므로 여기서 같은 값을 읽게 고쳤다. 규칙 수치는 여기서 만들지 않는다
+	var dcd: float = float(p.dodge_cd_time) * float(b.get("dodge_cd_mult", 1.0))
+	if dcd <= 0.0:
+		dcd = float(P.dodge.cooldown) # 빌드가 없는 첫 전투 호환 경로(수동 기술 칸과 같은 방식)
 	var d_left: float = maxf(0.0, float(p.dodge_cd))
 	_set_manual("dodge", "action:dodge", false, clampf(d_left / maxf(0.01, dcd), 0.0, 1.0), d_left, now, "회피")
 	# 수동 기술 Q·E: 두 칸을 **같은 규칙**으로 그린다(칸이 아니라 그 칸의 기술이 이름·아이콘을 정한다).

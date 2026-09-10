@@ -1,6 +1,6 @@
 {
  "schema": "prophecy.icons.v1",
- "source": "assets/icons/manifest_source.json (프로젝트 안에서 코드로 그린 벡터 139종, 최종 아트 아님)",
+ "source": "assets/icons/manifest_source.json (프로젝트 안에서 코드로 그린 벡터 141종, 최종 아트 아님)",
  "note": "게임 ID -> 아이콘 파일. 여기에 없는 ID는 절대 다른 효과의 아이콘으로 대체하지 않고 중립 자리표시 기호 + 실제 한국어 이름으로 그린다.",
  "generator": "tools/icon_gen.gd — manifest_source.json을 고치고 이 도구를 다시 돌려 svg/png/매핑을 함께 만든다(손으로 고치지 않는다)",
  "dir64": "res://assets/icons/png64",
@@ -443,6 +443,18 @@
    "file": "passive_persistence",
    "name": "지속력",
    "color": "#C6B9F0",
+   "kind": "passive"
+  },
+  "passive:dodge_mastery": {
+   "file": "passive_dodge_mastery",
+   "name": "회피 숙련",
+   "color": "#8FE3D0",
+   "kind": "passive"
+  },
+  "passive:lifesteal": {
+   "file": "passive_lifesteal",
+   "name": "흡혈",
+   "color": "#E0697E",
    "kind": "passive"
   },
   "passive:toughness": {

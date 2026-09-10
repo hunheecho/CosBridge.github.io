@@ -383,6 +383,190 @@ func _init() -> void:
 		(st3.duel_queue as Array).size() == 2 and String(st3.duel_type) == String((st3.duel_queue[0] as Dictionary).type),
 		str(st3.duel_queue))
 
+	sec_focus()
+	sec_passive_swap()
+
 	var pass_n := results.filter(func(r): return r[0]).size()
 	print("%d/%d PASS" % [pass_n, results.size()])
 	quit(0 if pass_n == results.size() else 1)
+
+# ================================================================
+# 집중(2026-09-10) — 일반 수동 기술 6종의 **실측** 재사용
+# ================================================================
+## 사용자 지적: "자료에서 읽어 비교하는 검사만으로 실제 쿨다운까지 증명되지 않는다."
+## 그래서 여기서는 전투를 실제로 굴려 **쓴 뒤 다시 쓸 수 있게 되는 시각**을 센다.
+## 선언값(PSkills.cd_of)은 같은 줄에 함께 적어 표시와 실제가 어긋나면 바로 보이게 한다.
+## 장비 기술 여섯의 같은 측정은 tests/eq_skill_tests.gd에 있다.
+
+## 집중 lv를 얹고 그 칸에 기술을 넣은 전장(적 둘 — 낙뢰·중력핵은 대상이 없으면 발동하지 않는다)
+func mk_focus(sid: String, slot: String, focus_lv: int) -> CombatState:
+	var run := run_of(sid if slot == "q" else "slowfield", sid if slot == "e" else "")
+	if slot == "e":
+		run.growth.skills.q = { "id": "slowfield", "level": 1, "variant": null }
+	run.growth.passives = { "focus": focus_lv }
+	var b := PBuild.derive(run)
+	var st := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": 1, "arena": "clearing",
+		"waves": [], "region_id": "lab", "act": 1,
+		"formation": { "units": [], "alive_cap": 0, "group": 0, "interval": 1.0, "type_caps": {} } })
+	st.spawn_hold = true
+	st.obstacles = []
+	st.player.x = 400.0
+	st.player.y = 300.0
+	st.player.face = 0.0
+	st.player.attack_timer = 1.0e9
+	dummy(st, 520.0, 300.0)
+	dummy(st, 300.0, 340.0)
+	return st
+
+func uses_of(st: CombatState, slot: String) -> int:
+	return int(st.stats.special_uses) if slot == "q" else int(st.stats.e_uses)
+
+## 그 칸의 키를 매 단계 누르며 **사용 횟수가 두 번 오르는 사이**를 센다(선언값을 읽지 않는다)
+func recast_gap(sid: String, slot: String, focus_lv: int) -> Dictionary:
+	var st := mk_focus(sid, slot, focus_lv)
+	var press := { "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": false,
+		"special": slot == "q", "skill_e": slot == "e" }
+	var n1 := -1
+	var n2 := -1
+	var n := 0
+	while n < int(round(40.0 / STEP)):
+		var before := uses_of(st, slot)
+		st.step(press, STEP)
+		n += 1
+		if uses_of(st, slot) > before:
+			if n1 < 0:
+				n1 = n
+			else:
+				n2 = n
+				break
+	return { "gap": float(n2 - n1) * STEP if n1 > 0 and n2 > 0 else -1.0,
+		"decl": PSkills.cd_of(st, slot), "status": String(st.status) }
+
+func sec_focus() -> void:
+	print("\n[집중] 일반 수동 기술 6종 × Lv0~3 × Q/E의 실측 재사용")
+	var SK := PCatalog.skills()
+	var mults := [1.0, 0.9, 0.8, 0.7]
+	var rows := []
+	var lv_ok := true
+	var qe_ok := true
+	var decl_ok := true
+	for sid in ["slowfield", "gust", "bladestorm", "strike", "gravity", "ward"]:
+		var base: float = float(SK[String(sid)].cooldown[0])
+		for lv in 4:
+			var rq := recast_gap(String(sid), "q", lv)
+			var re := recast_gap(String(sid), "e", lv)
+			var want: float = base * float(mults[lv])
+			rows.append("%s Lv%d Q %.3f E %.3f (기대 %.3f)" % [sid, lv, float(rq.gap), float(re.gap), want])
+			# 실측은 단계 단위(1/120초)라 두 단계까지 허용한다
+			if absf(float(rq.gap) - want) > 2.0 * STEP or absf(float(re.gap) - want) > 2.0 * STEP:
+				lv_ok = false
+			if absf(float(rq.gap) - float(re.gap)) > 2.0 * STEP:
+				qe_ok = false
+			# 표시(선언값)와 실제가 같아야 한다
+			if absf(float(rq.decl) - want) > 1e-6 or absf(float(re.decl) - want) > 1e-6:
+				decl_ok = false
+	ok("집중: 일반 기술 6종의 **실측 재사용**이 표 × (1.0/0.9/0.8/0.7)와 같다", lv_ok, " · ".join(rows))
+	ok("집중: **Q에 두든 E에 두든 배율이 같다** — 같은 기술·같은 레벨에서 실측이 일치한다", qe_ok)
+	ok("집중: **표시 재사용 시간(PSkills.cd_of)과 실제 재사용이 같다** — 화면이 다른 값을 적지 않는다", decl_ok)
+
+	# 전투 중 빌드 재계산(레벨업)으로 남은 재사용 시간이 초기화되지 않는다
+	var reset_rows := []
+	var keep_ok := true
+	for sid2 in ["gust", "ward"]:
+		var st := mk_focus(String(sid2), "q", 0)
+		var press2 := { "mx": 0.0, "my": 0.0, "dodge_press": false, "dodge_held": false, "special": true, "skill_e": false }
+		st.step(press2, STEP)
+		for i in 120:
+			st.step({}, STEP)
+		var left0 := PSkills.cd_left(st, "q")
+		var run2 := run_of(String(sid2), "")
+		run2.growth.passives = { "focus": 3 }
+		st.rebuild(PBuild.derive(run2))
+		var left1 := PSkills.cd_left(st, "q")
+		reset_rows.append("%s 남은 %.3f → 재계산 뒤 %.3f" % [sid2, left0, left1])
+		if not is_equal_approx(left0, left1) or left1 <= 0.0:
+			keep_ok = false
+	ok("집중: 전투 중 빌드 재계산(레벨업으로 집중이 붙는 순간)에도 **남은 재사용이 초기화되지 않는다**",
+		keep_ok, " · ".join(reset_rows))
+	ok("§7 Q/E 교환은 거점에서만 열린다 — 전투 중에는 시계 자체가 없어 교환으로 재사용을 초기화할 길이 없다",
+		PGrowth.bank_edit_reason({ "phase": "combat" }) != "" and PGrowth.bank_edit_reason({ "phase": "prep" }) == "",
+		PGrowth.bank_edit_reason({ "phase": "combat" }))
+
+# ================================================================
+# 패시브 교체(2026-09-10 지시 1절) — 신규 후보 제외와 기존 저장 처리를 **갈라서** 확인한다
+# ================================================================
+## ① 새 회차의 패시브 신규 후보에 빈틈 포착·지속력이 없고 회피 숙련·흡혈이 있다.
+## ② 이미 가진 저장은 **조용히 삭제·치환되지 않는다** — 값이 그대로 남고 효과도 그대로 계산된다.
+## ③ 이미 가진 것은 레벨업 후보로 계속 나온다(보유분을 죽은 슬롯으로 만들지 않는다).
+## ④ 보유 한도 4종 · 각 최대 Lv3 구조는 그대로다.
+func passive_ids_in(run: Dictionary) -> Array:
+	var out := []
+	for c in PGrowth.candidates(run, { "pool": "level" }):
+		if String(c.kind) == "passive":
+			out.append(String(c.id))
+	return out
+
+func sec_passive_swap() -> void:
+	print("\n[패시브 교체] 신규 후보 제외 · 기존 저장 보존")
+	var fresh := PRun.new_run(1, "sword")
+	var ids := passive_ids_in(fresh)
+	ok("새 회차 패시브 신규 후보에 **빈틈 포착·지속력이 없다**", not ids.has("exploit") and not ids.has("persistence"), str(ids))
+	ok("새 회차 패시브 신규 후보에 **회피 숙련·흡혈이 있다**", ids.has("dodge_mastery") and ids.has("lifesteal"), str(ids))
+	var PS := PCatalog.passives()
+	ok("구조는 그대로: 보유 한도 4종 · 각 최대 Lv3",
+		int(PCatalog.growth().SLOTS.passives) == 4 and int(PS.dodge_mastery.max) == 3 and int(PS.lifesteal.max) == 3,
+		"한도 %d · 회피 숙련 %d · 흡혈 %d" % [int(PCatalog.growth().SLOTS.passives), int(PS.dodge_mastery.max), int(PS.lifesteal.max)])
+
+	# 기존 저장(빈틈 포착 2 · 지속력 1)을 그대로 불러온다
+	var old_run := PRun.new_run(1, "sword")
+	old_run.growth.passives = { "exploit": 2, "persistence": 1 }
+	var b_old := PBuild.derive(old_run)
+	var b_none := PBuild.derive(PRun.new_run(1, "sword"))
+	ok("기존 저장의 빈틈 포착·지속력이 **값 그대로 남는다**(조용한 삭제·치환 없음)",
+		int(old_run.growth.passives.exploit) == 2 and int(old_run.growth.passives.persistence) == 1,
+		str(old_run.growth.passives))
+	ok("기존 저장의 효과가 **그대로 계산된다**(빈틈 배율·지속 배율이 예전과 같다)",
+		is_equal_approx(float(b_old.exposed_mult), float(b_none.exposed_mult) + 0.5)
+			and is_equal_approx(float(b_old.duration_mult), 1.2),
+		"빈틈 ×%.3f(미보유 ×%.3f) · 지속 ×%.3f" % [float(b_old.exposed_mult), float(b_none.exposed_mult), float(b_old.duration_mult)])
+	var old_ids := passive_ids_in(old_run)
+	ok("이미 가진 빈틈 포착·지속력은 **레벨업 후보로 계속 나온다**(보유분이 죽은 슬롯이 되지 않는다)",
+		old_ids.has("exploit") and old_ids.has("persistence"), str(old_ids))
+	# 상한에 닿은 보유분은 예전처럼 후보에서 빠진다(제외 규칙이 이 길을 건드리지 않는다)
+	var max_run := PRun.new_run(1, "sword")
+	max_run.growth.passives = { "exploit": 3 }
+	ok("상한(Lv3)에 닿은 보유분은 예전 규칙대로 후보에서 빠진다", not passive_ids_in(max_run).has("exploit"), str(passive_ids_in(max_run)))
+	# 패시브 슬롯이 가득 차면 새 후보가 나오지 않는 규칙도 그대로다
+	var full_run := PRun.new_run(1, "sword")
+	full_run.growth.passives = { "vitality": 1, "toughness": 1, "mastery": 1, "haste": 1 }
+	ok("패시브 슬롯 4칸이 차면 새 패시브 후보가 나오지 않는다(회피 숙련·흡혈도 예외가 아니다)",
+		not passive_ids_in(full_run).has("dodge_mastery") and not passive_ids_in(full_run).has("lifesteal"),
+		str(passive_ids_in(full_run)))
+
+	# 선택 카드 문구: **표시와 실제가 같아야 한다.** 반올림으로 변화가 사라지지 않는지까지 본다
+	var card_rows := []
+	var card_ok := true
+	for wid in ["daggers", "bow"]:
+		var run_c := PRun.new_run(1, String(wid))
+		var d_dodge := PGrowth.describe(run_c, { "kind": "passive", "id": "dodge_mastery" })
+		var d_life := PGrowth.describe(run_c, { "kind": "passive", "id": "lifesteal" })
+		var want_cd: String = "0.855" if String(wid) == "daggers" else "2.09"
+		var want_ls: String = "0.5%" if String(wid) == "daggers" else "0.25%"
+		card_rows.append("%s 회피[%s] 흡혈[%s]" % [wid, String(d_dodge.change), String(d_life.change)])
+		if String(d_dodge.change).find(want_cd) < 0 or String(d_life.change).find(want_ls) < 0:
+			card_ok = false
+	ok("선택 카드가 **실제 값을 그대로 적는다** — 회피 0.900→0.855초 · 궁 흡혈 0.25%(반올림으로 뭉개지지 않는다)",
+		card_ok, " · ".join(card_rows))
+
+	# 저장 왕복(PSave가 쓰는 것과 같은 JSON 직렬화): 옛 패시브와 새 패시브가 한 회차에 섞여 있어도
+	# 값이 유지되고 후보 생성·빌드 계산이 오류 없이 지나간다. 사용자 저장 파일은 건드리지 않는다
+	var save_run := PRun.new_run(1, "sword")
+	save_run.growth.passives = { "exploit": 2, "persistence": 1, "dodge_mastery": 1 }
+	var text := JSON.stringify(save_run)
+	var back: Dictionary = JSON.parse_string(text)
+	var b_back := PBuild.derive(back)
+	ok("저장 왕복 뒤에도 빈틈 포착·지속력·회피 숙련이 **함께** 남고 계산이 오류 없이 지나간다",
+		int(back.growth.passives.get("exploit", 0)) == 2 and int(back.growth.passives.get("persistence", 0)) == 1
+			and int(back.growth.passives.get("dodge_mastery", 0)) == 1
+			and is_equal_approx(float(b_back.dodge_cd_mult), 0.95) and is_equal_approx(float(b_back.duration_mult), 1.2),
+		"%s · 회피 배율 %.3f · 지속 배율 %.3f" % [str(back.growth.passives), float(b_back.dodge_cd_mult), float(b_back.duration_mult)])
