@@ -44,7 +44,7 @@ LOADER = """<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>예언의 시간표 — 시험 빌드</title>
+<title>텐데이즈투둠스데이 — 시험 빌드</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <style>
@@ -58,7 +58,7 @@ LOADER = """<!doctype html>
 </head>
 <body>
 <div class="w">
-  <h1>예언의 시간표</h1>
+  <h1>텐데이즈투둠스데이</h1>
   <div id="m" class="s">판본을 확인하는 중…</div>
   <div id="f" class="s"></div>
 </div>
@@ -85,7 +85,7 @@ LOADER = """<!doctype html>
 </html>
 """
 
-README = """# 예언의 시간표 — 웹 시험 빌드
+README = """# 텐데이즈투둠스데이 — 웹 시험 빌드
 
 폰(안드로이드 크롬)에서 눌러 보기 위한 **시험 빌드**만 올려 둔 곳이다.
 게임 실행에 필요한 파일 한 벌 말고는 아무것도 없다 — 소스·문서·기록은 여기 없다.
