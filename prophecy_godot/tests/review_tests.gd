@@ -168,9 +168,14 @@ func s1_shock() -> void:
 	g1.conduct = 0.0 # g1은 감전이 아니다(죽이는 타격이 후속을 부르지 않게)
 	g2.conduct = 99.0 # 파열 반경 안의 이웃만 감전 상태
 	var p7 := procs(st7)
-	st7.damage_enemy(g1, 1.0e6, { "src": { "weapon_id": "plague", "direct": false, "extra": true }, "cause": "dot" })
+	# 2026-09-09 확정 이후: **숙주 파열을 여는 것은 주무기 처치뿐이다**(plague_host_burst.deny 에 dot).
+	# 그전에는 독이 스스로 끝나 죽어도 파열이 났고 이 줄이 그 경로로 파열을 만들었다.
+	# 규칙이 바뀐 뒤로 dot 처치는 파열을 열지 않아 **전제가 무너져** 늘 실패했다(파열 0회).
+	# 이 단언이 보려는 것은 "파열이 감전 후속을 부르지 않는다"이지 "무엇이 파열을 여는가"가 아니므로,
+	# 지금 규칙대로 **주무기 처치**로 파열을 연 뒤 감전 후속이 안 붙는지 본다.
+	st7.damage_enemy(g1, 1.0e6, { "src": { "weapon_id": "sword", "direct": true }, "cause": "main_direct" })
 	sync(st7)
-	ok("[명세] **역병 파열**로는 감전 후속이 터지지 않는다",
+	ok("[명세] **역병 파열**로는 감전 후속이 터지지 않는다(파열은 주무기 처치로 연다)",
 		PSupport.metered(st7, "plague", "bursts") >= 1.0 and near(procs(st7) - p7, 0.0),
 		"파열 %.0f회 · shock_procs 증가 %.0f" % [PSupport.metered(st7, "plague", "bursts"), procs(st7) - p7])
 

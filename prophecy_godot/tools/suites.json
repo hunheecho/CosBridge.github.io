@@ -23,6 +23,22 @@
     ],
     "forbid_note": "GDScript 오류가 있으면 요약이 남아 있어도 실패다. 오류로 _init이 중단되면 quit()에 도달하지 못해 프로세스가 영원히 남는 사례가 있었다."
   },
+  "all_exclusions": {
+    "note": "여기 적힌 것만 최종 실행 대상(groups.all)에서 뺀다. **파일 이름 규칙으로 가르지 않는다** — 이름은 바뀌고, 이름만 보고 빼면 진짜 검사가 조용히 빠진다(2026-09-10: bank_tests·bank_ui_tests·equip_combat_tests·equip_ui_tests·enemy_pace_tests 다섯이 그렇게 빠져 있었다). tools/check_suites.py 가 실행 전에 이 목록과 실제 파일을 대조한다.",
+    "measurement": {
+      "why": "통과·실패 판정이 없다. 수치를 남기는 계측이고, 판정 기준이 없으므로 최종 검수의 합격 근거가 될 수 없다. 밸런스를 볼 때 사람이 따로 돌린다.",
+      "suites": ["boss_cover_probe", "build_pair_probe", "build_probe", "combo_probe", "dps_probe", "economy_probe", "elite_placement_measure", "elites_bot_measure", "formation_probe", "frame_path_audit", "heal_audit", "mission_probe", "probe_lizard_tail", "probe_patterns", "repeat_income_probe", "spread_probe", "support_scene_probe", "synergy_probe", "tail_probe"]
+    },
+    "screen_walkthrough": {
+      "why": "화면 순회 자동 진행이다. 회차 하나를 끝까지 굴리므로 시간이 길고(최대 30분·90분), 봇의 승패가 섞여 들어와 **규칙 회귀 판정으로 쓸 수 없다**. 스스로도 '완주 검증이 아니다'라고 적고 있다. 화면 흐름을 볼 때 `--group smoke` 로 따로 돌린다.",
+      "suites": ["ui_smoke_short", "ui_smoke_full"]
+    },
+    "not_a_suite": {
+      "why": "스위트가 아니라 다른 검사가 자식 프로세스로 띄우는 몸통이다. 혼자 돌리면 뜻이 없다.",
+      "files": ["tests/save_guard_probe.gd"],
+      "used_by": "save_guard_tests — 가짜 APPDATA 에서 저장 거부를 재현할 때 띄운다"
+    }
+  },
   "suites": {
     "run_tests": {
       "env": {},
@@ -309,6 +325,11 @@
       "timeout_sec": 300,
       "desc": "특수 정예 결투는 임무 목표 카드에 붙지 않는다(KD-11). 일반 카드에는 그대로 붙는다"
     },
+    "review_tests": {
+      "env": {},
+      "timeout_sec": 900,
+      "desc": "자체 교차 검수 — 자격표를 물어보는 대신 **실제 피해 경로**(연쇄 번개·지뢰 폭발·독 정산·분신·가시 반격·인형·포자·옛 저장 상한)를 태워 결과 계수기로 확인한다"
+    },
     "review_input_tests": {
       "env": {},
       "timeout_sec": 600,
@@ -424,8 +445,9 @@
     },
     "frame_path_audit": {
       "env": {},
+      "script": "tools/frame_path_audit.gd",
       "timeout_sec": 900,
-      "desc": "실제 프레임 경로의 중복 발사·중복 소비"
+      "desc": "실제 프레임 경로의 중복 발사·중복 소비. 통과 판정이 아니라 기록"
     },
     "heal_audit": {
       "env": {
@@ -679,6 +701,7 @@
       "overlay_tests",
       "screen_keep_tests",
       "save_repair_tests",
+      "review_tests",
       "review_input_tests",
       "bank_tests",
       "bank_ui_tests",
@@ -703,8 +726,7 @@
       "synergy_tests",
       "render_tests",
       "new_monster_tests",
-      "squad_tests",
-      "duel_card_tests"
+      "squad_tests"
     ],
     "rules": [
       "run_tests",

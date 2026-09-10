@@ -234,22 +234,31 @@ func sec0_vocab() -> void:
 	#      자격표 기본 규칙(allow가 비어 있지 않은데 이름이 없으면 불허)으로 결과는 불허다
 	var SB: Dictionary = EF.get("shock_bonus", {})
 	var CM: Dictionary = EF.get("crow_mark", {})
-	var undecided := true
+	# 2026-09-10 사용자 확정: 감전 후속·까마귀 표적 **둘 다 일반 수동 기술은 제외**.
+	# 그전에는 합의 문구에 근거가 없어 allow·deny 어디에도 안 적고 미결정으로 두었다(그때도 결과는 불허).
+	# 확정이 온 뒤로는 **deny 에 명시**해야 한다 — 결과가 같아도 '우연히 막혀 있다'와 '막기로 정했다'는
+	# 다른 사실이고, 나중에 분류가 바뀌어도 이 줄이 있으면 조용히 열리지 않는다.
+	var denied_named := true
+	var not_allowed := true
 	var eff_shut := true
 	for c6 in SKILL_CAUSES:
 		for T in [SB, CM]:
 			var d: Dictionary = T
-			if (d.get("allow", []) as Array).has(String(c6)) or (d.get("deny", []) as Array).has(String(c6)):
-				undecided = false
+			if not (d.get("deny", []) as Array).has(String(c6)):
+				denied_named = false
+			if (d.get("allow", []) as Array).has(String(c6)):
+				not_allowed = false
 		if PSupport.eligible("shock_bonus", String(c6)) or PSupport.eligible("crow_mark", String(c6)):
 			eff_shut = false
-	ok("0-8: **미결정** — 감전 후속·까마귀 표적의 allow에도 deny에도 새 이름을 넣지 않았다", undecided)
-	ok("0-9: 그래서 **결과적으로 불허**다(allow 목록에 없으면 막힌다는 자격표 기본 규칙)", eff_shut,
+	ok("0-8: **확정** — 감전 후속·까마귀 표적의 deny 에 수동 기술 경로가 전부 명시돼 있다", denied_named,
+		"감전 후속 deny %s" % str(SB.get("deny", [])))
+	ok("0-8b: allow 에는 넣지 않았다(허용으로 뒤집히지 않는다)", not_allowed)
+	ok("0-9: 실제 자격 조회도 **불허**다", eff_shut,
 		"감전 후속 allow %s · 까마귀 allow %s" % [str(SB.get("allow", [])), str(CM.get("allow", []))])
 	var why_sb := String(SB.get("why", ""))
 	var why_cm := String(CM.get("why", ""))
-	ok("0-10: 두 항목의 why에 **'미결정'이라고 적혀 있다**(합의 문구에 근거가 없다는 표시)",
-		why_sb.find("미결정") >= 0 and why_cm.find("미결정") >= 0)
+	ok("0-10: 두 항목의 why 에 **제외 확정**이 적혀 있다(2026-09-10 사용자 확정)",
+		why_sb.find("제외한다") >= 0 and why_cm.find("제외한다") >= 0)
 
 	# (사) 자격표 조회 결과 한 줄 요약(값으로 남긴다)
 	var rows := []

@@ -561,6 +561,21 @@ def main() -> int:
     for k in ("PROPHECY_LEGACY_PLACES",):
         base_env.pop(k, None)  # 명세에 적힌 스위트만 받도록, 바깥 값이 새어 들어오지 않게 한다
 
+    # **돌리기 전에** 명세와 실제 파일을 대조한다(2026-09-10 사용자 지시).
+    # 미등록·중복·대상 파일 없음·사유 없는 제외가 있으면 여기서 멈춘다 —
+    # 실행이 끝난 뒤에 "사실은 다섯 개가 빠져 있었다"를 알게 되는 일을 없앤다.
+    try:
+        import check_suites  # tools/ 안이라 같은 폴더다
+        _doc, _su, _gr, _out, _rz, _problems = check_suites.check()
+        if _problems:
+            log("**검사 명세에 문제가 있어 실행하지 않는다(%d건)**" % len(_problems))
+            for _p in _problems:
+                log("  · " + _p)
+            log("고친 뒤 다시 돌려라. 확인만 하려면: python tools/check_suites.py")
+            return 2
+    except Exception as _e:  # 대조기 자체가 고장 나도 검사를 막지는 않는다. 다만 조용히 넘기지 않는다
+        log("검사 명세 대조를 돌리지 못했다(%s) — 대조 없이 진행한다" % _e)
+
     log(f"실행 {run_id} · 스위트 {len(names)}개 · 동시 {args.jobs} · 로그 {run_dir}")
     t0 = time.monotonic()
     records: list[dict] = []
