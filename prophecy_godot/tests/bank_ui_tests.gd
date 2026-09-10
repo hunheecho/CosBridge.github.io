@@ -174,9 +174,13 @@ func _run() -> void:
 	await process_frame
 	sb = main.screens["skillbank"]
 	var b_sw: Dictionary = PBuild.derive(main.run)
-	ok("맞바꾼 뒤 Q=낙뢰 Lv2(8초) · E=찰나 가르기(8초) — 표시와 재사용이 새 배치와 일치",
+	# 재사용 값을 숫자로 박지 않는다 — 정본은 자료다(통합에서 창고 8초 · 전투 구현 10초로 갈렸다).
+	# 각 칸이 **그 칸에 든 기술의 표**를 쓰는지가 확인할 내용이고, 값 자체는 자료에서 읽는다
+	var q_cd_want: float = float((PCatalog.skills()["strike"].cooldown as Array)[int(main.run.growth.skills.q.level) - 1])
+	var e_cd_want: float = float((PCatalog.skills()["eq_flashcut"].cooldown as Array)[0])
+	ok("맞바꾼 뒤 Q=낙뢰(%.1f초) · E=찰나 가르기(%.1f초) — 표시와 재사용이 새 배치와 일치" % [q_cd_want, e_cd_want],
 		String(main.run.growth.skills.q.id) == "strike" and String(main.run.growth.skills.e.id) == "eq_flashcut"
-		and is_equal_approx(float(b_sw.special_cd), 8.0) and is_equal_approx(PBuildDetail.cd_of_build(b_sw, "e"), 8.0),
+		and is_equal_approx(float(b_sw.special_cd), q_cd_want) and is_equal_approx(PBuildDetail.cd_of_build(b_sw, "e"), e_cd_want),
 		"%s / %s" % [str(b_sw.special_cd), str(PBuildDetail.cd_of_build(b_sw, "e"))])
 	btn(sb, "Q와 E 맞바꾸기").pressed.emit() # 원래대로 되돌린다
 	await process_frame

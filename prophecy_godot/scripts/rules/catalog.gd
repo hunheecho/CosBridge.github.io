@@ -102,17 +102,37 @@ static func skills() -> Dictionary:
 	_cache["skills_merged"] = out
 	return out
 
-## 장비 기술 정의만(meta.json equip_skills, note 제외)
+## 장비 기술 정의만. **정본은 data/growth.json의 skills 중 id가 "eq_"로 시작하는 것**이다.
+##
+## 2026-09-10 통합에서 잡은 결함: 두 갈래가 같은 기술에 **서로 다른 id**를 붙였다.
+##   장비가 주는 것(grantsSkill) : eq_meteor · eq_icetomb · eq_reprieve
+##   창고가 등록한 것             : eq_meteordrop · eq_crystalcoffin · eq_reprieveclock
+## 정의가 두 곳(growth.json · meta.json)에 각각 있어 6종 중 3종이 이어지지 않았다.
+## 창고 쪽은 장비가 아직 없던 때의 임시 등록이었고, 전투 구현과 grantsSkill이 쓰는 것은
+## 짧은 쪽(합의한 규약)이다. 그래서 **정의를 growth.json 한 곳으로 모으고**
+## meta.json의 병행 정의는 비웠다. 앞으로 기술을 늘려도 한 곳만 고치면 된다.
 static func equip_skill_defs() -> Dictionary:
 	if _cache.has("equip_skill_defs"):
 		return _cache["equip_skill_defs"]
 	var out := {}
-	var ES: Dictionary = meta().get("equip_skills", {})
-	for k in ES:
-		if String(k) != "note":
-			out[String(k)] = ES[k]
+	var GS: Dictionary = _load("growth").skills
+	for k in GS:
+		if String(k).begins_with("eq_"):
+			out[String(k)] = GS[k]
 	_cache["equip_skill_defs"] = out
 	return out
+
+## 이 장비 기술을 주는 장비 종류 id. 없으면 "". 방향은 **장비 → 기술**(grantsSkill) 하나뿐이다
+static func equipment_granting(skill_id: String) -> String:
+	for id in equipment():
+		if String((equipment()[id] as Dictionary).get("grantsSkill", "")) == skill_id:
+			return String(id)
+	for id in crafted_equipment():
+		if typeof(crafted_equipment()[id]) != TYPE_DICTIONARY:
+			continue
+		if String((crafted_equipment()[id] as Dictionary).get("grantsSkill", "")) == skill_id:
+			return String(id)
+	return ""
 
 static func e_skills() -> Array: return _load("growth").e_skills
 static func boss_rewards() -> Dictionary: return _load("growth").boss_rewards

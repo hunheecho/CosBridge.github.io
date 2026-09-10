@@ -39,8 +39,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parent
 
-# 복사할 때 건너뛸 것(무겁고 검사에 필요 없다)
-SKIP = {".godot", ".git", "clips", "docs", ".import"}
+# 복사할 때 건너뛸 것. **.godot(가져오기 캐시)은 빼지 않는다** —
+# 빼면 복사본에서 전체 재가져오기가 걸려 검사가 시간 초과로 끝나지 못한다(실제로 900초를 넘겼다).
+SKIP = {".git", "clips", "docs"}
 
 
 def godot_exe() -> str:
@@ -125,7 +126,7 @@ def main() -> int:
         print("복사본에서 %d줄을 지웠다 → %s" % (total, a.file))
 
         subprocess.run([godot_exe(), "--headless", "--path", str(dst), "--import"],
-                       capture_output=True, timeout=600)
+                       capture_output=True, timeout=900)
         r = subprocess.run([godot_exe(), "--headless", "--path", str(dst), "-s", a.test],
                            capture_output=True, timeout=900)
         out = r.stdout.decode("utf-8", "replace")

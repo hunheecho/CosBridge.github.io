@@ -82,8 +82,12 @@ func _init() -> void:
 	ok("장비 기술은 기존 Q의 레벨·변형을 **계승하지 않는다**(Lv1 고정 · 변형 없음)",
 		int(r.growth.skills.q.level) == 1 and r.growth.skills.q.get("variant", null) == null)
 	var b_eq := PBuild.derive(r)
-	ok("전투가 보는 Q도 장비 기술로 바뀐다 · 재사용은 그 기술의 표를 쓴다(첫 시험값 8초)",
-		String(b_eq.skills.q.id) == EQSK and is_equal_approx(float(b_eq.special_cd), 8.0),
+	# 재사용 값을 **숫자로 박지 않는다.** 통합에서 두 갈래가 같은 기술에 다른 값을 잡아
+	# (창고 8초 · 전투 구현 10초) 여기서 깨졌다. 정본은 자료(data/growth.json)이므로
+	# 자료에서 읽어 비교한다 — 시험값을 조정해도 이 단언은 따라간다
+	var eq_cd_want: float = float((PCatalog.skills()[EQSK].cooldown as Array)[0])
+	ok("전투가 보는 Q도 장비 기술로 바뀐다 · 재사용은 **그 기술 자료의 표**를 쓴다(%.1f초)" % eq_cd_want,
+		String(b_eq.skills.q.id) == EQSK and is_equal_approx(float(b_eq.special_cd), eq_cd_want),
 		"%s / %s (전 %s)" % [String(b_eq.skills.q.id), str(b_eq.special_cd), str(cd_before)])
 
 	print("\n[4] 검증 8) 장비 기술이 레벨업·개조 후보에 섞이지 않는다")

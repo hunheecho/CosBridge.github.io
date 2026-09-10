@@ -170,13 +170,26 @@ func _run() -> void:
 	main.show("shop")
 	await process_frame
 	shop = main.screens["shop"]
+	# 오늘 재고에 같은 부위 장비가 둘 있어야만 확인되던 검사라 **날마다 흔들렸다**(시드를 안 고정한다).
+	# 확인하려는 것은 '새 장비를 껴도 옛 장비의 강화가 따라가지 않는다'이지 재고 추첨이 아니다.
+	# 그래서 재고에 없으면 **자료에서 같은 부위 장비를 골라 그날 재고에 넣는다**(상점 화면 경로는 그대로 쓴다)
 	var other := ""
 	for id in PRun.stock(r).equipment:
 		var tid := String(id)
 		if String(PCatalog.equipment_def(tid).slot) == slot0 and not PRun.owns_equip_type(r, tid):
 			other = tid
 	if other == "":
-		ok("§10 ③ 같은 부위의 다른 장비가 오늘 재고에 없어 화면으로 확인하지 못했다", false, "slot %s" % slot0)
+		for id in PCatalog.equipment():
+			var tid2 := String(id)
+			if String(PCatalog.equipment_def(tid2).slot) == slot0 and not PRun.owns_equip_type(r, tid2):
+				other = tid2
+				(PRun.stock(r).equipment as Array).append(tid2)
+				main.show("shop")
+				await process_frame
+				shop = main.screens["shop"]
+				break
+	if other == "":
+		ok("§10 ③ 자료에 같은 부위의 다른 장비가 아예 없다(이 검사의 전제가 깨졌다)", false, "slot %s" % slot0)
 	else:
 		var before_plus := PRun.equip_plus_of(r, worn)
 		main.buy_equipment(other, true, "stock")
