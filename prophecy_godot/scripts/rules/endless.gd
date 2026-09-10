@@ -41,6 +41,7 @@ static func start(run: Dictionary) -> bool:
 	run.phase = "endless"
 	run.ended = false
 	run.pendingSortie = null
+	run.inCombat = false
 	run.bossEntry = null
 	run.hp = float(PRun.build(run).hp_max)
 	PRun.add_log(run, "무한 모드 시작: 현재 빌드로 계속 (1구간, 전투 %d + 보스)" % fights_per_segment())
@@ -183,6 +184,7 @@ static func over(run: Dictionary, reason: String) -> void:
 	run.phase = "endless_over"
 	run.ended = true
 	run.pendingSortie = null
+	run.inCombat = false
 	run.bossEntry = null
 	PRun.add_log(run, "무한 모드 종료(%s): %d구간 도달 · 전투 승 %d · 구간 보스 %d" % [reason_name(reason), int(E.segment), int(E.wins), int(E.bossesWon)])
 

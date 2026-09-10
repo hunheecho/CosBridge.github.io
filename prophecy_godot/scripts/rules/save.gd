@@ -61,6 +61,11 @@ static func _normalize(run: Dictionary) -> Dictionary:
 		run.stock.skill.price = int(run.stock.skill.price)
 	if run.has("hp"):
 		run.hp = float(run.hp)
+	# **'전투 중' 표시는 저장에 남기지 않는다**(KD-13).
+	# 전투 시작 직후에 체크포인트를 저장하는데, 그 표시가 그대로 실려 나가면
+	# 이어하기로 거점에 돌아온 사람의 기술 편성이 영영 잠긴다.
+	# 이어하기는 언제나 거점부터이므로 여기서 항상 내린다.
+	run["inCombat"] = false
 	return run
 
 static func normalize(run: Dictionary) -> Dictionary:

@@ -309,6 +309,11 @@
       "timeout_sec": 300,
       "desc": "저장에 자료에 없는 장비가 들어 있어도 게임이 죽지 않는다(빼고 기록을 남긴다). 폐기 장비는 그대로 둔다"
     },
+    "combat_lock_tests": {
+      "env": {},
+      "timeout_sec": 300,
+      "desc": "전투 중에는 규칙 계층이 기술 편성을 막는다(KD-13). 정산·이어하기 뒤에는 다시 열린다 — 영영 잠기지 않는다"
+    },
     "save_guard_tests": {
       "env": {},
       "timeout_sec": 300,
@@ -659,6 +664,7 @@
       "screen_keep_tests",
       "save_repair_tests",
       "save_guard_tests",
+      "combat_lock_tests",
       "name_tests",
       "equip_chain_tests",
       "sell_upgrade_tests",

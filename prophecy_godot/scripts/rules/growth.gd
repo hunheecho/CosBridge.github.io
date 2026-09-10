@@ -357,6 +357,16 @@ static func usable_skill(run: Dictionary, slot: String):
 ## 거점에서 편성을 바꿔도 그 시계는 존재하지 않는다. 그래서 장착·해제·Q/E 교환으로 재사용을 초기화하거나
 ## 짧은 쪽으로 바꾸는 구멍이 생기지 않는다(§6). 전투 중 교체 기능은 만들지 않았다.
 static func bank_edit_reason(run: Dictionary) -> String:
+	# **전투가 진행 중이면 먼저 막는다**(KD-13, 2026-09-10).
+	# 예전에는 run.phase 하나만 봤는데, 전투 중에도 phase 는 "prep" 그대로다
+	# (PSortie.start 가 phase 를 바꾸지 않는다). 그래서 규칙 계층은 아무것도 막지 않았고,
+	# 실제로 막고 있던 것은 "전투 화면에 편성 버튼이 없다"는 사실뿐이었다 —
+	# 누가 전투 HUD 나 일시정지에 버튼을 하나 붙이면 그대로 뚫린다.
+	# 이 표시는 PFlow.make_encounter/make_boss_encounter 가 세우고 정산·귀환이 내린다.
+	# 저장에는 남기지 않는다(PSave 가 항상 false 로 정규화한다) — 전투 도중 종료하면
+	# 이어하기는 거점으로 돌아오므로, 표시가 남아 편성이 영영 잠기면 안 된다.
+	if bool(run.get("inCombat", false)):
+		return "전투 중에는 기술 편성을 바꿀 수 없습니다."
 	var phase := String(run.get("phase", "prep"))
 	if phase == "prep" or phase == "boss_prep":
 		return ""

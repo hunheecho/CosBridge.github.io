@@ -46,7 +46,7 @@ static func new_run(seed_v: int, start_weapon: String, balance: String = "", opt
 		"log": [],
 		"stats": { "encounters": 0, "wins": 0, "losses": 0, "kills": 0 },
 		"dmgStats": { "combats": [], "byKey": {} },
-		"services": {}, "cards": null, "missionsDone": {}, "pendingSortie": null, "buffs": {}, "lastEvent": null, "lastSupplyDay": null, "eventsResolved": 0,
+		"services": {}, "cards": null, "missionsDone": {}, "pendingSortie": null, "inCombat": false, "buffs": {}, "lastEvent": null, "lastSupplyDay": null, "eventsResolved": 0,
 		"ended": false, "bossEntry": null,
 		"worldStages": bool(opts.get("world_stages", true)), "densitySet": String(opts.get("density_set", "")),
 		"aliveCapSet": String(opts.get("alive_cap_set", "")), # 막별 동시 상한 세트(빈 값 = 기본 acts, "legacy" = 기존 상한 대조군)

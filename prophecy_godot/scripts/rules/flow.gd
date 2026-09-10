@@ -76,6 +76,7 @@ static func make_encounter(run: Dictionary, sortie: Dictionary, extra: Dictionar
 	consume_stored_shield(run)
 	PConsumables.consume_for_fight(run)   # 출격 준비물은 전투 입장에서 1회 소모(빌드는 위에서 이미 계산됐다)
 	run.pendingSortie = null
+	run.inCombat = true # **전투가 진행 중이라는 표시**(KD-13). 규칙 계층이 편성 변경을 막는 근거다
 	return st
 
 ## 재생의 여행복이 저장한 초과 회복분(run.storedShield)은 전투 시작 빌드에 들어간 뒤 소비된다(다음 전투 1회)
@@ -135,6 +136,7 @@ static func settle_victory(run: Dictionary, sortie: Dictionary, st: CombatState)
 	if not reward.has("eventFight") and sortie.get("event", null) == null and not bool(sortie.get("endless", false)) and not bool(sortie.get("repeat", false)):
 		sortie.event = PEvents.roll(run, sortie) # 탐험 사건: 출격당 최대 1회, 시드 결정적(무한 전투에는 사건 없음)
 	run.pendingSortie = sortie # 전투 뒤 안전 화면 상태를 저장
+	run.inCombat = false # 정산이 끝났다 — 안전 화면부터는 편성을 만질 수 있다
 	var deep_pick: bool = bool(PCatalog.growth().get("DEEP_PICK", false))
 	if bool(sortie.get("deep", false)) and deep_pick and not bool(sortie.get("deepPicked", false)):
 		sortie.deepPicked = true
@@ -157,6 +159,7 @@ static func settle_defeat(run: Dictionary, sortie: Dictionary, st: CombatState) 
 	PRun.apply_encounter_result(run, sortie, "lost", {}, 0.0)
 	PRun.defeat(run, sortie)
 	run.pendingSortie = null
+	run.inCombat = false
 
 ## 보스전(회차 관문): 단계별 보스·체력 후보. 입장 스냅샷은 PRun.start_boss가 만든다
 ## 전투 시작 체력은 여기서 정하지 않고 규칙 계층(PRun.boss_start_hp)이 준다 — 보통 입장은 예전과 같은 최대 체력이고,
@@ -171,6 +174,7 @@ static func make_boss_encounter(run: Dictionary, sortie: Dictionary) -> CombatSt
 	consume_stored_shield(run)
 	PConsumables.consume_for_fight(run)   # 출격 준비물은 전투 입장에서 1회 소모(빌드는 위에서 이미 계산됐다)
 	run.pendingSortie = null
+	run.inCombat = true # **전투가 진행 중이라는 표시**(KD-13). 규칙 계층이 편성 변경을 막는 근거다
 	return st
 
 ## 보스 승리 정산(정확히 1회): 통계 → 원정대의 갑옷 회복(C7) → 처치 기록·다음 단계·희귀 보상 보류
@@ -187,6 +191,7 @@ static func settle_boss_victory(run: Dictionary, st: CombatState) -> Dictionary:
 	if heal > 0.0:
 		rec.heal = heal
 	run.pendingSortie = null
+	run.inCombat = false
 	return rec
 
 static func settle_boss_defeat(run: Dictionary, st: CombatState) -> void:
@@ -201,6 +206,7 @@ static func settle_boss_defeat(run: Dictionary, st: CombatState) -> void:
 	else:
 		PRun.boss_defeat(run)
 	run.pendingSortie = null
+	run.inCombat = false
 
 ## 다음에 제시할 선택(순서 고정): 보류 제시 → 미처리 레벨업 → 임무 보상 3택 → 보스 희귀 보상 → 사건 보상 → 더 깊이 지역 3택 → null
 static func next_offer(run: Dictionary, ctx: Dictionary = {}) -> Variant:
@@ -423,6 +429,7 @@ static func must_return(sortie: Dictionary) -> bool:
 static func return_home(run: Dictionary, sortie: Dictionary) -> void:
 	PRun.return_to_base(run, sortie)
 	run.pendingSortie = null
+	run.inCombat = false
 	PEndless.after_fight(run, sortie) # 무한 전투면 구간 전투 수 증가(보스 대기 전환)
 
 # ---------- 행동 목록(UI·회차 봇 공용) ----------
