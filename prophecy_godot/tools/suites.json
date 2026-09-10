@@ -525,6 +525,11 @@
       "timeout_sec": 600,
       "desc": "신규 전투 효과형 장비 4종(공성 망치머리 균열·겹번개 도선 감전 복제·서리 결정 흉갑 빙결 요구량·잔영 허물 조준 교란)"
     },
+    "eq_skill_tests": {
+      "env": {},
+      "timeout_sec": 600,
+      "desc": "장비 기술 6종(찰나 가르기·낙성 강하·받아치기·되짚는 궤적·결정 관·유예의 시계)의 전투 동작·연계 자격·취소/전환 정리"
+    },
     "render_tests": {
       "env": {},
       "timeout_sec": 900,
@@ -571,6 +576,7 @@
     "all": [
       "run_tests",
       "qe_tests",
+      "eq_skill_tests",
       "collision_tests",
       "spore_tests",
       "slots_tests",
@@ -621,6 +627,7 @@
     ],
     "rules": [
       "run_tests",
+      "eq_skill_tests",
       "collision_tests",
       "spore_tests",
       "slots_tests",

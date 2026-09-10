@@ -104,8 +104,8 @@ func _init() -> void:
 	PProfile.clear()
 	PSave.clear()
 	var M := PCatalog.meta()
-	ok("meta.json 로드: schema prophecy_meta/1, 레벨 15, 문턱 14개 합 140, 특성 12, 제작 7(잔영 허물 추가), 도전 21", String(M.schema) == "prophecy_meta/1" and PProfile.max_level() == 15 and (M.levels.thresholds as Array).size() == 14 and PCatalog.trait_defs().size() == 12 and PCatalog.crafted_equipment().size() == 7 and PCatalog.challenges().size() == 21, "challenges %d" % PCatalog.challenges().size())
-	ok("카탈로그 분리: equipment()는 15(제작품 제외), equipment_def는 22 모두, 판매가 무기 35·갑옷/방패 30", PCatalog.equipment().size() == 15 and not PCatalog.equipment().has("bloodmoon_sword") and not PCatalog.equipment_def("bloodmoon_sword").is_empty() and PRun.sell_price("bloodmoon_sword") == 35 and PRun.sell_price("moon_armor") == 30 and PRun.sell_price("relay_shield") == 30)
+	ok("meta.json 로드: schema prophecy_meta/1, 레벨 15, 문턱 14개 합 140, 특성 12, 제작 9(잔영 허물 + 장비 기술 제작 2종), 도전 21", String(M.schema) == "prophecy_meta/1" and PProfile.max_level() == 15 and (M.levels.thresholds as Array).size() == 14 and PCatalog.trait_defs().size() == 12 and PCatalog.crafted_equipment().size() == 9 and PCatalog.challenges().size() == 21, "challenges %d" % PCatalog.challenges().size())
+	ok("카탈로그 분리: equipment()는 19(제작품 제외), equipment_def는 28 모두, 판매가 무기 35·갑옷/방패 30", PCatalog.equipment().size() == 19 and not PCatalog.equipment().has("bloodmoon_sword") and not PCatalog.equipment_def("bloodmoon_sword").is_empty() and PRun.sell_price("bloodmoon_sword") == 35 and PRun.sell_price("moon_armor") == 30 and PRun.sell_price("relay_shield") == 30)
 	# ---------- 레벨 문턱 ----------
 	ok("레벨: 0→1, 3→1, 4→2, 8→3, 14→4, 68→10, 139→14, 140→15, 200→15(상한)", PProfile.level_of(0) == 1 and PProfile.level_of(3) == 1 and PProfile.level_of(4) == 2 and PProfile.level_of(8) == 3 and PProfile.level_of(14) == 4 and PProfile.level_of(68) == 10 and PProfile.level_of(139) == 14 and PProfile.level_of(140) == 15 and PProfile.level_of(200) == 15)
 	var nl := PProfile.next_level(prof("trial", 5))
@@ -122,16 +122,16 @@ func _init() -> void:
 	var u5 := PProfile.unlocked(prof("trial", 20))
 	ok("trial Lv5: 낙뢰·Q 분할·시간 저축(4)·쌍검(3)·시작 추적궁(2) 열림, 망치(6)·정지된 칼날(7) 아직", int(u5.level) == 5 and (u5.e_skills as Array).has("strike") and (u5.q_variants as Array).has("split") and (u5.commons as Array).has("saving") and (u5.weapons as Array).has("daggers") and (u5.start_weapons as Array).has("bow") and (u5.start_weapons as Array).has("daggers") and not (u5.weapons as Array).has("hammer") and not (u5.commons as Array).has("stasis"))
 	var u10 := PProfile.unlocked(prof("trial", 68))
-	ok("trial Lv10: 자동기술 10·시작 7·공용 8(불꽃 파열만 도전)·수동 기술 6(감속장 포함)·감속장 변형 3·장비 15(대체 해금 6/7/8 + 신규 3)·제작법 1(혈월검)", int(u10.level) == 10 and (u10.weapons as Array).size() == 10 and (u10.start_weapons as Array).size() == 7 and (u10.commons as Array).size() == 8 and not (u10.commons as Array).has("flare") and (u10.e_skills as Array).size() == 6 and (u10.e_skills as Array).has("slowfield") and (u10.q_variants as Array).size() == 3 and (u10.equipment as Array).size() == 15 and (u10.recipes as Array) == ["bloodmoon_sword"])
+	ok("trial Lv10: 자동기술 10·시작 7·공용 8(불꽃 파열만 도전)·수동 기술 6(감속장 포함)·감속장 변형 3·장비 19(대체 해금 6/7/8 + 신규 3 + 장비 기술 4)·제작법 1(혈월검)", int(u10.level) == 10 and (u10.weapons as Array).size() == 10 and (u10.start_weapons as Array).size() == 7 and (u10.commons as Array).size() == 8 and not (u10.commons as Array).has("flare") and (u10.e_skills as Array).size() == 6 and (u10.e_skills as Array).has("slowfield") and (u10.q_variants as Array).size() == 3 and (u10.equipment as Array).size() == 19 and (u10.recipes as Array) == ["bloodmoon_sword"])
 	var u15 := PProfile.unlocked(prof("trial", 140))
-	ok("trial Lv15: 제작법 7 전부(대체 해금), 불꽃 파열은 여전히 도전으로만", (u15.recipes as Array).size() == 7 and not (u15.commons as Array).has("flare"))
+	ok("trial Lv15: 제작법 9 전부(대체 해금), 불꽃 파열은 여전히 도전으로만", (u15.recipes as Array).size() == 9 and not (u15.commons as Array).has("flare"))
 	var uc := PProfile.unlocked(prof("trial", 0, {}, ["mod3:sword", "flare", "eq:time_shield", "recipe:relay_shield"]))
 	ok("도전 OR: Lv1이라도 mod3:sword→잔류 검흔, flare→불꽃 파열, eq:time_shield→시간의 방패, recipe:relay_shield→연계 방패 제작법", (uc.mods.sword as Array).has("scar") and (uc.commons as Array).has("flare") and (uc.equipment as Array).has("time_shield") and (uc.recipes as Array).has("relay_shield"))
 	var ul := PProfile.unlocked(prof("legacy", 0))
 	var modsl := 0
 	for w in ul.mods:
 		modsl += (ul.mods[w] as Array).size()
-	ok("legacy Lv1: 0.4.x 공개분 전부(자동기술 10·개조 30·공용 9·수동 기술 6·감속장 변형 3·장비 15), 시작 3·제작법 0은 시험 일정대로", (ul.weapons as Array).size() == 10 and modsl == 30 and (ul.commons as Array).size() == 9 and (ul.e_skills as Array).size() == 6 and (ul.q_variants as Array).size() == 3 and (ul.equipment as Array).size() == 15 and (ul.start_weapons as Array).size() == 3 and (ul.recipes as Array).size() == 0)
+	ok("legacy Lv1: 0.4.x 공개분 전부(자동기술 10·개조 30·공용 9·수동 기술 6·감속장 변형 3·장비 19), 시작 3·제작법 0은 시험 일정대로", (ul.weapons as Array).size() == 10 and modsl == 30 and (ul.commons as Array).size() == 9 and (ul.e_skills as Array).size() == 6 and (ul.q_variants as Array).size() == 3 and (ul.equipment as Array).size() == 19 and (ul.start_weapons as Array).size() == 3 and (ul.recipes as Array).size() == 0)
 	var cnt := PProfile.counts(prof("trial", 0))
 	ok("도감 개수 분모 분리: 획득 7/10 · 시작 가능 3/7", int(cnt.weapons.have) == 7 and int(cnt.weapons.total) == 10 and int(cnt.start.have) == 3 and int(cnt.start.total) == 7)
 	ok("잠긴 항목 조건 문구: 쌍검 '영구 Lv3', 검 세 번째 개조는 도전, 잔불검은 도전(또는 Lv7)", PProfile.unlock_text("weapons", "daggers") == "영구 Lv3" and PProfile.unlock_text("mods", "sword").begins_with("도전") and PProfile.unlock_text("equipment", "ember_sword").find("Lv7") >= 0, PProfile.unlock_text("equipment", "ember_sword"))
@@ -441,10 +441,12 @@ func _init() -> void:
 	for o in opts:
 		if String(o.id) == "bloodmoon_sword":
 			bm_opt = o
-	# 폐기 2종(§1)은 제작 후보에서 빠진다. 정의 7종(기존 6 + 잔영 허물) - 폐기 2 = **5개**.
+	# 폐기 2종(§1)은 제작 후보에서 빠진다. 정의 9종(기존 6 + 잔영 허물 + 장비 기술 제작 2종) - 폐기 2 = **7개**.
 	# 두 갈래를 합치며 기대값을 고쳤다 — 한쪽은 잔영 허물만 세어 7, 다른 쪽은 폐기만 빼서 4였다.
-	# 구현 결함이 아니라 두 명세(신규 제작 장비 추가 · 폐기 2종)가 겹친 결과다
-	ok("제작 후보 5개(정의 7 - 폐기 2), 혈월검: 재료 잔불검(장착)·송곳니 1/1·무쇠 1/1·수수료 90 → 가능, 미리보기 있음", opts.size() == 5 and bool(bm_opt.can) and (bm_opt.ingredients as Array).size() == 3 and String(bm_opt.ingredients[0].where) == "equipped" and int(bm_opt.fee) == 90 and not (bm_opt.preview as Dictionary).is_empty(), str(bm_opt.get("missing", [])))
+	# 구현 결함이 아니라 두 명세(신규 제작 장비 추가 · 폐기 2종)가 겹친 결과다.
+	# 2026-09-10 다시 +2: 장비 기술 [8] 결정 관·[9] 유예의 외투가 제작 장비로 들어왔다(3절 지시).
+	# **구현이 기대를 어긴 것이 아니라 등록 대상이 늘어난 것**이라 개수만 올렸다 — 판정 내용은 그대로다
+	ok("제작 후보 7개(정의 9 - 폐기 2), 혈월검: 재료 잔불검(장착)·송곳니 1/1·무쇠 1/1·수수료 90 → 가능, 미리보기 있음", opts.size() == 7 and bool(bm_opt.can) and (bm_opt.ingredients as Array).size() == 3 and String(bm_opt.ingredients[0].where) == "equipped" and int(bm_opt.fee) == 90 and not (bm_opt.preview as Dictionary).is_empty(), str(bm_opt.get("missing", [])))
 	ok("폐기 장비는 제작 후보에 없고 확정도 거부된다(§1)", not opts.any(func(o): return String(o.id) == "reprisal_shield" or String(o.id) == "relay_shield") and not PRun.can_craft(rc, "reprisal_shield") and not PRun.craft(rc, "relay_shield", true, false))
 	ok("미리보기·후보 계산은 회차를 바꾸지 않는다(취소 = 소비 없음)", JSON.stringify(PSave.normalize(rc.duplicate(true))) == json_before)
 	ok("장착 중 재료를 쓰지 않는 제작은 실패·불변", not PRun.craft(rc, "bloodmoon_sword", false, true) and int(rc.gold) == 100 and rc.equipment.weapon == "ember_sword")

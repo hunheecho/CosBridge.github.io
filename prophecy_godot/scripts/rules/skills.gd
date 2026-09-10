@@ -39,6 +39,10 @@ const SLOTS := ["q", "e"]
 static func init(st: CombatState) -> void:
 	st.skill_state = { "storm": {}, "gravity": {}, "ward": {}, "target": null, "field2": {} }
 	st.player.e_cd = 0.0
+	st.eq_act = {}
+	st.eq_trail = {}
+	st.eq_guard = {}
+	st.eq_debt = {}
 
 ## 기술 id가 든 슬롯("q"|"e"). 없으면 ""
 static func slot_of(st: CombatState, id: String) -> String:
@@ -234,6 +238,13 @@ static func cast(st: CombatState, slot: String) -> bool:
 	var dmg := sdmg(st, slot)
 	var S := st.skill_state
 	var lv := mini(3, int(sk.level))
+	# ---------- 장비 기술([4]~[9])의 발동 자격 ----------
+	# **그 장비를 벗으면 쓸 수 없다.** 자격은 착용 목록(build.equip_types)에서 직접 확인한다 —
+	# 합산 사전(build.equip)은 같은 키를 뒤 슬롯이 덮어쓰기 때문에 두 장비가 각각 기술을 줄 때 하나가 사라진다.
+	# 자격이 없거나 다른 장비 기술이 진행 중이면 **재사용 시간도 소비하지 않고** 아무 일도 하지 않는다.
+	if is_eq(sid) and (not eq_granted(st, sid) or not st.eq_act.is_empty()):
+		return false
+	var cd_now := true # [7]의 첫 입력만 false다(기록만 시작한다 — 재사용은 귀환·만료 때 건다)
 	match sid:
 		"slowfield":
 			cast_field(st, slot)
@@ -297,7 +308,18 @@ static func cast(st: CombatState, slot: String) -> bool:
 			p.shield += amt
 			p.shield_max = maxf(p.shield_max, p.shield)
 			st.fx({ "kind": "burst", "x": p.x, "y": p.y, "r": 40.0, "ttl": 0.3, "color": "#7ef2ff" })
-	set_cd_left(st, slot, cd_of(st, slot))
+		# ---------- 장비 기술 여섯(3절 [4]~[9]) ----------
+		"eq_flashcut", "eq_meteor":
+			eq_start_charge(st, slot, sid, dmg)
+		"eq_riposte":
+			eq_start_guard(st, slot, dmg)
+		"eq_retrace":
+			cd_now = eq_retrace_press(st, slot, dmg)
+		"eq_icetomb":
+			eq_start_tomb(st, slot)
+		"eq_reprieve":
+			eq_start_reprieve(st, slot)
+	set_cd_left(st, slot, cd_of(st, slot) if cd_now else 0.0)
 	if sid != "slowfield": # 감속장은 cast_field가 자기 신호·문구를 이미 냈다(소리가 두 번 나지 않게)
 		st.ev("skill_e", { "id": sid, "slot": slot })
 		st.text(p.x, p.y - 62.0, String(d.name), "#ffe9a8")
@@ -348,6 +370,7 @@ static func bolt_at(st: CombatState, at: Dictionary, r: float, dmg: float, skill
 static func update(st: CombatState, dt: float) -> void:
 	var p := st.player
 	var S := st.skill_state
+	eq_update(st, dt) # 장비 기술은 skill_state와 별개 상태를 쓴다(전부 비어 있으면 아무 일도 없다)
 	if S.is_empty():
 		return
 	if p.e_cd > 0.0:
@@ -458,3 +481,631 @@ static func on_shield_damaged(st: CombatState, used: float) -> void:
 	var p := st.player
 	if float(p.ward_shield) > 0.0:
 		p.ward_shield = maxf(0.0, float(p.ward_shield) - used)
+
+# ============================================================================
+# 장비 기술 여섯 (정본 지시 docs/SPEC_EQUIP_SKILLBANK.md 3절 [4]~[9] · 5절 · 7절)
+#
+# 무엇이 다른가 — 일반 수동 기술과 **같은 Q/E 두 칸**을 쓰지만 id가 eq_ 로 시작하고
+#  · 레벨·개조가 없다(data/growth.json에 max 1 · variants 없음 · e_skills 목록 밖)
+#  · **그 장비를 착용해야만** 발동한다(장비 정의의 grantsSkill). 벗으면 그 자리의 기술은 쓸 수 없다.
+#  · 슬롯 조건(재사용 시계·'E 사용 시' 장비 효과·특성 연계 창)은 일반 기술과 **똑같이** 적용된다(§5).
+#
+# 상태를 왜 넷으로 나눴는가
+#   eq_act   진행 중인 채널 **하나**(충전·순간이동·도약·귀환·갇힘). 이동·회피를 묶고, 무적을 여기서 유도한다.
+#   eq_trail [7]의 경로 기록(움직이면서 계속 쌓이므로 채널이 아니다)
+#   eq_guard [6]의 정면 방어 창(이동을 묶지 않는다)
+#   eq_debt  [9]의 예정 피해(전투 내내 남을 수 있고 정산 경로가 따로 있다)
+# 넷이 전부 비어 있으면 아래 코드는 한 줄도 실행되지 않는다 — **기준 전투(D33) 지문이 그대로다.**
+#
+# **무적은 타이머가 아니라 상태에서 유도한다**(eq_invuln). eq_act가 어떤 이유로든 사라지면
+# (취소·해제·최대 시간·화면 전환·전투 종료) 무적도 그 자리에서 함께 사라진다 —
+# 남는 무적을 만들 수 있는 자리가 코드에 없다.
+#
+# 여기 숫자는 하나도 없다. 전부 data/growth.json의 skills.<id>.tune(첫 시험값)에서 읽는다.
+# ============================================================================
+
+## 장비 기술 여섯의 id(순서 고정: 문서·검사가 같은 순서를 쓴다)
+const EQ_IDS := ["eq_flashcut", "eq_meteor", "eq_riposte", "eq_retrace", "eq_icetomb", "eq_reprieve"]
+## 진행 중인 장비 기술이 없을 때 돌려주는 상수(매 단계 사전을 새로 만들지 않는다)
+const EQ_NONE := { "dodge": false, "q": false, "e": false }
+## [6] 받아치기가 **막지 않는** 피해 출처. 장판·바닥 지대·환경 피해다.
+## 공통 경로("zone")를 지나지 않고 damage_player로 직접 들어오는 바닥 지대만 여기 적는다 —
+## 나머지 판단은 '공격자가 있는가'와 '정면인가' 두 조건이 맡는다.
+const EQ_GUARD_DENY := ["zone", "frostzone", "boss_rubble", "boss_icepath"]
+
+static func is_eq(id: String) -> bool:
+	return EQ_IDS.has(id)
+
+## 그 장비 기술의 조절값(data/growth.json skills.<id>.tune). 없으면 빈 사전이고 아래 기본값이 쓰인다
+static func eq_tune(sid: String) -> Dictionary:
+	var SK := PCatalog.skills()
+	return (SK.get(sid, {}) as Dictionary).get("tune", {})
+
+## 지금 **착용한 장비**가 이 기술을 주는가.
+## 합산 사전(build.equip)이 아니라 착용 목록(build.equip_types)을 본다 —
+## PBuild.derive가 같은 eff 키를 뒤 슬롯으로 덮어쓰기 때문에, 두 장비가 각각 기술을 주면
+## 합산 사전에는 하나만 남는다. 착용 목록을 보면 그 구멍이 없다.
+static func eq_granted(st: CombatState, sid: String) -> bool:
+	for tid in (st.build.get("equip_types", []) as Array):
+		var d: Dictionary = PCatalog.equipment_def(String(tid))
+		if String(d.get("grantsSkill", "")) == sid:
+			return true
+	return false
+
+## 지금 장비 기술이 주는 무적인가. **상태에서 유도한다** — 상태가 사라지면 무적도 사라진다.
+## 회피 무적(player.invuln_t)과 다른 것이며 '완벽 회피'로 세지 않는다.
+static func eq_invuln(st: CombatState) -> bool:
+	return not st.eq_act.is_empty() and bool(st.eq_act.get("invuln", false))
+
+## 지금 이동·회피가 묶여 있는가(충전·순간이동·도약·귀환·갇힘). 채널이 없으면 언제나 false
+static func eq_locks_move(st: CombatState) -> bool:
+	return not st.eq_act.is_empty()
+
+## [5] 낙성 강하의 **도약 중**인가. 그동안에는 공중이라 장애물 밀어내기(push_out)를 적용하지 않는다 —
+## 대신 착지점이 발동 순간에 이미 유효성을 확인한 자리다. 이것은 무적과 아무 상관이 없다(무적 구간은 따로 명시한다).
+static func eq_airborne(st: CombatState) -> bool:
+	return not st.eq_act.is_empty() and String(st.eq_act.get("id", "")) == "eq_meteor" and String(st.eq_act.get("phase", "")) == "leap"
+
+## [8] 결정 관: 지금 **새 공격을 시작하지 않는** 구간인가.
+## '새 공격'만이다 — 이미 발사한 투사체·설치된 지뢰·깔린 장판·지연 착탄은 그대로 흐른다(CombatState.update_attack).
+static func eq_holds_attacks(st: CombatState) -> bool:
+	return not st.eq_act.is_empty() and String(st.eq_act.get("id", "")) == "eq_icetomb"
+
+## 장비 기술의 피해. **경로 이름(cause)을 반드시 적어 보낸다.**
+## 적지 않으면 PSupport.cause_of가 '무기 id 없는 파생 피해'를 main_extra로 떨어뜨려
+## 승인되지 않은 연계(파쇄·숙주 파열)가 우연히 열린다. 자격표는 data/supports.json 한 곳뿐이다(새 장치 없음).
+static func eq_hit(st: CombatState, e: Dictionary, dmg: float, skill_id: String, cause: String, opt: Dictionary = {}) -> float:
+	var o := opt.duplicate()
+	o["cause"] = cause
+	o["src"] = { "skill": true, "direct": false, "skill_id": skill_id }
+	return st.damage_enemy(e, dmg * link_skill_mult(st), o)
+
+# ---------- 입력: 떼기·재입력·취소 ----------
+## 진행 중인 장비 기술이 이 단계의 입력을 **먼저** 가져간다. 돌려주는 값 = 가져간 것 {dodge, q, e}.
+## 진행 중인 것이 없으면 EQ_NONE이라 예전 입력 경로가 그대로 실행된다.
+##
+## '놓으면 발동'을 어떻게 아는가 — 입력 계약({mx,my,dodge_press,dodge_held,special,skill_e})에는
+## Q/E의 **누름**만 있고 유지가 없다(그 계약은 화면·입력 담당의 소유라 여기서 바꾸지 않았다).
+## 그래서 출구를 셋 둔다:
+##   ① 입력이 special_held / skill_e_held 를 함께 주면 **실제로 손을 뗀 순간**(정본 동작)
+##   ② 같은 칸을 **다시 누르면** 즉시 발동
+##   ③ **최대 충전 시간**에 닿으면 자동 발동
+## ①이 없는 지금의 PC·터치·봇 입력에서도 ②③이 있으므로 충전이 영원히 남지 않는다.
+static func eq_take_input(st: CombatState, input: Dictionary) -> Dictionary:
+	var a: Dictionary = st.eq_act
+	var tr: Dictionary = st.eq_trail
+	if a.is_empty() and tr.is_empty():
+		return EQ_NONE
+	var q_press: bool = bool(input.get("special", false))
+	var e_press: bool = bool(input.get("skill_e", false))
+	var took := { "dodge": false, "q": false, "e": false }
+	if not a.is_empty():
+		var slot := String(a.get("slot", "q"))
+		var is_q: bool = slot == "q"
+		var press: bool = q_press if is_q else e_press
+		var has_hold: bool = input.has("special_held") if is_q else input.has("skill_e_held")
+		var hold: bool = bool(input.get("special_held", false)) if is_q else bool(input.get("skill_e_held", false))
+		if has_hold and hold:
+			a["hold_seen"] = true
+		var charging: bool = String(a.get("phase", "")) == "charge"
+		var tomb: bool = String(a.get("id", "")) == "eq_icetomb"
+		if (charging or tomb) and bool(input.get("dodge_press", false)):
+			took["dodge"] = true
+			if charging:
+				eq_cancel(st, "space") # 충전 중 Space = 취소(재사용 시간을 돌려준다)
+			else:
+				eq_release(st, "space") # 갇힘 중 Space = 해제(무적이 남지 않는다)
+			return took
+		if charging or tomb:
+			if press:
+				took[slot] = true
+				eq_release(st, "press")
+				return took
+			if has_hold and bool(a.get("hold_seen", false)) and not hold:
+				eq_release(st, "release")
+				return took
+		# 진행 중에는 같은 칸의 새 입력을 삼킨다(중복 발동·재사용 우회 금지)
+		if press:
+			took[slot] = true
+		return took
+	# [7] 되짚는 궤적: 기록 중 같은 칸 재입력 = 귀환
+	var slot2 := String(tr.get("slot", "q"))
+	var press2: bool = q_press if slot2 == "q" else e_press
+	if press2:
+		took[slot2] = true
+		eq_retrace_return(st)
+	return took
+
+# ---------- 진행 ----------
+static func eq_update(st: CombatState, dt: float) -> void:
+	eq_update_guard(st, dt)
+	eq_update_trail(st, dt)
+	eq_update_debt(st, dt)
+	eq_update_act(st, dt)
+
+static func eq_update_act(st: CombatState, dt: float) -> void:
+	var a: Dictionary = st.eq_act
+	if a.is_empty():
+		return
+	a["t"] = float(a.t) + dt
+	var sid := String(a.id)
+	var charging: bool = String(a.phase) == "charge"
+	match sid:
+		"eq_flashcut":
+			if charging:
+				a["invuln"] = false # 충전 중에는 공격받을 수 있다(3절 [4])
+				if float(a.t) >= float(a.max):
+					eq_release(st, "max")
+			else:
+				a["invuln"] = true # 발동하는 짧은 순간에만 무적
+				if float(a.t) >= float(a.get("blink", 0.1)):
+					st.eq_act = {}
+		"eq_meteor":
+			if charging:
+				a["invuln"] = false
+				a["aim"] = eq_meteor_aim(st, float(a.get("range", 220.0))) # 아직 충전 중이라 조준은 계속 고른다
+				if float(a.t) >= float(a.max):
+					eq_release(st, "max")
+			else:
+				eq_meteor_step(st, a)
+		"eq_retrace":
+			eq_retrace_step(st, a, dt)
+		"eq_icetomb":
+			a["invuln"] = true
+			if float(a.t) >= float(a.max):
+				eq_release(st, "max")
+
+## 채널을 정상적으로 마무리한다(떼기·재입력·Space·최대 시간). why는 기록용이다
+static func eq_release(st: CombatState, why: String) -> void:
+	var a: Dictionary = st.eq_act
+	if a.is_empty():
+		return
+	match String(a.id):
+		"eq_flashcut":
+			eq_flashcut_fire(st, a)
+		"eq_meteor":
+			eq_meteor_launch(st, a)
+		"eq_icetomb":
+			eq_tomb_break(st, a, why)
+
+## 충전을 취소한다(Space·화면 전환). 기술이 나가지 않았으므로 **재사용 시간을 돌려준다.**
+## eq_act를 비우는 순간 무적·이동 잠금도 함께 사라진다(무적은 상태에서 유도하므로).
+static func eq_cancel(st: CombatState, _why: String) -> void:
+	var a: Dictionary = st.eq_act
+	if a.is_empty():
+		return
+	var slot := String(a.get("slot", "q"))
+	st.eq_act = {}
+	set_cd_left(st, slot, 0.0)
+	st.text(st.player.x, st.player.y - 62.0, "취소", "#9ea8b8")
+
+## 이미 발동한 이동(도약·순간이동·귀환)을 중간에 끝낸다. **재사용 시간은 그대로 둔다**(이미 썼다).
+## 어디서 끝나든 유효한 자리에 내려놓는다
+static func eq_abort(st: CombatState, _why: String) -> void:
+	if st.eq_act.is_empty():
+		return
+	st.eq_act = {}
+	eq_land_valid(st)
+
+## 지금 자리가 유효하지 않으면 가장 가까운 유효 위치로 옮긴다(벽 안쪽에 남지 않게)
+static func eq_land_valid(st: CombatState) -> void:
+	var p := st.player
+	if not st.valid_pos(float(p.x), float(p.y), float(p.r)):
+		var pos := st.nearest_valid_pos(float(p.x), float(p.y), float(p.r), 200.0)
+		if not pos.is_empty():
+			p.x = float(pos[0])
+			p.y = float(pos[1])
+	st.push_out(p)
+
+## **화면 전환·전투 종료 공통 정리.** 진행 중인 것을 그 자리에서 끝낸다 —
+## 충전은 취소(환급) · 갇힘은 정상 해제 · 도약/귀환은 중단 · 기록은 만료 · 방어 창은 조용히 닫는다.
+## 예정 피해([9])는 **여기서 지우지 않는다.** 조용한 삭제를 막기 위해 정산 경로로만 없앤다.
+static func eq_stop_all(st: CombatState, why: String) -> void:
+	if not st.eq_act.is_empty():
+		var sid := String(st.eq_act.get("id", ""))
+		if String(st.eq_act.get("phase", "")) == "charge":
+			eq_cancel(st, why)
+		elif sid == "eq_icetomb":
+			eq_release(st, why)
+		else:
+			eq_abort(st, why)
+	if not st.eq_trail.is_empty():
+		eq_trail_expire(st, why)
+	if not st.eq_guard.is_empty():
+		st.eq_guard = {} # 막은 공격이 없으므로 밀치기도 내지 않는다
+
+## 화면 전환(성장 선택·강적 등장 연출)에 들어갈 때. 그동안 적이 행동하지 않으므로
+## 충전·무적·입력 상태를 들고 가지 않는다
+static func eq_on_transition(st: CombatState) -> void:
+	if st.eq_act.is_empty() and st.eq_trail.is_empty() and st.eq_guard.is_empty():
+		return
+	eq_stop_all(st, "화면 전환")
+
+## 전투가 끝나는 그 단계. 진행 중인 것을 정리하고 **남은 예정 피해를 정산한다**(조용한 삭제 금지).
+## 이미 이긴 전투를 사후 정산으로 뒤집지 않도록, 승리 확정 뒤의 정산은 체력을 1 미만으로 내리지 않는다.
+static func eq_on_combat_end(st: CombatState) -> void:
+	if st.eq_act.is_empty() and st.eq_trail.is_empty() and st.eq_guard.is_empty() and st.eq_debt.is_empty():
+		return
+	eq_stop_all(st, "전투 종료")
+	eq_settle(st, "전투 종료", st.status == "won")
+
+## 전투 중 빌드가 바뀌었을 때(레벨업 재계산·장비 교체). 더 이상 그 장비를 착용하지 않으면
+## 진행 중인 장비 기술을 끝내고 **예정 피해는 정산한다** — 장비 해제로 조용히 사라지지 않게.
+static func eq_on_rebuild(st: CombatState) -> void:
+	if not st.eq_act.is_empty() and not eq_granted(st, String(st.eq_act.get("id", ""))):
+		eq_stop_all(st, "장비 해제")
+	if not st.eq_trail.is_empty() and not eq_granted(st, "eq_retrace"):
+		eq_trail_expire(st, "장비 해제")
+	if not st.eq_guard.is_empty() and not eq_granted(st, "eq_riposte"):
+		st.eq_guard = {}
+	if not st.eq_debt.is_empty() and not eq_granted(st, "eq_reprieve"):
+		eq_settle(st, "장비 해제", false)
+
+# ---------- [4] 찰나 가르기 ----------
+## [4][5] 공통 충전 시작. 충전 중에는 제자리에 서고(이동 잠금) **공격받을 수 있다**(무적 없음)
+static func eq_start_charge(st: CombatState, slot: String, sid: String, dmg: float) -> void:
+	var T := eq_tune(sid)
+	var a := { "id": sid, "slot": slot, "phase": "charge", "t": 0.0, "invuln": false,
+		"hold_seen": false, "dmg": dmg, "max": float(T.get("charge", 0.55)) }
+	if sid == "eq_meteor":
+		a["range"] = float(T.get("range", 220.0))
+		a["aim"] = eq_meteor_aim(st, float(a["range"]))
+	st.eq_act = a
+	st.ev("lock")
+
+## 놓는 순간: **여기서 방향이 확정된다.** 전방을 일자로 베며 순간 이동한다.
+##  · 벽·바위·나무는 통과하지 않는다 — 스윕 이동(move_swept)이 장애물·경계에서 멈춘다.
+##    적 몸은 장애물이 아니므로 그대로 관통한다.
+##  · 경로의 적을 **한 번씩**: 살아 있는 대상 목록을 한 번만 훑으므로 큰 적이라고 여러 번 맞지 않는다.
+##  · 무적은 이 뒤 짧은 blink 구간뿐이다(충전 구간에는 없었다).
+static func eq_flashcut_fire(st: CombatState, a: Dictionary) -> void:
+	var p := st.player
+	var T := eq_tune("eq_flashcut")
+	var ang: float = float(p.face)
+	var len_v := float(T.get("len", 240.0))
+	var wid := float(T.get("w", 44.0))
+	var x0: float = float(p.x)
+	var y0: float = float(p.y)
+	st.move_swept(p, cos(ang) * len_v, sin(ang) * len_v)
+	eq_land_valid(st)
+	var x1: float = float(p.x)
+	var y1: float = float(p.y)
+	var dmg := float(a.get("dmg", 0.0))
+	for e in st.alive_targets():
+		if PGeom.dist_seg(float(e.x), float(e.y), x0, y0, x1, y1) <= wid * 0.5 + float(e.r):
+			eq_hit(st, e, dmg, "eq_flashcut", "eq_slash", { "dir": [cos(ang), sin(ang)], "knock": 12.0 })
+	st.fx({ "kind": "eq_slash", "x": x0, "y": y0, "x1": x1, "y1": y1, "w": wid, "ttl": 0.28 })
+	st.ev("dash_hit")
+	a["phase"] = "blink"
+	a["t"] = 0.0
+	a["blink"] = float(T.get("blink", 0.1))
+	a["invuln"] = true
+
+# ---------- [5] 낙성 강하 ----------
+## 착지점 후보. **유효하지 않은 지형에는 착지하지 않는다** — 가장 가까운 유효 위치로 당긴다.
+## 충전 중에는 매 단계 다시 고르고, 놓는 순간의 값이 그대로 확정된다
+static func eq_meteor_aim(st: CombatState, range_v: float) -> Array:
+	var p := st.player
+	var ax: float = float(p.x) + cos(float(p.face)) * range_v
+	var ay: float = float(p.y) + sin(float(p.face)) * range_v
+	var pos := st.nearest_valid_pos(ax, ay, float(p.r), 200.0)
+	if pos.is_empty():
+		return [float(p.x), float(p.y)]
+	return [float(pos[0]), float(pos[1])]
+
+## 놓는 순간: 착지점을 **확정**한다. 이후 도약 중에는 다시 추적하지 않는다.
+## 무적 구간을 여기서 명시적으로 적는다 — '공중이라 무적'이 아니다.
+static func eq_meteor_launch(st: CombatState, a: Dictionary) -> void:
+	var T := eq_tune("eq_meteor")
+	var p := st.player
+	var aim: Array = a.get("aim", [float(p.x), float(p.y)])
+	a["phase"] = "leap"
+	a["t"] = 0.0
+	a["fx0"] = float(p.x)
+	a["fy0"] = float(p.y)
+	a["tx"] = float(aim[0])
+	a["ty"] = float(aim[1])
+	a["leap"] = float(T.get("leap", 0.45))
+	a["iv0"] = float(T.get("invuln_from", 0.0))
+	a["iv1"] = float(T.get("invuln_to", 0.3))
+	a["invuln"] = false
+	st.ev("dodge")
+
+## 도약 진행. 위치는 확정된 두 점 사이의 직선 보간이다(공중이라 장애물을 넘는다 —
+## 대신 **착지점은 발동 순간에 유효성을 확인한 자리**이므로 유효하지 않은 지형에 내려앉지 않는다)
+static func eq_meteor_step(st: CombatState, a: Dictionary) -> void:
+	var p := st.player
+	var dur := maxf(0.001, float(a.get("leap", 0.45)))
+	var tt := float(a.t)
+	a["invuln"] = tt >= float(a.get("iv0", 0.0)) and tt < float(a.get("iv1", 0.3))
+	var k := clampf(tt / dur, 0.0, 1.0)
+	p.x = float(a["fx0"]) + (float(a["tx"]) - float(a["fx0"])) * k
+	p.y = float(a["fy0"]) + (float(a["ty"]) - float(a["fy0"])) * k
+	if k >= 1.0:
+		eq_meteor_land(st, a)
+		st.eq_act = {}
+
+## 착지. 중심 강타와 바깥 충격파는 **배타적**이라 한 적이 둘 다 맞지 않는다
+static func eq_meteor_land(st: CombatState, a: Dictionary) -> void:
+	var T := eq_tune("eq_meteor")
+	var p := st.player
+	p.x = float(a["tx"])
+	p.y = float(a["ty"])
+	eq_land_valid(st)
+	var core_r := float(T.get("core_r", 70.0))
+	var wave_r := float(T.get("wave_r", 150.0))
+	var knock := float(T.get("knock", 40.0))
+	var dmg := float(a.get("dmg", 0.0))
+	var wave := dmg * float(T.get("wave_mult", 0.35))
+	for e in st.alive_targets():
+		var d := PGeom.dist(float(e.x), float(e.y), float(p.x), float(p.y))
+		var n := PGeom.norm(float(e.x) - float(p.x), float(e.y) - float(p.y))
+		if d <= core_r + float(e.r):
+			eq_hit(st, e, dmg, "eq_meteor", "eq_meteor_core", { "dir": n, "knock": knock })
+		elif d <= wave_r + float(e.r):
+			eq_hit(st, e, wave, "eq_meteor", "eq_meteor_wave", { "dir": n, "knock": knock * 0.5 })
+	st.fx({ "kind": "eq_slam", "x": p.x, "y": p.y, "r": core_r, "wave": wave_r, "ttl": 0.35 })
+	st.ev("explode")
+
+# ---------- [6] 받아치기 ----------
+## 짧게 정면을 방어한다. **오래 눌러도 길어지지 않는다**(고정 시간이고 유지 입력을 아예 읽지 않는다).
+## 막는 방향은 그 순간 바라보는 방향(player.face)이다 — 몸을 돌리면 막는 쪽도 돈다.
+static func eq_start_guard(st: CombatState, slot: String, dmg: float) -> void:
+	var T := eq_tune("eq_riposte")
+	st.eq_guard = { "slot": slot, "t": float(T.get("guard", 0.45)), "dmg": dmg, "blocked": false }
+
+static func eq_update_guard(st: CombatState, dt: float) -> void:
+	var g: Dictionary = st.eq_guard
+	if g.is_empty():
+		return
+	g["t"] = float(g.t) - dt
+	if float(g.t) <= 0.0:
+		eq_guard_expire(st, g) # 못 막았다 → 약한 방패 밀치기로 끝난다
+
+## 이 공격을 받아치기가 막는가. 막았으면 true(피해 0 + 강한 부채꼴 반격).
+##
+## 막는 것: **공격자가 있는 정면의 직접 타격과 투사체**.
+## 막지 않는 것: 장판·지속·환경 피해(공통 경로 "zone"과 EQ_GUARD_DENY의 바닥 지대, 공격자가 없는 피해).
+## **같은 공격 하나로 반격이 두 번 나오지 않는다**: 막는 즉시 방어 창을 닫는다.
+static func eq_riposte_block(st: CombatState, src: String, attacker) -> bool:
+	var g: Dictionary = st.eq_guard
+	if g.is_empty() or bool(g.get("blocked", false)):
+		return false
+	if attacker == null or EQ_GUARD_DENY.has(src) or src.begins_with("zone"):
+		return false
+	var p := st.player
+	var e: Dictionary = attacker
+	var T := eq_tune("eq_riposte")
+	var to_e := atan2(float(e.y) - float(p.y), float(e.x) - float(p.x))
+	if absf(PGeom.ang_diff(to_e, float(p.face))) > deg_to_rad(float(T.get("arc", 120.0)) * 0.5):
+		return false
+	g["blocked"] = true
+	st.eq_guard = {} # 막는 즉시 방어가 끝난다
+	var ang := float(p.face)
+	var r := float(T.get("counter_r", 130.0))
+	var half := deg_to_rad(float(T.get("counter_arc", 120.0)) * 0.5)
+	var knock := float(T.get("counter_knock", 30.0))
+	for o in st.alive_targets():
+		if PGeom.in_arc(p.x, p.y, r, ang, half, o.x, o.y, o.r) and not st.los_blocked(p.x, p.y, o.x, o.y):
+			eq_hit(st, o, float(g.get("dmg", 0.0)), "eq_riposte", "eq_riposte", { "dir": PGeom.norm(float(o.x) - float(p.x), float(o.y) - float(p.y)), "knock": knock })
+	st.fx({ "kind": "eq_counter", "x": p.x, "y": p.y, "angle": ang, "r": r, "half": half, "ttl": 0.3 })
+	st.text(p.x, p.y - 44.0, "받아침!", "#ffe9a8")
+	st.ev("block")
+	st.stats.equip_procs.counter_guard = int(st.stats.equip_procs.get("counter_guard", 0)) + 1
+	return true
+
+## 창이 끝났는데 한 번도 막지 못했다 → 약한 방패 밀치기로 끝난다
+static func eq_guard_expire(st: CombatState, g: Dictionary) -> void:
+	st.eq_guard = {}
+	var T := eq_tune("eq_riposte")
+	var p := st.player
+	var ang := float(p.face)
+	var r := float(T.get("push_r", 70.0))
+	var half := deg_to_rad(float(T.get("push_arc", 100.0)) * 0.5)
+	var dmg := float(g.get("dmg", 0.0)) * float(T.get("push_mult", 0.24))
+	var knock := float(T.get("push_knock", 24.0))
+	for o in st.alive_targets():
+		if PGeom.in_arc(p.x, p.y, r, ang, half, o.x, o.y, o.r) and not st.los_blocked(p.x, p.y, o.x, o.y):
+			eq_hit(st, o, dmg, "eq_riposte", "eq_riposte", { "dir": PGeom.norm(float(o.x) - float(p.x), float(o.y) - float(p.y)), "knock": knock })
+	st.fx({ "kind": "eq_push", "x": p.x, "y": p.y, "angle": ang, "r": r, "half": half, "ttl": 0.22 })
+
+# ---------- [7] 되짚는 궤적 ----------
+## 첫 입력: 지금 자리를 표시하고 이동 경로 기록을 시작한다.
+## **재사용 시간은 걸지 않는다**(false를 돌려준다) — 귀환했을 때, 또는 기록이 만료·중단됐을 때 건다.
+static func eq_retrace_press(st: CombatState, slot: String, dmg: float) -> bool:
+	var T := eq_tune("eq_retrace")
+	var p := st.player
+	st.eq_trail = { "slot": slot, "t": 0.0, "tick": 0.0, "dmg": dmg,
+		"dur": float(T.get("record", 4.0)), "sample": float(T.get("sample", 0.08)),
+		"min_step": float(T.get("min_step", 6.0)), "max_pts": int(T.get("max_pts", 60)),
+		"pts": [[float(p.x), float(p.y)]] }
+	st.fx({ "kind": "eq_mark", "x": p.x, "y": p.y, "r": float(p.r) + 6.0, "ttl": 0.6 })
+	return false
+
+## 기록 진행. **시간과 길이가 모두 유한하다**(dur 초 · max_pts 점, 넘치면 오래된 점부터 버린다)
+static func eq_update_trail(st: CombatState, dt: float) -> void:
+	var tr: Dictionary = st.eq_trail
+	if tr.is_empty():
+		return
+	tr["t"] = float(tr.t) + dt
+	if float(tr.t) >= float(tr.dur):
+		eq_trail_expire(st, "만료")
+		return
+	tr["tick"] = float(tr.tick) - dt
+	if float(tr.tick) > 0.0:
+		return
+	tr["tick"] = float(tr.sample)
+	var pts: Array = tr.pts
+	var p := st.player
+	var last: Array = pts[pts.size() - 1]
+	if PGeom.dist(float(last[0]), float(last[1]), float(p.x), float(p.y)) < float(tr.min_step):
+		return
+	pts.append([float(p.x), float(p.y)])
+	if pts.size() > int(tr.max_pts):
+		pts.remove_at(0)
+
+## 기록 만료·중단. 기록만 버리고 **재사용 시간을 그때 건다**(기준을 한 곳에 둔다)
+static func eq_trail_expire(st: CombatState, why: String) -> void:
+	var tr: Dictionary = st.eq_trail
+	if tr.is_empty():
+		return
+	var slot := String(tr.get("slot", "q"))
+	st.eq_trail = {}
+	set_cd_left(st, slot, cd_of(st, slot))
+	st.text(st.player.x, st.player.y - 62.0, "궤적 " + why, "#9ea8b8")
+
+## 재입력: 기록한 길을 거슬러 돌아온다. 여기서 재사용 시간을 건다
+static func eq_retrace_return(st: CombatState) -> void:
+	var tr: Dictionary = st.eq_trail
+	if tr.is_empty() or not st.eq_act.is_empty():
+		return
+	var T := eq_tune("eq_retrace")
+	var slot := String(tr.get("slot", "q"))
+	var pts: Array = (tr.pts as Array).duplicate()
+	var dmg := float(tr.get("dmg", 0.0))
+	st.eq_trail = {}
+	pts.reverse()
+	st.eq_act = { "id": "eq_retrace", "slot": slot, "phase": "return", "t": 0.0, "invuln": false,
+		"pts": pts, "i": 0, "hit": {}, "dmg": dmg,
+		"speed": float(T.get("speed", 900.0)), "hit_r": float(T.get("hit_r", 34.0)) }
+	set_cd_left(st, slot, cd_of(st, slot))
+	st.ev("dodge")
+
+## 귀환 진행. **벽을 뚫지 않는다** — 기록 뒤 지형이 달라졌어도 스윕 이동이 장애물에서 멈추고,
+## 막히면 그 자리에서 귀환이 끝난다(유효하지 않은 자리에 남지 않는다)
+static func eq_retrace_step(st: CombatState, a: Dictionary, dt: float) -> void:
+	var p := st.player
+	var pts: Array = a.pts
+	var budget := float(a.speed) * dt
+	var guard := 0
+	while budget > 0.0 and int(a["i"]) < pts.size() and guard < 64:
+		guard += 1
+		var tgt: Array = pts[int(a["i"])]
+		var bx: float = float(p.x)
+		var by: float = float(p.y)
+		var d := PGeom.dist(bx, by, float(tgt[0]), float(tgt[1]))
+		if d <= 0.5:
+			a["i"] = int(a["i"]) + 1
+			continue
+		var stepd := minf(budget, d)
+		var n := PGeom.norm(float(tgt[0]) - bx, float(tgt[1]) - by)
+		var res := st.move_swept(p, n[0] * stepd, n[1] * stepd)
+		var moved := PGeom.dist(bx, by, float(p.x), float(p.y))
+		eq_retrace_hits(st, a, bx, by, float(p.x), float(p.y))
+		budget -= maxf(moved, 0.0)
+		if String(res.hit) != "" or moved <= 1e-6:
+			eq_retrace_finish(st, a)
+			return
+		if PGeom.dist(float(p.x), float(p.y), float(tgt[0]), float(tgt[1])) <= 0.5:
+			a["i"] = int(a["i"]) + 1
+	if int(a["i"]) >= pts.size() or guard >= 64:
+		eq_retrace_finish(st, a)
+
+## **적 하나는 귀환 한 번당 한 번만** 맞는다(같은 적 주변을 여러 번 돌아도 중복이 없다).
+## 판단은 이 귀환에만 쓰는 적 id 표(a.hit) 하나뿐이다
+static func eq_retrace_hits(st: CombatState, a: Dictionary, x0: float, y0: float, x1: float, y1: float) -> void:
+	var hit: Dictionary = a.hit
+	var r := float(a.hit_r)
+	var dmg := float(a.get("dmg", 0.0))
+	for e in st.alive_targets():
+		var id := int(e.id)
+		if hit.has(id):
+			continue
+		if PGeom.dist_seg(float(e.x), float(e.y), x0, y0, x1, y1) <= r + float(e.r):
+			hit[id] = true
+			eq_hit(st, e, dmg, "eq_retrace", "eq_retrace", { "dir": PGeom.norm(x1 - x0, y1 - y0), "knock": 8.0 })
+
+static func eq_retrace_finish(st: CombatState, a: Dictionary) -> void:
+	st.fx({ "kind": "eq_retrace", "x": st.player.x, "y": st.player.y, "pts": (a.pts as Array).duplicate(), "ttl": 0.3 })
+	st.eq_act = {}
+	eq_land_valid(st)
+
+# ---------- [8] 결정 관 ----------
+static func eq_start_tomb(st: CombatState, slot: String) -> void:
+	var T := eq_tune("eq_icetomb")
+	st.eq_act = { "id": "eq_icetomb", "slot": slot, "phase": "encase", "t": 0.0,
+		"invuln": true, "hold_seen": false, "max": float(T.get("max", 1.2)) }
+	st.fx({ "kind": "eq_tomb", "x": st.player.x, "y": st.player.y, "r": float(st.player.r) + 10.0, "ttl": 0.3 })
+	st.ev("freeze")
+
+## 해제: **먼저 상태를 비운다** — 무적은 상태에서 유도하므로 여기서 그 자리에 사라진다.
+## 그 뒤에 주변 적에게 냉기를 부여한다(자격표 frost_stack은 eq_icetomb를 막지 않는다)
+static func eq_tomb_break(st: CombatState, _a: Dictionary, _why: String) -> void:
+	var T := eq_tune("eq_icetomb")
+	var p := st.player
+	var r := float(T.get("r", 130.0))
+	var n := int(T.get("chill", 2))
+	st.eq_act = {}
+	var chill_dur := float((st.cfg.get("frost", {}) as Dictionary).get("chill", 2.0)) * float(st.build.get("duration_mult", 1.0))
+	var o := { "cause": "eq_icetomb", "src": { "skill": true, "direct": false, "skill_id": "eq_icetomb" } }
+	for e in st.alive_targets():
+		if PGeom.dist(float(e.x), float(e.y), float(p.x), float(p.y)) > r + float(e.r):
+			continue
+		e.chill = maxf(float(e.chill), chill_dur)
+		st.add_chill_stack(e, n, o)
+	st.fx({ "kind": "eq_tomb_break", "x": p.x, "y": p.y, "r": r, "ttl": 0.35 })
+	st.text(p.x, p.y - 44.0, "결정 관 해제", "#bfefff")
+	st.ev("shatter")
+
+# ---------- [9] 유예의 시계 ----------
+## 발동. **재사용으로 예정 피해가 조용히 사라지지 않는다** — 남아 있던 것을 먼저 정산하고 새로 시작한다
+static func eq_start_reprieve(st: CombatState, slot: String) -> void:
+	var T := eq_tune("eq_reprieve")
+	if not st.eq_debt.is_empty():
+		eq_settle(st, "재사용", false)
+	st.eq_debt = { "slot": slot, "t": float(T.get("dur", 3.0)), "amount": 0.0,
+		"frac": float(T.get("frac", 0.6)), "erase": float(T.get("erase", 0.5)),
+		"cap": float(st.player.hp_max) * float(T.get("cap", 0.35)) }
+	st.fx({ "kind": "eq_reprieve", "x": st.player.x, "y": st.player.y, "r": 34.0, "ttl": 0.3 })
+
+static func eq_update_debt(st: CombatState, dt: float) -> void:
+	var db: Dictionary = st.eq_debt
+	if db.is_empty():
+		return
+	db["t"] = float(db.t) - dt
+	if float(db.t) <= 0.0:
+		eq_settle(st, "정산", false)
+
+## 받은 피해의 일부를 예정 피해로 미룬다.
+## **부르는 자리는 CombatState.apply_player_damage의 한 곳뿐이고, 모든 경감이 끝난 뒤다.**
+##  · 앞에 두면 미룬 값에 경감이 다시 걸려 **방어가 두 번** 적용된다.
+##  · 뒤(보호막 차감 뒤)에 두면 이미 보호막이 먹은 몫까지 다시 미루게 된다.
+##  · 무적·피격 보호·보조 완전 차단에 막힌 피해는 애초에 이 함수까지 오지 않는다.
+static func eq_reprieve_defer(st: CombatState, amount: float) -> float:
+	var db: Dictionary = st.eq_debt
+	if db.is_empty() or amount <= 0.0:
+		return amount
+	var room := maxf(0.0, float(db.cap) - float(db.amount))
+	if room <= 0.0:
+		return amount
+	var moved: float = round(minf(amount * float(db.frac), room) * 10.0) / 10.0
+	if moved <= 0.0:
+		return amount
+	db["amount"] = float(db.amount) + moved
+	st.stats.equip_procs.reprieve_coat = int(st.stats.equip_procs.get("reprieve_coat", 0)) + 1
+	st.text(st.player.x, st.player.y - 56.0, "유예 " + str(int(round(moved))), "#c9a0ff")
+	return round((amount - moved) * 10.0) / 10.0
+
+## 효과 중 **주무기 직접 타격**으로 실제 피해를 주면 예정 피해가 그만큼 지워진다.
+## 보조무기·지속 피해·다른 파생 타격으로는 지워지지 않는다 — 경로 판정은 자격표 어휘 한 곳(frost_cause_of)만 쓴다
+static func eq_reprieve_erase(st: CombatState, effective: float, o: Dictionary) -> void:
+	var db: Dictionary = st.eq_debt
+	if db.is_empty() or effective <= 0.0 or float(db.amount) <= 0.0:
+		return
+	if st.frost_cause_of(o) != "main_direct":
+		return
+	var cut := minf(float(db.amount), effective * float(db.erase))
+	db["amount"] = maxf(0.0, round((float(db.amount) - cut) * 10.0) / 10.0)
+
+## 정산. 예정 피해를 **없애는 유일한 출구**다 — 재사용·장비 해제·전투 종료도 전부 여기를 지난다.
+## floor1 = 승리가 확정된 뒤의 정산(이미 이긴 전투를 사후 정산으로 뒤집지 않는다)
+static func eq_settle(st: CombatState, why: String, floor1: bool) -> void:
+	var db: Dictionary = st.eq_debt
+	if db.is_empty():
+		return
+	var amt := float(db.amount)
+	st.eq_debt = {}
+	if amt <= 0.0:
+		return
+	st.text(st.player.x, st.player.y - 56.0, "유예 " + why, "#c9a0ff")
+	st.settle_reprieve(amt, floor1)
