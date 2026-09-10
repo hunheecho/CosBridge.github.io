@@ -166,12 +166,19 @@ func dagger_cycle(st: CombatState, target: Dictionary) -> float:
 ## 이동 시간 = dodge_active가 켜져 있던 시간, 무적 시간 = invuln_t가 남아 있던 시간,
 ## 재사용 대기 = dodge_cd가 0이 될 때까지의 시간. 셋을 따로 센다.
 ## 패시브를 얹은 전투(회피 숙련·흡혈 실측용). mk와 같은 전장이고 성장만 다르다
-func mk_p(weapon_id: String, passives: Dictionary, auto: bool = false) -> CombatState:
+## traits: 영구 특성 id 목록(예 ["heal"] = 회복 준비). mods: 주무기 개조. equip: 부위 → 장비 id
+func mk_p(weapon_id: String, passives: Dictionary, auto: bool = false,
+		traits: Array = [], mods: Array = [], equip: Dictionary = {}) -> CombatState:
 	var g := PGrowth.new_growth(weapon_id)
-	g.weapons = [{ "id": weapon_id, "level": 1, "mods": [] }]
+	g.weapons = [{ "id": weapon_id, "level": 1, "mods": mods.duplicate() }]
 	for k in passives:
 		g.passives[String(k)] = int(passives[k])
-	var b := PBuild.derive(PBuild.empty_run_like(g))
+	var run := PBuild.empty_run_like(g)
+	if not traits.is_empty():
+		run["traits"] = traits.duplicate()
+	for slot in equip:
+		(run.equipment as Dictionary)[String(slot)] = String(equip[slot])
+	var b := PBuild.derive(run)
 	var st := CombatState.new({ "build": b, "hp": float(b.hp_max), "seed": 1, "arena": "clearing", "obstacles": [],
 		"formation": { "units": [], "alive_cap": 0, "group": 0, "interval": 1.0, "type_caps": {} } })
 	st.spawn_hold = true
@@ -1328,8 +1335,15 @@ func sec13_lifesteal() -> void:
 	var ws: Dictionary = st3.build.weapons[0]
 	var cases := [
 		["주무기 기본 타격", { "src": { "weapon": ws, "weapon_id": "sword", "direct": true } }, true],
-		["주무기 개조의 추가 타격", { "src": { "weapon": ws, "weapon_id": "sword", "direct": false, "extra": true, "mod": "cross" } }, false],
-		["공용 메아리가 만든 추가 타격", { "cause": "main_extra", "src": { "weapon": ws, "weapon_id": "sword", "direct": true } }, false],
+		["주무기 개조의 추가 타격", { "src": { "weapon": ws, "weapon_id": "sword", "direct": false, "extra": true, "mod": "cross" } }, true],
+		["공용 메아리가 만든 주무기 추가 타격", { "cause": "main_extra", "src": { "weapon": ws, "weapon_id": "sword", "direct": true } }, true],
+		["공성 망치머리의 착탄점 추가 충격", { "src": { "weapon_id": "hammer", "direct": false, "extra": true, "mod": "equip:siege_hammerhead" } }, true],
+		# 아래 넷은 **자격표에서 main_extra로 분류되지만** 주무기가 낸 타격이 아니다(사용자 불허).
+		# tools/pass_probe.gd B0 감사에서 실제로 이 칸으로 들어오는 것을 값으로 확인했다
+		["main_extra로 분류되는 Q/E 수동 기술", { "src": { "skill": true, "direct": false, "skill_id": "strike" } }, false],
+		["main_extra로 분류되는 '정지된 칼날' 폭발", { "src": { "extra": true, "direct": false, "tag": "common:stasis" } }, false],
+		["main_extra로 분류되는 '무기 공명' 폭발", { "src": { "extra": true, "direct": false, "tag": "reward:resonance" } }, false],
+		["메아리·일제 공격이 반복한 **보조무기** 공격", { "cause": "main_extra", "src": { "weapon_id": "orb", "direct": true } }, false],
 		["보조무기 직접 타격", { "src": { "weapon_id": "blades", "direct": true } }, false],
 		["장판 틱", { "cause": "zone_tick", "src": { "weapon_id": "sword", "direct": false, "extra": true } }, false],
 		["화상·출혈·독", { "src": { "extra": true, "direct": false }, "dot": "burn", "dot_src": "common" }, false],
@@ -1350,13 +1364,14 @@ func sec13_lifesteal() -> void:
 		var e3 := dummy(st3, st3.player.x + 60.0, st3.player.y, 1000000.0)
 		st3.player.hp = 10.0
 		var b3: float = float(st3.player.hp)
-		st3.damage_enemy(e3, 100.0, (row[1] as Dictionary).duplicate(true))
+		# 대조군: 그 출처가 **실제로 피해를 냈는지**도 함께 잰다(장치가 꺼져서 0인 것과 구분한다)
+		var eff3: float = st3.damage_enemy(e3, 100.0, (row[1] as Dictionary).duplicate(true))
 		var got3: float = float(st3.player.hp) - b3
 		e3.dead = true
-		src_rows.append("%s %s" % [String(row[0]), "적격" if got3 > 0.0 else "비적격"])
-		if (got3 > 0.0) != bool(row[2]):
+		src_rows.append("%s 피해 %.1f 회복 %.3f %s" % [String(row[0]), eff3, got3, "적격" if got3 > 0.0 else "비적격"])
+		if (got3 > 0.0) != bool(row[2]) or eff3 <= 0.0:
 			src_ok = false
-	ok("흡혈 자격표: **주무기 직접 타격만** 회복한다(개조 추가 타격·보조·장판·도트·수동 기술·장비 기술 전부 제외)",
+	ok("흡혈 자격표: **주무기 공격과 그 추가 타격만** 회복한다 — 보조·분신·수동 기술·장비 기술·장판·도트·연계 폭발은 실제 피해가 나는데 회복 0",
 		src_ok, " · ".join(src_rows))
 
 	# 소수점 유지: 약한 연타가 사라지지 않는다
@@ -1456,3 +1471,172 @@ func sec13_lifesteal() -> void:
 			live_ok = false
 	ok("흡혈: 실제 전투 5초에서 무기 5종이 **준 피해 × 비율**만큼 회복한다(전투당 상한 없음)",
 		live_ok, " · ".join(live_rows))
+	sec13b_lifesteal_extra()
+
+## ==== 13-B. 2026-09-10 사용자 확정분: 주무기 추가 타격 자격 · 회복 준비 · 초과분 버림 · 파쇄 동반 ====
+func sec13b_lifesteal_extra() -> void:
+	# ① 회복 준비(heal_mult)를 흡혈에도 적용하되 **정확히 한 번만** 곱한다.
+	#    같은 상황을 특성 없음/있음으로 두 번 굴려 비가 정확히 1.1인지 본다(1.21이면 두 번 곱한 것이다)
+	var heal_rows := []
+	var heal_ok := true
+	for wid in ["daggers", "sword", "spear", "hammer", "bow"]:
+		var a := mk_p(String(wid), { "lifesteal": 3 })
+		var b := mk_p(String(wid), { "lifesteal": 3 }, false, ["heal"])
+		var ga := lifesteal_once(a, String(wid), 100.0)
+		var gb := lifesteal_once(b, String(wid), 100.0)
+		var mult: float = float(b.build.get("heal_mult", 1.0))
+		heal_rows.append("%s 없음 %.4f → 있음 %.4f (배율 %.2f)" % [wid, ga, gb, mult])
+		if not is_equal_approx(mult, 1.1) or absf(gb - ga * 1.1) > 1e-6 or absf(gb - ga * 1.21) < 1e-9:
+			heal_ok = false
+	ok("흡혈: 특성 **회복 준비가 흡혈에도 적용되고 정확히 한 번만** 곱해진다(×1.1 · ×1.21이 아니다)",
+		heal_ok, " · ".join(heal_rows))
+	# 다른 회복 경로(체력 구슬)는 흡혈과 칸이 겹치지 않는다 — 흡혈 회복이 구슬 회복에 다시 곱해지지 않는다
+	var st_orb := mk_p("sword", { "lifesteal": 3 }, false, ["heal"])
+	st_orb.player.hp = 10.0
+	st_orb.pickups.append({ "x": st_orb.player.x, "y": st_orb.player.y, "r": 10.0, "amount": 10.0, "t": 0.0, "taken": false })
+	st_orb.update_pickups(STEP)
+	var orb_got: float = float(st_orb.player.hp) - 10.0
+	ok("흡혈: 체력 구슬 회복 경로는 **그대로다**(회복 준비 ×1.1 한 번) — 흡혈이 다른 회복에 얹히지 않는다",
+		absf(orb_got - 11.0) < 1e-6 and is_equal_approx(float(st_orb.stats.lifesteal), 0.0),
+		"구슬 10 → 회복 %.3f · 흡혈 집계 %.3f" % [orb_got, float(st_orb.stats.lifesteal)])
+
+	# ② 주무기 개조의 추가 타격이 **실제 전투에서** 회복한다. 개조를 끈 판과 비교한다(대조군)
+	var mod_rows := []
+	var mod_ok := true
+	# 활·쌍검의 개조는 추가 타격이 **main_direct로 들어온다**(값: tools/pass_probe.gd B0-1). 그래서
+	# 'main_extra가 회복하는가'를 보는 이 칸에는 main_extra를 만드는 개조 셋만 둔다
+	for row in [["sword", "scar"], ["spear", "split"], ["hammer", "aftershock"]]:
+		var wid2 := String((row as Array)[0])
+		var mid := String((row as Array)[1])
+		var base_ls := live_lifesteal(wid2, [])
+		var mod_ls := live_lifesteal(wid2, [mid])
+		mod_rows.append("%s 개조없음 %.3f → +%s %.3f" % [wid2, base_ls, mid, mod_ls])
+		if mod_ls <= base_ls + 1e-6:
+			mod_ok = false
+	ok("흡혈: **주무기 개조의 추가 타격도 회복한다** — 같은 8초에서 개조를 켜면 회복이 늘어난다",
+		mod_ok, " · ".join(mod_rows))
+
+	# ③ 추가 타격도 **그 주무기의 비율**을 따른다. 활의 추가 타격(main_extra)이 활 비율인지 값으로 본다
+	var ratio_rows := []
+	var ratio_ok := true
+	for wid3 in ["daggers", "sword", "spear", "hammer", "bow"]:
+		var st_r := mk_p(String(wid3), { "lifesteal": 3 })
+		st_r.player.hp = 10.0
+		var e_r := dummy(st_r, st_r.player.x + 60.0, st_r.player.y, 1000000.0)
+		var b_r: float = float(st_r.player.hp)
+		# 개조가 만든 추가 타격 모양 그대로(main_extra)
+		st_r.damage_enemy(e_r, 200.0, { "src": { "weapon": st_r.build.weapons[0], "weapon_id": String(wid3), "direct": false, "extra": true, "mod": "x" } })
+		var got_r: float = float(st_r.player.hp) - b_r
+		var want_r: float = 200.0 * (0.0075 if String(wid3) == "bow" else 0.015)
+		ratio_rows.append("%s 추가 타격 200 → %.4f(기대 %.4f)" % [wid3, got_r, want_r])
+		if absf(got_r - want_r) > 1e-6:
+			ratio_ok = false
+	ok("흡혈: **추가 타격도 해당 주무기의 비율**을 따른다 — 활의 추가 타격은 활 비율(0.75%)이다",
+		ratio_ok, " · ".join(ratio_rows))
+
+	# ④ 파쇄를 동반한 주무기 공격: **주무기 타격 피해만** 회복한다(파쇄 추가 피해·파편은 0)
+	var st_s := mk_p("sword", { "lifesteal": 3 })
+	st_s.player.hp = 10.0
+	var e_s := dummy(st_s, st_s.player.x + 60.0, st_s.player.y, 1000000.0)
+	for i4 in 4:
+		dummy(st_s, st_s.player.x + 60.0 + cos(float(i4)) * 40.0, st_s.player.y + sin(float(i4)) * 40.0, 1000000.0)
+	e_s.freeze = 3.0
+	e_s.freeze_kind = "hard"
+	var hp_s0: float = float(e_s.hp)
+	var b_s: float = float(st_s.player.hp)
+	var hit_s: float = st_s.damage_enemy(e_s, 100.0, { "src": { "weapon": st_s.build.weapons[0], "weapon_id": "sword", "direct": true } })
+	var got_s: float = float(st_s.player.hp) - b_s
+	var total_s: float = hp_s0 - float(e_s.hp) # 주무기 타격 + 파쇄 추가 피해
+	var shard_s: float = float(st_s.stats.get("lifesteal_base", 0.0))
+	ok("흡혈: 파쇄를 동반한 주무기 공격에서 **주무기 타격 피해만** 회복한다(파쇄 추가 피해·파편은 0)",
+		total_s > hit_s + 1.0 and absf(got_s - hit_s * 0.015) < 1e-6 and absf(shard_s - hit_s) < 1e-6,
+		"파쇄 포함 적 체력 감소 %.1f · 주무기 타격 %.1f · 흡혈 기준값 %.1f · 회복 %.4f(주무기분 기대 %.4f)" % [
+			total_s, hit_s, shard_s, got_s, hit_s * 0.015])
+
+	# ⑤ 최대 체력을 넘긴 회복은 **버린다**(비축하지 않는다) — 다음 타격이 그 몫을 되찾지 못한다
+	var st_c := mk_p("sword", { "lifesteal": 3 })
+	var e_c := dummy(st_c, st_c.player.x + 60.0, st_c.player.y, 1000000.0)
+	var o_c := { "src": { "weapon": st_c.build.weapons[0], "weapon_id": "sword", "direct": true } }
+	st_c.player.hp = float(st_c.player.hp_max) - 0.1
+	st_c.damage_enemy(e_c, 1000.0, o_c.duplicate(true)) # 계산 회복 15.0 중 0.1만 들어간다
+	var cap_hp: float = float(st_c.player.hp)
+	var lost: float = float(st_c.stats.get("lifesteal_over", 0.0))
+	st_c.player.hp = float(st_c.player.hp_max) - 5.0
+	var b_c2: float = float(st_c.player.hp)
+	st_c.damage_enemy(e_c, 100.0, o_c.duplicate(true)) # 다음 타격은 자기 몫 1.5만 회복해야 한다
+	var next_gain: float = float(st_c.player.hp) - b_c2
+	ok("흡혈: 최대 체력을 넘긴 회복은 **버리고 비축하지 않는다** — 다음 타격이 그 몫을 되찾지 못한다",
+		absf(cap_hp - float(st_c.player.hp_max)) < 1e-6 and absf(lost - 14.9) < 1e-4 and absf(next_gain - 1.5) < 1e-6,
+		"가득 %.1f · 버린 회복 %.3f · 다음 타격 회복 %.4f(자기 몫 1.5)" % [cap_hp, lost, next_gain])
+
+	# ⑥ 처치된 마지막 일격도 **그 유효 피해만큼** 회복한다
+	var st_k := mk_p("sword", { "lifesteal": 3 })
+	st_k.player.hp = 10.0
+	var e_k := dummy(st_k, st_k.player.x + 60.0, st_k.player.y, 12.0)
+	var b_k: float = float(st_k.player.hp)
+	st_k.damage_enemy(e_k, 500.0, { "src": { "weapon": st_k.build.weapons[0], "weapon_id": "sword", "direct": true } })
+	var got_k: float = float(st_k.player.hp) - b_k
+	var base_k: float = float(st_k.stats.get("lifesteal_base", 0.0)) # 흡혈이 실제로 센 기준 피해
+	ok("흡혈: 적을 **처치한 마지막 일격**도 그 유효 피해만큼 회복한다(체력 12에 500 피해 → 기준 12)",
+		bool(e_k.dead) and absf(base_k - 12.0) < 1e-6 and absf(got_k - 12.0 * 0.015) < 1e-6,
+		"처치 %s · 흡혈 기준 피해 %.1f(준 피해 500) · 회복 %.4f" % [str(bool(e_k.dead)), base_k, got_k])
+
+	# ⑦ 보호막(방패병 정면)으로 막힌 몫은 회복 기준에 넣지 않는다. 같은 적을 뒤에서 때린 값과 비교한다
+	var st_f := mk_p("sword", { "lifesteal": 3 })
+	st_f.player.hp = 10.0
+	var e_f := dummy(st_f, st_f.player.x + 60.0, st_f.player.y, 1000000.0, "shieldbearer")
+	e_f.face = 0.0 # 플레이어는 왼쪽에 있다. 오른쪽을 보고 있으면 **막지 못한다**(등 뒤에서 맞는다)
+	var b_f: float = float(st_f.player.hp)
+	var eff_back: float = st_f.damage_enemy(e_f, 100.0, { "src": { "weapon": st_f.build.weapons[0], "weapon_id": "sword", "direct": true }, "from": { "x": st_f.player.x, "y": st_f.player.y } })
+	var got_back: float = float(st_f.player.hp) - b_f
+	var st_f2 := mk_p("sword", { "lifesteal": 3 })
+	st_f2.player.hp = 10.0
+	var e_f2 := dummy(st_f2, st_f2.player.x + 60.0, st_f2.player.y, 1000000.0, "shieldbearer")
+	e_f2.face = PI # 플레이어 쪽을 보고 막는 자세 — 이 타격은 방패에 막혀 피해가 줄어든다
+	var b_f2: float = float(st_f2.player.hp)
+	var eff_front: float = st_f2.damage_enemy(e_f2, 100.0, { "src": { "weapon": st_f2.build.weapons[0], "weapon_id": "sword", "direct": true }, "from": { "x": st_f2.player.x, "y": st_f2.player.y } })
+	var got_front: float = float(st_f2.player.hp) - b_f2
+	ok("흡혈: **막힌 피해는 회복 기준에 넣지 않는다** — 방패에 막힌 타격은 줄어든 유효 피해만큼만 회복한다",
+		eff_front < eff_back - 1e-6 and absf(got_front - eff_front * 0.015) < 1e-6 and absf(got_back - eff_back * 0.015) < 1e-6,
+		"뒤 %.1f→%.4f · 앞(막힘) %.1f→%.4f" % [eff_back, got_back, eff_front, got_front])
+
+	# ⑧ 장비 기술 4종의 **파쇄·숙주 파열 자격은 그대로**다(흡혈로 확대하지 않았다)
+	var eq_rows := []
+	var eq_ok := true
+	for c in ["eq_slash", "eq_meteor_core", "eq_meteor_wave", "eq_riposte", "eq_retrace"]:
+		var sh: bool = PSupport.eligible("frost_shatter", String(c))
+		var pb: bool = PSupport.eligible("plague_host_burst", String(c))
+		var ls: bool = PBuild.lifesteal_eligible(String(c))
+		eq_rows.append("%s 파쇄 %s · 숙주 파열 %s · 흡혈 %s" % [c, str(sh), str(pb), str(ls)])
+		if not sh or not pb or ls:
+			eq_ok = false
+	var tomb_ok: bool = not PSupport.eligible("frost_shatter", "eq_icetomb") and not PBuild.lifesteal_eligible("eq_icetomb")
+	ok("흡혈: 장비 기술 4종의 **파쇄·숙주 파열 자격은 그대로**이고 흡혈만 닫혀 있다(결정 관은 셋 다 닫힘)",
+		eq_ok and tomb_ok, " · ".join(eq_rows))
+
+	# ⑨ 파쇄·감전·까마귀·숙주의 main_extra 자격은 **하나도 달라지지 않았다**(흡혈만 좁혔다)
+	var keep_ok: bool = PSupport.eligible("frost_shatter", "main_extra") and PSupport.eligible("shock_bonus", "main_extra") \
+		and PSupport.eligible("crow_mark", "main_extra") and PSupport.eligible("plague_host_burst", "main_extra") \
+		and not PSupport.eligible("echo_copy", "main_extra") and not PSupport.eligible("shock_discharge", "main_extra")
+	ok("흡혈 자격을 좁혀도 **파쇄·감전 후속·까마귀 표적·숙주 파열의 main_extra 자격은 그대로**다",
+		keep_ok, "출처 분류(PSupport.cause_of)를 고치지 않았다")
+
+## 한 번 때려 회복량을 잰다(체력을 비워 두어 상한에 막히지 않게)
+func lifesteal_once(st: CombatState, weapon_id: String, dmg: float) -> float:
+	st.player.hp = 10.0
+	var e := dummy(st, st.player.x + 60.0, st.player.y, 1000000.0)
+	var before: float = float(st.player.hp)
+	st.damage_enemy(e, dmg, { "src": { "weapon": st.build.weapons[0], "weapon_id": weapon_id, "direct": true } })
+	return float(st.player.hp) - before
+
+## 자동공격을 켜고 8초 굴렸을 때의 흡혈 회복 총량(고정 표적 3마리)
+func live_lifesteal(weapon_id: String, mods: Array) -> float:
+	var st := mk_p(weapon_id, { "lifesteal": 3 }, true, [], mods)
+	st.player.hp_max = 1.0e7
+	st.player.hp = 1.0
+	var pins := []
+	for i in 3:
+		var e := dummy(st, st.player.x + 60.0 + float(i) * 26.0, st.player.y, 1.0e9)
+		pins.append([e, e.x, e.y])
+	steps_pinned(st, 8.0, pins)
+	return float(st.stats.lifesteal)

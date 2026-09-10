@@ -141,7 +141,10 @@ static func _new_stats() -> Dictionary:
 	return { "kills": 0, "damage_taken": 0.0, "damage_taken_nominal": 0.0, "attacks": 0, "hits": 0, "dodges": 0, "special_uses": 0, "e_uses": 0, "perfect_dodges": 0, "elapsed": 0.0, "dodge_dists": [], "xp": 0.0, "level_ups": 0, "max_alive": 0, "support_only_sec": 0.0, "thin_tail_sec": 0.0, "no_target_sec": 0.0, "max_dash_states": 0, "max_bite_states": 0, "chest_gold": 0, "boss_damage": 0.0, "absorbed": 0.0, "healed": 0.0, "elite_kills": 0, "saving_kills": 0, "equip_procs": {}, "tier_spawned": {}, "tier_kills": {}, "max_enemy_projectiles": 0, "max_enemy_zones": 0, "max_webs": 0, "field_hits": 0,
 		"squad_pushes": 0, "squad_overlaps": 0, "cap_blocked_sec": 0.0, "danger_blocked_sec": 0.0, "duel_summons": 0, "duel_summons_cleared": 0, "duel_sec": 0.0, "duels_done": 0,
 		"field_uses": 0,
-		"lifesteal": 0.0 } # 패시브 '흡혈'로 실제로 회복한 양(healed에도 함께 들어간다 — 여기는 출처를 가려 보기 위한 칸)
+		"lifesteal": 0.0, # 패시브 '흡혈'로 실제로 회복한 양(healed에도 함께 들어간다 — 여기는 출처를 가려 보기 위한 칸)
+		"lifesteal_base": 0.0, # 흡혈 자격이 있는 타격이 **실제로 깎은** 적 체력의 합(비율·회복 준비를 곱하기 전의 기준값)
+		"lifesteal_over": 0.0, # 계산됐지만 최대 체력에 막혀 **버려진** 회복량(비축하지 않는다 — 다음 타격으로 넘기지 않는다)
+		"lifesteal_paths": {} } # 경로 감사(CombatState.lifesteal_audit이 참일 때만 쌓인다). 규칙에는 쓰지 않는다
 
 static func _new_metrics() -> Dictionary:
 	return { "dmg": {}, "taken": {}, "taken_hits": {}, "enemies": {}, "hits": {}, "patterns": {}, "absorbed": 0.0, "interrupts": 0, "webs": 0, "heals": 0, "heal_amount": 0.0, "far_frac": -1.0,
@@ -2019,26 +2022,73 @@ func damage_enemy(e: Dictionary, amount: float, opt = {}, knock_c: float = 0.0, 
 
 ## 패시브 '흡혈'의 회복. **부르는 자리는 damage_enemy 한 곳뿐이다.**
 ##  · 기준은 effective(그 타격이 실제로 깎은 적 체력)다 — 체력 10인 적에게 100을 줘도 10만 센다.
+##    보호막·무적으로 막힌 몫은 애초에 effective에 들어오지 않으므로 여기서 다시 거르지 않는다.
 ##  · 자격은 자격표 어휘 한 곳(frost_cause_of → PSupport.cause_of)으로 가른다. 표는 data/growth.json growth.LIFESTEAL.
+##    2026-09-10 사용자 확정: main_direct에 더해 **main_extra**(주무기 개조의 추가 타격 · 공용 증강 메아리·연사가
+##    반복한 주무기 공격 · 장비 '공성 망치머리'의 착탄점 추가 충격)도 자격이 있다. **새 경로 이름을 만들지 않았다.**
+##  · 비율(build.lifesteal)은 **든 주무기 하나**로 정해지므로 추가 타격도 그 주무기의 비율을 따른다 —
+##    활을 들고 있으면 갈래 사격·도탄·관통의 추가 타격도 활 비율(0.25%/레벨)이다.
+##  · 특성 **회복 준비(heal_mult)를 여기서 딱 한 번 곱한다.** 흡혈을 곱하는 자리는 이 함수뿐이고
+##    다른 회복 경로(체력 구슬 update_pickups · 승리 회복 PRun · 응급 약낭 · 물약)와는 칸이 겹치지 않는다.
 ##  · **소수점을 버리지 않는다.** 타격마다 int로 자르면 0.5%×약한 연타가 통째로 사라진다.
-##  · 최대 체력을 넘기지 않고(minf), 이미 죽었으면(hp <= 0) 회복하지 않는다 — 사망을 되돌리지 않는다.
-##  · 시간당 자동 재생도, 전투당 상한도 없다(지시 1절).
+##  · 최대 체력을 넘기지 않고(minf) 넘친 몫은 **버린다**(비축하지 않는다). 이미 죽었으면(hp <= 0) 회복하지 않는다.
+##  · 시간당 자동 재생도, 전투당 상한도, 재사용 시간도, 발동 횟수 제한도 없다(지시 3절).
 func apply_lifesteal(effective: float, o: Dictionary) -> void:
+	var cause := frost_cause_of(o)
+	var owner := String((o.get("src", {}) as Dictionary).get("weapon_id", ""))
 	var p := player
-	if float(p.hp) <= 0.0:
-		return
-	if not PBuild.lifesteal_eligible(frost_cause_of(o)):
-		return
-	var gain := effective * float(build.lifesteal)
-	if gain <= 0.0:
-		return
-	var before: float = float(p.hp)
-	p.hp = minf(float(p.hp_max), float(p.hp) + gain)
-	var got: float = float(p.hp) - before
-	if got <= 0.0:
-		return
-	stats.healed += got
-	stats.lifesteal = float(stats.get("lifesteal", 0.0)) + got
+	var gain := 0.0
+	if PBuild.lifesteal_eligible(cause, owner) and float(p.hp) > 0.0:
+		gain = effective * float(build.lifesteal) * float(build.get("heal_mult", 1.0))
+		stats.lifesteal_base = float(stats.get("lifesteal_base", 0.0)) + effective
+	var got := 0.0
+	if gain > 0.0:
+		var before: float = float(p.hp)
+		p.hp = minf(float(p.hp_max), before + gain)
+		got = maxf(0.0, float(p.hp) - before)
+		if got > 0.0:
+			stats.healed += got
+			stats.lifesteal = float(stats.get("lifesteal", 0.0)) + got
+		stats.lifesteal_over = float(stats.get("lifesteal_over", 0.0)) + maxf(0.0, gain - got)
+	if lifesteal_audit:
+		_note_lifesteal_path(cause, o, effective, gain, got)
+
+## 흡혈 경로 감사(전수 확인 전용). **기본은 꺼져 있고** 규칙·난수·회복량에 영향을 주지 않는다.
+## 켜면 흡혈 심사에 들어온 모든 피해 경로가 stats.lifesteal_paths에 이름별로 쌓여
+## '무엇이 main_extra로 들어오는가'를 값으로 셀 수 있다(tools/pass_probe.gd 흡혈 표).
+static var lifesteal_audit: bool = false
+
+func _note_lifesteal_path(cause: String, o: Dictionary, effective: float, gain: float, got: float) -> void:
+	var paths: Dictionary = stats.lifesteal_paths
+	if not paths.has(cause):
+		paths[cause] = { "hits": 0, "eff": 0.0, "gain": 0.0, "healed": 0.0, "srcs": {} }
+	var row: Dictionary = paths[cause]
+	row.hits = int(row.hits) + 1
+	row.eff = float(row.eff) + effective
+	row.gain = float(row.gain) + gain
+	row.healed = float(row.healed) + got
+	var sr: Dictionary = o.get("src", {})
+	var label := src_key(o)
+	var mod_id := String(sr.get("mod", ""))
+	if mod_id == "":
+		mod_id = String(o.get("mod", ""))
+	if mod_id != "":
+		label += " 개조:" + mod_id
+	if bool(sr.get("extra", false)):
+		label += " extra"
+	if not bool(sr.get("direct", true)):
+		label += " indirect"
+	if String(o.get("cause", "")) != "":
+		label += " cause=" + String(o.cause)
+	# 출처 라벨마다 [적중 수, 깎은 체력, 실제로 회복한 양]. 같은 경로 안에서도
+	# **무엇이 실제로 회복했고 무엇이 0인지** 갈라 보기 위한 칸이다
+	var srcs: Dictionary = row.srcs
+	if not srcs.has(label):
+		srcs[label] = [0, 0.0, 0.0]
+	var cell: Array = srcs[label]
+	cell[0] = int(cell[0]) + 1
+	cell[1] = float(cell[1]) + effective
+	cell[2] = float(cell[2]) + got
 
 ## 영구 특성(build.trait_dmg)의 자동기술 직접 피해 배율: 거리 조건(근/원거리 훈련)·단일 집중(시작 기술 ID 귀속)·연계 준비 창·지속 전문화 감소
 func _trait_direct_mult(e: Dictionary, weapon_id: String) -> float:

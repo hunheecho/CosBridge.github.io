@@ -126,14 +126,26 @@ static func lifesteal_frac(g: Dictionary) -> float:
 	return per * float(lv)
 
 ## 그 피해 경로가 흡혈 자격이 있는가. 경로 이름은 자격표 어휘(PSupport.cause_of)를 그대로 쓴다 —
-## 새 어휘를 만들지 않아야 '보조 폭발이 주무기 타격으로 잘못 분류되는' 기존 결함이 그대로 옮겨오지 않는다
-static func lifesteal_eligible(cause: String) -> bool:
+## 새 어휘를 만들지 않아야 '보조 폭발이 주무기 타격으로 잘못 분류되는' 기존 결함이 그대로 옮겨오지 않는다.
+##
+## weapon_id는 그 타격의 src.weapon_id(없으면 "")다. 자격표의 require_main_weapon에 적힌 경로에 한해
+## **그 타격의 주인이 주무기인지** 한 번 더 본다. main_extra 한 칸에는 주무기 개조의 추가 타격 말고도
+## Q/E 수동 기술 · 공용 '정지된 칼날' 폭발 · 보스 보상 '무기 공명' 폭발 · 메아리·일제 공격이 반복한
+## **보조무기** 공격이 함께 들어오기 때문이다(값으로 확인: tools/pass_probe.gd B0). 넷 다 사용자 불허다.
+## 이것은 자격을 **좁히는** 조건이지 자격표를 우회하는 길이 아니다 — 표에 없는 경로는 여전히 통과하지 못한다.
+## 출처 분류(PSupport.cause_of)는 건드리지 않는다: 고치면 파쇄·감전 후속·까마귀 표적·숙주 파열이 함께 좁아진다.
+static func lifesteal_eligible(cause: String, weapon_id: String = "") -> bool:
 	var L: Dictionary = PCatalog.growth().get("LIFESTEAL", {})
 	var deny: Array = L.get("denied", [])
 	if deny.has(cause):
 		return false
 	var allow: Array = L.get("eligible", [])
-	return allow.has(cause)
+	if not allow.has(cause):
+		return false
+	var need: Array = L.get("require_main_weapon", [])
+	if need.has(cause):
+		return weapon_id != "" and PCatalog.is_main_weapon(weapon_id)
+	return true
 
 ## run dict(growth·equipment·forge·buffs)에서 빌드 계산. growth 전용이면 empty_run_like(growth)를 넘긴다
 static func derive(run: Dictionary) -> Dictionary:
@@ -226,8 +238,9 @@ static func derive(run: Dictionary) -> Dictionary:
 	# 거리(D.distance)·이동 시간(D.duration)·무적(p.dodge_invuln_time)은 이 값을 아예 읽지 않는다.
 	# 무기별 차이도 그대로다 — 표의 값에 같은 비율을 곱할 뿐이다
 	b.dodge_cd_mult = maxf(0.0, 1.0 - float(PV.get("dodge_mastery", 0.05)) * float(p.get("dodge_mastery", 0))) * float(b.dodge_cd_mult)
-	# 흡혈: **주무기 직접 타격이 실제로 깎은 체력**에 곱할 비율. 궁만 절반이다(data/growth.json growth.LIFESTEAL).
-	# 여기서는 비율만 정하고, 자격 판정·회복은 CombatState.damage_enemy 한 곳에서 한다
+	# 흡혈: **주무기 공격이 실제로 깎은 체력**에 곱할 비율. 궁만 절반이다(data/growth.json growth.LIFESTEAL).
+	# 비율은 **든 주무기 하나**로 정해지므로 그 주무기의 추가 타격도 같은 비율을 쓴다(활의 추가 타격은 활 비율).
+	# 여기서는 비율만 정하고, 자격 판정·회복 준비·회복은 CombatState.apply_lifesteal 한 곳에서 한다
 	b.lifesteal = lifesteal_frac(g)
 	var rewards: Array = g.get("bossRewards", [])
 	if rewards.has("tempo"):
